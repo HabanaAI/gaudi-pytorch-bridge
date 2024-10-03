@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -64,10 +64,10 @@ struct OptimizerFusedEmaOperator : OptimizerFusedEmaOperatorCommon {
 void OptimizerFusedEmaOperatorCommon::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "OptimizerFusedEmaOperator::AddNode");
-  auto model_inputs = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto updated_ema = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto decay = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "OptimizerFusedEmaOperator::AddNode");
+  auto model_inputs = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto updated_ema = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto decay = stackGetter.getNextInput<TensorsPair>();
 
   if (model_inputs.size() != updated_ema.size()) {
     std::stringstream ss;

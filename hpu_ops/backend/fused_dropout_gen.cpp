@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -46,7 +46,7 @@ std::shared_ptr<void> FillFusedNativeDropoutParams(
     const at::Stack& stack,
     size_t& size) {
   PARAMS_STUB(ns_DropoutKernel::Params);
-  auto ratioId = (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 2 : 1 ;
+  auto ratioId = (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 2 : 1;
   params->ratio = stack.at(ratioId).toScalar().toDouble();
   return params;
 }
@@ -136,10 +136,10 @@ SharedMetaDataVector NativeDropoutBackwardSharedMeta(const at::Stack& stack) {
 }
 
 void NativeDropoutBackward::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "NativeDropoutBackward::AddNode");
-  auto grad_output = getNextInput<TensorsPair>(stackGetter);
-  auto mask = getNextInput<TensorsPair>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
+  StackGetter stackGetter(this, stack, "NativeDropoutBackward::AddNode");
+  auto grad_output = stackGetter.getNextInput<TensorsPair>();
+  auto mask = stackGetter.getNextInput<TensorsPair>();
+  auto scale = stackGetter.getNextInput<double>();
 
   auto grad_dtype = grad_output.pt_t.scalar_type();
   auto mask_dtype = mask.pt_t.scalar_type();

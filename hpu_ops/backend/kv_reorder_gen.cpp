@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -44,11 +44,11 @@ void KvReorderCommon::AddNode(
     const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 4, "KvReorder must have 4 input arguments");
 
-  StackGetter stackGetter(stack, "KvReorder::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto start = getNextInput<TensorsPair>(stackGetter);
-  auto end = getNextInput<TensorsPair>(stackGetter);
-  auto beam_idx = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "KvReorder::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto start = stackGetter.getNextInput<TensorsPair>();
+  auto end = stackGetter.getNextInput<TensorsPair>();
+  auto beam_idx = stackGetter.getNextInput<TensorsPair>();
 
   TORCH_CHECK(
       start.pt_t.dtype() == c10::ScalarType::Int,

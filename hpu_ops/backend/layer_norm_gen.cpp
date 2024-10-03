@@ -61,7 +61,7 @@ static synTensor CreateLayerNormBiasWeightTensor(
     OpBackend* op,
     sh::graph& graph,
     std::vector<sh::tensor>& storage,
-    const c10::optional<OpBackend::TensorsPair>& weightOrBiasOpt,
+    const c10::optional<TensorsPair>& weightOrBiasOpt,
     const std::vector<int64_t>& constant_shape,
     float constant_value,
     std::vector<int64_t>& weightOrBias_shape) {
@@ -94,11 +94,11 @@ static synTensor CreateLayerNormBiasWeightTensor(
 void LayerNormHabanaOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "LayerNormHabanaOperator::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto normalized_shape = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "LayerNormHabanaOperator::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto normalized_shape = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   auto metas = LayerNormHabanaMeta(stack);
 
@@ -155,7 +155,7 @@ void LayerNormHabanaOperator::AddNode(
     }
 
   } else {
-    auto eps = getNextInput<double>(stackGetter);
+    auto eps = stackGetter.getNextInput<double>();
 
     const auto input_shape = input.pt_t.sizes();
     const auto input_ndim = input.pt_t.dim();
@@ -325,13 +325,13 @@ OutputMetaDataVector LayerNormBwdMeta(const at::Stack& stack) {
 void LayerNormBwdHabanaOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "LayerNormBwdHabanaOperator::AddNode");
-  auto grad_out = getNextInput<TensorsPair>(stackGetter);
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto normalized_shape = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto mean = getNextInput<TensorsPair>(stackGetter);
-  auto rstd = getNextInput<TensorsPair>(stackGetter);
-  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "LayerNormBwdHabanaOperator::AddNode");
+  auto grad_out = stackGetter.getNextInput<TensorsPair>();
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto normalized_shape = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto mean = stackGetter.getNextInput<TensorsPair>();
+  auto rstd = stackGetter.getNextInput<TensorsPair>();
+  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   auto metas = LayerNormBwdMeta(stack);
 

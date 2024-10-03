@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include <perf_lib_layer_params.h>
-#include "hpu_ops/op_backend.h"
+#include "hpu_ops/stack_getter.h"
 
 namespace sh = synapse_helpers;
 
@@ -50,14 +50,14 @@ class OptimizerFusedSGDMomentumOperator : public OpBackend {
 void OptimizerFusedSGDOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "OptimizerFusedSGDOperator::AddNode");
-  auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto weights = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto lr = getNextInput<TensorsPair>(stackGetter);
-  auto wd = getNextInput<double>(stackGetter);
-  auto mom = getNextInput<double>(stackGetter);
-  auto damp = getNextInput<double>(stackGetter);
-  auto nesterov = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "OptimizerFusedSGDOperator::AddNode");
+  auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto weights = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto lr = stackGetter.getNextInput<TensorsPair>();
+  auto wd = stackGetter.getNextInput<double>();
+  auto mom = stackGetter.getNextInput<double>();
+  auto damp = stackGetter.getNextInput<double>();
+  auto nesterov = stackGetter.getNextInput<bool>();
 
   if (gradients.size() != weights.size()) {
     std::stringstream ss;
@@ -95,16 +95,16 @@ void OptimizerFusedSGDOperator::AddNode(
 void OptimizerFusedSGDMomentumOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "OptimizerFusedSGDOperator::AddNode");
-  auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto weights = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto momentums = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto epoch_num = getNextInput<TensorsPair>(stackGetter);
-  auto lr = getNextInput<TensorsPair>(stackGetter);
-  auto mom = getNextInput<TensorsPair>(stackGetter);
-  auto wd = getNextInput<double>(stackGetter);
-  auto damp = getNextInput<double>(stackGetter);
-  auto nesterov = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "OptimizerFusedSGDOperator::AddNode");
+  auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto weights = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto momentums = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto epoch_num = stackGetter.getNextInput<TensorsPair>();
+  auto lr = stackGetter.getNextInput<TensorsPair>();
+  auto mom = stackGetter.getNextInput<TensorsPair>();
+  auto wd = stackGetter.getNextInput<double>();
+  auto damp = stackGetter.getNextInput<double>();
+  auto nesterov = stackGetter.getNextInput<bool>();
 
   if ((gradients.size() != weights.size()) ||
       (weights.size() != momentums.size())) {

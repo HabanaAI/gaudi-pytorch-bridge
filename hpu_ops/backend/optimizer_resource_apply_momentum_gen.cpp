@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-#include "hpu_ops/op_backend.h"
+#include "hpu_ops/stack_getter.h"
 
 namespace sh = synapse_helpers;
 
@@ -37,11 +37,11 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(
-      stack, "OptimizerFusedResourceApplyMomentumOperator::AddNode");
+      this, stack, "OptimizerFusedResourceApplyMomentumOperator::AddNode");
   auto params_momentum_buf_list =
-      getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto dp_list = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto momentum = getNextInput<double>(stackGetter);
+      stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto dp_list = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto momentum = stackGetter.getNextInput<double>();
   auto dtype = params_momentum_buf_list[0].pt_t.scalar_type();
 
   if (params_momentum_buf_list.size() != 2 * dp_list.size()) {

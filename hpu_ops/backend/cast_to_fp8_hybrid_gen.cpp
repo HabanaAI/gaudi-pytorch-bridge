@@ -59,12 +59,12 @@ OutputMetaDataVector CastToFp8HybridMeta(const at::Stack& stack) {
 void CastToFp8Hybrid::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "CastToFp8Hybrid::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto scale_152 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto scale_143 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  getNextInput<bool>(stackGetter);
-  auto is_amax = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "CastToFp8Hybrid::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto scale_152 = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scale_143 = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  stackGetter.getNextInput<bool>();
+  auto is_amax = stackGetter.getNextInput<bool>();
   auto src_type = self.pt_t.scalar_type();
 
   TORCH_CHECK(

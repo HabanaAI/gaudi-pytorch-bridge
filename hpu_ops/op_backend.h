@@ -43,6 +43,8 @@ struct NodeAttr {
   std::string inf_name = std::string();
 };
 
+class StackGetter;
+
 class OpBackend : public HabanaOperator {
  public:
   OpBackend(
@@ -256,6 +258,7 @@ class OpBackend : public HabanaOperator {
       size_t param_size = 0,
       std::string name = std::string());
 
+  friend class StackGetter;
   synTensor syn_in(size_t index);
   synapse_helpers::tensor& syn_out(size_t index);
   synapse_helpers::tensor_or_ref& SynInput(size_t index) override;
@@ -413,177 +416,6 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef permutation,
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
-
-  struct TensorsPair {
-    const at::Tensor& pt_t;
-    synTensor syn_t;
-    int syn_idx = -1; // In case it's needed to call SynInput instead of syn_in,
-                      // we hold also syn_idx
-  };
-
- protected:
-  // The class StackGetter and this::getNextInputInternal() overloads are
-  // separate as we have to call SynInput() base class member. It is not
-  // accessible from StackGetter class members.
-  class StackGetter {
-   public:
-    StackGetter(const at::Stack& stackIn, const char* labelIn)
-        : stack(stackIn), label(labelIn) {}
-
-    size_t CheckGetAndIncrStackPos() {
-      TORCH_CHECK(
-          stackPos < stack.size(),
-          label,
-          " expected at least ",
-          stackPos + 1,
-          " args on stack but got ",
-          stack.size())
-      return stackPos++;
-    }
-
-    size_t GetAndIncrSynPos() {
-      return synPos++;
-    }
-
-    void MoveSynPos(size_t offset) {
-      synPos += offset;
-    }
-
-    const at::Stack& stack;
-
-   private:
-    size_t stackPos = 0;
-    size_t synPos = 0;
-    const char* label;
-  };
-
-  template <class T>
-  auto getNextInput(StackGetter& sg) {
-    return getNextInputInternal(sg, (T*){});
-  }
-
- private:
-  c10::IValue getNextInputInternal(StackGetter& sg, c10::IValue*) {
-    auto pos = sg.CheckGetAndIncrStackPos();
-    if (sg.stack[pos].isTensor()) {
-      sg.MoveSynPos(1);
-    } else if (sg.stack[pos].isTensorList()) {
-      sg.MoveSynPos(sg.stack[pos].toTensorList().size());
-    }
-    return sg.stack[pos];
-  }
-
-  TensorsPair getNextInputInternal(StackGetter& sg, TensorsPair*) {
-    auto pos = sg.CheckGetAndIncrStackPos();
-    TORCH_CHECK(
-        sg.stack[pos].isTensor(),
-        "Input ",
-        pos,
-        " type expected to be ",
-        "tensor");
-    int syn_pos = sg.GetAndIncrSynPos();
-    return {sg.stack[pos].toTensor(), syn_in(syn_pos), syn_pos};
-  }
-
-  c10::optional<TensorsPair> getNextInputInternal(
-      StackGetter& sg,
-      c10::optional<TensorsPair>*) {
-    auto pos = sg.CheckGetAndIncrStackPos();
-    TORCH_CHECK(
-        sg.stack[pos].isNone() || sg.stack[pos].isTensor(),
-        "Input ",
-        pos,
-        " type expected to be ",
-        "none or tensor");
-    if (sg.stack[pos].isTensor()) {
-      int syn_pos = sg.GetAndIncrSynPos();
-      return TensorsPair{sg.stack[pos].toTensor(), syn_in(syn_pos), syn_pos};
-    } else {
-      return c10::optional<TensorsPair>{};
-    }
-  }
-
-  c10::optional<std::vector<TensorsPair>> getNextInputInternal(
-      StackGetter& sg,
-      c10::optional<std::vector<TensorsPair>>*) {
-    auto pos = sg.CheckGetAndIncrStackPos();
-    c10::optional<c10::List<at::Tensor>> tensorList =
-        sg.stack[pos].toOptional<c10::List<at::Tensor>>();
-    if (tensorList.has_value()) {
-      c10::optional<std::vector<TensorsPair>> result =
-          std::vector<TensorsPair>();
-      for (auto&& v : tensorList.value()) {
-        result.value().push_back({v, syn_in(sg.GetAndIncrSynPos())});
-      }
-      return result;
-    } else {
-      return c10::optional<std::vector<TensorsPair>>{};
-    }
-  }
-
-  std::vector<TensorsPair> getNextInputInternal(
-      StackGetter& sg,
-      std::vector<TensorsPair>*) {
-    auto pos = sg.CheckGetAndIncrStackPos();
-    TORCH_CHECK(
-        sg.stack[pos].isTensorList(),
-        "Input ",
-        pos,
-        " type expected to be ",
-        "tensor list");
-    auto list = sg.stack[pos].toTensorList();
-    std::vector<TensorsPair> result;
-    for (auto&& v : list) {
-      result.push_back({v, syn_in(sg.GetAndIncrSynPos())});
-    }
-    return result;
-  }
-
-  c10::optional<c10::ScalarType> getNextInputInternal(
-      StackGetter& sg,
-      c10::optional<c10::ScalarType>*) {
-    auto pos = sg.CheckGetAndIncrStackPos();
-    TORCH_CHECK(
-        sg.stack[pos].isNone() || sg.stack[pos].isInt(),
-        "Input ",
-        pos,
-        " type expected to be ",
-        "none or ScalarType");
-    return sg.stack[pos].toOptional<at::ScalarType>();
-  }
-
-  std::variant<TensorsPair, c10::IValue> getNextInputInternal(
-      StackGetter& sg,
-      std::variant<TensorsPair, c10::IValue>*) {
-    auto pos = sg.CheckGetAndIncrStackPos();
-    if (sg.stack[pos].isTensor()) {
-      int syn_pos = sg.GetAndIncrSynPos();
-      return TensorsPair{sg.stack[pos].toTensor(), syn_in(syn_pos)};
-    } else {
-      return sg.stack[pos];
-    }
-  }
-
-#define GET_NEXT_INPUT_INTERNAL(T, isFn, toFn, Tstr)                         \
-  T getNextInputInternal(StackGetter& sg, T*) {                              \
-    auto pos = sg.CheckGetAndIncrStackPos();                                 \
-    TORCH_CHECK(                                                             \
-        sg.stack[pos].isFn(), "Input ", pos, " type expected to be ", Tstr); \
-    return sg.stack[pos].toFn();                                             \
-  }
-
-  GET_NEXT_INPUT_INTERNAL(bool, isBool, toBool, "bool")
-  GET_NEXT_INPUT_INTERNAL(double, isDouble, toDouble, "double")
-  GET_NEXT_INPUT_INTERNAL(int, isInt, toInt, "int")
-  GET_NEXT_INPUT_INTERNAL(c10::List<bool>, isBoolList, toBoolList, "bool array")
-  GET_NEXT_INPUT_INTERNAL(c10::ScalarType, isInt, toScalarType, "ScalarType")
-  GET_NEXT_INPUT_INTERNAL(
-      std::vector<int64_t>,
-      isIntList,
-      toIntList().vec,
-      "int list")
-  GET_NEXT_INPUT_INTERNAL(c10::string_view, isString, toStringView, "string")
-#undef GET_NEXT_INPUT_INTERNAL
 
  private:
   const std::vector<int> m_res_ids;

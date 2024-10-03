@@ -202,9 +202,9 @@ void IndexHabanaOperator::AddNode(
     auto params = FillIndexParams(stack, size);
     auto meta = IndexMeta(stack)[0];
 
-    StackGetter stackGetter(stack, "IndexHabanaOperator::AddNode");
-    auto input = getNextInput<TensorsPair>(stackGetter);
-    auto indices = getNextInput<std::vector<TensorsPair>>(stackGetter);
+    StackGetter stackGetter(this, stack, "IndexHabanaOperator::AddNode");
+    auto input = stackGetter.getNextInput<TensorsPair>();
+    auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
 
     std::vector<synTensor> index_input{input.syn_t};
     for (auto const& index : indices)
@@ -650,8 +650,9 @@ void IndexHabanaOperator::AddNode(
         cat_input_index.emplace_back(
             cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
       } else if (!index_all_elems[dim]) {
-        //"explicit_index_pos - 1" used below because it's already been incremented
-        std::vector<int64_t> expanded_size {1};
+        //"explicit_index_pos - 1" used below because it's already been
+        // incremented
+        std::vector<int64_t> expanded_size{1};
         expanded_size.push_back(indices.get(explicit_index_pos - 1).numel());
         cat_input_tensor.emplace_back(ReshapeHelper(
             graph,

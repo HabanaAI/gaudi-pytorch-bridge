@@ -19,7 +19,7 @@
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/kernels_accumulation.h"
 #include "habana_helpers/logging.h"
-#include "hpu_ops/op_backend.h" // IWYU pragma: keep for HPU_OP_BACKEND
+#include "hpu_ops/stack_getter.h" // IWYU pragma: keep for HPU_OP_BACKEND
 
 namespace habana {
 
@@ -248,7 +248,7 @@ struct TensorDataGetter {
       return std::variant<synapse_helpers::tensor*, int>{&arg};
     }
   }
-  auto operator()(const OpBackend::TensorsPair& arg) {
+  auto operator()(const TensorsPair& arg) {
     if constexpr (I == TENSOR_IDX) {
       return arg.syn_t;
     } else if constexpr (I == SHAPE_IDX) {
@@ -263,7 +263,7 @@ template <unsigned... Is>
 auto get_or_create_tensor(
     OpBackend& op,
     synapse_helpers::graph& graph,
-    const c10::optional<OpBackend::TensorsPair>& tensor,
+    const c10::optional<TensorsPair>& tensor,
     const c10::IntArrayRef& size,
     const c10::ScalarType& scalar_type,
     const at::Scalar& val,

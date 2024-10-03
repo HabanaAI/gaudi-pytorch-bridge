@@ -309,17 +309,17 @@ Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_gemm", scalar_type, {}, {}, {}, true) {}
 
 void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
-  auto A = getNextInput<TensorsPair>(stackGetter);
-  bool trans_A = getNextInput<bool>(stackGetter);
-  auto B = getNextInput<TensorsPair>(stackGetter);
-  bool trans_B = getNextInput<bool>(stackGetter);
-  auto D = getNextInput<TensorsPair>(stackGetter);
-  auto out_type = getNextInput<c10::ScalarType>(stackGetter);
-  auto scaleAOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto scaleBOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  bool accumulate = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
+  auto A = stackGetter.getNextInput<TensorsPair>();
+  bool trans_A = stackGetter.getNextInput<bool>();
+  auto B = stackGetter.getNextInput<TensorsPair>();
+  bool trans_B = stackGetter.getNextInput<bool>();
+  auto D = stackGetter.getNextInput<TensorsPair>();
+  auto out_type = stackGetter.getNextInput<c10::ScalarType>();
+  auto scaleAOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scaleBOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  bool accumulate = stackGetter.getNextInput<bool>();
 
   std::vector<int64_t> out_shape;
   try {
@@ -399,20 +399,20 @@ Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 11, "Fp8GemmV2 must have 10 input arguments");
 
-  StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
-  auto A = getNextInput<TensorsPair>(stackGetter);
-  bool trans_A = getNextInput<bool>(stackGetter);
-  auto B = getNextInput<TensorsPair>(stackGetter);
-  bool trans_B = getNextInput<bool>(stackGetter);
-  auto DOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto out_type = getNextInput<c10::ScalarType>(stackGetter);
+  StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
+  auto A = stackGetter.getNextInput<TensorsPair>();
+  bool trans_A = stackGetter.getNextInput<bool>();
+  auto B = stackGetter.getNextInput<TensorsPair>();
+  bool trans_B = stackGetter.getNextInput<bool>();
+  auto DOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto out_type = stackGetter.getNextInput<c10::ScalarType>();
   auto scaleAOpt =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto scaleBOpt =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
-  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  bool accumulate = getNextInput<bool>(stackGetter);
-  auto scale_shape = getNextInput<c10::IValue>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
+  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  bool accumulate = stackGetter.getNextInput<bool>();
+  auto scale_shape = stackGetter.getNextInput<c10::IValue>();
 
   std::string guid = get_guid_with_precision("fp8_gemm", out_type);
 
@@ -523,8 +523,8 @@ void InPlaceInterleaveCommon::AddNode(
   TORCH_CHECK(
       stack.size() == 1, "InPlaceInterleave must have 1 input argument");
 
-  StackGetter stackGetter(stack, "InPlaceInterleave::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "InPlaceInterleave::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
   auto shape = self.pt_t.sizes().vec();
   auto dst_type = self.pt_t.scalar_type();
   TORCH_CHECK(shape.size() == 4, "Input has to be a 4D tensor.");
@@ -622,20 +622,21 @@ Conv2dFp8::Conv2dFp8(int device_id, c10::ScalarType scalar_type)
 }
 
 void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "Conv2dFp8::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto weight = getNextInput<TensorsPair>(stackGetter);
-  auto bias_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto stride = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto padding = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto dilation = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto groups = getNextInput<int>(stackGetter);
-  auto out_dtype = getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
-                       .value_or(at::ScalarType::BFloat16);
+  StackGetter stackGetter(this, stack, "Conv2dFp8::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto weight = stackGetter.getNextInput<TensorsPair>();
+  auto bias_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto stride = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto padding = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto dilation = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto groups = stackGetter.getNextInput<int>();
+  auto out_dtype =
+      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+          at::ScalarType::BFloat16);
   auto scale_input_opt =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto scale_weight_opt =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
 
   TORCH_CHECK(
       input.pt_t.dim() == 4 and weight.pt_t.dim() == 4,

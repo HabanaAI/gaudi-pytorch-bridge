@@ -19,7 +19,7 @@ namespace habana {
 namespace {
 
 void addOptionalTensor(
-    const c10::optional<OpBackend::TensorsPair>& input_opt,
+    const c10::optional<TensorsPair>& input_opt,
     std::vector<synTensor>& syn_inputs,
     const at::ScalarType dtype,
     const std::string& input_name) {
@@ -39,13 +39,13 @@ void addOptionalTensor(
 void handleScale(
     habana::OpBackend* op,
     sh::graph& graph,
-    const std::variant<OpBackend::TensorsPair, c10::IValue>& scale,
+    const std::variant<TensorsPair, c10::IValue>& scale,
     std::vector<sh::tensor>& const_scales,
     std::vector<synTensor>& syn_inputs) {
   // If scale is a Tensor, add respective synTensor to the node inputs.
-  if (std::holds_alternative<OpBackend::TensorsPair>(scale)) {
+  if (std::holds_alternative<TensorsPair>(scale)) {
     addOptionalTensor(
-        std::get<OpBackend::TensorsPair>(scale),
+        std::get<TensorsPair>(scale),
         syn_inputs,
         at::ScalarType::Float,
         "scale");
@@ -74,16 +74,16 @@ OutputMetaDataVector SoftmaxFp8Meta(const at::Stack& stack) {
 }
 
 void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SoftmaxFp8::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  int dim = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(this, stack, "SoftmaxFp8::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  int dim = stackGetter.getNextInput<int>();
   auto input_scale_opt =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto output_scale_opt =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto inv_attn_heads_opt =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
-  auto fused_add_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
+  auto fused_add_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
   auto rank = self.pt_t.dim();
   dim = at::maybe_wrap_dim(dim, rank, /*wrap_scalar=*/true);
   auto out_meta = SoftmaxFp8Meta(stack)[0];
@@ -93,10 +93,10 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       "Input tensor must be of torch.bfloat16 dtype.");
 
   const bool is_input_scale =
-      std::holds_alternative<OpBackend::TensorsPair>(input_scale_opt) or
+      std::holds_alternative<TensorsPair>(input_scale_opt) or
       std::get<c10::IValue>(input_scale_opt).isDouble();
   const bool is_output_scale =
-      std::holds_alternative<OpBackend::TensorsPair>(output_scale_opt) or
+      std::holds_alternative<TensorsPair>(output_scale_opt) or
       std::get<c10::IValue>(output_scale_opt).isDouble();
 
   TORCH_CHECK(

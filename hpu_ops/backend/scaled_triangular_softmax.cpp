@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -39,12 +39,12 @@ ScaledTriangularSoftmax::ScaledTriangularSoftmax(
 void ScaledTriangularSoftmax::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "ScaledTriangularSoftmax::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto inv_scale_attn = getNextInput<double>(stackGetter);
+  StackGetter stackGetter(this, stack, "ScaledTriangularSoftmax::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto inv_scale_attn = stackGetter.getNextInput<double>();
   auto exp_sum_recpr_opt =
-      getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto max_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+      stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto max_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   TORCH_CHECK(self.pt_t.dim() == 3, "Self tensor must be 3D.");
 
@@ -102,9 +102,10 @@ ScaledTriangularSoftmaxRetain::ScaledTriangularSoftmaxRetain(
 void ScaledTriangularSoftmaxRetain::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "ScaledTriangularSoftmaxRetain::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto inv_scale_attn = getNextInput<double>(stackGetter);
+  StackGetter stackGetter(
+      this, stack, "ScaledTriangularSoftmaxRetain::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto inv_scale_attn = stackGetter.getNextInput<double>();
 
   TORCH_CHECK(self.pt_t.dim() == 3, "Self tensor must be 3D.");
 

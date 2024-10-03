@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -35,10 +35,10 @@ void BinCount::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       !graph.is_dynamic_graph(), "Dynamic graph is not supported for bincount");
 
-  StackGetter stackGetter(stack, "Bincount::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto length = getNextInput<int32_t>(stackGetter);
-  auto weights = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "Bincount::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto length = stackGetter.getNextInput<int32_t>();
+  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   ns_BinCountKernel::Params params{
       weights.has_value() ? BinCountMode_t::USE_WEIGHT

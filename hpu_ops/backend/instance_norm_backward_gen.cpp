@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -55,12 +55,12 @@ void InstanceNormBackward::AddNode(
     const at::Stack& stack) {
   auto meta = InstanceNormBackwardMeta(stack);
 
-  StackGetter stackGetter(stack, "InstanceNormBwd::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto grad_in = getNextInput<TensorsPair>(stackGetter);
-  auto mean = getNextInput<TensorsPair>(stackGetter);
-  auto istd = getNextInput<TensorsPair>(stackGetter);
-  auto gamma = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "InstanceNormBwd::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto grad_in = stackGetter.getNextInput<TensorsPair>();
+  auto mean = stackGetter.getNextInput<TensorsPair>();
+  auto istd = stackGetter.getNextInput<TensorsPair>();
+  auto gamma = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
 

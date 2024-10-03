@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -48,14 +48,14 @@ RoiAlign::RoiAlign(int device_id, c10::ScalarType scalar_type)
 }
 
 void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "RoiAlign::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto rois = getNextInput<TensorsPair>(stackGetter);
-  auto spatial_scale = getNextInput<double>(stackGetter);
-  getNextInput<int>(stackGetter);
-  getNextInput<int>(stackGetter);
-  auto sampling_ratio = getNextInput<int>(stackGetter);
-  auto aligned = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "RoiAlign::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto rois = stackGetter.getNextInput<TensorsPair>();
+  auto spatial_scale = stackGetter.getNextInput<double>();
+  stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<int>();
+  auto sampling_ratio = stackGetter.getNextInput<int>();
+  auto aligned = stackGetter.getNextInput<bool>();
 
   const auto output_meta = ComputeRoiAlignMetadata(stack)[0];
   const auto& dtype = output_meta.dtype;
@@ -110,18 +110,18 @@ RoiAlignBackward::RoiAlignBackward(int device_id, c10::ScalarType scalar_type)
 void RoiAlignBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "RoiAlignBackward::AddNode");
-  auto grad = getNextInput<TensorsPair>(stackGetter);
-  auto rois = getNextInput<TensorsPair>(stackGetter);
-  auto spatial_scale = getNextInput<double>(stackGetter);
-  getNextInput<int>(stackGetter);
-  getNextInput<int>(stackGetter);
-  auto batch_size = getNextInput<int>(stackGetter);
-  getNextInput<int>(stackGetter);
-  getNextInput<int>(stackGetter);
-  getNextInput<int>(stackGetter);
-  auto sampling_ratio = getNextInput<int>(stackGetter);
-  auto aligned = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "RoiAlignBackward::AddNode");
+  auto grad = stackGetter.getNextInput<TensorsPair>();
+  auto rois = stackGetter.getNextInput<TensorsPair>();
+  auto spatial_scale = stackGetter.getNextInput<double>();
+  stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<int>();
+  auto batch_size = stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<int>();
+  stackGetter.getNextInput<int>();
+  auto sampling_ratio = stackGetter.getNextInput<int>();
+  auto aligned = stackGetter.getNextInput<bool>();
 
   const auto rois_shape = rois.pt_t.sizes().vec();
 

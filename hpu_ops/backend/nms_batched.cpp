@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -21,25 +21,37 @@ OutputMetaDataVector ComputeNmsBatchedAlignMetadata(const at::Stack& stack) {
   auto indexes = stack[2].toTensor();
   auto max_classes = stack[4].toScalar().toInt();
 
-  return {OutputMetaData(c10::ScalarType::Long, {static_cast<int>(indexes.sizes()[0]) * max_classes}),
-  OutputMetaData(c10::ScalarType::Int, {5})};
+  return {
+      OutputMetaData(
+          c10::ScalarType::Long,
+          {static_cast<int>(indexes.sizes()[0]) * max_classes}),
+      OutputMetaData(c10::ScalarType::Int, {5})};
 }
 
 NmsBatched::NmsBatched(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "batched_nms_fwd", scalar_type, {0, 0}, {}, {}, false) {
+    : OpBackend(
+          device_id,
+          "batched_nms_fwd",
+          scalar_type,
+          {0, 0},
+          {},
+          {},
+          false) {
   SetOutputMetaFn(ComputeNmsBatchedAlignMetadata);
 }
 
-void NmsBatched::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "NmsBatched::AddNode");
-  auto boxes = getNextInput<TensorsPair>(stackGetter);
-  auto scores = getNextInput<TensorsPair>(stackGetter);
-  auto indexes = getNextInput<TensorsPair>(stackGetter);
-  auto iou = getNextInput<double>(stackGetter);
-  auto max_classes = getNextInput<int>(stackGetter);
-  if (boxes.pt_t.numel() == 0 && scores.pt_t.numel() == 0 && indexes.pt_t.numel() == 0) {
-    auto zero_tensor =
-        ConstantHelper(graph, 0, c10::ScalarType::Long, {0}, 0);
+void NmsBatched::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(this, stack, "NmsBatched::AddNode");
+  auto boxes = stackGetter.getNextInput<TensorsPair>();
+  auto scores = stackGetter.getNextInput<TensorsPair>();
+  auto indexes = stackGetter.getNextInput<TensorsPair>();
+  auto iou = stackGetter.getNextInput<double>();
+  auto max_classes = stackGetter.getNextInput<int>();
+  if (boxes.pt_t.numel() == 0 && scores.pt_t.numel() == 0 &&
+      indexes.pt_t.numel() == 0) {
+    auto zero_tensor = ConstantHelper(graph, 0, c10::ScalarType::Long, {0}, 0);
     syn_out(0) = std::move(zero_tensor);
     return;
   }

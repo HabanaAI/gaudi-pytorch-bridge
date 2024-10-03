@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -45,9 +45,9 @@ OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
 }
 
 void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SqueezeDims::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto dims = getNextInput<std::vector<int64_t>>(stackGetter);
+  StackGetter stackGetter(this, stack, "SqueezeDims::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto dims = stackGetter.getNextInput<std::vector<int64_t>>();
   auto rank = self.pt_t.dim();
   auto meta = SqueezeDimsMeta(stack)[0];
   auto output_shape = meta.shape;

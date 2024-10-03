@@ -70,13 +70,13 @@ MaskedBatchGemm::MaskedBatchGemm(int device_id, c10::ScalarType scalar_type)
 void MaskedBatchGemm::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "MaskedBatchGemm::AddNode");
-  auto a = getNextInput<TensorsPair>(stackGetter);
-  auto b = getNextInput<TensorsPair>(stackGetter);
-  auto mask_a = getNextInput<TensorsPair>(stackGetter);
-  auto mask_b = getNextInput<TensorsPair>(stackGetter);
-  auto trans_a = getNextInput<bool>(stackGetter);
-  auto trans_b = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "MaskedBatchGemm::AddNode");
+  auto a = stackGetter.getNextInput<TensorsPair>();
+  auto b = stackGetter.getNextInput<TensorsPair>();
+  auto mask_a = stackGetter.getNextInput<TensorsPair>();
+  auto mask_b = stackGetter.getNextInput<TensorsPair>();
+  auto trans_a = stackGetter.getNextInput<bool>();
+  auto trans_b = stackGetter.getNextInput<bool>();
 
   TORCH_CHECK(
       a.pt_t.dim() == 4 && b.pt_t.dim() == 4 && mask_a.pt_t.dim() == 4 &&

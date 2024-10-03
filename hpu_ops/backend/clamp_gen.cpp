@@ -189,8 +189,8 @@ static synapse_helpers::tensor ClampCommon(
 
 void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = OutputMeta(stack)[0];
-  StackGetter stackGetter(stack, "clamp::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "clamp::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
   std::vector<synTensor> inputs = {input.syn_t};
   size_t size = 0;
   auto params = FillParams(stack, size);
@@ -216,10 +216,10 @@ void clampTensor::AddNode(
       maxTensorDefined || minTensorDefined,
       "At least one of 'min' or 'max' must not be None")
 
-  StackGetter stackGetter(stack, "clampTensor::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto min = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto max = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "clampTensor::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto min = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto max = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   std::vector<synTensor> inputs = {input.syn_t};
   inputs.push_back(min ? min.value().syn_t : nullptr);

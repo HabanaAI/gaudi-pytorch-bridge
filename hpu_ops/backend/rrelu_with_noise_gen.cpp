@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -76,9 +76,9 @@ SharedMetaDataVector RreluWithNoiseSharedMeta(const at::Stack& stack) {
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "Rrelu_with_noise::AddNode");
-  [[maybe_unused]] auto input = getNextInput<TensorsPair>(stackGetter);
-  auto noiseIn = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "Rrelu_with_noise::AddNode");
+  [[maybe_unused]] auto input = stackGetter.getNextInput<TensorsPair>();
+  auto noiseIn = stackGetter.getNextInput<c10::optional<TensorsPair>>();
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto training = stack.at(4).toBool();
   auto lower = stack.at(2).toScalar().to<float>();
@@ -171,10 +171,10 @@ SharedMetaDataVector RreluWithNoiseBwdSharedMeta(const at::Stack& stack) {
     guid = "mult";
   }
   SharedMetaData rreluBwdSharedMeta(guid);
-    rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
-    rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
-    rreluBwdSharedMeta.outputs_data.emplace_back(rank, resultType);
-    return {rreluBwdSharedMeta};
+  rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
+  rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
+  rreluBwdSharedMeta.outputs_data.emplace_back(rank, resultType);
+  return {rreluBwdSharedMeta};
 }
 
 void Rrelu_with_noise_bwd::AddNode(

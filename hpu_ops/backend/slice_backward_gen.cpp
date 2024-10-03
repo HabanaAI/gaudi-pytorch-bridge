@@ -1,6 +1,5 @@
-
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -49,13 +48,13 @@ OutputMetaDataVector SliceBackwardMeta(const at::Stack& stack) {
 void SliceBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SliceBackward::AddNode");
-  auto grad = getNextInput<TensorsPair>(stackGetter);
-  auto input_sizes = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto dim = getNextInput<int>(stackGetter);
-  auto start = getNextInput<int>(stackGetter);
-  auto end = getNextInput<int>(stackGetter);
-  auto step = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(this, stack, "SliceBackward::AddNode");
+  auto grad = stackGetter.getNextInput<TensorsPair>();
+  auto input_sizes = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto dim = stackGetter.getNextInput<int>();
+  auto start = stackGetter.getNextInput<int>();
+  auto end = stackGetter.getNextInput<int>();
+  auto step = stackGetter.getNextInput<int>();
 
   auto meta = SliceBackwardMeta(stack);
 

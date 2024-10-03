@@ -45,9 +45,9 @@ void OptimizerLambNorm::AddNode(
   TORCH_CHECK(
       stack.size() == 2, "OptimizerLambNorm must have 2 input arguments");
 
-  StackGetter stackGetter(stack, "OptimizerLambNorm::AddNode");
-  auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  float max_grad_norm = static_cast<float>(getNextInput<double>(stackGetter));
+  StackGetter stackGetter(this, stack, "OptimizerLambNorm::AddNode");
+  auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  float max_grad_norm = static_cast<float>(stackGetter.getNextInput<double>());
 
   TORCH_CHECK(
       gradients.size() > 0,
@@ -217,22 +217,22 @@ void OptimizerLambPhase1::AddNode(
   TORCH_CHECK(
       stack.size() == 15, "OptimizerLambPhase1 must have 15 input arguments");
 
-  StackGetter stackGetter(stack, "OptimizerLambPhase1::AddNode");
-  auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto weights = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto exp_avg = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto exp_avg_sq = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto out_wt_norm = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto out_adam_norm = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto out_adam_step = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto clip_global_grad_norm = getNextInput<TensorsPair>(stackGetter);
-  auto grad_averaging = getNextInput<int>(stackGetter);
-  auto beta1 = getNextInput<double>(stackGetter);
-  auto beta2 = getNextInput<double>(stackGetter);
-  auto epsilon = getNextInput<double>(stackGetter);
-  auto bias_correction1 = getNextInput<TensorsPair>(stackGetter);
-  auto bias_correction2 = getNextInput<TensorsPair>(stackGetter);
-  auto weight_decay = getNextInput<double>(stackGetter);
+  StackGetter stackGetter(this, stack, "OptimizerLambPhase1::AddNode");
+  auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto weights = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto exp_avg = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto exp_avg_sq = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto out_wt_norm = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto out_adam_norm = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto out_adam_step = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto clip_global_grad_norm = stackGetter.getNextInput<TensorsPair>();
+  auto grad_averaging = stackGetter.getNextInput<int>();
+  auto beta1 = stackGetter.getNextInput<double>();
+  auto beta2 = stackGetter.getNextInput<double>();
+  auto epsilon = stackGetter.getNextInput<double>();
+  auto bias_correction1 = stackGetter.getNextInput<TensorsPair>();
+  auto bias_correction2 = stackGetter.getNextInput<TensorsPair>();
+  auto weight_decay = stackGetter.getNextInput<double>();
 
   float beta3 = 1.0;
   if (grad_averaging) {
@@ -424,14 +424,14 @@ void OptimizerLambPhase2::AddNode(
   TORCH_CHECK(
       stack.size() == 7, "OptimizerLambPhase2 must have 7 input arguments");
 
-  StackGetter stackGetter(stack, "OptimizerLambPhase2::AddNode");
-  auto weights = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto adam_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto weight_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto adam_steps = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto neg_step = getNextInput<TensorsPair>(stackGetter);
-  auto weight_decay = static_cast<float>(getNextInput<double>(stackGetter));
-  bool use_lamb = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "OptimizerLambPhase2::AddNode");
+  auto weights = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto adam_norms = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto weight_norms = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto adam_steps = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto neg_step = stackGetter.getNextInput<TensorsPair>();
+  auto weight_decay = static_cast<float>(stackGetter.getNextInput<double>());
+  bool use_lamb = stackGetter.getNextInput<bool>();
 
   auto dtype = weights[0].pt_t.scalar_type();
 

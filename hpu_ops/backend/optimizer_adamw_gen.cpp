@@ -139,21 +139,21 @@ void OptimizerFusedAdamWOperator::CustomHandler(sh::graph&, at::Stack& stack) {
 void OptimizerFusedAdamWOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "OptimizerFusedAdamWOperator::AddNode");
-  auto gradient_vec = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto weight_vec = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto exp_avg_vec = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto exp_avg_sq_vec = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto neg_step_t = getNextInput<TensorsPair>(stackGetter);
-  auto beta1 = getNextInput<double>(stackGetter);
-  auto beta2 = getNextInput<double>(stackGetter);
-  auto epsilon = getNextInput<double>(stackGetter);
-  auto weight_decay = getNextInput<TensorsPair>(stackGetter);
-  auto has_weight_decay = getNextInput<bool>(stackGetter);
+  StackGetter stackGetter(this, stack, "OptimizerFusedAdamWOperator::AddNode");
+  auto gradient_vec = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto weight_vec = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto exp_avg_vec = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto exp_avg_sq_vec = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto neg_step_t = stackGetter.getNextInput<TensorsPair>();
+  auto beta1 = stackGetter.getNextInput<double>();
+  auto beta2 = stackGetter.getNextInput<double>();
+  auto epsilon = stackGetter.getNextInput<double>();
+  auto weight_decay = stackGetter.getNextInput<TensorsPair>();
+  auto has_weight_decay = stackGetter.getNextInput<bool>();
   auto exp_avg_scales =
-      getNextInput<c10::optional<std::vector<TensorsPair>>>(stackGetter);
+      stackGetter.getNextInput<c10::optional<std::vector<TensorsPair>>>();
   auto exp_avg_sq_scales =
-      getNextInput<c10::optional<std::vector<TensorsPair>>>(stackGetter);
+      stackGetter.getNextInput<c10::optional<std::vector<TensorsPair>>>();
 
   if ((gradient_vec.size() != weight_vec.size()) ||
       (gradient_vec.size() != exp_avg_vec.size()) ||

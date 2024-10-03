@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -30,13 +30,13 @@ RotaryPosEmbedding::RotaryPosEmbedding(
 void RotaryPosEmbedding::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "RotaryPosEmbedding::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto sin = getNextInput<TensorsPair>(stackGetter);
-  auto cos = getNextInput<TensorsPair>(stackGetter);
-  auto position_ids = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto offset = getNextInput<int>(stackGetter);
-  auto mode = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(this, stack, "RotaryPosEmbedding::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto sin = stackGetter.getNextInput<TensorsPair>();
+  auto cos = stackGetter.getNextInput<TensorsPair>();
+  auto position_ids = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto offset = stackGetter.getNextInput<int>();
+  auto mode = stackGetter.getNextInput<int>();
 
   ns_RoPESt2::ParamsV2 params{};
   params.offset = offset;
@@ -71,13 +71,13 @@ RotaryPosEmbeddingBackward::RotaryPosEmbeddingBackward(
 void RotaryPosEmbeddingBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "RotaryPosEmbeddingBackward::AddNode");
-  auto grad_in = getNextInput<TensorsPair>(stackGetter);
-  auto sin = getNextInput<TensorsPair>(stackGetter);
-  auto cos = getNextInput<TensorsPair>(stackGetter);
-  auto position_ids = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto offset = getNextInput<int>(stackGetter);
-  auto mode = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(this, stack, "RotaryPosEmbeddingBackward::AddNode");
+  auto grad_in = stackGetter.getNextInput<TensorsPair>();
+  auto sin = stackGetter.getNextInput<TensorsPair>();
+  auto cos = stackGetter.getNextInput<TensorsPair>();
+  auto position_ids = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto offset = stackGetter.getNextInput<int>();
+  auto mode = stackGetter.getNextInput<int>();
 
   ns_RoPESt2::ParamsV2 params{};
   params.offset = offset;

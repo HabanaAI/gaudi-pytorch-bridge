@@ -30,9 +30,9 @@ OutputMetaDataVector EqualMeta(const at::Stack&) {
 }
 
 void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "Equal::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto other = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "Equal::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto other = stackGetter.getNextInput<TensorsPair>();
 
   size_t paramsSize = 0;
   auto params = FillParams(stack, paramsSize);

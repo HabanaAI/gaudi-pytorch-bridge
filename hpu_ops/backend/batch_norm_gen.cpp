@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -23,8 +23,7 @@ namespace habana {
 
 namespace sh = synapse_helpers;
 
-static bool should_cast_from_BF16(
-    c10::optional<OpBackend::TensorsPair> tensor_pair_opt) {
+static bool should_cast_from_BF16(c10::optional<TensorsPair> tensor_pair_opt) {
   if (tensor_pair_opt.has_value())
     return tensor_pair_opt->pt_t.scalar_type() == c10::ScalarType::BFloat16;
   return false;
@@ -33,7 +32,7 @@ static bool should_cast_from_BF16(
 static synTensor cast_if_necessary_or_default(
     OpBackend* op,
     sh::graph& graph,
-    c10::optional<OpBackend::TensorsPair> source_opt,
+    c10::optional<TensorsPair> source_opt,
     synTensor& default_val,
     std::optional<sh::tensor>& storage) {
   if (should_cast_from_BF16(source_opt)) {
@@ -179,7 +178,7 @@ synapse_helpers::layouts::SynapseLayoutFormat getSynapseLayout(
 sh::tensor get_4d_tensor(
     OpBackend& op,
     sh::graph& graph,
-    const OpBackend::TensorsPair& input) {
+    const TensorsPair& input) {
   const auto in_shape = input.pt_t.sizes();
 
   std::vector<int64_t> ret_shape(4, 1);
@@ -262,7 +261,7 @@ template <unsigned... Is>
 auto transform_tensor_to_4d(
     OpBackend& op,
     sh::graph& graph,
-    const OpBackend::TensorsPair& tensor,
+    const TensorsPair& tensor,
     std::optional<sh::tensor>& tensorStorageOpt) {
   if (tensor.pt_t.sizes().size() != 4) {
     tensorStorageOpt = get_4d_tensor(op, graph, tensor);
@@ -286,11 +285,11 @@ bool is_batch_norm_functional(const OpBackend& op) {
 std::vector<sh::tensor> handle_batch_norm_training_fwd(
     OpBackend& op,
     sh::graph& graph,
-    const OpBackend::TensorsPair& input,
-    const c10::optional<OpBackend::TensorsPair>& weight_opt,
-    const c10::optional<OpBackend::TensorsPair>& bias_opt,
-    const c10::optional<OpBackend::TensorsPair>& running_mean_opt,
-    const c10::optional<OpBackend::TensorsPair>& running_var_opt,
+    const TensorsPair& input,
+    const c10::optional<TensorsPair>& weight_opt,
+    const c10::optional<TensorsPair>& bias_opt,
+    const c10::optional<TensorsPair>& running_mean_opt,
+    const c10::optional<TensorsPair>& running_var_opt,
     const std::shared_ptr<void>& params,
     const size_t params_size,
     const sizes_vec& out_shapes) {
@@ -386,11 +385,11 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
 std::vector<sh::tensor> handle_batch_norm_inference_fwd(
     OpBackend& op,
     sh::graph& graph,
-    const OpBackend::TensorsPair& input,
-    const c10::optional<OpBackend::TensorsPair>& weight_opt,
-    const c10::optional<OpBackend::TensorsPair>& bias_opt,
-    const c10::optional<OpBackend::TensorsPair>& running_mean_opt,
-    const c10::optional<OpBackend::TensorsPair>& running_var_opt,
+    const TensorsPair& input,
+    const c10::optional<TensorsPair>& weight_opt,
+    const c10::optional<TensorsPair>& bias_opt,
+    const c10::optional<TensorsPair>& running_mean_opt,
+    const c10::optional<TensorsPair>& running_var_opt,
     const std::shared_ptr<void>& params,
     const size_t params_size,
     const sizes_vec& out_shapes) {
@@ -623,15 +622,15 @@ std::shared_ptr<void> FillBatchNormBwdParams(
 }
 
 void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "BatchNormOpBackend::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto runningMeanOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto runningVarOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  bool training = getNextInput<bool>(stackGetter);
-  getNextInput<double>(stackGetter); // momentum
-  getNextInput<double>(stackGetter); // epsilon
+  StackGetter stackGetter(this, stack, "BatchNormOpBackend::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto runningMeanOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto runningVarOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  bool training = stackGetter.getNextInput<bool>();
+  stackGetter.getNextInput<double>(); // momentum
+  stackGetter.getNextInput<double>(); // epsilon
 
   size_t paramsSize; // Will be initialized by below call
   const auto params = FillBatchNormFwdParams(stack, paramsSize);
@@ -662,7 +661,7 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   // the case transpose -> reshape -> batchnorm
   // If not set, GC will add an extra transpose on batchnorm output
   if (input.pt_t.sizes().size() != 4) {
-     bnOut[0].set_dont_allow_permute(true);
+    bnOut[0].set_dont_allow_permute(true);
   }
 
   syn_out(0) = std::move(bnOut[0]);
@@ -677,14 +676,14 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 void BatchNormNoTrainingOpBackend::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "BatchNormNoTrainingOpBackend::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto runningMeanOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto runningVarOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  getNextInput<double>(stackGetter); // momentum
-  getNextInput<double>(stackGetter); // epsilon
+  StackGetter stackGetter(this, stack, "BatchNormNoTrainingOpBackend::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto runningMeanOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto runningVarOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  stackGetter.getNextInput<double>(); // momentum
+  stackGetter.getNextInput<double>(); // epsilon
 
   size_t paramsSize; // Will be initialized by below call
   const auto params = FillBatchNormNoTrainingFwdParams(stack, paramsSize);
@@ -727,13 +726,13 @@ void BatchNormNoTrainingOpBackend::AddNode(
 void BatchNormNoStatsOpBackend::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "BatchNormNoStatsOpBackend::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  bool training = getNextInput<bool>(stackGetter);
-  getNextInput<double>(stackGetter); // momentum
-  getNextInput<double>(stackGetter); // epsilon
+  StackGetter stackGetter(this, stack, "BatchNormNoStatsOpBackend::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  bool training = stackGetter.getNextInput<bool>();
+  stackGetter.getNextInput<double>(); // momentum
+  stackGetter.getNextInput<double>(); // epsilon
 
   size_t paramsSize; // Will be initialized by below call
   const auto params = FillBatchNormNoStatsFwdParams(stack, paramsSize);
@@ -759,7 +758,7 @@ void BatchNormNoStatsOpBackend::AddNode(
   // the case transpose -> reshape -> batchnorm
   // If not set, GC will add an extra transpose on batchnorm output
   if (input.pt_t.sizes().size() != 4) {
-     bnOut[0].set_dont_allow_permute(true);
+    bnOut[0].set_dont_allow_permute(true);
   }
 
   syn_out(0) = std::move(bnOut[0]);
@@ -774,16 +773,17 @@ void BatchNormNoStatsOpBackend::AddNode(
 void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   using namespace BNBwd;
   /* 1. Collect inputs */
-  StackGetter stackGetter(stack, "BatchNormFwdOpBackend::AddNode");
-  auto grad_out = getNextInput<TensorsPair>(stackGetter);
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto weight_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto running_mean_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto running_var_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto saved_mean_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto saved_istd_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  bool training = getNextInput<bool>(stackGetter);
-  double eps = getNextInput<double>(stackGetter);
+  StackGetter stackGetter(this, stack, "BatchNormFwdOpBackend::AddNode");
+  auto grad_out = stackGetter.getNextInput<TensorsPair>();
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto weight_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto running_mean_opt =
+      stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto running_var_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto saved_mean_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto saved_istd_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  bool training = stackGetter.getNextInput<bool>();
+  double eps = stackGetter.getNextInput<double>();
   auto meta = BatchNormBwdMeta(stack);
   /* 2. Perform frontend operations */
   // In case of batch norm:
@@ -897,7 +897,7 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   // the case transpose -> reshape -> batchnorm
   // If not set, GC will add an extra transpose on batchnorm output
   if ((meta[INPUT_GRAD_IDX].shape).size() != 4) {
-     bn_out[INPUT_GRAD_IDX].set_dont_allow_permute(true);
+    bn_out[INPUT_GRAD_IDX].set_dont_allow_permute(true);
   }
 
   syn_out(INPUT_GRAD_IDX) = std::move(bn_out[0]);

@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -102,13 +102,13 @@ LazyBoundsCheckIndices::LazyBoundsCheckIndices(
 void LazyBoundsCheckIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "LazyBoundsCheckIndices::AddNode");
-  auto indices = getNextInput<TensorsPair>(stackGetter);
-  auto offsets = getNextInput<TensorsPair>(stackGetter);
-  auto warning = getNextInput<TensorsPair>(stackGetter);
-  auto rowsPerTable = getNextInput<TensorsPair>(stackGetter);
-  auto boundsCheckMode = getNextInput<int>(stackGetter);
-  auto weights = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "LazyBoundsCheckIndices::AddNode");
+  auto indices = stackGetter.getNextInput<TensorsPair>();
+  auto offsets = stackGetter.getNextInput<TensorsPair>();
+  auto warning = stackGetter.getNextInput<TensorsPair>();
+  auto rowsPerTable = stackGetter.getNextInput<TensorsPair>();
+  auto boundsCheckMode = stackGetter.getNextInput<int>();
+  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   std::vector<synTensor> inputs = {
       rowsPerTable.syn_t, indices.syn_t, offsets.syn_t, warning.syn_t};
@@ -150,13 +150,13 @@ LazySplitPermuteCat::LazySplitPermuteCat(
 void LazySplitPermuteCat::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "LazySplitPermuteCat::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto indices = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "LazySplitPermuteCat::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto indices = stackGetter.getNextInput<TensorsPair>();
 
-  auto batchSize = getNextInput<int>(stackGetter);
-  auto numFeatures = getNextInput<int>(stackGetter);
-  auto dims = getNextInput<int>(stackGetter);
+  auto batchSize = stackGetter.getNextInput<int>();
+  auto numFeatures = stackGetter.getNextInput<int>();
+  auto dims = stackGetter.getNextInput<int>();
 
   std::string guid = get_guid_with_precision(
       "split_permute_cat_fwd", input.pt_t.scalar_type());

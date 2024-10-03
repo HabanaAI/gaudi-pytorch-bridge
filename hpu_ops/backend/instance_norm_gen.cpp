@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -59,11 +59,11 @@ void InstanceNorm::AddNode(
 
   TORCH_CHECK(stack[3].isDouble(), "Input type expected to be double");
 
-  StackGetter stackGetter(stack, "InstanceNormFwd::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto weight = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto bias = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  const auto eps = getNextInput<double>(stackGetter);
+  StackGetter stackGetter(this, stack, "InstanceNormFwd::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  const auto eps = stackGetter.getNextInput<double>();
 
   auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
 

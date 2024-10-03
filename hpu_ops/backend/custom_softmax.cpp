@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -28,9 +28,9 @@ CustomSoftmax::CustomSoftmax(int device_id, c10::ScalarType scalar_type)
 void CustomSoftmax::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "CustomSoftmax::AddNode");
-  const auto self = getNextInput<TensorsPair>(stackGetter);
-  const auto flavor = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(this, stack, "CustomSoftmax::AddNode");
+  const auto self = stackGetter.getNextInput<TensorsPair>();
+  const auto flavor = stackGetter.getNextInput<int>();
 
   ns_CustomSoftmax::Params params{};
   params.flavor = flavor;

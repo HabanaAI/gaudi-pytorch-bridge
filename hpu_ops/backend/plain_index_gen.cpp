@@ -18,7 +18,6 @@
 
 namespace habana {
 
-
 OutputMetaDataVector PlainIndexMeta(const at::Stack& stack) {
   // IndexMeta support also PlainIndexMeta
   // There are only 2 parameters passed in stack:
@@ -46,9 +45,9 @@ void PlainIndexHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto meta = IndexMeta(stack)[0];
-  StackGetter stackGetter(stack, "IndexHabanaOperator::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto indices = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "IndexHabanaOperator::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
   size_t size = 0;
   auto params = FillPlainIndexParams(indices.size(), size);
   std::vector<synTensor> index_input{input.syn_t};

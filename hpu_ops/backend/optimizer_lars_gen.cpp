@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-#include "hpu_ops/op_backend.h"
+#include "hpu_ops/stack_getter.h"
 #include "perf_lib_layer_params.h"
 
 namespace sh = synapse_helpers;
@@ -35,7 +35,7 @@ class OptimizerFusedLarsOperator : public OpBackend {
 static std::pair<synTensor, synTensor> NormalizeInput(
     OpBackend* op,
     sh::graph& graph,
-    const OpBackend::TensorsPair& input,
+    const TensorsPair& input,
     const synTensor zero_t,
     const std::vector<NodeAttr::NodeOutputAttr>& scalar_attr,
     const std::string& reduce_sum_sq_node,
@@ -74,14 +74,14 @@ static std::pair<synTensor, synTensor> NormalizeInput(
 void OptimizerFusedLarsOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "OptimizerFusedLarsOperator::AddNode");
-  auto params = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto grads = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto skip_masks = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto eeta = getNextInput<double>(stackGetter);
-  auto weight_decay = getNextInput<double>(stackGetter);
-  auto eps = getNextInput<double>(stackGetter);
-  auto lr = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "OptimizerFusedLarsOperator::AddNode");
+  auto params = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto grads = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto skip_masks = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto eeta = stackGetter.getNextInput<double>();
+  auto weight_decay = stackGetter.getNextInput<double>();
+  auto eps = stackGetter.getNextInput<double>();
+  auto lr = stackGetter.getNextInput<TensorsPair>();
 
   if ((params.size() != grads.size()) || (params.size() != skip_masks.size())) {
     std::stringstream ss;

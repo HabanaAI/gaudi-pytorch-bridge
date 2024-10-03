@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -90,10 +90,10 @@ static std::shared_ptr<void> BceParams(
 void BinaryCrossEntropyFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "BinaryCrossEntropyFwd::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto target = getNextInput<TensorsPair>(stackGetter);
-  auto weights = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "BinaryCrossEntropyFwd::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto target = stackGetter.getNextInput<TensorsPair>();
+  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   auto output_shape = BinaryCrossEntropyFwdMetaData(stack)[0].shape;
   const bool is_weights_used = weights.has_value();
@@ -133,9 +133,10 @@ void BinaryCrossEntropyFwd::AddNode(
 void BinaryCrossEntropyWithLogitsFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "BinaryCrossEntropyWithLogitsFwd::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto target = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(
+      this, stack, "BinaryCrossEntropyWithLogitsFwd::AddNode");
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto target = stackGetter.getNextInput<TensorsPair>();
   auto output_shape = BinaryCrossEntropyLogitsFwdMetaData(stack)[0].shape;
   const bool is_weights_used = !stack.at(2).isNone();
   const bool is_pos_weights_used = !stack.at(3).isNone();
@@ -183,11 +184,11 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
 void BinaryCrossEntropyBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "BinaryCrossEntropyBwd::AddNode");
-  auto grad = getNextInput<TensorsPair>(stackGetter);
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto target = getNextInput<TensorsPair>(stackGetter);
-  auto weights = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "BinaryCrossEntropyBwd::AddNode");
+  auto grad = stackGetter.getNextInput<TensorsPair>();
+  auto self = stackGetter.getNextInput<TensorsPair>();
+  auto target = stackGetter.getNextInput<TensorsPair>();
+  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   auto bce_meta = BinaryCrossEntropyBwdMetaData(stack)[0];
   const bool is_weights_used = weights.has_value();

@@ -270,26 +270,26 @@ sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
 }
 
 void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SDPAFwd::AddNode");
+  StackGetter stackGetter(this, stack, "SDPAFwd::AddNode");
   auto q_or_seed = stack[0].toTensor();
   bool seed_present = (q_or_seed.sizes().vec().size() < 3);
 
   synTensor seed_tensor = nullptr;
   if (seed_present) {
-    auto seed = getNextInput<TensorsPair>(stackGetter);
+    auto seed = stackGetter.getNextInput<TensorsPair>();
     seed_tensor = seed.syn_t;
   }
 
-  auto q = getNextInput<TensorsPair>(stackGetter);
-  auto k = getNextInput<TensorsPair>(stackGetter);
-  auto v = getNextInput<TensorsPair>(stackGetter);
-  auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto p = getNextInput<double>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
-  auto is_causal = getNextInput<bool>(stackGetter);
-  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
-  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
+  auto q = stackGetter.getNextInput<TensorsPair>();
+  auto k = stackGetter.getNextInput<TensorsPair>();
+  auto v = stackGetter.getNextInput<TensorsPair>();
+  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto p = stackGetter.getNextInput<double>();
+  auto scale = stackGetter.getNextInput<double>();
+  auto is_causal = stackGetter.getNextInput<bool>();
+  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
@@ -338,31 +338,31 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void Fp8SDPAFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "Fp8SDPAFwd::AddNode");
+  StackGetter stackGetter(this, stack, "Fp8SDPAFwd::AddNode");
   auto q_or_seed = stack[0].toTensor();
   bool seed_present = (q_or_seed.sizes().vec().size() < 3);
   synTensor seed_tensor = nullptr;
   if (seed_present) {
-    auto seed = getNextInput<TensorsPair>(stackGetter);
+    auto seed = stackGetter.getNextInput<TensorsPair>();
     seed_tensor = seed.syn_t;
   }
-  auto q = getNextInput<TensorsPair>(stackGetter);
-  auto k = getNextInput<TensorsPair>(stackGetter);
-  auto v = getNextInput<TensorsPair>(stackGetter);
-  auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto p = getNextInput<double>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
-  auto is_causal = getNextInput<bool>(stackGetter);
-  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
-  auto d_scale_q = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_k = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_v = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto q_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto q_scale_o = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto is_amax_s = getNextInput<bool>(stackGetter);
-  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
+  auto q = stackGetter.getNextInput<TensorsPair>();
+  auto k = stackGetter.getNextInput<TensorsPair>();
+  auto v = stackGetter.getNextInput<TensorsPair>();
+  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto p = stackGetter.getNextInput<double>();
+  auto scale = stackGetter.getNextInput<double>();
+  auto is_causal = stackGetter.getNextInput<bool>();
+  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto d_scale_q = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_k = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_v = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto q_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto q_scale_o = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto is_amax_s = stackGetter.getNextInput<bool>();
+  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
@@ -449,17 +449,17 @@ void Fp8SDPAFwd::AddNode(
 }
 
 void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SDPABwd::AddNode");
-  auto grad = getNextInput<TensorsPair>(stackGetter);
-  auto q = getNextInput<TensorsPair>(stackGetter);
-  auto k = getNextInput<TensorsPair>(stackGetter);
-  auto v = getNextInput<TensorsPair>(stackGetter);
-  auto P = getNextInput<TensorsPair>(stackGetter);
-  auto dm = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto is_causal = getNextInput<bool>(stackGetter);
-  auto p = getNextInput<double>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
-  auto fwd_out = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "SDPABwd::AddNode");
+  auto grad = stackGetter.getNextInput<TensorsPair>();
+  auto q = stackGetter.getNextInput<TensorsPair>();
+  auto k = stackGetter.getNextInput<TensorsPair>();
+  auto v = stackGetter.getNextInput<TensorsPair>();
+  auto P = stackGetter.getNextInput<TensorsPair>();
+  auto dm = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto is_causal = stackGetter.getNextInput<bool>();
+  auto p = stackGetter.getNextInput<double>();
+  auto scale = stackGetter.getNextInput<double>();
+  auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
   bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
 
@@ -499,28 +499,28 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void Fp8SDPABwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "Fp8SDPABwd::AddNode");
-  auto grad = getNextInput<TensorsPair>(stackGetter);
-  auto q = getNextInput<TensorsPair>(stackGetter);
-  auto k = getNextInput<TensorsPair>(stackGetter);
-  auto v = getNextInput<TensorsPair>(stackGetter);
-  auto P = getNextInput<TensorsPair>(stackGetter);
-  auto dm = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto is_causal = getNextInput<bool>(stackGetter);
-  auto p = getNextInput<double>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
-  auto d_scale_q = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_k = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_v = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_do = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_ds = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "Fp8SDPABwd::AddNode");
+  auto grad = stackGetter.getNextInput<TensorsPair>();
+  auto q = stackGetter.getNextInput<TensorsPair>();
+  auto k = stackGetter.getNextInput<TensorsPair>();
+  auto v = stackGetter.getNextInput<TensorsPair>();
+  auto P = stackGetter.getNextInput<TensorsPair>();
+  auto dm = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto is_causal = stackGetter.getNextInput<bool>();
+  auto p = stackGetter.getNextInput<double>();
+  auto scale = stackGetter.getNextInput<double>();
+  auto d_scale_q = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_k = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_v = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_do = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_ds = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
-  auto q_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto q_scale_ds = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto q_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto q_scale_ds = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
-  auto is_amax_ds = getNextInput<bool>(stackGetter);
-  auto fwd_out = getNextInput<TensorsPair>(stackGetter);
+  auto is_amax_ds = stackGetter.getNextInput<bool>();
+  auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
   bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
 
@@ -833,26 +833,26 @@ sizes_vec SDPARecompBwdOutputShape(const at::Stack& stack) {
 void SDPARecompFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SDPARecompFwd::AddNode");
+  StackGetter stackGetter(this, stack, "SDPARecompFwd::AddNode");
   auto q_or_seed = stack[0].toTensor();
   bool seed_present = (q_or_seed.sizes().vec().size() < 3);
 
   synTensor seed_tensor = nullptr;
   if (seed_present) {
-    auto seed = getNextInput<TensorsPair>(stackGetter);
+    auto seed = stackGetter.getNextInput<TensorsPair>();
     seed_tensor = seed.syn_t;
   }
-  auto q = getNextInput<TensorsPair>(stackGetter);
-  auto k = getNextInput<TensorsPair>(stackGetter);
-  auto v = getNextInput<TensorsPair>(stackGetter);
-  auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto p = getNextInput<double>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
-  auto is_causal = getNextInput<bool>(stackGetter);
-  auto requires_backward = getNextInput<bool>(stackGetter);
-  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
-  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
+  auto q = stackGetter.getNextInput<TensorsPair>();
+  auto k = stackGetter.getNextInput<TensorsPair>();
+  auto v = stackGetter.getNextInput<TensorsPair>();
+  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto p = stackGetter.getNextInput<double>();
+  auto scale = stackGetter.getNextInput<double>();
+  auto is_causal = stackGetter.getNextInput<bool>();
+  auto requires_backward = stackGetter.getNextInput<bool>();
+  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
@@ -919,42 +919,42 @@ void SDPARecompFwd::AddNode(
 void Fp8SDPARecompFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "Fp8SDPARecompFwd::AddNode");
+  StackGetter stackGetter(this, stack, "Fp8SDPARecompFwd::AddNode");
   auto q_or_seed = stack[0].toTensor();
   bool seed_present = (q_or_seed.sizes().vec().size() < 3);
   synTensor seed_tensor = nullptr;
   if (seed_present) {
-    auto seed = getNextInput<TensorsPair>(stackGetter);
+    auto seed = stackGetter.getNextInput<TensorsPair>();
     seed_tensor = seed.syn_t;
   }
-  auto q = getNextInput<TensorsPair>(stackGetter);
-  auto k = getNextInput<TensorsPair>(stackGetter);
-  auto v = getNextInput<TensorsPair>(stackGetter);
-  auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto p = getNextInput<double>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
-  auto is_causal = getNextInput<bool>(stackGetter);
-  auto requires_backward = getNextInput<bool>(stackGetter);
-  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
+  auto q = stackGetter.getNextInput<TensorsPair>();
+  auto k = stackGetter.getNextInput<TensorsPair>();
+  auto v = stackGetter.getNextInput<TensorsPair>();
+  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto p = stackGetter.getNextInput<double>();
+  auto scale = stackGetter.getNextInput<double>();
+  auto is_causal = stackGetter.getNextInput<bool>();
+  auto requires_backward = stackGetter.getNextInput<bool>();
+  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
   auto d_scale_q =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto d_scale_k =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto d_scale_v =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto q_scale_s =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto q_scale_o =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto d_scale_s =
-      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
-  auto is_amax_s = getNextInput<bool>(stackGetter);
-  auto is_amax_o = getNextInput<bool>(stackGetter);
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
+  auto is_amax_s = stackGetter.getNextInput<bool>();
+  auto is_amax_o = stackGetter.getNextInput<bool>();
   // amax_s and/or amax_o needed
   bool is_amax = is_amax_s or is_amax_o;
 
-  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
+  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
@@ -1101,20 +1101,20 @@ void Fp8SDPARecompFwd::AddNode(
 void SDPARecompBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SDPARecompBwd::AddNode");
-  auto grad = getNextInput<TensorsPair>(stackGetter);
-  auto q = getNextInput<TensorsPair>(stackGetter);
-  auto k = getNextInput<TensorsPair>(stackGetter);
-  auto v = getNextInput<TensorsPair>(stackGetter);
-  auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto m = getNextInput<TensorsPair>(stackGetter);
-  auto linv = getNextInput<TensorsPair>(stackGetter);
-  auto seed = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto is_causal = getNextInput<bool>(stackGetter);
-  auto p = getNextInput<double>(stackGetter);
-  auto scale = getNextInput<double>(stackGetter);
-  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
-  auto fwd_out = getNextInput<TensorsPair>(stackGetter);
+  StackGetter stackGetter(this, stack, "SDPARecompBwd::AddNode");
+  auto grad = stackGetter.getNextInput<TensorsPair>();
+  auto q = stackGetter.getNextInput<TensorsPair>();
+  auto k = stackGetter.getNextInput<TensorsPair>();
+  auto v = stackGetter.getNextInput<TensorsPair>();
+  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto m = stackGetter.getNextInput<TensorsPair>();
+  auto linv = stackGetter.getNextInput<TensorsPair>();
+  auto seed = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto is_causal = stackGetter.getNextInput<bool>();
+  auto p = stackGetter.getNextInput<double>();
+  auto scale = stackGetter.getNextInput<double>();
+  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
   bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
 

@@ -51,11 +51,11 @@ static int normalize_idx(int idx, int64_t size) {
 void SelectBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SelectBackward::AddNode");
-  auto grad = getNextInput<TensorsPair>(stackGetter);
-  auto input_sizes = getNextInput<std::vector<int64_t>>(stackGetter);
-  auto dim = getNextInput<int>(stackGetter);
-  auto index = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(this, stack, "SelectBackward::AddNode");
+  auto grad = stackGetter.getNextInput<TensorsPair>();
+  auto input_sizes = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto dim = stackGetter.getNextInput<int>();
+  auto index = stackGetter.getNextInput<int>();
 
   dim = at::maybe_wrap_dim(dim, input_sizes.size());
 

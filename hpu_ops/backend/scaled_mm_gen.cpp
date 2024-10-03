@@ -77,15 +77,16 @@ SharedMetaDataVector ScaledMmSharedMeta(const at::Stack& stack) {
 }
 
 void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "ScaledMm::AddNode");
-  auto mat1 = getNextInput<TensorsPair>(stackGetter);
-  auto mat2 = getNextInput<TensorsPair>(stackGetter);
-  auto bias = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto out_dtype = getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
-                       .value_or(mat1.pt_t.scalar_type());
-  auto scale_a = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto scale_b = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto scale_result = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "ScaledMm::AddNode");
+  auto mat1 = stackGetter.getNextInput<TensorsPair>();
+  auto mat2 = stackGetter.getNextInput<TensorsPair>();
+  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto out_dtype =
+      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+          mat1.pt_t.scalar_type());
+  auto scale_a = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scale_b = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scale_result = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
   const auto mat1_shape = mat1.pt_t.sizes();
   const auto mat2_shape = mat2.pt_t.sizes();

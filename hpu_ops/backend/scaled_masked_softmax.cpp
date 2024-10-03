@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -64,16 +64,17 @@ ScaledMaskedTriangularSoftmax::ScaledMaskedTriangularSoftmax(
 void ScaledMaskedTriangularSoftmax::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "ScaledMaskedTriangularSoftmax::AddNode");
-  const auto self = getNextInput<TensorsPair>(stackGetter);
-  const auto start_end = getNextInput<TensorsPair>(stackGetter);
-  const auto inv_scale_attn = getNextInput<double>(stackGetter);
-  const auto grouped_batch_size = getNextInput<int>(stackGetter);
-  const auto use_max = getNextInput<bool>(stackGetter);
-  const auto mode = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(
+      this, stack, "ScaledMaskedTriangularSoftmax::AddNode");
+  const auto self = stackGetter.getNextInput<TensorsPair>();
+  const auto start_end = stackGetter.getNextInput<TensorsPair>();
+  const auto inv_scale_attn = stackGetter.getNextInput<double>();
+  const auto grouped_batch_size = stackGetter.getNextInput<int>();
+  const auto use_max = stackGetter.getNextInput<bool>();
+  const auto mode = stackGetter.getNextInput<int>();
   const auto out_dtype =
-      getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
-          .value_or(self.pt_t.scalar_type());
+      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+          self.pt_t.scalar_type());
   const auto& input_dtype = ScalarType();
 
   TORCH_CHECK(

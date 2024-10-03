@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -172,16 +172,17 @@ std::vector<int64_t> GetBnWeightShapeGroupNorm(
 void NativeGroupNormBwdHabanaOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "NativeGroupNormBwdHabanaOperator::AddNode");
-  auto grad_out = getNextInput<TensorsPair>(stackGetter);
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto mean = getNextInput<TensorsPair>(stackGetter);
-  auto rstd = getNextInput<TensorsPair>(stackGetter);
-  auto weightOpt = getNextInput<at::optional<TensorsPair>>(stackGetter);
-  auto N = getNextInput<int>(stackGetter);
-  auto C = getNextInput<int>(stackGetter);
-  auto HxW = getNextInput<int>(stackGetter);
-  auto num_groups = getNextInput<int>(stackGetter);
+  StackGetter stackGetter(
+      this, stack, "NativeGroupNormBwdHabanaOperator::AddNode");
+  auto grad_out = stackGetter.getNextInput<TensorsPair>();
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto mean = stackGetter.getNextInput<TensorsPair>();
+  auto rstd = stackGetter.getNextInput<TensorsPair>();
+  auto weightOpt = stackGetter.getNextInput<at::optional<TensorsPair>>();
+  auto N = stackGetter.getNextInput<int>();
+  auto C = stackGetter.getNextInput<int>();
+  auto HxW = stackGetter.getNextInput<int>();
+  auto num_groups = stackGetter.getNextInput<int>();
   const auto Nmod = N * num_groups;
 
   TORCH_CHECK(grad_out.pt_t.numel() == N * C * HxW);
@@ -330,10 +331,10 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
 }
 
 void NativeGroupNormFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "NativeGroupNormFwd::AddNode");
-  auto input = getNextInput<TensorsPair>(stackGetter);
-  auto weight = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto bias = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  StackGetter stackGetter(this, stack, "NativeGroupNormFwd::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
   auto metas = OutputMeta(stack);
   size_t size = 0;
   auto params = FillParams(stack, size);

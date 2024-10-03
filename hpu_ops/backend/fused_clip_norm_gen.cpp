@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -169,10 +169,10 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_clip_coeff(
 void FusedClipNormOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  StackGetter stackGetter(stack, "FusedClipNormOp::AddNode");
-  auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  auto max_norm = getNextInput<TensorsPair>(stackGetter);
-  auto norm_type = getNextInput<double>(stackGetter);
+  StackGetter stackGetter(this, stack, "FusedClipNormOp::AddNode");
+  auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto max_norm = stackGetter.getNextInput<TensorsPair>();
+  auto norm_type = stackGetter.getNextInput<double>();
   auto scalar_type = gradients.at(0).pt_t.scalar_type();
 
   if (norm_type != 2)
