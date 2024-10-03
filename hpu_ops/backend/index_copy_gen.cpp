@@ -16,22 +16,22 @@ namespace habana {
 
 OutputMetaDataVector IndexCopyMeta(const at::Stack& stack) {
   const auto& input_tensor = stack.at(0).toTensor();
-  const auto& dim = stack.at(1).toInt();
+  auto dim = stack.at(1).toInt();
   const auto& copy_tensor = stack.at(3).toTensor();
   auto inputTensorShape = input_tensor.sizes().vec();
   auto copyTensorShape = copy_tensor.sizes().vec();
+
+  dim = at::maybe_wrap_dim(dim, input_tensor.dim(), /*wrap_scalar=*/true);
   inputTensorShape.erase(inputTensorShape.begin() + dim);
   copyTensorShape.erase(copyTensorShape.begin() + dim);
   TORCH_CHECK(
       inputTensorShape == copyTensorShape,
-      " Source/destination tensor must have same slice shapes. Destination slice shape: ",
-      inputTensorShape,
-      " at dimension ",
+      " Source/destination tensor must have same slice shapes except at dimension ",
       dim,
+      " Destination slice shape: ",
+      input_tensor.sizes().vec(),
       " and source slice shape: ",
-      copyTensorShape,
-      " at dimension ",
-      dim);
+      copy_tensor.sizes().vec());
   OutputMetaData meta;
   meta.dtype = input_tensor.scalar_type();
   meta.shape = input_tensor.sizes().vec();
