@@ -12,9 +12,7 @@
  */
 #include <ATen/core/Tensor.h>
 #include <torch/library.h>
-#include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_helpers.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "common/dump_args.h"
 #include "common/random_utils.h"
 #include "generated/lazy/wrap_kernels_declarations.h"
@@ -25,7 +23,6 @@
 #include "habana_kernels/lazy_optimizer_kernels.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_stage_submission.h"
-#include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/run_maybe_with_acc_thread.h"
@@ -50,29 +47,23 @@ bool hpu_wrap::is_pinned(
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "is_pinned :", " self=", to_string(self), " device=", to_string(device));
-  return is_pinned_hpu(self, device);
+  HABANA_ASSERT(device.has_value());
+  return is_pinned_hpu(self, *device);
 }
 
 Tensor hpu_wrap::pin_memory(
     const at::Tensor& self,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     ::std::optional<at::Device> device) {
-#else
-    c10::optional<at::Device> device) {
-#endif
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "pin_memory :", " self=", to_string(self), " device=", to_string(device));
-  return pin_memory_hpu(self, device);
+  HABANA_ASSERT(device.has_value());
+  return pin_memory_hpu(self, *device);
 }
 
 Tensor hpu_wrap::_pin_memory(
     const at::Tensor& self,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     ::std::optional<at::Device> device) {
-#else
-    c10::optional<at::Device> device) {
-#endif
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "_pin_memory :",
@@ -80,7 +71,8 @@ Tensor hpu_wrap::_pin_memory(
       to_string(self),
       " device=",
       to_string(device));
-  return pin_memory_hpu(self, device);
+  HABANA_ASSERT(device.has_value());
+  return pin_memory_hpu(self, *device);
 }
 
 Tensor hpu_wrap::bincount(

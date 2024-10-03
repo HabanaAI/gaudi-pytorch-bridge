@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -513,21 +513,19 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
 }
 
 namespace {
-static inline Device ensure_has_index(c10::optional<at::Device> device) {
+static inline Device ensure_has_index(at::Device device) {
   const c10::impl::DeviceGuardImplInterface* impl =
-      c10::impl::getDeviceGuardImpl((*device).type());
+      c10::impl::getDeviceGuardImpl(device.type());
   return impl->getDevice();
 }
 } // namespace
 
-bool is_pinned_hpu(const Tensor& self, c10::optional<at::Device> device) {
+bool is_pinned_hpu(const Tensor& self, at::Device device) {
   ensure_has_index(device);
   return habana::PinnedMemoryAllocator_is_pinned(self.data_ptr());
 }
 
-Tensor pin_memory_hpu(
-    const at::Tensor& self,
-    c10::optional<at::Device> device) {
+Tensor pin_memory_hpu(const at::Tensor& self, at::Device device) {
   ensure_has_index(device);
   auto* allocator = habana::getPinnedMemoryAllocator();
   auto storage = Storage(

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -20,10 +20,8 @@ at::Tensor& copy_hpu_(
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream);
 
-bool is_pinned_hpu(const at::Tensor& self, c10::optional<at::Device> device);
-at::Tensor pin_memory_hpu(
-    const at::Tensor& self,
-    c10::optional<at::Device> device);
+bool is_pinned_hpu(const at::Tensor& self, at::Device device);
+at::Tensor pin_memory_hpu(const at::Tensor& self, at::Device device);
 
 // As Strided Layout
 class AsStridedLayoutOperator : public habana::HabanaOperator {
