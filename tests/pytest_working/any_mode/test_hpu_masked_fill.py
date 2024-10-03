@@ -120,8 +120,7 @@ def test_masked_fill_float8(dtype, setup_teardown_env_fixture):
     mask_val = -100
     input_c = torch.randn((1000, 1000), dtype=torch.bfloat16)
     mask = torch.randint(0, 2, (1000, 1000)).to(torch.bool)
-    result = fn(input_c, mask, mask_val)
-    result = (result * mask).to(dtype).to(torch.bfloat16)
+    result = fn(input_c, mask, mask_val).to(dtype).to(torch.bfloat16)
 
     if pytest.mode == "compile":
         torch._dynamo.reset()
@@ -133,7 +132,9 @@ def test_masked_fill_float8(dtype, setup_teardown_env_fixture):
     mask_hpu = mask.to("hpu")
     hresult = fn(input_hpu, mask_hpu, mask_val).cpu().to(torch.bfloat16)
 
-    hresult = hresult * mask  # checking value on only where mask is true on bf16 dtype
+    # we are comparing the result in bfloat16 as float8 comparison is giving
+    # some issue , getting
+    # RuntimeError: "mul_cpu_reduced_float" not implemented for 'Float8_e5m2'
     assert torch.allclose(result, hresult, atol=0.01, rtol=0.01)
     if is_pytest_mode_compile():
         ops = {"masked_fill"}
