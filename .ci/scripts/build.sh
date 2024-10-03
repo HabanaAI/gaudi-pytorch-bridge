@@ -674,8 +674,6 @@ build_pytorch_fork()
 
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
-        git clean -fd
-        git submodule foreach --recursive git clean -xfd
     fi
 
     local __pkg_name="TORCH_PACKAGE_NAME=torch"
@@ -827,7 +825,6 @@ build_pytorch_tb_plugin()
 
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
-        git clean -fd
     fi
 
     echo "Build parameters ${__whl_params}"
@@ -897,7 +894,6 @@ build_lightning_habana_fork()
 
     if [ -n "$__configure" ]; then
         eval ${__env_vars} $__python_cmd setup.py clean
-        git clean -fd
     fi
 
     echo "Build parameters for lightning habana ${__whl_params}"
@@ -974,7 +970,6 @@ build_pytorch_vision_fork()
 
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
-        git clean -fd
         rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl
     fi
 
@@ -2401,7 +2396,6 @@ build_pytorch_text()
 
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
-        git clean -fd
     fi
 
     echo "Build parameters ${__whl_params}"
@@ -2489,7 +2483,6 @@ build_pytorch_data()
 
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
-        git clean -fd
     fi
 
     echo "Build parameters ${__whl_params}"
@@ -2577,7 +2570,6 @@ build_pytorch_audio()
 
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
-        git clean -fd
     fi
 
     echo "Build parameters ${__whl_params}"
@@ -2673,7 +2665,6 @@ build_pytorch_vision()
 
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
-        git clean -fd
     fi
 
     echo "Build parameters ${__whl_params}"
