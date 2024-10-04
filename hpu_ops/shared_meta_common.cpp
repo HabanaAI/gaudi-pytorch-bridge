@@ -13,7 +13,6 @@
 
 #include "hpu_ops/shared_meta_common.h"
 #include <unordered_set>
-#include "hpu_ops/backend/reduction_template.h"
 namespace habana {
 
 // if all integers are not supported enter only torch::kInt32
@@ -516,6 +515,17 @@ SharedMetaDataVector MatrixMulWithAddSharedMeta(
     matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
   }
   return {matrixMulSharedMeta};
+}
+
+SharedMetaDataVector PadBwdSharedMeta(const at::Stack& stack) {
+  auto grad = stack_tensor(stack, 0);
+  auto self = stack_tensor(stack, 1);
+  auto dtype = self.scalar_type();
+
+  SharedMetaData padBwdSharedMeta{"pad_bwd"};
+  padBwdSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
+  padBwdSharedMeta.outputs_data.emplace_back(self.dim(), dtype);
+  return {padBwdSharedMeta};
 }
 
 } // namespace habana

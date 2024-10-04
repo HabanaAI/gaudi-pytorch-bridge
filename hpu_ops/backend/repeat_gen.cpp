@@ -1,12 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2023-2024 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include "generated/backend/repeat.h"
 #include "habana_kernels/repeat.h"
 
@@ -22,6 +26,24 @@ OutputMetaDataVector RepeatMeta(const at::Stack& stack) {
   meta.shape = RepeatOperator::compute_output_shape(self, repeats);
 
   return {meta};
+}
+
+SharedMetaDataVector RepeatSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  auto dtype = self.scalar_type();
+  auto inputRank = self.dim();
+  auto outputRank = inputRank;
+
+  if (!stack.at(1).isTensor()) {
+    auto repeats = static_cast<int64_t>(stack.at(1).toIntList().size());
+    outputRank = std::max(repeats, outputRank);
+  }
+
+  SharedMetaData repeatSharedMeta{"repeat_pt_fwd"};
+  repeatSharedMeta.inputs_data.emplace_back(inputRank, dtype);
+  repeatSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+
+  return {repeatSharedMeta};
 }
 
 std::shared_ptr<void> FillRepeatFwdParams(
