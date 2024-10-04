@@ -38,7 +38,7 @@ def test_remove_unnecessary_full_copy():
 
     ref = graph_module(a)
 
-    ctx = OptimizerContext(graph_module, [a], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
+    ctx = OptimizerContext(graph_module, "test", [a], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
     pass_fake_propagation(ctx)
     changed = pass_remove_unnecessary_full_copy(ctx)
     assert changed
@@ -71,7 +71,7 @@ def test_not_remove_full_copy_with_different_shape():
     graph_module = make_fx(fn)(a)
     ref = graph_module(a)
 
-    ctx = OptimizerContext(graph_module, [a], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
+    ctx = OptimizerContext(graph_module, "test", [a], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
     pass_fake_propagation(ctx)
     changed = pass_remove_unnecessary_full_copy(ctx)
     assert not changed
@@ -106,7 +106,7 @@ def test_not_remove_full_copy_with_different_dtype():
     graph_module = make_fx(fn)(a)
     ref = graph_module(a)
 
-    ctx = OptimizerContext(graph_module, [a], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
+    ctx = OptimizerContext(graph_module, "test", [a], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
     pass_fake_propagation(ctx)
     changed = pass_remove_unnecessary_full_copy(ctx)
     assert not changed

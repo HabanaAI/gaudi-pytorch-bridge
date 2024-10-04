@@ -280,7 +280,7 @@ def test_propose_partitions_post_process_full_copy():
     example_inputs = [t.to("hpu") for t in example_inputs_cpu]
 
     graph_module = make_fx(fn)(*example_inputs)
-    ctx = OptimizerContext(graph_module, [], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
+    ctx = OptimizerContext(graph_module, "test", [], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
 
     for node in graph_module.graph.nodes:
         if not (node.name.startswith("all_reduce") or node.name.startswith("wait_tensor")):
@@ -454,7 +454,7 @@ def test_propose_partitions_post_process_copy_():
         return (getitem_7,)
 
     graph_module = symbolic_trace(fn)
-    ctx = OptimizerContext(graph_module, [], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
+    ctx = OptimizerContext(graph_module, "test", [], False, False, False, OptimizationPassPlacement.PARTITIONER, None)
 
     for node in graph_module.graph.nodes:
         if not (node.name.startswith("all_reduce") or node.name.startswith("wait_tensor")):

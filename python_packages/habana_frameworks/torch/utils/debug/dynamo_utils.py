@@ -15,7 +15,7 @@ import itertools
 from collections import defaultdict
 
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()
 

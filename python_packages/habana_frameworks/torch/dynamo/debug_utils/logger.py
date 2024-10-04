@@ -16,8 +16,12 @@ def get_compile_backend_logger():
     return Logger("PT_COMPILE")
 
 
+def get_fx_graph_logger():
+    return Logger("PT_COMPILE FX GRAPH")
+
+
 def dump_fx_graph(fx_module, jit_graph, recipe_id):
-    logger = Logger("PT_COMPILE FX GRAPH")
+    logger = get_fx_graph_logger()
     logger.debug("# # # graph_recipe_%d # # #", recipe_id)
     logger.debug(fx_module.print_readable(False))
     logger.debug("IR:\n%s\n\n", fx_module.graph)

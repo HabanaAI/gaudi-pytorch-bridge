@@ -39,6 +39,11 @@ PT_HPU_GRAPH_DUMP_MODE:
   - `compile_fx` dumps only FX graphs from compile mode\n
   - `eager` dumps JIT graphs from eager mode"
 
+PT_HPU_GRAPH_DUMP_FORMAT:
+  default: "pbtxt"
+  settable: true
+  doc: "Specify FX graph dump format. Allowed values <svg | graphml | pbtxt>"
+
 PT_COMPILATION_STATS_PATH:
   default: ""
   settable: true

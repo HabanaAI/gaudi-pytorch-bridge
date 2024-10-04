@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Tuple
 # or implement all functions calling c module in py module?
 import habana_frameworks.torch._torch_jit_C.jit as jit
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from torch._ops import HigherOrderOperator
 from torch._ops import OpOverload as TorchOpOverload
 

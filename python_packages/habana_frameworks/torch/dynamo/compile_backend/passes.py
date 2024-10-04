@@ -21,10 +21,12 @@ from typing import Any, Callable, Dict, List, Mapping, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
+import torch.fx
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import dump_fx_graph
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.internal import Timer
-from habana_frameworks.torch.utils.visualization import graph_visualizer
 from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
@@ -35,7 +37,6 @@ from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
 from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
 from .cluster_compiler import pass_compile_clusters_jit_fork_version
-from .logger import get_compile_backend_logger
 from .partitioner import HabanaPartitioner
 from .random_utils import (
     backward_random_op_inputs,
@@ -46,13 +47,7 @@ from .random_utils import (
 )
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
-from .symbolic_execution import (
-    HPUExprPrinter,
-    PythonPrinter,
-    SymExprNodeManager,
-    substitute_sympyfn,
-    sympify_expression,
-)
+from .symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
 
 logger = get_compile_backend_logger()
 
@@ -289,10 +284,9 @@ def is_call_function_dynamic(node: torch.fx.Node, dynamic_graph: bool) -> bool:
 
     def check_dynamic_meta(node: torch.fx.Node):
         meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
-        if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+        return (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
             meta_val, py_sym_types
-        ):
-            return True
+        )
 
     # early exit when the graph module is static, or when static compilation is forced
     if (not dynamic_graph) or (hpu_backend_config.force_static_compile):
@@ -381,6 +375,7 @@ def is_constant_for_lift_fresh_copy(node: torch.fx.Node, arg: torch.fx.Node) -> 
 def optimize_graph(
     stage: OptimizationPassPlacement,
     graph_module: torch.fx.GraphModule,
+    graph_name: str,
     example_inputs: List[torch.Tensor],
     is_training: bool,
     is_backward: bool,
@@ -401,6 +396,7 @@ def optimize_graph(
 
     ctx = OptimizerContext(
         graph_module,
+        graph_name,
         example_inputs,
         is_training,
         is_backward,
@@ -411,35 +407,33 @@ def optimize_graph(
 
     def run_passes(ctx: OptimizerContext):
         graph_changed = False
-        visualization_mode = bc.get_pt_hpu_graph_dump_mode()
-        visualisation_enabled = visualization_mode in ["all", "compile", "compile_fx"]
-        with graph_visualizer(
-            graph_module=ctx.graph_module,
-            active_stage=stage,
-            final_stage=OptimizationPassPlacement.POST_PARTITIONER,
-            disable=not visualisation_enabled,
-        ) as gv:
-            for optimization_pass in get_passes(stage):
-                pass_name = optimization_pass.__name__
-                env_name = "PT_HPU_DISABLE_" + pass_name
-                if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-                    logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
-                else:
-                    logger.debug("running %s pass at stage %s", pass_name, stage)
 
-                    with Timer() as t:
-                        current_graph_changed = optimization_pass(ctx)
+        pass_counter = 0
 
-                    graph_changed = current_graph_changed or graph_changed
-                    if current_graph_changed:
-                        gv.visualize_graph(ctx.graph_module, optimization_pass.__name__)
+        dump_fx_graph(ctx.graph_module, graph_name, stage=stage, pass_counter=pass_counter)
+        for optimization_pass in get_passes(stage):
+            pass_name = optimization_pass.__name__
+            env_name = "PT_HPU_DISABLE_" + pass_name
+            if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
+                logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
+                continue
 
-                    logger.debug(
-                        "pass %s at stage %s took: %.3f [s]",
-                        pass_name,
-                        stage,
-                        t.elapsed,
-                    )
+            logger.debug("running %s pass at stage %s", pass_name, stage)
+
+            with Timer() as t:
+                current_graph_changed = optimization_pass(ctx)
+
+            graph_changed = current_graph_changed or graph_changed
+            if current_graph_changed:
+                pass_counter = pass_counter + 1
+                dump_fx_graph(ctx.graph_module, graph_name, stage, pass_counter, pass_name)
+
+            logger.debug(
+                "pass %s at stage %s took: %.3f [s]",
+                pass_name,
+                stage,
+                t.elapsed,
+            )
         return graph_changed
 
     def _get_subgraph_names(gm):
@@ -457,7 +451,14 @@ def optimize_graph(
             # create new ctx for submodule
             # outer-most graph module is dynamic while sub module is static?
             sub_ctx = OptimizerContext(
-                submodule, ctx.example_inputs, ctx.is_training, ctx.is_backward, ctx.is_dynamic, ctx.stage, None
+                submodule,
+                submodule_name,
+                ctx.example_inputs,
+                ctx.is_training,
+                ctx.is_backward,
+                ctx.is_dynamic,
+                ctx.stage,
+                None,
             )
 
             submodule_qualified_name = submodule_name if module_prefix == "" else (module_prefix + "." + submodule_name)
@@ -2795,6 +2796,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             callable_recipe = get_callable_recipe(
                 jit_ir_function,
                 submod,
+                ctx.graph_name,
                 is_training=ctx.is_training,
                 is_dynamic=is_submod_dynamic,
             )

@@ -13,7 +13,7 @@
 import torch
 from habana_frameworks.torch.dynamo._fx_to_jit_lowering import FxToJitLowering
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizerContext
-from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 from .recipe_compiler import get_callable_recipe
 

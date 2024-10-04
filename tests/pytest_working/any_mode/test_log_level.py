@@ -15,7 +15,7 @@ from contextlib import contextmanager
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from habana_frameworks.torch.utils import _debug_C
 from habana_frameworks.torch.utils.debug.logger import enable_logging
 from test_utils import clear_t_compile_logs, is_pytest_mode_compile

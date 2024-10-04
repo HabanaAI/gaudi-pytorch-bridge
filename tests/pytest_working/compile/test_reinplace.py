@@ -38,7 +38,7 @@ def test_reinplace_index_copy():
 
     graph_module = make_fx(fn)(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
     )
     pass_reinplace_index_copy_ops(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
@@ -73,7 +73,7 @@ def test_not_reinplace_index_copy():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
     )
     pass_reinplace_index_copy_ops(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
@@ -98,7 +98,7 @@ def test_not_reinplace_leaf_index_copy():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, example_inputs, False, False, False, OptimizationPassPlacement.PRE_PARTITIONER, None
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PRE_PARTITIONER, None
     )
     for node in ctx.graph_module.graph.nodes:
         if node.op == "placeholder" or node.op == "output":
@@ -127,7 +127,7 @@ def test_reinpalce_all_add():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
     )
 
     pass_fake_propagation(ctx)
@@ -165,7 +165,7 @@ def test_reinpalce_only_1st_add():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
     )
 
     pass_fake_propagation(ctx)

@@ -16,11 +16,21 @@ from unittest import mock
 import functorch
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.dynamo.debug_utils.logger import log_function_start_end
 from torch._dynamo.utils import detect_fake_mode
 
 from .freezing_passes import freeze
 from .internal import optimize_post_partitioner, optimize_pre_partitioner, optimize_pre_placement, partition_module
-from .logger import log_function_start_end
+
+
+def _gen_graph_name():
+    current_ordinal = getattr(_gen_graph_name, "ordinal")
+    graph_name = f"fx_graph_{current_ordinal:04d}"
+    setattr(_gen_graph_name, "ordinal", current_ordinal + 1)
+    return graph_name
+
+
+setattr(_gen_graph_name, "ordinal", 0)
 
 
 @log_function_start_end
@@ -38,11 +48,13 @@ def hpu_freezing_compiler_inner(
 
     assert not is_training and not is_backward
 
+    graph_name = _gen_graph_name()
+
     # Perform optimizations on a graph before running passes for preparing the partitioner.
-    optimize_pre_placement(graph_module, example_inputs, is_training, is_backward)
+    optimize_pre_placement(graph_module, graph_name, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph before the partitioner.
-    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward)
+    optimize_pre_partitioner(graph_module, graph_name, example_inputs, is_training, is_backward)
 
     graph_module, non_param_input_ids = freeze(
         dynamo_gm=dyn_graph_module, aot_autograd_gm=graph_module, example_inputs=example_inputs
@@ -60,10 +72,10 @@ def hpu_freezing_compiler_inner(
 
     with mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
         # Partition the module based on propagated device placement data.
-        partition_module(graph_module, optimized_example_inputs, is_training, is_backward)
+        partition_module(graph_module, graph_name, optimized_example_inputs, is_training, is_backward)
 
         # Perform optimizations on a graph after the partitioner.
-        optimize_post_partitioner(graph_module, optimized_example_inputs, is_training, is_backward)
+        optimize_post_partitioner(graph_module, graph_name, optimized_example_inputs, is_training, is_backward)
 
         # Return the module in boxed format required by AOT Autograd.
         boxed_function = functorch.compile.make_boxed_func(graph_module.forward)
@@ -88,17 +100,18 @@ def hpu_compiler_inner(
     also generate multiple graphs and calls to this function.
     """
 
+    graph_name = _gen_graph_name()
     # Perform optimizations on a graph before running passes for preparing the partitioner.
-    optimize_pre_placement(graph_module, example_inputs, is_training, is_backward)
+    optimize_pre_placement(graph_module, graph_name, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph before the partitioner.
-    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward)
+    optimize_pre_partitioner(graph_module, graph_name, example_inputs, is_training, is_backward)
 
     # Partition the module based on propagated device placement data.
-    partition_module(graph_module, example_inputs, is_training, is_backward)
+    partition_module(graph_module, graph_name, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph after the partitioner.
-    optimize_post_partitioner(graph_module, example_inputs, is_training, is_backward)
+    optimize_post_partitioner(graph_module, graph_name, example_inputs, is_training, is_backward)
 
     # Return the module in boxed format required by AOT Autograd.
     return functorch.compile.make_boxed_func(graph_module.forward)

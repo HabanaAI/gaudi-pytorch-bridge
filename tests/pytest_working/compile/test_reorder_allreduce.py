@@ -110,7 +110,7 @@ def test_reorder_allreduce_with_no_users():
 
     graph_module = make_fx(fn)(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
     )
 
     for node in graph_module.graph.nodes:

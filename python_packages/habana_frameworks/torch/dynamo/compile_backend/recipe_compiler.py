@@ -18,11 +18,11 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import sympy
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.dynamo.debug_utils.logger import dump_fx_graph, get_compile_backend_logger
 from sympy import sympify
 from torch._subclasses.fake_tensor import FakeTensor
 from torch.fx.experimental.proxy_tensor import py_sym_types, unset_fake_temporarily
 
-from .logger import dump_fx_graph, get_compile_backend_logger
 from .random_utils import is_random_op
 from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator, substitute_sympyfn
 
@@ -160,6 +160,7 @@ class HabanaGraphModule(torch.nn.Module):
         self,
         jit_ir,
         graph_module,
+        parent_graph_name,
         outputs_metadata,
         symbolic_metadata,
         pholder_symbolic_dict,
@@ -171,6 +172,7 @@ class HabanaGraphModule(torch.nn.Module):
 
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
+        self._name = f"{parent_graph_name}_{repr(graph_module)}"[:-2]
         self._jit_ir = jit_ir
         self._fx_module = graph_module
         self._in_to_out_dups = graph_module.meta.get("in_to_out_dups", None)
@@ -200,6 +202,26 @@ class HabanaGraphModule(torch.nn.Module):
             for idx in self._out_to_in_dups.keys():
                 self._outputs_batch_data.remove(self._outputs_batch_data[idx])
                 self._outputs_metadata.remove(self._outputs_metadata[idx])
+
+    @property
+    def fx_module(self):
+        return self._fx_module
+
+    @property
+    def is_dynamic(self):
+        return self._dynamic
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def is_inference(self):
+        return self._inference
+
+    @property
+    def graph_str_repr_with_source_info(self):
+        return self._jit_ir.str(print_source_info=True)
 
     def __call__(self, *args):
         outputs = []
@@ -277,7 +299,9 @@ class HabanaGraphModule(torch.nn.Module):
                 return
 
 
-def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=False, is_dynamic=False):
+def get_callable_recipe(
+    jit_ir, graph_module: torch.fx.GraphModule, parent_graph_name, is_training=False, is_dynamic=False
+):
     """
     Calls backend to create compiled recipe or just returns unchanged module to
     run it eagerly depending on config.
@@ -295,6 +319,7 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
         return HabanaGraphModule(
             jit_ir,
             graph_module,
+            parent_graph_name,
             outputs_metadata,
             symbolic_metadata,
             pholder_symbolic_dict,

@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 from habana_frameworks.torch.core.observer import AbsMaxObserver, SimpleAbsMaxObserver
-from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from torch.ao.quantization.observer import PlaceholderObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer.x86_inductor_quantizer import (

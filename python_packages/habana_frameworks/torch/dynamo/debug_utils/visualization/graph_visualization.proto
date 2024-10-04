@@ -8,8 +8,8 @@
  *
  ******************************************************************************
  * This file contains definitions for messages to resemble TF protobuf graph
- * outputs. Definitions are borrowed as a subset on a need basis, e.g. to support
- * control dependencies and tensor visualization. original files were at
+ * outputs. Definitions are borrowed as a subset on a need basis, e.g. to
+ * support control dependencies and tensor visualization. original files were at
  * Tensorflow Github:
  * https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/
  * List of changes:
@@ -20,7 +20,7 @@
  *    - node_def.proto
  *    - tensor_shape.proto
  *    - types.proto
-*/
+ */
 /* Copyright The TensorFlow Authors. All Rights Reserved.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -100,52 +100,44 @@ message Tensor {
 }
 
 message Shape {
-
   message Dim {
     int64 size = 1;
     string name = 2;
   };
 
   repeated Dim dim = 2;
-
 };
-
 
 // Node Attributes are accessible via the attribute map
 message Attribute {
-
   message ValueList {
-    repeated Shape shape = 1;                     // a list of shapes
-    repeated Tensor tensor = 2;                   // a list of tensors
-    repeated bytes s = 3;                         // a list of strings
-    repeated int64 i = 4 [packed = true];         // a list of ints
-    repeated float f = 5 [packed = true];         // a list of floats
-    repeated bool b = 6 [packed = true];          // a list of bools
+    repeated Shape shape = 1; // a list of shapes
+    repeated Tensor tensor = 2; // a list of tensors
+    repeated bytes s = 3; // a list of strings
+    repeated int64 i = 4 [ packed = true ]; // a list of ints
+    repeated float f = 5 [ packed = true ]; // a list of floats
+    repeated bool b = 6 [ packed = true ]; // a list of bools
   }
 
   oneof value {
-    ValueList list = 1;             // any list
-    DataType type = 2;              // TF DataType
-    Shape shape = 3;                // shape
-    Tensor tensor = 4;              // tensor
-    bytes s = 5;                    // string
-    int64 i = 6;                    // int
-    float f = 7;                    // float
-    bool b = 8;                     // bool
+    ValueList list = 1; // any list
+    DataType type = 2; // TF DataType
+    Shape shape = 3; // shape
+    Tensor tensor = 4; // tensor
+    bytes s = 5; // string
+    int64 i = 6; // int
+    float f = 7; // float
+    bool b = 8; // bool
   }
-
 }
 
 // Node with name, input list and attribute map.
 message Node {
-
   string name = 1;
   string op = 2;
   repeated string input = 3;
   map<string, Attribute> attr = 5;
-
 }
-
 
 // Graph as a collection of nodes
 message Graph {

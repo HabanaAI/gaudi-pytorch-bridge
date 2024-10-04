@@ -19,6 +19,7 @@ from .passes import OptimizationPassPlacement, optimize_graph
 
 def optimize_pre_placement(
     graph_module: torch.fx.GraphModule,
+    graph_name: str,
     example_inputs: List[torch.Tensor],
     is_training: bool,
     is_backward: bool,
@@ -27,33 +28,53 @@ def optimize_pre_placement(
     This function is supposed to run optimizations passes on a graph that
     wasn't yet partitioned.
     """
-    optimize_graph(OptimizationPassPlacement.PRE_PLACEMENT, graph_module, example_inputs, is_training, is_backward)
+    optimize_graph(
+        OptimizationPassPlacement.PRE_PLACEMENT, graph_module, graph_name, example_inputs, is_training, is_backward
+    )
 
 
 def optimize_pre_partitioner(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module: torch.fx.GraphModule,
+    graph_name: str,
+    example_inputs: List[torch.Tensor],
+    is_training: bool,
+    is_backward: bool,
 ):
     """
     This function is supposed to run optimizations passes on a graph that
     wasn't yet partitioned.
     """
-    optimize_graph(OptimizationPassPlacement.PRE_PARTITIONER, graph_module, example_inputs, is_training, is_backward)
+    optimize_graph(
+        OptimizationPassPlacement.PRE_PARTITIONER, graph_module, graph_name, example_inputs, is_training, is_backward
+    )
 
 
 def optimize_post_partitioner(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module: torch.fx.GraphModule,
+    graph_name: str,
+    example_inputs: List[torch.Tensor],
+    is_training: bool,
+    is_backward: bool,
 ):
     """
     This function is supposed to run optimizations passes on a graph that
     was already partitioned.
     """
-    optimize_graph(OptimizationPassPlacement.POST_PARTITIONER, graph_module, example_inputs, is_training, is_backward)
+    optimize_graph(
+        OptimizationPassPlacement.POST_PARTITIONER, graph_module, graph_name, example_inputs, is_training, is_backward
+    )
 
 
 def partition_module(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module: torch.fx.GraphModule,
+    graph_name: str,
+    example_inputs: List[torch.Tensor],
+    is_training: bool,
+    is_backward: bool,
 ) -> torch.fx.GraphModule:
     """
     This function will run passes responsible for creating HPU partitions.
     """
-    optimize_graph(OptimizationPassPlacement.PARTITIONER, graph_module, example_inputs, is_training, is_backward)
+    optimize_graph(
+        OptimizationPassPlacement.PARTITIONER, graph_module, graph_name, example_inputs, is_training, is_backward
+    )
