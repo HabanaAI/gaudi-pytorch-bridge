@@ -1,0 +1,59 @@
+###############################################################################
+# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+import pytest
+import torch
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1, is_pytest_mode_compile
+
+dtypes = [torch.float32, torch.bfloat16]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
+
+
+@pytest.mark.parametrize(
+    "reduction",
+    [
+        "mean",
+        "sum",
+        "none",
+    ],
+    ids=format_tc,
+)
+@pytest.mark.parametrize("C, N", [(6, 2), (6, None)], ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+def test_multilabel_margin_loss(C, N, dtype, reduction):
+    def func(x, y, reduction):
+        result = torch.nn.functional.multilabel_margin_loss(x, y, reduction=reduction)
+        return result
+
+    cpu_input = torch.rand((N, C) if N is not None else C)
+    hpu_input = cpu_input.to(dtype=dtype).to("hpu")
+
+    cpu_target = torch.rand(cpu_input.shape)
+    cpu_target = torch.multinomial(cpu_target, C, replacement=False)
+
+    indexes = torch.randint(1, C, (N,) if N is not None else (1,))
+    indexes_mask = torch.nn.functional.one_hot(indexes, C).to(torch.bool)
+
+    cpu_target = torch.where(indexes_mask, -1, cpu_target)
+    cpu_target = cpu_target.reshape(cpu_input.shape)
+    hpu_target = cpu_target.to("hpu")
+
+    # CPU eager version and CPU compile versions gives different results and different shapes
+    # so perform reference testing with compile also on CPU
+    fn_cpu = torch.compile(func) if is_pytest_mode_compile() else func
+    cpu_output = fn_cpu(cpu_input, cpu_target, reduction)
+    hpu_func = compile_function_if_compile_mode(func)
+    hpu_output = hpu_func(hpu_input, hpu_target, reduction)
+
+    rtol = 0.001 if dtype == torch.float16 else None
+    atol = 3e-4 if dtype == torch.float16 else None
+    torch.testing.assert_close(hpu_output.cpu(), cpu_output.to(dtype), rtol=rtol, atol=atol)
