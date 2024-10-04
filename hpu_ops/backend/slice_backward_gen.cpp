@@ -45,6 +45,26 @@ OutputMetaDataVector SliceBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector SliceBwdSharedMeta(const at::Stack& stack) {
+  const auto& grad = stack_tensor(stack, 0);
+  auto dtype = grad.scalar_type();
+  auto inputSizes = stack.at(1).toIntList();
+  auto rank = inputSizes.size();
+
+  if (std::find(std::begin(inputSizes), std::end(inputSizes), 0) !=
+      std::end(inputSizes)) {
+    // [SW-205149] return empty vector because shape tensor validation will
+    // block shape agnostic flow
+    return {};
+  } else {
+    SharedMetaData stridedSliceGrad{"strided_slice_grad"};
+    stridedSliceGrad.inputs_data.emplace_back(rank, dtype);
+    stridedSliceGrad.outputs_data.emplace_back(rank, dtype);
+
+    return {stridedSliceGrad};
+  }
+}
+
 void SliceBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

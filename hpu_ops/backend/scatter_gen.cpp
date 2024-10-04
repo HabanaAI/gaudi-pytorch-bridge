@@ -17,6 +17,44 @@ using namespace torch;
 
 namespace habana {
 
+SharedMetaDataVector ScatterSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& index = stack_tensor(stack, 2);
+  auto dtype = self.scalar_type();
+  auto rank = self.dim();
+
+  if (stack.at(3).isTensor()) {
+    const auto& updates = stack_tensor(stack, 3);
+    SharedMetaData scatterSharedMeta{"scatter_fwd"};
+    scatterSharedMeta.inputs_data = {
+        {rank, dtype},
+        {index.dim(), index.scalar_type()},
+        {updates.dim(), dtype}};
+    scatterSharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {scatterSharedMeta};
+  } else {
+    SharedMetaData scatterValueSharedMeta{"scatter_value_fwd"};
+    scatterValueSharedMeta.inputs_data = {
+        {rank, dtype}, {index.dim(), index.scalar_type()}};
+    scatterValueSharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {scatterValueSharedMeta};
+  }
+}
+
+SharedMetaDataVector ScatterReduceSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& index = stack_tensor(stack, 2);
+  auto dtype = self.scalar_type();
+  auto rank = self.dim();
+
+  SharedMetaData scatterReduceSharedMeta{"scatter_reduce_fwd"};
+  scatterReduceSharedMeta.inputs_data = {
+      {rank, dtype}, {index.dim(), index.scalar_type()}, {rank, dtype}};
+  scatterReduceSharedMeta.outputs_data.emplace_back(rank, dtype);
+
+  return {scatterReduceSharedMeta};
+}
+
 void ScatterOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

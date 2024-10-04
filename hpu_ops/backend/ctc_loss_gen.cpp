@@ -48,6 +48,33 @@ OutputMetaDataVector CtcLossMeta(const at::Stack& stack) {
   }
 }
 
+SharedMetaDataVector CtcLossSharedMeta(const at::Stack& stack) {
+  const auto& logProbs = stack_tensor(stack, 0);
+  const auto& targets = stack_tensor(stack, 1);
+  const auto dtype = logProbs.scalar_type();
+
+  SharedMetaData ctcLossSharedMeta{"ctc_loss_fwd"};
+  ctcLossSharedMeta.inputs_data = {
+      {logProbs.dim(), dtype}, {targets.dim(), targets.scalar_type()}};
+  if (stack.at(2).isTensor()) {
+    const auto& inputLengths = stack_tensor(stack, 2);
+    const auto& targetsLengths = stack_tensor(stack, 3);
+    ctcLossSharedMeta.inputs_data.emplace_back(
+        inputLengths.dim(), inputLengths.scalar_type());
+    ctcLossSharedMeta.inputs_data.emplace_back(
+        targetsLengths.dim(), targetsLengths.scalar_type());
+  } else {
+    ctcLossSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+    ctcLossSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+  }
+
+  ctcLossSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+  if (!(stack.size() > 6))
+    ctcLossSharedMeta.outputs_data.emplace_back(3, dtype);
+
+  return {ctcLossSharedMeta};
+}
+
 void CtcLoss::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto log_probs = stack_tensor(stack, 0);
   auto targets = stack_tensor(stack, 1);

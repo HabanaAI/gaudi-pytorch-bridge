@@ -26,6 +26,39 @@ OutputMetaDataVector CtcLossBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector CtcLossBackwardSharedMeta(const at::Stack& stack) {
+  const auto& grad = stack_tensor(stack, 0);
+  const auto& logProbs = stack_tensor(stack, 1);
+  const auto& targets = stack_tensor(stack, 2);
+  const auto& negLogLikelihood = stack_tensor(stack, 5);
+  const auto& logAlpha = stack_tensor(stack, 6);
+
+  SharedMetaData ctcLossBackwardSharedMeta{"ctc_loss_bwd"};
+  ctcLossBackwardSharedMeta.inputs_data = {
+      {grad.dim(), grad.scalar_type()},
+      {logProbs.dim(), logProbs.scalar_type()},
+      {targets.dim(), targets.scalar_type()}};
+  if (stack.at(3).isTensor()) {
+    const auto& inputLengths = stack_tensor(stack, 3);
+    const auto& targetsLengths = stack_tensor(stack, 4);
+    ctcLossBackwardSharedMeta.inputs_data.emplace_back(
+        inputLengths.dim(), inputLengths.scalar_type());
+    ctcLossBackwardSharedMeta.inputs_data.emplace_back(
+        targetsLengths.dim(), targetsLengths.scalar_type());
+  } else {
+    ctcLossBackwardSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+    ctcLossBackwardSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+  }
+  ctcLossBackwardSharedMeta.inputs_data.emplace_back(
+      negLogLikelihood.dim(), negLogLikelihood.scalar_type());
+  ctcLossBackwardSharedMeta.inputs_data.emplace_back(
+      logAlpha.dim(), logAlpha.scalar_type());
+  ctcLossBackwardSharedMeta.outputs_data.emplace_back(
+      logProbs.dim(), logProbs.scalar_type());
+
+  return {ctcLossBackwardSharedMeta};
+}
+
 void CtcLossBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

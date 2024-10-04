@@ -45,6 +45,20 @@ std::shared_ptr<void> FillSoftmaxBackwardParams(
   return params;
 }
 
+SharedMetaDataVector SoftmaxBackwardSharedMeta(const at::Stack& stack) {
+  const auto& gradOutput = stack_tensor(stack, 0);
+  const auto& output = stack_tensor(stack, 1);
+  const auto dtype = output.scalar_type();
+  const auto rank = gradOutput.dim();
+
+  SharedMetaData softmaxBwdSharedMeta{"softmax_bwd"};
+  softmaxBwdSharedMeta.inputs_data = {
+      {output.dim(), dtype}, {rank, gradOutput.scalar_type()}};
+  softmaxBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
+
+  return {softmaxBwdSharedMeta};
+}
+
 void SoftmaxBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

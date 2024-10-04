@@ -5932,13 +5932,10 @@ rsub.Scalar:
   op_validator: BinaryWithAlphaRSubSharedMeta
 
 scalar_tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short, Long]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
   guid: scalar_tensor_fwd
   output_meta: ScalarTensorMeta
   op_backend: ScalarTensor
+  op_validator: ScalarTensorSharedMeta
   out_ids: [0]
 
 _scaled_mm:
@@ -5955,101 +5952,32 @@ _scaled_mm.out:
   op_backend: ScaledMm
 
 scatter.src:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Short, Byte, Char]
-      src: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Int, Long]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Int, Long]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Int, Long]
   op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
   out_ids: [0]
 
 scatter_.src:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Short, Byte, Char]
-      src: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Int, Long]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
-      index: [Int, Long]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
-      index: [Int, Long]
   op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
   inplace_ids: [0]
 
 scatter.src_out:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Short, Byte, Char]
-      src: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Long, Int]
-      out: [BFloat16, Float, Int, Short, Byte, Char]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Long, Int]
-      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Long, Int]
-      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
   op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
 
 scatter.value:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Int, Long]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
-      index: [Int, Long]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
-      index: [Int, Long]
   op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
   out_ids: [0]
 
 scatter_.value:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Int, Long]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
-      index: [Int, Long]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
-      index: [Int, Long]
   op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
   inplace_ids: [0]
 
 scatter.value_out:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Int, Long]
-      out: [BFloat16, Float, Int, Short, Byte, Char]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
-      index: [Int, Long]
-      out: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
-      index: [Int, Long]
-      out: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
   op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
 
 scatter.reduce:
   custom_fill_params: ScatterReduceParams
@@ -6065,78 +5993,28 @@ scatter.reduce_out:
   op_validator: check-node-with-shared-layer
 
 scatter.value_reduce:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      index: [Int, Long]
-      src: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
   op_backend: ScatterWithReduceOperator
+  op_validator: ScatterReduceSharedMeta
   out_ids: [0]
 
 scatter.value_reduce_out:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      index: [Int, Long]
-      src: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
   op_backend: ScatterWithReduceOperator
+  op_validator: ScatterReduceSharedMeta
 
 scatter_add:
   custom_fill_params: ScatterAddParams
   output_meta: ScatterAddMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      index: [Int, Long]
-      src: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
   guid: complex_scatter_add
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 scatter_add.out:
   custom_fill_params: ScatterAddParams
   output_meta: ScatterAddMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      index: [Int, Long]
-      src: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
   guid: complex_scatter_add
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 scatter_reduce.two:
   custom_fill_params: ScatterReduceParams
@@ -6176,15 +6054,12 @@ searchsorted.Tensor_out:
 
 searchsorted.Scalar:
   custom_fill_params: FillSearchSortedParams
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
   guid: search_sorted_fwd
   output_meta: SearchSortedMeta
   promote_to_common_type: [sorted_sequence, self]
   out_ids: [0]
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 searchsorted.Scalar_out:
   custom_fill_params: FillSearchSortedParams
@@ -6208,11 +6083,8 @@ select.int:
 
 select_backward:
   output_meta: SelectBackwardMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int]
-    Gaudi3: [BFloat16, Float, Int]
   op_backend: SelectBackward
+  op_validator: SelectBwdSharedMeta
   out_ids: [0]
 
 sgn.out:
@@ -6368,14 +6240,14 @@ smooth_l1_loss.out:
 
 smooth_l1_loss_backward:
   output_meta: SmoothL1LossBackwardMeta
-  dtypes: [BFloat16, Float]
   op_backend: SmoothL1LossBwdOperator
+  op_validator: SmoothL1LossBwdSharedMeta
   out_ids: [0]
 
 smooth_l1_loss_backward.grad_input:
   output_meta: SmoothL1LossBackwardMeta
-  dtypes: [BFloat16, Float]
   op_backend: SmoothL1LossBwdOperator
+  op_validator: SmoothL1LossBwdSharedMeta
 
 _softmax:
   custom_fill_params: FillSoftmaxForwardParams
@@ -6398,22 +6270,16 @@ _softmax.out:
 
 _softmax_backward_data:
   custom_fill_params: FillSoftmaxBackwardParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: softmax_bwd
   op_backend: SoftmaxBackward
+  op_validator: SoftmaxBackwardSharedMeta
   out_ids: [0]
 
 _softmax_backward_data.out:
   custom_fill_params: FillSoftmaxBackwardParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: softmax_bwd
   op_backend: SoftmaxBackward
+  op_validator: SoftmaxBackwardSharedMeta
 
 softshrink:
   custom_fill_params: FillsoftshrinkfwdParams
@@ -6461,14 +6327,14 @@ softplus_backward.grad_input:
 
 special_erfcx:
   promote_int_to_float: [self]
-  dtypes: [BFloat16, Float]
   guid: erfcx_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 special_erfcx.out:
   promote_int_to_float: [self]
-  dtypes: [BFloat16, Float]
   guid: erfcx_fwd
+  op_validator: check-node-with-shared-layer
 
 special_xlog1py:
   output_meta: XlogYMeta
@@ -7326,11 +7192,8 @@ zero_:
 
 slice_backward:
   output_meta: SliceBackwardMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int]
-    Gaudi3: [BFloat16, Float, Int]
   op_backend: SliceBackward
+  op_validator: SliceBwdSharedMeta
   out_ids: [0]
   lazy:
     override_fn: slice_backward_hpu_lazy
@@ -7375,11 +7238,8 @@ _add_relu.out:
 _ctc_loss:
   output_meta: CtcLossMeta
   guid: ctc_loss_fwd
-  dtypes:
-    Gaudi: [Float, Int, Long]
-    Gaudi2: [Float, Int, Long]
-    Gaudi3: [Float, Int, Long]
   op_backend: CtcLoss
+  op_validator: CtcLossSharedMeta
   synapse_layouts:
   - [CNT, SN, DONT_CARE, DONT_CARE]
   - [DONT_CARE, SNT]
@@ -7388,11 +7248,8 @@ _ctc_loss:
 _ctc_loss.Tensor:
   output_meta: CtcLossMeta
   guid: ctc_loss_fwd
-  dtypes:
-    Gaudi: [Float, Int, Long]
-    Gaudi2: [Float, Int, Long]
-    Gaudi3: [Float, Int, Long]
   op_backend: CtcLoss
+  op_validator: CtcLossSharedMeta
   synapse_layouts:
   - [CNT, SN, DONT_CARE, DONT_CARE]
   - [DONT_CARE, SNT]
@@ -7401,11 +7258,8 @@ _ctc_loss.Tensor:
 _ctc_loss_backward:
   output_meta: CtcLossBackwardMeta
   guid: ctc_loss_bwd
-  dtypes:
-    Gaudi: [Float, Int, Long]
-    Gaudi2: [Float, Int, Long]
-    Gaudi3: [Float, Int, Long]
   op_backend: CtcLossBackward
+  op_validator: CtcLossBackwardSharedMeta
   synapse_layouts:
   - [DONT_CARE, CNT, SN, DONT_CARE, DONT_CARE, DONT_CARE, SNT]
   - [CNT]
@@ -7414,11 +7268,8 @@ _ctc_loss_backward:
 _ctc_loss_backward.Tensor:
   output_meta: CtcLossBackwardMeta
   guid: ctc_loss_bwd
-  dtypes:
-    Gaudi: [Float, Int, Long]
-    Gaudi2: [Float, Int, Long]
-    Gaudi3: [Float, Int, Long]
   op_backend: CtcLossBackward
+  op_validator: CtcLossBackwardSharedMeta
   synapse_layouts:
   - [DONT_CARE, CNT, SN, DONT_CARE, DONT_CARE, DONT_CARE, SNT]
   - [CNT]

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -24,6 +24,12 @@ OutputMetaDataVector ScalarTensorMeta(const at::Stack& stack) {
   meta.shape = {}; // This should be a 0 dim tensor
 
   return {meta};
+}
+
+SharedMetaDataVector ScalarTensorSharedMeta(const at::Stack&) {
+  // [SW-205149] return empty vector because shape tensor validation will block
+  // shape agnostic flow
+  return {};
 }
 
 void ScalarTensor::AddNode(

@@ -25,6 +25,17 @@ OutputMetaDataVector SelectBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector SelectBwdSharedMeta(const at::Stack& stack) {
+  const auto& grad = stack_tensor(stack, 0);
+  auto dtype = grad.scalar_type();
+  auto rank = stack.at(1).toIntList().size();
+
+  SharedMetaData stridedSliceGrad{"strided_slice_grad"};
+  stridedSliceGrad.inputs_data.emplace_back(rank, dtype);
+  stridedSliceGrad.outputs_data.emplace_back(rank, dtype);
+  return {stridedSliceGrad};
+}
+
 static int normalize_idx(int idx, int64_t size) {
   if (size <= 0) {
     return 0;

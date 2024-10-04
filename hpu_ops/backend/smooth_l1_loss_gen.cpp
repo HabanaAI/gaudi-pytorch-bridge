@@ -55,6 +55,56 @@ OutputMetaDataVector SmoothL1LossBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector SmoothL1LossBwdSharedMeta(const at::Stack& stack) {
+  const auto& grad = stack_tensor(stack, 0);
+  const auto& self = stack_tensor(stack, 1);
+  const auto& target = stack_tensor(stack, 2);
+  const float beta = stack.at(4).toScalar().to<float>();
+  const auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+
+  const auto kernels = beta != 0 ? 6 : 4;
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(kernels);
+
+  SharedMetaTensor commonTensor = {rank, dtype};
+  SharedMetaData subSharedMeta{"sub"};
+  subSharedMeta.inputs_data = {commonTensor, commonTensor};
+  subSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(subSharedMeta);
+
+  SharedMetaData signSharedMeta{"sign_fwd"};
+  signSharedMeta.inputs_data = {commonTensor};
+  signSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(signSharedMeta);
+
+  SharedMetaData multSharedMeta{"mult"};
+  multSharedMeta.inputs_data = {commonTensor, commonTensor};
+  multSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(multSharedMeta);
+
+  if (beta == 0)
+    return metaVec;
+
+  SharedMetaData absSharedMeta{"abs_fwd"};
+  absSharedMeta.inputs_data = {commonTensor};
+  absSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(absSharedMeta);
+
+  SharedMetaData lessSharedMeta{"less_fwd"};
+  lessSharedMeta.inputs_data = {commonTensor, commonTensor};
+  lessSharedMeta.outputs_data.emplace_back(rank, c10::ScalarType::Bool);
+  metaVec.push_back(lessSharedMeta);
+
+  SharedMetaData whereSharedMeta{"where_fwd"};
+  whereSharedMeta.inputs_data = {
+      lessSharedMeta.outputs_data[0], commonTensor, commonTensor};
+  whereSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(whereSharedMeta);
+
+  return metaVec;
+}
+
 void SmoothL1LossBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
