@@ -195,17 +195,38 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   red_params.reductionDimension =
       static_cast<unsigned int>(get_dim_in_tpc_order(
           red_dim /*dim*/, static_cast<int64_t>(red_output_shape.size())));
+
+  // reduce_sum_fwd_i64 causes perf drop compared to reduce_sum_fwd_i32
+  auto reduce_sum_type = ((indices_scalar_type == c10::ScalarType::Long) &&
+                          (common::IsInt64Supported()))
+      ? c10::ScalarType::Int
+      : indices_scalar_type;
   auto sumop = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_sum_fwd", indices_scalar_type),
+      {get_guid_with_precision("reduce_sum_fwd", reduce_sum_type),
        {mulOp.at(0).get()},
-       {{red_output_shape, indices_scalar_type}},
+       {{red_output_shape, reduce_sum_type}},
        &red_params,
        sizeof(red_params)});
-  std::vector<int64_t> reshape_sum({sumop.at(0).pt_shape()[0]});
+
+  // reduce_sum kernel definition assumes AnyType on output, so cast in some
+  // cases is required
+  std::vector<synapse_helpers::tensor> cast_node;
+  if (indices_scalar_type != reduce_sum_type) {
+    cast_node.push_back(std::move(OpBackend::BuildCast(
+        op,
+        graph,
+        sumop.at(0).get(),
+        red_output_shape,
+        reduce_sum_type,
+        indices_scalar_type)));
+  } else {
+    cast_node.push_back(std::move(sumop.at(0)));
+  }
+  std::vector<int64_t> reshape_sum({cast_node.at(0).pt_shape()[0]});
   auto reshape_sum_op = OpBackend::BuildSqueeze(
-      op, graph, sumop.at(0).get(), reshape_sum, indices_scalar_type);
+      op, graph, cast_node.at(0).get(), reshape_sum, indices_scalar_type);
 
   auto sortOp = TopK_Helper(
       op,
@@ -328,24 +349,20 @@ void IndexPutEager::AddNode(
   auto indices = stack.at(1).toTensorList().vec();
   auto values = stack_tensor(stack, 2);
   auto accumulate = stack.at(3).toBool();
-  auto max_size = broadcast_size(indices, self);
   auto indices_scalar_type = indices[0].scalar_type();
   std::vector<at::Tensor> cat_input;
 
   std::vector<synTensor> cat_input_synTensor;
   std::vector<synapse_helpers::tensor> cat_input_tensor;
   std::vector<std::vector<int64_t>> cat_input_index;
+
+  const auto expanded_size_dim0 =
+      indices[0].dim() ? indices[0].sizes().vec()[0] : 1;
+
   for (size_t i = 0; i < indices.size(); i++) {
-    auto bcastOp =
-        BroadcastHelper(graph, syn_in(i + 1), max_size, indices_scalar_type);
-    // Reshape broadcasted indices to [N, 1] for concatenation
-    auto flattened_size = std::accumulate(
-        std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
-    std::vector<int64_t> expanded_size = {flattened_size, 1};
-    auto flattenedIndice = FlattenHelper(
-        graph, bcastOp.get(), {flattened_size}, indices_scalar_type);
+    std::vector<int64_t> expanded_size = {expanded_size_dim0, 1};
     cat_input_tensor.emplace_back(ExpandDimsHelper(
-        graph, flattenedIndice.get(), expanded_size, indices_scalar_type, 0));
+        graph, syn_in(i + 1), expanded_size, indices_scalar_type, 0));
     cat_input_synTensor.emplace_back(
         cat_input_tensor[cat_input_tensor.size() - 1].get());
     cat_input_index.emplace_back(
@@ -373,6 +390,10 @@ void IndexPutEager::AddNode(
   auto rank_inp = static_cast<size_t>(self.ndimension());
   auto rank_idx = static_cast<size_t>(catop.pt_shape()[1]);
   std::vector<int64_t> value_upd_dim{catop.pt_shape()[0]};
+
+  std::vector<synapse_helpers::tensor> values_bcast_or_reshape_sh_tensor;
+  auto values_scalar_type = values.scalar_type();
+
   if (((int)indices.size() == self.dim()) && (values.numel() > 1)) {
     value_upd_dim.clear();
     value_upd_dim = values.sizes().vec();
@@ -381,8 +402,6 @@ void IndexPutEager::AddNode(
   for (size_t i = rank_idx; i < rank_inp; ++i)
     value_upd_dim.push_back(self.sizes().vec()[i]);
 
-  auto values_scalar_type = values.scalar_type();
-  std::vector<synapse_helpers::tensor> values_bcast_or_reshape_sh_tensor;
   // value_upd_dim is the final shape we want for values tensor to match
   // scatter_nd_onnx requirements. Either broadcast of reshape input values
   // tensor to get that shape.
@@ -398,23 +417,13 @@ void IndexPutEager::AddNode(
           std::begin(value_upd_dim),
           broadcastToElements / broadcastFromElements);
 
-    values_bcast_or_reshape_sh_tensor.emplace_back(BroadcastHelper(
-        graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type));
-  } else {
-    auto num_dims_to_squeeze = values.dim() - (int64_t)value_upd_dim.size();
-    auto values_sizes = values.sizes().vec();
-    std::vector<int64_t>::iterator it;
-    for (auto i = num_dims_to_squeeze; i > 0; i--) {
-      it = values_sizes.begin();
-      if (*it == 1) {
-        values_sizes.erase(it);
-      }
-    }
-    auto squeeze = SqueezeHelper(
-        graph, syn_in(1 + indices.size()), values_sizes, values_scalar_type);
-    values_bcast_or_reshape_sh_tensor.emplace_back(BroadcastHelper(
-        graph, squeeze.get(), value_upd_dim, values_scalar_type));
   }
+
+  values_bcast_or_reshape_sh_tensor.emplace_back(std::move(BuildOp(
+      graph,
+      get_guid_with_precision("index_put_broadcast_value", ScalarType()),
+      {syn_in(0), catop.get(), syn_in(1 + indices.size())},
+      {{value_upd_dim, ScalarType()}})[0]));
   auto self_scalar_type = self.scalar_type();
   // scatter_nd_fwd has no support for int16 and u8 , hence we need to cast
   std::string cast_guid{};
