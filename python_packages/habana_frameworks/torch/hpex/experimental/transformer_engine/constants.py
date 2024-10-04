@@ -10,8 +10,15 @@
 # This file contains Habana Labs, Ltd. proprietary and confidential information
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
+#
+# Changes:
+# - Removed unused constants
+# - Removed Torch_DType and TE_DType enums
 
-"""Transformer Engine bindings for pyTorch"""
-from .distributed import checkpoint
-from .fp8 import fp8_autocast
-from .module import FusedAttention, Linear
+"""Enums for e2e transformer"""
+import torch
+import torch.distributed
+
+GemmParallelModes = ("row", "column", None)
+
+dist_group_type = torch.distributed.ProcessGroup

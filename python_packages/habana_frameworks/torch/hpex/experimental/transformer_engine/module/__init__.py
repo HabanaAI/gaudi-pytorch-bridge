@@ -11,7 +11,6 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 
-"""Transformer Engine bindings for pyTorch"""
-from .distributed import checkpoint
-from .fp8 import fp8_autocast
-from .module import FusedAttention, Linear
+"""Module level PyTorch APIs"""
+from .attention import FusedAttention
+from .linear import Linear
