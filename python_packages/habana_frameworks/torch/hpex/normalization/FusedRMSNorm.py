@@ -47,6 +47,7 @@ class FusedRMSNorm(torch.autograd.Function):
         ctx.save_for_backward(inverse_root_mean_square, data_in, gamma)
         ctx.use_stages = use_stages
         ctx.bwd_mode = bwd_mode
+        ctx.fast_math = fast_math
 
         return root_mean_square_norm
 
@@ -56,7 +57,8 @@ class FusedRMSNorm(torch.autograd.Function):
         use_stages = ctx.use_stages
         bwd_mode = ctx.bwd_mode
 
-        grad_out, grad_gamma = torch.ops.hpu.rms_norm_backward(
+        op = torch.ops.hpu.rms_norm_fast_backward if ctx.fast_math else torch.ops.hpu.rms_norm_backward
+        grad_out, grad_gamma = op(
             root_mean_square_norm_grad_in,
             data_in,
             gamma,
