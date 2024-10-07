@@ -20,6 +20,7 @@
 #include "backend/synapse_helpers/event_handle_cache.h"
 #include "backend/synapse_helpers/stream.h"
 #include "habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 using namespace synapse_helpers;
 
@@ -54,6 +55,7 @@ void event::synchronize() const {
 }
 
 void event::complete() {
+  habana_helpers::AutoNoGIL gil_release;
   {
     std::unique_lock<std::mutex> lock(mutex_);
     if (done_)
@@ -72,6 +74,7 @@ void event::complete() {
 }
 
 void event::stream_wait_event(stream& stream, const uint32_t flags) {
+  habana_helpers::AutoNoGIL gil_release;
   std::unique_lock<std::mutex> lock(mutex_);
 
   if (done_ || stream == stream_recorded_) {
@@ -83,6 +86,12 @@ void event::stream_wait_event(stream& stream, const uint32_t flags) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "Recording of WaitEvent failed");
   }
+}
+
+void event::wait() {
+  habana_helpers::AutoNoGIL gil_release;
+  std::unique_lock<std::mutex> lock(mutex_);
+  ready_var_.wait(lock, [this]() -> bool { return done(); });
 }
 
 void event::map_event_to_tensor(

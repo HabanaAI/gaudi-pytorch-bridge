@@ -24,6 +24,7 @@
 #include "backend/synapse_helpers/stream.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/python_utils.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 using namespace synapse_helpers;
 
@@ -337,6 +338,7 @@ void stream_event_manager::wait_until_done(shared_event& event) {
 void stream_event_manager::synchronize_event(shared_event& event) {
   // The sync_mut_ is to be held till the call back tensors are released
   event->synchronize();
+  habana_helpers::AutoNoGIL gil_release;
   std::lock_guard<std::mutex> sync_mut_lock_guard(sync_mut_);
   {
     std::lock_guard<std::mutex> lock_guard(mut_);

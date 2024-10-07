@@ -107,10 +107,7 @@ class event {
     return done_;
   }
 
-  void wait() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ready_var_.wait(lock, [this]() -> bool { return done(); });
-  }
+  void wait();
 
   operator synEventHandle() const {
     return handle_;
