@@ -42,16 +42,6 @@ TEST_F(FallbackTest, Simple) {
   EXPECT_EQ(freq.at("aten::digamma.out"), 1);
 }
 
-TEST_F(FallbackTest, Inplace) {
-  auto t = torch::rand(10).to("hpu");
-  auto res = t.lgamma_();
-
-  EXPECT_EQ(t.storage().data_ptr().get(), res.storage().data_ptr().get());
-
-  const auto& freq = habana::HpuFallbackHelper::get()->get_op_count();
-  EXPECT_EQ(freq.at("aten::lgamma.out"), 1);
-}
-
 TEST_F(FallbackTest, inverse) {
   auto a = torch::randn({2, 2});
   auto b = a.inverse();

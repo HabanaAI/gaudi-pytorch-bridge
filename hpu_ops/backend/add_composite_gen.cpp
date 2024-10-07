@@ -17,37 +17,44 @@
 
 namespace habana {
 
+OutputMetaData CompoundMetaCommon(
+    const at::Tensor& self,
+    const at::Tensor& other1,
+    const at::Tensor& other2) {
+  const at::ScalarType dtype =
+      at::promote_types(self.scalar_type(), at::result_type(other1, other2));
+  const std::vector<int64_t> shape = at::infer_size(
+      at::infer_size(self.sizes(), other1.sizes()), other2.sizes());
+  return {dtype, shape};
+}
+
 OutputMetaDataVector AddCOpsMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& other1 = stack_tensor(stack, 1);
   const torch::Tensor& other2 = stack_tensor(stack, 2);
-  auto tmp = at::infer_size(self.sizes(), other1.sizes());
-  OutputMetaData meta;
-  meta.dtype = self.scalar_type();
-  meta.shape = at::infer_size(tmp, other2.sizes());
-  return {meta};
+
+  return {CompoundMetaCommon(self, other1, other2)};
 }
 
 static SharedMetaDataVector AddCompositeSharedMeta(
     const at::Stack& stack,
     const std::string& guid) {
   const auto& self = stack_tensor(stack, 0);
-  const auto self_dtype = self.scalar_type();
   const auto& other1 = stack_tensor(stack, 1);
   const auto& other2 = stack_tensor(stack, 2);
   const bool tensor_value = stack.at(3).isTensor();
   const auto output_rank =
       std::max(std::max(self.dim(), other1.dim()), other2.dim());
+  const at::ScalarType dtype =
+      at::promote_types(self.scalar_type(), at::result_type(other1, other2));
 
   SharedMetaData meta{guid};
   meta.inputs_data = {
-      {self.dim(), self_dtype},
-      {other1.dim(), other1.scalar_type()},
-      {other2.dim(), other2.scalar_type()}};
+      {self.dim(), dtype}, {other1.dim(), dtype}, {other2.dim(), dtype}};
   if (tensor_value) {
-    meta.inputs_data.push_back({0, self_dtype});
+    meta.inputs_data.push_back({0, dtype});
   }
-  meta.outputs_data = {{output_rank, self_dtype}};
+  meta.outputs_data = {{output_rank, dtype}};
 
   return {meta};
 }
@@ -73,12 +80,8 @@ OutputMetaDataVector ForeachCompoundMeta(const at::Stack& stack) {
   outputMetaDataVector.reserve(selfs.size());
 
   for (size_t i = 0; i < selfs.size(); ++i) {
-    const at::ScalarType dtype = at::promote_types(
-        selfs[i].scalar_type(), at::result_type(tensors1[i], tensors2[i]));
-    const std::vector<int64_t> shape = at::infer_size(
-        at::infer_size(selfs[i].sizes(), tensors1[i].sizes()),
-        tensors2[i].sizes());
-    outputMetaDataVector.emplace_back(dtype, shape);
+    outputMetaDataVector.push_back(
+        CompoundMetaCommon(selfs[i], tensors1[i], tensors2[i]));
   }
 
   return outputMetaDataVector;
@@ -101,16 +104,21 @@ std::shared_ptr<void> FillAddCompositeParams(
     BinaryWithAlphaMode_t mode,
     size_t& size) {
   PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
-  auto out_scalar_type = stack.at(0).toTensor().scalar_type();
 
   params->mode = mode;
   // if alpha is not equal to 1 then it is passed as tensor (4th input),
   // otherwise as params
-  auto val = stack.at(3).isScalar() ? stack.at(3).toScalar() : 1;
-  if (c10::isFloatingType(out_scalar_type)) {
-    get<float>(params->alpha) = val.to<float>();
+  auto scalar = stack.at(3).isScalar() ? stack.at(3).toScalar() : 1;
+  auto meta = AddCOpsMeta(stack)[0];
+  const bool isOutputIntegral = c10::isIntegralType(meta.dtype, true);
+  const bool isAddcdiv =
+      mode == BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CDIV;
+  if (isOutputIntegral && !isAddcdiv) {
+    params->alpha.i =
+        scalar.isFloatingPoint() ? scalar.to<float>() : scalar.to<int>();
   } else {
-    get<int>(params->alpha) = val.to<int>();
+    params->alpha.f =
+        scalar.isFloatingPoint() ? scalar.to<float>() : scalar.to<int>();
   }
 
   return params;

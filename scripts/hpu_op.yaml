@@ -1176,18 +1176,18 @@ add.Scalar:
 
 add_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Short, Int, Long, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
   override_fn: add_scalar_hpu_lazy_
   acc_thread: true
   promote_to_common_type: [self, other]
 
 add_.Tensor:
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Short, Int, Long, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
   override_fn: add_tensor_hpu_lazy_
   acc_thread: true
   promote_to_common_type: [self, other]
@@ -1239,6 +1239,7 @@ addcdiv:
   out_ids: [0]
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
   op_validator: AddCDivSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
 
 addcdiv_:
   output_meta: AddCOpsMeta
@@ -1248,6 +1249,7 @@ addcdiv_:
   inplace_ids: [0]
   schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
   op_validator: AddCDivSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
 
 addcdiv.out:
   output_meta: AddCOpsMeta
@@ -1256,6 +1258,7 @@ addcdiv.out:
   guid: addcdiv_fwd
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
   op_validator: AddCDivSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
 
 addcmul:
   output_meta: AddCOpsMeta
@@ -1265,6 +1268,7 @@ addcmul:
   out_ids: [0]
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
   op_validator: AddCMulSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
 
 addcmul_:
   output_meta: AddCOpsMeta
@@ -1274,6 +1278,7 @@ addcmul_:
   inplace_ids: [0]
   schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
   op_validator: AddCMulSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
 
 addcmul.out:
   output_meta: AddCOpsMeta
@@ -1282,6 +1287,7 @@ addcmul.out:
   guid: addcmul_fwd
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
   op_validator: AddCMulSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
 
 addmm:
   output_meta: AddMMMeta
@@ -3826,6 +3832,11 @@ lerp_.Tensor:
   inplace_ids: [0]
   op_validator: LerpSharedMeta
 
+lgamma.out:
+  promote_int_to_float: [self]
+  guid: gammaln_fwd
+  op_validator: check-node-with-shared-layer
+
 linalg_cross:
   op_backend: LinAlgCross
   op_validator: LinAlgCrossSharedMeta
@@ -3940,6 +3951,7 @@ log10.out:
   op_validator: check-node-with-shared-layer
 
 log2.out:
+  promote_int_to_float: [self]
   guid: log2_fwd
   op_validator: check-node-with-shared-layer
 
@@ -5215,9 +5227,9 @@ poisson:
 
 pow_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   guid: pow_fwd
   inplace_ids: [0]
   op_backend: PowOp
@@ -5232,9 +5244,9 @@ pow_.Tensor:
 
 pow.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   op_frontend: PowScalar
   guid: pow_fwd
   out_ids: [1]
@@ -5251,9 +5263,9 @@ pow.Scalar_out:
 pow.Tensor_Scalar:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Short, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Short, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   guid: pow_fwd
   out_ids: [0]
   op_backend: PowOp
@@ -5263,9 +5275,9 @@ pow.Tensor_Scalar:
 pow.Tensor_Scalar_out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Short, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Short, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   guid: pow_fwd
   op_backend: PowOp
   scalar_ids: [1]
