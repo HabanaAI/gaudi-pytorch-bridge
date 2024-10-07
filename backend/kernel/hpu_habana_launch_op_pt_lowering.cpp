@@ -898,7 +898,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
   rv.enable_optim_output_sif_ = enable_optim_output_sif_;
   if (enable_optim_output_sif_) {
     rv.st_to_tensor_idx_map = ShapeInference::GetTensorMapping();
-    rv.execution_mode = execution_mode_;
     rv.dynamic_nodes_with_backend_STs =
         std::move(dynamic_nodes_with_backend_STs);
     rv.ds_sifinfo_map[sym_expr_hash_] = std::move(ds_sif_info_);

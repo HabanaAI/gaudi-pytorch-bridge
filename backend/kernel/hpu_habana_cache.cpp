@@ -405,7 +405,6 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
     }
     deserialize(is, disabled_jit_ir_ops_);
     deserialize(is, st_to_tensor_idx_map);
-    deserialize(is, execution_mode);
     deserialize(is, enable_optim_output_sif_);
     deserialize(is, dynamic_nodes_with_backend_STs);
   }
@@ -476,7 +475,6 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     serialize(os, sif_tensor_indices);
     serialize(os, disabled_jit_ir_ops_);
     serialize(os, st_to_tensor_idx_map);
-    serialize(os, execution_mode);
     serialize(os, enable_optim_output_sif_);
     serialize(os, dynamic_nodes_with_backend_STs);
   }
@@ -669,8 +667,7 @@ void RecipeValueSpec::update_patching_table(
             ti.tensor_type() != SHAPE_TENSOR) {
           continue;
         }
-        if (enable_optim_output_sif_ == false ||
-            execution_mode == habana_helpers::HabanaFrontendTypes::LAZY) {
+        if (!enable_optim_output_sif_) {
           // Frontend STs should be part of m_actual_shapes
           // in lazy mode or when enable_optim_output_sif_ is disabled
           HABANA_ASSERT(

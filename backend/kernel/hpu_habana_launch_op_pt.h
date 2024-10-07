@@ -592,10 +592,6 @@ class HabanaLaunchOpPT {
       size_t& outputs_meta_index,
       SynBuildCache& syn_build_cache);
 
-  void HandleViewBaseOutputShape(
-      torch::jit::Node* node,
-      habana_helpers::DynamicSIFInfo& dsisss);
-
   void HandleOutputExprMappedJITGraph(
       std::shared_ptr<torch::jit::Graph>& rv_jit_graph,
       RecipeValueSpec& rv,

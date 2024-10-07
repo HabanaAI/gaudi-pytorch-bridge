@@ -53,6 +53,17 @@ synapse_helpers::tensor create_tensor(
     const std::string& name = std::string(),
     const std::string& inference_name = std::string());
 
+void update_backend_ST_info(
+    const c10::IntArrayRef& input_shapes,
+    synapse_helpers::graph& graph,
+    bool is_op_dynamic,
+    uint64_t& tensor_id);
+
+void update_frontend_ST_info(
+    const c10::IntArrayRef& input_shapes,
+    synapse_helpers::graph& graph,
+    uint64_t& tensor_id);
+
 synapse_helpers::tensor create_shape_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,

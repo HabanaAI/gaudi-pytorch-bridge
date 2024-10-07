@@ -429,10 +429,9 @@ bool BinarySTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   static_cast<void>(outputs);
-  static_cast<void>(inputs);
 
-  c10::ScalarType src_type = inputs[0].getScalarType();
-  c10::ScalarType dst_type = inputs[1].getScalarType();
+  const c10::ScalarType& src_type = inputs[0].getScalarType();
+  const c10::ScalarType& dst_type = inputs[1].getScalarType();
   auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
   auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
 
