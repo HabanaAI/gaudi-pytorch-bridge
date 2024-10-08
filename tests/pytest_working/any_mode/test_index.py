@@ -83,7 +83,11 @@ from test_utils import cpu, hpu
 )
 def test_index(shape, indices):
     if pytest.mode == "compile":
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+        if any(index is None for index in indices):
+            pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+        else:
+            # Reset dynamo to avoid using dynamic shapes when all tests run at once.
+            torch._dynamo.reset()
 
     def wrapper_fn(src, indices):
         return torch.ops.aten.index(src, indices)
