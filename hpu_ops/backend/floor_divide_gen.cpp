@@ -12,6 +12,7 @@
  */
 
 #include "generated/backend/floor_divide.h"
+#include "habana_helpers/dtype_helpers.h"
 
 namespace habana {
 std::shared_ptr<void> FillFloorDivideParams(const at::Stack&, size_t& size) {
@@ -19,5 +20,21 @@ std::shared_ptr<void> FillFloorDivideParams(const at::Stack&, size_t& size) {
   // using floor mode
   params->isTruncRoundingMode = false;
   return params;
+}
+
+SharedMetaDataVector FloorDivideSharedMeta(const at::Stack& stack) {
+  const auto& self = stack.at(0).toTensor();
+  const auto& other = stack.at(1).toTensor();
+  const auto dtype = habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+                         {self, other}, c10::nullopt, false)
+                         .get_result_dtype();
+  const auto selfDim = self.dim();
+  const auto otherDim = other.dim();
+
+  SharedMetaData floorDivideMeta("floor_divide_fwd");
+  floorDivideMeta.inputs_data.emplace_back(selfDim, dtype);
+  floorDivideMeta.inputs_data.emplace_back(otherDim, dtype);
+  floorDivideMeta.outputs_data.emplace_back(std::max(selfDim, otherDim), dtype);
+  return {floorDivideMeta};
 }
 } // namespace habana

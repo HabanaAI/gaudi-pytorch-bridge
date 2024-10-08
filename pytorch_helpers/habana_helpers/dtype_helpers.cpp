@@ -141,11 +141,13 @@ void DTypeHelper::build() {
         result_dtype_);
   }
 
-  result_dtype_ = output_dtype_ == c10::ScalarType::Undefined ? result_dtype_
-                                                              : output_dtype_;
-
-  result_dtype_ = result_dtype_ == c10::ScalarType::Undefined ? common_dtype_
-                                                              : result_dtype_;
+  if (output_dtype_ == c10::ScalarType::Undefined) {
+    if (result_dtype_ == c10::ScalarType::Undefined) {
+      result_dtype_ = common_dtype_;
+    }
+  } else {
+    result_dtype_ = output_dtype_;
+  }
 
   TORCH_CHECK(
       common_dtype_ != c10::ScalarType::Undefined,

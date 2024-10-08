@@ -24,22 +24,14 @@ SharedMetaDataVector DivideSharedMeta(const at::Stack& stack) {
   auto selfType = selfTensor.scalar_type();
   auto other = stack.at(1);
   int64_t otherRank;
-  at::ScalarType otherType;
   if (other.isTensor()) {
-    auto otherTensor = other.toTensor();
-    otherType = otherTensor.scalar_type();
-    otherRank = otherTensor.dim();
+    otherRank = other.toTensor().dim();
   } else {
-    otherType = other.toScalar().type();
     otherRank = 1;
   }
 
-  auto commonType = GetCommonDtype({self, other}, true);
   if (c10::isIntegralType(selfType, true))
-    selfType = commonType;
-
-  if (c10::isIntegralType(otherType, true))
-    otherType = commonType;
+    selfType = GetCommonDtype({self, other}, true);
 
   auto resultType = GetResultDtype({self, other}, true);
   std::string guid = "div";

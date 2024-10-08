@@ -3009,7 +3009,7 @@ floor_divide.out:
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-188025
+  op_validator: FloorDivideSharedMeta
 
 floor_divide:
   custom_fill_params: FillFloorDivideParams
@@ -3018,7 +3018,7 @@ floor_divide:
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-188025
+  op_validator: check-node-with-shared-layer
 
 floor_divide_.Tensor:
   custom_fill_params: FillFloorDivideParams
@@ -3026,7 +3026,7 @@ floor_divide_.Tensor:
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-188025
+  op_validator: check-node-with-shared-layer
 
 floor_divide.Scalar:
   custom_fill_params: FillFloorDivideParams
@@ -3036,7 +3036,7 @@ floor_divide.Scalar:
   promote_to_common_type: [self, other]
   scalar_ids: [1]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-188025
+  op_validator: check-node-with-shared-layer
 
 floor_divide.Scalar_out:
   custom_fill_params: FillFloorDivideParams
@@ -3045,6 +3045,7 @@ floor_divide.Scalar_out:
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 frac:
   op_backend: Frac
