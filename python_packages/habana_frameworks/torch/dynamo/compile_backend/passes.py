@@ -1600,6 +1600,10 @@ class resolve_negative_dim:
                 ):
                     resolve_negative_dim.is_dynamic = True
                 in_args_1 = node.args[1]
+                # skip for non-iterable arg for example view(dtype)
+                if not hasattr(in_args_1, "__iter__"):
+                    return False
+
                 for index, value in enumerate(in_args_1):
                     if not isinstance(value, py_sym_types):
                         if value == -1:

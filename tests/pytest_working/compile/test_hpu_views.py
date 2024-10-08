@@ -174,6 +174,22 @@ def test_hpu_t_with_1D_input():
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
 
 
+def test_hpu_multilevel_view_dtype():
+    def fn(a):
+        a = a.view(torch.float)
+        return a.view(-1)
+
+    x = torch.randn(8)
+    y = x.view(torch.bool)
+    res_ref = fn(y)
+
+    y_hpu = y.to("hpu")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    res_hpu = compiled_fn(y_hpu)
+
+    assert torch.allclose(res_ref, res_hpu.cpu(), atol=0.001, rtol=0.001)
+
+
 def fn(a):
     b = a.t()
     c = b.mul(1.0)
