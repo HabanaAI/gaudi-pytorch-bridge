@@ -20,17 +20,15 @@ namespace habana {
 
 struct QuantizePerTensor : OpBackend {
   QuantizePerTensor(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
-FILL_PARAMS_DECL(FillQuantizePerTensorParams)
 OUTMETA_DECL(QuantizePerTensorMeta)
 
 struct DequantizePerTensor : OpBackend {
   DequantizePerTensor(int device_id, c10::ScalarType scalar_type);
-  void CustomHandler(synapse_helpers::graph&, at::Stack&) override;
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
-
-FILL_PARAMS_DECL(FillDequantizePerTensorParams)
 
 struct QuantizePerChannel : OpBackend {
   QuantizePerChannel(int device_id, c10::ScalarType scalar_type);

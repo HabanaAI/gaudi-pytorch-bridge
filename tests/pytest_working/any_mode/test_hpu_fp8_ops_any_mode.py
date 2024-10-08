@@ -772,6 +772,8 @@ def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
     scale_a_t = torch.tensor(scale_a, dtype=dtype).to("hpu")
     scale_b_t = torch.tensor(scale_b, dtype=dtype).to("hpu")
     scale_out_t = torch.tensor(scale_out).to("hpu")
+    res_fp8_tensor, _ = fn(a, b, scale_a_t, scale_b_t, scale_out_t)
+    res_fp8_tensor.cpu()
 
     model = TestModel(scale_a_t, scale_b_t, scale_out_t)
 
@@ -780,8 +782,6 @@ def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
 
     res_fp8_scalar, _ = model(a, b)
     res_scalar_cpu = res_fp8_scalar.cpu().float()
-
-    res_fp8_tensor, _ = fn(a, b, scale_a_t, scale_b_t, scale_out_t)
 
     compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=1e-2)
     ht.disable_inference_mode()

@@ -13,29 +13,34 @@
 
 #include "hpu_ops/quant_dequant_ops.h"
 
+namespace sh = synapse_helpers;
 namespace habana {
 
-std::shared_ptr<void> FillQuantizePerTensorParams(
-    const at::Stack& stack,
-    size_t& size) {
-  PARAMS_STUB(ns_QuantizationPerTensor::ParamsV2);
-  if (stack[1].isDouble()) {
-    params->scale = stack[1].toDouble();
-    params->zero_point = stack[2].toInt();
+void WrapScalarAsTensor(
+    habana::OpBackend* op,
+    sh::graph& graph,
+    const c10::IValue& scalar,
+    std::vector<sh::tensor>& scalar_tensors,
+    std::vector<synTensor>& syn_inputs,
+    c10::ScalarType force_type) {
+  TORCH_CHECK(
+      scalar.isDouble() || scalar.isInt(),
+      "quantize_per_tensor_v2 expects only double or int parameters");
+  if (scalar.isDouble()) {
+    scalar_tensors.emplace_back(
+        op->BuildConstantTensor(op, graph, scalar.toDouble(), force_type));
+  } else {
+    scalar_tensors.emplace_back(
+        op->BuildConstantTensor(op, graph, scalar.toInt(), force_type));
   }
-  if (stack[3].isInt()) {
-    params->quant_min = stack[3].toInt();
-    params->quant_max = stack[4].toInt();
-  }
-  return params;
+  syn_inputs.push_back(scalar_tensors.back().get());
 }
 
 OutputMetaDataVector QuantizePerTensorMeta(const at::Stack& stack) {
-  OutputMetaDataVector meta(1);
-  meta.at(0).shape = stack_tensor(stack, 0).sizes().vec();
-  meta.at(0).dtype = stack[5].toScalarType();
-
-  return meta;
+  OutputMetaData meta;
+  meta.shape = stack_tensor(stack, 0).sizes().vec();
+  meta.dtype = stack[5].toScalarType();
+  return {meta};
 }
 
 QuantizePerTensor::QuantizePerTensor(int device_id, c10::ScalarType scalar_type)
@@ -47,28 +52,61 @@ QuantizePerTensor::QuantizePerTensor(int device_id, c10::ScalarType scalar_type)
           {},
           {},
           false) {
-  SetFillParams(FillQuantizePerTensorParams);
   SetOutputMetaFn(QuantizePerTensorMeta);
 }
 
-std::shared_ptr<void> FillDequantizePerTensorParams(
-    const at::Stack& stack,
-    size_t& size) {
-  PARAMS_STUB(ns_QuantizationPerTensor::ParamsV2);
-  if (stack[1].isDouble()) {
-    params->scale = stack[1].toDouble();
-    params->zero_point = stack[2].toInt();
+void QuantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto scale = stack.at(1);
+  auto zero_point = stack.at(2);
+  auto quant_min = stack.at(3);
+  auto quant_max = stack.at(4);
+
+  auto force_type = self.scalar_type();
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  std::vector<sh::tensor> scalar_tensors;
+
+  if (scale.isTensor()) {
+    syn_inputs.push_back(syn_in(1));
+    syn_inputs.push_back(syn_in(2));
+    if (quant_min.isTensor()) {
+      // quantize_per_tensor_tensor2
+      syn_inputs.push_back(syn_in(3));
+      syn_inputs.push_back(syn_in(4));
+    } else {
+      // quantize_per_tensor_tensor
+      WrapScalarAsTensor(
+          this, graph, quant_min, scalar_tensors, syn_inputs, force_type);
+      WrapScalarAsTensor(
+          this, graph, quant_max, scalar_tensors, syn_inputs, force_type);
+    }
+  } else {
+    // quantize_per_tensor
+    WrapScalarAsTensor(
+        this, graph, scale, scalar_tensors, syn_inputs, force_type);
+    WrapScalarAsTensor(
+        this, graph, zero_point, scalar_tensors, syn_inputs, force_type);
+    WrapScalarAsTensor(
+        this, graph, quant_min, scalar_tensors, syn_inputs, force_type);
+    WrapScalarAsTensor(
+        this, graph, quant_max, scalar_tensors, syn_inputs, force_type);
   }
-  return params;
+
+  const auto meta = QuantizePerTensorMeta(stack)[0];
+  auto op = BuildOp(
+      graph,
+      get_guid_with_precision("quantize_per_tensor_v2", self.scalar_type()),
+      std::move(syn_inputs),
+      {{meta.shape, meta.dtype, 0}});
+  syn_out(0) = std::move(op[0]);
 }
 
 OutputMetaDataVector DequantizePerTensorMeta(const at::Stack& stack) {
-  OutputMetaDataVector meta(1);
-  meta.at(0).shape = stack_tensor(stack, 0).sizes().vec();
-  meta.at(0).dtype =
+  OutputMetaData meta;
+  meta.shape = stack_tensor(stack, 0).sizes().vec();
+  meta.dtype =
       stack[6].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
-
-  return meta;
+  return {meta};
 }
 
 DequantizePerTensor::DequantizePerTensor(
@@ -82,16 +120,38 @@ DequantizePerTensor::DequantizePerTensor(
           {},
           {},
           false) {
-  SetFillParams(FillDequantizePerTensorParams);
   SetOutputMetaFn(DequantizePerTensorMeta);
 }
 
-void DequantizePerTensor::CustomHandler(
-    synapse_helpers::graph&,
-    at::Stack& stack) {
-  SetGuid(get_guid_with_precision(
-      "dequantize_per_tensor",
-      stack[6].toOptional<at::ScalarType>().value_or(at::ScalarType::Float)));
+void DequantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto scale = stack.at(1);
+  auto zero_point = stack.at(2);
+  auto out_dtype =
+      stack.at(6).toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
+
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  std::vector<sh::tensor> scalar_tensors;
+
+  if (scale.isTensor()) {
+    // dequantize_per_tensor_tensor and dequantize_per_tensor_tensor2
+    syn_inputs.push_back(syn_in(1));
+    syn_inputs.push_back(syn_in(2));
+  } else {
+    // dequantize_per_tensor
+    WrapScalarAsTensor(
+        this, graph, scale, scalar_tensors, syn_inputs, out_dtype);
+    WrapScalarAsTensor(
+        this, graph, zero_point, scalar_tensors, syn_inputs, out_dtype);
+  }
+
+  const auto meta = DequantizePerTensorMeta(stack)[0];
+  auto op = BuildOp(
+      graph,
+      get_guid_with_precision("dequantize_per_tensor_v2", out_dtype),
+      std::move(syn_inputs),
+      {{meta.shape, meta.dtype, 0}});
+  syn_out(0) = std::move(op[0]);
 }
 
 std::shared_ptr<void> FillQuantizePerChannelParams(
@@ -159,9 +219,7 @@ DequantizePerChannel::DequantizePerChannel(
   SetOutputMetaFn(DequantizePerChannelMeta);
 }
 
-void DequantizePerChannel::CustomHandler(
-    synapse_helpers::graph&,
-    at::Stack& stack) {
+void DequantizePerChannel::CustomHandler(sh::graph&, at::Stack& stack) {
   SetGuid(get_guid_with_precision(
       "dequantize_per_channel",
       stack[7].toOptional<at::ScalarType>().value_or(at::ScalarType::Float)));
