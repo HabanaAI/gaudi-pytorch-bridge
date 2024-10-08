@@ -34,6 +34,10 @@ def _clear_jit_cache() -> set:
     return _debug_C.clear_jit_cache()
 
 
+def _flush_disk_cache() -> None:
+    _debug_C._disk_cache_flush()
+
+
 def _set_dynamic_mode() -> None:
     _debug_C.set_dynamic_mode()
 

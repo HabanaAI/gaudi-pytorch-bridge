@@ -162,7 +162,18 @@ void BaseCacheFileHandler::evict_recipe_if_needed() {
   }
 
   release_access_for_eviction();
-  HABANA_ASSERT(recipes_total_size <= recipe_cache_dir_max_size.value());
+
+  if (recipes_total_size <= recipe_cache_dir_max_size.value()) {
+    // Because recipe deleting may fail and this is normal case to handle
+    // Show a warning instead of assertion error
+    PT_HABHELPER_WARN(
+        CACHEFILE_LOG,
+        "Recipes total size still exceeded the limit after eviction: ",
+        recipes_total_size,
+        "/",
+        recipe_cache_dir_max_size.value(),
+        ".");
+  }
 }
 
 bool BaseCacheFileHandler::delete_recipe(RecipeInfo& r_info) {

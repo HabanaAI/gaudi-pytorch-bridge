@@ -127,7 +127,6 @@ void CacheFileHandler::addFileInfo(const std::string& cache_id) {
       "Adding: ",
       cache_id,
       ", Size: ",
-      std::dec,
       size,
       ", Rank: ",
       getRank());
