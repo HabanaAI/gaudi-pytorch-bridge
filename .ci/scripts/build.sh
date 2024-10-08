@@ -2712,6 +2712,7 @@ install_pytorch_whls() {
         $__pip_cmd install -U ${LIGHTNING_HABANA_FORK_BUILD}/pkgs/*.whl --force-reinstall --no-deps
     fi
     $__pip_cmd install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
+    __install_habana_transformer_engine
 }
 
 install_pytorch_whls_future() {
