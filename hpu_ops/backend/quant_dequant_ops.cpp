@@ -25,7 +25,7 @@ void WrapScalarAsTensor(
     c10::ScalarType force_type) {
   TORCH_CHECK(
       scalar.isDouble() || scalar.isInt(),
-      "quantize_per_tensor_v2 expects only double or int parameters");
+      "quantize_per_tensor expects only double or int parameters");
   if (scalar.isDouble()) {
     scalar_tensors.emplace_back(
         op->BuildConstantTensor(op, graph, scalar.toDouble(), force_type));
@@ -95,7 +95,7 @@ void QuantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto meta = QuantizePerTensorMeta(stack)[0];
   auto op = BuildOp(
       graph,
-      get_guid_with_precision("quantize_per_tensor_v2", self.scalar_type()),
+      get_guid_with_precision("quantize_per_tensor", self.scalar_type()),
       std::move(syn_inputs),
       {{meta.shape, meta.dtype, 0}});
   syn_out(0) = std::move(op[0]);
@@ -148,7 +148,7 @@ void DequantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto meta = DequantizePerTensorMeta(stack)[0];
   auto op = BuildOp(
       graph,
-      get_guid_with_precision("dequantize_per_tensor_v2", out_dtype),
+      get_guid_with_precision("dequantize_per_tensor", out_dtype),
       std::move(syn_inputs),
       {{meta.shape, meta.dtype, 0}});
   syn_out(0) = std::move(op[0]);
