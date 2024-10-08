@@ -506,38 +506,6 @@ at::Tensor roi_align_bwd_hpu_lazy(
     int sampling_ratio,
     float spatial_scale,
     bool aligned);
-at::Tensor deform_conv2d_lazy(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& offset,
-    const at::Tensor& mask,
-    const at::Tensor& bias,
-    int64_t stride_h,
-    int64_t stride_w,
-    int64_t pad_h,
-    int64_t pad_w,
-    int64_t dilation_h,
-    int64_t dilation_w,
-    int64_t groups,
-    int64_t offset_groups,
-    bool use_mask);
-std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
-deform_conv2d_backward_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& offset,
-    const at::Tensor& mask,
-    const at::Tensor& bias,
-    int64_t stride_h,
-    int64_t stride_w,
-    int64_t pad_h,
-    int64_t pad_w,
-    int64_t dilation_h,
-    int64_t dilation_w,
-    int64_t groups,
-    int64_t offset_groups,
-    bool use_mask);
 at::Tensor& broadcast_hpu_lazy_(
     at::Tensor& tensor,
     int64_t root_rank,
@@ -976,72 +944,6 @@ CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
 
 #undef CONV2D_FP8_LAZY
 
-at::Tensor quantize_per_tensor_lazy(
-    const at::Tensor& input,
-    double scale,
-    int64_t zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor quantize_per_tensor_tensor_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor quantize_per_tensor_tensor2_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    const at::Tensor& quant_min,
-    const at::Tensor& quant_max,
-    at::ScalarType type);
-at::Tensor dequantize_per_tensor_lazy(
-    const at::Tensor& input,
-    double scale,
-    int64_t zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_type);
-at::Tensor dequantize_per_tensor_tensor_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_type);
-at::Tensor dequantize_per_tensor_tensor2_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    const at::Tensor& quant_min,
-    const at::Tensor& quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_type);
-at::Tensor quantize_per_channel_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scales,
-    const at::Tensor& zero_points,
-    int64_t axis,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor dequantize_per_channel_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scales,
-#if IS_PYTORCH_AT_LEAST(2, 4)
-    const c10::optional<at::Tensor>& zero_points,
-#else
-    const at::Tensor& zero_points,
-#endif
-    int64_t axis,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_type);
 at::Tensor sum_fp8_lazy(
     const at::Tensor& self,
     at::OptionalIntArrayRef dim,

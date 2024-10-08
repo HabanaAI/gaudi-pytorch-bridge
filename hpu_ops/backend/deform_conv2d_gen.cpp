@@ -11,7 +11,8 @@
  *******************************************************************************
  */
 
-#include "hpu_ops/deform_conv2d.h"
+#include "generated/backend/_deform_conv2d_backward.h"
+#include "generated/backend/deform_conv2d.h"
 
 namespace habana {
 
@@ -126,25 +127,6 @@ OutputMetaDataVector DeformConv2dOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-DeformConv2d::DeformConv2d(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "deform_conv2d_fwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetOutputMetaFn(DeformConv2dOutputMeta);
-  SetSynapseLayouts(
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-}
-
 void DeformConv2d::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -186,31 +168,6 @@ OutputMetaDataVector DeformConv2dBackwardOutputMeta(const at::Stack& stack) {
   return {meta_input, meta_weight, meta_offset, meta_mask, meta_bias};
 }
 
-DeformConv2dBackward::DeformConv2dBackward(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "deform_conv2d_bwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetOutputMetaFn(DeformConv2dBackwardOutputMeta);
-  SetSynapseLayouts(
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-}
-
 void DeformConv2dBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -238,12 +195,3 @@ void DeformConv2dBackward::AddNode(
 }
 
 } // namespace habana
-
-static const auto& DeformConv2dKernelRegistry =
-    habana::KernelRegistry()
-        .add(
-            "torchvision::deform_conv2d",
-            KERNEL_FN_GLOBAL(habana::DeformConv2d))
-        .add(
-            "torchvision::_deform_conv2d_backward",
-            KERNEL_FN_GLOBAL(habana::DeformConv2dBackward));

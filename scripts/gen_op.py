@@ -53,7 +53,7 @@ FuncDef = namedtuple_with_defaults("FuncDef", "cpp_sig, aten_sig, dtdf")
 
 OpGen = namedtuple_with_defaults(
     "OpGen",
-    "tree, xtree, rwxtree, func, xfunc, op_frontend_eager, op_frontend_lazy, op_backend, cname, sig, rwsig, cppsig, funsig, mapsig, aten_sig, dtdf, ctxop, opgroup, fc_params, op_variant",
+    "tree, xtree, rwxtree, func, xfunc, op_frontend_eager, op_frontend_lazy, op_backend, cname, sig, rwsig, cppsig, funsig, mapsig, aten_sig, dtdf, ctxop, opgroup, fc_params, op_variant, ns",
 )
 
 OpMeta = namedtuple_with_defaults("OpMeta", "op_variant, mapsig, func, funsig")
@@ -812,7 +812,7 @@ def generate_backend_functions(fgen, is_custom=False):
         kr_regs = schema_template.format(ns="hpu", op=op, func=fgen.cname)
         custom_schema_regs += f'  m.def("{fgen.aten_sig}");\n'
     else:
-        kr_regs = schema_template.format(ns="aten", op=op, func=fgen.cname)
+        kr_regs = schema_template.format(ns=fgen.ns, op=op, func=fgen.cname)
         if fgen.ctxop.custom_schema():
             kr_regs += schema_template.format(ns="hpu", op=op, func=fgen.cname)
             custom_schema_regs = f'  m.def("{fgen.ctxop.custom_schema()}");\n'
@@ -1369,8 +1369,10 @@ def lazy_frontend(
     sig,
     params,
     is_check_kernel_support,
+    ns,
 ):
-    ns = "hpu" if ctxop.custom_schema() or ctxop.get_custom_op_schema() else "aten"
+    if ctxop.custom_schema():
+        ns = "hpu"
     aten_opname = get_aten_opname(aten_sig)
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
@@ -1552,12 +1554,11 @@ def eager_frontend(
     sig,
     params,
     out_indices,
+    ns,
 ):
-    is_custom_op = ctxop.get_custom_op_schema() is not None
     aten_opname = get_aten_opname(aten_sig)
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
-    ns = "hpu" if is_custom_op else "aten"
     schema_fn = f"{ns}::{opname}"
     code = "{} {{\n".format(sig)
     code += generate_entry_debug_code(fname, params, True)
@@ -1644,7 +1645,7 @@ lazy_frontend_blacklist = [
 eager_frontend_blacklist = []
 
 
-def generate_aten_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False):
+def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False, ns="aten"):
     dtdf = fndef.dtdf
     tree = parser.parse(fndef.cpp_sig)
     xtree = parser.xparse(fndef.cpp_sig)
@@ -1692,6 +1693,7 @@ def generate_aten_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=F
             sig,
             params,
             out_indices,
+            ns,
         )
 
     if ctxop.get_lazy():
@@ -1710,6 +1712,7 @@ def generate_aten_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=F
             sig,
             params,
             is_check_kernel_support,
+            ns,
         )
 
     return OpGen(
@@ -1733,6 +1736,7 @@ def generate_aten_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=F
         opgroup=opgroup,
         fc_params=fc_params,
         op_variant=op_name,
+        ns=ns,
     )
 
 
@@ -2010,7 +2014,7 @@ def get_frontend_inclusions(mode):
     return "\n" + common_inclusions + lazy_inclusions + "\n"
 
 
-def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_custom, gen_file_idx, out_dir, args):
+def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_file_idx, out_dir, args, ns):
     frontend_inclusions = get_frontend_inclusions(out_dir)
     header_inclusions = ""
     for op_group in sorted(op_groups):
@@ -2024,7 +2028,7 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_cust
             funcs=functions,
             op_backend="",
             kr_regs="",
-            torch_regs=torch_library_impl(torch_regs, "hpu" if is_custom else "aten"),
+            torch_regs=torch_library_impl(torch_regs, ns),
             custom_schema_regs="",
             file_idx=gen_file_idx,
         ),
@@ -2032,7 +2036,7 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_cust
     )
 
 
-def generate_frontend(args, fgens, out_dir, is_custom=False):
+def generate_frontend(args, fgens, out_dir, namespace="aten"):
     frontend_func = f"op_frontend_{out_dir}"
     fgens_filtered = [x for x in fgens if getattr(x, frontend_func) is not None]
     ops_count = len(fgens_filtered)
@@ -2041,6 +2045,7 @@ def generate_frontend(args, fgens, out_dir, is_custom=False):
     dtype_defs = ""
     functions = ""
     torch_regs = ""
+    is_custom = namespace != "aten"
 
     fgen_files = defaultdict(list)
     op_groups = set()
@@ -2062,7 +2067,7 @@ def generate_frontend(args, fgens, out_dir, is_custom=False):
         torch_regs += _torch_regs
 
         if not is_custom and should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, ops_count):
-            print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_custom, gen_file_idx, out_dir, args)
+            print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_file_idx, out_dir, args, namespace)
             gen_file_idx += 1
             dtype_defs = ""
             functions = ""
@@ -2070,7 +2075,9 @@ def generate_frontend(args, fgens, out_dir, is_custom=False):
             op_groups = set()
 
     if is_custom:
-        print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_custom, "_custom", out_dir, args)
+        namespace_to_postfix = {"hpu": "_custom", "quantized_decomposed": "_quant", "torchvision": "_torchvision"}
+        file_postfix = namespace_to_postfix[namespace]
+        print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, file_postfix, out_dir, args, namespace)
 
     frontend_class_headers = {}
 
@@ -2113,6 +2120,8 @@ def generate(args):
     fgens_hpu_wrap_lazy = []
     fgens_hpu_wrap_eager = []
     fgens_custom = []
+    fgens_quant = []
+    fgens_torchvision = []
 
     for op_name, op_params in yaml_ctx.get_op_data():
         check_op_params(op_name, op_params)
@@ -2122,33 +2131,40 @@ def generate(args):
             if not is_current_version:
                 continue
             fndef = pt_ops.get(op_name, None)
-            assert fndef is not None, f"Op {op_name} doesn't exist in aten namespace."
+            assert fndef is not None, f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml."
             op_meta = generate_op_meta(fndef.cpp_sig, op_name)
             fgens_hpu_wrap_lazy.append(op_meta)
             if fndef.dtdf:
                 fgens_hpu_wrap_eager.append(op_meta)
         elif ctxop.get_custom_op_schema():
             fndef = fndef_from_schema(ctxop.get_custom_op_schema())
-            fgens_custom.append(generate_aten_op(fndef, op_name, ctxop, op_params))
+            namespace = re.search(r"^(.*)::", ctxop.get_custom_op_schema()).group(1)
+            if namespace == "torchvision":
+                fgens_torchvision.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
+            elif namespace == "quantized_decomposed":
+                fgens_quant.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
+            else:
+                fgens_custom.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
         elif not ctxop.get_only_shared_layer():
             fndef = pt_ops.get(op_name, None)
             if fndef is None:
                 print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
                 continue
-            fgens_native.append(generate_aten_op(fndef, op_name, ctxop, op_params))
+            fgens_native.append(generate_op(fndef, op_name, ctxop, op_params))
 
     gen_hpu_wrap_ops(fgens_hpu_wrap_lazy, args, "lazy")
     gen_hpu_wrap_ops(fgens_hpu_wrap_eager, args, "eager")
 
     generate_autocast_ops(all_ops_metas, args)
 
-    generate_backend(args, fgens_native)
+    generate_backend(args, fgens_native + fgens_quant + fgens_torchvision)
     generate_backend(args, fgens_custom, is_custom=True)
 
-    generate_frontend(args, fgens_native, "lazy")
-    generate_frontend(args, fgens_custom, "lazy", is_custom=True)
-    generate_frontend(args, fgens_native, "eager")
-    generate_frontend(args, fgens_custom, "eager", is_custom=True)
+    for mode in ["eager", "lazy"]:
+        generate_frontend(args, fgens_native, mode)
+        generate_frontend(args, fgens_custom, mode, namespace="hpu")
+        generate_frontend(args, fgens_quant, mode, namespace="quantized_decomposed")
+        generate_frontend(args, fgens_torchvision, mode, namespace="torchvision")
 
 
 def generate_check_kernel_support_sigs(fgen):
@@ -2480,14 +2496,14 @@ def generate_check_kernel_support(args):
             fgens_hpu_wrap.append(op_meta)
         elif ctxop.get_custom_op_schema():
             fndef = fndef_from_schema(ctxop.get_custom_op_schema())
-            fgen_custom = generate_aten_op(fndef, op_name, ctxop, op_params, True)
+            fgen_custom = generate_op(fndef, op_name, ctxop, op_params, True)
             fgens_custom.append(fgen_custom)
         else:
             fndef = pt_ops.get(op_name, None)
             if fndef is None:
                 print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
                 continue
-            fgens_native.append(generate_aten_op(fndef, op_name, ctxop, op_params, True))
+            fgens_native.append(generate_op(fndef, op_name, ctxop, op_params, True))
 
     header_inclusions = (
         '#include "habana_kernels/lazy_kernels_declarations.h"\n'

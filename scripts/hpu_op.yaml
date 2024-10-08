@@ -7330,6 +7330,78 @@ _ctc_loss_backward.Tensor:
   - [CNT]
   out_ids: [1]
 
+# non-aten native ops
+# These are not present in RegistrationDeclarations.h, so both namespace and op schema must be provided.
+# To add HPU support for such ops, please include the "custom_op_schema" field.
+# Currently, only quantized_decomposed and torchvision namespaces are supported.
+quantize_per_tensor:
+  custom_op_schema: "quantized_decomposed::quantize_per_tensor(Tensor input, float scale, int zero_point, int quant_min, int quant_max, ScalarType type) -> Tensor"
+  output_meta: QuantizePerTensorMeta
+  op_backend: QuantizePerTensor
+  out_ids: [0]
+
+quantize_per_tensor.tensor:
+  custom_op_schema: "quantized_decomposed::quantize_per_tensor.tensor(Tensor input, Tensor scale, Tensor zero_point, int quant_min, int quant_max, ScalarType type) -> Tensor"
+  output_meta: QuantizePerTensorMeta
+  op_backend: QuantizePerTensor
+  out_ids: [0]
+
+quantize_per_tensor.tensor2:
+  custom_op_schema: "quantized_decomposed::quantize_per_tensor.tensor2(Tensor input, Tensor scale, Tensor zero_point, Tensor quant_min, Tensor quant_max, ScalarType type) -> Tensor"
+  output_meta: QuantizePerTensorMeta
+  op_backend: QuantizePerTensor
+  out_ids: [0]
+
+quantize_per_channel:
+  custom_fill_params: FillQuantizePerChannelParams
+  custom_op_schema: "quantized_decomposed::quantize_per_channel(Tensor input, Tensor scales, Tensor zero_points, int axis, int quant_min, int quant_max, ScalarType type) -> Tensor"
+  guid: quantize_per_channel
+  output_meta: QuantizePerChannelMeta
+  out_ids: [0]
+
+dequantize_per_channel:
+  custom_op_schema: "quantized_decomposed::dequantize_per_channel(Tensor input, Tensor scales, Tensor? zero_points, int axis, int quant_min, int quant_max, ScalarType type, ScalarType? out_type) -> Tensor"
+  guid: dequantize_per_channel
+  output_meta: DequantizePerChannelMeta
+  op_backend: DequantizePerChannel
+  out_ids: [0]
+
+dequantize_per_tensor:
+  custom_op_schema: "quantized_decomposed::dequantize_per_tensor(Tensor input, float scale, int zero_point, int quant_min, int quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
+  output_meta: DequantizePerTensorMeta
+  op_backend: DequantizePerTensor
+  out_ids: [0]
+
+dequantize_per_tensor.tensor:
+  custom_op_schema: "quantized_decomposed::dequantize_per_tensor.tensor(Tensor input, Tensor scale, Tensor zero_point, int quant_min, int quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
+  output_meta: DequantizePerTensorMeta
+  op_backend: DequantizePerTensor
+  out_ids: [0]
+
+dequantize_per_tensor.tensor2:
+  custom_op_schema: "quantized_decomposed::dequantize_per_tensor.tensor2(Tensor input, Tensor scale, Tensor zero_point, Tensor quant_min, Tensor quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
+  output_meta: DequantizePerTensorMeta
+  op_backend: DequantizePerTensor
+  out_ids: [0]
+
+deform_conv2d:
+  custom_op_schema: "torchvision::deform_conv2d(Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> Tensor"
+  output_meta: DeformConv2dOutputMeta
+  synapse_layouts:
+  - [WHCN, WHCN, SRCK, WHCN, DONT_CARE]
+  - [WHCN]
+  op_backend: DeformConv2d
+  out_ids: [0]
+
+_deform_conv2d_backward:
+  custom_op_schema: "torchvision::_deform_conv2d_backward(Tensor grad, Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> (Tensor, Tensor, Tensor, Tensor, Tensor)"
+  output_meta: DeformConv2dBackwardOutputMeta
+  synapse_layouts:
+  - [WHCN, WHCN, SRCK, WHCN, WHCN]
+  - [WHCN, SRCK, WHCN, WHCN, DONT_CARE]
+  op_backend: DeformConv2dBackward
+  out_ids: [0]
+
 # Below ops override PyTorch implementation. They were previously
 # declared via wrap_kernels_declarations.h file in habana_kernels and pt_ver
 # directories. Now it's enough to add such op with one of fields:
@@ -7435,7 +7507,7 @@ _pin_memory:
 is_pinned:
   hpu_wrap_all_versions: true
 
-# Custom ops (currently only from 'hpu' namespace)
+# Custom ops
 
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
