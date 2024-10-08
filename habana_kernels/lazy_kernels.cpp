@@ -5974,7 +5974,7 @@ at::Tensor deform_conv2d_lazy(
        offset_groups,
        use_mask}};
   hpu_op.SetOutputMetaFn(DeformConv2dOutputMeta);
-  return hpu_op.call();
+  RUN_MAYBE_WITH_ACC_THREAD(deform_conv_2d, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
@@ -6033,7 +6033,7 @@ deform_conv2d_backward_lazy(
            offset_groups,
            use_mask}};
   hpu_op.SetOutputMetaFn(DeformConv2dBackwardOutputMeta);
-  return hpu_op.call();
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(deform_conv2d_backward, hpu_op)
 }
 
 at::Tensor& broadcast_hpu_lazy_(
