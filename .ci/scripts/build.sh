@@ -2266,7 +2266,7 @@ install_pillow_simd()
 {
     $__pip_cmd uninstall -y pillow
     $__pip_cmd uninstall -y pillow-simd
-    cmd=($__pip_cmd install pillow-simd==9.5.0.post1)
+    cmd=(CC="cc -mavx2" $__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
