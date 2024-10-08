@@ -4282,23 +4282,17 @@ masked_fill.Tensor:
   out_ids: [0]
 
 max.dim:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_multi_dim_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
   out_ids: [0, 0]
+  op_validator: MaxDimSharedMeta
 
 max.dim_max:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_multi_dim_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
+  op_validator: MaxDimSharedMeta
 
 maximum:
   broadcast: true
@@ -4466,23 +4460,17 @@ min:
   op_validator: check-node-with-shared-layer
 
 min.dim:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_multi_dim_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
   out_ids: [0, 0]
+  op_validator: MinDimSharedMeta
 
 min.dim_min:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_multi_dim_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
+  op_validator: MinDimSharedMeta
 
 fmin:
   broadcast: true

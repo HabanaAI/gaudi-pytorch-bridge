@@ -60,6 +60,42 @@ OutputMetaDataVector MinMaxMeta(const at::Stack& stack) {
   return {metaMinMax, metaIndices};
 }
 
+SharedMetaDataVector MinMaxDimSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& self = stack.at(0).toTensor();
+  auto dtype = self.scalar_type();
+  const auto selfDim = self.dim();
+  const bool keepDim = stack.at(2).toBool();
+
+  if (dtype == c10::ScalarType::Long)
+    dtype = c10::ScalarType::Int;
+
+  auto outputDim = selfDim;
+  if (!keepDim && outputDim > 1)
+    --outputDim;
+
+  SharedMetaData reduceMinMaxMultiDimFwdSharedMeta{guid};
+  reduceMinMaxMultiDimFwdSharedMeta.options.allowLongType = true;
+  reduceMinMaxMultiDimFwdSharedMeta.inputs_data.emplace_back(selfDim, dtype);
+  reduceMinMaxMultiDimFwdSharedMeta.outputs_data.emplace_back(outputDim, dtype);
+  reduceMinMaxMultiDimFwdSharedMeta.outputs_data.emplace_back(
+      outputDim, c10::ScalarType::Long);
+  return {reduceMinMaxMultiDimFwdSharedMeta};
+}
+
+SharedMetaDataVector MinDimSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MinMaxDimSharedMeta(stack, "reduce_min_multi_dim_fwd");
+}
+
+SharedMetaDataVector MaxDimSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MinMaxDimSharedMeta(stack, "reduce_max_multi_dim_fwd");
+}
+
 std::shared_ptr<void> FillMinMaxDimParams(
     const at::Stack& stack,
     size_t& size) {
