@@ -1584,17 +1584,6 @@ argmin.out:
   guid: argmin_multi_dim_fwd
   op_validator: check-node-with-shared-layer
 
-argsort.stable:
-  dtypes:
-    Gaudi: [Float, Int, BFloat16, Short]
-    Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
-    Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
-  fallback_check: [ArgSortStableFallbackCheck, self, stable, dim, descending]
-  output_meta: ArgSortStableMeta
-  op_backend: ArgSortStable
-  op_validator: TopkSharedMeta
-  out_ids: [0]
-
 asin:
   promote_int_to_float: [self]
   guid: asin_fwd
