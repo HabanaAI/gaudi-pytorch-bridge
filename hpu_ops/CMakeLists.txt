@@ -226,7 +226,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/max_min_gen.cpp
   backend/maxpool_gen.cpp
   backend/median_gen.cpp
-  backend/median_slice_util.cpp
   backend/mish_gen.cpp
   backend/mm_gen.cpp
   backend/mixture_of_experts.cpp

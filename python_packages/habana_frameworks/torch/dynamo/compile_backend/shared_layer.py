@@ -198,23 +198,6 @@ def index_put_support_check(node, is_dynamic):
     return True
 
 
-# TODO: Should be removed after adding mediandim DS support:
-# https://jira.habana-labs.com/browse/SW-140476
-def median_ds_fallback_is_required(node, is_dynamic):
-    # simple median has support for DS. It has only one input argument.
-    # median(Tensor self) -> Tensor
-    #
-    # other median variants i.e. median.dim, median.dim_values
-    # median.dim(Tensor self, int dim, bool keepdim=False)
-    # median.dim_values(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) values, Tensor(b!) indices)
-    # does not support DS at the moment
-
-    if (len(node.args) != 1) and is_dynamic:
-        return True
-
-    return False
-
-
 def check_for_default_op_support(op_name, node, is_dynamic):
     if op_name == "index_put":
         return index_put_support_check(node, is_dynamic)
@@ -260,11 +243,6 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
     # eager fallback will take place
     if op_name in hpu_ds_fallback_list and is_dynamic:
         return True
-
-    # TODO: Should be removed after adding mediandim DS support:
-    # https://jira.habana-labs.com/browse/SW-140476
-    if op_name == "median":
-        return median_ds_fallback_is_required(node, is_dynamic)
 
     # representing scalar float value NaN in JIT fails, by being pasted as
     # literal nan and interpreted as reference to global variable nan imported

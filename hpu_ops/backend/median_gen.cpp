@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "generated/backend/median.h"
-#include "hpu_ops/median_slice_util.h"
 #include "hpu_ops/topk_util.h"
 
 namespace habana {
