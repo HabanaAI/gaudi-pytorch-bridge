@@ -20,7 +20,7 @@ if not is_gaudi1():
     dtypes.extend([torch.float16, torch.int16])
 
 
-@pytest.mark.parametrize("shape", [(), (1,), (5,), (3, 2)], ids=format_tc)
+@pytest.mark.parametrize("shape", [(), (0,), (1,), (5,), (3, 2), (3, 0, 2)], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 @pytest.mark.parametrize("shape_2nd", ["same", "add1", "unsqueeze"], ids=format_tc)
 def test_hpu_equal(shape, dtype, shape_2nd):
