@@ -7002,12 +7002,9 @@ upsample_bilinear2d_backward.grad_input:
 
 upsample_linear1d:
   output_meta: UpsampleLinear1DFwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
+  op_validator: UpsampleLinear1DFwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
@@ -7015,12 +7012,9 @@ upsample_linear1d:
 
 upsample_linear1d.out:
   output_meta: UpsampleLinear1DFwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
+  op_validator: UpsampleLinear1DFwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
@@ -7034,12 +7028,9 @@ upsample_linear1d.vec:
 
 upsample_linear1d_backward:
   output_meta: UpsampleLinear1DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
+  op_validator: UpsampleLinear1DBwdSharedMeta
   out_ids: [0]
   synapse_layouts:
   - [WHC, WHC]
@@ -7047,24 +7038,18 @@ upsample_linear1d_backward:
 
 upsample_linear1d_backward.grad_input:
   output_meta: UpsampleLinear1DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
+  op_validator: UpsampleLinear1DBwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
 
 upsample_nearest1d:
   output_meta: UpsampleNearest1DFwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
@@ -7072,12 +7057,9 @@ upsample_nearest1d:
 
 upsample_nearest1d.out:
   output_meta: UpsampleNearest1DFwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
@@ -7091,12 +7073,9 @@ upsample_nearest1d.vec:
 
 upsample_nearest1d_backward:
   output_meta: UpsampleNearest1DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
@@ -7104,36 +7083,27 @@ upsample_nearest1d_backward:
 
 upsample_nearest1d_backward.grad_input:
   output_meta: UpsampleNearest1DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
 
 _upsample_nearest_exact1d.out:
   output_meta: UpsampleNearest1DFwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearestExact1DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
 
 _upsample_nearest_exact1d_backward.grad_input:
   output_meta: UpsampleNearest1DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearestExact1DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
   synapse_layouts:
   - [WHC, WHC]
   - [WHC]
@@ -7142,10 +7112,7 @@ upsample_nearest2d:
   custom_fill_params: FillNearestFwdParams
   output_meta: UpsampleNearest2DFwdMeta
   op_backend: UpSampleNearest2DOperator
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
+  op_validator: UpsampleNearest2DFwdSharedMeta
   guid: resize_fwd
   synapse_layouts:
   - [WHCN, WHCN]
@@ -7156,10 +7123,7 @@ upsample_nearest2d.out:
   custom_fill_params: FillNearestFwdParams
   output_meta: UpsampleNearest2DFwdMeta
   op_backend: UpSampleNearest2DOperator
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
+  op_validator: UpsampleNearest2DFwdSharedMeta
   guid: resize_fwd
   synapse_layouts:
   - [WHCN, WHCN]
@@ -7169,11 +7133,8 @@ upsample_nearest2d_backward:
   custom_fill_params: FillNearestBwdParams
   output_meta: UpsampleNearest2DBwdMeta
   op_backend: UpSampleNearest2DOperator
+  op_validator: UpsampleNearest2DBwdSharedMeta
   op_frontend: LazyUpsample
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   synapse_layouts:
   - [WHCN, WHCN]
@@ -7185,10 +7146,7 @@ upsample_nearest2d_backward.grad_input:
   custom_fill_params: FillNearestBwdParams
   output_meta: UpsampleNearest2DBwdMeta
   op_backend: UpSampleNearest2DOperator
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
+  op_validator: UpsampleNearest2DBwdSharedMeta
   guid: resize_bwd
   synapse_layouts:
   - [WHCN, WHCN]
@@ -7196,12 +7154,9 @@ upsample_nearest2d_backward.grad_input:
 
 upsample_nearest3d:
   output_meta: UpsampleNearest3DFwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
@@ -7209,24 +7164,18 @@ upsample_nearest3d:
 
 upsample_nearest3d.out:
   output_meta: UpsampleNearest3DFwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
 
 upsample_nearest3d_backward:
   output_meta: UpsampleNearest3DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
   out_ids: [0]
   synapse_layouts:
   - [WHDCN, WHDCN]
@@ -7234,12 +7183,9 @@ upsample_nearest3d_backward:
 
 upsample_nearest3d_backward.grad_input:
   output_meta: UpsampleNearest3DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]

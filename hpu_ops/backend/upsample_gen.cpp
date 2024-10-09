@@ -472,6 +472,66 @@ OutputMetaDataVector UpsampleNearest3DBwdMeta(const at::Stack& stack) {
 
 enum modes { nearest, nearest_exact, linear, bicubic };
 
+SharedMetaDataVector UpsampleCommmonSharedLayer(
+    const at::Stack& stack,
+    const bool alignCorners,
+    const int64_t scalesIndex,
+    const bool isForward) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& outSize = stack.at(1);
+  const auto& scales = stack.at(scalesIndex);
+  const bool modifyInputWithOutputWidth =
+      isForward && !alignCorners && (!outSize.isNone() && !scales.isNone());
+
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(modifyInputWithOutputWidth ? 2 : 1);
+
+  const auto rank = self.dim();
+  auto dtype = self.scalar_type();
+  if (dtype == c10::ScalarType::Byte)
+    dtype = c10::ScalarType::Float;
+
+  const std::string guid = isForward ? "resize_fwd" : "resize_bwd";
+  SharedMetaTensor commonTensor = {rank, dtype};
+  SharedMetaData resizeSharedMeta{guid};
+  resizeSharedMeta.inputs_data = {commonTensor};
+  resizeSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(resizeSharedMeta);
+
+  if (modifyInputWithOutputWidth) {
+    SharedMetaData sliceSharedMeta{"slice"};
+    sliceSharedMeta.inputs_data = {commonTensor};
+    sliceSharedMeta.outputs_data = {commonTensor};
+    metaVec.push_back(sliceSharedMeta);
+  }
+
+  return metaVec;
+}
+
+SharedMetaDataVector UpsampleLinear1DFwdSharedMeta(const at::Stack& stack) {
+  return UpsampleCommmonSharedLayer(stack, stack.at(2).toBool(), 3, true);
+}
+
+SharedMetaDataVector UpsampleLinear1DBwdSharedMeta(const at::Stack& stack) {
+  return UpsampleCommmonSharedLayer(stack, stack.at(3).toBool(), 4, false);
+}
+
+SharedMetaDataVector UpsampleNearest1D3DFwdSharedMeta(const at::Stack& stack) {
+  return UpsampleCommmonSharedLayer(stack, false, 2, true);
+}
+
+SharedMetaDataVector UpsampleNearest1D3DBwdSharedMeta(const at::Stack& stack) {
+  return UpsampleCommmonSharedLayer(stack, false, 3, false);
+}
+
+SharedMetaDataVector UpsampleNearest2DFwdSharedMeta(const at::Stack& stack) {
+  return UpsampleCommmonSharedLayer(stack, true, 2, true);
+}
+
+SharedMetaDataVector UpsampleNearest2DBwdSharedMeta(const at::Stack& stack) {
+  return UpsampleCommmonSharedLayer(stack, true, 3, false);
+}
+
 // Custom FillParams function
 std::shared_ptr<void> FillResizeParams(
     const int variant_type,
