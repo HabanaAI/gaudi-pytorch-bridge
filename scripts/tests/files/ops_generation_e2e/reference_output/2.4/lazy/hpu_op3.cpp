@@ -36,7 +36,7 @@ at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, boo
   auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, self, boundaries, out_int32, right)
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, false, self, boundaries, out_int32, right)
 
   LazyOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
   hpu_op.set_scalar_types({compute_type});
@@ -52,7 +52,7 @@ at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scal
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, self, alpha, scale, input_scale)
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, false, self, alpha, scale, input_scale)
 
   LazyOp<at::Tensor> hpu_op{"aten::elu", {self, alpha, scale, input_scale}};
   RUN_MAYBE_WITH_ACC_THREAD(elu, hpu_op);

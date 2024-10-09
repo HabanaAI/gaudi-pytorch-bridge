@@ -592,6 +592,7 @@ def fallback_if_unsupported(
     param_vars,
     check_per_tensor,
     prefix,
+    check_st_h2d_str,
     is_check_kernel_support=False,
 ):
     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
@@ -602,7 +603,7 @@ def fallback_if_unsupported(
 
     def single_fallback(tensor_opt=""):
         tensor_string = tensor_opt + ", " if tensor_opt else ""
-        return "  {}{}{}{}({}{}{}, {}{})\n".format(
+        return "  {}{}{}{}({}{}{}, {}{}{})\n".format(
             prefix,
             fallback_string,
             per_tensor_string,
@@ -611,6 +612,7 @@ def fallback_if_unsupported(
             opname,
             is_dynamic_string,
             overload_string,
+            check_st_h2d_str,
             ", ".join(param_vars),
         )
 
@@ -1172,7 +1174,15 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
 
 
 def handle_validator_generator(
-    ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, is_check_kernel_support=False
+    ctxop,
+    use_compute_type,
+    overload,
+    opname,
+    param_vars,
+    tfetcher,
+    fname,
+    is_check_kernel_support=False,
+    check_st_h2d=False,
 ):
     dtypes = ctxop.get_dtypes()
     op_validator_generator = ctxop.get_op_validator_generator()
@@ -1184,8 +1194,16 @@ def handle_validator_generator(
 
     # Check with compute_type when using compute_type
     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
+
+    # check shape tensor and h2d tensor string
+    check_st_h2d_str = ""
+    if fallback_if_prefix and not is_check_kernel_support:
+        if check_st_h2d:
+            check_st_h2d_str = "true, "
+        else:
+            check_st_h2d_str = "false, "
     if use_compute_type:
-        code += "  {}{}{}({}{}{}, {}{})\n".format(
+        code += "  {}{}{}({}{}{}, {}{}{})\n".format(
             fallback_if_prefix,
             fallback_string,
             "2" if overload else "",
@@ -1193,6 +1211,7 @@ def handle_validator_generator(
             opname,
             ", is_dynamic" if is_check_kernel_support else "",
             overload + ", " if overload else "",
+            check_st_h2d_str,
             ", ".join(param_vars),
         )
     else:
@@ -1213,6 +1232,7 @@ def handle_validator_generator(
             param_vars,
             check_per_tensor,
             fallback_if_prefix,
+            check_st_h2d_str,
             is_check_kernel_support,
         )
     code += "\n"
@@ -1536,7 +1556,9 @@ def eager_frontend(
     )
 
     code += promotion_code
-    code += handle_validator_generator(ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname)
+    code += handle_validator_generator(
+        ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, False, True
+    )
     code += handle_fallback_check(ctxop, overload, opname, param_vars)
 
     is_eager_op_supported = is_eager_op(ctxop)

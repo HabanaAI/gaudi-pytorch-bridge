@@ -26,7 +26,7 @@ at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, true, self, batch1, batch2, beta, alpha)
 
   eager::EagerOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
   hpu_op.SetOutputMetaFn(AddBMMMeta);

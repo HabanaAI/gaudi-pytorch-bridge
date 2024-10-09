@@ -98,9 +98,13 @@ struct CheckNodeWithSharedLayerValidator {
   bool Validate(
       const at::Stack& values,
       bool is_dynamic = false,
+      bool check_st_h2d = false,
       const SharedMetaVector& meta = {});
 
-  bool ValidateCustom(const at::Stack& values, bool is_dynamic = false);
+  bool ValidateCustom(
+      const at::Stack& values,
+      bool is_dynamic = false,
+      bool check_st_h2d = false);
 
   bool IsRequireH2D() const {
     return m_require_h2d;

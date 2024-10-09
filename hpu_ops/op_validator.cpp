@@ -149,7 +149,9 @@ SharedLayer::Return_t ValidateGuid(
     const std::string& guid,
     const detail::TensorDescrArray& input_values,
     const detail::TensorDescrArray& output_values,
-    bool is_dynamic = false) {
+    bool is_dynamic = false,
+    bool valid_shape_tensor = true,
+    bool valid_h2d_tensor = true) {
   SharedLayer::ParamsV2_t params{};
   params.apiVersion = 1;
   auto deviceId = getDeviceType();
@@ -193,6 +195,8 @@ SharedLayer::Return_t ValidateGuid(
   params.inputTensors = input_tensors;
   params.outputTensors = output_tensors;
   params.supportsDynamicShapes = is_dynamic;
+  params.requiresShapeTensor = valid_shape_tensor;
+  params.requiresH2DTensor = valid_h2d_tensor;
 
   return synSharedLayerValidateGuidV2(&params);
 }
@@ -360,6 +364,10 @@ std::string ToDebugString(const SharedLayer::Return_t errcode) {
       return "MISSING_PRIVATE_STRUCTURE";
     case SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT:
       return "MISSING_DYNAMIC_SUPPORT";
+    case SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT:
+      return "HAS_NO_SHAPE_TENSOR_INPUT";
+    case SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT:
+      return "HAS_NO_H2D_TENSOR_INPUT";
     case SharedLayer::Return_t::SHARED_LAYER_FAILED:
     default:
       return "UNKNOWN_FAILURE";
@@ -457,6 +465,7 @@ bool is_guid_support_dynamic_shape(const std::string& guid) {
 bool CheckNodeWithSharedLayerValidator::Validate(
     const at::Stack& values,
     bool is_dynamic,
+    bool check_st_h2d,
     const SharedMetaVector& meta) {
   auto promoted_type = ComputePromotedType(values);
 
@@ -484,7 +493,8 @@ bool CheckNodeWithSharedLayerValidator::Validate(
 
   auto inputs = CreateInputList(values, promoted_type, outputs.size());
 
-  auto validation_result = ValidateGuid(m_guid, inputs, outputs, is_dynamic);
+  auto validation_result = ValidateGuid(
+      m_guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &&
       is_dynamic && !is_guid_support_dynamic_shape(m_guid)) {
@@ -493,55 +503,32 @@ bool CheckNodeWithSharedLayerValidator::Validate(
   }
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
-    // This log line is used by the logging analysis tool. Please be cautious
-    // when changing.
-    PT_OP_INFO(
-        "Shared layer rejected op: ",
-        m_opname,
-        ":  guid=",
-        m_guid,
-        " inputlist=",
-        ToDebugString(inputs),
-        " outputlist=",
-        ToDebugString(outputs),
-        " values=",
-        ToDebugString(values),
-        " is_dynamic=",
-        ToDebugString(is_dynamic),
-        " reason=",
-        ToDebugString(validation_result));
-    PT_OP_INFO("Fallback for op: ", m_opname);
-    return false;
-  }
-
-  // (TODO)query if h2d and st are needed
-  m_require_h2d = false;
-  m_require_st = false;
-  return true;
-}
-
-bool CheckNodeWithSharedLayerValidator::ValidateCustom(
-    const at::Stack& values,
-    bool is_dynamic) {
-  for (const auto& meta : m_sharedMetaFunc(values)) {
-    auto inputs = CreateTensorList(meta.inputs_data);
-    auto outputs = CreateTensorList(meta.outputs_data);
-
-    auto validation_result =
-        ValidateGuid(meta.guid, inputs, outputs, is_dynamic);
-
-    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+    if (validation_result ==
+        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
+      validation_result =
+          ValidateGuid(m_guid, inputs, outputs, is_dynamic, false, true);
+      if (validation_result !=
+          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+        m_require_h2d = true;
+      }
+    } else if (
+        validation_result ==
+        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+      m_require_st = true;
+    } else {
       // This log line is used by the logging analysis tool. Please be cautious
       // when changing.
       PT_OP_INFO(
-          "Shared layer rejected complex op: ",
+          "Shared layer rejected op: ",
           m_opname,
           ":  guid=",
-          meta.guid,
+          m_guid,
           " inputlist=",
           ToDebugString(inputs),
           " outputlist=",
           ToDebugString(outputs),
+          " values=",
+          ToDebugString(values),
           " is_dynamic=",
           ToDebugString(is_dynamic),
           " reason=",
@@ -549,6 +536,83 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
       PT_OP_INFO("Fallback for op: ", m_opname);
       return false;
     }
+  } else {
+    m_require_st = true;
+    m_require_h2d = true;
+  }
+
+  if (check_st_h2d) {
+    PT_OP_INFO(
+        "Shared layer op: ",
+        m_opname,
+        ":  guid=",
+        m_guid,
+        " require_shape_tensor=",
+        m_require_st,
+        " require_h2d_tensor=",
+        m_require_h2d);
+  }
+
+  return true;
+}
+
+bool CheckNodeWithSharedLayerValidator::ValidateCustom(
+    const at::Stack& values,
+    bool is_dynamic,
+    bool check_st_h2d) {
+  for (const auto& meta : m_sharedMetaFunc(values)) {
+    auto inputs = CreateTensorList(meta.inputs_data);
+    auto outputs = CreateTensorList(meta.outputs_data);
+
+    auto validation_result = ValidateGuid(
+        meta.guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);
+
+    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+      if (validation_result ==
+          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
+        validation_result =
+            ValidateGuid(meta.guid, inputs, outputs, is_dynamic, false, true);
+        if (validation_result !=
+            SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+          m_require_h2d = true;
+        }
+      } else if (
+          validation_result ==
+          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
+        m_require_st = true;
+      } else {
+        // This log line is used by the logging analysis tool. Please be
+        // cautious when changing.
+        PT_OP_INFO(
+            "Shared layer rejected complex op: ",
+            m_opname,
+            ":  guid=",
+            meta.guid,
+            " inputlist=",
+            ToDebugString(inputs),
+            " outputlist=",
+            ToDebugString(outputs),
+            " is_dynamic=",
+            ToDebugString(is_dynamic),
+            " reason=",
+            ToDebugString(validation_result));
+        PT_OP_INFO("Fallback for op: ", m_opname);
+        return false;
+      }
+    } else {
+      m_require_st = true;
+      m_require_h2d = true;
+    }
+  }
+
+  if (check_st_h2d) {
+    PT_OP_INFO(
+        "Shared layer complex op: ",
+        m_opname,
+        " require_shape_tensor=",
+        m_require_st,
+        " require_h2d_tensor=",
+        m_require_h2d);
   }
 
   return true;

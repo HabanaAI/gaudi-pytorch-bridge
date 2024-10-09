@@ -131,16 +131,16 @@ struct SharedLayerOp {
 
 #define RETURN_UNSUPPORTED_OP2_O(input, param2, overload) return false;
 
-#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...)          \
-  if (ABSL_PREDICT_FALSE(                                                     \
-          !validator_##opname.Validate({args}, is_dynamic, m_shared_meta))) { \
-    return false;                                                             \
+#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...) \
+  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(               \
+          {args}, is_dynamic, false, m_shared_meta))) {              \
+    return false;                                                    \
   }
 
 #define VAL_RETURN_IF_UNSUPPORTED_DTYPE2(                           \
     opname, is_dynamic, overload, args...)                          \
   if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \
-          {args}, is_dynamic, m_shared_meta))) {                    \
+          {args}, is_dynamic, false, m_shared_meta))) {             \
     return false;                                                   \
   }
 
