@@ -12,15 +12,18 @@
 
 import argparse
 import csv
+import gc
 import json
 import multiprocessing as mp
 import os
 import shutil
 import sqlite3
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
-import tqdm
+from tqdm import tqdm
 
 
 def remove_file(path, verbose=True, strict=True):
@@ -271,14 +274,11 @@ class DivergenceAnalyzer:
 
         # Get list of tables in both databases
         cursor1.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables1 = cursor1.fetchall()
         cursor2.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables2 = cursor2.fetchall()
 
         """
         This is thr format in which data is preset in DB file
         Data is from synapse/src/data_serialize/sql/sql_db_serializer.cpp
-                                        "ROW_INDEX      int     not NULL,"
                                         "GROUP_ID       int     not NULL,"
                                         "LAUNCH_INDEX   int     not NULL,"
                                         "GRAPH_NAME     text    not NULL,"
@@ -292,16 +292,39 @@ class DivergenceAnalyzer:
                                         "CONST_TENSOR   int     not NULL,"
                                         "SHAPE          blob,"
                                         "PERMUTATION    blob,"
-                                        "DATA_ID        int     not NULL,"
+                                        "DATA_IDS       blob);"
         """
-        idx_graph_name = 3
-        idx_tensor_name = 5
-        idx_validation = 10
-        idx_data = 14
-        idx_iter = 7
-        idx_launch = 2
 
         # Check whether the data in each table is the same in both databases
+        cursor1.execute("PRAGMA table_info(TENSORS);")
+        columns1 = cursor1.fetchall()
+        cursor2.execute("PRAGMA table_info(TENSORS);")
+        columns2 = cursor2.fetchall()
+
+        if len(columns1) != len(columns2):
+            self.log(
+                "[ERROR] Static DB doesn't have same number of columns as Dynamic DB",
+                console=True,
+            )
+            exit(0)
+
+        desired_column_names = ["GRAPH_NAME", "NAME", "VALIDATION", "DATA_IDS", "ITERATION"]
+        column_dict = {col[1]: col[0] for col in columns1}
+        column_indices = [column_dict[name] for name in desired_column_names if name in column_dict]
+
+        if len(column_indices) != len(desired_column_names):
+            self.log(
+                "[ERROR] All required columns are not present in DB",
+                console=True,
+            )
+            exit(0)
+
+        idx_graph_name = column_indices[0]
+        idx_tensor_name = column_indices[1]
+        idx_validation = column_indices[2]
+        idx_data = column_indices[3]
+        idx_iter = column_indices[4]
+
         cursor1.execute(f"SELECT * FROM TENSORS")
         tensors_static = cursor1.fetchall()
         cursor2.execute(f"SELECT * FROM TENSORS")
@@ -405,87 +428,108 @@ class DivergenceAnalyzer:
         if self.mismatch_map is None:
             return
 
-        def get_path(data_dict, graph_name):
-            return (
-                data_dict["Static"][graph_name]["db"],
-                data_dict["Dynamic"][graph_name]["db"],
-                data_dict["Static"][graph_name]["json"],
-            )
-
         path_csv = self.logdir + "/synrec_comparision.csv"
         if not self.cfg.no_stats:
             self.log(f"[INFO] Analyzing differences using dbparser and dumping in CSV file \033[91m{path_csv}\033[0m")
         else:
             self.log(f"[INFO] Dumping difference in CSV file \033[91m{path_csv}\033[0m")
-        data_dict = self.collect_available_dumps()
-        output_static = self.logdir + "/output_static.log"
-        output_dynamic = self.logdir + "/output_dynamic.log"
+        self.data_dict = self.collect_available_dumps()
 
-        rows = []
+        self.json_tests_bin = self.get_json_tests_bin()
 
-        def process_outputs():
-            values_static = self.read_values(output_static)
-            values_dynamic = self.read_values(output_dynamic)
-            stats = self.compare_values(values_static, values_dynamic)
+        pairs = list(zip(self.mismatch_static, self.mismatch_dynamic))
+        results = [None] * len(pairs)
+        if self.cfg.max_threads > 1:
+            with ThreadPoolExecutor(max_workers=self.cfg.max_threads) as executor:
+                futures = {
+                    executor.submit(self.process_pair, static_list, dynamic_list): i
+                    for i, (static_list, dynamic_list) in enumerate(pairs)
+                }
+                for future in tqdm(as_completed(futures), total=len(futures), desc="Processing"):
+                    index = futures[future]
+                    try:
+                        results[index] = future.result()
+                        gc.collect()
+                    except Exception as e:
+                        self.log(
+                            f"static_list={pairs[index][0]}, dynamic_list={pairs[index][1]} generated an exception in process_pair: {e}"
+                        )
+                        gc.collect()
+        else:
+            for index, (static_list, dynamic_list) in enumerate(tqdm(pairs, desc="Processing")):
+                try:
+                    results[index] = self.process_pair(static_list, dynamic_list)
+                except Exception as e:
+                    self.log(
+                        f"static_list={static_list}, dynamic_list={dynamic_list} generated an exception in process_pair: {e}"
+                    )
 
-            remove_file(output_static, verbose=False)
-            remove_file(output_dynamic, verbose=False)
+        filtered_results = [result for result in results if result is not None]
 
-            return stats
+        if len(filtered_results) > 0:
+            with open(path_csv, "w", newline="") as csv_outfile:
+                writer = csv.DictWriter(csv_outfile, fieldnames=filtered_results[0].keys())
+                writer.writeheader()  # Write header
+                writer.writerows(filtered_results)
+            self.log("[INFO] Synrec tensor comparision data dumped to csv file")
 
-        json_tests_bin = self.get_json_tests_bin()
-        total_mismatches = sum([len(item) for item in self.mismatch_map.values()])
-        progbar = tqdm.tqdm(total=total_mismatches)
+    def get_path(self, data_dict, graph_name):
+        return (
+            data_dict["Static"][graph_name]["db"],
+            data_dict["Dynamic"][graph_name]["db"],
+            data_dict["Static"][graph_name]["json"],
+        )
 
-        csv_outfile = open(path_csv, "w")
-        is_first_row = True
+    def process_outputs(self, output_static, output_dynamic):
+        values_static = self.read_values(output_static)
+        values_dynamic = self.read_values(output_dynamic)
+        stats = self.compare_values(values_static, values_dynamic)
 
-        for static_list, dynamic_list in zip(self.mismatch_static, self.mismatch_dynamic):
-            _graph_name_dynamic = dynamic_list[0]
-            tensor_dynamic = dynamic_list[1]
-            iteration_dynamic = dynamic_list[2]
-            _graph_name_static = static_list[0]
-            tensor_static = static_list[1]
-            iteration_static = static_list[2]
-            self.log(f'Analyzing graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}', console=False)
-            self.log(
-                f'\tDynamic graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}, " -> iteration: ", {iteration_dynamic}',
-                console=False,
-            )
-            self.log(
-                f'\tStatic  graph:", {_graph_name_static}, "-> Tensor:", {tensor_static}, " -> iteration: ", {iteration_static}',
-                console=False,
-            )
-            if self.cfg.parallel:
-                path_static, path_dynamic, path_json = get_path(data_dict, _graph_name_dynamic)
-            else:
-                path_static = data_dict["Static"]["db"]
-                path_dynamic = data_dict["Dynamic"]["db"]
-                path_json = data_dict["Static"]["json"]
+        remove_file(output_static, verbose=False)
+        remove_file(output_dynamic, verbose=False)
 
-            if not self.cfg.no_stats:
-                # FIXME: Check if command ran successfully and found the graph and tensor in db file
-                cmd_static = f"{json_tests_bin} db_parser -d {path_static} -g {_graph_name_static} -t {tensor_static} -i {iteration_static} -o {output_static}"
-                cmd_dynamic = f"{json_tests_bin} db_parser -d {path_dynamic} -g {_graph_name_dynamic} -t {tensor_dynamic} -i {iteration_dynamic} -o {output_dynamic}"
+        return stats
 
-                self.run(cmd_static, mode="static", verbose=False)
-                self.run(cmd_dynamic, mode="dynamic", verbose=False)
+    def process_pair(self, static_list, dynamic_list):
+        _graph_name_dynamic = dynamic_list[0]
+        tensor_dynamic = dynamic_list[1]
+        iteration_dynamic = dynamic_list[2]
+        _graph_name_static = static_list[0]
+        tensor_static = static_list[1]
+        iteration_static = static_list[2]
+        self.log(f'Analyzing graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}', console=False)
+        self.log(
+            f'\tDynamic graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}, " -> iteration: ", {iteration_dynamic}',
+            console=False,
+        )
+        self.log(
+            f'\tStatic  graph:", {_graph_name_static}, "-> Tensor:", {tensor_static}, " -> iteration: ", {iteration_static}',
+            console=False,
+        )
+        if self.cfg.parallel:
+            path_static, path_dynamic, path_json = self.get_path(self.data_dict, _graph_name_dynamic)
+        else:
+            path_static = self.data_dict["Static"]["db"]
+            path_dynamic = self.data_dict["Dynamic"]["db"]
+            path_json = self.data_dict["Static"]["json"]
 
-            row = {}
-            row.update(self.get_node(path_json, _graph_name_dynamic, tensor_dynamic))
-            if not self.cfg.no_stats:
-                row.update(process_outputs())
+        thread_id = threading.get_ident()
+        output_static = self.logdir + f"/output_static_{thread_id}.log"
+        output_dynamic = self.logdir + f"/output_dynamic_{thread_id}.log"
 
-            if is_first_row:
-                writer = csv.DictWriter(csv_outfile, row.keys())
-                writer.writeheader()
-                is_first_row = False
-            if not self.cfg.no_stats and row["abs_max"] > self.cfg.thresh:
-                writer.writerow(row)
+        if not self.cfg.no_stats:
+            # FIXME: Check if command ran successfully and found the graph and tensor in db file
+            cmd_static = f"{self.json_tests_bin} db_parser -d {path_static} -g {_graph_name_static} -t {tensor_static} -i {iteration_static} -o {output_static}"
+            cmd_dynamic = f"{self.json_tests_bin} db_parser -d {path_dynamic} -g {_graph_name_dynamic} -t {tensor_dynamic} -i {iteration_dynamic} -o {output_dynamic}"
 
-            progbar.update(1)
+            self.run(cmd_static, mode="static", verbose=False)
+            self.run(cmd_dynamic, mode="dynamic", verbose=False)
 
-        csv_outfile.close()
+        row = {}
+        row.update(self.get_node(path_json, _graph_name_dynamic, tensor_dynamic))
+        if not self.cfg.no_stats:
+            row.update(self.process_outputs(output_static, output_dynamic))
+        return row
 
     def compare_dumps(self):
         data_dict = self.collect_available_dumps()
@@ -692,6 +736,13 @@ def get_args():
     )
     parser.add_argument(
         "--print_cmd", action="store_true", required=False, help="If specified, only print the synrec command"
+    )
+    parser.add_argument(
+        "--max_threads",
+        type=int,
+        default=4,
+        required=False,
+        help="Maximum number of threads to spawn when comparing static and dynamic tensors",
     )
 
     args = parser.parse_args()
