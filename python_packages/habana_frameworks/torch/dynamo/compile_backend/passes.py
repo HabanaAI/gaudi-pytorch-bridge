@@ -2866,6 +2866,8 @@ def pass_reinplace_add_ops(ctx: OptimizerContext):
             and src0.meta["output_dtypes"][0] in (torch.float32, torch.bfloat16, torch.float16)
         )
         is_eligible = is_float_dtype and not src0.op == "placeholder" and not is_view_op(src0)
+        if not is_eligible:
+            return False
 
         # add must be the last user of its src0
         src0_users = list(src0.users.keys())
