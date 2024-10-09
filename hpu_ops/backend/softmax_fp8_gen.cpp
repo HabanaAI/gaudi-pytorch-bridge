@@ -39,21 +39,18 @@ void addOptionalTensor(
 void handleScale(
     habana::OpBackend* op,
     sh::graph& graph,
-    const std::variant<TensorsPair, c10::IValue>& scale,
+    const VariantWrapper<TensorsPair, c10::IValue>& scale,
     std::vector<sh::tensor>& const_scales,
     std::vector<synTensor>& syn_inputs) {
   // If scale is a Tensor, add respective synTensor to the node inputs.
-  if (std::holds_alternative<TensorsPair>(scale)) {
+  if (scale.isTensorsPair()) {
     addOptionalTensor(
-        std::get<TensorsPair>(scale),
-        syn_inputs,
-        at::ScalarType::Float,
-        "scale");
+        scale.toTensorsPair(), syn_inputs, at::ScalarType::Float, "scale");
     return;
   }
 
   // If scale is a Scalar, create a const tensor first.
-  const auto scale_value = std::get<c10::IValue>(scale);
+  const auto scale_value = scale.toIValue();
   if (scale_value.isDouble()) {
     const_scales.emplace_back(
         op->BuildConstantTensor(op, graph, scale_value.toDouble()));
@@ -95,11 +92,9 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       "Input tensor must be of torch.bfloat16 or torch.float8_e4m3fn dtype.");
 
   const bool is_input_scale =
-      std::holds_alternative<TensorsPair>(input_scale_opt) or
-      std::get<c10::IValue>(input_scale_opt).isDouble();
-  const bool is_output_scale =
-      std::holds_alternative<TensorsPair>(output_scale_opt) or
-      std::get<c10::IValue>(output_scale_opt).isDouble();
+      input_scale_opt.isTensorsPair() or input_scale_opt.toIValue().isDouble();
+  const bool is_output_scale = output_scale_opt.isTensorsPair() or
+      output_scale_opt.toIValue().isDouble();
 
   TORCH_CHECK(
       is_input_scale == is_output_scale,

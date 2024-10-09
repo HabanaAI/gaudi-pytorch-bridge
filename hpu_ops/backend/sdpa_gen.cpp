@@ -865,17 +865,17 @@ void Fp8SDPARecompFwd::AddNode(
 
   std::vector<sh::tensor> adjusted_scale;
 
-  auto sdpa_add_inputs_and_flags = [&](std::variant<TensorsPair, c10::IValue>&
+  auto sdpa_add_inputs_and_flags = [&](VariantWrapper<TensorsPair, c10::IValue>&
                                            scaleOpt,
                                        unsigned int flag_name) {
-    if (std::holds_alternative<TensorsPair>(scaleOpt)) {
-      auto scale_t = std::get<TensorsPair>(scaleOpt);
+    if (scaleOpt.isTensorsPair()) {
+      auto scale_t = scaleOpt.toTensorsPair();
       fp8::HandleScaleTensor(
           this, graph, scale_t.pt_t, scale_t.syn_t, adjusted_scale, syn_inputs);
       if (scale_t.pt_t.numel() > 0)
         flags |= flag_name;
     } else {
-      auto scale_s = std::get<c10::IValue>(scaleOpt);
+      auto scale_s = scaleOpt.toIValue();
       if (scale_s.isDouble() && (scale_s.toDouble() != 0.)) {
         fp8::HandleScaleScalar(
             this,
@@ -916,12 +916,12 @@ void Fp8SDPARecompFwd::AddNode(
   auto fwdOutType = q.pt_t.scalar_type();
 
   if (q.pt_t.scalar_type() == at::ScalarType::Float8_e4m3fn) {
-    if (std::holds_alternative<TensorsPair>(q_scale_o)) {
-      auto scale_t = std::get<TensorsPair>(q_scale_o);
+    if (q_scale_o.isTensorsPair()) {
+      auto scale_t = q_scale_o.toTensorsPair();
       fwdOutType = scale_t.pt_t.numel() > 0 ? at::ScalarType::Float8_e4m3fn
                                             : at::ScalarType::BFloat16;
     } else {
-      auto scale_s = std::get<c10::IValue>(q_scale_o);
+      auto scale_s = q_scale_o.toIValue();
       fwdOutType = (scale_s.isDouble() && (scale_s.toDouble() != 0.))
           ? at::ScalarType::Float8_e4m3fn
           : at::ScalarType::BFloat16;

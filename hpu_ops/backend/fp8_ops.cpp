@@ -421,22 +421,22 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
   std::vector<sh::tensor> adjusted_scale;
 
-  if (std::holds_alternative<TensorsPair>(scaleAOpt)) {
-    auto scaleA = std::get<TensorsPair>(scaleAOpt);
+  if (scaleAOpt.isTensorsPair()) {
+    auto scaleA = scaleAOpt.toTensorsPair();
     HandleScaleTensor(
         this, graph, scaleA.pt_t, scaleA.syn_t, adjusted_scale, syn_inputs);
   } else {
     HandleScaleScalar(
         this,
         graph,
-        std::get<c10::IValue>(scaleAOpt),
+        scaleAOpt.toIValue(),
         p_context_->device_id_,
         adjusted_scale,
         syn_inputs);
   }
 
-  if (std::holds_alternative<TensorsPair>(scaleBOpt)) {
-    auto scaleB = std::get<TensorsPair>(scaleBOpt);
+  if (scaleBOpt.isTensorsPair()) {
+    auto scaleB = scaleBOpt.toTensorsPair();
     ValidateScaleShape(scaleB.pt_t, scale_shape);
     HandleScaleTensor(
         this,
@@ -447,7 +447,7 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
         syn_inputs,
         scale_shape);
   } else {
-    auto scaleB = std::get<c10::IValue>(scaleBOpt);
+    auto scaleB = scaleBOpt.toIValue();
     ValidateScaleShape(scaleB, scale_shape);
     HandleScaleScalar(
         this,
@@ -669,8 +669,8 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   for (int i = 0; i < 2; ++i) {
     const auto& scale = (i == 0) ? scale_input_opt : scale_weight_opt;
-    if (std::holds_alternative<TensorsPair>(scale)) {
-      auto scale_tp = std::get<TensorsPair>(scale);
+    if (scale.isTensorsPair()) {
+      auto scale_tp = scale.toTensorsPair();
       TORCH_CHECK(
           scale_tp.pt_t.numel() == 1,
           "Multi-element scale tensors are not supported yet.");
@@ -679,7 +679,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       HandleScaleScalar(
           this,
           graph,
-          std::get<c10::IValue>(scale),
+          scale.toIValue(),
           p_context_->device_id_,
           adjusted_scale,
           syn_inputs);
