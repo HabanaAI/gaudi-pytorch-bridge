@@ -17,6 +17,125 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
+#if IS_PYTORCH_AT_LEAST(2, 5)
+OutputMetaDataVector ScaledMmMeta(const at::Stack& stack) {
+  OutputMetaData output_meta;
+  const auto& mat1 = stack[0].toTensor();
+  const auto mat2_shape = stack[1].toTensor().sizes();
+  output_meta.shape = {mat1.sizes()[0], mat2_shape[1]};
+  output_meta.dtype =
+      stack[6].toOptional<c10::ScalarType>().value_or(mat1.scalar_type());
+
+  return {output_meta};
+}
+
+SharedMetaDataVector ScaledMmSharedMeta(const at::Stack& stack) {
+  const auto mat1_dtype = stack_tensor(stack, 0).scalar_type();
+  const auto mat2_dtype = stack_tensor(stack, 1).scalar_type();
+  const auto scale_a = stack_tensor(stack, 2);
+  const auto scale_b = stack_tensor(stack, 3);
+  const auto bias = stack[4].toOptional<at::Tensor>();
+  const auto scale_result = stack[5].toOptional<at::Tensor>();
+  const auto out_dtype =
+      stack[6].toOptional<c10::ScalarType>().value_or(mat1_dtype);
+
+  const auto optional_meta = createOptionalNotPresentSharedMetaTensor();
+  SharedMetaTensor scale_a_meta(scale_a.dim(), scale_a.scalar_type());
+  SharedMetaTensor scale_b_meta(scale_b.dim(), scale_b.scalar_type());
+  SharedMetaTensor scale_result_meta = scale_result
+      ? SharedMetaTensor(scale_result->dim(), scale_result->scalar_type())
+      : optional_meta;
+
+  SharedMetaData meta_gemm{"fp8_gemm"};
+  meta_gemm.inputs_data = {
+      {2, mat1_dtype},
+      {2, mat2_dtype},
+      scale_a_meta,
+      scale_b_meta,
+      optional_meta,
+      scale_result_meta};
+  meta_gemm.outputs_data = {{2, out_dtype}};
+
+  return {meta_gemm};
+}
+
+void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
+  StackGetter stackGetter(this, stack, "ScaledMm::AddNode");
+  auto mat1 = stackGetter.getNextInput<TensorsPair>();
+  auto mat2 = stackGetter.getNextInput<TensorsPair>();
+  auto scale_a = stackGetter.getNextInput<TensorsPair>();
+  auto scale_b = stackGetter.getNextInput<TensorsPair>();
+  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scale_result = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto out_dtype =
+      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+          mat1.pt_t.scalar_type());
+
+  const auto mat1_shape = mat1.pt_t.sizes();
+  const auto mat2_shape = mat2.pt_t.sizes();
+  const auto mat1_dtype = mat1.pt_t.scalar_type();
+  const auto mat2_dtype = mat2.pt_t.scalar_type();
+
+  TORCH_CHECK(mat1_shape.size() == 2, "mat1 must be a matrix");
+  TORCH_CHECK(mat2_shape.size() == 2, "mat2 must be a matrix");
+  TORCH_CHECK(
+      mat1_shape[1] == mat2_shape[0],
+      "mat1 and mat2 shapes cannot be multiplied (",
+      mat1_shape[0],
+      "x",
+      mat1_shape[1],
+      " and ",
+      mat2_shape[0],
+      "x",
+      mat2_shape[1],
+      ")");
+  TORCH_CHECK(
+      !bias || bias->pt_t.numel() == mat2_shape[1],
+      "Bias must be size ",
+      mat2_shape[1],
+      " but got ",
+      bias->pt_t.numel());
+  TORCH_CHECK(
+      mat1_dtype == at::ScalarType::Float8_e5m2 ||
+          mat1_dtype == at::ScalarType::Float8_e4m3fn,
+      "Expected mat1 to be Float8_e5m2 or Float8_e4m3fn matrix got ",
+      mat1_dtype);
+  TORCH_CHECK(
+      mat2_dtype == at::ScalarType::Float8_e5m2 ||
+          mat2_dtype == at::ScalarType::Float8_e4m3fn,
+      "Expected mat2 to be Float8_e5m2 or Float8_e4m3fn matrix got ",
+      mat2_dtype);
+
+  std::string guid = get_guid_with_precision("fp8_gemm", out_dtype);
+  synTensor bias_syn = bias ? bias->syn_t : nullptr;
+  synTensor scale_result_syn = scale_result ? scale_result->syn_t : nullptr;
+
+  std::vector<synTensor> syn_inputs = {
+      mat1.syn_t,
+      mat2.syn_t,
+      scale_a.syn_t,
+      scale_b.syn_t,
+      bias_syn,
+      /* accumulate = */ nullptr,
+      scale_result_syn};
+
+  synGEMMParams gemm_params{false, false};
+
+  const auto output_shape = ScaledMmMeta(stack)[0].shape;
+
+  auto gemm = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       std::move(syn_inputs),
+       {{output_shape, out_dtype, 0}},
+       &gemm_params,
+       sizeof(gemm_params)});
+
+  syn_out(0) = std::move(gemm[0]);
+}
+#else
+
 OutputMetaDataVector ScaledMmMeta(const at::Stack& stack) {
   OutputMetaData output_meta;
   const auto& mat1 = stack[0].toTensor();
@@ -194,5 +313,5 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(maybe_casted_sh[0]);
   syn_out(1) = std::move(amax[0]);
 }
-
+#endif
 } // namespace habana
