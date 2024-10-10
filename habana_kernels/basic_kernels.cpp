@@ -527,7 +527,7 @@ bool is_pinned_hpu(const Tensor& self, at::Device device) {
 
 Tensor pin_memory_hpu(const at::Tensor& self, at::Device device) {
   ensure_has_index(device);
-  auto* allocator = habana::getPinnedMemoryAllocator();
+  auto* allocator = habana::PinnedMemoryAllocator_get();
   auto storage = Storage(
       Storage::use_byte_size_t(),
       at::detail::computeStorageNbytes(

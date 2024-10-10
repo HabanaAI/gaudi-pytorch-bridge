@@ -18,6 +18,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   backend_meta.cpp
   habana_operator.cpp
   scalar_cache.cpp
+  random.cpp
   kernel/constant_information.cpp
   kernel/control_edges_processing.cpp
   kernel/ds_graph_recompile.cpp
@@ -37,6 +38,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   habana_device/HPUEvent.cpp
   habana_device/HPUDevice.cpp
   habana_device/HPUGraph.cpp
+  habana_device/HPUHooksInterface.cpp
   habana_device/HPUStream.cpp
   habana_device/PinnedMemoryAllocator.cpp
   habana_device/hpu_cached_devices.cpp

@@ -18,14 +18,14 @@ namespace habana {
 synDeviceId PinnedMemoryAllocator::allocator_active_device_id = -1;
 
 static PinnedMemoryAllocator pin_memory_allocator;
-at::Allocator* getPinnedMemoryAllocator() {
+at::Allocator* PinnedMemoryAllocator_get() {
   return &pin_memory_allocator;
 }
 
-bool PinnedMemoryAllocator_is_pinned(void* ptr) {
+bool PinnedMemoryAllocator_is_pinned(const void* ptr) {
   auto& device = HPUDeviceContext::get_device(
       habana::PinnedMemoryAllocator::allocator_active_device_id);
-  return device.get_host_memory().is_host_memory(ptr);
+  return device.get_host_memory().is_host_memory(const_cast<void*>(ptr));
 }
 
 PinnedMemoryAllocator::PinnedMemoryAllocator() = default;

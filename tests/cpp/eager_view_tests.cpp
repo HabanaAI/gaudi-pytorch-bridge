@@ -11,18 +11,11 @@
  *******************************************************************************
  */
 
-#include <algorithm>
-#include <iostream>
-#include <stdexcept>
-
 #include <gtest/gtest.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 
 #include "backend/habana_device/HPUGuardImpl.h"
-#include "backend/helpers/tensor_utils.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "habana_helpers/logging.h"
 
 #include "hpu_ops/util.h"
 
@@ -41,7 +34,6 @@ class EagerViewOpsTest : public habana_lazy_test::LazyTest {
   }
 
   void TearDown() override {
-
     RestoreRecipeCache();
     RestoreEagerViewHandling();
     RestoreAccParMode();
@@ -385,14 +377,14 @@ TEST_F(EagerViewOpsTest, RReLUAsStridedInPlace) {
     // run on CPU
     auto B = A.as_strided({2, 2, 1}, {4, 2, 1}, 0);
     torch::manual_seed(1234);
-    habana::getDefaultHPUGenerator().set_current_seed(1234);
+    habana::detail::getDefaultHPUGenerator().set_current_seed(1234);
     torch::rrelu_with_noise_(
         B, N, lower, upper, training, at::detail::getDefaultCPUGenerator());
 
     // run on HPU
     auto hB = hA.as_strided({2, 2, 1}, {4, 2, 1}, 0);
     torch::manual_seed(1234);
-    habana::getDefaultHPUGenerator().set_current_seed(1234);
+    habana::detail::getDefaultHPUGenerator().set_current_seed(1234);
     torch::rrelu_with_noise_(
         hB, hN, lower, upper, training, at::detail::getDefaultCPUGenerator());
 

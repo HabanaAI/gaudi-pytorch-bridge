@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 
+#include "backend/random.h"
 #include "generated/lazy/bernoulli.h"
-#include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
 static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {

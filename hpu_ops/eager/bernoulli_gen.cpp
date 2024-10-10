@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "backend/random.h"
 #include "generated/eager/bernoulli.h"
 #include "habana_kernels/random_gen_kernels.h"
 

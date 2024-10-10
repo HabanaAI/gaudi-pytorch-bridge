@@ -10,13 +10,10 @@
  *
  *******************************************************************************
  */
+#include "backend/random.h"
 #include "generated/eager/_fused_dropout.h"
 #include "generated/eager/bernoulli.h"
 #include "generated/eager/native_dropout.h"
-#include "generated/eager/poisson.h"
-#include "generated/eager/random.h"
-#include "generated/eager/uniform.h"
-#include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
 // Generators can't be represented in JIT graph

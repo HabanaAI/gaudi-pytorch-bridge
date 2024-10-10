@@ -17,61 +17,10 @@
 #include <memory>
 
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/graph.h"
-#include "backend/helpers/tensor_utils.h"
-#include "habana_helpers/logging.h"
-#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/index_kernels.h"
-#include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
-#include "habana_kernels/resize.h"
-#include "lazy_kernels.h"
 
 using namespace torch;
-
-namespace habana {
-
-// Getting the HPU worker generator instance
-Generator& getDefaultHPUGenerator() {
-  static auto default_gen_hpu = createHPUGenerator();
-  return default_gen_hpu;
-}
-
-// Utility to create a CPUGeneratorImpl. Returns a shared_ptr
-Generator createHPUGenerator() {
-  auto default_cpu_gen = at::detail::getDefaultCPUGenerator();
-  auto gen = make_generator<CPUGeneratorImpl>(default_cpu_gen.current_seed());
-  return gen;
-}
-
-uint32_t get_seed_hpu(const c10::optional<Generator>& gen) {
-  CPUGeneratorImpl* generator =
-      get_generator_or_default<CPUGeneratorImpl>(gen, getDefaultHPUGenerator());
-
-  auto context = habana_lazy::get_device_lazy_execution_context();
-  if (context->getDryRun()) {
-    return 0;
-  }
-  // Acquire lock when using random generators
-  std::lock_guard<std::mutex> lock(generator->mutex_);
-  return generator->random();
-}
-
-at::Tensor get_seed_tensor_hpu(const c10::optional<Generator>& gen) {
-  int seed = get_seed_hpu(gen);
-  at::Tensor seed_tensor = at::tensor(seed);
-  auto t = habana_lazy::append_to_batch_h2d_list(seed_tensor);
-  auto context = habana_lazy::get_device_lazy_execution_context();
-  if (context->getCapturing()) {
-    habana_lazy::HbLazyTensor hb_tensor = habana_lazy::GetHbLazyTensor(t);
-    hb_tensor.getDataPtr()->is_random_seed_tensor = true;
-    context->getSeedTensorMap()[hb_tensor.getDataPtr()->unique_id] = gen;
-  }
-  return t;
-}
-
-} // namespace habana
 
 using namespace habana;
 

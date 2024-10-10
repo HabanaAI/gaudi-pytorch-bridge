@@ -12,13 +12,13 @@
  */
 
 #include "backend/helpers/tensor_info.h"
-#include <sstream>
 #include "backend/backend_meta.h"
+#include "backend/helpers/create_tensor.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/random.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
-#include "habana_kernels/random_gen_kernels.h"
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 
@@ -26,7 +26,7 @@ void DMAInputGenerators::populateSeedTensor(
     const PtTensorInfo& ti,
     at::Tensor& dma_tensor) {
   auto gen = torch::get_generator_or_default<torch::CPUGeneratorImpl>(
-      c10::nullopt, habana::getDefaultHPUGenerator());
+      c10::nullopt, habana::detail::getDefaultHPUGenerator());
 
   // Acquire lock when using random generators
   std::vector<int> seed_vec;

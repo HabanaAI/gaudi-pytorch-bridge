@@ -41,6 +41,7 @@
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel/refinement_engine.h"
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
+#include "backend/random.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep // NOLINT
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
@@ -48,9 +49,9 @@
 #include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
+#include "hpu_ops/op_backend.h"
 #include "hpu_ops/op_logger.h"
 using namespace torch::jit;
 using namespace jitgraph_utils;

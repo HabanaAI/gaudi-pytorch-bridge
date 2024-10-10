@@ -30,13 +30,13 @@ struct FusedDropoutHpuOpTest : public HpuOpTestUtil {
 
     auto input = torch::randn(sizes, torch::dtype(type)).to(torch::kHPU);
 
-    habana::getDefaultHPUGenerator().set_current_seed(seed1);
+    habana::detail::getDefaultHPUGenerator().set_current_seed(seed1);
     auto dropout1 = torch::_fused_dropout(input, p);
 
     auto output1 = std::get<0>(dropout1).to("cpu");
     auto mask1 = std::get<1>(dropout1).to("cpu");
 
-    habana::getDefaultHPUGenerator().set_current_seed(seed2);
+    habana::detail::getDefaultHPUGenerator().set_current_seed(seed2);
     auto dropout2 = torch::_fused_dropout(input, p);
 
     auto output2 = std::get<0>(dropout2).to("cpu");

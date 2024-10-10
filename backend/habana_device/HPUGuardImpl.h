@@ -163,6 +163,5 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     return hpu_event->query();
   }
-
 };
 } // namespace habana

@@ -13,11 +13,9 @@
 #include <pybind11/chrono.h>
 #include <torch/extension.h>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/kernel/hpu_habana_cache.h"
-#include "habana_kernels/fallback_helper.h"
-#include "habana_kernels/random_gen_kernels.h"
-#include "habana_lazy/hlexec.h"
+#include "backend/habana_device/HPUDevice.h"
+#include "backend/random.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 
 namespace {
 int GetCurrentThreadDevice() {
@@ -122,7 +120,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("device_str") = "",
       py::arg("sync") = false);
   m.def("_get_default_generator", []() {
-    return habana::getDefaultHPUGenerator();
+    return habana::detail::getDefaultHPUGenerator();
   });
   py::class_<SharedTensorExtraMeta>(m, "TensorExtraMeta")
       .def_property(

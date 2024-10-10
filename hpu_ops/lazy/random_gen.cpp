@@ -11,13 +11,10 @@
  *******************************************************************************
  */
 
+#include "backend/random.h"
 #include "generated/lazy/_fused_dropout.h"
 #include "generated/lazy/bernoulli.h"
 #include "generated/lazy/native_dropout.h"
-#include "generated/lazy/poisson.h"
-#include "generated/lazy/random.h"
-#include "generated/lazy/uniform.h"
-#include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
 // Generators can't be represented in JIT graph

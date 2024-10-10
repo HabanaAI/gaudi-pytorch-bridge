@@ -27,7 +27,7 @@ static inline at::Device ensure_has_index(at::Device device) {
 
 at::Tensor pin_memory_hpu(const at::Tensor& self, at::Device device) {
   ensure_has_index(device);
-  auto* allocator = habana::getPinnedMemoryAllocator();
+  auto* allocator = habana::PinnedMemoryAllocator_get();
   auto storage = at::Storage(
       at::Storage::use_byte_size_t(),
       at::detail::computeStorageNbytes(
