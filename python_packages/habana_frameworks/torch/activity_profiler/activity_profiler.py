@@ -47,7 +47,11 @@ def register_habana_activity_profiler():
             experimental_config: Optional[torch._C._profiler._ExperimentalConfig] = None,
             use_cuda: Optional[bool] = None
         ):
-
+            activities = (
+                (torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU)
+                if activities is None
+                else activities
+            )
             self.hpu_profiling_active = torch.profiler.ProfilerActivity.HPU in activities
             activities = [self._exchange_activity(activity) for activity in activities]
             synapse_logger = debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities

@@ -22,7 +22,10 @@ device = "hpu"
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
-def test_activity_profiler():
+@pytest.mark.parametrize(
+    "activities", [(torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU), None]
+)
+def test_activity_profiler(device, activities):
     if _is_simulator():
         return
 
@@ -30,7 +33,7 @@ def test_activity_profiler():
     targets = torch.ones(2, 4).to(device)
 
     with torch.profiler.profile(
-        activities=(torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU),
+        activities=activities,
         schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
         on_trace_ready=torch.profiler.tensorboard_trace_handler("."),
         record_shapes=True,
