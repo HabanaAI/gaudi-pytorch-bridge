@@ -2723,15 +2723,11 @@ embedding_renorm:
   op_validator: check-node-with-shared-layer
 
 equal:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
-    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
-    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+  guid: equal_pt_fwd
   custom_fill_params: FillEqualParams
   output_meta: EqualMeta
-  op_backend: Equal
   out_ids: [0]
-  op_validator: EqualSharedMeta
+  op_validator: check-node-with-shared-layer
 
 eq.Scalar_out:
   guid: equal_fwd
