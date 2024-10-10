@@ -1,0 +1,56 @@
+common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+    - repository: habanalabs
+    - repository: nic_kmd
+      isHybrid: true
+      githubOrg: gerrit
+    - repository: habanaqa
+    - repository: pytorch-training-tests
+    - repository: event_tests_plugin
+    - repository: model_garden
+  dependencies:
+    - CODEC
+    - COMPLEX_GUID
+    - HCL
+    - HL_THUNK
+    - MEDIA
+    - PT_FORK
+    - RDMA_CORE
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_KERNELS
+  config:
+    testCommand: run_pytorch_qa_tests
+    loadLKD: true
+    testXMLOutputKey: --xml
+    releaseFlag: false
+    saveToFileBeatMount: true
+  envVars:
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${RDMA_CORE_ROOT}/build/lib:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+    CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+    LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+    JOB_SCENARIO: pt_smoke_gaudi2
+  preTestStages:
+    Remove python3-mpi4py:
+      command: 'apt remove python3-mpi4py -y'
+    Install Python test dependencies and artifacts:
+      command: 'set_up_pytorch_artifacts_for_testing current'
+    Install media loader wheel:
+      command: 'pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl'
+testsMap:
+  Test_pytorch_modules_gaudi2_asic_topology:
+    dependencies:
+      - TPC_FUSER
+      - TPC_LLVM
+    stages:
+      Run toplogy tests on gaudi2 asic:
+        filter: -t topology_ci -a smoke_gaudi2
+  Test_pytorch_modules_gaudi_asic_topology:
+    dependencies:
+      - AEON
+    stages:
+      Run toplogy tests on gaudi asic:
+        filter: -t topology_ci -a smoke

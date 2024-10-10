@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+###############################################################################
+# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
+if [ -z "$HOST_USER" ] || [ -z "$HOST_UID" ] || [ -z "$HOST_GID" ]; then
+    # shellcheck disable=SC2016
+    echo 'Please add the following to your docker run invocation: -e HOST_USER=$USER -e HOST_UID=$(id -u) -e HOST_GID=$(id -g)'
+    echo "as it's needed to avoid file permission issues after building"
+    exit 1
+fi
+
+groupadd -g "$HOST_GID" software
+useradd -m -u "$HOST_UID" -g "$HOST_GID" "$HOST_USER"
+passwd -d "$HOST_USER"
+USER_HOME=/home/"$HOST_USER"
+
+chown "$HOST_UID":"$HOST_GID" "$USER_HOME"
+if [[ ! -d /.ssh-host ]]; then
+    echo "Please add the following to your docker run invocation: -v ~/.ssh:/.ssh-host:ro"
+    echo "to mount you host user's SSH directory (read-only)"
+    exit 1
+fi
+
+cp -a /.ssh-host "$USER_HOME"/.ssh
+chown -R "$HOST_USER" "$USER_HOME"/.ssh
+chmod go-rwx "$USER_HOME"/.ssh
+
+cat >> "$USER_HOME"/.ssh/config << EOM
+Host *
+    User $HOST_USER
+    StrictHostKeyChecking no
+EOM
+
+exec su "$HOST_USER" -c "source /opt/rh/devtoolset-11/enable && $*"

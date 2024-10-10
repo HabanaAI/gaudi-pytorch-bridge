@@ -1,0 +1,7 @@
+{
+  "displayTimeUnit": "ns",
+  "systemTraceEvents": "SystemTraceData",
+  "otherData": {
+    "version": "Habana Synapse API"
+  },
+  "traceEvents":

@@ -1,0 +1,6 @@
+# defect categories high, med, low
+# "true" means fail if defects are found, and "false" means "silent"
+customConfig:
+  high: false
+  medium: false
+  low: false

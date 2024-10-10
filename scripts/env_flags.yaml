@@ -1,0 +1,848 @@
+###############################################################################
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
+# ENV_VARIABLE_NAME:
+#  type: c_style_type [default: string] [e.g. bool, unsigned, unsigned long]
+#  default: type_value
+#  settable: True/true/False/false [optional]
+#  doc: "string_comment"
+#
+# All defined values are supported - e. g. UINT64_MAX, INT64_MAX
+
+
+GC_KERNEL_PATH:
+  default: ""
+
+PT_HABANA_MEM_LOG_FILENAME:
+  default: "habana_log.livealloc.log"
+
+PT_HPU_GRAPH_DUMP_PREFIX:
+  default: ".graph_dumps"
+
+PT_HPU_GRAPH_DUMP_MODE:
+  default: ""
+  settable: true
+  doc: "Specify in which mode should bridge dump intermediate graphs. Allowed values: <compile | eager | all>\n
+
+  This flag takes effect only in non-lazy mode, meaning `PT_HPU_LAZY_MODE=0`\n
+  - `all` dumps both FX and JIT graphs from compile mode and JIT graphs from eager mode\n
+  - `compile` dumps both FX and JIT graphs from compile mode\n
+  - `compile_fx` dumps only FX graphs from compile mode\n
+  - `eager` dumps JIT graphs from eager mode"
+
+PT_COMPILATION_STATS_PATH:
+  default: ""
+  settable: true
+
+PT_RECIPE_TRACE_PATH:
+  default: ""
+
+PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR:
+  default: "default"
+
+PT_HPU_CLUSTERED_PROGRAM_SCHED_STR:
+  default: "default"
+
+PT_HPU_DYNAMIC_MIN_POLICY_ORDER:
+  default: "4,5,3,1"
+
+PT_HPU_DYNAMIC_MAX_POLICY_ORDER:
+  default: "2,4,5,3,1"
+
+PT_HPU_RECIPE_CACHE_CONFIG:
+  default: ""
+  doc: "It replaces PT_RECIPE_CACHE_PATH, PT_CACHE_FOLDER_DELETE and\n
+PT_CACHE_FOLDER_SIZE_MB. PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
+where params are encoded in the following way:\n
+- 1st param: recipe cache directory path, if empty then disk cache is\n
+disabled\n
+- 2nd param: delete recipe cache one init, if set to true then PT bridge\n
+clears recipe cache on init\n
+- 3rd param: recipe cache max size in MB, if set to value > 0, PT bridge\n
+keeps the size of cache dir under defined threshold.\n
+Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024"
+
+PT_RECIPE_CACHE_PATH:
+  default: ""
+  doc: "Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.\n
+If proper path is set, disk cache is enabled for all compiled recipes."
+
+PT_HPU_CLUSTERED_PROGRAM:
+  type: bool
+  default: false
+
+PT_HPU_CLUSTERED_PROGRAM_ENFORCE:
+  type: bool
+  default: false
+
+PT_HPU_LAZY_MODE:
+  type: unsigned
+  default: 1
+
+PT_HPU_LAZY_ACC_PAR_MODE:
+  type: unsigned
+  default: 1
+
+PT_HPU_LAZY_ACC_VIEW_OPS_MODE:
+  type: unsigned
+  default: 0
+
+PT_HPU_USE_SYN_TENSOR_IDS:
+  type: bool
+  default: true
+
+PT_HPU_MEM_STATS_DUMP:
+  type: bool
+  default: false
+
+PT_HPU_PRINT_STATS:
+  type: bool
+  default: false
+
+PT_HPU_PRINT_STATS_DUMP_FREQ:
+  type: unsigned
+  default: 0
+
+PT_HPU_PRINT_STATS_TABLE:
+  type: bool
+  default: false
+
+PT_HPU_INTERNAL_OLD_SYNAPI:
+  type: bool
+  default: false
+
+HABANA_USE_PERSISTENT_TENSOR:
+  type: bool
+  default: false
+
+PT_HPU_LAZY_EAGER_OPTIM_CACHE:
+  type: bool
+  default: true
+
+PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH:
+  type: bool
+  default: true
+
+PT_HPU_LAZY_EAGER_VIEW_HANDLING:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_CACHE_METRICS:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_COMPILE_THREAD:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_EXECUTION_THREAD:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_HPUGRAPH_THREAD:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_D2H_ASYNC_THREAD:
+  type: bool
+  default: true
+
+PT_HPU_QUEUE_SYNLAUNCHES:
+  type: bool
+  default: true
+
+PT_HPU_INFERENCE_MODE:
+  type: bool
+  default: false
+
+PT_HPU_INFERENCE_SYNAPSE_DATA_TYPE_SELECTION:
+  type: bool
+  default: false
+
+PT_HPU_INFERENCE_STORAGE_OVERRIDE:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD:
+  type: bool
+  default: false
+
+PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT:
+  type: bool
+  default: false
+
+PT_HPU_THREAD_POOL_QUEUE_CAPACITY:
+  type: unsigned long
+  default: 200000
+
+PT_ENABLE_INTER_HOST_CACHING:
+  type: bool
+  default: false
+
+PT_DO_NOT_LOWER_LINEAR_OP:
+  type: bool
+  default: false
+
+PT_ENABLE_HABANA_CACHING:
+  type: bool
+  default: true
+
+PT_ENABLE_HABANA_STREAMASYNC:
+  type: bool
+  default: true
+
+PT_ENABLE_HOST_MEMORY_CACHE:
+  type: bool
+  default: true
+
+PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION:
+  type: bool
+  default: false
+
+PT_ENABLE_HCL_STREAM:
+  type: bool
+  default: true
+
+PT_HABANA_MAX_DMA_COPY_RETRY_COUNT:
+  type: unsigned
+  default: 1000
+
+PT_HABANA_DMA_COPY_RETRY_DELAY:
+  type: unsigned
+  default: 10
+
+PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT:
+  type: unsigned long
+  default: 0
+
+PT_HPU_EAGER_VIEW_HANDLING:
+  type: bool
+  default: true
+
+PT_HPU_EAGER_PIPELINE_ENABLE:
+  type: bool
+  default: true
+
+PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE:
+  type: bool
+  default: true
+
+PT_HCCL_SLICE_SIZE_MB:
+  type: unsigned
+  default: DEFAULT_HCCL_SLICE_SIZE_MB
+
+PT_HABANA_MAX_RECIPE_HIT_COUNT:
+  type: unsigned
+  default: 0
+
+PT_HPU_USE_PT_STORE_SYNC:
+  type: bool
+  default: false
+  doc: "enable PT_STORE_SYNC if cs-timeouts are seen to perform host synchronization\n
+before collectives"
+
+PT_HPU_USE_NW_STREAM_SYNC:
+  type: bool
+  default: false
+
+PT_HPU_EMULATE_DISTRIBUTED:
+  type: bool
+  default: false
+
+PT_HPU_ERROR_HANDLER:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_SLICE_INSERT:
+  type: bool
+  default: true
+
+PT_HPU_PRINT_BACKTRACE_ON_SIGNAL:
+  type: bool
+  default: false
+
+PT_HPU_DUMP_IR_DOT_GRAPH:
+  type: bool
+  default: false
+
+PT_HPU_DISABLE_INSTANCE_NORM:
+  type: bool
+  default: false
+
+PT_HPU_DISABLE_ASYNC_COLLECTIVE:
+  type: bool
+  default: false
+
+PT_HPU_AVOID_RE_EXECUTE_GRAPHS:
+  type: bool
+  default: false
+
+PT_USE_MARKSTEP:
+  type: bool
+  default: true
+
+PT_HPU_GRAPH_DUMP:
+  type: unsigned
+  default: 0
+
+PT_ENABLE_SYNLAUNCH_TIME_CAPTURE:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_DEBUG_NAMES:
+  type: bool
+  default: true
+
+PT_HPU_MAX_ACCUM_SIZE:
+  type: unsigned long
+  default: UINT64_MAX
+
+PT_HPU_MAX_COMPOUND_OP_SIZE:
+  type: signed long
+  default: INT64_MAX
+
+PT_HPU_MAX_COMPOUND_OP_SYNC:
+  type: bool
+  default: false
+
+PT_HPU_MAX_COMPOUND_OP_SIZE_SS:
+  type: signed long
+  default: 10
+
+PT_HPU_ENABLE_STAGE_SUBMISSION:
+  type: bool
+  default: true
+
+PT_HPU_STAGE_SUBMISSION_MODE:
+  type: unsigned
+  default: 0b10
+
+PT_HPU_PGM_ENABLE_CACHE:
+  type: bool
+  default: true
+  doc: "flag to control recipe caching in non-eager backend"
+
+PT_FORCED_TRACING_MASK:
+  type: unsigned long
+  default: 0
+
+PT_HPU_ENABLE_EAGER_COMPILER:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_EAGER_CACHE:
+  type: bool
+  default: false
+  doc: "separate flag to control recipe caching in eager backend"
+
+PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP:
+  type: bool
+  default: false
+
+PT_HPU_SCALAR_MAP_MAXSIZE:
+  type: unsigned long
+  default: 500
+
+PT_HPU_ENABLE_LAZY_COLLECTIVES:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_SFG:
+  type: bool
+  default: false
+
+PT_SBS:
+  type: unsigned
+  default: 0
+
+PT_HPU_FORCE_TANH_FOR_GELU:
+  type: bool
+  default: true
+
+PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK:
+  type: bool
+  default: false
+
+PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED:
+  type: bool
+  default: true
+
+PT_HPU_VISUALIZE_GRAPH_INDEX:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_NMS_USING_BNMS_CGUID:
+  type: bool
+  default: true
+
+PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT:
+  type: unsigned
+  default: 0
+
+PT_HPU_USE_BN_FWD_IN_GN_BWD:
+  type: bool
+  default: true
+
+PT_HPU_USE_UNSORTED_SCATTER_ADD:
+  type: bool
+  default: true
+
+PT_USE_FP8_143:
+  type: bool
+  default: false
+  doc: "enables fp8_143 variant instead of default fp8_152\n
+for simulation purposes in algo team"
+
+PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK:
+  type: bool
+  default: true
+  doc: "Dynamic shape related env variables"
+
+PT_HPU_ENABLE_MIN_MAX_AS_CURRENT:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES:
+  type: bool
+  default: false
+  settable: true
+
+PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH:
+  type: bool
+  default: false
+
+PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR:
+  type: bool
+  default: true
+
+PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR:
+  type: bool
+  default: true
+
+PT_HPU_DEV_ENABLE_REPEAT_HOST_TENSOR:
+  type: bool
+  default: true
+
+PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR:
+  type: bool
+  default: true
+
+PT_HPU_DEV_ENABLE_TOPK_USING_CGUID:
+  type: bool
+  default: true
+
+PT_HPU_VALIDATE_COMPUTE_SHAPE:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_ZERO_MIN:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_DISK_CACHE_FOR_DSD:
+  type: bool
+  default: false
+
+PT_HPU_DS_TIME_IMPROVE_THRESHOLD_PERCENT:
+  type: unsigned
+  default: 10
+
+PT_HPU_ENABLE_FAST_SHAPE_INFERENCE:
+  type: bool
+  default: true
+  doc: "Option to enable Fast shape Inference"
+
+PT_HPU_RUN_HYBRID_SIF:
+  type: bool
+  default: true
+  doc: "Option to enable and run Hybrid shape Inference"
+
+PT_HPU_ENABLE_UNIQUE_GRAPH:
+  type: bool
+  default: false
+  doc: "Option to enable UniqueGraph feature"
+
+PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED:
+  type: bool
+  default: true
+  doc: "H2D support for view ops"
+
+PT_HPU_ENABLE_H2D_DYNAMIC_SLICE:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_DYNAMIC_OUTPUT_PREALLOCATE:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD:
+  type: bool
+  default: true
+  doc: "Options to enable/disable std::copy to async thread for non blocking copy"
+
+PT_HPU_H2D_COPY_MIN_TENSOR_SIZE:
+  type: unsigned
+  default: 1048576
+  doc: "Minimum tensor size limit for non blocking copy default: Default 1 MB."
+
+PT_HPU_SCALAR_H2D_COPY_MULTIPLE:
+  type: bool
+  default: true
+  doc: "Add scalars to list and copy using synMemCopyAsyncMultiple()"
+
+PT_RECIPE_CACHE_IGNORE_VERSION:
+  type: bool
+  default: false
+  doc: "Option to skip cache versioning mechanism.\n
+This will skip the check of Libs and Env compatibility of serialized recipes\n
+read from disk."
+
+PT_RECIPE_CACHE_DUMP_DEBUG:
+  type: bool
+  default: false
+  doc: "Option to dump additional debug information to disk cache directory.\n
+This works only with PT_RECIPE_CACHE_PATH set.\n
+In the disk cache folder for every recipe, '<hash>.hash_content' files are\n
+dumped. These files contain all the information that contribute to hash of a\n
+given recipe and can be used i.e. in cases when graphs are expected to\n
+produce exactly the same cache entires."
+
+PT_HPU_INITIAL_WORKSPACE_SIZE:
+  type: unsigned long
+  default: 0
+  doc: "Device memory related flags"
+
+PT_HABANA_POOL_SIZE:
+  type: unsigned long
+  default: 24
+
+PT_HPU_POOL_STRATEGY:
+  type: unsigned
+  default: 4
+
+PT_HABANA_MEM_LOG_LEVEL:
+  type: unsigned
+  default: 0
+
+PT_HPU_POOL_LOG_FRAGMENTATION_INFO:
+  type: bool
+  default: false
+
+PT_ENABLE_WORKSPACE_MEMORY_SHRINK:
+  type: bool
+  default: true
+
+PT_HPU_POOL_MEM_FRAGMENT_JSON:
+  type: bool
+  default: false
+
+PT_ENABLE_REALTIME_MEMORY_LOGGING:
+  type: bool
+  default: false
+
+PT_ENABLE_LIGHTWEIGHT_MEMORY_USAGE_LOGGING:
+  type: bool
+  default: false
+
+PT_HCCL_MEMORY_ALLOWANCE_MB:
+  type: unsigned
+  default: 0
+  doc: "G1: 4 buffers, 6 communicators\n
+internal slicing at 16 MB (16*4*6=384) per stream"
+
+PT_ENABLE_MEMORY_DEFRAGMENTATION:
+  type: bool
+  default: true
+
+PT_ENABLE_DEFRAGMENTATION_INFO:
+  type: bool
+  default: false
+
+PT_HPU_POOL_MEM_ENABLE_TENSOR_INFO:
+  type: bool
+  default: true
+
+PT_HPU_POOL_MEM_ALLOC_RETRY_WAIT_MS:
+  type: unsigned
+  default: 1000
+
+PT_HPU_POOL_MEM_ACQUIRE_PERC:
+  type: unsigned
+  default: 100
+
+PT_HPU_POOL_MEM_ALLOC_ENABLE_RETRY:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE:
+  type: bool
+  default: true
+
+PT_HPU_ENABLE_WEIGHT_HPU_PERMUTE:
+  type: bool
+  default: false
+
+PT_HPU_MAX_PERMUTE_THRESHOLD:
+  type: unsigned
+  default: 5
+
+PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK:
+  type: bool
+  default: true
+  doc: "Option to enable numeric limits check for CPU tensors when downcasting\n
+Ex long/double data type to int/float data type"
+
+PT_HPU_FORCE_USE_DEFAULT_STREAM:
+  type: bool
+  default: false
+  doc: "MultiUser stream - flag to force all ops to default stream"
+
+PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT:
+  type: bool
+  default: false
+  doc: "gradient bucket feature"
+
+PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT:
+  type: bool
+  default: true
+  doc: "Allow permutations on all reduce gradient bucket view outputs for PT2.0. This\n
+is to improve multinode performance"
+
+PT_HPU_ENABLE_COMPOUND_LOWERING_OPS:
+  type: bool
+  default: true
+  doc: "Allow stitching together of ops in PT Bridge Lowering"
+
+PT_HPU_MATMUL3D_2D_RESHAPE:
+  type: bool
+  default: false
+  doc: "matmul 3d,2d case handling with reshape"
+
+PT_HPU_ENABLE_GRAPH_RUNNING_HASH:
+  type: bool
+  default: false
+  doc: "Forward Graph running Hash"
+
+PT_HPU_ENABLE_VALIDATE_GRAPH_RUNNING_HASH:
+  type: bool
+  default: false
+
+PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING:
+  type: bool
+  default: false
+
+PT_ENABLE_INT64_SUPPORT:
+  type: bool
+  default: false
+  settable: true
+  doc: "Enable native support for tensors with INT64 datatype:
+
+- false - INT64 tensors are casted to INT32 on the device and all computations will be done in lower precision\n
+- true - INT64 tensors are **not** casted to INT32 and computations will be done in higher precision\n
+
+This flag is supported only for non-lazy mode, meaning `PT_HPU_LAZY_MODE=0` and Gaudi2 or newer.\n
+This flag is set to `false` by default as the default mode is lazy, meaning `PT_HPU_LAZY_MODE=1`\n
+For the `PT_HPU_LAZY_MODE=0` the default value is `true`"
+
+PT_DISABLE_DTYPE_PROMOTION:
+  type: bool
+  default: false
+  doc: "Disable type promotion at bridge.\n
+To disable it in bridge once CGUID supports type promotion."
+
+PT_WAIT_FOR_ALL_FUTURES_IN_CLEANUP:
+  type: bool
+  default: true
+  doc: "Wait for all futures during clean up."
+
+PT_TB_ENABLE_FLOW_EVENTS:
+  type: bool
+  default: false
+  doc: "Enable flow events in tensorflow"
+
+PT_HPU_ENABLE_GENERIC_STREAM:
+  type: bool
+  default: true
+  doc: "streams"
+
+PT_HPU_ENABLE_RECORD_STREAM:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_RECORD_STREAM_NOHOLDER:
+  type: bool
+  default: false
+
+PT_HPU_USE_LAUNCH_RECORD_STREAM:
+  type: bool
+  default: false
+
+PT_HPU_EAGER_TENSOR_POOL_SIZE:
+  type: unsigned
+  default: 1000
+  doc: "2.0 support"
+
+PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP:
+  type: bool
+  default: false
+
+PT_HPU_SORT_INDEX_IN_SCATTER_ADD:
+  type: bool
+  default: false
+
+PT_LOG_FILE_AMOUNT:
+  type: unsigned
+  default: 5
+  doc: "Determine number of files for logging rotation"
+
+PT_TOWL_LOG_FILE_AMOUNT:
+  type: unsigned
+  default: 100
+
+PT_TOWL_LOG_ENABLE:
+  type: bool
+  default: false
+
+PT_TOWL_LOG_SEPARATED_FILE:
+  type: bool
+  default: true
+
+PT_TOWL_LOG_CONFIG:
+  default: "rank=0"
+
+PT_HPU_ACC_THREAD_VERSION:
+  type: int
+  default: 0
+  doc: "clang-format off\n
+This is temporary variable, just to find out best\n
+solution for accumulation thread\n
+ 0 - default accumulation thread\n
+ 1 - accumulation thread without spinning, could be slower but consume less\n
+CPU time\n
+ 2 - accumulation thread with spinning and mutexes is not used,\n
+ the fastest solution, but could consume more CPU time"
+
+PT_CACHE_FOLDER_SIZE_MB:
+  type: unsigned
+  default: 1024
+  doc: "clang-format on\n
+1GB per worker to save recipes to the disk"
+
+PT_CACHE_FOLDER_DELETE:
+  type: bool
+  default: false
+
+PT_COMPILE_ONLY_MODE:
+  type: bool
+  default: false
+  settable: true
+  doc: "Disable synLaunch calls in the backend. Careful: garbage results will be produced - use wisely."
+
+
+PT_HPU_ENABLE_DIV_PRECISE:
+  type: bool
+  default: false
+  doc: "Option to enable div the precise kernel.\n
+This flag is used to enable or disable the use of the div precise kernel.\n
+If this flag is not set, the div kernel will be used by default for div\n
+operations without rounding mode; the div precise kernel will be used by\n
+default for div operations with rounding mode."
+
+PT_HPU_WRAP_RANDOM_OPS_COMPILE:
+  type: bool
+  default: true
+  doc: "This flag enables new flow of random ops in torch.compile.\n
+Random ops are replaced with custom wrappers containing seed tensor input.\n
+This allows determinism without generating seed on CPU each iteration."
+
+PT_HPU_ENABLE_EAGER_JIT_CACHE:
+  type: bool
+  default: true
+  doc: "This flag enable/Disable Eager Jit Cache. by default this is enabled."
+
+PT_HPU_STOCHASTIC_ROUNDING_MODE:
+  type: unsigned
+  default: 1
+  doc: "Mode of stochastic_rounding in cast_to_fp8 ops.\n
+0 - maps round_mode to CAST_ROUND_SR,\n
+1 - maps round_mode to CAST_ROUND_SFTZ - stochastic flush to zero."
+
+PT_HPU_PLACE_ON_CPU:
+  default: ""
+  doc: "A comma-separated operator list can be set through this env to enable
+fallback operators to the CPU.\n
+1) If PT_HPU_PLACE_ON_CPU is empty, fallback will be allowed for each\n
+operator.\n
+2) If PT_HPU_PLACE_ON_CPU contains `none`, fallback won't be allowed for any\n
+operators.\n
+3) Otherwise, fallback will be allowed for each operator defined in\n
+PT_HPU_PLACE_ON_CPU."
+
+PT_HPU_ENABLE_NEGATIVE_INDEXING:
+  type: bool
+  default: false
+  doc: "Enable negative values for indexing in index_put, gather ops."
+
+PT_HPU_CHECK_NUM_CONSTS:
+  type: unsigned
+  default: 0
+  doc: "Compare num of parameters marked as const with this value in torch.compile mode"
+
+PT_HPU_ENABLE_COMPILED_AUTOGRAD:
+  type: bool
+  default: false
+  doc: "Enable CompiledAutograd with hpu_backend in torch.compile."
+
+PT_ENABLE_COMM_GROUP_CACHE:
+  type: bool
+  default: true
+  doc: "Cache communication groups creation instances. In model scenario\n
+deepspeed and MDS creates the same process groups internally individaully.\n
+This flag is to prevent duplication of communication group."
+
+PT_HPU_GPU_MIGRATION:
+  type: bool
+  default: false
+  doc: "Option to enable GPU Migration Toolkit"
+
+PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT:
+  type: bool
+  default: False
+
+PT_HPU_SDPA_SFMX_BWD_V2:
+  type: bool
+  default: false
+  doc: "Option to enable softmax BWD calculation as per FA paper"

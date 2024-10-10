@@ -1,0 +1,54 @@
+common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+    - repository: coral-sim
+    - repository: tpcsim
+    - repository: habanalabs
+    - repository: nic_kmd
+      isHybrid: true
+      githubOrg: gerrit
+  dependencies:
+    - COMPLEX_GUID
+    - CORAL_SIM
+    - HCL
+    - HL_THUNK
+    - PT_NEXT
+    - RDMA_CORE
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_FUSER
+    - TPC_KERNELS
+    - TPCSIM
+  config:
+    testCommand: run_pytorch_modules_tests
+    loadLKD: true
+    testXMLOutputKey: --xml
+    releaseFlag: false
+    saveToFileBeatMount: true
+  envVars:
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${RDMA_CORE_ROOT}/build/lib:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+    CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+    LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+    JOB_SCENARIO: pt_ci_cpp
+  preTestStages:
+    Install Python test dependencies and artifacts:
+      command: 'set_up_pytorch_artifacts_for_testing next'
+testsMap:
+  Test_pytorch_modules_gaudi_sim_py_suite_compile_future:
+    stages:
+      Run PY compile tests gaudi sim:
+        filter: -t py_tests --pytest-mode compile
+  Test_pytorch_modules_gaudi2_sim_py_suite_compile_future:
+    dependencies:
+      - TPC_LLVM
+    stages:
+      Run PY compile tests gaudi2 sim:
+        filter: -t py_tests --dut gaudi2  --pytest-mode compile
+  Test_pytorch_modules_gaudi3_sim_py_suite_compile_future:
+    dependencies:
+      - TPC_LLVM
+    stages:
+      Run PY compile tests gaudi3 sim:
+        filter: -t py_tests --dut gaudi3 --pytest-mode compile

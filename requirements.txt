@@ -1,0 +1,31 @@
+--extra-index-url="https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/pypi-virtual/simple"
+
+auditwheel>=6
+cmake>=3.26.3
+cython
+lark
+fvcore
+ninja>=1.11.1
+numpy==1.23.5 ; python_version <= '3.9'
+numpy==1.26.4 ; python_version >= '3.10'
+packaging>=24.1
+pandas==2.0.1
+pip>=24.1.2
+pkginfo>=1.11.1
+pre-commit
+pybind11==2.10.4
+pyyaml==6.0.1
+requests
+setuptools>=67.7.2
+urllib3>=1.26.2,<2  # <2 is an Amazon Linux 2 requirement
+wheel>=0.40
+
+# Required for dynamic shape symbolic expressions
+symengine==0.9.0 ; python_version == '3.8'
+symengine==0.11.0 ; python_version == '3.10'
+symengine==0.9.2 ; python_version == '3.11'
+symengine==0.11.0 ; python_version >= '3.12'
+
+# Required by torchvision at build time for optimal performance
+# See https://github.com/pytorch/vision/blob/1041e797db6ef73ff7fa87788d59376aa7b158b7/setup.py#L101
+pillow-simd==9.5.0.post1

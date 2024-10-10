@@ -1,0 +1,99 @@
+{
+  "profiles": {
+    "ci": {
+      "wheels": [
+        "ci"
+      ],
+      "additional_build_flags": [
+        "-c",
+        "-r",
+        "--no-iwyu",
+        "--recreate-venv=force",
+        "-v",
+        "--op-stats"
+      ]
+    },
+    "cd": {
+      "wheels": [
+        "release"
+      ],
+      "additional_build_flags": [
+        "-c",
+        "-r",
+        "--no-iwyu",
+        "--recreate-venv=force",
+        "-v",
+        "--op-stats"
+      ]
+    }
+  },
+  "required_pt": {
+    "default": "torch"
+  },
+  "pt_versions": {
+    "previous": {
+      "version": "2.3.1",
+      "default_source": "build",
+      "extras": {
+        "torchvision": "v0.18.1",
+        "torchaudio": "v2.3.0",
+        "torchtext": "v0.18.0",
+        "torchdata": "v0.7.1"
+      }
+    },
+    "current": {
+      "version": "2.4.0",
+      "default_source": "build",
+      "extras": {
+        "torchvision": "v0.19.0",
+        "torchaudio": "v2.4.0",
+        "torchtext": "v0.18.0",
+        "torchdata": "v0.7.1"
+      }
+    },
+    "next": {
+      "version": "2.4.1",
+      "default_source": "build",
+      "extras": {
+        "torchvision": "v0.19.1-rc5",
+        "torchaudio": "v2.4.1-rc4",
+        "torchtext": "v0.18.0",
+        "torchdata": "v0.7.1"
+      }
+    },
+    "rc": {
+      "version": null,
+      "default_source": "https://download.pytorch.org/whl/test/cpu"
+    },
+    "future": {
+      "version": "2.5.0",
+      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
+    },
+    "nightly": {
+      "version": "nightly",
+      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
+    }
+  },
+  "wheels": {
+    "release": {
+      "wheel_name": "habana_torch_plugin",
+      "pt_versions": [
+        "current"
+      ]
+    },
+    "ci": {
+      "wheel_name": "habana_torch_plugin",
+      "pt_versions": [
+        "current",
+        "rc"
+      ]
+    },
+    "internal": {
+      "wheel_name": "habana_torch_plugin_internal",
+      "pt_versions": [
+        "rc"
+      ],
+      "continue_on_error": true
+    }
+  }
+}

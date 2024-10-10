@@ -1,0 +1,13 @@
+config:
+  jobTimeout: '180'
+  sharedCCacheEnabled: true
+  gerritTriggerMap:
+    - repository: pytorch-fork
+    - repository: pytorch-vision-fork
+    - repository: pytorch-integration
+    - repository: lightning-habana-fork
+  osBuild:
+    ubuntu18.04: "off"
+  dependantComponents:
+    - component: deepspeed_fork
+    - component: pt_next

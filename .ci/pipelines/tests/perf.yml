@@ -1,0 +1,55 @@
+common:
+  testRepos:
+    - repository: automation
+    - repository: fairseq-fork
+    - repository: pytorch-integration
+    - repository: habanalabs
+    - repository: nic_kmd
+      isHybrid: true
+      githubOrg: gerrit
+    - repository: tpcsim
+    - repository: rdma-core
+      isHybrid: true
+      githubOrg: gerrit
+    - repository: pytorch-training-tests
+    - repository: event_tests_plugin
+    - repository: model_garden
+    - repository: optimum-habana-fork
+      githubOrg: HabanaAI
+  dependencies:
+    - COMPLEX_GUID
+    - HCL
+    - HL_THUNK
+    - PT_FORK
+    - RDMA_CORE
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_KERNELS
+  config:
+    testCommand: run_pytorch_qa_tests
+    loadLKD: true
+    testXMLOutputKey: --xml
+    releaseFlag: false
+    saveToFileBeatMount: true
+  envVars:
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);'):${RDMA_CORE_ROOT}/build/lib"
+    CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+    LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+    JOB_SCENARIO: pt_smoke_perf_gaudi2
+  preTestStages:
+    Install Python test dependencies and artifacts:
+      command: 'set_up_pytorch_artifacts_for_testing current'
+testsMap:
+  Test_pytorch_modules_gaudi2_asic_perf:
+    stages:
+      Run perf tests gaudi2 asic:
+        filter: -a smoke_perf_gaudi2
+  Test_pytorch_modules_gaudi_hls_asic_perf:
+    dependencies:
+      - AEON
+      - TPC_FUSER
+      - TPC_LLVM
+    stages:
+      Run perf tests gaudi asic:
+        filter: -a smoke_perf

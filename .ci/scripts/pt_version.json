@@ -1,0 +1,29 @@
+{
+    "pytorch_fork_version": {
+        "supported_vers": [
+            "1.8.1",
+            "1.7.1"
+        ],
+        "default_vers": "2.4.0"
+    },
+    "pytorch_fork_tags": {
+        "1.8.1": "master",
+        "1.7.1": "v1.7.1_master"
+    },
+    "pytorch_integration_version": {
+        "supported_vers": [
+            "1.8.1",
+            "1.7.1"
+        ],
+        "default_vers": "1.8.1"
+    },
+    "pytorch_integration_tags": {
+        "1.8.1": "master",
+        "1.7.1": "4ee9a58"
+    },
+    "pytorch_python_version": {
+        "supported_vers": [
+            "3.8"
+        ]
+    }
+}
