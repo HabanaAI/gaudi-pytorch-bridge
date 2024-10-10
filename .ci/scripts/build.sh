@@ -2266,11 +2266,11 @@ install_pillow_simd()
 {
     $__pip_cmd uninstall -y pillow
     $__pip_cmd uninstall -y pillow-simd
-    cmd=(CC="cc -mavx2" $__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x)
+    cmd=($__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
-    "${cmd[@]}"
+    CC="cc -mavx2" "${cmd[@]}"
 }
 
 # set_python_version to set envs related to python version during build
