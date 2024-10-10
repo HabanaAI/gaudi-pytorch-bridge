@@ -426,23 +426,9 @@ void ForeachBinary::AddNode(
 }
 
 bool BinarySTMeta(
-    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList&,
     habana_helpers::IShapeList& outputs) {
   static_cast<void>(outputs);
-
-  const c10::ScalarType& src_type = inputs[0].getScalarType();
-  const c10::ScalarType& dst_type = inputs[1].getScalarType();
-  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
-  auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
-
-  PT_BRIDGE_DEBUG("BinarySTMeta src:\t", src_type, "\tdst:\t", dst_type);
-  if ((src_type_cast_type != dst_type_cast_type) &&
-      (habana_helpers::CastType::i8 == src_type_cast_type ||
-       habana_helpers::CastType::i8 == dst_type_cast_type)) {
-    PT_BRIDGE_DEBUG("Adding cast ST");
-    std::vector<int64_t> out_shape = {1};
-    habana_helpers::UpdateSTShapeInfo(out_shape);
-  }
 
   return true;
 }
