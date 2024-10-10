@@ -47,7 +47,9 @@ bool hpu_wrap::is_pinned(
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "is_pinned :", " self=", to_string(self), " device=", to_string(device));
-  HABANA_ASSERT(device.has_value());
+  if (!device.has_value()) {
+    return false;
+  }
   return is_pinned_hpu(self, *device);
 }
 
@@ -57,7 +59,7 @@ Tensor hpu_wrap::pin_memory(
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "pin_memory :", " self=", to_string(self), " device=", to_string(device));
-  HABANA_ASSERT(device.has_value());
+  HABANA_ASSERT(device.has_value(), "Unable to pin memory to an null device");
   return pin_memory_hpu(self, *device);
 }
 
@@ -71,7 +73,7 @@ Tensor hpu_wrap::_pin_memory(
       to_string(self),
       " device=",
       to_string(device));
-  HABANA_ASSERT(device.has_value());
+  HABANA_ASSERT(device.has_value(), "Unable to pin memory to an null device");
   return pin_memory_hpu(self, *device);
 }
 

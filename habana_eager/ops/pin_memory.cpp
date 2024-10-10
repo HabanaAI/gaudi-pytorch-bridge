@@ -59,7 +59,7 @@ at::Tensor _pin_memory(
       habana::to_string(self),
       " device=",
       habana::to_string(device));
-  HABANA_ASSERT(device.has_value());
+  HABANA_ASSERT(device.has_value(), "Unable to pin memory to an null device");
   return habana::eager::pin_memory_hpu(self, *device);
 }
 
