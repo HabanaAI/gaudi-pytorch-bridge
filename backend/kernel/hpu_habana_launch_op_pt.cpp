@@ -5713,6 +5713,18 @@ void HabanaLaunchOpPT::handle_pass_exception(
   // so that for next bucket created the starting policy be started again
   current_dbipsh_->SetDefaultPolicy();
 
+  // In case the fallback happened for mark_dynamic, reset both min and max
+  // data, because the policy was changed to CURRENT for both, an exception
+  // in MAX although genuine will cause exit.
+  if (graph_input_info.current_bucket_id == 0) {
+    graph_input_info.min_input_tshapes.clear();
+    graph_input_info.min_input_tshapes.insert(
+        fallback_ranges.min_shapes.begin(), fallback_ranges.min_shapes.end());
+    graph_input_info.max_input_tshapes.clear();
+    graph_input_info.max_input_tshapes.insert(
+        fallback_ranges.max_shapes.begin(), fallback_ranges.max_shapes.end());
+  }
+
   switch (e.Pass()) {
     // In reruning min pass, clear the min name-shape map and rerun
     case ShapeInfo::InferencePass::MIN_SHAPE:
