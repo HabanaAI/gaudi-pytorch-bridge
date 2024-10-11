@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <queue>
+#include <sstream>
 
 #include "habana_eager/graph_exec.h"
 
@@ -100,6 +101,30 @@ struct HandleInputViewsPass {
             view_params,
             m_input_base_sizes_to_set.at(input_idx),
             output_size);
+
+        // @TODO : Check if we can fill min and max shapes in form of symbols.
+        // Till we find a way, since the strided tensor is replaced by base
+        // tensor in the stack, we have to do the same in range_info DS. The
+        // problem being we dont have a way currently to fetch shapes of base
+        // tensor in form of symbolic so that min max can be inferred.
+        std::stringstream ss;
+        ss << "[";
+        for (auto value : m_input_base_sizes_to_set.at(input_idx)) {
+          ss << value << ", ";
+        }
+        std::string result = ss.str();
+        if (!result.empty()) {
+          result.erase(result.size() - 2);
+        }
+        result += "]";
+        range_infos[input_idx].expr = result;
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "HandleViewPass filling RangeInfo at index ",
+            range_infos[input_idx].index,
+            " with static min and max = ",
+            result);
+        // Change the index to -1 so that min and max range be processed
+        range_infos[input_idx].index = -1;
 
         changed |= true;
 
