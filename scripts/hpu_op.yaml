@@ -2201,6 +2201,7 @@ channel_shuffle:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: channel_shuffle
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 cholesky:
   dtypes: [Float]
@@ -2371,7 +2372,7 @@ constant_pad_nd:
   lazy:
     acc_thread: true
     override_fn: constant_pad_hpu_lazy
-#  schema_args: "(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value, SymInt[] self_size) -> Tensor"
+  op_validator: ConstantPadSharedMeta
 
 convolution_overrideable:
   output_meta: ConvolutionOverrideableMeta

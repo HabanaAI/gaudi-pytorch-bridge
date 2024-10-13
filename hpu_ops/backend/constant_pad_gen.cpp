@@ -83,6 +83,21 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector ConstantPadSharedMeta(const at::Stack& stack) {
+  const auto& self = stack.at(0).toTensor();
+  const auto selfRank = self.dim();
+  const auto dtype = self.scalar_type();
+
+  SharedMetaData padMeta{"pad_fwd"};
+  padMeta.inputs_data.emplace_back(selfRank, dtype);
+  if (stack.size() != 3 && (stack.size() != 4 || stack.at(1).isTensor())) {
+    padMeta.inputs_data.emplace_back(1, c10::ScalarType::UInt32);
+  }
+  padMeta.outputs_data.emplace_back(selfRank, dtype);
+
+  return {padMeta};
+}
+
 static void FillPadParamsValue(
     std::shared_ptr<ns_PadKernelEx::Params> params,
     const at::Tensor& self,
