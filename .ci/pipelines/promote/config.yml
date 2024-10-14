@@ -77,6 +77,10 @@ orchestratorConfig:
     # Quantization toolkit tests
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt2e_quant
       silentMode: true
+    # PT Gaudi2 Optimum Habana Models Job <Start>
+    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_optimum_habana_models_promote
+      silentMode: false
+    # PT Gaudi2 Optimum Habana Models Job <End>
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
