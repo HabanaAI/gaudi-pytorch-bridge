@@ -653,7 +653,7 @@ at::Tensor mixture_of_experts(
     final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
   }
 
-  return final_hidden_states;
+  return final_hidden_states.reshape(hidden_states.sizes());
 }
 
 at::Tensor mixture_of_experts_fused_weights(

@@ -142,7 +142,9 @@ def test_mixture_of_experts(
     # Experimental metric to find similarity as elementwise comparison may lead to false negative results
     cos_sim_tol = 0.8 if dtype == torch.half else 0.9
     cos_sim = nn.CosineSimilarity(dim=0)(result_hpu.to(cpu).view(-1), result_cpu.view(-1))
+
     assert cos_sim > cos_sim_tol
+    assert result_hpu.shape == result_cpu.shape
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
