@@ -168,6 +168,71 @@ static std::pair<SynapseLayouts, SynapseLayouts> MakeLayouts(
   return std::make_pair(in_layouts, out_layouts);
 }
 
+SharedMetaDataVector ConvolutionSharedMeta(const at::Stack& stack) {
+  const auto& input = stack.at(0).toTensor();
+  const auto& weight = stack.at(1).toTensor();
+  const auto& bias =
+      stack.at(2).toOptional<at::Tensor>().value_or(at::Tensor());
+  const bool biasDefined = bias.defined();
+  const bool transposed = stack[6].toBool();
+  auto inputRank = input.dim();
+  auto weightRank = weight.dim();
+  const auto inputDtype = input.scalar_type();
+  const auto weightDtype = weight.scalar_type();
+
+  SharedMetaDataVector convolutionSharedMeta;
+
+  const bool is_conv_1d = inputRank == 3;
+  if (is_conv_1d) {
+    SharedMetaData expandInputDimsMeta("expand_dims");
+    expandInputDimsMeta.inputs_data.emplace_back(inputRank, inputDtype);
+    expandInputDimsMeta.outputs_data.emplace_back(++inputRank, inputDtype);
+    convolutionSharedMeta.push_back(expandInputDimsMeta);
+
+    SharedMetaData expandWeightDimsMeta("expand_dims");
+    expandWeightDimsMeta.inputs_data.emplace_back(weightRank, weightDtype);
+    expandWeightDimsMeta.outputs_data.emplace_back(++weightRank, weightDtype);
+    convolutionSharedMeta.push_back(expandWeightDimsMeta);
+  }
+
+  const bool is_conv_3d = inputRank == 5;
+  std::string guid = transposed ? "dedx" : "spatial_convolution";
+  if (is_conv_3d)
+    guid += "3d";
+
+  SharedMetaData convMeta(guid);
+  convMeta.inputs_data.emplace_back(inputRank, inputDtype);
+  convMeta.inputs_data.emplace_back(weightRank, weightDtype);
+  if (biasDefined && !transposed) {
+    convMeta.inputs_data.emplace_back(1, bias.scalar_type());
+  }
+  convMeta.outputs_data.emplace_back(inputRank, inputDtype);
+  convolutionSharedMeta.push_back(convMeta);
+
+  if (biasDefined && transposed) {
+    SharedMetaData expandMeta("expand_multi_dims");
+    expandMeta.inputs_data.emplace_back(1, bias.scalar_type());
+    expandMeta.outputs_data.emplace_back(
+        is_conv_3d ? 5 : 4, bias.scalar_type());
+    convolutionSharedMeta.push_back(expandMeta);
+
+    SharedMetaData addMeta("add_fwd");
+    addMeta.inputs_data.push_back(convMeta.outputs_data[0]);
+    addMeta.inputs_data.push_back(expandMeta.outputs_data[0]);
+    addMeta.outputs_data.emplace_back(inputRank, inputDtype);
+    convolutionSharedMeta.push_back(addMeta);
+  }
+
+  if (is_conv_1d) {
+    SharedMetaData squeezeMeta("squeeze");
+    squeezeMeta.inputs_data.emplace_back(inputRank, inputDtype);
+    squeezeMeta.outputs_data.emplace_back(--inputRank, inputDtype);
+    convolutionSharedMeta.push_back(squeezeMeta);
+  }
+
+  return convolutionSharedMeta;
+}
+
 void ConvolutionOverrideable::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -188,8 +253,7 @@ void ConvolutionOverrideable::AddNode(
   IF_CONV1D_EXPAND_TO_2D(input, 0);
   IF_CONV1D_EXPAND_TO_2D(weight, 1);
 
-  const uint64_t DIM5 = 5;
-  const bool is_conv_3d = input.dim() == DIM5;
+  const bool is_conv_3d = input.dim() == 5;
 
   auto [in_layouts, out_layouts] = MakeLayouts(is_conv_3d, transposed);
   SetSynapseLayouts(in_layouts, out_layouts);
@@ -205,7 +269,7 @@ void ConvolutionOverrideable::AddNode(
   if (is_conv_1d)
     meta.shape.push_back(1);
 
-  if (guid == "dedx" || guid == "dedx3d")
+  if (transposed)
     CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   else if (bias.defined())
     inputs.emplace_back(syn_in(2));
