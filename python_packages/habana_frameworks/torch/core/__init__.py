@@ -41,26 +41,62 @@ overwrite_torch_functions()
 # this is to prevent potential circular imports caused by the function *overwrite_native_pt2e_quantization_interface()*
 from functools import wraps
 
-did_overwrite_quantization = False
+from habana_frameworks.torch.dynamo.compile_backend.backends import import_compilers, import_hpu_partition
 
 
-# A wrapper for bootstrap._find_and_load function to call overwrite_native_quantization_interface() when needed
-def on_import(wrapped):
-    @wraps(wrapped)
-    def inner(*args, **kwargs):
-        global did_overwrite_quantization
+def create_and_apply_on_import_wrapper():
+    """
+    This function wraps a _find_and_load function from importlib._bootstrap module, which is called when importing modules.
+    This is done, so that some additional initialization is performed when importing some specific modules,
+    which would potentially cause an error when importing them for the first time, i.e. circular import error when importing some modules before torch.
+
+    Here is a simple example to demonstrate one of the behaviour this wrapper fixes:
+    *torch and habana_frameworks.torch haven't been imported yet*
+    import functorch -> imports torch -> imports habana_frameworks.torch -> ... -> imports torch._export -> imports functorch (which causes a cirular import error)
+    """
+    import importlib._bootstrap as bootstrap
+
+    module = bootstrap
+    fn_name = "_find_and_load"
+
+    original_fn = getattr(module, fn_name)
+
+    # A function to restore the original behaviour of the given function
+    def unwrap():
+        setattr(module, fn_name, original_fn)
+
+    def wrap():
+        setattr(module, fn_name, wrapper)
+
+    did_handle_overwrites = False
+    did_handle_backend = False
+
+    @wraps(original_fn)
+    def wrapper(*args, **kwargs):
+        nonlocal did_handle_backend, did_handle_overwrites
         # we only need to overwrite once, after importing one of these modules
-        if args[0] in ["torch._export", "torch.ao.quantization.quantize_pt2e"] and not did_overwrite_quantization:
-            did_overwrite_quantization = True
+        if args[0] in ["torch._export", "torch.ao.quantization.quantize_pt2e"] and not did_handle_overwrites:
+            did_handle_overwrites = True
             overwrite_native_pt2e_quantization_interface()  # wrap pt2e-quant apis required to work on HPU with graph-breaks
-        return wrapped(*args, **kwargs)
+            ret = original_fn(*args, **kwargs)
+        elif "dynamo" in args[0] and not did_handle_backend:
+            # postpone some of the imports in the dynamo module until it's actually used to avoid import errors
+            did_handle_backend = True
+            import_compilers()
+            import_hpu_partition()
+            ret = original_fn(*args, **kwargs)
+        else:
+            ret = original_fn(*args, **kwargs)
+        if did_handle_backend and did_handle_overwrites:
+            # if both of the conditions above have been met, this wrapper is not needed anymore, so the function we have wrapped is set back to the original
+            unwrap()
 
-    return inner
+        return ret
+
+    wrap()
 
 
-import importlib._bootstrap as bootstrap
-
-setattr(bootstrap, "_find_and_load", on_import(bootstrap._find_and_load))
+create_and_apply_on_import_wrapper()
 
 
 # enable profiler and weight sharing if required

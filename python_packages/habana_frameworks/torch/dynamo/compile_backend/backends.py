@@ -23,14 +23,27 @@ logger = logging.getLogger(__name__)
 
 from .decomposition import get_hpu_decompositions, override_composite_ops
 
+"""
+The following two functions are used to postone importing the compilers and hpu_partition until the actual usage of the backend
+For more detailed information, see create_and_apply_on_import_wrapper() function from  habana_frameworks/torch/core/__init__.py.
+"""
+
+
+def import_compilers():
+    global hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
+    from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
+
+
+def import_hpu_partition():
+    global hpu_partition
+    from .partition_fn import hpu_partition
+
 
 @register_backend
 def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], **kwargs):
     """
     This function implements interface for HPU training/inference backend.
     """
-    from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
-    from .partition_fn import hpu_partition
 
     options = kwargs["options"] if "options" in kwargs else None
 
