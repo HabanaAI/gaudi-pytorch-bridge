@@ -193,9 +193,6 @@ void synchronize() {
 void synchronize_host_multistage_pipeline() {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     device_context.JoinAllThreads();
-  } else {
-    PT_BRIDGE_WARN(
-        "synchronize_host_multistage_pipeline is invoked, but not supported. Ignoring..");
   }
 }
 
