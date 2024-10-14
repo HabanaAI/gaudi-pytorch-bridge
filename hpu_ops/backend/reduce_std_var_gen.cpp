@@ -348,9 +348,6 @@ SharedMetaDataVector VarStdCommonSharedMeta(
   out.push_back(sz);
 
   if (correction) {
-    SharedMetaData constSharedMeta{"constant"};
-    constSharedMeta.outputs_data.emplace_back(1, at::kFloat);
-    out.push_back(constSharedMeta);
     SharedMetaData sub2SharedMeta{"sub_fwd"};
     sub2SharedMeta.inputs_data.emplace_back(1, dtype);
     sub2SharedMeta.inputs_data.emplace_back(1, dtype);

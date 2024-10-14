@@ -36,20 +36,12 @@ SharedMetaDataVector RreluWithNoiseSharedMeta(const at::Stack& stack) {
   if (stack.at(1).isTensor()) {
     auto noiseIn = stack.at(1).toTensor();
     rank = std::max(self.dim(), noiseIn.dim());
-  } else {
-    SharedMetaData const1SharedMeta("constant");
-    const1SharedMeta.outputs_data.emplace_back(rank, dtype);
-    out.push_back(const1SharedMeta);
   }
 
   SharedMetaData randUniformSharedMeta("random_uniform_fwd");
   randUniformSharedMeta.inputs_data.emplace_back(1, at::ScalarType::Int);
   randUniformSharedMeta.outputs_data.emplace_back(rank, dtype);
   out.push_back(randUniformSharedMeta);
-
-  SharedMetaData onesSharedMeta("constant");
-  onesSharedMeta.outputs_data.emplace_back(rank, dtype);
-  out.push_back(onesSharedMeta);
 
   SharedMetaData lessEqSharedMeta("less_equal_fwd");
   lessEqSharedMeta.inputs_data.emplace_back(rank, dtype);

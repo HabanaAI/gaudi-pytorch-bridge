@@ -15,14 +15,10 @@
 
 namespace habana {
 
-SharedMetaDataVector ZeroSharedMeta(const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  auto dtype = self.scalar_type();
-  auto rank = self.dim();
-
-  SharedMetaData memsetSharedMeta{"constant"};
-  memsetSharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {memsetSharedMeta};
+SharedMetaDataVector ZeroSharedMeta(const at::Stack&) {
+  // return empty vector because shape tensor validation will block shape
+  // agnostic flow
+  return {};
 }
 
 void ZeroHpuLazyOperator::AddNode(

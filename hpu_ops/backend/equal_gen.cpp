@@ -36,9 +36,7 @@ SharedMetaDataVector EqualSharedMeta(const at::Stack& stack) {
   const auto otherRank = other.dim();
 
   if (selfRank != otherRank) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Bool);
-    return {constantSharedMeta};
+    return {};
   } else {
     const auto computeDtype = self.scalar_type();
     auto rank = std::max(selfRank, otherRank);

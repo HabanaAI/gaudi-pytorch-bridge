@@ -392,9 +392,6 @@ SharedMetaDataVector NormalSharedMeta(const at::Stack& stack) {
     addSharedMeta.inputs_data = {commonTensor, commonTensor};
     addSharedMeta.outputs_data = {commonTensor};
 
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(1, dtype);
-
     SharedMetaData multSharedMeta{"mult_fwd"};
     multSharedMeta.inputs_data = {commonTensor, commonTensor};
     multSharedMeta.outputs_data = {commonTensor};
@@ -403,7 +400,6 @@ SharedMetaDataVector NormalSharedMeta(const at::Stack& stack) {
       if (stddev != 1.0)
         return {
             randomSharedMeta,
-            constantSharedMeta,
             multSharedMeta,
             addSharedMeta};
 
@@ -413,7 +409,6 @@ SharedMetaDataVector NormalSharedMeta(const at::Stack& stack) {
       if (mean != 0.0)
         return {
             randomSharedMeta,
-            constantSharedMeta,
             multSharedMeta,
             addSharedMeta};
 
