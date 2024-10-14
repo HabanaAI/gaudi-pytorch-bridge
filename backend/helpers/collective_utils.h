@@ -29,7 +29,10 @@ typedef enum {
   collectiveBroadcast = 4,
 } collectiveKind_t;
 
-hcclRedOp_t getHCCLReduceOp(const c10d::ReduceOp reduceOp);
+hcclRedOp_t getHCCLReduceOp(
+    const c10d::ReduceOp reduceOp,
+    const at::ScalarType type);
+
 size_t getHCCLSliceSize(collectiveKind_t kind, bool lazy_collective = false);
 size_t getHCCLDataSize(hcclDataType_t type);
 void getCountDatatype(

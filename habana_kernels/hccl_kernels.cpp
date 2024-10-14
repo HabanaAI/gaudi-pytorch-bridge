@@ -142,7 +142,20 @@ std::map<c10d::ReduceOp, hcclRedOp_t> hcclOp = {
     {c10d::ReduceOp::PRODUCT, hcclProd},
 };
 
-hcclRedOp_t getHCCLReduceOp(const c10d::ReduceOp& reduceOp) {
+hcclRedOp_t getHCCLReduceOp(
+    const c10d::ReduceOp& reduceOp,
+    const at::ScalarType type) {
+  if (type == at::kBool) {
+    if (reduceOp == c10d::ReduceOp::SUM) {
+      // bitwise or
+      return hcclMax;
+    } else if (reduceOp == c10d::ReduceOp::PRODUCT) {
+      // bitwise and
+      return hcclMin;
+    } else if (reduceOp == c10d::ReduceOp::AVG) {
+      TORCH_CHECK(false, "Cannot use ReduceOp.AVG with boolean inputs");
+    }
+  }
   try {
     return hcclOp.at(reduceOp);
   } catch (std::out_of_range& e) {
@@ -525,7 +538,7 @@ void HcclAllreduceOperator::RunCollective(
               (void*)((uint64_t)recv_buffer + data_offset),
               num_elements_in_current_chunk,
               getHCCLDataType(scalar_type),
-              getHCCLReduceOp((RedOpType)reduce_op),
+              getHCCLReduceOp((RedOpType)reduce_op, scalar_type),
               *comm->GetHcclHandle(),
               stream);
           TORCH_CHECK(
@@ -608,7 +621,7 @@ void HcclReduceOperator::RunCollective(
               (void*)((uint64_t)recv_buffer + data_offset),
               num_elements_in_current_chunk,
               getHCCLDataType(scalar_type),
-              getHCCLReduceOp((RedOpType)reduce_op),
+              getHCCLReduceOp((RedOpType)reduce_op, scalar_type),
               dst_rank,
               *comm->GetHcclHandle(),
               stream);
@@ -892,7 +905,7 @@ void HcclReduceScatterOutOperator::RunCollective(
             recv_buffer,
             output->get_numel(),
             getHCCLDataType(scalar_type),
-            getHCCLReduceOp((RedOpType)reduce_op),
+            getHCCLReduceOp((RedOpType)reduce_op, scalar_type),
             *comm->GetHcclHandle(),
             stream);
         return hccl_result;

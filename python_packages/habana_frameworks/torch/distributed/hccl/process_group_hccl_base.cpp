@@ -459,7 +459,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
                 offseted_recv_buffer,
                 num_elements_in_current_chunk,
                 habana_helpers::getHCCLDataType(input.scalar_type()),
-                habana_helpers::getHCCLReduceOp(reduceOp),
+                habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
                 hccl_comm,
                 stream);
           }
@@ -552,7 +552,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
                     reinterpret_cast<char*>(recv_buffer) + data_offset),
                 num_elements_in_current_chunk,
                 habana_helpers::getHCCLDataType(input.scalar_type()),
-                habana_helpers::getHCCLReduceOp(reduceOp),
+                habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
                 root,
                 hccl_comm,
                 stream);
@@ -1433,7 +1433,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
               recv_buffer,
               output.numel(),
               habana_helpers::getHCCLDataType(input.scalar_type()),
-              habana_helpers::getHCCLReduceOp(reduceOp),
+              habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
               hccl_comm,
               stream);
         }
@@ -1515,7 +1515,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
               recv_buffer,
               output.numel(),
               habana_helpers::getHCCLDataType(input.scalar_type()),
-              habana_helpers::getHCCLReduceOp(reduceOp),
+              habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
               hccl_comm,
               stream);
         }
@@ -1613,7 +1613,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
               recv_buffer,
               output.numel(),
               habana_helpers::getHCCLDataType(input.scalar_type()),
-              habana_helpers::getHCCLReduceOp(reduceOp),
+              habana_helpers::getHCCLReduceOp(reduceOp, input.scalar_type()),
               hccl_comm,
               stream);
         }

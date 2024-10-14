@@ -41,7 +41,21 @@ const std::map<c10d::ReduceOp, hcclRedOp_t> hcclOp = {
     {c10d::ReduceOp::PRODUCT, hcclProd},
 };
 
-hcclRedOp_t getHCCLReduceOp(const c10d::ReduceOp reduceOp) {
+hcclRedOp_t getHCCLReduceOp(
+    const c10d::ReduceOp reduceOp,
+    const at::ScalarType type) {
+  if (type == at::kBool) {
+    if (reduceOp == c10d::ReduceOp::SUM) {
+      // bitwise or
+      return hcclMax;
+    } else if (reduceOp == c10d::ReduceOp::PRODUCT) {
+      // bitwise and
+      return hcclMin;
+    } else if (reduceOp == c10d::ReduceOp::AVG) {
+      TORCH_CHECK(false, "Cannot use ReduceOp.AVG with boolean inputs");
+    }
+  }
+
   try {
     return hcclOp.at(reduceOp);
   } catch (std::out_of_range& e) {
