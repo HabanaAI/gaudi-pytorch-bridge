@@ -50,6 +50,7 @@ def get_input_symbolic(graph_module, inputs):
     # out own default range [val, val*2]. It also help us in avoiding
     # workspace allocation failiure.
     MAX_UPPER_SIZE = 1_00_00_000
+    MAX_LOWER_SIZE = -1_00_00_000
 
     def is_mark_dynamic(inputs):
         for input in inputs:
@@ -79,8 +80,10 @@ def get_input_symbolic(graph_module, inputs):
                 # so that in backend can create dynamic recipe in 1 shot
                 logger.debug("Initial MIN ", var_range.lower)
                 logger.debug("Initial MAX ", var_range.upper)
-                if var_range.upper >= MAX_UPPER_SIZE:
-                    logger.debug(f"WARN: max range {var_range.upper} greater than {MAX_UPPER_SIZE} using max as 2*val")
+                if var_range.upper > MAX_UPPER_SIZE or var_range.lower < MAX_LOWER_SIZE:
+                    logger.debug(
+                        f"WARN: Range {var_range.lower}-{var_range.upper} out of bound using [val, 2*val] as range"
+                    )
                     min_shape.append(np.int64(var_val))
                     max_shape.append(np.int64(var_val) * 2)
                 else:
