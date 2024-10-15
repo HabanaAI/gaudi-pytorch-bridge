@@ -55,15 +55,11 @@ Tensor cast(at::ScalarType to_type, const Tensor& arg, DeviceType device_type) {
   // autocast on HPU.
   // TODO: SW-122613 Analyze impact of cached casts when graph mode in PT 2.0 is
   // introduced.
-#if 0
-  return cached_cast(to_type, arg, device_type);
-#else
   if (is_eligible(arg, device_type) && (arg.scalar_type() != to_type)) {
     return arg.to(to_type);
   } else {
     return arg;
   }
-#endif
 }
 
 } // namespace autocast

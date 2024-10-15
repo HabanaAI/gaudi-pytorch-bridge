@@ -4269,13 +4269,7 @@ static swig_const_info swig_const_table[] = {{0, 0, 0, 0.0, 0, 0}};
 
 #ifdef __cplusplus
 extern "C" {
-#if 0
-} /* c-mode */
-#endif
-#endif
 
-#if 0
-#define SWIGRUNTIME_DEBUG
 #endif
 
 SWIGRUNTIME void SWIG_InitializeModule(void* clientdata) {
@@ -4462,10 +4456,6 @@ SWIGRUNTIME void SWIG_PropagateClientData(void) {
 }
 
 #ifdef __cplusplus
-#if 0
-{
-  /* c-mode */
-#endif
 }
 #endif
 
