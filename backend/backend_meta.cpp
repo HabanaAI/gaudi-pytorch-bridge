@@ -18,13 +18,7 @@
 #include "backend/jit_graph_cache.h"
 #include "backend_meta.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
-#if HAVE_TORCH_BACKEND_META_SUPPORT
-// detecting that there is a torch patch in place that introduces
-// c10::BackendMeta in the TensorImpl and we don't have to rely on
-// the HbInternalTensorImpl to store the metadata.
-#else
 #include "habana_lazy/tensor_impl.h"
-#endif
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "common/utils.h"
 #include "habana_kernels/kernel_utils.h"
