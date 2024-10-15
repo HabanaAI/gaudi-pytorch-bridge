@@ -145,7 +145,3 @@ def test_hpu_cat_fwd_bwd(cat_op, kernel_params_fwd):
 @pytest.mark.parametrize("split_op, kernel_params_fwd", split_op_list)
 def test_hpu_split_with_sizes(split_op, kernel_params_fwd):
     evaluate_fwd_kernel(kernel=split_op, kernel_params=kernel_params_fwd)
-
-
-if __name__ == "__main__":
-    test_hpu_cat_fwd_bwd(*cat_op_list_fwd_bwd[1])

@@ -37,7 +37,3 @@ def testCaptureInplay():
     print(x)
     expected_result += 1
     assert np.allclose(x.detach().to("cpu"), expected_result, atol=0, rtol=0), "Data mismatch"
-
-
-if __name__ == "__main__":
-    testCaptureInplay()

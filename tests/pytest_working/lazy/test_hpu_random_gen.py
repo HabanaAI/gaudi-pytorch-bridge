@@ -218,7 +218,3 @@ def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
 
     # verify if the output values exceeds the range
     testing.assert_equal((np.min(output2_hpu) >= 0) and (np.max(output2_hpu) <= 1), True)
-
-
-if __name__ == "__main__":
-    test_hpu_rand_gen_bernoulli_fwd_scalar(*test_case_list[0])

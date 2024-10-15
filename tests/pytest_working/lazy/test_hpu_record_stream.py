@@ -87,8 +87,3 @@ def test_record_stream_on_shifted_view():
         try_realloc = torch.FloatTensor([10, 10]).to("hpu")
 
     assert try_realloc.data_ptr() != data_ptr
-
-
-if __name__ == "__main__":
-    test_record_stream()
-    test_record_stream_on_shifted_view()

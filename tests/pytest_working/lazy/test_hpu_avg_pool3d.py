@@ -26,30 +26,6 @@ avg_pool3d_test_case_list = [
 data_type_list = [(torch.float, 0.001)]
 
 
-def make_tuple(param):
-    if not isinstance(param, tuple):
-        param = (param,) * 3
-    return param
-
-
-def calculate_out_shape(input_shape, kernel_size, stride, padding, ceil_mode):
-    out_shape = input_shape[0:2]
-    kernel_size = make_tuple(kernel_size)
-    if stride == None:
-        stride = kernel_size
-    else:
-        stride = make_tuple(stride)
-    padding = make_tuple(padding)
-
-    for dim_in, size_in, stride_in, pad_in in zip(input_shape[2:], kernel_size, stride, padding):
-        dim_out = (dim_in + 2 * pad_in - size_in) / stride_in + 1
-        dim_out = math.ceil(dim_out) if ceil_mode else math.floor(dim_out)
-        if ceil_mode and ((dim_out - 1) * stride_in >= dim_in + pad_in):
-            dim_out -= 1
-        out_shape += (dim_out,)
-    return out_shape
-
-
 @pytest.mark.parametrize("input_shape, kernel_size, stride, padding", avg_pool3d_test_case_list)
 @pytest.mark.parametrize("ceil_mode", [False, True])
 @pytest.mark.parametrize("count_include_pad", [False, True])
@@ -75,7 +51,3 @@ def test_hpu_avg_pool_3d(
     kernel = F.avg_pool3d
 
     evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params, atol=tol, rtol=tol)
-
-
-if __name__ == "__main__":
-    test_hpu_avg_pool_3d(*(avg_pool3d_test_case_list[0]))

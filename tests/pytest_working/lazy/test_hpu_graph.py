@@ -780,29 +780,3 @@ def test_module_cacher_propnet_rand():
 
     for i in range(6):
         assert torch.allclose(outputs_hpu[i], outputs_hpu_ref[i])
-
-
-if __name__ == "__main__":
-    test_multiple_graph_capture()
-    test_multiple_graph_capture_memoptimization()
-    # test_multiple_graph_capture_memoptimization(asynchronous=True)
-    test_multiple_graph_capture_memoptimization(dry_run=True)
-    test_multiple_graph_capture_memoptimization(release_memory_test=True)
-    test_graph_capture_simple()
-    test_graph_training()
-    test_tensor_packer()
-    test_cached_module_training(disable_tensor_cache=False, dry_run=False)
-    test_cached_module_training(disable_tensor_cache=False, dry_run=False, save_model=True)
-    test_cached_module_training(disable_tensor_cache=False, dry_run=True)
-    test_cached_module_training(disable_tensor_cache=True, dry_run=False)
-    test_cached_module_training(disable_tensor_cache=True, dry_run=True)
-    # test_cached_module_training_fp8(disable_tensor_cache=False)
-    test_cached_module_training_fp8(disable_tensor_cache=True)
-    test_graph_capture_scalar(disable_tensor_cache=True)
-    test_multiple_graph_capture_with_views()
-    test_wrap_hpugraphs_max_graphs(max_graphs=2)
-    test_wrap_hpugraphs_max_graphs(max_graphs=None)
-    test_module_cacher_no_requires_grad()
-    test_module_cacher_propnet()
-    test_module_cacher_propnet_views()
-    test_module_cacher_propnet_rand()

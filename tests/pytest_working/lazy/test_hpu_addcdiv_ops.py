@@ -204,12 +204,3 @@ def test_hpu_addcdiv_out_op_size_outsize_0(N, H, W, C, value):
     torch.addcdiv(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
 
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.0e-3)
-
-
-if __name__ == "__main__":
-    test_hpu_addcdiv_op(*test_case_list[0], *op_list[0], *values_list[0])
-    test_hpu_addcdiv_op_fwd_bwd(*test_case_list[0], *op_list[0], *values_list[0])
-    test_hpu_addciv_inplace_op(*test_case_list[0], *values_list[0])
-    test_hpu_addcdiv_out_op(*test_case_list[0], *values_list[0])
-    test_hpu_addcdiv_out_op_size(*test_case_list[0], *values_list[0])
-    test_hpu_addcdiv_out_op_size_outsize_0(*test_case_list[0], *values_list[0])

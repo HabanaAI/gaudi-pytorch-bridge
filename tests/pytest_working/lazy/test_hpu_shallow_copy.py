@@ -74,7 +74,3 @@ def test_circular_shallow_copy():
     lhs_hpu.data = lhs_hpu
     lhs_hpu.copy_(rhs_hpu)
     compare_tensors(lhs_hpu, rhs, atol=0.0, rtol=0.0)
-
-
-if __name__ == "__main__":
-    test_reduce_op_worker()

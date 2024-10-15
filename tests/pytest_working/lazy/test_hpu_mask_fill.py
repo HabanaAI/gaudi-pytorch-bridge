@@ -36,7 +36,3 @@ def test_misc_mask_filled():
     cpu_out = func("cpu")
     hpu_out = func("hpu")
     assert torch.allclose(cpu_out, hpu_out)
-
-
-if __name__ == "__main__":
-    test_misc_mask_filled()

@@ -154,12 +154,3 @@ def test_fp8_quant_model(set_env_variable):
     result = result_model.cpu()
 
     htcore.hpu_teardown_inference_env()
-    # result_ref = torch.matmul(A, B).cpu()
-
-    # print(f"{A=}\n{A_hpu=}")
-    # print(f"{B=}\n{B_hpu=}")
-    # print(f"{result=}\n{result_ref=}")
-    # percentage_diff = torch.abs(
-    #     (((result - result_ref) / result_ref) * 100).to(torch.int)
-    # )
-    # assert np.amax(percentage_diff.numpy()) <= 15

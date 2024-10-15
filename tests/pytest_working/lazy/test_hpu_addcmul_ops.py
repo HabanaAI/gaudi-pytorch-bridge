@@ -206,11 +206,3 @@ def test_hpu_addcmul_out_op_dtype(N, H, W, C, value, Nout, Hout, Wout, Cout, in_
     torch.addcmul(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
 
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.0e-3)
-
-
-if __name__ == "__main__":
-    test_hpu_addcmul_op(*test_case_list[0], *op_list[0], *values_list[0])
-    test_hpu_addcmul_op_fwd_bwd(*test_case_list[0], *op_list[0], *values_list[0])
-    test_hpu_addcmul_inplace_op(*test_case_list[0], *values_list[0])
-    test_hpu_addcmul_out_op(*test_case_list[0], *values_list[0])
-    test_hpu_addcmul_out_op_dtype(*test_case_list[0], *values_list[0])

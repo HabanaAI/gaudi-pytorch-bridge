@@ -9,8 +9,6 @@
 # was provided.
 #
 ###############################################################################
-import os
-
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
@@ -21,7 +19,6 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_reorder_allreduce,
 )
 from torch.fx.experimental.proxy_tensor import make_fx
-from torch.testing._internal.distributed.fake_pg import FakeStore
 
 
 def test_reorder_allreduce_with_no_users():
@@ -180,7 +177,3 @@ def test_reorder_allreduce_with_no_users():
 
     config.use_cpp_partitioner = orig_use_cpp_partitioner_flag
     config.enable_allreduce_graph_split = orig_enable_allreduce_graph_split
-
-
-if __name__ == "__main__":
-    test_reorder_allreduce_with_no_users()

@@ -250,14 +250,7 @@ def fn10(a):
     b = a.transpose(0, 1)
     c = b.transpose(0, 1)
     d = c.mul(1.0)
-    return c
-
-
-def fn11(a):
-    b = a.transpose(0, 1)
-    c = b.transpose(1, 0)
-    d = c.mul(1.0)
-    return c
+    return d
 
 
 def fn12(a):

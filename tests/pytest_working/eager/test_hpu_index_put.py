@@ -105,14 +105,3 @@ def test_index_put_bool():
     tensor2 = tensor2.to(hpu)
     tensor1[tensor2, :] = 7.0
     assert torch.all(torch.eq(tensor1, 7.0))
-
-
-if __name__ == "__main__":
-    test_cpu_tensor_hpu_index()
-    test_hpu_tensor_cpu_index()
-    test_hpu_tensor_cpu_index_cpu_value()
-    test_cpu_tensor_hpu_indices()
-    test_cpuTensor_cpuValue_hpu_indices()
-    test_cpuTensor_hpuValue_hpu_indices()
-    test_index_put_()
-    test_index_put_bool()

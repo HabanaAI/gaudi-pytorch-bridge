@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -40,8 +40,3 @@ def test_hpu_deterministic_api_init():
         assert device_status == new_device_status
     except ImportError as e:
         print(f"failed importing habana_frameworks.torch.hpu with ImportError: {e=}")
-
-
-if __name__ == "__main__":
-    test_hpu_deterministic_api_init()
-    test_hpu_deterministic_api()

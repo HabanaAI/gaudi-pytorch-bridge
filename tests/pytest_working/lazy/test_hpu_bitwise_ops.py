@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -39,7 +39,3 @@ def test_hpu_bitwise_op(C, H, W, bitwise_op):
     if bitwise_op != torch.bitwise_not:
         kernel_params_fwd["other"] = torch.randint(-10, 10, (C, H, W)) > 0
     evaluate_fwd_kernel(kernel=bitwise_op, kernel_params=kernel_params_fwd)
-
-
-if __name__ == "__main__":
-    test_hpu_bitwise_op(*test_case_list[0])

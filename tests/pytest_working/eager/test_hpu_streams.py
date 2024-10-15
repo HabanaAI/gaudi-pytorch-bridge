@@ -19,15 +19,6 @@ import numpy as np
 import torch
 
 
-def doWork():
-    in_shape = (4, 2)
-    tA_h = torch.zeros(in_shape).to("hpu")
-    tB_h = torch.ones(in_shape).to("hpu")
-
-    tC_h = tA_h + tB_h
-    print(f"output={tC_h.cpu()}")
-
-
 def testBasic():
     print("Starting STREAMS BASIC TEST")
     s0 = ht.hpu.Stream()
@@ -730,35 +721,3 @@ def test_d2h_h2d_user_stream():
             t2.copy_(t1, non_blocking=True)
             t2 = t2.to(t1.device)
             assert t2.equal(t1), f"t1 and t2 are not equal! \n{t1=} \n{t2=}"
-
-
-if __name__ == "__main__":
-    test_stream_none()
-    test_stream_event_uninit()
-    testStreamSyncBasic()
-    testAddOnStreams()
-    testAddFwdBwd()
-    testIf()
-    ht.hpu.set_sync_debug_mode(True)
-    testInfo()
-    testEventSync()
-    testProfiling()
-    testEventSyncUserStream()
-    testStreamEvents()
-    testStreamEventsFull()
-    testStreamEventsSimple()
-    testEventWait()
-    testWaitStream()
-    testStreamWaitEvent()
-    testStreamWaitEventWAR()
-    testEventSyncEmptyGraph()
-    testStreamCopyH2DNonBlocking()
-    testProfiling_copy_h2d()
-    testProfiling_copy_d2h()
-    testStreamUseDifferentStreamForEachOP()
-    testStreamUseDifferentStreamForEachOPNonBlocking()
-    testCopyNonBlocking()
-    testProfiling_default_stream()
-    test_events()
-    test_d2h_h2d_default_stream()
-    test_d2h_h2d_user_stream()

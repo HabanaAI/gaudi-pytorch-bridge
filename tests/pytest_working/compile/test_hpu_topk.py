@@ -9,13 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16])
 @pytest.mark.parametrize("k", [4, 6])
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])
@@ -37,5 +34,3 @@ def test_topk(k, dim, largest, sorted, dtype):
     hresult1, hresult2 = compiled_fn(hx, k, dim, largest, sorted)
 
     assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
-    # https://jira.habana-labs.com/browse/SW-154110
-    # assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)

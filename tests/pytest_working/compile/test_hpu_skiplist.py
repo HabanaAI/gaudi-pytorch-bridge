@@ -30,7 +30,3 @@ def test_graph_break():
     optim_out = opt_fn(ones)
     assert cnts.frame_count == 1, "Frame Count not equal to 1, check for graph breaks"
     assert orig_out == optim_out, "Output mismatch"
-
-
-if __name__ == "__main__":
-    test_graph_break()

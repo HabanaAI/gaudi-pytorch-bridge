@@ -220,14 +220,10 @@ def test_multiple_sdpa_impls(
 
     dtype = torch.float32
     grad_dtype = torch.float32
-    rtol = 1e-3
-    atol = 1e-3
 
     if use_bf16:
         dtype = torch.bfloat16
         grad_dtype = torch.bfloat16
-        rtol = 1e-3
-        atol = 0.08
 
     q_shape = (batch_size, n_heads, seq_len_N_t, head_dim_qk)
     k_shape = (batch_size, n_heads, seq_len_N_s, head_dim_qk)

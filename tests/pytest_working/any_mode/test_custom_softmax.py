@@ -43,7 +43,3 @@ def test_custom_softmax():
     assert np.allclose(out_cpu.numpy(), ref_output.numpy(), atol=1e-03)
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("custom_softmax")
-
-
-if __name__ == "__main__":
-    test_custom_softmax()

@@ -133,10 +133,3 @@ def test_hpu_pool_chlast_fwd_bwd(N, H, W, C, Ho, Wo):
     )
     compare_tensors(hpu_result_fwd[0], cpu_result_fwd[0], atol=0.001, rtol=1.0e-3)
     compare_tensors(hpu_result_bwd[0], cpu_result_bwd[0], atol=0.001, rtol=1.0e-3)
-
-
-if __name__ == "__main__":
-    test_hpu_adaptive_avgpool(*(adaptive_pool_test_case_list[0] + data_type_list[0]))
-    test_hpu_pool_fwd_bwd(*(adaptive_pool_test_case_list[0] + data_type_list[0]))
-    test_hpu_chlast_pool(*(adaptive_pool_test_case_list[0]))
-    test_hpu_pool_chlast_fwd_bwd(*(adaptive_pool_test_case_list[0]))

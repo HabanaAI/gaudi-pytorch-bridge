@@ -309,7 +309,3 @@ def test_hpu_remainder_scalar_op_resizeoutput():
     kernel_params_fwd["other"] = 3
     kernel_params_fwd["out"] = torch.empty(1).to(torch.int)
     evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
-
-
-if __name__ == "__main__":
-    test_hpu_binary_op_broadcast_case2(*test_case_list[0], torch.add, {})

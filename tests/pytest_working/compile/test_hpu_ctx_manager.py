@@ -585,9 +585,3 @@ class TestUseDevice:
     def test_use_device_hpu(self):
         with use_device(torch.device("hpu")):
             pass
-
-
-if __name__ == "__main__":
-    from torch._dynamo.test_case import run_tests
-
-    run_tests()

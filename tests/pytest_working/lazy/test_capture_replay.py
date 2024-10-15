@@ -68,7 +68,3 @@ def testCapture():
 
     print(steps_new)
     assert np.allclose(steps_new.detach().to("cpu"), expected_result, atol=0, rtol=0), "Data mismatch"
-
-
-if __name__ == "__main__":
-    testCapture()
