@@ -192,6 +192,114 @@ OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
   return {input_meta, weight_meta, grad_output_meta};
 }
 
+SharedMetaDataVector ConvolutionBwdCommonSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& grad = stack.at(0).toTensor();
+  const auto& input = stack.at(1).toTensor();
+  const auto& weight = stack.at(2).toTensor();
+  auto gradRank = grad.dim();
+  auto inputRank = input.dim();
+  auto weightRank = weight.dim();
+  auto gradDtype = grad.scalar_type();
+  auto inputDtype = input.scalar_type();
+  auto weightDtype = weight.scalar_type();
+
+  const int index_shift = guid == "convolution_backward" ? 1 : 0;
+  const bool transposed = stack[6 + index_shift].toBool();
+  const auto output_mask_in = stack[9 + index_shift].toBoolList();
+
+  const bool is_conv_3d = inputRank == 5;
+  const bool is_conv_1d = inputRank == 3;
+
+  SharedMetaDataVector convolutionBwdCommonSharedMeta;
+
+  auto expandSharedMeta = [](auto& rank, auto type) {
+    SharedMetaData expandSharedMeta("expand_dims");
+    expandSharedMeta.inputs_data.emplace_back(rank, type);
+    expandSharedMeta.outputs_data.emplace_back(++rank, type);
+    return expandSharedMeta;
+  };
+
+  auto squeezeSharedMeta = [](auto rank, auto type) {
+    SharedMetaData squeezeSharedMeta("squeeze");
+    squeezeSharedMeta.inputs_data.emplace_back(rank, type);
+    squeezeSharedMeta.outputs_data.emplace_back(rank - 1, type);
+    return squeezeSharedMeta;
+  };
+
+  if (is_conv_1d) {
+    convolutionBwdCommonSharedMeta.push_back(
+        expandSharedMeta(gradRank, gradDtype));
+    convolutionBwdCommonSharedMeta.push_back(
+        expandSharedMeta(inputRank, inputDtype));
+    convolutionBwdCommonSharedMeta.push_back(
+        expandSharedMeta(weightRank, weightDtype));
+  }
+
+  if (transposed) {
+    if (output_mask_in[0]) {
+      SharedMetaData convSharedMeta("spatial_convolution");
+      convSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+      convSharedMeta.inputs_data.emplace_back(weightRank, weightDtype);
+      convSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
+      convolutionBwdCommonSharedMeta.push_back(convSharedMeta);
+      if (is_conv_1d)
+        convolutionBwdCommonSharedMeta.push_back(
+            squeezeSharedMeta(gradRank, gradDtype));
+    }
+    if (output_mask_in[1]) {
+      SharedMetaData dedwSharedMeta(is_conv_3d ? "dedw3d" : "dedw");
+      dedwSharedMeta.inputs_data.emplace_back(inputRank, inputDtype);
+      dedwSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+      dedwSharedMeta.outputs_data.emplace_back(inputRank, inputDtype);
+      convolutionBwdCommonSharedMeta.push_back(dedwSharedMeta);
+      if (is_conv_1d)
+        convolutionBwdCommonSharedMeta.push_back(
+            squeezeSharedMeta(inputRank, inputDtype));
+    }
+  } else {
+    if (output_mask_in[0]) {
+      SharedMetaData dedxSharedMeta(is_conv_3d ? "dedx3d" : "dedx");
+      dedxSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+      dedxSharedMeta.inputs_data.emplace_back(weightRank, weightDtype);
+      dedxSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
+      convolutionBwdCommonSharedMeta.push_back(dedxSharedMeta);
+      if (is_conv_1d)
+        convolutionBwdCommonSharedMeta.push_back(
+            squeezeSharedMeta(gradRank, gradDtype));
+    }
+    if (output_mask_in[1]) {
+      SharedMetaData dedwSharedMeta(is_conv_3d ? "dedw3d" : "dedw");
+      dedwSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+      dedwSharedMeta.inputs_data.emplace_back(inputRank, inputDtype);
+      dedwSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
+      convolutionBwdCommonSharedMeta.push_back(dedwSharedMeta);
+      if (is_conv_1d)
+        convolutionBwdCommonSharedMeta.push_back(
+            squeezeSharedMeta(gradRank, gradDtype));
+    }
+  }
+
+  if (output_mask_in[2]) {
+    SharedMetaData reduceSumSharedMeta("reduce_sum_multi_dim");
+    reduceSumSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+    reduceSumSharedMeta.outputs_data.emplace_back(1, gradDtype);
+    convolutionBwdCommonSharedMeta.push_back(reduceSumSharedMeta);
+  }
+
+  return convolutionBwdCommonSharedMeta;
+}
+
+SharedMetaDataVector ConvolutionBwdOverrideableSharedMeta(
+    const at::Stack& stack) {
+  return ConvolutionBwdCommonSharedMeta(stack, "");
+}
+
+SharedMetaDataVector ConvolutionBwdSharedMeta(const at::Stack& stack) {
+  return ConvolutionBwdCommonSharedMeta(stack, "convolution_backward");
+}
+
 static int64_t ComputeOutputSize(
     const int64_t input_dim,
     const int64_t padding,

@@ -2401,6 +2401,7 @@ convolution_backward_overrideable:
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   out_ids: [0, 0, 0]
+  op_validator: ConvolutionBwdOverrideableSharedMeta
 
 convolution_backward:
   output_meta: ConvolutionOverrideableMetaBwd
@@ -2414,6 +2415,7 @@ convolution_backward:
   # and convolution_backward, which takes additional bias_sizes argument
   guid: convolution_backward
   out_ids: [0, 0, 0]
+  op_validator: ConvolutionBwdSharedMeta
 
 copysign.out:
   broadcast: true
