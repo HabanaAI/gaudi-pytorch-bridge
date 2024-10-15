@@ -56,11 +56,10 @@ TEST_F(FallbackTest, inverse) {
   EXPECT_EQ(freq.at("aten::linalg_inv_ex.inverse"), 1);
 }
 
-// Test disabled since we do not want to support CPU Fallback for as_strided.
-// Enable this test when strided tensors are completely supported on HPU and
-// move it to appropriate test file
-#if 0
-TEST_F(FallbackTest, AsStrided) {
+// Tests are disabled since we do not want to support CPU Fallback for as_strided.
+// Enable tests when strided tensors are completely supported on HPU and
+// move them to appropriate test file
+TEST_F(FallbackTest, DISABLED_AsStrided) {
   setenv("PT_HPU_PLACE_ON_CPU", "div_", 1);
   torch::Tensor A = torch::rand({3, 3, 3, 3, 3});
   torch::Tensor hA = A.to(torch::kHPU);
@@ -74,7 +73,7 @@ TEST_F(FallbackTest, AsStrided) {
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
 
-TEST_F(FallbackTest, tensorView_Inplace) {
+TEST_F(FallbackTest, DISABLED_tensorView_Inplace) {
   setenv("PT_HPU_PLACE_ON_CPU", "mul_", 1);
   torch::Tensor tensor = torch::randn({3, 3});
   auto tensor_hpu = tensor.to(torch::kHPU);
@@ -90,7 +89,7 @@ TEST_F(FallbackTest, tensorView_Inplace) {
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
 
-TEST_F(FallbackTest, tensorView_OutOfPlace) {
+TEST_F(FallbackTest, DISABLED_tensorView_OutOfPlace) {
   setenv("PT_HPU_PLACE_ON_CPU", "add", 1);
   torch::Tensor tensor = torch::randn({3, 3});
   auto tensor_hpu = tensor.to(torch::kHPU);
@@ -106,7 +105,7 @@ TEST_F(FallbackTest, tensorView_OutOfPlace) {
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
 
-TEST_F(FallbackTest, tensorView_Inplace_2) {
+TEST_F(FallbackTest, DISABLED_tensorView_Inplace_2) {
   setenv("PT_HPU_PLACE_ON_CPU", "addcmul_", 1);
 
   int N = 8;
@@ -130,7 +129,7 @@ TEST_F(FallbackTest, tensorView_Inplace_2) {
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
 
-TEST_F(FallbackTest, tensorView_Inplace_3) {
+TEST_F(FallbackTest, DISABLED_tensorView_Inplace_3) {
   setenv("PT_HPU_PLACE_ON_CPU", "add_", 1);
   torch::Tensor tensor = torch::randn({3, 3});
   auto tensor_hpu = tensor.to(torch::kHPU);
@@ -151,7 +150,7 @@ TEST_F(FallbackTest, tensorView_Inplace_3) {
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
 
-TEST_F(FallbackTest, tensorView_Inplace_4) {
+TEST_F(FallbackTest, DISABLED_tensorView_Inplace_4) {
   setenv("PT_HPU_PLACE_ON_CPU", "bitwise_and_", 1);
   auto a = torch::tensor({-1, -2, 3, 1, 3, 4, 4, 5, 0, 7}, dtype(at::kChar));
   auto b = torch::tensor({1, 0, 3, 0, 1, 0, 4, -4, -8, 0}, dtype(at::kChar));
@@ -168,7 +167,7 @@ TEST_F(FallbackTest, tensorView_Inplace_4) {
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
 
-TEST_F(FallbackTest, tensorlistView_Inplace) {
+TEST_F(FallbackTest, DISABLED_tensorlistView_Inplace) {
   setenv("PT_HPU_PLACE_ON_CPU", "_foreach_abs_", 1);
   torch::Tensor t1 = torch::randn({3, 3});
   torch::Tensor t2 = torch::randn({8, 8});
@@ -188,4 +187,3 @@ TEST_F(FallbackTest, tensorlistView_Inplace) {
   */
   unsetenv("PT_HPU_PLACE_ON_CPU");
 }
-#endif

@@ -552,7 +552,6 @@ TEST_P(SBSWithParamsTest, ConvolutionSBSTest_const_Contiguous) {
   ConvolutionSBSTest(false, false);
 }
 
-#if 0
 // Graph :
 //
 //     Bias1  Bias2           Data
@@ -575,7 +574,7 @@ TEST_P(SBSWithParamsTest, ConvolutionSBSTest_const_Contiguous) {
 //                            |
 //                           out
 
-TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
+TEST_P(SBSWithParamsTest, DISABLED_DynamicShapeSBSTest4) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -690,7 +689,7 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
 }
 
 
-TEST_P(SBSWithParamsTest, stridedinsertreuseSBS) {
+TEST_P(SBSWithParamsTest, DISABLED_stridedinsertreuseSBS) {
   torch::Tensor A = torch::randn({4});
   auto b = torch::relu(A);
   auto v1 = A.view(-1);
@@ -725,7 +724,6 @@ TEST_P(SBSWithParamsTest, stridedinsertreuseSBS) {
 
 
 }
-#endif
 
 TEST_P(SBSWithParamsTest, DISABLED_AddViewSBSTest) {
   int N = 1;
@@ -903,8 +901,8 @@ TEST_P(SBSWithParamsTest, DISABLED_AddTensorsViewsSBS) {
   }
 }
 
-#if 0 // we need to solve view issues
-TEST_P(SBSWithParamsTest, ViewsInplaceTestSBS) {
+// Test is disabled since we need to solve view issues
+TEST_P(SBSWithParamsTest, DISABLED_ViewsInplaceTestSBS) {
   // c10::get_backtrace()
 
   torch::Tensor A = torch::rand({3, 3, 3, 3, 3}, torch::kFloat);
@@ -932,13 +930,9 @@ TEST_P(SBSWithParamsTest, ViewsInplaceTestSBS) {
 
     ValidateCounters();
   }
-
-
 }
-#endif
 
-#if 0 // TODO
-TEST_P(SBSWithParamsTest, GraphTextDumpBCESBSTest) {
+TEST_P(SBSWithParamsTest, DISABLED_GraphTextDumpBCESBSTest) {
   auto input = torch::randn({6, 1}, at::requires_grad());
   auto target = torch::randn({6, 1}); // Nx1
   auto grad_output = torch::randn({1});
@@ -982,7 +976,6 @@ TEST_P(SBSWithParamsTest, GraphTextDumpBCESBSTest) {
   EXPECT_EQ(allclose(houtfwd, expfwd), true);
   EXPECT_EQ(allclose(houtbwd, expbwd), true);
 }
-#endif
 
 TEST_P(SBSWithParamsTest, DISABLED_MaxPoolBWDSBSTest) {
   auto input_tensor =
