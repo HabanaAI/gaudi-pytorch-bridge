@@ -655,6 +655,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     custom_fill_params = ctxop.get_custom_fill_params()
     tpc_input_order = ctxop.get_tpc_input_order()
     op_backend_class = ctxop.get_op_backend_class()
+    output_shape_fn = ctxop.get_custom_output_shape()
     output_meta_fn = ctxop.get_output_meta()
     shared_layer_meta_meta_fn = ctxop.get_shared_layer_meta()
     st_meta_fn = ctxop.get_st_meta()
@@ -715,6 +716,8 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
             f"{str(ctxop.op.get('broadcast', False)).lower()}, "
             f"{', '.join(map(str, input_indices))}>);"
         )
+    elif output_shape_fn:
+        ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
 
     if st_meta_fn:
         ctor_extra_calls.append("SetSTMetaFn({});".format(st_meta_fn))
