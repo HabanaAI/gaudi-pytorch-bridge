@@ -42,7 +42,7 @@ namespace sh = synapse_helpers;
 // Output tensors
 // 1    Weights         FP32            2D
 // 2    Moments         FP32            2D
-#if 1 // TODO: TPC kernel seems to give wrong results.
+// TODO: TPC kernel seems to give wrong results.
 void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,
     torch::jit::Stack& inputs,
@@ -85,9 +85,6 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
-
-#else
-#endif
 
 void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,

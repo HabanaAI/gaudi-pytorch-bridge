@@ -1323,7 +1323,6 @@ synStatus synNodeDependencySet(
       M_ARG(pBlockedNodesIdList, numberblocked),
       ARG(numberblocking),
       ARG(numberblocked));
-#if 1
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synNodeDependencySet,
@@ -1332,9 +1331,6 @@ synStatus synNodeDependencySet(
       pBlockedNodesIdList,
       numberblocking,
       numberblocked)
-#else
-  synStatus status = synSuccess;
-#endif
   API_LOG_RESULT();
   return status;
 }

@@ -295,15 +295,11 @@ void HabanaRandPermOpDS::AddNode(
       "first argument.");
   const auto meta = HabanaRandPermMetaDS(stack)[0];
   size_t size = 0;
-#if 1
   c10::ScalarType tpc_supported_randperm_dtype =
       ((GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
         (meta.dtype == c10::ScalarType::Long))
            ? c10::ScalarType::Long
            : c10::ScalarType::Int);
-#else
-  c10::ScalarType tpc_supported_randperm_dtype = c10::ScalarType::Int;
-#endif
 
   auto out_dtype = meta.dtype;
   auto out_shape = meta.shape;
