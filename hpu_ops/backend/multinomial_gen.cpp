@@ -146,7 +146,7 @@ HabanaMultinomialCheckpoint::HabanaMultinomialCheckpoint(
     c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "random_multinomial",
+          "random_multinomial_pt_fwd",
           scalar_type,
           {0, 1},
           {},
@@ -172,7 +172,7 @@ void HabanaMultinomialCheckpoint::AddNode(
   auto output = BuildOp(
       graph,
       get_guid_with_precision(
-          "random_multinomial", stack_tensor(stack, 1).scalar_type()),
+          "random_multinomial_pt_fwd", stack_tensor(stack, 1).scalar_type()),
       {syn_in(1), syn_in(0)},
       {{multinomial_meta.shape, multinomial_meta.dtype, 1}},
       params.get(),
