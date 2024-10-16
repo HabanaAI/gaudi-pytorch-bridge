@@ -868,6 +868,11 @@ def meta_plain_index(self, indices):
     return meta_index_Tensor(self, indices)
 
 
+@register_meta([torch.ops.hpu.exp_fast_math.default])
+def meta_exp_fast_math(self):
+    return torch.empty_like(self)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

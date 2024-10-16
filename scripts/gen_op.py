@@ -23,6 +23,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from functools import wraps
+from typing import Any, Dict, List, Set, Tuple
 
 import gen_op_files.code_templates as templates
 import gen_op_files.parser as parser
@@ -148,6 +149,13 @@ _DEVICE_STR_TO_ENUM = {
     "Gaudi2": "synDeviceGaudi2",
     "Gaudi3": "synDeviceGaudi3",
 }
+
+
+NUM_SHARDS = 10
+
+
+def should_write_and_go_to_next_file(idx: int, num_idxs_per_shard: int, file_idx: int, total_idxs):
+    return ((file_idx + 1) < NUM_SHARDS and (idx + 1) % num_idxs_per_shard == 0) or (idx + 1) == total_idxs
 
 
 class OpValidatorGenerator(ABC):
@@ -594,8 +602,15 @@ def fallback_if_unsupported(
     prefix,
     check_st_h2d_str,
     is_check_kernel_support=False,
+    is_custom=False,
 ):
-    fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
+    if is_check_kernel_support:
+        fallback_string = "RETURN"
+    elif is_custom and prefix == "VAL_":
+        fallback_string = "FAIL_CUSTOM"
+    else:
+        fallback_string = "FALLBACK"
+    fallback_string += "_IF_UNSUPPORTED_DTYPE"
     per_tensor_string = "_PER_TENSOR" if check_per_tensor else ""
     overload_variant = "2" if overload else ""
     is_dynamic_string = ", is_dynamic" if is_check_kernel_support else ""
@@ -1237,6 +1252,7 @@ def handle_validator_generator(
             fallback_if_prefix,
             check_st_h2d_str,
             is_check_kernel_support,
+            ctxop.get_custom_op_schema() is not None,
         )
     code += "\n"
     return code
@@ -1912,8 +1928,7 @@ def handle_reused_frontend(fgen, frontend_per_op_group, op_groups):
 
 
 def generate_backend(args, fgens, is_custom=False):
-    num_shards = 10
-    num_fgens_per_shard = len(fgens) // num_shards
+    num_fgens_per_shard = len(fgens) // NUM_SHARDS
     gen_file_idx = 0
     op_backend = ""
     kr_regs = ""
@@ -1938,9 +1953,7 @@ def generate_backend(args, fgens, is_custom=False):
         kr_regs += _kr_regs
         custom_schema_regs += _custom_schema_regs
 
-        if not is_custom and (
-            ((gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0) or (idx + 1) == len(fgens)
-        ):
+        if not is_custom and should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, len(fgens)):
             print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, gen_file_idx, args)
             gen_file_idx += 1
             op_backend = ""
@@ -2020,11 +2033,10 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_cust
 
 
 def generate_frontend(args, fgens, out_dir, is_custom=False):
-    num_shards = 10
     frontend_func = f"op_frontend_{out_dir}"
     fgens_filtered = [x for x in fgens if getattr(x, frontend_func) is not None]
     ops_count = len(fgens_filtered)
-    num_fgens_per_shard = ops_count // num_shards
+    num_fgens_per_shard = ops_count // NUM_SHARDS
     gen_file_idx = 0
     dtype_defs = ""
     functions = ""
@@ -2049,9 +2061,7 @@ def generate_frontend(args, fgens, out_dir, is_custom=False):
         functions += _functions
         torch_regs += _torch_regs
 
-        if not is_custom and (
-            ((gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0) or (idx + 1) == ops_count
-        ):
+        if not is_custom and should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, ops_count):
             print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_custom, gen_file_idx, out_dir, args)
             gen_file_idx += 1
             dtype_defs = ""
@@ -2289,7 +2299,7 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
     return struct_def
 
 
-check_kernel_support_headers = """
+CHECK_KERNEL_SUPPORT_HEADERS = """
 #include <torch/extension.h>
 #include <pybind11/stl.h>
 #include <pybind11/pybind11.h>
@@ -2302,64 +2312,78 @@ using namespace torch::jit;
 """
 
 
-def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, frontend_inclusions):
-    out_dir = "check_kernel_support"
+def add_fgen_idx_to_generate(fgen: OpGen, idx: int, unique_funcs: Dict[str, List[int]], ops_added: Set[str]) -> None:
+    if fgen.func in unique_funcs:
+        unique_funcs[fgen.func].append(idx)
+    else:
+        unique_funcs[fgen.func] = [idx]
+        ops_added.add(fgen.func)
+
+
+def generate_functions_code(
+    fgens: List[OpGen], fgen_pos: List[int], native_func_dict: Dict[str, Any], functions: str, dtype_defs: str
+) -> Tuple[str, str]:
+    functions += generate_stack_pop(fgens, fgen_pos, native_func_dict)
+    for fgen_idx in fgen_pos:
+        fgen = fgens[fgen_idx]
+
+        (
+            _dtype_defs,
+            _functions,
+        ) = generate_check_kernel_support_sigs(fgen)
+
+        dtype_defs += _dtype_defs
+        functions += _functions
+    functions += "};\n\n"
+
+    return functions, dtype_defs
+
+
+def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_custom, frontend_inclusions):
+    OUT_DIR = "check_kernel_support"
     dtype_defs = ""
     functions = ""
 
     fgen_files = defaultdict(list)
     op_groups = set()
-
     ops_added = set()
+
     unique_func_map = {}
-    hpu_shared_layer_unsupported_ops = set([x.func for x in fgens_hpu_wrap])
     for idx, fgen in enumerate(fgens):
         fgen_files[fgen.opgroup].append(fgen)
         op_groups.add(fgen.opgroup)
+        add_fgen_idx_to_generate(fgen, idx, unique_func_map, ops_added)
 
-        if fgen.func in unique_func_map:
-            unique_func_map[fgen.func].append(idx)
-        else:
-            unique_func_map[fgen.func] = [idx]
-            ops_added.add(fgen.func)
-
+    hpu_shared_layer_unsupported_ops = set([x.func for x in fgens_hpu_wrap])
     for op in hpu_shared_layer_unsupported_ops:
         if op in unique_func_map:
             del unique_func_map[op]
         if op in ops_added:
             ops_added.remove(op)
 
-    num_shards = 10
-    num_fgens_per_shard = len(unique_func_map) // num_shards
+    unique_func_map_custom = {}
+    for idx, fgen in enumerate(fgens_custom):
+        if fgen.ctxop.get_op_validator():
+            add_fgen_idx_to_generate(fgen, idx, unique_func_map_custom, ops_added)
+
+    num_fgens_per_shard = len(unique_func_map) // NUM_SHARDS
     gen_file_idx = 0
-    gen_hdr_file_includes = check_kernel_support_headers
+    gen_hdr_file_includes = CHECK_KERNEL_SUPPORT_HEADERS
     native_yaml_path = args.native_functions
     tags_yaml_path = os.path.join(os.path.dirname(native_yaml_path), "tags.yaml")
     native_func_dict = generate_native_functions_from_yaml(native_yaml_path, tags_yaml_path)
 
     for idx, fgen_pos in enumerate(unique_func_map.values()):
-        functions += generate_stack_pop(fgens, fgen_pos, native_func_dict)
-        for fgen_idx in fgen_pos:
-            fgen = fgens[fgen_idx]
-            (
-                _dtype_defs,
-                _functions,
-            ) = generate_check_kernel_support_sigs(fgen)
+        functions, dtype_defs = generate_functions_code(fgens, fgen_pos, native_func_dict, functions, dtype_defs)
 
-            dtype_defs += _dtype_defs
-            functions += _functions
-        functions += "};\n\n"
-
-        if ((gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0) or (idx + 1) == len(
-            unique_func_map
-        ):
+        if should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, len(unique_func_map)):
             frontend_inclusions = "\n" + frontend_inclusions + "\n"
 
-            file_name = gen_h_output_file(args, "{}/hpu_op{}".format(out_dir, gen_file_idx))
+            file_name = gen_h_output_file(args, f"{OUT_DIR}/hpu_op{gen_file_idx}")
             print(
                 templates._CPP_HEADER_CHECK_KERNEL_SUPPORT.format(
                     gen=os.path.basename(sys.argv[0]),
-                    header_inclusions=check_kernel_support_headers,
+                    header_inclusions=CHECK_KERNEL_SUPPORT_HEADERS,
                     dtype_defs=dtype_defs,
                     funcs=functions,
                     op_backend="",
@@ -2371,6 +2395,25 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, frontend
             gen_file_idx += 1
             dtype_defs = ""
             functions = ""
+
+    for idx, fgen_pos in enumerate(unique_func_map_custom.values()):
+        functions, dtype_defs = generate_functions_code(fgens_custom, fgen_pos, native_func_dict, functions, dtype_defs)
+
+    frontend_inclusions = "\n" + frontend_inclusions + "\n"
+
+    file_name = gen_h_output_file(args, f"{OUT_DIR}/hpu_op_custom")
+    print(
+        templates._CPP_HEADER_CHECK_KERNEL_SUPPORT.format(
+            gen=os.path.basename(sys.argv[0]),
+            header_inclusions=CHECK_KERNEL_SUPPORT_HEADERS,
+            dtype_defs=dtype_defs,
+            funcs=functions,
+            op_backend="",
+            file_idx=gen_file_idx,
+        ),
+        file=file_name,
+    )
+    gen_hdr_file_includes += "#include<hpu_op_custom.h>\n"
 
     frontend_class_headers = {}
 
@@ -2389,7 +2432,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, frontend
     map_def += "};\n"
     print(
         header_inclusions + gen_hdr_file_includes + map_def + hpu_shared_layer_unsupported_ops_def,
-        file=gen_cpp_output_file(args, "{}/op_def".format(out_dir)),
+        file=gen_cpp_output_file(args, f"{OUT_DIR}/op_def"),
     )
 
     for fgen_file, ffgens in fgen_files.items():
@@ -2410,7 +2453,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, frontend
                 op_frontend_classes=op_frontend_classes,
                 header_decls=header_decls,
             ),
-            file=gen_h_output_file(args, out_dir + "/" + fgen_file),
+            file=gen_h_output_file(args, f"{OUT_DIR}/{fgen_file}"),
         )
 
 
@@ -2423,6 +2466,7 @@ def generate_check_kernel_support(args):
     minor_pt_ver = ".".join(torch.__version__.split(".")[:2])
     fgens_native = []
     fgens_hpu_wrap = []
+    fgens_custom = []
 
     for op_name, op_params in yaml_ctx.get_op_data():
         ctxop = Op(op_name, op_params)
@@ -2435,8 +2479,9 @@ def generate_check_kernel_support(args):
             op_meta = generate_op_meta(fndef.cpp_sig, op_name)
             fgens_hpu_wrap.append(op_meta)
         elif ctxop.get_custom_op_schema():
-            # handle custom op
-            continue
+            fndef = fndef_from_schema(ctxop.get_custom_op_schema())
+            fgen_custom = generate_aten_op(fndef, op_name, ctxop, op_params, True)
+            fgens_custom.append(fgen_custom)
         else:
             fndef = pt_ops.get(op_name, None)
             if fndef is None:
@@ -2454,6 +2499,7 @@ def generate_check_kernel_support(args):
         args,
         fgens_native,
         fgens_hpu_wrap,
+        fgens_custom,
         header_inclusions,
     )
 
@@ -2499,7 +2545,6 @@ if __name__ == "__main__":
         help="Check kernel support or normal kernel generation",
     )
     args, files = arg_parser.parse_known_args()
-
     if args.check_kernel_support:
         generate_check_kernel_support(args)
     else:

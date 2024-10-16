@@ -7421,3 +7421,9 @@ plain_index:
   guid: plain_index
   op_backend: PlainIndexHabanaOperator
   out_ids: [0]
+
+exp_fast_math:
+  custom_op_schema: "hpu::exp_fast_math(Tensor self) -> Tensor"
+  guid: exp_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer

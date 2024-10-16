@@ -153,6 +153,15 @@
     require_st = validator_##opname.IsRequireST();                       \
   }
 
+#define VAL_FAIL_CUSTOM_IF_UNSUPPORTED_DTYPE(opname, check_st_h2d, args...) \
+  if (ABSL_PREDICT_FALSE(                                                   \
+          !validator_##opname.Validate({args}, false, check_st_h2d))) {     \
+    TORCH_CHECK(false, #opname, " is not yet supported on HPU.")            \
+  } else {                                                                  \
+    require_h2d = validator_##opname.IsRequireH2D();                        \
+    require_st = validator_##opname.IsRequireST();                          \
+  }
+
 #define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(                         \
     opname, overload, check_st_h2d, args...)                        \
   if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \

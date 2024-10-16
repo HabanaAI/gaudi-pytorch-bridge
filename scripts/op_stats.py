@@ -21,20 +21,6 @@ import pandas as pd
 import yaml
 
 
-def match_any(l, match):
-    for m in match:
-        if m in l:
-            return True
-    return False
-
-
-def extract_signature_list(lst):
-    sl = []
-    for l in lst:
-        sl.append(extract_signature(l))
-    return sl
-
-
 # checks if stats of a sublist of ops is to be written.
 # if yes, returns the sublist of ops listed in the file and
 # the path of the output file where the stats is written.

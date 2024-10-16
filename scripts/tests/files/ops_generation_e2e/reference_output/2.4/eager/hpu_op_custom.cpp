@@ -6,6 +6,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
+#include "exp_fast_math.h"
 #include "softmax_fp8.h"
 
 
@@ -16,6 +17,7 @@ using torch::jit::Stack;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_exp_fast_math("exp_fast_math", "exp_fast_math_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
 at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const c10::optional<at::Tensor> & input_scale, const c10::optional<at::Tensor> & output_scale, const c10::optional<at::Tensor> & inv_attn_heads, const c10::optional<at::Tensor> & fused_add) {
@@ -31,6 +33,20 @@ at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const c10::optiona
   return hpu_op.call();
 }
 
+at::Tensor exp_fast_math(const at::Tensor & self) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("exp_fast_math: ", DUMP_ARG(self));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  VAL_FAIL_CUSTOM_IF_UNSUPPORTED_DTYPE(exp_fast_math, true, self)
+
+  eager::EagerOp<at::Tensor> hpu_op{"hpu::exp_fast_math", {self}};
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "hpu::exp_fast_math", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
+  return hpu_op.call();
+}
+
 
 
 
@@ -40,6 +56,7 @@ static const auto& kr_gen__custom = KernelRegistry()
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("softmax_fp8", static_cast<at::Tensor (*)(const at::Tensor &, int64_t, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &)>(&habana::softmax_fp8));
+  m.impl("exp_fast_math", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::exp_fast_math));
 
 }
 
