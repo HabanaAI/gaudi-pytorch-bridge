@@ -588,6 +588,7 @@ int device::get_device_type() {
 }
 
 void device::cleanup() {
+  habana_helpers::AutoNoGIL gil_release;
   if (cleanup_done_) {
     return;
   }
@@ -1066,6 +1067,7 @@ void device::delete_stream(hpuStream_t id) {
 }
 
 void device::flush_stream_events() {
+  habana_helpers::AutoNoGIL gil_release;
   {
     std::unique_lock<std::mutex> lock(stream_mutex_);
     for (auto& s : default_streams_) {

@@ -373,6 +373,7 @@ void stream_event_manager::synchronize_event(shared_event& event) {
 }
 
 bool stream_event_manager::is_flushed() {
+  habana_helpers::AutoNoGIL gil_release;
   std::lock_guard<std::mutex> sync_mut_lock_guard(sync_mut_);
   std::lock_guard<std::mutex> lock_guard(mut_);
   return events_by_addr_.empty() && events_by_str_.empty();
