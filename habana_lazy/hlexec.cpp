@@ -30,6 +30,7 @@
 #include "passes/fold_conv_batchnorm.h"
 #include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
+#include "passes/fuse_strided_views.h"
 #include "passes/recalculate_batchnorm_params.h"
 #include "passes/replace_inplace_ops.h"
 #include "passes/replace_views_with_reshapes.h"
@@ -868,7 +869,7 @@ void HlExec::Optimize(
     PT_LAZY_DEBUG("[Inference] RecalculateBatchnormParams applied!");
     visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "recalculate_bn_params");
   }
-
+  fuse_strided_views(mp_g_);
   visualize::DumpPostGraph(mp_g_, m_g_hash_);
 }
 
