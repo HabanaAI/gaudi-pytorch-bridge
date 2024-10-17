@@ -662,7 +662,9 @@ void IndexPutBoolEager::AddNode(
   auto cat_pt_shape = catop.pt_shape();
   // Calculate the dimensionality of updates for broadcasting
   auto rank_inp = static_cast<size_t>(self.ndimension());
-  auto rank_idx = static_cast<size_t>(nonzero_out_shape[1]);
+  size_t rank_idx = 0;
+  for (size_t i = 0; i < indices.size(); i++)
+    rank_idx += indices[i].dim();
   auto values_scalar_type = values.scalar_type();
   std::vector<int64_t> value_upd_dim;
   if (values.numel() >
@@ -671,8 +673,12 @@ void IndexPutBoolEager::AddNode(
     auto values_sizes = values.sizes().vec();
     if (indices[0].dim() != self.dim() &&
         values.dim() != (1 + (self.dim() - indices[0].dim()))) {
-      value_upd_dim.push_back(slice_numel); // NOTE: we might fail for indices
-                                            // with varying dimensions
+      size_t i = 0;
+      while (i < rank_idx) {
+        for (int j = 0; j < indices[i].dim(); j++)
+          value_upd_dim.push_back(indices[i].sizes()[j]);
+        i += indices[i].dim();
+      }
       for (size_t i = rank_idx; i < rank_inp; i++)
         value_upd_dim.push_back(self_sizes[i]);
     } else {
@@ -680,8 +686,12 @@ void IndexPutBoolEager::AddNode(
         value_upd_dim.push_back(values_sizes[i]);
     }
   } else { // We are assuming uses passes value shapes correctly for scatter
-    value_upd_dim.push_back(
-        slice_numel); // NOTE: we might fail for indices with varying dimensions
+    size_t i = 0;
+    while (i < rank_idx) {
+      for (int j = 0; j < indices[i].dim(); j++)
+        value_upd_dim.push_back(indices[i].sizes()[j]);
+      i += indices[i].dim();
+    }
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
@@ -1112,7 +1122,9 @@ void IndexPutCompile::AddNode(
   auto cat_pt_shape = catop.pt_shape();
   // Calculate the dimensionality of updates for broadcasting
   auto rank_inp = static_cast<size_t>(self.ndimension());
-  auto rank_idx = static_cast<size_t>(nonzero_out_shape[1] + rank_idx_long);
+  size_t rank_idx = 0;
+  for (size_t i = 0; i < indices.size(); i++)
+    rank_idx += indices[i].dim();
   auto values_scalar_type = values.scalar_type();
   std::vector<int64_t> value_upd_dim;
   if (values.numel() >
@@ -1121,8 +1133,12 @@ void IndexPutCompile::AddNode(
     auto values_sizes = values.sizes().vec();
     if (indices[0].dim() != self.dim() &&
         values.dim() != (1 + (self.dim() - indices[0].dim()))) {
-      value_upd_dim.push_back(slice_numel); // NOTE: we might fail for indices
-                                            // with varying dimensions
+      size_t i = 0;
+      while (i < rank_idx) {
+        for (int j = 0; j < indices[i].dim(); j++)
+          value_upd_dim.push_back(indices[i].sizes()[j]);
+        i += indices[i].dim();
+      }
       for (size_t i = rank_idx; i < rank_inp; i++)
         value_upd_dim.push_back(self_sizes[i]);
     } else {
@@ -1130,11 +1146,16 @@ void IndexPutCompile::AddNode(
         value_upd_dim.push_back(values_sizes[i]);
     }
   } else { // We are assuming uses passes value shapes correctly for scatter
-    value_upd_dim.push_back(slice_numel); // NOTE: we might fail for indices
-                                          // with varying dimensions
+    size_t i = 0;
+    while (i < rank_idx) {
+      for (int j = 0; j < indices[i].dim(); j++)
+        value_upd_dim.push_back(indices[i].sizes()[j]);
+      i += indices[i].dim();
+    }
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
+
   auto bcastOp = BroadcastHelper(
       graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
   auto flattened_size = std::accumulate(
