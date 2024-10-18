@@ -26,6 +26,7 @@
 #include "HPUStream.h"
 #include "PinnedMemoryAllocator.h"
 #include "habana_helpers/logging.h"
+#include "habana_lazy/lazy_executor.h"
 #include "hpu_cached_devices.h"
 
 namespace habana {
@@ -89,6 +90,15 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
   at::Stream exchangeStream(at::Stream s) const noexcept override {
     c10::hpu::HPUStream hs(s);
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+      habana_lazy::HbExecutionContext* context =
+          habana_lazy::get_device_lazy_execution_context();
+      // if graph capturing in progress, exchange stream can set the
+      // current stream which could be the current stream
+      // before capture end in bacward evaluvate function
+      if (context->getCapturing())
+        return s;
+    }
     auto old_stream = c10::hpu::getCurrentHPUStream(s.device().index());
     c10::hpu::setCurrentHPUStream(hs);
     return old_stream.unwrap();
