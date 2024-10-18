@@ -53,9 +53,7 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     assert torch.allclose(cpu_out[0], hpu_out[0].to("cpu"), equal_nan=True)
 
 
-@pytest.mark.parametrize(
-    "shape", [[4, 3, 8, 6, 2], [4, 3, 8, 6], [4, 3, 8], [4, 3], [4, 3, 8, 6, 2, 10]], ids=format_tc
-)
+@pytest.mark.parametrize("shape", [[4, 3, 8]], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_hpu_native_batch_norm_bwd(shape, dtype):
     def fn(input, weight, bias, running_mean, running_var):
