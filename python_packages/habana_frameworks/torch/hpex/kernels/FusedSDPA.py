@@ -91,6 +91,7 @@ def sdpa_fwd_wrapper(
     valid_seq_len=None,
     seq_padding_type="left",
     return_dropout_mask=False,
+    return_attn_probs=False,
 ):
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
     softmax_mode = softmax_mode.lower()
@@ -100,8 +101,13 @@ def sdpa_fwd_wrapper(
 
     # Check if recompute variant is enabled
     recompute = recompute_mode
+
     if recompute is None:
         recompute = ht.recompute_sdp_enabled()
+
+    if return_attn_probs:
+        assert requires_backward == False, "return_attn_probs is supported only for inference mode"
+        recompute = False
 
     if recompute and requires_backward and softmax_mode == "fast":
         assert (
@@ -145,11 +151,27 @@ def sdpa_fwd_wrapper(
         if gqa:
             out = gqa_output_reshape(out)
         if not requires_backward:
-            if not return_dropout_mask:
-                return out
-            if dropout_p > 0.0 and gqa:
-                dm = gqa_output_reshape(dm)
-            return out, dm
+            # return_dropout_mask   return_attn_probs       Outputs
+            #       FALSE               FALSE               fwd_out
+            #       FALSE               TRUE                fwd_out, P
+            #       TRUE                FALSE               fwd_out, dm
+            #       TRUE                TRUE                fwd_out, P, dm
+            if gqa:
+                if dropout_p > 0.0:
+                    dm = gqa_output_reshape(dm)
+                if return_attn_probs:
+                    P = gqa_output_reshape(P)
+
+            if return_dropout_mask:
+                if return_attn_probs:
+                    return out, P, dm
+                else:
+                    return out, dm
+            else:
+                if return_attn_probs:
+                    return out, P
+                else:
+                    return out
 
         ctx.save_for_backward(q, k, v, P, dm, out)
 
@@ -188,7 +210,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None
     else:
         q, k, v, P, dm, fwd_out = ctx.saved_tensors
         scale = ctx.scale
@@ -202,7 +224,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None
 
 
 class FusedSDPA(torch.autograd.Function):
@@ -221,6 +243,7 @@ class FusedSDPA(torch.autograd.Function):
         valid_seq_len=None,
         seq_padding_type="left",
         return_dropout_mask=False,
+        return_attn_probs=False,
     ):
         return sdpa_fwd_wrapper(
             ctx,
@@ -236,6 +259,7 @@ class FusedSDPA(torch.autograd.Function):
             valid_seq_len=valid_seq_len,
             seq_padding_type=seq_padding_type,
             return_dropout_mask=return_dropout_mask,
+            return_attn_probs=return_attn_probs,
         )
 
     @staticmethod
