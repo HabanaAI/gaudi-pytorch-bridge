@@ -108,4 +108,16 @@ void createGraphInputStackIndexMap(
   }
 }
 
+size_t CalculateSymbolValuesHash(InputSymbolMap& symbol_value_map) {
+  size_t hash_code = 0;
+  for (const auto& pair : symbol_value_map) {
+    auto symbol_hash = c10::get_hash(pair.first);
+    hash_code = c10::hash_combine(hash_code, symbol_hash);
+    const double* value_ptr = pair.second.get();
+    auto value_hash = value_ptr ? c10::get_hash(*value_ptr) : DBL_MAX;
+    hash_code = c10::hash_combine(hash_code, value_hash);
+  }
+  return hash_code;
+}
+
 } // namespace habana_helpers

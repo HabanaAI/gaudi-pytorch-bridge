@@ -247,18 +247,27 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       frontend_type_eager_or_compile;
   PT_DYNAMIC_SHAPE_DEBUG("Enable 4 stage pipeline = ", enable_4stage_pipeline_);
 
+  graph_symint_hash_ =
+      optimized_jit_graph_and_meta_data->get_graph_symint_hash();
+  graph_perm_hash_ = optimized_jit_graph_and_meta_data->get_graph_perm_hash();
+  graph_key_with_perm_ =
+      optimized_jit_graph_and_meta_data->get_graph_key_with_perm();
+
   // Symbolic expression hash is checked for -1 to avoid a scenario where
   // FX graph have symbolic inputs but the symbols in FX nodes output_shape
   // meta has replaced with actual values.
   sym_expr_hash_ = optimized_jit_graph_and_meta_data->get_sym_expr_hash();
-  bool enable_optim_output_sif =
-      (refine_ds_enabled_ &&
-       GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) &&
-       (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE) &&
-       sym_expr_hash_ != ULONG_MAX);
-  set_enable_optim_output_sif(enable_optim_output_sif);
+  enable_optim_output_sif_ =
+      optimized_jit_graph_and_meta_data->get_enable_optim_output_sif();
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Enable dynamic shape symbolic output sif = ", enable_optim_output_sif);
+      "Enable dynamic shape symbolic output sif = ", enable_optim_output_sif_);
+
+  if (enable_optim_output_sif_) {
+    maybe_static_recipe_ =
+        optimized_jit_graph_and_meta_data->get_maybe_static_recipe();
+    is_symval_changed_from_prev_ =
+        optimized_jit_graph_and_meta_data->get_is_symval_changed_from_prev();
+  }
 }
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
@@ -4190,9 +4199,9 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
         // Updtating enable_optim_output_sif with RecipeValueSpec's saved value
         // so that it's consistent with compilation time's shape inference flow.
         bool cached_enable_optim_output_sif = rv.get_optim_output_sif_value();
-        set_enable_optim_output_sif(cached_enable_optim_output_sif);
+        enable_optim_output_sif_ = cached_enable_optim_output_sif;
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Updating DS symbolic output sif with Cached recipe's saved value = ",
+            "Cached recipe's dynamic shape enable symbolic output sif value: ",
             cached_enable_optim_output_sif)
 
         PT_DYNAMIC_SHAPE_DEBUG("Running output shape inference pass");
@@ -4829,19 +4838,21 @@ void HabanaLaunchOpPT::run(
   dry_run_ = dry_run;
   auto& device = HPUDeviceContext::get_device();
 
-  // Check whether dynamic shape is needed
-  graph_key_with_perm_ = graph_key_;
-  graph_symint_hash_ = habana::ComputeSymSizeHashCode(input_refs_);
-  graph_key_with_perm_ =
-      at::hash_combine(graph_key_with_perm_, graph_symint_hash_);
-  graph_perm_hash_ = habana::ComputePermutationHashCode(input_refs_);
-  graph_key_with_perm_ =
-      at::hash_combine(graph_key_with_perm_, graph_perm_hash_);
-
   const auto eager_mode =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
   const auto compile_mode =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::COMPILE);
+
+  if (!compile_mode) {
+    graph_key_with_perm_ = graph_key_;
+    graph_symint_hash_ = habana::ComputeSymSizeHashCode(input_refs_);
+    graph_key_with_perm_ =
+        at::hash_combine(graph_key_with_perm_, graph_symint_hash_);
+    graph_perm_hash_ = habana::ComputePermutationHashCode(input_refs_);
+    graph_key_with_perm_ =
+        at::hash_combine(graph_key_with_perm_, graph_perm_hash_);
+  }
+
   PT_BRIDGE_DEBUG(
       "Lowering:\n",
       "JIT_IR_Graph_BEGIN\n",
@@ -4866,11 +4877,11 @@ void HabanaLaunchOpPT::run(
   if (enable_optim_output_sif_) {
     DumpSymbolValueMap(in_symbol_value_map_);
   }
-
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
-    if ((cached_rarg_psh.get() == nullptr) ||
-        (cached_rarg_psh->graphWithPermuteHashCode() != graph_perm_hash_)) {
+    if (maybe_static_recipe_ &&
+        ((cached_rarg_psh.get() == nullptr) ||
+         (cached_rarg_psh->graphWithPermuteHashCode() != graph_perm_hash_))) {
       cur_rargpsh_ = std::make_shared<RecipeArgumentSpec>(
           false,
           input_refs_,
@@ -4893,7 +4904,7 @@ void HabanaLaunchOpPT::run(
   auto is_enable_4stage_pipeline = enable_4stage_pipeline_;
 
   // eager and graph recipe caching :: begin
-  if (enable_caching_) {
+  if (enable_caching_ && maybe_static_recipe_) {
     HABANA_ASSERT(
         enable_graph_caching_ || enable_eager_caching_,
         " something went wrong! either eager or graph recipe caching should be enabled");
@@ -4949,6 +4960,7 @@ void HabanaLaunchOpPT::run(
           "HabanaOp recipe cache miss :: key ",
           cur_rargpsh_->hashCode());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
+      PT_TEST_DEBUG("HabanaOp recipe cache miss :: static path");
     }
   }
   // eager and graph recipe caching :: end
@@ -5525,7 +5537,12 @@ void HabanaLaunchOpPT::run_pass() {
   if (enable_optim_output_sif_ &&
       habana::ShapeInference::GetCurrentPass() ==
           habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
-    BuildSynapseGraphLite(syn_graph, cache);
+    if (is_symval_changed_from_prev_) {
+      BuildSynapseGraphLite(syn_graph, cache);
+    } else {
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Skipping OUTPUT_PASS SIF as symbol values have not changed from previous run!!");
+    }
   } else {
     CreateValueToIvalueMapForInputs();
     habana_helpers::createGraphInputStackIndexMap(

@@ -411,6 +411,31 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   }
 }
 
+void GraphExec::PopulateSymbolValueMap(
+    torch::jit::Stack& stack,
+    InputSymbolMap& symbol_value_map) {
+  std::for_each(
+      m_in_symbol_idx_map.begin(),
+      m_in_symbol_idx_map.end(),
+      [&](const std::pair<std::string, int64_t>& p) {
+        int64_t scalar_index = p.second;
+        // This is added to correct the scalar index of the original stack.
+        // Random ops support adds additional 2 inputs to the stack at index
+        // 0 and 1.
+        if (m_has_randoms) {
+          scalar_index = scalar_index + 2;
+        }
+        HABANA_ASSERT(
+            stack[scalar_index].isScalar(),
+            "Wrong symbol index received!!!",
+            scalar_index);
+        auto value =
+            static_cast<double>(stack[scalar_index].toScalar().toLong());
+        auto value_sh = std::make_shared<double>(value);
+        symbol_value_map.emplace(p.first, value_sh);
+      });
+}
+
 torch::jit::Stack GraphExec::launch(
     torch::jit::Stack& stack,
     std::vector<at::Tensor>& outputs) {
@@ -430,26 +455,7 @@ torch::jit::Stack GraphExec::launch(
 
     PT_EAGER_INFO("Dynamic graph Info:", LogRecipeInfo(stack));
     if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
-      std::for_each(
-          m_in_symbol_idx_map.begin(),
-          m_in_symbol_idx_map.end(),
-          [&](const std::pair<std::string, int64_t>& p) {
-            int64_t scalar_index = p.second;
-            // This is added to correct the scalar index of the original stack.
-            // Random ops support adds additional 2 inputs to the stack at index
-            // 0 and 1.
-            if (m_has_randoms) {
-              scalar_index = scalar_index + 2;
-            }
-            HABANA_ASSERT(
-                original_stack[scalar_index].isScalar(),
-                "Wrong symbol index received!!!",
-                scalar_index);
-            auto value = static_cast<double>(
-                original_stack[scalar_index].toScalar().toLong());
-            auto value_sh = std::make_shared<double>(value);
-            in_symbol_value_map.emplace(p.first, value_sh);
-          });
+      PopulateSymbolValueMap(original_stack, in_symbol_value_map);
     }
   }
 
@@ -530,6 +536,58 @@ torch::jit::Stack GraphExec::LaunchRecipe(
     impl->set_storage_offset(0);
     impl->set_sizes_contiguous(base_sizes_to_set);
     input_base_sizes_pair.second = base_sizes_to_set;
+  }
+
+  bool enable_optim_output_sif =
+      (m_graph_and_meta->GetDynamicGraph() &&
+       GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) &&
+       m_graph_and_meta->get_sym_expr_hash() != ULONG_MAX);
+  m_graph_and_meta->set_enable_optim_output_sif(enable_optim_output_sif);
+
+  auto graph_symint_hash = habana::ComputeSymSizeHashCode(input_refs);
+  m_graph_and_meta->set_graph_symint_hash(graph_symint_hash);
+  auto graph_key_with_perm = at::hash_combine(
+      m_graph_and_meta->get_cached_graph_key(), graph_symint_hash);
+  auto graph_perm_hash = habana::ComputePermutationHashCode(input_refs);
+  m_graph_and_meta->set_graph_perm_hash(graph_perm_hash);
+  graph_key_with_perm = at::hash_combine(graph_key_with_perm, graph_perm_hash);
+  m_graph_and_meta->set_graph_key_with_perm(graph_key_with_perm);
+
+  if (enable_optim_output_sif) {
+    m_graph_and_meta->set_maybe_static_recipe(true);
+    m_graph_and_meta->set_is_symval_changed_from_prev(true);
+
+    if (m_initial_graph_key_with_perm == SIZE_MAX) {
+      // Save the graph_key_with_perm of the very first run.
+      m_initial_graph_key_with_perm = graph_key_with_perm;
+    }
+
+    auto curr_symval_hash =
+        habana_helpers::CalculateSymbolValuesHash(in_symbol_value_map);
+    if (m_initial_symval_hash == SIZE_MAX) {
+      // Save the symbol values hash of the very first run.
+      // The first recipe is always compiled in static flow.
+      m_initial_symval_hash = curr_symval_hash;
+      m_current_symval_hash = curr_symval_hash;
+    } else if (m_initial_symval_hash != curr_symval_hash) {
+      // If any subsequent symbol values hash is different from
+      // that of the first run, then that recipe will compile
+      // in dynamic flow.
+      // Only exception is when the graph_key_with_perm has changed
+      // from that of then first run, then a new static recipe
+      // will get compiled.
+      if (graph_key_with_perm == m_initial_graph_key_with_perm) {
+        m_graph_and_meta->set_maybe_static_recipe(false);
+      }
+      if (m_current_symval_hash != curr_symval_hash) {
+        // Save the current symbol values hash
+        m_current_symval_hash = curr_symval_hash;
+      } else {
+        m_graph_and_meta->set_is_symval_changed_from_prev(false);
+      }
+    }
+    // and if 'm_initial_symval_hash == curr_symval_hash'
+    // then it is a static cache hit.
   }
 
   m_graph_and_meta->SetHPUStream(stream);

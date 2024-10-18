@@ -13,9 +13,11 @@
 #pragma once
 
 #include <torch/torch.h>
+#include <cfloat>
 #include "backend/helpers/tensor_utils.h"
 
 using GraphInputIndexMap = std::unordered_map<std::string, int64_t>;
+using InputSymbolMap = std::unordered_map<std::string, std::shared_ptr<double>>;
 
 namespace habana_helpers {
 
@@ -36,5 +38,7 @@ bool isNodeDynamic(
 void createGraphInputStackIndexMap(
     const std::shared_ptr<torch::jit::Graph>& graph,
     GraphInputIndexMap& org_stack_index_map);
+
+size_t CalculateSymbolValuesHash(InputSymbolMap& symbol_value_map);
 
 } // namespace habana_helpers

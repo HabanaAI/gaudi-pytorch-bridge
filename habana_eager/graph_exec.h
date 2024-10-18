@@ -67,7 +67,9 @@ class GraphExec {
       torch::jit::Stack stack,
       std::optional<std::vector<at::Tensor>> maybe_outputs = {},
       InputSymbolMap in_symbol_value_map = {});
-
+  void PopulateSymbolValueMap(
+      torch::jit::Stack& stack,
+      InputSymbolMap& symbol_value_map);
   void RunGraphPasses(torch::jit::Stack& example_inputs);
   void RunPass(
       std::function<bool()> pass,
@@ -109,6 +111,9 @@ class GraphExec {
   bool m_reset_seed = true;
   SeedTensors m_seed_tensors{};
   size_t m_sym_expr_hash = 0;
+  size_t m_initial_symval_hash = SIZE_MAX;
+  size_t m_current_symval_hash = 0;
+  size_t m_initial_graph_key_with_perm = SIZE_MAX;
 };
 
 } // namespace graph

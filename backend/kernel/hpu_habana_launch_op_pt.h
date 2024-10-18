@@ -278,14 +278,6 @@ class HabanaLaunchOpPT {
     return enable_4stage_pipeline_;
   }
 
-  bool get_enable_optim_output_sif() const {
-    return enable_optim_output_sif_;
-  }
-
-  void set_enable_optim_output_sif(bool enable_optim_output_sif) {
-    enable_optim_output_sif_ = enable_optim_output_sif;
-  }
-
   std::shared_ptr<synapse_helpers::graph::recipe_handle> get_hpu_op_recipe()
       const {
     return hpu_op_recipe_;
@@ -449,6 +441,11 @@ class HabanaLaunchOpPT {
   InputSymbolMap in_symbol_value_map_;
   habana_helpers::DynamicSIFInfo ds_sif_info_;
   size_t sym_expr_hash_ = 0;
+  // If true, static recipe_arg_spec will be evaluated
+  bool maybe_static_recipe_ = true;
+  // Is true if symbol value hash changes from the
+  // previous run of the same JIT graph
+  bool is_symval_changed_from_prev_ = true;
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;

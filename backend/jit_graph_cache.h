@@ -333,6 +333,54 @@ struct OptimizedJITGraphAndMetaData {
     sym_expr_hash_ = hash;
   }
 
+  size_t get_graph_symint_hash() {
+    return graph_symint_hash_;
+  }
+
+  void set_graph_symint_hash(size_t hash) {
+    graph_symint_hash_ = hash;
+  }
+
+  size_t get_graph_key_with_perm() {
+    return graph_key_with_perm_;
+  }
+
+  void set_graph_key_with_perm(size_t key) {
+    graph_key_with_perm_ = key;
+  }
+
+  size_t get_graph_perm_hash() {
+    return graph_perm_hash_;
+  }
+
+  void set_graph_perm_hash(size_t hash) {
+    graph_perm_hash_ = hash;
+  }
+
+  void set_enable_optim_output_sif(bool enable_optim_output_sif) {
+    enable_optim_output_sif_ = enable_optim_output_sif;
+  }
+
+  bool get_enable_optim_output_sif() {
+    return enable_optim_output_sif_;
+  }
+
+  void set_maybe_static_recipe(bool maybe_static_recipe) {
+    maybe_static_recipe_ = maybe_static_recipe;
+  }
+
+  bool get_maybe_static_recipe() {
+    return maybe_static_recipe_;
+  }
+
+  void set_is_symval_changed_from_prev(bool is_symval_changed_from_prev) {
+    is_symval_changed_from_prev_ = is_symval_changed_from_prev;
+  }
+
+  bool get_is_symval_changed_from_prev() {
+    return is_symval_changed_from_prev_;
+  }
+
   struct PermutationWithOutputPosition {
     uint64_t output_index;
     synapse_helpers::layouts::MemoryPermutation permutation;
@@ -426,6 +474,12 @@ struct OptimizedJITGraphAndMetaData {
   bool is_eager_compiler_supported = true;
   bool is_pipeline_supported_ = false;
   size_t sym_expr_hash_ = 0;
+  size_t graph_key_with_perm_ = 0;
+  size_t graph_symint_hash_ = 0;
+  size_t graph_perm_hash_ = 0;
+  bool enable_optim_output_sif_ = false;
+  bool maybe_static_recipe_ = true;
+  bool is_symval_changed_from_prev_ = true;
   std::optional<PermutationInfo> permutation_info_{};
   bool is_param_agnostic_supported_ = false;
   CValPtrMap param_jit_val_map_{};
