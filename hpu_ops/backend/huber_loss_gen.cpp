@@ -55,16 +55,16 @@ OutputMetaDataVector HuberLossBackwardMeta(const at::Stack& stack) {
 }
 
 SharedMetaDataVector HuberLossBackwardSharedMeta(const at::Stack& stack) {
-  auto grad = stack_tensor(stack, 0);
-  auto gradRank = grad.dim();
-  auto self = stack_tensor(stack, 1);
-  auto selfRank = self.dim();
-  auto target = stack_tensor(stack, 2);
-  auto targetRank = target.dim();
-  auto dtype = self.scalar_type();
+  const auto& grad = stack_tensor(stack, 0);
+  const auto gradRank = grad.dim();
+  const auto& self = stack_tensor(stack, 1);
+  const auto selfRank = self.dim();
+  const auto& target = stack_tensor(stack, 2);
+  const auto targetRank = target.dim();
+  const auto dtype = self.scalar_type();
 
   SharedMetaDataVector metaVec;
-  metaVec.reserve(7);
+  metaVec.reserve(selfRank > 1 ? 8 : 7);
   SharedMetaTensor commonSharedTensor{selfRank, dtype};
   SharedMetaTensor gradSharedTensor{gradRank, dtype};
   SharedMetaTensor targetSharedTensor{targetRank, dtype};
@@ -72,6 +72,12 @@ SharedMetaDataVector HuberLossBackwardSharedMeta(const at::Stack& stack) {
       commonSharedTensor, commonSharedTensor};
   SharedMetaVector commonUnarySharedInput = {commonSharedTensor};
   auto& commonSharedOutput = commonUnarySharedInput;
+
+  if (selfRank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data = {commonSharedTensor};
+    metaVec.push_back(constantSharedMeta);
+  }
 
   SharedMetaData subSharedMeta{"sub"};
   subSharedMeta.inputs_data = {commonSharedTensor, targetSharedTensor};

@@ -43,7 +43,7 @@ SharedMetaDataVector UnaryForeachErfcSharedMeta(const at::Stack& stack) {
   auto tensors = stack.at(0).toTensorList();
   auto tensorsSize = tensors.size();
   SharedMetaDataVector metaVec;
-  const int numberOfKernelPerIteration = 2;
+  const int numberOfKernelPerIteration = 3;
   metaVec.reserve(tensorsSize * numberOfKernelPerIteration);
   for (size_t i = 0; i < tensorsSize; i++) {
     const at::Tensor& tensor = tensors[i];
@@ -57,6 +57,12 @@ SharedMetaDataVector UnaryForeachErfcSharedMeta(const at::Stack& stack) {
     erfMeta.inputs_data = {{rank, inputType}};
     erfMeta.outputs_data = {outputTensor};
     metaVec.push_back(erfMeta);
+
+    if (rank > 1) {
+      SharedMetaData constantSharedMeta{"constant"};
+      constantSharedMeta.outputs_data.emplace_back(rank, inputType);
+      metaVec.push_back(erfMeta);
+    }
 
     SharedMetaData subMeta{"sub_fwd"};
     subMeta.inputs_data = {outputTensor, outputTensor};

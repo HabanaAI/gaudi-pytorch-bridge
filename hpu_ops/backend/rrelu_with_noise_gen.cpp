@@ -18,10 +18,10 @@
 namespace habana {
 
 SharedMetaDataVector RreluWithNoiseSharedMeta(const at::Stack& stack) {
-  auto self = stack.at(0).toTensor();
-  auto rank = self.dim();
-  auto dtype = self.scalar_type();
-  auto training = stack.at(4).toBool();
+  const auto& self = stack_tensor(stack, 0);
+  const auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+  const auto training = stack.at(4).toBool();
 
   if (!training) {
     SharedMetaData leakyReluSharedMeta("leakyrelu_fwd");
@@ -32,16 +32,16 @@ SharedMetaDataVector RreluWithNoiseSharedMeta(const at::Stack& stack) {
   }
 
   SharedMetaDataVector out;
-
-  if (stack.at(1).isTensor()) {
-    auto noiseIn = stack.at(1).toTensor();
-    rank = std::max(self.dim(), noiseIn.dim());
-  }
-
   SharedMetaData randUniformSharedMeta("random_uniform_fwd");
   randUniformSharedMeta.inputs_data.emplace_back(1, at::ScalarType::Int);
   randUniformSharedMeta.outputs_data.emplace_back(rank, dtype);
   out.push_back(randUniformSharedMeta);
+
+  if (rank > 1) {
+    SharedMetaData constantSharedMeta("constant");
+    constantSharedMeta.outputs_data.emplace_back(rank, dtype);
+    out.push_back(constantSharedMeta);
+  }
 
   SharedMetaData lessEqSharedMeta("less_equal_fwd");
   lessEqSharedMeta.inputs_data.emplace_back(rank, dtype);

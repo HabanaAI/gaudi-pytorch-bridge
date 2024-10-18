@@ -34,13 +34,13 @@ OutputMetaDataVector IndexFillMeta(const at::Stack& stack) {
 }
 
 SharedMetaDataVector IndexFillSharedMeta(const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  auto selfRank = self.dim();
-  auto computeDtype = self.scalar_type();
-  auto index = stack_tensor(stack, 2);
-  auto indexRank = index.dim();
-  auto indexDtype = index.scalar_type();
-  auto value = stack.at(3);
+  const auto& self = stack_tensor(stack, 0);
+  const auto selfRank = self.dim();
+  const auto computeDtype = self.scalar_type();
+  const auto& index = stack_tensor(stack, 2);
+  const auto indexRank = index.dim();
+  const auto indexDtype = index.scalar_type();
+  const auto& value = stack.at(3);
 
   SharedMetaDataVector metaVec;
   if (value.isTensor()) {
@@ -50,6 +50,10 @@ SharedMetaDataVector IndexFillSharedMeta(const at::Stack& stack) {
     broadcastSharedMeta.inputs_data.emplace_back(1, valueDtype);
     broadcastSharedMeta.outputs_data.emplace_back(selfRank, valueDtype);
     metaVec.push_back(broadcastSharedMeta);
+  } else if (selfRank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(selfRank, computeDtype);
+    metaVec.push_back(constantSharedMeta);
   }
 
   SharedMetaData indexFillSharedMeta{"index_copy_fwd"};

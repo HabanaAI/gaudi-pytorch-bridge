@@ -15,9 +15,15 @@
 
 namespace habana {
 
-SharedMetaDataVector ZeroSharedMeta(const at::Stack&) {
-  // return empty vector because shape tensor validation will block shape
-  // agnostic flow
+SharedMetaDataVector ZeroSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto rank = self.dim();
+  if (rank > 1) {
+    const auto dtype = self.scalar_type();
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {constantSharedMeta};
+  }
   return {};
 }
 

@@ -29,13 +29,16 @@ OutputMetaDataVector EyeMeta(const at::Stack& stack) {
 }
 
 SharedMetaDataVector EyeSharedMeta(const at::Stack& stack) {
-  auto tensor = stack_tensor(stack, stack.size() == 3 ? 2 : 1);
-  auto dtype = tensor.scalar_type();
+  const auto& tensor = stack_tensor(stack, stack.size() == 3 ? 2 : 1);
+  const auto dtype = tensor.scalar_type();
+
+  SharedMetaData constantSharedMeta{"constant"};
+  constantSharedMeta.outputs_data.emplace_back(2, dtype);
 
   SharedMetaData matrixDiagSharedMeta("matrix_diagonal_fwd");
   matrixDiagSharedMeta.inputs_data = {{2, dtype}};
   matrixDiagSharedMeta.outputs_data = {{2, dtype}};
-  return {matrixDiagSharedMeta};
+  return {constantSharedMeta, matrixDiagSharedMeta};
 }
 
 void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

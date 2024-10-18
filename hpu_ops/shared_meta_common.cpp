@@ -156,36 +156,36 @@ SharedMetaDataVector RoundingSharedMeta(
 SharedMetaDataVector UnaryForeachSharedMeta(
     const at::Stack& stack,
     const std::string& guid) {
-  auto tensors = stack.at(0).toTensorList();
-  auto tensorsSize = tensors.size();
+  const auto tensors = stack.at(0).toTensorList();
+  const auto tensorsSize = tensors.size();
   SharedMetaDataVector metaVec;
-  metaVec.resize(tensorsSize);
+  metaVec.reserve(tensorsSize);
   for (size_t i = 0; i < tensorsSize; i++) {
     const at::Tensor& tensor = tensors[i];
-    auto rank = tensor.dim();
-    auto inputType = tensor.scalar_type();
-
-    auto guidIt = foreachOpsUnsupportedDtypes.find(guid);
-    if (guidIt != std::end(foreachOpsUnsupportedDtypes)) {
-      bool isInputTypeUnsupported =
-          guidIt->second.find(inputType) != std::end(guidIt->second);
-      if (isIntegralType(inputType, true)) {
-        bool isI32Unsupported =
-            guidIt->second.find(torch::kInt32) != std::end(guidIt->second);
-        if (isI32Unsupported)
-          inputType = torch::kFloat32;
-        else
-          inputType = isInputTypeUnsupported ? torch::kInt32 : inputType;
-      } else if (isInputTypeUnsupported) {
-        inputType = torch::kFloat32;
+    const auto rank = tensor.dim();
+    if (guid != "constant" || (guid == "constant" && rank > 1)) {
+      auto dtype = tensor.scalar_type();
+      const auto guidIt = foreachOpsUnsupportedDtypes.find(guid);
+      if (guidIt != std::end(foreachOpsUnsupportedDtypes)) {
+        bool isDtypeUnsupported =
+            guidIt->second.find(dtype) != std::end(guidIt->second);
+        if (isIntegralType(dtype, true)) {
+          bool isI32Unsupported =
+              guidIt->second.find(torch::kInt32) != std::end(guidIt->second);
+          if (isI32Unsupported)
+            dtype = torch::kFloat32;
+          else
+            dtype = isDtypeUnsupported ? torch::kInt32 : dtype;
+        } else if (isDtypeUnsupported) {
+          dtype = torch::kFloat32;
+        }
       }
-    }
 
-    auto outputType = inputType;
-    SharedMetaData foreachMeta{guid};
-    foreachMeta.inputs_data = {{rank, inputType}};
-    foreachMeta.outputs_data = {{rank, outputType}};
-    metaVec[i] = foreachMeta;
+      SharedMetaData foreachMeta{guid};
+      foreachMeta.inputs_data = {{rank, dtype}};
+      foreachMeta.outputs_data = {{rank, dtype}};
+      metaVec.push_back(foreachMeta);
+    }
   }
   return metaVec;
 }

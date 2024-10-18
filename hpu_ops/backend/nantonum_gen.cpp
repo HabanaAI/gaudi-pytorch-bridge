@@ -19,17 +19,24 @@ SharedMetaDataVector NanToNumSharedMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 0);
   const auto rank = self.dim();
   const auto dtype = self.scalar_type();
-
+  const auto isIntegralType = c10::isIntegralType(dtype, true);
   const SharedMetaTensor commonTensor = {rank, dtype};
-  if (c10::isIntegralType(dtype, true)) {
+  if (isIntegralType) {
     SharedMetaData memcpySharedMeta{"memcpy"};
     memcpySharedMeta.inputs_data = {commonTensor};
     memcpySharedMeta.outputs_data = {commonTensor};
     return {memcpySharedMeta};
   }
 
+  const bool constantPresent = !isIntegralType && rank > 1;
   SharedMetaDataVector metaVec;
-  metaVec.reserve(4);
+  metaVec.reserve(constantPresent ? 5 : 4);
+  if (constantPresent) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data = {commonTensor};
+    metaVec.push_back(constantSharedMeta);
+  }
+
   auto isNanMetaVec = IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
   metaVec.insert(
       std::end(metaVec), std::begin(isNanMetaVec), std::end(isNanMetaVec));

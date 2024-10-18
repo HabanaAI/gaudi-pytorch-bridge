@@ -55,7 +55,16 @@ SharedMetaDataVector NanSumSharedMeta(const at::Stack& stack) {
   if (outputRank <= 0)
     outputRank = 1;
 
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(inputRank > 1 ? 4 : 3);
   SharedMetaTensor commonTensor = {inputRank, computeDtype};
+
+  if (inputRank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data = {commonTensor};
+    metaVec.push_back(constantSharedMeta);
+  }
+
   SharedMetaData isNanSharedMeta{"isnan_fwd"};
   isNanSharedMeta.inputs_data = {commonTensor};
   isNanSharedMeta.outputs_data = {{inputRank, c10::ScalarType::Char}};

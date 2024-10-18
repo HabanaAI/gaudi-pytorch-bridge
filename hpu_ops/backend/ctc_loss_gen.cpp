@@ -69,7 +69,7 @@ SharedMetaDataVector CtcLossSharedMeta(const at::Stack& stack) {
   }
 
   ctcLossSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
-  if (!(stack.size() > 6))
+  if (stack.size() < 7)
     ctcLossSharedMeta.outputs_data.emplace_back(3, dtype);
 
   return {ctcLossSharedMeta};

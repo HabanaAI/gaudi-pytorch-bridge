@@ -373,14 +373,10 @@ _foreach_clamp_max_.Scalar:
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
   guid: foreach_clamp_max
   op_backend: ForeachClamp
   inplace_ids: [0]
-
+  op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.ScalarList:
   guid: foreach_clamp_max
@@ -2766,12 +2762,9 @@ eq_.Tensor:
   op_validator: check-node-with-shared-layer
 
 eq.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
-    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
-    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   op_frontend: CompareScalarToTensor
+  op_validator: CompareEqSharedMeta
   output_meta: CompareMeta
   scalar_ids: [1]
   out_ids: [0]
@@ -6412,12 +6405,13 @@ std.correction:
 std.correction_out:
   output_meta: StdVarMeta
   op_backend: Std
-  op_validator: StdMeanSharedMeta
+  op_validator: StdSharedMeta
 
 std_mean.correction:
   output_meta: StdVarMeanMeta
   dtypes: [BFloat16, Float]
   op_backend: StdMean
+  op_validator: StdMeanSharedMeta
   out_ids: [0, 0]
 
 sub.Tensor:

@@ -70,8 +70,14 @@ SharedMetaDataVector LogSigmoidBwdSharedMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 1);
   const auto selfRank = self.dim();
   SharedMetaDataVector metaVec;
-  metaVec.reserve(7);
+  metaVec.reserve(selfRank > 1 ? 8 : 7);
   SharedMetaTensor commonTensor = {selfRank, grad.scalar_type()};
+
+  if (selfRank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data = {commonTensor};
+    metaVec.push_back(constantSharedMeta);
+  }
 
   SharedMetaData lessSharedMeta{"less_fwd"};
   lessSharedMeta.inputs_data = {commonTensor, commonTensor};

@@ -62,12 +62,18 @@ SharedMetaDataVector SmoothL1LossBwdSharedMeta(const at::Stack& stack) {
   const float beta = stack.at(4).toScalar().to<float>();
   const auto rank = self.dim();
   const auto dtype = self.scalar_type();
-
-  const auto kernels = beta != 0 ? 6 : 4;
+  const auto constantPresent = rank > 1 ? 1 : 0;
+  const auto kernels = (beta != 0 ? 6 : 4) + constantPresent;
   SharedMetaDataVector metaVec;
   metaVec.reserve(kernels);
 
   SharedMetaTensor commonTensor = {rank, dtype};
+  if (constantPresent) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data = {commonTensor};
+    metaVec.push_back(constantSharedMeta);
+  }
+
   SharedMetaData subSharedMeta{"sub"};
   subSharedMeta.inputs_data = {commonTensor, commonTensor};
   subSharedMeta.outputs_data = {commonTensor};

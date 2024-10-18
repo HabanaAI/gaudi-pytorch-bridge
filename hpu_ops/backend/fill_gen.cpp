@@ -16,15 +16,19 @@
 namespace habana {
 SharedMetaDataVector FillScalarSharedMeta(const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 0);
-  auto dtype = input.scalar_type();
-  auto rank = input.dim();
-
-  SharedMetaData meta{"memcpy"};
+  const auto dtype = input.scalar_type();
+  const auto rank = input.dim();
   SharedMetaTensor inOutTensor{rank, dtype};
-  meta.inputs_data = {inOutTensor};
-  meta.outputs_data = {inOutTensor};
-
-  return {meta};
+  if (rank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data = {inOutTensor};
+    return {constantSharedMeta};
+  } else {
+    SharedMetaData memcpySharedMeta{"memcpy"};
+    memcpySharedMeta.inputs_data = {inOutTensor};
+    memcpySharedMeta.outputs_data = {inOutTensor};
+    return {memcpySharedMeta};
+  }
 }
 
 void FillScalar::AddNode(

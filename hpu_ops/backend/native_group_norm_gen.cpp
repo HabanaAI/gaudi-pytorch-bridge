@@ -78,16 +78,18 @@ SharedMetaDataVector NativeGroupNormFwdSharedMeta(const at::Stack& stack) {
 }
 
 SharedMetaDataVector NativeGroupNormBwdSharedMeta(const at::Stack& stack) {
-  auto gradOut = stack_tensor(stack, 0);
-  auto input = stack_tensor(stack, 1);
-  auto mean = stack_tensor(stack, 2);
-  auto rstd = stack_tensor(stack, 3);
-  auto weightOpt = stack.at(4).toOptional<at::Tensor>();
-  auto N = stack.at(5).toInt();
-  auto C = stack.at(6).toInt();
-  auto HxW = stack.at(7).toInt();
-  auto inputRank = input.dim();
-  auto inputDtype = input.scalar_type();
+  const auto& gradOut = stack_tensor(stack, 0);
+  const auto& input = stack_tensor(stack, 1);
+  const auto& mean = stack_tensor(stack, 2);
+  const auto& rstd = stack_tensor(stack, 3);
+  const auto weightOpt = stack.at(4).toOptional<at::Tensor>();
+  const auto N = stack.at(5).toInt();
+  const auto C = stack.at(6).toInt();
+  const auto HxW = stack.at(7).toInt();
+  const auto numGroups = stack.at(8).toInt();
+  const auto Nmod = N * numGroups;
+  const auto inputRank = input.dim();
+  const auto inputDtype = input.scalar_type();
 
   if (N * C * HxW == 0) {
     SharedMetaData memsetSharedMeta{"memset"};
@@ -120,10 +122,22 @@ SharedMetaDataVector NativeGroupNormBwdSharedMeta(const at::Stack& stack) {
     metaVec.push_back(subSharedMeta);
   }
 
+  if (!weightOpt.has_value()) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data = {bnCommonTensor};
+    metaVec.push_back(constantSharedMeta);
+  }
+
   SharedMetaData multSharedMeta{"mult_fwd"};
   multSharedMeta.inputs_data = {bnCommonTensor, bnCommonTensor};
   multSharedMeta.outputs_data = {bnCommonTensor};
   metaVec.push_back(multSharedMeta);
+
+  if (Nmod > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+    metaVec.push_back(constantSharedMeta);
+  }
 
   SharedMetaData batchNormBwdSharedMeta{"batch_norm_bwd"};
   batchNormBwdSharedMeta.inputs_data = {

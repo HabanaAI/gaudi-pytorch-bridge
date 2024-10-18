@@ -44,14 +44,19 @@ SharedMetaDataVector ScatterSharedMeta(const at::Stack& stack) {
 SharedMetaDataVector ScatterReduceSharedMeta(const at::Stack& stack) {
   const auto& self = stack_tensor(stack, 0);
   const auto& index = stack_tensor(stack, 2);
-  auto dtype = self.scalar_type();
-  auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+  const auto rank = self.dim();
 
   SharedMetaData scatterReduceSharedMeta{"scatter_reduce_fwd"};
   scatterReduceSharedMeta.inputs_data = {
       {rank, dtype}, {index.dim(), index.scalar_type()}, {rank, dtype}};
   scatterReduceSharedMeta.outputs_data.emplace_back(rank, dtype);
 
+  if (rank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {scatterReduceSharedMeta, constantSharedMeta};
+  }
   return {scatterReduceSharedMeta};
 }
 

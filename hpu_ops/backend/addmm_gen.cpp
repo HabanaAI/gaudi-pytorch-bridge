@@ -357,17 +357,23 @@ void AddMMActivation::AddNode(
 
 namespace {
 
-SharedMetaData BetaSharedMeta(int input_rank, at::ScalarType input_dtype) {
+SharedMetaDataVector BetaSharedMeta(
+    const int input_rank,
+    const at::ScalarType& input_dtype) {
+  SharedMetaData constantSharedMeta{"constant"};
+  constantSharedMeta.outputs_data.emplace_back(2, input_dtype);
+
   SharedMetaData mul{"mult_fwd"};
   mul.inputs_data = {{input_rank, input_dtype}, {1, input_dtype}};
   mul.outputs_data = {mul.inputs_data[0]};
-  return mul;
+  return {mul, constantSharedMeta};
 }
 
 SharedMetaDataVector AlphaSharedMeta(
-    at::ScalarType batch1_dtype,
-    at::ScalarType batch2_dtype,
-    float alpha) {
+    const at::ScalarType& input_dtype,
+    const at::ScalarType& batch1_dtype,
+    const at::ScalarType& batch2_dtype,
+    const float alpha) {
   SharedMetaTensor meta_3d_1{3, batch1_dtype};
   SharedMetaTensor meta_2d_1{2, batch1_dtype};
 
@@ -382,6 +388,10 @@ SharedMetaDataVector AlphaSharedMeta(
   SharedMetaDataVector meta{bmm, reduce};
 
   if (alpha != 1.0) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(2, input_dtype);
+    meta.push_back(constantSharedMeta);
+
     SharedMetaData mul{"mult_fwd"};
     mul.inputs_data = {meta_2d_1, {1, batch1_dtype}};
     mul.outputs_data = {meta_2d_1};
@@ -397,30 +407,33 @@ SharedMetaDataVector AddBMMSharedMeta(const at::Stack& stack) {
   const float beta = stack.at(3).toScalar().toFloat();
   const float alpha = stack.at(4).toScalar().toFloat();
 
+  const auto& input = stack_tensor(stack, 0);
+  const auto input_dtype = input.scalar_type();
   if (alpha == 0.0 and beta == 0.0) {
-    return {};
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(2, input_dtype);
+    return {constantSharedMeta};
   }
 
-  auto input = stack_tensor(stack, 0);
-  auto input_dtype = input.scalar_type();
-  auto input_rank = input.dim();
+  const auto input_rank = input.dim();
 
   if (alpha == 0.0) {
-    return {BetaSharedMeta(input_rank, input_dtype)};
+    return BetaSharedMeta(input_rank, input_dtype);
   }
 
-  auto batch1 = stack_tensor(stack, 1);
-  auto batch1_dtype = batch1.scalar_type();
+  const auto& batch1 = stack_tensor(stack, 1);
+  const auto batch1_dtype = batch1.scalar_type();
 
-  auto batch2 = stack_tensor(stack, 2);
-  auto batch2_dtype = batch2.scalar_type();
+  const auto& batch2 = stack_tensor(stack, 2);
+  const auto batch2_dtype = batch2.scalar_type();
 
   if (beta == 0.0) {
-    return AlphaSharedMeta(batch1_dtype, batch2_dtype, alpha);
+    return AlphaSharedMeta(input_dtype, batch1_dtype, batch2_dtype, alpha);
   }
 
-  auto meta = AlphaSharedMeta(batch1_dtype, batch2_dtype, alpha);
-  meta.push_back(BetaSharedMeta(input_rank, input_dtype));
+  auto meta = AlphaSharedMeta(input_dtype, batch1_dtype, batch2_dtype, alpha);
+  const auto betaVec = BetaSharedMeta(input_rank, input_dtype);
+  meta.insert(std::end(meta), std::begin(betaVec), std::end(betaVec));
 
   SharedMetaData add{"add_fwd"};
   add.inputs_data = {{2, batch1_dtype}, {1, batch1_dtype}};
