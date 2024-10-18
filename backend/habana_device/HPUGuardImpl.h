@@ -88,6 +88,11 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   at::Stream getStream(at::Device d) const noexcept override {
     return c10::hpu::getCurrentHPUStream(d.index()).unwrap();
   }
+
+  at::Stream getNewStream(at::Device d, int priority = 0) const override {
+    return c10::hpu::getStreamFromPool(priority, d.index());
+  }
+
   at::Stream exchangeStream(at::Stream s) const noexcept override {
     c10::hpu::HPUStream hs(s);
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
@@ -102,6 +107,13 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     auto old_stream = c10::hpu::getCurrentHPUStream(s.device().index());
     c10::hpu::setCurrentHPUStream(hs);
     return old_stream.unwrap();
+  }
+
+  void synchronizeEvent(void* event) const override {
+    if (!event)
+      return;
+    auto* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    hpu_event->synchronize();
   }
 
   at::DeviceIndex deviceCount() const noexcept override {
@@ -172,6 +184,19 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       return true;
     at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     return hpu_event->query();
+  }
+
+  double elapsedTime(
+      void* event1,
+      void* event2,
+      C10_UNUSED const c10::DeviceIndex device_index) const override {
+    TORCH_CHECK(
+        event1 && event2,
+        "Both events must be recorded before calculating elapsed time.");
+    auto* hpu_event1 = static_cast<at::hpu::HPUEvent*>(event1);
+    auto* hpu_event2 = static_cast<at::hpu::HPUEvent*>(event2);
+    float time_ms = hpu_event1->elapsed_time(*hpu_event2) / 1e6;
+    return static_cast<double>(time_ms);
   }
 };
 } // namespace habana
