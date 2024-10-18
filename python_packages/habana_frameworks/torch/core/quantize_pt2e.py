@@ -10,7 +10,9 @@
 #
 ###############################################################################
 
+import copy
 import importlib
+import json
 import operator
 import os
 from functools import partial
@@ -24,7 +26,7 @@ from torch.ao.quantization.quantizer import Quantizer
 from torch.fx import GraphModule, Node
 from torch.fx.passes.utils.source_matcher_utils import SourcePartition, get_source_partitions
 
-from .pattern_matcher import PatternMatchAndReplacer
+from .pattern_matcher import PatternMatchAndReplacer, get_dequant_node, is_node
 from .torch_overwrites import _native_pt2e_quantization_interface
 
 logger = get_compile_backend_logger()
@@ -203,6 +205,14 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     use_reference_representation=queue_element["use_reference_representation"],
                     fold_quantize=queue_element["fold_quantize"],
                 )
+
+                if os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "") != "":
+                    logger.debug("Start quantization scale loading.")
+                    load_scale(self._converted_module)
+
+                if os.getenv("PT2E_QUANT_SCALE_DUMP_PATH", "") != "":
+                    logger.debug("Start quantization scale dumping.")
+                    dump_scale(self._converted_module)
 
                 if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
                     replacer = PatternMatchAndReplacer(self._converted_module)
@@ -401,6 +411,159 @@ def convert_pt2e(
         logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
         setattr(model, "multi_graph", False)
         return model
+
+
+def convert_to_module_name(input_str):
+    output_str = input_str.replace("L__self___", "model.")
+    output_str = output_str.replace("_", ".")
+    output_str = output_str.replace(".self.attn.", ".self_attn.").replace(".proj", "_proj")
+    output_str = output_str.replace("matmul.", "matmul_")
+    return output_str
+
+
+def dump_scale(module: torch.fx.GraphModule):
+    graph = copy.deepcopy(module.graph)
+    graph = module.graph
+    dump_json_output = {"GlobalRank": None, "LocalRank": -1, "Mode": "Scale", "Nodes": {}}
+
+    with torch.no_grad():
+        for node in graph.nodes:
+            dump_info = []
+            nn_module_stack = node.meta.get("nn_module_stack", None)
+            if is_node(node, "mm.default") or is_node(node, "addmm.default"):
+                gemm_node = node
+                is_addmm_node = is_node(gemm_node, "addmm.default")
+                weight_idx = 2 if is_addmm_node else 1
+                input_idx = 1 if is_addmm_node else 0
+                weight_transpose_node = (
+                    gemm_node.args[weight_idx] if is_node(gemm_node.args[weight_idx], "transpose.int") else None
+                )
+                weight_dequant_node = (
+                    weight_transpose_node.args[0]
+                    if weight_transpose_node and is_node(weight_transpose_node.args[0], "dequantize_per_tensor.default")
+                    else None
+                )
+                if not weight_dequant_node:
+                    logger.debug("Weight pattern match failed")
+                    continue
+                weight_quant_node = weight_dequant_node.args[0]
+                input_dequant_node = None
+                input_view_node = (
+                    gemm_node.args[input_idx] if is_node(gemm_node.args[input_idx], "view.default") else None
+                )
+                if input_view_node and is_node(input_view_node.args[0], "dequantize_per_tensor.default"):
+                    input_dequant_node = input_view_node.args[0]
+                elif is_node(gemm_node.args[input_idx], "dequantize_per_tensor.default"):
+                    input_dequant_node = gemm_node.args[input_idx]
+                if not input_dequant_node:
+                    logger.debug("Input pattern match failed")
+                    continue
+                input_quant_node = input_dequant_node.args[0]
+                dump_input_scale_attr = torch.tensor(input_quant_node.args[1], device="hpu")
+                dump_weight_scale_attr = torch.tensor(weight_quant_node.args[1], device="hpu")
+                dump_info = [dump_input_scale_attr, dump_weight_scale_attr]
+                dump_key = list(nn_module_stack.keys())[-1]
+                dump_key = convert_to_module_name(dump_key)
+                dump_json_output["Nodes"][dump_key] = {
+                    "inputs": [dump_info[0].item()],
+                    "params": {"weight": dump_info[1].item()},
+                }
+            elif is_node(node, "bmm.default"):
+                input0_dequant_node = get_dequant_node(node.args[0])
+                input1_dequant_node = get_dequant_node(node.args[1])
+                if input0_dequant_node and input1_dequant_node:
+                    dump_input0_scale_attr = torch.tensor(input0_dequant_node.args[1], device="hpu")
+                    dump_input1_scale_attr = torch.tensor(input1_dequant_node.args[1], device="hpu")
+                    dump_info = [dump_input0_scale_attr, dump_input1_scale_attr]
+                    dump_key = list(nn_module_stack.keys())[-1]
+                    dump_key = convert_to_module_name(dump_key)
+                    dump_json_output["Nodes"][dump_key] = {
+                        "inputs": [dump_info[0].item(), dump_info[1].item()],
+                        "params": {},
+                    }
+            else:
+                continue
+    graph.lint()
+    file_path = os.getenv("PT2E_QUANT_SCALE_DUMP_PATH", "0")
+    if ".json" not in file_path:
+        file_path = file_path + "/pt2e_quant_dumped_scale.json"
+    with open(file_path, "w") as json_file:
+        json.dump(dump_json_output, json_file, indent=4)
+    logger.debug(f"PT2E scale info dumped to file: {file_path}")
+
+
+def load_scale(module: torch.fx.GraphModule):
+    graph = module.graph
+
+    file_path = os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "0")
+    with open(file_path, "r") as file:
+        scale_info_json = json.load(file)
+
+    with torch.no_grad():
+        for node in graph.nodes:
+            if is_node(node, "bmm.default"):
+                input0_dequant_node = get_dequant_node(node.args[0])
+                input1_dequant_node = get_dequant_node(node.args[1])
+                if input0_dequant_node is not None:
+                    logger.debug("Dequant node found for input0")
+                if input1_dequant_node is not None:
+                    logger.debug("Dequant node found for input1")
+                if input0_dequant_node and input1_dequant_node:
+                    nn_module_stack = node.meta.get("nn_module_stack", None)
+                    module_name = list(nn_module_stack.keys())[-1]
+                    module_name = convert_to_module_name(module_name)
+                    input0_dequant_node_args = list(input0_dequant_node.args)
+                    input1_dequant_node_args = list(input1_dequant_node.args)
+                    input0_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
+                    input1_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
+                    input0_dequant_node.args = tuple(input0_dequant_node_args)
+                    input1_dequant_node.args = tuple(input1_dequant_node_args)
+            if is_node(node, "mm.default") or is_node(node, "addmm.default"):
+                gemm_node = node
+                is_addmm_node = is_node(gemm_node, "addmm.default")
+                weight_idx = 2 if is_addmm_node else 1
+                input_idx = 1 if is_addmm_node else 0
+                weight_transpose_node = (
+                    gemm_node.args[weight_idx] if is_node(gemm_node.args[weight_idx], "transpose.int") else None
+                )
+                weight_dequant_node = (
+                    weight_transpose_node.args[0]
+                    if weight_transpose_node and is_node(weight_transpose_node.args[0], "dequantize_per_tensor.default")
+                    else None
+                )
+
+                if not weight_dequant_node:
+                    logger.debug("Weight pattern match failed")
+                    continue
+
+                weight_quant_node = weight_dequant_node.args[0]
+
+                input_dequant_node = None
+                input_view_node = (
+                    gemm_node.args[input_idx] if is_node(gemm_node.args[input_idx], "view.default") else None
+                )
+                if input_view_node and is_node(input_view_node.args[0], "dequantize_per_tensor.default"):
+                    input_dequant_node = input_view_node.args[0]
+                elif is_node(gemm_node.args[input_idx], "dequantize_per_tensor.default"):
+                    input_dequant_node = gemm_node.args[input_idx]
+
+                if not input_dequant_node:
+                    logger.debug("Input pattern match failed")
+                    continue
+
+                input_quant_node = input_dequant_node.args[0]
+                nn_module_stack = node.meta.get("nn_module_stack", None)
+                module_name = list(nn_module_stack.keys())[-1]
+                module_name = convert_to_module_name(module_name)
+                input_quant_node_args = list(input_quant_node.args)
+                weight_quant_node_args = list(weight_quant_node.args)
+                input_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
+                weight_quant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
+                input_quant_node.args = tuple(input_quant_node_args)
+                weight_quant_node.args = tuple(weight_quant_node_args)
+
+        module.graph.lint()
+        module.recompile()
 
 
 # ======================================================================================
