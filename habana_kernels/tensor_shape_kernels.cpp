@@ -291,6 +291,20 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+namespace habana {
+SharedMetaDataVector TransposeSharedMeta(const at::Stack& stack) {
+  const auto& self = stack.at(0).toTensor();
+  const auto selfDim = self.dim();
+  const auto selfDtype = self.scalar_type();
+
+  SharedMetaData transposeSharedMeta("transpose");
+  transposeSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
+  transposeSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
+
+  return {transposeSharedMeta};
+}
+} // namespace habana
+
 /*************************************************************************
  * @brief Kernel implementation for torch.Tensor.permute(dims)
  * @param self - input on which permute needs to be applied

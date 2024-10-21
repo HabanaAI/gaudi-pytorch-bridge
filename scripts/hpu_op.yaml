@@ -5403,6 +5403,7 @@ permute:
   override_fn: permute_hpu_lazy
   acc_thread: true
   no_compute_flag: true
+  op_validator: TransposeSharedMeta
 
 poisson:
   custom_fill_params: FillPoissonParams
@@ -6714,6 +6715,7 @@ transpose.int:
   override_fn: transpose_hpu_lazy
   acc_thread: true
   no_compute_flag: true
+  op_validator: TransposeSharedMeta
 
 tril:
   custom_fill_params: FillTrilParams
