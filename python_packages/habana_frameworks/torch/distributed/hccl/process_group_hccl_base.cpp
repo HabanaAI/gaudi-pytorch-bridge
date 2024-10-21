@@ -140,12 +140,13 @@ void restoreOddTensorsize(
     c10::intrusive_ptr<Work>& work) {
   for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
-    if (at::kChar == btensor_type || at::kByte == btensor_type ||
-        at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
-        at::kFloat8_e4m3fn == btensor_type) {
-      work->wait();
-    }
     if (changed[i] == true) {
+      if (at::kChar == btensor_type || at::kByte == btensor_type ||
+          at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
+          at::kFloat8_e4m3fn == btensor_type) {
+        work->wait();
+      }
+
       tensors[i] = tensors[i].resize_(sizeList[i]);
       tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
           sizeList[i], strideList[i]);
@@ -168,12 +169,13 @@ void restoreTensorsize(
   // Below for the case: extra_num_elems > 1
   for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
-    if (at::kChar == btensor_type || at::kByte == btensor_type ||
-        at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
-        at::kFloat8_e4m3fn == btensor_type) {
-      work->wait();
-    }
     if (changed[i] == true) {
+      if (at::kChar == btensor_type || at::kByte == btensor_type ||
+          at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
+          at::kFloat8_e4m3fn == btensor_type) {
+        work->wait();
+      }
+
       // Here restore logic is like below, typically for output tensor:
       //
       // Considering we have input tensor with shape [63] on two ranks.
