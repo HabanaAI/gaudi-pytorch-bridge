@@ -5552,27 +5552,43 @@ void HabanaLaunchOpPT::run_shape_inference(
     old_stack = pt_stack_;
     old_pt_stack_sh = pt_stack_sh_;
     pt_stack_sh_.clear();
-    if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
-      new_stack = CreateStack(*pt_stack_, graph_input_info.min_input_tshapes);
-      SetH2DMinMaxData(
-          *old_stack,
-          graph_input_info.min_input_tshapes,
-          ShapeInfo::InferencePass::MIN_SHAPE);
-      SetH2DMinMaxData(
-          new_stack,
-          graph_input_info.min_input_tshapes,
-          ShapeInfo::InferencePass::MIN_SHAPE);
-    } else {
-      new_stack = CreateStack(*pt_stack_, graph_input_info.max_input_tshapes);
-      SetH2DMinMaxData(
-          *old_stack,
-          graph_input_info.max_input_tshapes,
-          ShapeInfo::InferencePass::MAX_SHAPE);
-      SetH2DMinMaxData(
-          new_stack,
-          graph_input_info.max_input_tshapes,
-          ShapeInfo::InferencePass::MAX_SHAPE);
+    try {
+      if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
+        new_stack = CreateStack(*pt_stack_, graph_input_info.min_input_tshapes);
+        SetH2DMinMaxData(
+            *old_stack,
+            graph_input_info.min_input_tshapes,
+            ShapeInfo::InferencePass::MIN_SHAPE);
+        SetH2DMinMaxData(
+            new_stack,
+            graph_input_info.min_input_tshapes,
+            ShapeInfo::InferencePass::MIN_SHAPE);
+      } else {
+        new_stack = CreateStack(*pt_stack_, graph_input_info.max_input_tshapes);
+        SetH2DMinMaxData(
+            *old_stack,
+            graph_input_info.max_input_tshapes,
+            ShapeInfo::InferencePass::MAX_SHAPE);
+        SetH2DMinMaxData(
+            new_stack,
+            graph_input_info.max_input_tshapes,
+            ShapeInfo::InferencePass::MAX_SHAPE);
+      }
+    } catch (std::exception& e) {
+      std::string error = e.what();
+      std::string error_str = error.substr(0, error.find("\n"));
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Exception occured in CreateStack for Pass = ", pass);
+      PT_DYNAMIC_SHAPE_DEBUG("Exception Details : ", error_str);
+      RevertH2DMinMaxData();
+      if (old_stack) {
+        pt_stack_sh_.clear();
+        pt_stack_ = old_stack;
+        pt_stack_sh_ = old_pt_stack_sh;
+      }
+      throw PassException(pass, error_str);
     }
+
     pt_stack_ = &new_stack;
 
     size_t j = new_stack.size() - num_inputs_;
