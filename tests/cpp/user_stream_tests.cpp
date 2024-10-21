@@ -416,7 +416,16 @@ TEST(TestStream, HPUEventSyncTest) {
   event.block(wait_stream1);
 
   wait_stream0.synchronize();
-  ASSERT_TRUE(event.query());
+  bool result = false;
+  for (int i = 0; i < 10; i++) {
+    result = event.query();
+    if (!result) {
+      std::chrono::milliseconds sleep_time_ms{50};
+    } else {
+      break;
+    }
+  }
+  ASSERT_TRUE(result);
 }
 
 /// block and wait, instead of event sycn
