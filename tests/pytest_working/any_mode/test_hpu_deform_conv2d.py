@@ -56,7 +56,7 @@ def test_hpu_deform_conv2d():
     offset = torch.randn(bs, 2 * kh * kw, out_h, out_w, dtype=dtype)
     weight = torch.randn(ch, ch, kh, kw, dtype=dtype)
     mask = torch.randn(bs, kh * kw, out_h, out_w, dtype=dtype)
-    bias = torch.zeros(ch, dtype=dtype)
+    bias = torch.randn(ch, dtype=dtype)
 
     cpu_tensors, hpu_tensors = prepare_tensors([input, weight, offset, mask, bias], dtype == torch.bfloat16)
 

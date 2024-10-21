@@ -140,7 +140,8 @@ DeformConv2d::DeformConv2d(int device_id, c10::ScalarType scalar_type)
       {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
        synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
        synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
       {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
 }
 
@@ -149,7 +150,8 @@ void DeformConv2d::AddNode(
     const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 0);
 
-  std::vector<synTensor> syn_inputs{syn_in(0), syn_in(2), syn_in(1), syn_in(3)};
+  std::vector<synTensor> syn_inputs{
+      syn_in(0), syn_in(2), syn_in(1), syn_in(3), syn_in(4)};
   ns_DeformConv::Params params{};
   params.strideW = stack[6].toInt();
   params.strideH = stack[5].toInt();
@@ -205,7 +207,8 @@ DeformConv2dBackward::DeformConv2dBackward(
       {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
        synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
        synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+       synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
 }
 
 void DeformConv2dBackward::AddNode(
@@ -224,17 +227,14 @@ void DeformConv2dBackward::AddNode(
       {{meta[0].shape, meta[0].dtype, 0},
        {meta[1].shape, meta[1].dtype, 1},
        {meta[2].shape, meta[2].dtype, 2},
-       {meta[3].shape, meta[3].dtype, 3}});
-
-  // Kernel currently doesn't return 4th grad, so using identity as a WA.
-  auto grad4 = BuildOp(
-      graph, "identity", {syn_in(5)}, {{meta[4].shape, meta[4].dtype, 4}});
+       {meta[3].shape, meta[3].dtype, 3},
+       {meta[4].shape, meta[4].dtype, 4}});
 
   syn_out(0) = std::move(grads[0]);
   syn_out(1) = std::move(grads[1]);
   syn_out(2) = std::move(grads[2]);
   syn_out(3) = std::move(grads[3]);
-  syn_out(4) = std::move(grad4[0]);
+  syn_out(4) = std::move(grads[4]);
 }
 
 } // namespace habana
