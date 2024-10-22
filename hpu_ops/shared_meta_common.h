@@ -52,5 +52,6 @@ SHARED_META_GUID(RandomSeedTensorInput)
 SHARED_META(PadBwd)
 SHARED_META_GUID(MaxPoolWithIndicesFwd)
 SHARED_META_GUID(MaxPoolWithIndicesBwd)
+SHARED_META(Empty)
 
 } // namespace habana

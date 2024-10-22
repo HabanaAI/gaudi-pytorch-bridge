@@ -5915,14 +5915,11 @@ searchsorted.Scalar_out:
 
 select.int:
   output_meta: SelectHpuMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   override_fn: select_hpu_lazy
   acc_thread: true
   guid: select
   out_ids: [0]
+  op_validator: EmptySharedMeta
 
 select_backward:
   output_meta: SelectBackwardMeta
@@ -6247,10 +6244,12 @@ sqrt_:
 squeeze:
   override_fn: squeeze_self_hpu_lazy
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 squeeze.dim:
   override_fn: squeeze_dim_hpu_lazy
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 squeeze.dims:
   output_meta: SqueezeDimsMeta
@@ -6268,10 +6267,12 @@ squeeze.dims:
 squeeze_:
   override_fn: squeeze_hpu_lazy_
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 squeeze_.dim:
   override_fn: squeeze_dim_hpu_lazy_
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 std.correction:
   output_meta: StdVarMeta
@@ -6387,6 +6388,7 @@ sum.IntList_out:
 t:
   override_fn: t_hpu_lazy
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 take:
   output_meta: TakeMeta
@@ -6585,6 +6587,7 @@ trunc_:
 unbind.int:
   override_fn: unbind_hpu_lazy_
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 uniform_:
   custom_fill_params: FillPhiloxUniformParams
@@ -6603,10 +6606,12 @@ unique_dim:
 unsqueeze_:
   override_fn: unsqueeze_hpu_lazy_
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 unsqueeze:
   override_fn: unsqueeze_hpu_lazy
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 upsample_bicubic2d:
   custom_fill_params: FillBicubicFwdParams
@@ -6964,10 +6969,12 @@ vdot.out:
 view:
   override_fn: view_hpu
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 view.dtype:
   override_fn: view_dtype_hpu
   acc_thread: true
+  op_validator: EmptySharedMeta
 
 where.self:
   guid: where_fwd
