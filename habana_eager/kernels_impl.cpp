@@ -314,6 +314,10 @@ at::Tensor hpu_wrap::masked_select(
     return dispatch_fallback<ATEN_OP(masked_select)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask));
   }
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(masked_select)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(self, mask));
+  }
   return habana::eager::masked_select_eager(self, mask);
 }
 
@@ -334,6 +338,10 @@ at::Tensor& hpu_wrap::masked_select_out(
             synDeviceType::synDeviceGaudi)) {
     return dispatch_fallback<ATEN_OP(masked_select_out)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask, out));
+  }
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP2(masked_select, out)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(self, mask, out));
   }
   return habana::eager::masked_select_out_eager(self, mask, out);
 }

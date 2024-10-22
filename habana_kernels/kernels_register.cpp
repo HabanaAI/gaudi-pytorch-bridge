@@ -25,6 +25,7 @@
 #include "habana_lazy/hpu_stage_submission.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
+#include "hpu_ops/op_validator.h"
 #include "hpu_ops/run_maybe_with_acc_thread.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
@@ -40,6 +41,64 @@ using namespace habana_lazy;
       synapse_helpers::device_supports_fp8(       \
           HPUDeviceContext::get_device().type()), \
       "FP8 data type is not available on this device.")
+
+namespace habana {
+SharedMetaDataVector MatmulSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& other = stack_tensor(stack, 1);
+  const auto dtype = self.scalar_type();
+  auto selfRank = self.dim();
+  auto otherRank = other.dim();
+  const bool isBiasPresentForBmm =
+      (((stack.size() == 3) || (stack.size() == 5)) &&
+       (stack.at(2).toTensor().dim() == 1));
+  bool addBias = false;
+  int64_t outputRank = std::max(selfRank, otherRank);
+  std::string guid;
+  const auto matmul3d2dReshapeEnabled =
+      habana_helpers::IsMatmul3d2dReshapeEnabled();
+  if ((selfRank == 1 && otherRank == 1) || (selfRank == 2 && otherRank == 1) ||
+      (selfRank == 1 && otherRank == 2) || (selfRank == 2 && otherRank == 2) ||
+      (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2)) {
+    selfRank = 2;
+    otherRank = 2;
+    outputRank = 2;
+    guid = "gemm";
+    if (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2)
+      addBias = isBiasPresentForBmm;
+  } else {
+    guid = "batch_gemm";
+    if (selfRank >= 3 && otherRank == 1) {
+      otherRank = 2;
+    } else if ((selfRank == 1 || selfRank == 2) && otherRank >= 3) {
+      selfRank = 2;
+      addBias = isBiasPresentForBmm;
+    } else if (
+        (selfRank == 4 && otherRank == 3) ||
+        (selfRank == 3 && otherRank == 4)) {
+      selfRank = 4;
+      otherRank = 4;
+    } else if (
+        (selfRank >= 1 && otherRank >= 1) &&
+        (selfRank >= 3 || otherRank >= 3)) {
+      addBias = isBiasPresentForBmm;
+    }
+  }
+
+  SharedMetaData gemmSharedMeta{guid};
+  gemmSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
+  if (addBias) {
+    const auto& bias = stack_tensor(stack, 2);
+    gemmSharedMeta.inputs_data.emplace_back(bias.dim(), bias.scalar_type());
+  }
+  gemmSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+
+  return {gemmSharedMeta};
+}
+static CheckNodeWithSharedLayerValidator validator_matmul(
+    "matmul",
+    MatmulSharedMeta);
+} // namespace habana
 
 bool hpu_wrap::is_pinned(
     const at::Tensor& self,
@@ -130,6 +189,8 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
       to_string(src),
       " non_blocking=",
       to_string(non_blocking));
+  TORCH_CHECK(
+      self.dim() <= 8 && src.dim() <= 8, "HPU doesn't support rank > 8D");
   return copy_hpu_lazy_(self, src, non_blocking);
 }
 
@@ -227,6 +288,10 @@ Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
       "masked_select :", " self=", to_string(self), " mask=", to_string(mask));
   FALLBACK_IF_UNSUPPORTED_OP(
       masked_select, PARAMS1(self, mask), PARAMS2(self, mask))
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(masked_select)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(self, mask));
+  }
   return masked_select_hpu_lazy(self, mask);
 }
 
@@ -246,6 +311,10 @@ Tensor& hpu_wrap::masked_select_out(
       to_string(out));
   FALLBACK_IF_UNSUPPORTED_OP_O(
       masked_select, PARAMS1(self, mask, out), PARAMS2(self, mask, out), out)
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP2(masked_select, out)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(self, mask, out));
+  }
   return masked_select_out_hpu_lazy(self, mask, out);
 }
 
@@ -268,7 +337,11 @@ Tensor& hpu_wrap::scatter_add_(
       to_string(src));
   FALLBACK_IF_UNSUPPORTED_OP(
       scatter_add_, PARAMS1(self, index, src), PARAMS2(self, dim_, index, src))
-
+  if (self.dim() > 5 || index.dim() > 5 || src.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(scatter_add_)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, dim_, index, src));
+  }
   return scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
 }
 
@@ -848,13 +921,17 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
       to_string(dim),
       " descending=",
       to_string(descending));
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(sort)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, dim, descending));
+  }
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(dim), IValue(descending)};
   check_handle->hpu_check_ivalues("sort", op_stack);
   FALLBACK_IF_UNSUPPORTED_OP1_RT(
       self.scalar_type(), sort, PARAMS1(self), PARAMS2(self, dim, descending))
-
   return sort_hpu_lazy(self, dim, descending);
 }
 
@@ -2059,6 +2136,9 @@ Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(matmul, true, self, other)
   return MatmulFunction::apply(self, other);
 }
 
@@ -2066,6 +2146,9 @@ Tensor matmul_inference(const Tensor& self, const Tensor& other) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(matmul, true, self, other)
   return matmul_hpu_lazy(self, other);
 }
 

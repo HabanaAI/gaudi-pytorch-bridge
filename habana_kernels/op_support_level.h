@@ -20,6 +20,7 @@ class OpSupportLevel {
     placed_on_cpu,
     unsupported_dtype,
     unsupported_args, // any other issue with argument that is not wrong dtype
+    unsupported_rank,
     unsupported
   };
   explicit operator bool() {
