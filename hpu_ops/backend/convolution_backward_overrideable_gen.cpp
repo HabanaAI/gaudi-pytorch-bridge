@@ -184,6 +184,8 @@ OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
 
   OutputMetaData input_meta = CreateMetaData(input, output_mask_in, 0);
   OutputMetaData weight_meta = CreateMetaData(weight, output_mask_in, 1);
+  weight_meta.mem_format = at::MemoryFormat::Contiguous;
+
   OutputMetaData grad_output_meta =
       CreateMetaData(grad_output, output_mask_in, 2);
   grad_output_meta.shape = std::vector<int64_t>{grad_output_meta.shape[1]};
