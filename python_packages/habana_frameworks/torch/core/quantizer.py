@@ -50,7 +50,7 @@ logger = get_compile_backend_logger()
 
 QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
 extra_args_act: Dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
-extra_args_weight: Dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 0}}
+extra_args_weight: Dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
 
 
 # ======================================================================================
