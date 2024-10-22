@@ -1773,10 +1773,13 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
     )
 
 
-def is_hpu_wrap(ctxop, minor_pt_ver):
+def get_hpu_wrap(ctxop, minor_pt_ver):
     hpu_wrap = ctxop.get_hpu_wrap_all_versions()
     hpu_wrap_list = ctxop.get_hpu_wrap_version_list()
     hpu_wrap_range = ctxop.get_hpu_wrap_version_range()
+
+    if not (hpu_wrap or hpu_wrap_list or hpu_wrap_range):
+        return False, False
 
     if isinstance(hpu_wrap_list, list):
         hpu_wrap_list = minor_pt_ver in hpu_wrap_list
@@ -1784,7 +1787,7 @@ def is_hpu_wrap(ctxop, minor_pt_ver):
         hpu_wrap_range = (hpu_wrap_range[0] == 0 or Version(hpu_wrap_range[0]) <= Version(minor_pt_ver)) and (
             hpu_wrap_range[1] == 0 or Version(hpu_wrap_range[1]) >= Version(minor_pt_ver)
         )
-    return hpu_wrap or hpu_wrap_list or hpu_wrap_range
+    return True, (hpu_wrap or hpu_wrap_list or hpu_wrap_range)
 
 
 # For PT2.0, there are non-mandatory op (from PT2.0 point of view),
@@ -2104,7 +2107,10 @@ def generate(args):
     for op_name, op_params in yaml_ctx.get_op_data():
         check_op_params(op_name, op_params)
         ctxop = Op(op_name, op_params)
-        if is_hpu_wrap(ctxop, minor_pt_ver):
+        is_hpu_wrap, is_current_version = get_hpu_wrap(ctxop, minor_pt_ver)
+        if is_hpu_wrap:
+            if not is_current_version:
+                continue
             fndef = pt_ops.get(op_name, None)
             assert fndef is not None, f"Op {op_name} doesn't exist in aten namespace."
             op_meta = generate_op_meta(fndef.cpp_sig, op_name)
@@ -2420,7 +2426,10 @@ def generate_check_kernel_support(args):
 
     for op_name, op_params in yaml_ctx.get_op_data():
         ctxop = Op(op_name, op_params)
-        if is_hpu_wrap(ctxop, minor_pt_ver):
+        is_hpu_wrap, is_current_version = get_hpu_wrap(ctxop, minor_pt_ver)
+        if is_hpu_wrap:
+            if not is_current_version:
+                continue
             fndef = pt_ops.get(op_name, None)
             assert fndef is not None, f"Op {op_name} doesn't exist in the aten namespace."
             op_meta = generate_op_meta(fndef.cpp_sig, op_name)
