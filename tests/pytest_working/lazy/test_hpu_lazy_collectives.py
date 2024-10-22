@@ -156,6 +156,31 @@ def all_reduce(rank, world_size, coalescing):
     cleanup()
 
 
+def batch_isend_irecv_hccl_test(rank, world_size, coalescing):
+    init_hccl(rank, world_size)
+
+    def _build_tensor(size, value=None, dtype=torch.bfloat16):
+        if value is None:
+            value = size
+        return torch.empty(size, 1, 4096, dtype=dtype).fill_(value).to("hpu")
+
+    p2p_op_list = []
+    for src in range(0, world_size):
+        send_tensor = _build_tensor(rank + 1)
+        recv_tensor = _build_tensor(src + 1)
+        recv_op = dist.P2POp(dist.irecv, recv_tensor, src)
+        p2p_op_list.append(recv_op)
+        send_op = dist.P2POp(dist.isend, send_tensor, src)
+        p2p_op_list.append(send_op)
+
+    reqs = dist.batch_isend_irecv(p2p_op_list)
+    for req in reqs:
+        req.wait()
+
+    dist.barrier()
+    cleanup()
+
+
 def simple_all_gather(rank, world_size):
     init_hccl(rank, world_size)
 
@@ -233,7 +258,7 @@ def test_(method, world_size):
 
 @pytest.mark.parametrize(
     "method",
-    [all_reduce, no_device_init_test, no_start_coalese_test],
+    [all_reduce, no_device_init_test, no_start_coalese_test, batch_isend_irecv_hccl_test],
 )
 @pytest.mark.parametrize("world_size", [WORLD_SIZE])
 @pytest.mark.parametrize("coalescing", [True, False])
@@ -258,6 +283,7 @@ def run_tests():
         {"func": no_start_coalese_test, "coalescing": True},
         {"func": reduce_scatter_tensor_coalesced_test, "coalescing": True},
         {"func": allgather_into_tensor_coalesced_test, "coalescing": True},
+        {"func": batch_isend_irecv_hccl_test, "coalescing": True},
     ]
     for config in test_configs:
         mp.spawn(config["func"], args=(WORLD_SIZE,), nprocs=WORLD_SIZE, join=True)
