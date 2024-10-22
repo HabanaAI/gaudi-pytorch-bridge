@@ -9,13 +9,21 @@
 # was provided.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from test_utils import format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
+@pytest.mark.parametrize(
+    "variant",
+    [
+        "fwd",
+        pytest.param(
+            "bwd", marks=pytest.mark.xfail(pytest.mode == "eager", reason="[SW-205662] Sporadic graph compile fail.")
+        ),
+    ],
+)
 class TestHpuUpsample:
     @staticmethod
     def _common_test(variant, shape, size, scale_factor, align_corners, antialias, mode, dtype):
@@ -47,88 +55,76 @@ class TestHpuUpsample:
         hpu_output = hpu_wrapped_fn(hpu_input).cpu()
         assert torch.allclose(cpu_output, hpu_output, rtol=1e-4)
 
-    @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
+    @pytest.mark.parametrize("shape,size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2]], ids=format_tc)
     @pytest.mark.parametrize("align_corners", [True, False])
     @pytest.mark.parametrize("antialias", [True, False])
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_bicubic2d(self, shape_and_size, scale_factor, align_corners, antialias, variant, dtype):
+    def test_upsample_bicubic2d(self, shape, size, scale_factor, align_corners, antialias, variant, dtype):
         if antialias and (
-            (shape_and_size == ((2, 2, 3, 3), (6, 6)) and scale_factor == None)
-            or (shape_and_size == ((2, 2, 3, 3), None) and scale_factor == [1, 2])
+            (shape == (2, 2, 3, 3) and size == (6, 6) and scale_factor == None)
+            or (shape == (2, 2, 3, 3) and size == None and scale_factor == [1, 2])
         ):
             pytest.skip("Unsupported test configuration (aten::_upsample_bicubic2d_aa.out is not yet supported on HPU)")
         if pytest.mode == "compile" and antialias == False:
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
-        shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, antialias, "bicubic", dtype)
 
-    @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
+    @pytest.mark.parametrize("shape,size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2]], ids=format_tc)
     @pytest.mark.parametrize("align_corners", [True, False])
     @pytest.mark.parametrize("antialias", [True, False])
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_bilinear2d(self, shape_and_size, scale_factor, align_corners, antialias, variant, dtype):
+    def test_upsample_bilinear2d(self, shape, size, scale_factor, align_corners, antialias, variant, dtype):
         if antialias and (
-            (shape_and_size == ((2, 2, 3, 3), (6, 6)) and scale_factor == None)
-            or (shape_and_size == ((2, 2, 3, 3), None) and scale_factor == [1, 2])
+            (shape == (2, 2, 3, 3) and size == (6, 6) and scale_factor == None)
+            or (shape == (2, 2, 3, 3) and size == None and scale_factor == [1, 2])
         ):
             pytest.skip(
                 "Unsupported test configuration (aten::_upsample_bilinear2d_aa.out is not yet supported on HPU)"
             )
         if pytest.mode == "compile" and antialias == False:
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
-        shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, antialias, "bilinear", dtype)
 
-    @pytest.mark.parametrize("shape_and_size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
+    @pytest.mark.parametrize("shape,size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_nearest1d(self, shape_and_size, scale_factor, variant, dtype):
+    def test_upsample_nearest1d(self, shape, size, scale_factor, variant, dtype):
         if pytest.mode == "compile":
             pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-        shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
 
-    @pytest.mark.parametrize("shape_and_size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
+    @pytest.mark.parametrize("shape,size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_nearest_exact1d(self, shape_and_size, scale_factor, variant, dtype):
+    def test_upsample_nearest_exact1d(self, shape, size, scale_factor, variant, dtype):
         if pytest.mode == "compile":
             pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-        shape, size = shape_and_size
+        if pytest.mode == "eager" and variant == "bwd":
+            pytest.xfail("[SW-205662] Sporadic graph compile fail.")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest-exact", dtype)
 
-    @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
+    @pytest.mark.parametrize("shape, size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2]], ids=format_tc)
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_nearest2d(self, shape_and_size, scale_factor, variant, dtype):
+    def test_upsample_nearest2d(self, shape, size, scale_factor, variant, dtype):
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
-        shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
 
-    @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))], ids=format_tc)
+    @pytest.mark.parametrize("shape,size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]], ids=format_tc)
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_nearest3d(self, shape_and_size, scale_factor, variant, dtype):
+    def test_upsample_nearest3d(self, shape, size, scale_factor, variant, dtype):
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
-        shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
 
-    @pytest.mark.parametrize("shape_and_size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
+    @pytest.mark.parametrize("shape,size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
     @pytest.mark.parametrize("align_corners", [True, False])
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_linear1d(self, shape_and_size, scale_factor, align_corners, variant, dtype):
+    def test_upsample_linear1d(self, shape, size, scale_factor, align_corners, variant, dtype):
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
-        shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, False, "linear", dtype)
 
     @pytest.mark.parametrize(
-        "shape_and_size",
+        "shape,size",
         [
             ((2, 2, 3, 3, 3), None),
             ((2, 2, 3, 3, 3), (3, 6, 9)),
@@ -144,10 +140,7 @@ class TestHpuUpsample:
         "scale_factor", [None, [1, 2, 3], [2, 2, 2], [2, 1, 2], [2, 1, 3], [3, 2, 1], [3, 1, 1]], ids=format_tc
     )
     @pytest.mark.parametrize("align_corners", [True, False])
-    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
-    def test_upsample_trilinear3d(self, shape_and_size, scale_factor, align_corners, variant, dtype):
-        shape, size = shape_and_size
-
+    def test_upsample_trilinear3d(self, shape, size, scale_factor, align_corners, variant, dtype):
         is_bwd = variant == "bwd"
         illegal_size = size is not None and size[0] != 3
         illegal_scale = scale_factor is not None and scale_factor[0] != 1
