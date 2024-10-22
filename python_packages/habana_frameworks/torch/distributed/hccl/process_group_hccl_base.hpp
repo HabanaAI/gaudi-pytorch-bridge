@@ -137,10 +137,18 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       int srcRank,
       int tag) override;
 
-
   void startCoalescing() override;
 
   c10::intrusive_ptr<Work> endCoalescing() override;
+
+  // Agrees on an initial sequence number for the whole group by having rank 0
+  // create it and broadcast it to other ranks using the store.
+  void setSequenceNumberForGroup() override;
+
+  // Retrieves the current sequence number for the whole group, which should be
+  // in sync. If the returned number is not consistent across the group, it
+  // may indicate that there is some sort of collective desynchronization.
+  uint64_t getSequenceNumberForGroup() override;
 
   c10::intrusive_ptr<Work> recvAnysource(
       std::vector<at::Tensor>& tensor,
@@ -219,6 +227,9 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
 
   // The latest work used in collective, used for coalese start/end
   c10::intrusive_ptr<CoalescedWorkHCCL> coalesed_works_ = nullptr;
+
+  // Counting for the sequential number of HCCL collective call.
+  uint64_t seqCollective_{0};
 };
 
 } // namespace c10d

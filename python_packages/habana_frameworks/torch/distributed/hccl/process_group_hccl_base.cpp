@@ -307,6 +307,13 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::endCoalescing() {
   return coalesed_works_;
 }
 
+void ProcessGroupHcclBase::setSequenceNumberForGroup() {
+} // NCCL just starts sequence numbers at 0.
+
+uint64_t ProcessGroupHcclBase::getSequenceNumberForGroup() {
+  return seqCollective_;
+}
+
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
