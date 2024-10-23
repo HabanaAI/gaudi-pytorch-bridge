@@ -489,34 +489,6 @@ SharedMetaDataVector RandomSeedTensorInputSharedMeta(
   return {randomSharedMeta};
 }
 
-SharedMetaDataVector MatrixMulWithAddSharedMeta(
-    const at::Stack& stack,
-    const std::string& guid) {
-  const auto& input = stack_tensor(stack, 0);
-  const auto& mat1 = stack_tensor(stack, 1);
-  const auto& mat2 = stack_tensor(stack, 2);
-  const bool isAddMM = guid == "addmm";
-  const auto outputRank = isAddMM ? 2 : 1;
-  const auto precisionType = mat1.scalar_type();
-
-  SharedMetaData matrixMulSharedMeta{guid};
-  matrixMulSharedMeta.inputs_data = {
-      {input.dim(), precisionType},
-      {mat1.dim(), precisionType},
-      {mat2.dim(), precisionType}};
-  matrixMulSharedMeta.outputs_data.emplace_back(outputRank, precisionType);
-
-  const float beta_val = stack.at(3).toScalar().toFloat();
-  const float alpha_val = stack.at(4).toScalar().toFloat();
-  const bool shouldUseParams = beta_val == 0.0 || beta_val == 1.0 ||
-      alpha_val == 1.0 || (isAddMM && alpha_val == 0.0);
-  if (shouldUseParams) {
-    matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
-    matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
-  }
-  return {matrixMulSharedMeta};
-}
-
 SharedMetaDataVector PadBwdSharedMeta(const at::Stack& stack) {
   auto grad = stack_tensor(stack, 0);
   auto self = stack_tensor(stack, 1);

@@ -1,68 +1,16 @@
 /******************************************************************************
- * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
- * Unauthorized copying of this file or any element(s) within it, via any medium
- * is strictly prohibited.
- * This file contains Habana Labs, Ltd. proprietary and confidential information
- * and is subject to the confidentiality and license agreements under which it
- * was provided.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
  *
- *******************************************************************************
+ ******************************************************************************
  */
 
 #include "generated/backend/nan_to_num.h"
-#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
-SharedMetaDataVector NanToNumSharedMeta(const at::Stack& stack) {
-  const auto& self = stack_tensor(stack, 0);
-  const auto rank = self.dim();
-  const auto dtype = self.scalar_type();
-  const auto isIntegralType = c10::isIntegralType(dtype, true);
-  const SharedMetaTensor commonTensor = {rank, dtype};
-  if (isIntegralType) {
-    SharedMetaData memcpySharedMeta{"memcpy"};
-    memcpySharedMeta.inputs_data = {commonTensor};
-    memcpySharedMeta.outputs_data = {commonTensor};
-    return {memcpySharedMeta};
-  }
-
-  const bool constantPresent = !isIntegralType && rank > 1;
-  SharedMetaDataVector metaVec;
-  metaVec.reserve(constantPresent ? 5 : 4);
-  if (constantPresent) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(constantSharedMeta);
-  }
-
-  auto isNanMetaVec = IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
-  metaVec.insert(
-      std::end(metaVec), std::begin(isNanMetaVec), std::end(isNanMetaVec));
-
-  auto isInfPosNegMetaVec = IsFiniteInfNanSharedMeta(stack, "isinf_fwd");
-  metaVec.insert(
-      std::end(metaVec),
-      std::begin(isInfPosNegMetaVec),
-      std::end(isInfPosNegMetaVec));
-
-  SharedMetaTensor whereOutputTensor = {rank, c10::ScalarType::Bool};
-  SharedMetaData whereNanSharedMeta{"where_fwd"};
-  whereNanSharedMeta.inputs_data = {
-      isNanMetaVec[0].outputs_data[0], commonTensor, commonTensor};
-  whereNanSharedMeta.outputs_data = {whereOutputTensor};
-  metaVec.push_back(whereNanSharedMeta);
-
-  SharedMetaData wherePosNegSharedMeta{"where_fwd"};
-  wherePosNegSharedMeta.inputs_data = {
-      isInfPosNegMetaVec[0].outputs_data[0], commonTensor, whereOutputTensor};
-  wherePosNegSharedMeta.outputs_data = {whereOutputTensor};
-  metaVec.push_back(wherePosNegSharedMeta);
-
-  return metaVec;
-}
-
 void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const auto outshape = stack_tensor(stack, 0).sizes();

@@ -14,7 +14,6 @@
 #include "generated/backend/nansum.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -31,54 +30,6 @@ OutputMetaDataVector NanSumIntListMeta(const at::Stack& stack) {
       stack.at(3).toOptional<at::ScalarType>().value_or(self.scalar_type());
   meta.shape = ReduceOperator::compute_output_shape(self, dim, keepdim);
   return {meta};
-}
-
-SharedMetaDataVector NanSumSharedMeta(const at::Stack& stack) {
-  const auto& self = stack_tensor(stack, 0);
-  auto computeDtype =
-      stack.at(3).toOptional<at::ScalarType>().value_or(self.scalar_type());
-  if (c10::isIntegralType(computeDtype, true))
-    computeDtype = c10::ScalarType::Int;
-
-  const auto inputRank = self.dim();
-  int outputRank = 1;
-  const bool keepDim = stack.at(2).toBool();
-  if (!keepDim) {
-    if (!stack.at(1).isNone()) {
-      auto dims = stack.at(1).toIntVector().size();
-      outputRank = dims > 0 ? inputRank - dims : 1;
-    }
-  } else {
-    outputRank = inputRank;
-  }
-
-  if (outputRank <= 0)
-    outputRank = 1;
-
-  SharedMetaDataVector metaVec;
-  metaVec.reserve(inputRank > 1 ? 4 : 3);
-  SharedMetaTensor commonTensor = {inputRank, computeDtype};
-
-  if (inputRank > 1) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data = {commonTensor};
-    metaVec.push_back(constantSharedMeta);
-  }
-
-  SharedMetaData isNanSharedMeta{"isnan_fwd"};
-  isNanSharedMeta.inputs_data = {commonTensor};
-  isNanSharedMeta.outputs_data = {{inputRank, c10::ScalarType::Char}};
-
-  SharedMetaData whereSharedMeta{"where_fwd"};
-  whereSharedMeta.inputs_data = {
-      isNanSharedMeta.outputs_data[0], commonTensor, commonTensor};
-  whereSharedMeta.outputs_data = {commonTensor};
-
-  SharedMetaData reduceSharedMeta{"reduce_sum_multi_dim_fwd"};
-  reduceSharedMeta.inputs_data = {commonTensor};
-  reduceSharedMeta.outputs_data.emplace_back(outputRank, computeDtype);
-
-  return {isNanSharedMeta, whereSharedMeta, reduceSharedMeta};
 }
 
 void NansumList::AddNode(

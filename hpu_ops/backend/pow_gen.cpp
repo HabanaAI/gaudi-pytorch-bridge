@@ -187,10 +187,6 @@ static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
   }
 }
 
-SharedMetaDataVector PowBinarySharedMeta(const at::Stack& stack) {
-  return ForeachPowOneIterationSharedMeta(stack);
-}
-
 SharedMetaDataVector PowForeachBinarySharedMeta(const at::Stack& stack) {
   SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
     return ForeachPowOneIterationSharedMeta(stack);

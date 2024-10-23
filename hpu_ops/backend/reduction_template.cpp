@@ -35,6 +35,15 @@ ns_Reduction::ParamsV2 FillReductionParams(
   return params;
 }
 
+inline bool reduction_support_f32(const std::string& guid) {
+  return guid.find("reduce_prod_multi_dim_fwd") != std::string::npos or
+      guid.find("reduce_mean_multi_dim_fwd") != std::string::npos;
+}
+
+inline bool reduction_support_i32(const std::string& guid) {
+  return guid.find("reduce_sum_multi_dim") != std::string::npos;
+}
+
 // Returns the input after cast to the supplied dtype. If dtype is none or if
 // dtype is same as input's dtype, returns nullopt.
 c10::optional<synapse_helpers::tensor> HandleReductionDtype(
