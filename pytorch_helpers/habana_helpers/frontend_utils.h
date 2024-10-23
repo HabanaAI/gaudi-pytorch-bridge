@@ -13,13 +13,18 @@
 #pragma once
 
 #include <ATen/core/Tensor.h>
+#include "backend/habana_device/HPUStream.h"
 
 namespace habana_helpers {
 at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);
 
 at::Tensor cast_tensor_to_long(const at::Tensor& int_tensor);
 
-void copy_scalar_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
+void copy_scalar_to_host(
+    const at::Tensor& src,
+    void* dst_ptr,
+    uint32_t size,
+    c10::hpu::HPUStream hpu_stream);
 c10::Scalar _local_scalar_dense_internal(const at::Tensor& self);
 
 at::Tensor downcast_to_int_if_needed(const at::Tensor& in);

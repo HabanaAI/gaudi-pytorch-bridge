@@ -102,7 +102,8 @@ at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
 void habana_helpers::copy_scalar_to_host(
     const at::Tensor& src,
     void* dst_ptr,
-    uint32_t size) {
+    uint32_t size,
+    c10::hpu::HPUStream hpu_stream) {
   std::atomic<bool> copyDone{false};
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
@@ -114,7 +115,7 @@ void habana_helpers::copy_scalar_to_host(
       size,
       [&copyDone]() { copyDone = true; },
       is_pinned,
-      c10::hpu::getCurrentHPUStream());
+      hpu_stream);
 
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting
@@ -149,7 +150,8 @@ c10::Scalar habana_helpers::_local_scalar_dense_internal(
         TORCH_CHECK(
             elementSize(self.scalar_type()) == sizeof(val),
             " source and destination size mismatch");
-        habana_helpers::copy_scalar_to_host(self, &val, sizeof(val));
+        habana_helpers::copy_scalar_to_host(
+            self, &val, sizeof(val), c10::hpu::getCurrentHPUStream());
         r = c10::Scalar(val);
       });
   return r;

@@ -1774,3 +1774,10 @@ def test_h2d_copy_race_condition_fix():
         output = torch.add(t1, t2)
 
     assert torch.equal(output, output_hpu.cpu())
+
+
+def test_local_scalar_to_dense():
+    # create 0d tensor
+    t1 = torch.tensor(6, dtype=torch.bfloat16)
+    t1_hpu = t1.to("hpu", non_blocking=True)
+    assert t1.item() == t1_hpu.item()
