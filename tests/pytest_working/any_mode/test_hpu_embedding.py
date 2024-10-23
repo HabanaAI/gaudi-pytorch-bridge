@@ -11,13 +11,16 @@
 ###############################################################################
 import pytest
 import torch
+import torch.nn
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_pytest_mode_compile,
 )
+
+Verbose = False
 
 dtypes = [torch.float32, torch.bfloat16]
 if not is_gaudi1():
@@ -37,16 +40,14 @@ def test_hpu_embedding(shapes, dtype):
     cpu_indices = torch.randint(low=0, high=max_index, size=indices_shape, dtype=torch.int)
     hpu_indices = cpu_indices.to("hpu")
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     cpu_output = torch.embedding(cpu_input, cpu_indices)
     hpu_output = fn(hpu_input, hpu_indices)
 
-    print(cpu_output)
-    print(hpu_output.cpu())
+    if Verbose:
+        print(cpu_output)
+        print(hpu_output.cpu())
 
     compare_tensors(hpu_output, cpu_output, atol=0.0, rtol=0.0)
     if is_pytest_mode_compile():
@@ -71,16 +72,72 @@ def test_hpu_embedding_bwd(shapes, dtype):
     cpu_indices = torch.randint(low=0, high=max_index, size=indices_shape, dtype=torch.int)
     hpu_indices = cpu_indices.to("hpu")
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="hpu_backend")
-    else:
-        hpu_fn = fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_indices)
     hpu_output = hpu_fn(hpu_input, hpu_indices)
 
     compare_tensors(hpu_output, cpu_output, atol=0.0, rtol=0.0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"embedding", "embedding_dense_backward"})
+
+
+@pytest.mark.parametrize("num_embeddings", [10])
+@pytest.mark.parametrize("embedding_dim", [3])
+@pytest.mark.parametrize("padding_idx", [0, None])
+@pytest.mark.parametrize("bwd", [False, True])
+def test_hpu_nn_embedding(num_embeddings, embedding_dim, padding_idx, bwd):
+    if is_pytest_mode_compile():
+        pytest.skip(
+            "Output 0 of TracableCreateParameterBackward is a view and its base or another view of its base has been "
+            "modified inplace. This view was created inside a custom Function (or because an input was returned as-is) "
+            "and the autograd logic to handle view+inplace would override the custom backward associated with "
+            "the custom Function, leading to incorrect gradients. This behavior is forbidden. You can fix this by "
+            "cloning the output of the custom Function."
+        )
+
+    def fn(emb_input, device, init_weight=None):
+        emb = torch.nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx, device=device)
+        if init_weight is None:
+            torch.nn.init.xavier_normal_(emb.weight.data)
+        else:
+            emb.weight.data = init_weight.data.clone()
+
+        if not bwd:
+            return emb(emb_input), emb.weight
+
+        emb_fwd = emb(emb_input)
+        grad = torch.ones_like(emb_fwd)
+        emb_fwd.backward(grad)
+        return emb.weight.grad, emb.weight
+
+    def fn_cpu(emb_input, init_weight):
+        return fn(emb_input, "cpu", init_weight)
+
+    def fn_hpu(emb_input):
+        return fn(emb_input, "hpu")
+
+    fn_hpu = compile_function_if_compile_mode(fn_hpu)
+
+    cpu_input = torch.LongTensor([[0, 1, 2, 4, 5], [4, 3, 2, 9, 0]])
+    hpu_input = cpu_input.to("hpu")
+
+    if Verbose:
+        print(f"{cpu_input = }")
+        print(f"{hpu_input = }")
+
+    hpu_output, hpu_weight = fn_hpu(hpu_input)
+    cpu_output, cpu_weight = fn_cpu(cpu_input, hpu_weight.cpu())
+
+    if Verbose:
+        print(f"{cpu_output = }")
+        print(f"{hpu_output = }")
+
+        print(f"{cpu_weight = }")
+        print(f"{hpu_weight = }")
+
+    compare_tensors(hpu_output.cpu(), cpu_output, atol=0.0, rtol=0.0)
+    compare_tensors(hpu_weight.cpu(), cpu_weight, atol=0.0, rtol=0.0)
+
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"embedding", "embedding_dense_backward"})
