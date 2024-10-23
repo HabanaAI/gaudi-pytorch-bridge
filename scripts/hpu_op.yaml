@@ -7584,3 +7584,15 @@ exp_fast_math:
   guid: exp_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+
+sqrt_fast_math:
+  custom_op_schema: "hpu::sqrt_fast_math(Tensor self) -> Tensor"
+  guid: sqrt_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+rsqrt_fast_math:
+  custom_op_schema: "hpu::rsqrt_fast_math(Tensor self) -> Tensor"
+  guid: rsqrt_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
