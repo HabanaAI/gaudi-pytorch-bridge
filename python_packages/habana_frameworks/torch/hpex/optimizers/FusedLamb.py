@@ -98,6 +98,8 @@ class FusedLamb(Optimizer):
         else:
             super(FusedLamb, self).zero_grad()
 
+    # should remove this decorator after fixing https://jira.habana-labs.com/browse/SW-206476
+    @torch.compiler.disable()
     def step(self, closure=None):
         """Performs a single optimization step.
         Arguments:
