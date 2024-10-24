@@ -40,7 +40,7 @@ class OptimizerContext:
     is_dynamic: bool
     stage: OptimizationPassPlacement
     current_partitions: List
-    habana_partitioner: HabanaPartitioner | None = None
+    habana_partitioner: HabanaPartitioner = None
     is_submod: bool = False
 
 

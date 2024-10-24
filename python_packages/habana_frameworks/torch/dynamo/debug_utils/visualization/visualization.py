@@ -159,8 +159,8 @@ def get_node_coloring_strategy(stage=None, graph_pass=None):
 
 class GraphVisualizer:
     visualizer_init_done: bool = False
-    graph_dir: os.PathLike | None = None
-    strategy: VisualizationStrategy | None = None
+    graph_dir: os.PathLike = None
+    strategy: VisualizationStrategy = None
 
     @classmethod
     def _initialize(cls):

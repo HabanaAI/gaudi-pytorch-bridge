@@ -77,7 +77,7 @@ def _node_meta_str_(node, dump_inputs_meta):
 def graph_to_str(
     fx_module: torch.fx.GraphModule,
     graph_name: str,
-    jit_repr: str | None = None,
+    jit_repr: str = None,
     print_nodes=False,
     dynamic=None,
     inference=None,
@@ -124,7 +124,7 @@ def dump_fx_graph(
     graph_name: str,
     stage: OptimizationPassPlacement,
     pass_counter: int,
-    last_pass: str | None = None,
+    last_pass: str = None,
 ):
     if not fx_dumping_enabled():
         return
