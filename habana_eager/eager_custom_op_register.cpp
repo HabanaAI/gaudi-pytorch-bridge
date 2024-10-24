@@ -2264,13 +2264,8 @@ TORCH_LIBRARY(hpu, m) {
 
   m.def("hpu::accumulate_grads_(Tensor[] variables, Tensor[] new_grads) -> ()");
   m.def("hpu::custom_foreach_add_(Tensor(a!)[] self, Tensor[] other) -> ()");
-#if IS_PYTORCH_AT_LEAST(2, 4)
   m.def(
       "hpu::batched_nms_eager(Tensor boxes, Tensor scores, Tensor indexes, float iou_threshold, int max_classes) -> (Tensor, Tensor)");
-#else
-  m.def(
-      "hpu::batched_nms_eager(Tensor boxes, Tensor scores, Tensor indexes, double iou_threshold, int max_classes) -> (Tensor, Tensor)");
-#endif
   m.def(
       "hpu::habana_randperm_ht(Tensor seed, Tensor h2d_tensor, Tensor shape_tensor, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(

@@ -149,11 +149,7 @@ void HPUDeviceAllocator::deleter(void* ptr) {
   TORCH_HABANA_CHECK(status, "Device Free failed");
 }
 
-#if IS_PYTORCH_AT_LEAST(2, 3)
 at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) {
-#else
-at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
-#endif
   void* v_ptr{nullptr};
   synStatus status{synStatus::synSuccess};
 
@@ -314,12 +310,10 @@ void HPUDeviceAllocator::dump_memory_reporter() {
       device, synapse_helpers::mem_reporter_type::MEM_REPORTER_USER_CALL);
 }
 
-#if IS_PYTORCH_AT_LEAST(2, 3)
 void HPUDeviceAllocator::copy_data(
     [[maybe_unused]] void* dest,
     [[maybe_unused]] const void* src,
     [[maybe_unused]] std::size_t count) const {
   TORCH_CHECK_NOT_IMPLEMENTED(false, "Not implemented for HPUDeviceAllocator");
 }
-#endif
 } // namespace habana

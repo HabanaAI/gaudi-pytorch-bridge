@@ -240,7 +240,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::HPUGlobalConfig::get().getDeterministic();
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
-#if IS_PYTORCH_AT_LEAST(2, 4)
   m.def("set_autocast_hpu_enabled", [](py::object enabled) {
     at::autocast::set_autocast_enabled(at::kHPU, enabled.ptr() == Py_True);
   });
@@ -257,24 +256,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto dtype = (PyObject*)torch::getTHPDtype(current_dtype);
     return py::reinterpret_borrow<py::object>(dtype);
   });
-#else
-  m.def("set_autocast_hpu_enabled", [](py::object enabled) {
-    at::autocast::set_hpu_enabled(enabled.ptr() == Py_True);
-  });
-  m.def("is_autocast_hpu_enabled", []() {
-    return at::autocast::is_hpu_enabled();
-  });
-  m.def("set_autocast_hpu_dtype", [](py::object dtype) {
-    at::ScalarType targetType =
-        reinterpret_cast<THPDtype*>(dtype.ptr())->scalar_type;
-    at::autocast::set_autocast_hpu_dtype(targetType);
-  });
-  m.def("get_autocast_hpu_dtype", []() {
-    at::ScalarType current_dtype = at::autocast::get_autocast_hpu_dtype();
-    auto dtype = (PyObject*)torch::getTHPDtype(current_dtype);
-    return py::reinterpret_borrow<py::object>(dtype);
-  });
-#endif
   m.def("get_view_hash", [](at::Tensor t) -> size_t {
     size_t hash = 0;
     auto hl_t = habana_lazy::TryGetHbLazyTensor(t);

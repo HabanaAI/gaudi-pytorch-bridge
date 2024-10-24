@@ -37,11 +37,7 @@ void PinnedMemoryAllocator::deleter(void* ptr) {
   device.get_host_memory().free(ptr);
 }
 
-#if IS_PYTORCH_AT_LEAST(2, 3)
 at::DataPtr PinnedMemoryAllocator::allocate(size_t size) {
-#else
-at::DataPtr PinnedMemoryAllocator::allocate(size_t size) const {
-#endif
   void* ptr = nullptr;
   if (size != 0) {
     auto& device = HPUDeviceContext::get_device(
@@ -61,7 +57,6 @@ at::DeleterFnPtr PinnedMemoryAllocator::raw_deleter() const {
   return &PinnedMemoryAllocator::deleter;
 }
 
-#if IS_PYTORCH_AT_LEAST(2, 3)
 void PinnedMemoryAllocator::copy_data(
     [[maybe_unused]] void* dest,
     [[maybe_unused]] const void* src,
@@ -69,5 +64,4 @@ void PinnedMemoryAllocator::copy_data(
   TORCH_CHECK_NOT_IMPLEMENTED(
       false, "Not implemented for PinnedMemoryAllocator");
 }
-#endif
 } // namespace habana

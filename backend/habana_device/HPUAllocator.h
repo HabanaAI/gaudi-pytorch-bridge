@@ -70,12 +70,8 @@ class HPUDeviceAllocator final : public at::Allocator {
       bool show_leaked_callstacks);
   static void memstat_devmem_stop_collect(const char* msg);
   static void dump_memory_reporter();
-#if IS_PYTORCH_AT_LEAST(2, 3)
   at::DataPtr allocate(size_t size) override;
   void copy_data(void* dest, const void* src, std::size_t count) const override;
-#else
-  at::DataPtr allocate(size_t size) const override;
-#endif
 };
 
 } // namespace habana

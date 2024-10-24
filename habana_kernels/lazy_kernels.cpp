@@ -4028,11 +4028,7 @@ Tensor batch_norm_backward_elemt_lazy(
     const Tensor& input,
     const Tensor& mean,
     const Tensor& invstd,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     const ::std::optional<at::Tensor>& weight,
-#else
-    const c10::optional<at::Tensor>& weight,
-#endif
     const Tensor& mean_dy,
     const Tensor& mean_dy_xmu,
     const Tensor& count) {

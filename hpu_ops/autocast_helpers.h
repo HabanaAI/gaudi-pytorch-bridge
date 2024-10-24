@@ -199,11 +199,7 @@ struct Hpu_WrapFunction_<
     guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
-#if IS_PYTORCH_AT_LEAST(2, 4)
     return (*F)(cast(get_autocast_dtype(at::kHPU), args, DeviceType::HPU)...);
-#else
-    return (*F)(cast(get_autocast_hpu_dtype(), args, DeviceType::HPU)...);
-#endif
   }
 };
 
@@ -231,25 +227,16 @@ struct Hpu_WrapFunction_<
     guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
-#if IS_PYTORCH_AT_LEAST(2, 4)
     auto to_type =
         promote_type(get_autocast_dtype(at::kHPU), DeviceType::HPU, args...);
-#else
-    auto to_type =
-        promote_type(get_autocast_hpu_dtype(), DeviceType::HPU, args...);
-#endif
     return (*F)(cast(to_type, args, DeviceType::HPU)...);
   }
 };
 
 template <class Ret, class Signature, class T, class... Args>
 inline Ret cast_firstarg(Signature* F, const T& first, Args... args) {
-#if IS_PYTORCH_AT_LEAST(2, 4)
   return (*F)(
       cast(get_autocast_dtype(at::kHPU), first, DeviceType::HPU), args...);
-#else
-  return (*F)(cast(get_autocast_hpu_dtype(), first, DeviceType::HPU), args...);
-#endif
 }
 
 // Hpu_CastPolicy::lower_first_arg

@@ -14,9 +14,7 @@
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
 #include "habana_helpers/pt_version_check.h"
-#if IS_PYTORCH_AT_LEAST(2, 4)
 #include <c10/util/Lazy.h>
-#endif
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -180,7 +178,6 @@ void habana_assert(
     const char* file,
     uint32_t line,
     const std::string& msg) {
-#if IS_PYTORCH_AT_LEAST(2, 4)
   std::string logmsg = Logger::str(
       "[Rank:",
       Logger::get_rank(),
@@ -194,20 +191,6 @@ void habana_assert(
   typedef std::shared_ptr<c10::PrecomputedLazyValue<std::string>> MsgPtr;
   MsgPtr msgPtr(new c10::PrecomputedLazyValue<std::string>(logmsg));
   throw c10::Error(msg, msgPtr);
-#else
-  throw c10::Error(
-      msg,
-      Logger::str(
-          "[Rank:",
-          Logger::get_rank(),
-          "] ",
-          "Habana exception raised from ",
-          func,
-          " at ",
-          c10::detail::StripBasename(file),
-          ":",
-          line));
-#endif
 }
 
 } // namespace Logger

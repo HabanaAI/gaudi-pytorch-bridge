@@ -145,13 +145,7 @@ at::Tensor fused_norm_hpu_wrap(
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& self,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     ::std::optional<SymInt> output_size) {
-#elif IS_PYTORCH_AT_LEAST(2, 2)
-    c10::optional<SymInt> output_size) {
-#else
-    c10::optional<int64_t> output_size) {
-#endif
   PT_EAGER_TRACE;
   PT_OP_INFO("repeat_interleave:", DUMP_2ARGS(self, output_size));
 

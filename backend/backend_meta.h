@@ -528,11 +528,7 @@ inline TensorExtraMeta* get_tensor_extra_meta(
   auto meta{impl.get_backend_meta()};
   if (meta == nullptr)
     return allocate_tensor_extra_meta(impl);
-#if IS_PYTORCH_AT_LEAST(2, 1)
   return reinterpret_cast<TensorExtraMeta*>(meta);
-#else
-  return reinterpret_cast<TensorExtraMeta*>(meta.get());
-#endif
 }
 
 inline const TensorExtraMeta* get_ctensor_extra_meta(

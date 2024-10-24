@@ -451,13 +451,8 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
 }
 at::Tensor hpu_wrap::batch_norm_elemt(
     const at::Tensor& input,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     const ::std::optional<at::Tensor>& weight,
     const ::std::optional<at::Tensor>& bias,
-#else
-    const c10::optional<at::Tensor>& weight,
-    const c10::optional<at::Tensor>& bias,
-#endif
     const at::Tensor& mean,
     const at::Tensor& invstd,
     double eps) {
@@ -468,11 +463,7 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
     const at::Tensor& input,
     const at::Tensor& mean,
     const at::Tensor& invstd,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     const ::std::optional<at::Tensor>& weight,
-#else
-    const c10::optional<at::Tensor>& weight,
-#endif
     const at::Tensor& mean_dy,
     const at::Tensor& mean_dy_xmu,
     const at::Tensor& count) {
@@ -486,11 +477,7 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
         const at::Tensor& input,
         const at::Tensor& mean,
         const at::Tensor& invstd,
-#if IS_PYTORCH_AT_LEAST(2, 4)
         const ::std::optional<at::Tensor>& weight,
-#else
-        const c10::optional<at::Tensor>& weight,
-#endif
         bool input_g,
         bool weight_g,
         bool bias_g) {
@@ -503,13 +490,8 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
         const at::Tensor& input,
         const at::Tensor& mean,
         const at::Tensor& invstd,
-#if IS_PYTORCH_AT_LEAST(2, 4)
         const ::std::optional<at::Tensor>& running_mean,
         const ::std::optional<at::Tensor>& running_var,
-#else
-        const c10::optional<at::Tensor>& running_mean,
-        const c10::optional<at::Tensor>& running_var,
-#endif
         double momentum,
         double eps,
         const at::Tensor& counts) {
@@ -659,17 +641,10 @@ struct InstanceNorm : public torch::autograd::Function<InstanceNorm> {
 
 Tensor hpu_wrap::instance_norm(
     const Tensor& input,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     const ::std::optional<Tensor>& weight_opt,
     const ::std::optional<Tensor>& bias_opt,
     const ::std::optional<Tensor>& running_mean_opt,
     const ::std::optional<Tensor>& running_var_opt,
-#else
-    const c10::optional<Tensor>& weight_opt,
-    const c10::optional<Tensor>& bias_opt,
-    const c10::optional<Tensor>& running_mean_opt,
-    const c10::optional<Tensor>& running_var_opt,
-#endif
     [[maybe_unused]] bool use_input_stats,
     [[maybe_unused]] double momentum,
     double eps,
@@ -729,11 +704,7 @@ Tensor hpu_wrap::instance_norm(
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
-#if IS_PYTORCH_AT_LEAST(2, 2)
     c10::optional<c10::SymInt> output_size) {
-#else
-    c10::optional<int64_t> output_size) {
-#endif
   habana_lazy::NoAccThread no_acc_thread;
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -748,15 +719,11 @@ at::Tensor hpu_wrap::repeat_interleave(
       PARAMS1(repeats),
       PARAMS2(repeats, output_size),
       Tensor)
-#if IS_PYTORCH_AT_LEAST(2, 2)
   std::optional<int64_t> out_size;
   if (output_size.has_value()) {
     out_size = output_size.value().expect_int();
   }
   return repeat_inlv_hpu_lazy(repeats, out_size);
-#else
-  return repeat_inlv_hpu_lazy(repeats, output_size);
-#endif
 }
 
 struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
@@ -803,11 +770,7 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
 Tensor hpu_wrap::softmax(
     const Tensor& self,
     int64_t dim,
-#if IS_PYTORCH_AT_LEAST(2, 4)
     ::std::optional<at::ScalarType> dtype) {
-#else
-    c10::optional<at::ScalarType> dtype) {
-#endif
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
