@@ -151,8 +151,8 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/clone_gen.cpp
   backend/compare_gen.cpp
   backend/constant_pad_gen.cpp
-  backend/convolution_backward_overrideable_gen.cpp
-  backend/convolution_overrideable_gen.cpp
+  backend/convolution_backward_gen.cpp
+  backend/convolution_gen.cpp
   backend/count_nonzero_gen.cpp
   backend/ctc_loss_backward_gen.cpp
   backend/ctc_loss_custom.cpp
@@ -326,6 +326,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/xlogy_gen.cpp
   backend/zero_gen.cpp
   common/batched_matmul_output_shape.cpp
+  common/convolution_gen.cpp
   common/reduction_template.cpp
   common/replication_pad.cpp
   common/scalar_dtype_range.cpp
@@ -388,8 +389,8 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/bitwise_gen.cpp
           lazy/bitwise_shift_gen.cpp
           lazy/compare_gen.cpp
-          lazy/convolution_overrideable_gen.cpp
-          lazy/convolution_backward_overrideable_gen.cpp
+          lazy/convolution_gen.cpp
+          lazy/convolution_backward_gen.cpp
           lazy/div_round_gen.cpp
           lazy/embedding_gen.cpp
           lazy/fill_gen.cpp

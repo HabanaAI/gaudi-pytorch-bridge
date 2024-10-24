@@ -224,10 +224,11 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   auto hinput = input.to(torch::kHPU);
   auto hweight = weight.to(torch::kHPU);
   torch::Tensor out1, out2, out3;
-  std::tie(out1, out2, out3) = convolution_backward_overrideable(
+  std::tie(out1, out2, out3) = convolution_backward(
       h_grad_output,
       hinput,
       hweight,
+      c10::nullopt,
       {1, 1},
       {0, 0},
       {1, 1},
@@ -281,7 +282,7 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check_count("= aten::convolution_backward_overrideable", 1)
+      .check_count("= aten::convolution_backward", 1)
       ->run(*hlexec->get_graph());
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }

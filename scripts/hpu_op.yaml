@@ -2370,50 +2370,17 @@ constant_pad_nd:
     override_fn: constant_pad_hpu_lazy
   op_validator: ConstantPadSharedMeta
 
-convolution_overrideable:
-  output_meta: ConvolutionOverrideableMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  op_frontend: ConvolutionOverrideableFE
-  op_backend: ConvolutionOverrideable
-  out_ids: [0]
-  op_validator: ConvolutionSharedMeta
-
 convolution:
-  output_meta: ConvolutionOverrideableMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  op_frontend: ConvolutionOverrideableFE
-  op_backend: ConvolutionOverrideable
+  output_meta: ConvolutionMeta
+  op_backend: Convolution
+  op_frontend: ConvolutionFE
   out_ids: [0]
   op_validator: ConvolutionSharedMeta
-
-convolution_backward_overrideable:
-  output_meta: ConvolutionOverrideableMetaBwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  op_frontend: ConvolutionBackwardOverrideableFE
-  op_backend: ConvolutionBackwardOverrideable
-  out_ids: [0, 0, 0]
-  op_validator: ConvolutionBwdOverrideableSharedMeta
 
 convolution_backward:
-  output_meta: ConvolutionOverrideableMetaBwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  op_frontend: ConvolutionBackwardOverrideableFE
-  op_backend: ConvolutionBackwardOverrideable
-  # guid is specified here to distinguish between convolution_backward_overrideable
-  # and convolution_backward, which takes additional bias_sizes argument
-  guid: convolution_backward
+  output_meta: ConvolutionMetaBwd
+  op_backend: ConvolutionBackward
+  op_frontend: ConvolutionBackwardFE
   out_ids: [0, 0, 0]
   op_validator: ConvolutionBwdSharedMeta
 

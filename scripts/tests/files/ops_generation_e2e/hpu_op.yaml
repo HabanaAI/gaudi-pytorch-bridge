@@ -214,14 +214,13 @@ _native_batch_norm_legit:
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
-convolution_backward_overrideable:
-  output_meta: ConvolutionOverrideableMetaBwd
+convolution_backward:
+  output_meta: ConvolutionMetaBwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_frontend: ConvolutionBackwardOverrideableFE
-  op_backend: ConvolutionBackwardOverrideable
+  op_backend: ConvolutionBackward
   out_ids: [0, 0, 0]
 
 native_group_norm:

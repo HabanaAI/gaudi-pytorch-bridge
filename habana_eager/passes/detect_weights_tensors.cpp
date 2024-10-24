@@ -102,10 +102,7 @@ struct DetectWeightTensorsPass {
       torch::jit::Node* user_node) {
     static const std::map<c10::Symbol, size_t> conv_symbols_map{
         {c10::Symbol::fromQualString("aten::convolution"), 1},
-        {c10::Symbol::fromQualString("aten::convolution_backward"), 2},
-        {c10::Symbol::fromQualString("aten::convolution_overrideable"), 1},
-        {c10::Symbol::fromQualString("aten::convolution_backward_overrideable"),
-         2}};
+        {c10::Symbol::fromQualString("aten::convolution_backward"), 2}};
 
     if (conv_symbols_map.find(user_node->kind()) != conv_symbols_map.end()) {
       const size_t weight_input_idx{conv_symbols_map.at(user_node->kind())};

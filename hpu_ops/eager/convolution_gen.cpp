@@ -10,14 +10,13 @@
  *
  *******************************************************************************
  */
-#include "generated/eager/convolution_overrideable.h"
-#include "hpu_ops/hpu_op_helper.h"
+#include "hpu_ops/common/convolution_gen.h"
+#include "generated/eager/convolution.h"
 
 namespace habana {
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
-    eager::EagerOp,
-    ConvolutionOverrideableFE,
-    at::Tensor) {}
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, ConvolutionFE, at::Tensor) {
+  FRONTEND_CONVOLUTION_COMMON(0)
+}
 
 } // namespace habana

@@ -193,7 +193,7 @@ bool FuseConvBatchnorm(
     PT_LAZY_DEBUG("Node Name: ", node_name);
     if ((strcmp(node_name, "hpu::native_batch_norm_inf") == 0) &&
         (node->inputs().at(0)->node()->kind() ==
-         torch::jit::aten::convolution_overrideable)) {
+         torch::jit::aten::convolution)) {
       auto conv = node->inputs().at(0)->node();
       auto bn = node;
 

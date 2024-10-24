@@ -12,6 +12,10 @@
  */
 #pragma once
 
+#include <ATen/Tensor.h>
+#include <cstdint>
+#include <vector>
+
 namespace habana {
 
 #define IF_CONV1D_EXPAND_TO_2D(at_input, input_idx)                   \
@@ -51,5 +55,26 @@ namespace habana {
   } else {                                                     \
     syn_out(final_result_index) = std::move(out);              \
   }
+
+// It was previously done by the PT, but since we moved from
+// convolution_overrideable to convolution, we have to do it.
+std::vector<int64_t> expand_param_if_needed(
+    at::IntArrayRef list_param,
+    const char* param_name,
+    int64_t expected_dim);
+
+#define FRONTEND_CONVOLUTION_COMMON(shift)                             \
+  auto weight = inputs[1 + shift].toTensor();                          \
+  const auto params_dim = weight.dim() - 2;                            \
+  auto& pt_inputs = get_inputs();                                      \
+                                                                       \
+  pt_inputs[3 + shift] = expand_param_if_needed(                       \
+      pt_inputs[3 + shift].toIntList().vec(), "stride", params_dim);   \
+  pt_inputs[4 + shift] = expand_param_if_needed(                       \
+      pt_inputs[4 + shift].toIntList().vec(), "padding", params_dim);  \
+  pt_inputs[5 + shift] = expand_param_if_needed(                       \
+      pt_inputs[5 + shift].toIntList().vec(), "dilation", params_dim); \
+  pt_inputs[7 + shift] = expand_param_if_needed(                       \
+      pt_inputs[7 + shift].toIntList().vec(), "outputPadding", params_dim);
 
 } // namespace habana

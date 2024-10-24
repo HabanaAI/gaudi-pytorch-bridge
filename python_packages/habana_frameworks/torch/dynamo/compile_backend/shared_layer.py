@@ -99,8 +99,6 @@ hpu_supported_op_list = {
     "slice",
     "squeeze",
     "split",
-    "convolution",
-    "convolution_backward",
     # G3
     "max_pool2d_with_indices_backward",
     "sum",

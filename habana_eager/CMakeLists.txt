@@ -21,8 +21,8 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/bernoulli_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/binary_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/index_gen.cpp
-          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_backward_overrideable_gen.cpp
-          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_overrideable_gen.cpp
+          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_backward_gen.cpp
+          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/random_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/topk_gen.cpp
