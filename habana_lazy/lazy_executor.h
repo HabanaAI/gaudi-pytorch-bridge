@@ -15,7 +15,6 @@
 
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/helpers/dynamic_shape_info.h"
-#include "backend/jit_graph_cache.h"
 #include "backend/synapse_helpers/util.h"
 #include "habana_helpers/thread_pool/thread_pool.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -28,8 +27,6 @@ enum LazyExecutionMode { kLAZY, kLOWERING };
 
 using Graph = torch::jit::Graph;
 using GraphPtr = std::shared_ptr<Graph>;
-using OptimizedJITGraphAndMetaDataPtr =
-    std::shared_ptr<habana::OptimizedJITGraphAndMetaData>;
 
 namespace habana_lazy {
 
@@ -195,6 +192,14 @@ class HbExecutionContext {
     }
   }
 
+  void saveGraph(GraphPtr p_g) {
+    mp_g = p_g;
+  }
+
+  GraphPtr getGraph() {
+    return mp_g;
+  }
+
   void saveHash(size_t p_h) {
     mp_g_hash = p_h;
   }
@@ -203,12 +208,20 @@ class HbExecutionContext {
     return mp_g_hash;
   }
 
-  void saveGraphAndMeta(OptimizedJITGraphAndMetaDataPtr g_ptr) {
-    g_mt_ptr = g_ptr;
+  void saveGraphKey(size_t graphKey) {
+    mp_g_key = graphKey;
   }
 
-  OptimizedJITGraphAndMetaDataPtr getGraphAndMeta() {
-    return g_mt_ptr;
+  size_t getGraphKey() {
+    return mp_g_key;
+  }
+
+  void saveOpStrs(std::string opStrs) {
+    mp_g_op_strs = opStrs;
+  }
+
+  std::string getOpStrs() {
+    return mp_g_op_strs;
   }
 
   void saveRecipeArgSpec(
@@ -335,8 +348,10 @@ class HbExecutionContext {
   }
 
   void resetGraph() {
-    saveGraphAndMeta(nullptr);
+    saveGraph(nullptr);
     saveHash(0);
+    saveGraphKey(0);
+    saveOpStrs("");
     m_input_vals.clear();
     m_output_vals.clear();
     m_hblazy_tensors.clear();
@@ -401,9 +416,12 @@ class HbExecutionContext {
   std::uint64_t GetUniqueJobId();
 
  private:
+  GraphPtr mp_g;
   size_t mp_g_hash{0};
-  OptimizedJITGraphAndMetaDataPtr g_mt_ptr;
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr{nullptr};
   std::shared_ptr<habana::RecipeArgumentSpec> m_graph_rarg_psh{nullptr};
+  size_t mp_g_key{0};
+  std::string mp_g_op_strs = "";
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;
   std::vector<at::Tensor> m_marked_user_inputs;

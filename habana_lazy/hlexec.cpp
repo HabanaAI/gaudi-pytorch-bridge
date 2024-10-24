@@ -121,6 +121,7 @@ void HlExec::Launch(
 void HlExec::Launch(
     torch::jit::Stack& stack,
     const c10::hpu::HPUStream& stream,
+    std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
     bool dry_run) {
   PT_LAZY_TRACE;
   auto context = get_device_lazy_execution_context();
@@ -130,6 +131,20 @@ void HlExec::Launch(
   // not do env variable based check anymore
   // We have short-circuited certain utilities in synapse helpers, we need to
   // remove that code
+
+  if (context->getCapturing()) {
+    // save the graph for perf mode
+    context->saveGraph(mp_g_);
+
+    // save the hash for perf mode
+    context->saveHash(m_g_hash_);
+
+    // save the graph key for perf mode
+    context->saveGraphKey(mp_g_and_meta_data_->get_cached_graph_key());
+
+    // save the graph key for perf mode
+    context->saveOpStrs(mp_g_and_meta_data_->get_cached_opstrs());
+  }
 
   std::string opName = getHabanaLazyGraphName();
   if (lazyInfo) {
@@ -144,10 +159,55 @@ void HlExec::Launch(
   mp_g_and_meta_data_->SetHPUStream(stream);
   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
 
-  if (context->getCapturing()) {
-    context->saveHash(m_g_hash_);
-    context->saveGraphAndMeta(mp_g_and_meta_data_);
+  auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
+  try {
+    launcher->Run(stack, cached_rarg_psh, dry_run);
+  } catch (const std::exception& e) {
+    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
+    get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLAZY);
+    throw;
   }
+}
+
+void HlExec::Launch(
+    torch::jit::Stack& stack,
+    const c10::hpu::HPUStream& stream,
+    bool dry_run) {
+  PT_LAZY_TRACE;
+  auto context = get_device_lazy_execution_context();
+  // TODO : remove this env variable use
+  // This is temporarily done to deactivate code in synapse helpers for lazy
+  // mode kernel registration We will move to using shape utilities instead and
+  // not do env variable based check anymore
+  // We have short-circuited certain utilities in synapse helpers, we need to
+  // remove that code
+
+  if (context->getCapturing()) {
+    // save the graph for perf mode
+    context->saveGraph(mp_g_);
+
+    // save the hash for perf mode
+    context->saveHash(m_g_hash_);
+
+    // save the graph key for perf mode
+    context->saveGraphKey(mp_g_and_meta_data_->get_cached_graph_key());
+
+    // save the graph key for perf mode
+    context->saveOpStrs(mp_g_and_meta_data_->get_cached_opstrs());
+  }
+
+  std::string opName = getHabanaLazyGraphName();
+  if (lazyInfo) {
+    opName = lazyInfo->get_lazy_op_name();
+  }
+
+  auto graphIndex =
+      GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
+  bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
+  mp_g_and_meta_data_->SetGraphIndex(graphIndex);
+  mp_g_and_meta_data_->SetOpName(opName);
+  mp_g_and_meta_data_->SetHPUStream(stream);
+  mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
 
   auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
   try {

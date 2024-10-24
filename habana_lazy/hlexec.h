@@ -221,11 +221,6 @@ class HlExec {
  public:
   HlExec();
   HlExec(ScopePtr scope);
-  HlExec(OptimizedJITGraphAndMetaDataPtr ptr, size_t hash) {
-    mp_g_and_meta_data_ = ptr;
-    m_g_hash_ = hash;
-    mp_g_ = mp_g_and_meta_data_->get_cached_graph();
-  }
 
   virtual ~HlExec() {}
 
@@ -296,6 +291,12 @@ class HlExec {
 
   void Launch(
       torch::jit::Stack& stack,
+      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
+      bool dry_run = false);
+
+  void Launch(
+      torch::jit::Stack& stack,
+      const c10::hpu::HPUStream& stream,
       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
       bool dry_run = false);
 

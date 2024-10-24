@@ -1490,9 +1490,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 }
 
 void HbLazyTensor::ExecuteCachedGraph(
-    std::shared_ptr<habana::OptimizedJITGraphAndMetaData> graph,
     std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+    GraphPtr graph,
     size_t hash,
+    size_t graphKey,
+    std::string opStrs,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
     std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
@@ -1507,7 +1509,7 @@ void HbLazyTensor::ExecuteCachedGraph(
       false); // disable acc thread during launch, but do not sync the acc
               // thread
 
-  exec::HlExec hlexec{graph, hash};
+  exec::HlExec hlexec{};
 
   torch::jit::Stack stack;
   // stack is used for both inputs to synapse lowering and outputs from
@@ -1540,8 +1542,20 @@ void HbLazyTensor::ExecuteCachedGraph(
     context->copy_scalar_to_hpu_tensor_list.clear();
   }
 
+  // Fetch graph from device context
+  hlexec.set_graph(graph);
+
+  // Set the graph hash
+  hlexec.set_hash(hash);
+
+  // Set the graph key
+  hlexec.set_graph_key(graphKey);
+
+  // Set the op strs
+  hlexec.set_opstrs(opStrs);
+
   // Launch the execution
-  hlexec.Launch(stack, cached_rarg_psh);
+  hlexec.Launch(stack, cached_rarg_psh, c10::hpu::getCurrentHPUStream());
 
   HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
   for (const auto& in : hblazy_tensors_in) {

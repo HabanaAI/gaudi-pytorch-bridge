@@ -142,17 +142,18 @@ void HPUGraph::mark_step() {
       habana_lazy::get_device_lazy_execution_context();
 
   context->JoinPendingLaunchThread();
-  if (context->getGraphAndMeta() &&
-      context->getGraphAndMeta()->get_cached_graph()) {
+  if (context->getGraph()) {
     auto captured_graph = std::make_shared<SingleHPUGraph>(
-        context->getGraphAndMeta(),
         context->getRecipeArgSpec(),
+        context->getGraph(),
         context->getInputs(),
         context->getOutputs(),
         context->getHbLazyTensors(),
         context->getUserInputIndices(),
         context->getSeedTensorMap(),
-        context->getHash());
+        context->getHash(),
+        context->getGraphKey(),
+        context->getOpStrs());
     captured_graphs.push_back(captured_graph);
     auto user_inp_match = context->getUserInputMatchIndices();
     user_input_match_indices_.insert(
@@ -281,7 +282,7 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
   // Go over all captured SingleHPUGraphs
   for (size_t graphIdx = 0; graphIdx < captured_graphs.size(); graphIdx++) {
     auto single_graph = captured_graphs[graphIdx];
-    if (single_graph->g_mt_ptr_->get_cached_graph()) {
+    if (single_graph->graph_) {
       // This set shows have the indices of user_output tensors in
       // hblazy_tensors_out_
       std::unordered_set<size_t> user_out_tensors_idx_set;
@@ -454,7 +455,7 @@ HPUGraph::~HPUGraph() {
 }
 
 SingleHPUGraph::~SingleHPUGraph() {
-  g_mt_ptr_.reset();
+  graph_.reset();
   input_vals_.clear();
   output_vals_.clear();
   hblazy_tensors_in_.clear();
@@ -517,9 +518,11 @@ void SingleHPUGraph::replayGraph(
     context->m_launch_thread_handle =
         habana_lazy::SingleTonExecThreadPool::getInstance().enqueue(
             habana_lazy::HbLazyTensor::ExecuteCachedGraph,
-            g_mt_ptr_,
             cached_rarg_psh,
+            graph_,
             hash_,
+            graphKey_,
+            opStrs_,
             hblazy_tensors_in_,
             hblazy_tensors_out_,
             prev_graph_interdep_out_t_list_,
@@ -527,9 +530,11 @@ void SingleHPUGraph::replayGraph(
             launch_jobid);
   } else {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
-        g_mt_ptr_,
         cached_rarg_psh,
+        graph_,
         hash_,
+        graphKey_,
+        opStrs_,
         hblazy_tensors_in_,
         hblazy_tensors_out_,
         prev_graph_interdep_out_t_list_,
@@ -552,7 +557,7 @@ void SingleHPUGraph::replayGraph(
 }
 
 void SingleHPUGraph::replay(bool async) {
-  if (g_mt_ptr_->get_cached_graph()) {
+  if (graph_) {
     return replayGraph(input_vals_, async);
   }
 }
@@ -560,9 +565,8 @@ void SingleHPUGraph::replay(bool async) {
 void SingleHPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
   PT_HPUGRAPH_DEBUG(
       "In HPUGraph::replayV3 with ", inputs.size(), " input tensors");
-  auto graph = g_mt_ptr_->get_cached_graph();
-  PT_DEVICE_DEBUG(graph ? (graph->dump(), "") : "null graph");
-  if (graph) {
+  PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
+  if (graph_) {
     auto num_inputs = input_vals_.size();
     for (size_t i = 0; i < num_inputs; ++i) {
       if (user_input_indices_.count(i) > 0) {
@@ -590,11 +594,10 @@ void SingleHPUGraph::replayV2(
     std::vector<at::Tensor>& static_inputs,
     std::vector<at::Tensor>& inputs,
     bool async) {
-  auto graph = g_mt_ptr_->get_cached_graph();
   PT_HPUGRAPH_DEBUG(
       "In HPUGraph::replayV2 with ", inputs.size(), " input tensors");
-  PT_DEVICE_DEBUG(graph ? (graph->dump(), "") : "null graph");
-  if (graph) {
+  PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
+  if (graph_) {
     habana_lazy::ir::ValueList input_val_list;
     std::vector<habana_lazy::HbLazyTensor> static_input_lazy_tensors;
     for (auto& t : static_inputs) {

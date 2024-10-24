@@ -12,7 +12,6 @@
  */
 #pragma once
 #include "HPUStream.h"
-#include "backend/jit_graph_cache.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -22,23 +21,27 @@ namespace hpu {
 
 struct SingleHPUGraph {
   SingleHPUGraph(
-      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr,
       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+      std::shared_ptr<torch::jit::Graph> graph,
       habana_lazy::ir::ValueList input_vals,
       habana_lazy::ir::ValueList output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
       std::unordered_map<size_t, size_t> user_input_indices,
       std::unordered_map<int64_t, c10::optional<at::Generator>>
           seed_tensors_generator,
-      size_t hash)
-      : g_mt_ptr_{g_mt_ptr},
-        cached_rarg_psh_{cached_rarg_psh},
+      size_t hash,
+      size_t graphKey,
+      std::string opStrs)
+      : cached_rarg_psh_{cached_rarg_psh},
+        graph_{graph},
         input_vals_{input_vals},
         output_vals_{output_vals},
         hblazy_tensors_out_{hblazy_tensors},
         user_input_indices_{user_input_indices},
         seed_tensors_generator_{seed_tensors_generator},
-        hash_{hash} {}
+        hash_{hash},
+        graphKey_{graphKey},
+        opStrs_{opStrs} {}
 
   ~SingleHPUGraph();
   void replay(bool async = false);
@@ -49,8 +52,8 @@ struct SingleHPUGraph {
   void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
   void replayGraph(habana_lazy::ir::ValueList& input_vals, bool async = false);
 
-  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr_;
   std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh_{nullptr};
+  std::shared_ptr<torch::jit::Graph> graph_;
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_;
@@ -106,6 +109,8 @@ struct SingleHPUGraph {
   std::unordered_map<int64_t, c10::optional<at::Generator>>
       seed_tensors_generator_;
   size_t hash_{0};
+  size_t graphKey_{0};
+  std::string opStrs_ = "";
 };
 
 struct HPUGraph {
