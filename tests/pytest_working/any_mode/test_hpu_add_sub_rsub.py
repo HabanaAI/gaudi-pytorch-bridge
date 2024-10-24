@@ -46,9 +46,6 @@ def set_precision(dtype):
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 @pytest.mark.parametrize("op", [torch.add, torch.sub, torch.rsub])
 def test_hpu(scalar, shape, alpha, dtype, op):
-    if pytest.mode == "compile" and scalar != None and alpha > 1 and not dtype.is_floating_point and op == torch.rsub:
-        pytest.xfail("SW-162443")
-
     def fn(input_tensor, other, alpha):
         return op(input_tensor, other, alpha=alpha)
 
