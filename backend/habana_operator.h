@@ -14,7 +14,6 @@
 #include <ATen/Tensor.h>
 #include <absl/types/any.h>
 #include <c10/util/ArrayRef.h>
-#include <shared_layer_api.hpp>
 #include <synapse_api_types.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <functional>

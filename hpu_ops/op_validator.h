@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include <absl/container/inlined_vector.h>
+#include <shared_layer_api.hpp>
 #include "backend/helpers/habana_types.h"
 #include "hpu_ops/op_backend.h"
 #include "hpu_ops/supported_dtypes.h"

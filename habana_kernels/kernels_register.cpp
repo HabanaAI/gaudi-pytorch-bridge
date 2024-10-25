@@ -28,6 +28,7 @@
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/run_maybe_with_acc_thread.h"
+#include "hpu_ops/shared_meta_common.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
@@ -44,63 +45,19 @@ using namespace habana_lazy;
       "FP8 data type is not available on this device.")
 
 namespace habana {
-SharedMetaDataVector MatmulSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  const auto& self = stack_tensor(stack, 0);
-  const auto& other = stack_tensor(stack, 1);
-  const auto dtype = self.scalar_type();
-  auto selfRank = self.dim();
-  auto otherRank = other.dim();
-  const bool isBiasPresentForBmm =
-      (((stack.size() == 3) || (stack.size() == 5)) &&
-       (stack.at(2).toTensor().dim() == 1));
-  bool addBias = false;
-  int64_t outputRank = std::max(selfRank, otherRank);
-  std::string guid;
-  const auto matmul3d2dReshapeEnabled =
-      habana_helpers::IsMatmul3d2dReshapeEnabled();
-  if ((selfRank == 1 && otherRank == 1) || (selfRank == 2 && otherRank == 1) ||
-      (selfRank == 1 && otherRank == 2) || (selfRank == 2 && otherRank == 2) ||
-      (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2)) {
-    selfRank = 2;
-    otherRank = 2;
-    outputRank = 2;
-    guid = "gemm";
-    if (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2)
-      addBias = isBiasPresentForBmm;
-  } else {
-    guid = "batch_gemm";
-    if (selfRank >= 3 && otherRank == 1) {
-      otherRank = 2;
-    } else if ((selfRank == 1 || selfRank == 2) && otherRank >= 3) {
-      selfRank = 2;
-      addBias = isBiasPresentForBmm;
-    } else if (
-        (selfRank == 4 && otherRank == 3) ||
-        (selfRank == 3 && otherRank == 4)) {
-      selfRank = 4;
-      otherRank = 4;
-    } else if (
-        (selfRank >= 1 && otherRank >= 1) &&
-        (selfRank >= 3 || otherRank >= 3)) {
-      addBias = isBiasPresentForBmm;
-    }
-  }
-
-  SharedMetaData gemmSharedMeta{guid};
-  gemmSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
-  if (addBias) {
-    const auto& bias = stack_tensor(stack, 2);
-    gemmSharedMeta.inputs_data.emplace_back(bias.dim(), bias.scalar_type());
-  }
-  gemmSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-
-  return {gemmSharedMeta};
-}
 static CheckNodeWithSharedLayerValidator validator_matmul(
     "matmul",
     MatmulSharedMeta,
+    habana_helpers::HabanaExecutionMode::LAZY);
+
+static CheckNodeWithSharedLayerValidator validator__reshape_alias(
+    "_reshape_alias",
+    StridedViewSharedMeta,
+    habana_helpers::HabanaExecutionMode::LAZY);
+
+static CheckNodeWithSharedLayerValidator validator__unsafe_view(
+    "_unsafe_view",
+    StridedViewSharedMeta,
     habana_helpers::HabanaExecutionMode::LAZY);
 } // namespace habana
 
@@ -214,6 +171,10 @@ Tensor hpu_wrap::_reshape_alias(
       to_string(stride));
   FALLBACK_IF_UNSUPPORTED_OP(
       _reshape_alias, PARAMS1(self), PARAMS2(self, size, stride))
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(
+      _reshape_alias, false, self, size, stride)
   // TODO: In order to align the changes of bert with Pytorchv1.9 we used
   // view inplace of as_strided implementation for the reshape of tensor
   // with no-change.
@@ -388,6 +349,10 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
     return dispatch_fallback<ATEN_OP(nonzero)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self));
   }
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(nonzero)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(self));
+  }
   return nonzero_hpu_lazy(self);
 }
 
@@ -433,7 +398,11 @@ Tensor& hpu_wrap::index_add_out(
       index_add_out,
       PARAMS1(self, index, source, out),
       PARAMS2(self, dim, index, source, alpha, out))
-
+  if (self.dim() > 5 || index.dim() > 5 || source.dim() > 5) {
+    return dispatch_fallback<ATEN_OP2(index_add, out)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, dim, index, source, alpha, out));
+  }
   return index_add_hpu_lazy_out(self, dim, index, source, alpha, out);
 }
 
@@ -444,7 +413,10 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
       "nonzero_out :", " self=", to_string(self), " out=", to_string(out));
   FALLBACK_IF_UNSUPPORTED_OP(
       nonzero_out, PARAMS1(self, out), PARAMS2(self, out))
-
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP2(nonzero, out)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(self, out));
+  }
   return nonzero_out_hpu_lazy(self, out);
 }
 
@@ -2192,6 +2164,11 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
       to_string(p),
       " train=",
       to_string(train));
+  FALLBACK_IF_UNSUPPORTED_OP(dropout, PARAMS1(input), PARAMS2(input, p, train))
+  if (input.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(dropout)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(input, p, train));
+  }
   return DropoutFunction::apply(input, p, train);
 }
 

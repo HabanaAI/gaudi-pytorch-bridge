@@ -13,6 +13,7 @@
 
 #include "hpu_ops/shared_meta_common.h"
 #include <unordered_set>
+#include "backend/helpers/runtime_config.h"
 namespace habana {
 
 // if all integers are not supported enter only torch::kInt32
@@ -592,6 +593,84 @@ SharedMetaDataVector EmptySharedMeta(
   // op doesn't call any kernels or [SW-205149] return empty vector because
   // shape tensor validation will block shape agnostic flow
   return {};
+}
+
+SharedMetaDataVector MatmulSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& other = stack_tensor(stack, 1);
+  const auto dtype = self.scalar_type();
+  auto selfRank = self.dim();
+  auto otherRank = other.dim();
+  const bool isBiasPresentForBmm =
+      (((stack.size() == 3) || (stack.size() == 5)) &&
+       (stack.at(2).toTensor().dim() == 1));
+  bool addBias = false;
+  int64_t outputRank = std::max(selfRank, otherRank);
+  std::string guid;
+  const auto matmul3d2dReshapeEnabled =
+      habana_helpers::IsMatmul3d2dReshapeEnabled();
+  if ((selfRank == 1 && otherRank == 1) || (selfRank == 2 && otherRank == 1) ||
+      (selfRank == 1 && otherRank == 2) || (selfRank == 2 && otherRank == 2) ||
+      (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2)) {
+    selfRank = 2;
+    otherRank = 2;
+    outputRank = 2;
+    guid = "gemm";
+    if (matmul3d2dReshapeEnabled && selfRank == 3 && otherRank == 2)
+      addBias = isBiasPresentForBmm;
+  } else {
+    guid = "batch_gemm";
+    if (selfRank >= 3 && otherRank == 1) {
+      otherRank = 2;
+    } else if ((selfRank == 1 || selfRank == 2) && otherRank >= 3) {
+      selfRank = 2;
+      addBias = isBiasPresentForBmm;
+    } else if (
+        (selfRank == 4 && otherRank == 3) ||
+        (selfRank == 3 && otherRank == 4)) {
+      selfRank = 4;
+      otherRank = 4;
+    } else if (
+        (selfRank >= 1 && otherRank >= 1) &&
+        (selfRank >= 3 || otherRank >= 3)) {
+      addBias = isBiasPresentForBmm;
+    }
+  }
+
+  SharedMetaData gemmSharedMeta{guid};
+  gemmSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
+  if (addBias) {
+    const auto& bias = stack_tensor(stack, 2);
+    gemmSharedMeta.inputs_data.emplace_back(bias.dim(), bias.scalar_type());
+  }
+  gemmSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+
+  return {gemmSharedMeta};
+}
+
+SharedMetaDataVector StridedViewSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto dtype = self.scalar_type();
+  const auto& sizes = stack.at(1);
+
+  SharedMetaData stridedViewSharedMeta{"strided_view"};
+  stridedViewSharedMeta.inputs_data.emplace_back(self.dim(), dtype);
+  int64_t outputRank;
+  if (sizes.isTensor()) {
+    const auto& sizesTensor = stack_tensor(stack, 1);
+    outputRank = sizesTensor.dim();
+    stridedViewSharedMeta.inputs_data.emplace_back(
+        outputRank, sizesTensor.scalar_type());
+  } else {
+    outputRank = sizes.toListRef().size();
+  }
+  stridedViewSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+
+  return {stridedViewSharedMeta};
 }
 
 } // namespace habana
