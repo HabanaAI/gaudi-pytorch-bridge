@@ -887,7 +887,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
 
     compare_tensors(conv, conv_ref, atol=1e-2, rtol=rtol)
 
-    if is_pytest_mode_compile():
+    if is_pytest_mode_compile() and not dynamic:  # https://jira.habana-labs.com/browse/SW-206693
         check_ops_executed_in_jit_ir("conv2d_fp8")
 
 
