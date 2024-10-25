@@ -771,7 +771,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
   bool cast_tensor = !(
       data_type == c10::ScalarType::Float ||
       data_type == c10::ScalarType::BFloat16 ||
-      data_type == c10::ScalarType::Int || data_type == c10::ScalarType::Long);
+      data_type == c10::ScalarType::Int || data_type == c10::ScalarType::Long ||
+      data_type == at::kFloat8_e5m2 || data_type == at::kFloat8_e4m3fn);
   at::Tensor t_output;
   at::Tensor t_input;
   if (!cast_tensor) {

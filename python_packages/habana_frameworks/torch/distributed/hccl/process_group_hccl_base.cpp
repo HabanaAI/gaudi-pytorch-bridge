@@ -672,7 +672,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
   auto out_scalar_t = outputTensor.scalar_type();
   auto data_type = habana_helpers::getHCCLDataType(outputTensor.scalar_type());
   if (is_valid_hccl_dtype(data_type) || out_scalar_t == at::kInt ||
-      out_scalar_t == at::kLong) {
+      out_scalar_t == at::kLong || out_scalar_t == at::kFloat8_e5m2 ||
+      out_scalar_t == at::kFloat8_e4m3fn) {
     alltoall_out_tensors = outputTensor;
     alltoall_in_tensors = inputTensor;
   } else {
