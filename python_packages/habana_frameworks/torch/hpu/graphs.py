@@ -254,7 +254,7 @@ def make_graphed_callables(
 
     if warmups > 0:
         htorch.hpu.synchronize()
-        with htorch.hpu.stream(htorch.hpu.Stream()):
+        with htorch.hpu.stream(htorch.hpu.default_stream()):
             for func, args, static_input_surface in zip(callables, sample_args, per_callable_static_input_surfaces):
                 for _ in range(warmups):
                     outputs = func(*args)
@@ -273,7 +273,9 @@ def make_graphed_callables(
     per_callable_static_outputs = []
     per_callable_output_was_tensor = []
     for func, args, fwd_graph in zip(callables, sample_args, fwd_graphs):
-        with htorch.hpu.graph(fwd_graph, dry_run=True if disable_tensor_cache else dry_run):
+        with htorch.hpu.graph(
+            fwd_graph, stream=htorch.hpu.default_stream(), dry_run=True if disable_tensor_cache else dry_run
+        ):
             if disable_tensor_cache:
                 fwd_graph.mark_user_inputs(args)
             outputs = func(*args)
@@ -297,7 +299,9 @@ def make_graphed_callables(
         # assert all(o.requires_grad for o in static_outputs), "Outputs of graphed callables must require grad."
         static_grad_outputs = tuple(torch.empty_like(o) if o.requires_grad else None for o in static_outputs)
 
-        with htorch.hpu.graph(bwd_graph, dry_run=True if disable_tensor_cache else dry_run):
+        with htorch.hpu.graph(
+            bwd_graph, stream=htorch.hpu.default_stream(), dry_run=True if disable_tensor_cache else dry_run
+        ):
             autograd_inputs = tuple(i for i in static_input_surface if i.requires_grad)
             if disable_tensor_cache:
                 mark_user_inputs_list = get_user_input_tensor_list(
