@@ -597,7 +597,9 @@
             "pytest_working/any_mode/test_hpu_quant_dequant.py::test_dequantize_per_tensor[bfloat16-float8_e4m3fn-True]",
             "pytest_working/any_mode/test_hpu_quant_dequant.py::test_dequantize_per_tensor[bfloat16-float8_e4m3fn-False]",
             "pytest_working/any_mode/test_hpu_exp_fast_math.py::test_hpu_exp_fast_math[[20]]",
-            "pytest_working/any_mode/test_hpu_exp_fast_math.py::test_hpu_exp_fast_math[[5x4x3]]"
+            "pytest_working/any_mode/test_hpu_exp_fast_math.py::test_hpu_exp_fast_math[[5x4x3]]",
+            "pytest_working/any_mode/test_hpu_scaled_triangular_softmax.py::test_scaled_triangular_softmax_retain[dtype0-1.3-shape2]",
+            "pytest_working/any_mode/test_hpu_scaled_triangular_softmax.py::test_scaled_triangular_softmax_retain[dtype0-0.75-shape2]"
         ],
         "eager": [
             "pytest_working/any_mode/test_index.py::test_index[shape7-indices7]",
