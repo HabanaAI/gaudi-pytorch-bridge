@@ -15,8 +15,16 @@
 
 #include "hpu_ops/hpu_op_helper.h"
 
-#define SHARED_META(name) \
-  SharedMetaDataVector name##SharedMeta(const at::Stack& stack);
+#define SHARED_META(name)                \
+  SharedMetaDataVector name##SharedMeta( \
+      const at::Stack& stack,            \
+      habana_helpers::HabanaExecutionMode executionMode);
+
+#define SHARED_META_GUID_EXEC_MODE(name) \
+  SharedMetaDataVector name##SharedMeta( \
+      const at::Stack& stack,            \
+      const std::string& guid,           \
+      habana_helpers::HabanaExecutionMode executionMode);
 
 #define SHARED_META_GUID(name)           \
   SharedMetaDataVector name##SharedMeta( \
@@ -36,7 +44,7 @@ SHARED_META_GUID(ForeachCompound)
 SHARED_META(BoolCast)
 SHARED_META_GUID(LogicalBinary)
 SHARED_META_GUID(UnaryForeach)
-SHARED_META_GUID(AminAmax)
+SHARED_META_GUID_EXEC_MODE(AminAmax)
 SHARED_META_GUID(BinaryWithAlpha)
 SHARED_META_GUID(BitwiseLogical)
 SHARED_META(Topk)

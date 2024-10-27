@@ -40,7 +40,9 @@ OutputMetaDataVector GroupNormFwdMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-SharedMetaDataVector NativeGroupNormFwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NativeGroupNormFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto input = stack_tensor(stack, 0);
   auto rank = input.dim();
   auto dtype = input.scalar_type();
@@ -77,7 +79,9 @@ SharedMetaDataVector NativeGroupNormFwdSharedMeta(const at::Stack& stack) {
   return {nativeGroupNormSharedMeta};
 }
 
-SharedMetaDataVector NativeGroupNormBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NativeGroupNormBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& gradOut = stack_tensor(stack, 0);
   const auto& input = stack_tensor(stack, 1);
   const auto& mean = stack_tensor(stack, 2);

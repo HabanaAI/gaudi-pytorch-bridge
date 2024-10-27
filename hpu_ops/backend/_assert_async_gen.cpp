@@ -14,7 +14,9 @@
 #include "generated/backend/_assert_async.h"
 
 namespace habana {
-SharedMetaDataVector AssertAsyncSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector AssertAsyncSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack_tensor(stack, 0);
 
   SharedMetaData assertAsyncSharedMeta{"assert_async"};

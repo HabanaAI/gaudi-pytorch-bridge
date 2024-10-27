@@ -26,7 +26,9 @@ OutputMetaDataVector EmbeddingDenseBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector EmbeddingDenseBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector EmbeddingDenseBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto gradOut = stack_tensor(stack, 0);
   auto indices = stack_tensor(stack, 1);
   auto dtype = gradOut.scalar_type();

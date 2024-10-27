@@ -26,7 +26,9 @@ OutputMetaDataVector CtcLossBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector CtcLossBackwardSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CtcLossBackwardSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& logProbs = stack_tensor(stack, 1);
   const auto& targets = stack_tensor(stack, 2);

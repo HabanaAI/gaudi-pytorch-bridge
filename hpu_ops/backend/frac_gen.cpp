@@ -59,7 +59,9 @@ static auto BuildFrac(
        {{outshape, dtype, out_index}}});
 }
 
-SharedMetaDataVector FracSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector FracSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto tensor = stack.at(0).toTensor();
   SharedMetaDataVector metaVec;
   metaVec.reserve(5);
@@ -92,7 +94,9 @@ SharedMetaDataVector FracSharedMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-SharedMetaDataVector UnaryForeachFracSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector UnaryForeachFracSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
   auto tensors = stack.at(0).toTensorList();
   auto tensorsSize = tensors.size();
   SharedMetaDataVector metaVec;
@@ -101,7 +105,7 @@ SharedMetaDataVector UnaryForeachFracSharedMeta(const at::Stack& stack) {
   SharedMetaData sharedMeta;
   for (size_t i = 0; i < tensorsSize; i++) {
     at::Stack fracStack = {c10::IValue(tensors[i])};
-    auto fracSharedMetaVec = FracSharedMeta(fracStack);
+    auto fracSharedMetaVec = FracSharedMeta(fracStack, executionMode);
     metaVec.insert(
         std::end(metaVec),
         std::begin(fracSharedMetaVec),

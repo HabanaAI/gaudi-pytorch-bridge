@@ -37,7 +37,9 @@ std::shared_ptr<void> FillRollParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-SharedMetaDataVector RollSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RollSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto rank = self.dim();
   auto dtype = self.scalar_type();

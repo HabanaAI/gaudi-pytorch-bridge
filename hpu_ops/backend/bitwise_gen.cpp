@@ -41,19 +41,27 @@ OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector BitwiseAndSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BitwiseAndSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return BitwiseLogicalSharedMeta(stack, "bitwise_and_fwd");
 }
 
-SharedMetaDataVector BitwiseOrSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BitwiseOrSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return BitwiseLogicalSharedMeta(stack, "bitwise_or_fwd");
 }
 
-SharedMetaDataVector BitwiseXorSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BitwiseXorSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return BitwiseLogicalSharedMeta(stack, "bitwise_xor_fwd");
 }
 
-SharedMetaDataVector BitwiseShiftSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BitwiseShiftSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return BitwiseLogicalSharedMeta(stack, "bitshift_fwd");
 }
 

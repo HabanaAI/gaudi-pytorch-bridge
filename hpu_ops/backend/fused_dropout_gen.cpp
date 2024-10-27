@@ -71,7 +71,9 @@ OutputMetaDataVector FusedNativeDropoutCheckpointMeta(const at::Stack& stack) {
   return {SeedOutputMeta(), metas[0], metas[1]};
 }
 
-SharedMetaDataVector FusedNativeDropoutSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector FusedNativeDropoutSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto seed = stack.at(2);
   auto isSeedTensor = seed.isTensor();
   at::ScalarType seedDtype = at::ScalarType::Int;
@@ -112,7 +114,9 @@ void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(1) = std::move(dropout[1]);
 }
 
-SharedMetaDataVector NativeDropoutBackwardSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NativeDropoutBackwardSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   // It is assumed that constant and cast kernels are handled for all
   // dtypes configuration, so shared layer omits validation.
 

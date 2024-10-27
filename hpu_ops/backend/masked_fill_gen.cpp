@@ -25,7 +25,9 @@ OutputMetaDataVector MaskedFillMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector MaskedFillSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector MaskedFillSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto& mask = stack_tensor(stack, 1);
   const auto& value = stack.at(2);

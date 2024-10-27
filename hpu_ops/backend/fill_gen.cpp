@@ -14,7 +14,9 @@
 #include "generated/backend/fill.h"
 
 namespace habana {
-SharedMetaDataVector FillScalarSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector FillScalarSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& input = stack_tensor(stack, 0);
   const auto dtype = input.scalar_type();
   const auto rank = input.dim();

@@ -17,7 +17,9 @@ using namespace torch;
 
 namespace habana {
 
-SharedMetaDataVector ScatterSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ScatterSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto& index = stack_tensor(stack, 2);
   auto dtype = self.scalar_type();
@@ -41,7 +43,9 @@ SharedMetaDataVector ScatterSharedMeta(const at::Stack& stack) {
   }
 }
 
-SharedMetaDataVector ScatterReduceSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ScatterReduceSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto& index = stack_tensor(stack, 2);
   const auto dtype = self.scalar_type();

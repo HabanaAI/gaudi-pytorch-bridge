@@ -194,7 +194,9 @@ OutputMetaDataVector ConvolutionMetaBwd(const at::Stack& stack) {
   return {input_meta, weight_meta, grad_output_meta};
 }
 
-SharedMetaDataVector ConvolutionBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ConvolutionBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& grad = stack.at(0).toTensor();
   const auto& input = stack.at(1).toTensor();
   const auto& weight = stack.at(2).toTensor();

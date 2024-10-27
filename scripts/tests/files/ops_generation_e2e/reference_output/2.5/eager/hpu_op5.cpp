@@ -16,7 +16,7 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta, habana_helpers::HabanaExecutionMode::EAGER);
 
 
 at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {

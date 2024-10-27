@@ -26,7 +26,9 @@ OutputMetaDataVector NewZerosMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector NewZerosSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NewZerosSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack_tensor(stack, 0);
   auto optionalDtype = stack.at(2).toOptional<at::ScalarType>();
   auto dtype = optionalDtype.value_or(self.scalar_type());

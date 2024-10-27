@@ -30,23 +30,33 @@ OutputMetaDataVector CompareMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector CompareEqSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CompareEqSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return CompareSharedMeta(stack, "equal_fwd");
 }
 
-SharedMetaDataVector CompareGeSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CompareGeSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return CompareSharedMeta(stack, "greater_equal_fwd");
 }
 
-SharedMetaDataVector CompareGtSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CompareGtSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return CompareSharedMeta(stack, "greater_fwd");
 }
 
-SharedMetaDataVector CompareLeSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CompareLeSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return CompareSharedMeta(stack, "less_equal_fwd");
 }
 
-SharedMetaDataVector CompareLtSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CompareLtSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return CompareSharedMeta(stack, "less_fwd");
 }
 

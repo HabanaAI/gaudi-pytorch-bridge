@@ -38,7 +38,9 @@ OutputMetaDataVector LogicalNotMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector LogicalNotSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector LogicalNotSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
   auto self = stack.at(0).toTensor();
   auto rank = self.dim();
   auto dtype = self.scalar_type();
@@ -46,7 +48,7 @@ SharedMetaDataVector LogicalNotSharedMeta(const at::Stack& stack) {
   if ((self.scalar_type() == at::kFloat) ||
       (self.scalar_type() == at::kBFloat16) ||
       (self.scalar_type() == at::kInt) || (self.scalar_type() == at::kShort)) {
-    metaVec = BoolCastSharedMeta({self});
+    metaVec = BoolCastSharedMeta({self}, executionMode);
     dtype = at::kBool;
   }
 
@@ -57,15 +59,21 @@ SharedMetaDataVector LogicalNotSharedMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-SharedMetaDataVector LogicalBinaryAndSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector LogicalBinaryAndSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return LogicalBinarySharedMeta(stack, "and");
 }
 
-SharedMetaDataVector LogicalBinaryOrSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector LogicalBinaryOrSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return LogicalBinarySharedMeta(stack, "or");
 }
 
-SharedMetaDataVector LogicalBinaryXorSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector LogicalBinaryXorSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return LogicalBinarySharedMeta(stack, "xor");
 }
 

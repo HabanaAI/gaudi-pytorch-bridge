@@ -38,7 +38,9 @@ c10::ScalarType GetKernelExponentType(const c10::ScalarType dtype) {
   }
 }
 
-SharedMetaDataVector FrexpSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector FrexpSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto input = stack_tensor(stack, 0);
   auto inputType = input.scalar_type();
   auto rank = input.dim();

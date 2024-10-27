@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include <absl/container/inlined_vector.h>
+#include "backend/helpers/habana_types.h"
 #include "hpu_ops/op_backend.h"
 #include "hpu_ops/supported_dtypes.h"
 
@@ -64,8 +65,9 @@ using TensorDescrArray = absl::InlinedVector<TensorDescr, 5>;
 
 using OutputMetaFunc =
     std::function<OutputMetaDataVector(const at::Stack& stack)>;
-using SharedMetaFunc =
-    std::function<SharedMetaDataVector(const at::Stack& stack)>;
+using SharedMetaFunc = std::function<SharedMetaDataVector(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode)>;
 
 struct CheckNodeWithSharedLayerValidator {
   CheckNodeWithSharedLayerValidator(
@@ -92,8 +94,11 @@ struct CheckNodeWithSharedLayerValidator {
 
   CheckNodeWithSharedLayerValidator(
       const std::string& opname,
-      SharedMetaFunc sharedMetaFunc)
-      : m_opname(opname), m_sharedMetaFunc(sharedMetaFunc) {}
+      SharedMetaFunc sharedMetaFunc,
+      habana_helpers::HabanaExecutionMode executionMode)
+      : m_opname(opname),
+        m_sharedMetaFunc(sharedMetaFunc),
+        m_executionMode(executionMode) {}
 
   bool Validate(
       const at::Stack& values,
@@ -129,6 +134,7 @@ struct CheckNodeWithSharedLayerValidator {
   OutputMetaFunc m_outputMetaFunc;
   SharedMetaFunc m_sharedMetaFunc;
   std::vector<int> m_typePromotionIds;
+  habana_helpers::HabanaExecutionMode m_executionMode;
   bool m_promoteIntToFloat;
   bool m_safeCastCheck;
   bool m_isInplace;

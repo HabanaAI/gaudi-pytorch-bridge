@@ -25,7 +25,9 @@ std::shared_ptr<void> FillBernoulliWithPParams(
   return params;
 }
 
-SharedMetaDataVector BernoulliSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BernoulliSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& seed = stack.at(1);
   auto seedRank = 1;
   auto seedDtype = c10::ScalarType::Int;
@@ -47,7 +49,9 @@ SharedMetaDataVector BernoulliSharedMeta(const at::Stack& stack) {
   return {bernoulliSharedMeta};
 }
 
-SharedMetaDataVector BernoulliWithPSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BernoulliWithPSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack_tensor(stack, 0);
   auto selfRank = self.dim();
   auto selfDtype = self.scalar_type();

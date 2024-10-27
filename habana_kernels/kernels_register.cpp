@@ -12,6 +12,7 @@
  */
 #include <ATen/core/Tensor.h>
 #include <torch/library.h>
+#include "backend/helpers/habana_types.h"
 #include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
 #include "common/random_utils.h"
@@ -43,7 +44,9 @@ using namespace habana_lazy;
       "FP8 data type is not available on this device.")
 
 namespace habana {
-SharedMetaDataVector MatmulSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector MatmulSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto& other = stack_tensor(stack, 1);
   const auto dtype = self.scalar_type();
@@ -97,7 +100,8 @@ SharedMetaDataVector MatmulSharedMeta(const at::Stack& stack) {
 }
 static CheckNodeWithSharedLayerValidator validator_matmul(
     "matmul",
-    MatmulSharedMeta);
+    MatmulSharedMeta,
+    habana_helpers::HabanaExecutionMode::LAZY);
 } // namespace habana
 
 bool hpu_wrap::is_pinned(

@@ -54,7 +54,9 @@ OutputMetaDataVector HuberLossBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector HuberLossBackwardSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector HuberLossBackwardSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& grad = stack_tensor(stack, 0);
   const auto gradRank = grad.dim();
   const auto& self = stack_tensor(stack, 1);

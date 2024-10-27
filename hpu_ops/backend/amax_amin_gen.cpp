@@ -56,12 +56,16 @@ OutputMetaDataVector AminAmaxMeta(const at::Stack& stack) {
   return AminmaxMetaCommon(stack, 1);
 }
 
-SharedMetaDataVector AmaxSharedMeta(const at::Stack& stack) {
-  return AminAmaxSharedMeta(stack, "reduce_max_multi_dim_fwd");
+SharedMetaDataVector AmaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  return AminAmaxSharedMeta(stack, "reduce_max_multi_dim_fwd", executionMode);
 }
 
-SharedMetaDataVector AminSharedMeta(const at::Stack& stack) {
-  return AminAmaxSharedMeta(stack, "reduce_min_multi_dim_fwd");
+SharedMetaDataVector AminSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  return AminAmaxSharedMeta(stack, "reduce_min_multi_dim_fwd", executionMode);
 }
 
 std::shared_ptr<void> FillAminAmaxParams(const at::Stack& stack, size_t& size) {

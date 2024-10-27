@@ -28,7 +28,9 @@ OutputMetaDataVector EyeMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector EyeSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector EyeSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& tensor = stack_tensor(stack, stack.size() == 3 ? 2 : 1);
   const auto dtype = tensor.scalar_type();
 

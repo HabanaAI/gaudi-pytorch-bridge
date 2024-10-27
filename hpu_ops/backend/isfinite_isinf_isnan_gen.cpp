@@ -17,15 +17,21 @@
 
 namespace habana {
 
-SharedMetaDataVector IsFiniteSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector IsFiniteSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return IsFiniteInfNanSharedMeta(stack, "isfinite_fwd");
 }
 
-SharedMetaDataVector IsInfSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector IsInfSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return IsFiniteInfNanSharedMeta(stack, "isinf_fwd");
 }
 
-SharedMetaDataVector IsNanSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector IsNanSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
 }
 

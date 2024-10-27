@@ -34,11 +34,15 @@ OutputMetaDataVector CumsumMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector FillCumSumSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector FillCumSumSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return FillCumSumProdSharedMeta(stack, "cumsum_fwd");
 }
 
-SharedMetaDataVector FillCumProdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector FillCumProdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return FillCumSumProdSharedMeta(stack, "cumprod_fwd");
 }
 

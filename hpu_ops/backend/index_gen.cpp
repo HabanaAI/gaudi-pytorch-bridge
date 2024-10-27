@@ -193,7 +193,9 @@ std::shared_ptr<void> FillIndexParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-SharedMetaDataVector IndexSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector IndexSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& input = stack_tensor(stack, 0);
   auto rank = input.dim();
   auto dtype = input.scalar_type();

@@ -22,6 +22,7 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from enum import Enum
 from functools import wraps
 from typing import Any, Dict, List, Set, Tuple
 
@@ -36,6 +37,17 @@ from torchgen.api.translate import translate
 from torchgen.api.types import CppSignatureGroup
 from torchgen.api.unboxing import convert_arguments
 from yaml import CLoader as Loader
+
+
+class HabanaExecutionMode(Enum):
+    EAGER = 0
+    COMPILE = 1
+    LAZY = 2
+    INVALID = 3
+
+
+def get_execution_mode_from_string(execution_mode: str) -> HabanaExecutionMode:
+    return HabanaExecutionMode[execution_mode.upper()]
 
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
@@ -163,7 +175,8 @@ class OpValidatorGenerator(ABC):
     Class describing how to generate code for given op_validator
     """
 
-    def __init__(self, ctxop: "Op"):
+    def __init__(self, ctxop: "Op", execution_mode_for_shared_layer):
+        self.execution_mode_for_shared_layer = execution_mode_for_shared_layer
         self._ctxop = ctxop
 
     @abstractmethod
@@ -382,10 +395,9 @@ class CheckNodeWithCustomSharedLayerValidatorGenerator(CheckNodeWithSharedLayerV
         arg_opname = f'"{opname}"'
         arg_shared_meta = ctxop.get_op_validator()
 
-        constructor_args = [
-            arg_opname,
-            arg_shared_meta,
-        ]
+        arg_execution_mode = f"habana_helpers::{self.execution_mode_for_shared_layer}".replace(".", "::")
+
+        constructor_args = [arg_opname, arg_shared_meta, arg_execution_mode]
         constructor_args = ", ".join(constructor_args)
 
         return f"static CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
@@ -546,13 +558,15 @@ class Op:
     def get_acc_thread(self):
         return self.op.get("acc_thread", False)
 
-    def get_op_validator_generator(self) -> OpValidatorGenerator:
+    def get_op_validator_generator(self, execution_mode_for_shared_layer) -> OpValidatorGenerator:
         op_validator = self.get_op_validator()
         mapping = {
             None: UseDtypesOpValidatorGenerator,
             "check-node-with-shared-layer": CheckNodeWithSharedLayerValidatorGenerator,
         }
-        result = mapping.get(op_validator, CheckNodeWithCustomSharedLayerValidatorGenerator)(self)
+        result = mapping.get(op_validator, CheckNodeWithCustomSharedLayerValidatorGenerator)(
+            self, execution_mode_for_shared_layer
+        )
         if not result.can_generate():
             return None
         return result
@@ -772,8 +786,8 @@ def generate_impl(op_variant, overload, override_fn):
     return '  m.impl("{}", static_cast<{}>(&{}));\n'.format(op_variant, overload, override_fn)
 
 
-def generate_dtype_defs(fgen):
-    op_validator_generator = fgen.ctxop.get_op_validator_generator()
+def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
+    op_validator_generator = fgen.ctxop.get_op_validator_generator(execution_mode_for_shared_layer)
     if op_validator_generator is not None:
         return op_validator_generator.get_validator_data_def(is_out_fn(fgen.func), fgen.cppsig)
     return ""
@@ -788,7 +802,7 @@ def generate_frontend_functions(fgen, mode):
     assert fgen.mapsig not in _FN_AUTOGRAD_HPU
     torch_regs = impl
 
-    dtype_defs = generate_dtype_defs(fgen)
+    dtype_defs = generate_dtype_defs(fgen, get_execution_mode_from_string(mode))
 
     op_frontend_functions = fgen.op_frontend_lazy if mode == "lazy" else fgen.op_frontend_eager
     op_frontend_functions += "\n\n"
@@ -1193,6 +1207,7 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
 
 def handle_validator_generator(
     ctxop,
+    execution_mode_for_shared_layer,
     use_compute_type,
     overload,
     opname,
@@ -1203,7 +1218,7 @@ def handle_validator_generator(
     check_st_h2d=False,
 ):
     dtypes = ctxop.get_dtypes()
-    op_validator_generator = ctxop.get_op_validator_generator()
+    op_validator_generator = ctxop.get_op_validator_generator(execution_mode_for_shared_layer)
     if not op_validator_generator:
         return ""
 
@@ -1397,7 +1412,15 @@ def lazy_frontend(
 
     code += promotion_code
     code += handle_validator_generator(
-        ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, is_check_kernel_support
+        ctxop,
+        HabanaExecutionMode.LAZY,
+        use_compute_type,
+        overload,
+        opname,
+        param_vars,
+        tfetcher,
+        fname,
+        is_check_kernel_support,
     )
 
     if is_check_kernel_support:
@@ -1577,7 +1600,16 @@ def eager_frontend(
 
     code += promotion_code
     code += handle_validator_generator(
-        ctxop, use_compute_type, overload, opname, param_vars, tfetcher, fname, False, True
+        ctxop,
+        HabanaExecutionMode.EAGER,
+        use_compute_type,
+        overload,
+        opname,
+        param_vars,
+        tfetcher,
+        fname,
+        False,
+        True,
     )
     code += handle_fallback_check(ctxop, overload, opname, param_vars)
 
@@ -2160,7 +2192,7 @@ def generate_check_kernel_support_sigs(fgen):
     # torch registrations
     assert fgen.mapsig not in _FN_AUTOGRAD_HPU
 
-    op_validator_generator = fgen.ctxop.get_op_validator_generator()
+    op_validator_generator = fgen.ctxop.get_op_validator_generator(HabanaExecutionMode.COMPILE)
     if op_validator_generator is not None:
         dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func), fgen.cppsig)
 

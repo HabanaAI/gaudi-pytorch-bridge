@@ -345,7 +345,9 @@ synapse_helpers::tensor NormalFloatFloatHelper(
   return std::move(normal[0]);
 }
 
-SharedMetaDataVector NormalSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NormalSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   c10::ScalarType dtype = at::get_default_dtype_as_scalartype();
   NormalVariant normalVariant = static_cast<NormalVariant>(
       stack.at(0).isTensor() + stack.at(1).isTensor() * 2);
@@ -462,7 +464,8 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 }
 
 SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
-    const at::Stack& stack) {
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack_tensor(stack, 0);
   auto seed = stack.back();
   SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
@@ -489,15 +492,21 @@ SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
   }
 }
 
-SharedMetaDataVector RandomNormalSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RandomNormalSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return RandomSeedTensorInputSharedMeta(stack, "random_normal_fwd");
 }
 
-SharedMetaDataVector RandomLogNormalSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RandomLogNormalSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return RandomSeedTensorInputSharedMeta(stack, "log_normal_fwd");
 }
 
-SharedMetaDataVector RandomUniformSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RandomUniformSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return RandomSeedTensorInputSharedMeta(stack, "philox_random_uniform");
 }
 

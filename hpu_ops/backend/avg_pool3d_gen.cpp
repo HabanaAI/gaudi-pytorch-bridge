@@ -99,7 +99,9 @@ OutputMetaDataVector AvgPool3dMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector AvgPool3dFwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector AvgPool3dFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return Input0SharedMeta(stack, "avg_pool_3d_fwd");
 }
 
@@ -154,7 +156,9 @@ OutputMetaDataVector AvgPool3dBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector AvgPool3dBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector AvgPool3dBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return AvgPoolBwdSharedMeta(stack, "avg_pool_3d_bwd");
 }
 

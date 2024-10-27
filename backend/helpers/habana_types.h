@@ -17,4 +17,6 @@ namespace habana_helpers {
 
 enum class HabanaFrontendTypes { EAGER, COMPILE, LAZY, INVALID };
 
+using HabanaExecutionMode = HabanaFrontendTypes;
+
 } // namespace habana_helpers

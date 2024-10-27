@@ -200,7 +200,9 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
        sizeof(reduceParams)});
 }
 
-SharedMetaDataVector NllLoss2DFwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NllLoss2DFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto& target = stack_tensor(stack, 1);
   const auto& weight = stack.at(2).toOptional<torch::Tensor>();
@@ -294,7 +296,9 @@ void NllLoss2DFwd::AddNode(
   }
 }
 
-SharedMetaDataVector NllLossBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NllLossBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
   const auto& target = stack_tensor(stack, 2);
@@ -350,7 +354,9 @@ void NllLossBwd::AddNode(
   }
 }
 
-SharedMetaDataVector NllLoss2DBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector NllLoss2DBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
   const auto& target = stack_tensor(stack, 2);

@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include "backend/helpers/habana_types.h"
 #include "generated/backend/native_layer_norm.h"
 #include "generated/backend/native_layer_norm_backward.h"
 

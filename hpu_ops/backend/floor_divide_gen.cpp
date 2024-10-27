@@ -22,7 +22,9 @@ std::shared_ptr<void> FillFloorDivideParams(const at::Stack&, size_t& size) {
   return params;
 }
 
-SharedMetaDataVector FloorDivideSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector FloorDivideSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack.at(0).toTensor();
   const auto& other = stack.at(1).toTensor();
   const auto dtype = habana_helpers::DTypeHelper::binary_op_with_type_promotion(

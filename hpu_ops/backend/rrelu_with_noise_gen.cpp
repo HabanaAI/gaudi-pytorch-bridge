@@ -17,7 +17,9 @@
 
 namespace habana {
 
-SharedMetaDataVector RreluWithNoiseSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RreluWithNoiseSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto rank = self.dim();
   const auto dtype = self.scalar_type();
@@ -150,7 +152,9 @@ void Rrelu_with_noise::AddNode(
   }
 }
 
-SharedMetaDataVector RreluWithNoiseBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RreluWithNoiseBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto grad = stack.at(0).toTensor();
   auto rank = grad.dim();
   auto resultType = grad.scalar_type();

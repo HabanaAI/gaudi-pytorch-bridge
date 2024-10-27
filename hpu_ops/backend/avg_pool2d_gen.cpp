@@ -116,7 +116,9 @@ OutputMetaDataVector Avgpool2dBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector AvgPool2dBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector AvgPool2dBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return AvgPoolBwdSharedMeta(stack, "avg_pool_2d_bwd");
 }
 
@@ -150,7 +152,9 @@ void Avgpool2dBwd::AddNode(
   syn_out(0) = std::move(avg_pool[0]);
 }
 
-SharedMetaDataVector AvgPool2dFwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector AvgPool2dFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return Input0SharedMeta(stack, "avg_pool_2d_fwd");
 }
 

@@ -13,7 +13,7 @@ using namespace torch::jit;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta, habana_helpers::HabanaExecutionMode::COMPILE);
 
 
 struct shared_layer_as_strided : SharedLayerOp {

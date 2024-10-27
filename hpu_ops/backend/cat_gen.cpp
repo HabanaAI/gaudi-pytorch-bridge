@@ -62,7 +62,9 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
       first_tensor.suggest_memory_format()}};
 }
 
-SharedMetaDataVector CatSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CatSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto inputs = stack[0].toTensorList().vec();
   auto inputsSize = inputs.size();
   std::vector<int> ranks;

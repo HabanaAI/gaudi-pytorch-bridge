@@ -21,7 +21,7 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta, habana_helpers::HabanaExecutionMode::LAZY);
 
 
 at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {

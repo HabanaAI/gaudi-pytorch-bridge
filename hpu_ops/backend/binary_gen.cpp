@@ -70,14 +70,20 @@ std::shared_ptr<void> FillBinaryWithAlphaParams(
   return params;
 }
 
-SharedMetaDataVector BinaryWithAlphaAddSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BinaryWithAlphaAddSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return BinaryWithAlphaSharedMeta(stack, "add");
 }
 
-SharedMetaDataVector BinaryWithAlphaSubSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BinaryWithAlphaSubSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return BinaryWithAlphaSharedMeta(stack, "sub");
 }
-SharedMetaDataVector BinaryWithAlphaRSubSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BinaryWithAlphaRSubSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return BinaryWithAlphaSharedMeta(stack, "rsub");
 }
 
@@ -301,82 +307,100 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
   return metaVec;
 }
 
-SharedMetaDataVector AddForeachBinarySharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    const bool castIntToFloat = false;
-    const bool supportI8 = true;
-    const bool supportI16 = true;
-    const bool mulOrDiv = false;
-    return ForeachBinaryOneIterationSharedMeta(
-        stack, "add_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
-  };
+SharedMetaDataVector AddForeachBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack, habana_helpers::HabanaExecutionMode) {
+        const bool castIntToFloat = false;
+        const bool supportI8 = true;
+        const bool supportI16 = true;
+        const bool mulOrDiv = false;
+        return ForeachBinaryOneIterationSharedMeta(
+            stack, "add_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
-SharedMetaDataVector DivForeachBinarySharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    const bool castIntToFloat = true;
-    const bool supportI8 = true;
-    const bool supportI16 = true;
-    const bool mulOrDiv = true;
-    return ForeachBinaryOneIterationSharedMeta(
-        stack, "div_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
-  };
+SharedMetaDataVector DivForeachBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack, habana_helpers::HabanaExecutionMode) {
+        const bool castIntToFloat = true;
+        const bool supportI8 = true;
+        const bool supportI16 = true;
+        const bool mulOrDiv = true;
+        return ForeachBinaryOneIterationSharedMeta(
+            stack, "div_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
-SharedMetaDataVector MaxForeachBinarySharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    const bool castIntToFloat = false;
-    const bool supportI8 = false;
-    const bool supportI16 = false;
-    const bool mulOrDiv = false;
-    return ForeachBinaryOneIterationSharedMeta(
-        stack, "max_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
-  };
+SharedMetaDataVector MaxForeachBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack, habana_helpers::HabanaExecutionMode) {
+        const bool castIntToFloat = false;
+        const bool supportI8 = false;
+        const bool supportI16 = false;
+        const bool mulOrDiv = false;
+        return ForeachBinaryOneIterationSharedMeta(
+            stack, "max_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
-SharedMetaDataVector MinForeachBinarySharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    const bool castIntToFloat = false;
-    const bool supportI8 = false;
-    const bool supportI16 = false;
-    const bool mulOrDiv = false;
-    return ForeachBinaryOneIterationSharedMeta(
-        stack, "min_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
-  };
+SharedMetaDataVector MinForeachBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack, habana_helpers::HabanaExecutionMode) {
+        const bool castIntToFloat = false;
+        const bool supportI8 = false;
+        const bool supportI16 = false;
+        const bool mulOrDiv = false;
+        return ForeachBinaryOneIterationSharedMeta(
+            stack, "min_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
-SharedMetaDataVector MultForeachBinarySharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    const bool castIntToFloat = false;
-    const bool supportI8 = true;
-    const bool supportI16 = true;
-    const bool mulOrDiv = true;
-    return ForeachBinaryOneIterationSharedMeta(
-        stack, "mult_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
-  };
+SharedMetaDataVector MultForeachBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack, habana_helpers::HabanaExecutionMode) {
+        const bool castIntToFloat = false;
+        const bool supportI8 = true;
+        const bool supportI16 = true;
+        const bool mulOrDiv = true;
+        return ForeachBinaryOneIterationSharedMeta(
+            stack, "mult_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
-SharedMetaDataVector SubForeachBinarySharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    const bool castIntToFloat = false;
-    const bool supportI8 = false;
-    const bool supportI16 = true;
-    const bool mulOrDiv = false;
-    return ForeachBinaryOneIterationSharedMeta(
-        stack, "sub_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
-  };
+SharedMetaDataVector SubForeachBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack, habana_helpers::HabanaExecutionMode) {
+        const bool castIntToFloat = false;
+        const bool supportI8 = false;
+        const bool supportI16 = true;
+        const bool mulOrDiv = false;
+        return ForeachBinaryOneIterationSharedMeta(
+            stack, "sub_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
 void ForeachBinary::AddNode(

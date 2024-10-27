@@ -33,7 +33,9 @@ OutputMetaDataVector IndexFillMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector IndexFillSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector IndexFillSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto selfRank = self.dim();
   const auto computeDtype = self.scalar_type();

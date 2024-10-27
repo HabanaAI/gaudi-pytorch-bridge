@@ -13,6 +13,7 @@
 
 #include <absl/functional/any_invocable.h>
 #include "backend/habana_operator.h"
+#include "backend/helpers/habana_types.h"
 
 #pragma once
 
@@ -197,7 +198,9 @@ class OpBackend : public HabanaOperator {
   }
 
   void SetSharedLayerMetaFn(
-      std::function<SharedMetaDataVector(const at::Stack&)> fn) {
+      std::function<SharedMetaDataVector(
+          const at::Stack&,
+          habana_helpers::HabanaExecutionMode executionMode)> fn) {
     m_shared_layer_meta_fn = std::move(fn);
   }
 
@@ -440,7 +443,10 @@ class OpBackend : public HabanaOperator {
   std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta_fn;
   std::function<PartialOutputMetaDataVector(const at::Stack&)>
       m_partial_output_meta_fn;
-  std::function<SharedMetaDataVector(const at::Stack&)> m_shared_layer_meta_fn;
+  std::function<SharedMetaDataVector(
+      const at::Stack&,
+      habana_helpers::HabanaExecutionMode executionMode)>
+      m_shared_layer_meta_fn;
   std::function<bool(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs)>

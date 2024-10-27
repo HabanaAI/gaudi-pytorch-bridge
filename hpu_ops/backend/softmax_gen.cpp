@@ -45,7 +45,9 @@ std::shared_ptr<void> FillSoftmaxBackwardParams(
   return params;
 }
 
-SharedMetaDataVector SoftmaxBackwardSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector SoftmaxBackwardSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& gradOutput = stack_tensor(stack, 0);
   const auto& output = stack_tensor(stack, 1);
   const auto dtype = output.scalar_type();

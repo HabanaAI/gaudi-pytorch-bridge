@@ -83,7 +83,9 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector ConstantPadSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ConstantPadSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack.at(0).toTensor();
   const auto selfRank = self.dim();
   const auto dtype = self.scalar_type();

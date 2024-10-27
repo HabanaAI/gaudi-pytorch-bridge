@@ -28,7 +28,9 @@ OutputMetaDataVector EfficientZeroMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector EfficientZeroSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector EfficientZeroSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto rank = stack.at(0).toIntVector().size();
   auto optionalDtype = stack.at(1).toOptional<at::ScalarType>();
   const at::ScalarType& dtype =

@@ -400,25 +400,33 @@ bool getVarMeanKeepdim(const at::Stack& stack) {
   return stack.at(3).toBool();
 }
 
-SharedMetaDataVector VarSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector VarSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const double correction = getCorrectionValue(stack.at(2));
   const bool keepdim = stack.at(3).toBool();
   return VarStdCommonSharedMeta(stack, keepdim, correction, false, false);
 }
 
-SharedMetaDataVector VarMeanSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector VarMeanSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   double correction = getVarMeanCorrection(stack);
   bool keepdim = getVarMeanKeepdim(stack);
   return VarStdCommonSharedMeta(stack, keepdim, correction, false, true);
 }
 
-SharedMetaDataVector StdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector StdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const double correction = getCorrectionValue(stack.at(2));
   const bool keepdim = stack.at(3).toBool();
   return VarStdCommonSharedMeta(stack, keepdim, correction, true, false);
 }
 
-SharedMetaDataVector StdMeanSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector StdMeanSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const double correction = getCorrectionValue(stack.at(2));
   const bool keepdim = stack.at(3).toBool();
   return VarStdCommonSharedMeta(stack, keepdim, correction, true, true);

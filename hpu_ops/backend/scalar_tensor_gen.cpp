@@ -26,7 +26,9 @@ OutputMetaDataVector ScalarTensorMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector ScalarTensorSharedMeta(const at::Stack&) {
+SharedMetaDataVector ScalarTensorSharedMeta(
+    const at::Stack&,
+    habana_helpers::HabanaExecutionMode) {
   // [SW-205149] return empty vector because shape tensor validation will block
   // shape agnostic flow
   return {};

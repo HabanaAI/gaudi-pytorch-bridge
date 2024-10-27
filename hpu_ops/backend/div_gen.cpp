@@ -17,7 +17,9 @@
 
 namespace habana {
 
-SharedMetaDataVector DivideSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector DivideSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack.at(0);
   auto selfTensor = self.toTensor();
   auto selfRank = selfTensor.dim();

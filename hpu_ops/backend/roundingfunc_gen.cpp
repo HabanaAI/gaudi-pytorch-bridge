@@ -17,15 +17,21 @@
 #include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
-SharedMetaDataVector RoundingTruncSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RoundingTruncSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return RoundingSharedMeta(stack, "trunc_fwd");
 }
 
-SharedMetaDataVector RoundingCeilSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RoundingCeilSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return RoundingSharedMeta(stack, "ceil_fwd");
 }
 
-SharedMetaDataVector RoundingFloorSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RoundingFloorSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return RoundingSharedMeta(stack, "floor_fwd");
 }
 

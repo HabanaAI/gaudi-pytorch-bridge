@@ -12,7 +12,9 @@
 
 namespace habana {
 
-SharedMetaDataVector CompareNeSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CompareNeSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto equalSharedMetaVec = CompareSharedMeta(stack, "equal_fwd");
   SharedMetaData notSharedMeta{"not_fwd"};
   notSharedMeta.inputs_data = {equalSharedMetaVec[0].outputs_data[0]};

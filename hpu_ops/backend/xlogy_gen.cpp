@@ -50,7 +50,9 @@ bool ShouldCastToOutputType(
       (output_dtype == at::kFloat && dtype == at::kBFloat16);
 }
 
-SharedMetaDataVector XlogYSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector XlogYSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack.at(0);
   auto other = stack.at(1);
 

@@ -441,7 +441,7 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
     const at::Stack& values,
     bool is_dynamic,
     bool check_st_h2d) {
-  for (const auto& meta : m_sharedMetaFunc(values)) {
+  for (const auto& meta : m_sharedMetaFunc(values, m_executionMode)) {
     auto inputs = CreateTensorList(meta.inputs_data);
     auto outputs = CreateTensorList(meta.outputs_data);
 

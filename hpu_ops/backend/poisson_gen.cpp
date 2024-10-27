@@ -22,7 +22,9 @@ std::shared_ptr<void> FillPoissonParams(const at::Stack&, size_t& size) {
   return params;
 }
 
-SharedMetaDataVector PoissonSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector PoissonSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack_tensor(stack, 0);
   auto selfDtype = self.scalar_type();
   auto rank = self.dim();

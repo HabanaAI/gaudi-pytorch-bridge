@@ -292,7 +292,9 @@ void TransposeOperator::AllocateAndAddSynapseNode(
 }
 
 namespace habana {
-SharedMetaDataVector TransposeSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector TransposeSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack.at(0).toTensor();
   const auto selfDim = self.dim();
   const auto selfDtype = self.scalar_type();

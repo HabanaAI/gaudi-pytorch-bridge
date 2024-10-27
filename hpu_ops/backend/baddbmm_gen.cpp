@@ -199,7 +199,9 @@ static SharedMetaDataVector AlphaSharedMeta(
   return {bmm};
 }
 
-SharedMetaDataVector BAddBMMSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BAddBMMSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const float beta = stack.at(3).toScalar().toFloat();
   const float alpha = stack.at(4).toScalar().toFloat();
 

@@ -216,19 +216,27 @@ OutputMetaDataVector Maxpool3dWithIndicesMeta(const at::Stack& stack) {
   return meta;
 }
 
-SharedMetaDataVector MaxPool2DWithIndicesFwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector MaxPool2DWithIndicesFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return MaxPoolWithIndicesFwdSharedMeta(stack, "pt_maxpool_2d_fwd");
 }
 
-SharedMetaDataVector MaxPool2DWithIndicesBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector MaxPool2DWithIndicesBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return MaxPoolWithIndicesBwdSharedMeta(stack, "pt_maxpool_2d_bwd");
 }
 
-SharedMetaDataVector MaxPool3DWithIndicesFwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector MaxPool3DWithIndicesFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return MaxPoolWithIndicesFwdSharedMeta(stack, "maxpool_3d_fwd");
 }
 
-SharedMetaDataVector MaxPool3DWithIndicesBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector MaxPool3DWithIndicesBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return MaxPoolWithIndicesBwdSharedMeta(stack, "maxpool_3d_bwd");
 }
 

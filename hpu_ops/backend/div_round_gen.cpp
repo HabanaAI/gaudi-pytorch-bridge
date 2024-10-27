@@ -32,7 +32,9 @@ OutputMetaDataVector DivModeMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector DivModeSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector DivModeSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack.at(0);
   auto selfTensor = self.toTensor();
   auto selfRank = selfTensor.dim();

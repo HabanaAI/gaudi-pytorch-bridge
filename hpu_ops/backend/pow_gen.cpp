@@ -187,12 +187,15 @@ static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
   }
 }
 
-SharedMetaDataVector PowForeachBinarySharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    return ForeachPowOneIterationSharedMeta(stack);
-  };
+SharedMetaDataVector PowForeachBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack, habana_helpers::HabanaExecutionMode) {
+        return ForeachPowOneIterationSharedMeta(stack);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
 void PowForeachBinary::AddNode(

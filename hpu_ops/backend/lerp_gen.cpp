@@ -48,7 +48,9 @@ OutputMetaDataVector ForeachLerpMeta(const at::Stack& stack) {
   return metaVector;
 }
 
-SharedMetaDataVector LerpSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector LerpSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto start = stack_tensor(stack, 0);
   auto startRank = start.dim();
   auto dtype = start.scalar_type();
@@ -81,7 +83,9 @@ SharedMetaDataVector LerpSharedMeta(const at::Stack& stack) {
   return {subSharedMeta, multSharedMeta, addSharedMeta};
 }
 
-SharedMetaDataVector ForeachLerpSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ForeachLerpSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
   const auto& starts = stack.at(0).toList();
   auto startsSize = starts.size();
   const auto& ends = stack.at(1).toList();
@@ -98,7 +102,7 @@ SharedMetaDataVector ForeachLerpSharedMeta(const at::Stack& stack) {
         ? weightTensorList.value()[i]
         : c10::IValue();
     at::Stack lerpStack = {starts[i], ends[i], weight};
-    auto lerpSharedMeta = LerpSharedMeta(lerpStack);
+    auto lerpSharedMeta = LerpSharedMeta(lerpStack, executionMode);
     metaVec.insert(
         std::end(metaVec),
         std::begin(lerpSharedMeta),

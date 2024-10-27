@@ -12,6 +12,8 @@
  */
 #pragma once
 
+#include "backend/helpers/habana_types.h"
+
 namespace habana {
 
 size_t computeInputsNumber(const at::Stack& stack);
@@ -24,7 +26,9 @@ typedef std::function<synapse_helpers::tensor(
     const std::vector<at::IValue>&,
     int out_index)>
     NodeCreateFunction;
-typedef std::function<SharedMetaDataVector(const at::Stack&)>
+typedef std::function<SharedMetaDataVector(
+    const at::Stack&,
+    habana_helpers::HabanaExecutionMode executionMode)>
     SharedMetaCreateFunction;
 
 std::vector<synapse_helpers::tensor> CommonForeachBinary(
@@ -37,5 +41,6 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
 
 SharedMetaDataVector CommonForeachBinarySharedMeta(
     const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode,
     SharedMetaCreateFunction sharedMetaCreator);
 } // namespace habana

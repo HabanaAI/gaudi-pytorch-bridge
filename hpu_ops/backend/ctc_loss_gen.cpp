@@ -48,7 +48,9 @@ OutputMetaDataVector CtcLossMeta(const at::Stack& stack) {
   }
 }
 
-SharedMetaDataVector CtcLossSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector CtcLossSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& logProbs = stack_tensor(stack, 0);
   const auto& targets = stack_tensor(stack, 1);
   const auto dtype = logProbs.scalar_type();

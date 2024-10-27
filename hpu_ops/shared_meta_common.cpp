@@ -272,7 +272,9 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
   return metaVec;
 }
 
-SharedMetaDataVector BoolCastSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector BoolCastSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto input = stack_tensor(stack, 0);
   auto dtype = input.scalar_type();
   auto rank = input.dim();
@@ -347,7 +349,8 @@ SharedMetaDataVector LogicalBinarySharedMeta(
 
 SharedMetaDataVector AminAmaxSharedMeta(
     const at::Stack& stack,
-    const std::string& guid) {
+    const std::string& guid,
+    habana_helpers::HabanaExecutionMode executionMode) {
   auto self = stack.at(0).toTensor();
   const bool keepDim = stack.at(2).toBool();
   auto rank = self.dim();
@@ -360,7 +363,7 @@ SharedMetaDataVector AminAmaxSharedMeta(
 
   SharedMetaDataVector metaVec;
   if (inputDtype == c10::ScalarType::Bool) {
-    metaVec = BoolCastSharedMeta({self});
+    metaVec = BoolCastSharedMeta({self}, executionMode);
     inputDtype = at::kBool;
   }
 
@@ -448,7 +451,9 @@ SharedMetaDataVector BitwiseLogicalSharedMeta(
   return {bitwiseSharedMeta};
 }
 
-SharedMetaDataVector TopkSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector TopkSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack.at(0).toTensor();
 
   SharedMetaData topkMeta("topk");
@@ -489,7 +494,9 @@ SharedMetaDataVector RandomSeedTensorInputSharedMeta(
   return {randomSharedMeta};
 }
 
-SharedMetaDataVector PadBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector PadBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto grad = stack_tensor(stack, 0);
   auto self = stack_tensor(stack, 1);
   auto dtype = self.scalar_type();

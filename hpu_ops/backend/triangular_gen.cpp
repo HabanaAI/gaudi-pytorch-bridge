@@ -124,7 +124,9 @@ OutputMetaDataVector TriuIndicesMeta(const at::Stack& stack) {
   return TriluIndicesMeta(stack, false);
 }
 
-SharedMetaDataVector TriluSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector TriluSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return Input0SharedMeta(stack, "matrix_band_part_fwd");
 }
 

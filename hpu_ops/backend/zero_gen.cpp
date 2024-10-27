@@ -15,7 +15,9 @@
 
 namespace habana {
 
-SharedMetaDataVector ZeroSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ZeroSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto rank = self.dim();
   if (rank > 1) {

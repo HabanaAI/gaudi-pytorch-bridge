@@ -18,10 +18,10 @@
 #include "hpu_ops/backend/foreach.h"
 #include "hpu_ops/shared_meta_common.h"
 
-#define UNARY_FOREACH_SHARED_META(name, guid)          \
-  SharedMetaDataVector UnaryForeach##name##SharedMeta( \
-      const at::Stack& stack) {                        \
-    return UnaryForeachSharedMeta(stack, guid);        \
+#define UNARY_FOREACH_SHARED_META(name, guid)                        \
+  SharedMetaDataVector UnaryForeach##name##SharedMeta(               \
+      const at::Stack& stack, habana_helpers::HabanaExecutionMode) { \
+    return UnaryForeachSharedMeta(stack, guid);                      \
   }
 
 namespace habana {
@@ -236,6 +236,7 @@ size_t computeInputsNumber(const at::Stack& stack) {
 
 SharedMetaDataVector CommonForeachBinarySharedMeta(
     const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode,
     SharedMetaCreateFunction sharedMetaCreator) {
   SharedMetaDataVector metaVec;
   if (stack.at(SELF_INDEX).isTensorList()) {
@@ -254,7 +255,8 @@ SharedMetaDataVector CommonForeachBinarySharedMeta(
       if (stack.size() > 2)
         oneIterationStack.push_back(stack.at(ALPHA_INDEX));
 
-      auto oneIterationSharedMeta = sharedMetaCreator(oneIterationStack);
+      auto oneIterationSharedMeta =
+          sharedMetaCreator(oneIterationStack, executionMode);
       metaVec.insert(
           std::end(metaVec),
           std::begin(oneIterationSharedMeta),
@@ -266,7 +268,8 @@ SharedMetaDataVector CommonForeachBinarySharedMeta(
     auto othersSize = others.size();
     for (size_t i = 0; i < othersSize; i++) {
       at::Stack oneIterationStack = {self, others[i]};
-      auto oneIterationSharedMeta = sharedMetaCreator(oneIterationStack);
+      auto oneIterationSharedMeta =
+          sharedMetaCreator(oneIterationStack, executionMode);
       metaVec.insert(
           std::end(metaVec),
           std::begin(oneIterationSharedMeta),

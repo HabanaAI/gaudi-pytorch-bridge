@@ -29,7 +29,9 @@ std::shared_ptr<void> FillRandomNegativeBinomialParams(
   return params;
 }
 
-SharedMetaDataVector GeometricSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector GeometricSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack_tensor(stack, 0);
   auto rank = self.dim();
   auto dtype = self.scalar_type();

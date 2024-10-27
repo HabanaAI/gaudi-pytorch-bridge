@@ -119,7 +119,9 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
       -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
 }
 
-SharedMetaDataVector ClampSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ClampSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
       c10::nullopt,
@@ -146,30 +148,44 @@ SharedMetaDataVector ClampSharedMeta(const at::Stack& stack) {
   return {clampSharedMeta};
 }
 
-SharedMetaDataVector ClampMinSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ClampMinSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
   at::Scalar dummyScalar;
-  return ClampSharedMeta({stack.at(0), stack.at(1), dummyScalar});
+  return ClampSharedMeta(
+      {stack.at(0), stack.at(1), dummyScalar}, executionMode);
 }
 
-SharedMetaDataVector ClampMaxSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector ClampMaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
   at::Scalar dummyScalar;
-  return ClampSharedMeta({stack.at(0), dummyScalar, stack.at(1)});
+  return ClampSharedMeta(
+      {stack.at(0), dummyScalar, stack.at(1)}, executionMode);
 }
 
-SharedMetaDataVector ForeachClampMinSharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    return ClampMinSharedMeta(stack);
-  };
+SharedMetaDataVector ForeachClampMinSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack,
+         habana_helpers::HabanaExecutionMode executionMode) {
+        return ClampMinSharedMeta(stack, executionMode);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
-SharedMetaDataVector ForeachClampMaxSharedMeta(const at::Stack& stack) {
-  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
-    return ClampMaxSharedMeta(stack);
-  };
+SharedMetaDataVector ForeachClampMaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack,
+         habana_helpers::HabanaExecutionMode executionMode) {
+        return ClampMaxSharedMeta(stack, executionMode);
+      };
 
-  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+  return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
 static synapse_helpers::tensor ClampCommon(

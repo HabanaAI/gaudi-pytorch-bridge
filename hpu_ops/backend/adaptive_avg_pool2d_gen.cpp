@@ -64,7 +64,9 @@ OutputMetaDataVector AdaptiveAvgPool2dBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector AdaptiveAvgPool2dFwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector AdaptiveAvgPool2dFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return Input0SharedMeta(stack, "adaptive_avg_pool_2d_fwd");
 }
 
@@ -92,7 +94,9 @@ void AdaptiveAvgPool2dFwd::AddNode(
   syn_out(0) = std::move(adaptive_avg_pool[0]);
 }
 
-SharedMetaDataVector AdaptiveAvgPool2dBwdSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector AdaptiveAvgPool2dBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   return AdaptiveBwdSharedMeta(stack, "complex_adaptive_avg_pool_2d_bwd");
 }
 
