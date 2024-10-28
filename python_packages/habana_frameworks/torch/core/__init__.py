@@ -96,7 +96,14 @@ def create_and_apply_on_import_wrapper():
     wrap()
 
 
-create_and_apply_on_import_wrapper()
+# Autoloader is disabled by default in lazy mode, so there is no need to apply fix with create_and_apply_on_import_wrapper() function
+# which is autoloader-speciffic
+if is_lazy():
+    overwrite_native_pt2e_quantization_interface()  # wrap pt2e-quant apis required to work on HPU with graph-breaks
+    import_compilers()
+    import_hpu_partition()
+else:
+    create_and_apply_on_import_wrapper()
 
 
 # enable profiler and weight sharing if required
