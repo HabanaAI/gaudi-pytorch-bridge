@@ -2998,13 +2998,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     HabanaOperatorPtr HabanaKernel =
         KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
-    bool is_node_dynamic = habana_helpers::isNodeDynamic(
-        node, org_stack_index_map, value_to_ivalue_);
-    HabanaKernel->SetOpDynamicity(is_node_dynamic);
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "For op = ", opname, ", is current node dynamic = ", is_node_dynamic);
-
     TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
+
+    if (enable_optim_output_sif_) {
+      bool is_node_dynamic = habana_helpers::isNodeDynamic(
+          node, org_stack_index_map, value_to_ivalue_);
+      HabanaKernel->SetOpDynamicity(is_node_dynamic);
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "For op = ", opname, ", is current node dynamic = ", is_node_dynamic);
+    }
 
     // Set the deterministic val
     HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
