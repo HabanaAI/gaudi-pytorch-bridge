@@ -34,6 +34,8 @@ orchestratorConfig:
     # PyTorch Operators and feature validation <Start>
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_promote_training_suite
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt_perf
+    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt_perf
+      silentMode: true
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_compile
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_compile_dynamic
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_eager
