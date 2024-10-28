@@ -587,6 +587,13 @@ def overwrite_native_pt2e_quantization_interface():
 
     # This is to make sure the native funcitons implementations are saved in NativeFunctions before overwriting them
     import torch.ao.quantization.quantize_pt2e as quantize_pt2e
+    from packaging.version import Version, parse
+
+    # PT 2.5 changes add torch.ao.quantization.observer for dynamo tracing
+    from torch._dynamo.trace_rules import MOD_INLINELIST
+
+    if Version(parse(torch.__version__).base_version) >= Version("2.5"):
+        MOD_INLINELIST.add("torch.ao.quantization.observer")
 
     NativeFunctions.org_export = torch._export.capture_pre_autograd_graph
     NativeFunctions.org_convert_pt2e = quantize_pt2e.convert_pt2e
