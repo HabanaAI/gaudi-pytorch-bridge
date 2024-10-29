@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import math
 from copy import deepcopy
 
 import habana_frameworks.torch.core as htcore
@@ -42,22 +43,20 @@ class FusedEMA:
             raise ValueError("Invalid decay value: {}".format(decay))
 
         self.ema = deepcopy(model.module if is_parallel(model) else model).eval()  # FP32 EMA
-        self.decay = lambda x: decay * (
-            1 - torch.exp(-torch.Tensor([x]) / 2000.0)
-        )  # decay exponential ramp (to help early epochs) #decay
+        self.decay = lambda x: decay * (1 - math.exp(-x / 2000))  # decay exponential ramp (to help early epochs) #decay
         self.updates = updates
-        self.updated_ema = list(self.ema.parameters())
+        self.updated_ema = list(self.ema.state_dict().values())
         if is_lazy():
             from habana_frameworks.torch import _hpex_C
 
             self.op = _hpex_C.fused_ema
         else:
-            self.op = torch.ops.hpu.optimizer_ema_
+            self.op = torch.ops.hpu.optimizer_ema
 
     def update(self, model):
         htcore.step_closure._mark_step_if_lazy()
 
-        model_inputs = list(model.parameters())
+        model_inputs = list(model.state_dict().values())
         with torch.no_grad():
             self.updates += 1
             decy = self.decay(self.updates)

@@ -1007,7 +1007,6 @@ RegisterKernel::add op = hpu::normal.Tensor_float
 RegisterKernel::add op = hpu::normal.Tensor_Tensor
 RegisterKernel::add op = hpu::optimizer_adamw
 RegisterKernel::add op = hpu::optimizer_ema
-RegisterKernel::add op = hpu::optimizer_ema_
 RegisterKernel::add op = hpu::optimizer_lamb_fused_norm
 RegisterKernel::add op = hpu::optimizer_lamb_phase1
 RegisterKernel::add op = hpu::optimizer_lamb_phase2

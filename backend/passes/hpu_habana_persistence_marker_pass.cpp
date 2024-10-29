@@ -135,8 +135,7 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
         "hpu::kv_reorder_",
         "hpu::in_place_interleave_",
         "aten::masked_fill_.Scalar",
-        "aten::masked_fill_.Tensor",
-        "hpu::optimizer_ema_"};
+        "aten::masked_fill_.Tensor"};
 
     if (std::find(
             std::begin(ignoreOpsList), std::end(ignoreOpsList), op_name) !=

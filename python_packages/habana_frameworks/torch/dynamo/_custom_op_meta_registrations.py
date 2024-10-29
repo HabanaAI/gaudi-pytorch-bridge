@@ -289,14 +289,9 @@ def meta_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_steps, st
     return
 
 
-@register_meta([torch.ops.hpu.optimizer_ema_.default])
-def meta_optimizer_ema_(model_inputs, updated_ema, decay):
-    return
-
-
 @register_meta([torch.ops.hpu.optimizer_ema.default])
 def meta_optimizer_ema(model_inputs, updated_ema, decay):
-    return [x.new_empty(x.shape) for x in model_inputs]
+    return
 
 
 @register_meta([torch.ops.hpu.optimizer_adamw.default])

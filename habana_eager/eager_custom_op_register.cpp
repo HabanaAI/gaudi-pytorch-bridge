@@ -463,31 +463,15 @@ void optimizer_lamb_phase2(
   return hpu_op.call(weights);
 }
 
-std::vector<at::Tensor> optimizer_ema(
-    const at::TensorList model_inputs,
-    const at::TensorList updated_ema,
-    const at::Tensor& decay) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(" optimizer_ema :", DUMP_3ARGS(model_inputs, updated_ema, decay));
-
-  habana::eager::EagerOp<std::vector<at::Tensor>> hpu_op{
-      "hpu::optimizer_ema", {model_inputs, updated_ema, decay}};
-  return hpu_op.call();
-}
-
-void optimizer_ema_(
+void optimizer_ema(
     const at::TensorList model_inputs,
     at::TensorList updated_ema,
     const at::Tensor& decay) {
   PT_EAGER_TRACE;
-  PT_OP_INFO(" optimizer_ema_ :", DUMP_3ARGS(model_inputs, updated_ema, decay));
+  PT_OP_INFO(" optimizer_ema :", DUMP_3ARGS(model_inputs, updated_ema, decay));
 
   habana::eager::EagerOp<void> hpu_op{
-      "hpu::optimizer_ema_", {model_inputs, updated_ema, decay}};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::Inplace,
-       "hpu::optimizer_ema_",
-       decltype(habana::eager::EagerOpMetaData::out_indices_){1}});
+      "hpu::optimizer_ema", {model_inputs, updated_ema, decay}};
   hpu_op.call(updated_ema);
 }
 
@@ -2194,9 +2178,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales = None, Tensor(e!)[]? exp_avg_sq_scales = None) -> ()");
   m.def(
-      "hpu::optimizer_ema(Tensor[] model_inputs, Tensor[] updated_ema, Tensor decay) -> Tensor[]");
-  m.def(
-      "hpu::optimizer_ema_(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
+      "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
@@ -2391,7 +2373,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
   m.impl("hpu::optimizer_adamw", optimizer_adamw);
   m.impl("hpu::optimizer_ema", optimizer_ema);
-  m.impl("hpu::optimizer_ema_", optimizer_ema_);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm);
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
@@ -2473,14 +2454,6 @@ at::Tensor get_functional_tensor(const at::Tensor& tensor) {
   return at::functionalization::impl::from_functional_tensor(tensor);
 }
 
-std::vector<at::Tensor> get_functional_tensorlist(
-    const at::TensorList& tensorlist) {
-  TORCH_INTERNAL_ASSERT(
-      at::functionalization::impl::isFunctionalTensor(tensorlist));
-  at::functionalization::impl::sync(tensorlist);
-  return at::functionalization::impl::from_functional_tensor(tensorlist);
-}
-
 at::Tensor& kv_reorder_functionalization_glue(
     at::Tensor& self,
     const at::Tensor& start,
@@ -2529,32 +2502,6 @@ at::Tensor& in_place_interleave_functionalization_glue(at::Tensor& self) {
   at::functionalization::impl::sync(self);
   return self;
 }
-
-void optimizer_ema_functionalization_glue(
-    const at::TensorList model_inputs,
-    at::TensorList updated_ema,
-    const at::Tensor& decay) {
-  auto model_inputs_ = get_functional_tensorlist(model_inputs);
-  auto updated_ema_ = get_functional_tensorlist(updated_ema);
-  auto decay_ = get_functional_tensor(decay);
-
-  static auto op_handle = c10::Dispatcher::singleton()
-                              .findSchemaOrThrow("hpu::optimizer_ema", "")
-                              .typed<std::vector<at::Tensor>(
-                                  const at::TensorList,
-                                  const at::TensorList,
-                                  const at::Tensor&)>(); // NOLINT
-  std::vector<at::Tensor> tmp_output;
-  {
-    at::AutoDispatchSkipFunctionalize guard;
-    tmp_output = op_handle.call(model_inputs_, updated_ema_, decay_);
-  }
-
-  at::functionalization::impl::replace_(updated_ema, tmp_output);
-  at::functionalization::impl::commit_update(updated_ema);
-  at::functionalization::impl::sync(updated_ema);
-}
-
 } // namespace
 
 namespace habana::eager {
@@ -2562,7 +2509,6 @@ namespace habana::eager {
 TORCH_LIBRARY_IMPL(hpu, Functionalize, m) {
   m.impl("kv_reorder_", kv_reorder_functionalization_glue);
   m.impl("in_place_interleave_", in_place_interleave_functionalization_glue);
-  m.impl("optimizer_ema_", optimizer_ema_functionalization_glue);
 }
 
 } // namespace habana::eager

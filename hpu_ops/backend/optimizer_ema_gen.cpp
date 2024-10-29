@@ -10,58 +10,30 @@
  *
  *******************************************************************************
  */
-#include "hpu_ops/optimizers_gen.h"
+#include "hpu_ops/op_backend.h"
+#include "hpu_ops/stack_getter.h"
 #include "perf_lib_layer_params.h"
 
 namespace sh = synapse_helpers;
 
 namespace habana {
 
-OutputMetaDataVector EMAOutputMetadata(const at::Stack& stack) {
-  OutputMetaDataVector meta_vec;
-  auto updated_ema_list = stack[1].toTensorList();
-  meta_vec.reserve(updated_ema_list.size());
-
-  for (const at::Tensor& updated_ema_tensor : updated_ema_list) {
-    OutputMetaData meta;
-    meta.dtype = updated_ema_tensor.scalar_type();
-    meta.shape = updated_ema_tensor.sizes().vec();
-    meta_vec.push_back(meta);
-  }
-  return meta_vec;
-}
-
-// in place variant
-struct OptimizerFusedEmaOperator_ : OptimizerFusedEmaOperatorCommon {
-  OptimizerFusedEmaOperator_(int device_id, c10::ScalarType scalar_type)
-      : OptimizerFusedEmaOperatorCommon(
+class OptimizerFusedEmaOperator : public OpBackend {
+ public:
+  OptimizerFusedEmaOperator(int device_id, c10::ScalarType scalar_type)
+      : OpBackend(
             device_id,
-            NO_TPC + "OptimizerFusedEmaOperator_",
+            NO_TPC + "optimizer_fused_EmaOperator_",
             scalar_type,
             {},
             {1}, // inplace ids
             {},
-            false) {
-    SetOutputMetaFn(EMAOutputMetadata);
-  }
+            false) {}
+
+  void AddNode(sh::graph& graph, const at::Stack& stack) override;
 };
 
-// out variant required for torch.compile functionalization
-struct OptimizerFusedEmaOperator : OptimizerFusedEmaOperatorCommon {
-  OptimizerFusedEmaOperator(int device_id, c10::ScalarType scalar_type)
-      : OptimizerFusedEmaOperatorCommon(
-            device_id,
-            NO_TPC + "OptimizerFusedEmaOperator",
-            scalar_type,
-            {1},
-            {},
-            {},
-            false) {
-    SetOutputMetaFn(EMAOutputMetadata);
-  }
-};
-
-void OptimizerFusedEmaOperatorCommon::AddNode(
+void OptimizerFusedEmaOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "OptimizerFusedEmaOperator::AddNode");
@@ -116,7 +88,6 @@ void OptimizerFusedEmaOperatorCommon::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry =
-    habana::KernelRegistry()
-        .add("hpu::optimizer_ema_", KERNEL_FN(OptimizerFusedEmaOperator_))
-        .add("hpu::optimizer_ema", KERNEL_FN(OptimizerFusedEmaOperator));
+static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
+    "hpu::optimizer_ema",
+    KERNEL_FN(OptimizerFusedEmaOperator));
