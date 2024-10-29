@@ -5963,6 +5963,7 @@ at::Tensor& alltoall_hpu_lazy_out(
     std::vector<int64_t>& inputSplitSizes) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
+  HbLazyTensorViews::HandleViewsLazyCollective(inputTensor);
   MarkTensorAsOutputFromCollectiveOp(outputTensor);
   LazyOp<at::Tensor&> k(
       "hccl::alltoall_out",
