@@ -11,6 +11,9 @@
 ###############################################################################
 
 
+import os
+import re
+
 import habana_frameworks.torch.low_overhead_profiler.profiler as lop
 import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
@@ -1679,14 +1682,27 @@ def test_sag_lerp():
     assert len(shape_agnostic_not_supported_ops) == 0
 
 
-@pytest.mark.skip(reason="SW-201659 - too long test execution")
 def test_lop():
+    metrics_pattern = r"metrics_pid\d+\.json"
+    traces_pattern = r"events_pid\d+\.json"
+    files = os.listdir()
+
+    metrics_files = [f for f in files if re.match(metrics_pattern, f)]
+    traces_files = [f for f in files if re.match(traces_pattern, f)]
+
+    for f in metrics_files + traces_files:
+        os.remove(f)
+
+    assert not any(re.match(metrics_pattern, f) for f in os.listdir()), "Metrics files already present before the test."
+    assert not any(re.match(traces_pattern, f) for f in os.listdir()), "Trace files already present before the test."
+
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")
 
-    for i in range(10000):
-        if i == 85:
+    for i in range(10):
+        if i == 3:
             lop.start()
+
         result_hpu = torch.relu(hpu_tensor).to("cpu")
         result_cpu = torch.relu(cpu_tensor)
         assert torch.equal(result_hpu, result_cpu)
@@ -1694,9 +1710,18 @@ def test_lop():
         result_hpu = torch.pow(hpu_tensor, 2).to("cpu")
         result_cpu = torch.pow(cpu_tensor, 2)
         assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
-        if i == 9999:
+
+        if i == 9:
             lop.stop()
             lop.flush()
+
+    metrics_files = [f for f in os.listdir() if re.match(metrics_pattern, f)]
+    assert metrics_files, "No metrics files found."
+    traces_files = [f for f in os.listdir() if re.match(traces_pattern, f)]
+    assert traces_files, "No traces files found."
+
+    for f in metrics_files + traces_files:
+        os.remove(f)
 
 
 # test node params patching for masked_fill op
