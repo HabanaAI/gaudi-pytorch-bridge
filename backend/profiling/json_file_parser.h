@@ -137,7 +137,7 @@ class JsonFileParser : public TraceSink {
 
   std::string toHex(uint64_t handle);
 
-  std::string splitNs(uint64_t value);
+  double convertToMs(uint64_t value);
 
   nlohmannV340::json constructEvent(
       const Activity& activity,

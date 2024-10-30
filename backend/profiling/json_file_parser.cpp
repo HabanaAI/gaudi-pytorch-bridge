@@ -60,7 +60,7 @@ void JsonFileParser::addCompleteActivity(
     auto event =
         constructEvent(activity, recipeInfo, transToRelativeTime(start));
     event["ph"] = "X";
-    event["dur"] = splitNs(end - start);
+    event["dur"] = convertToMs(end - start);
     addToEvents(event);
   }
 }
@@ -117,7 +117,7 @@ void JsonFileParser::addDevice(std::string_view name, int64_t id) {
   nlohmannV340::json process_name;
   process_name["name"] = "process_name";
   process_name["ph"] = "M";
-  process_name["ts"] = 0;
+  process_name["ts"] = 0.0;
   process_name["pid"] = id;
   process_name["tid"] = 0;
   process_name["args"]["name"] = name;
@@ -125,7 +125,7 @@ void JsonFileParser::addDevice(std::string_view name, int64_t id) {
   nlohmannV340::json process_labels;
   process_labels["name"] = "process_labels";
   process_labels["ph"] = "M";
-  process_labels["ts"] = 0;
+  process_labels["ts"] = 0.0;
   process_labels["pid"] = id;
   process_labels["tid"] = 0;
   process_labels["args"]["labels"] = name;
@@ -133,7 +133,7 @@ void JsonFileParser::addDevice(std::string_view name, int64_t id) {
   nlohmannV340::json process_sort_index;
   process_sort_index["name"] = "process_sort_index";
   process_sort_index["ph"] = "M";
-  process_sort_index["ts"] = 0;
+  process_sort_index["ts"] = 0.0;
   process_sort_index["pid"] = id;
   process_sort_index["tid"] = 0;
   process_sort_index["args"]["sort_index"] = id < 8 ? id + 0x1000000ll : id;
@@ -151,7 +151,7 @@ void JsonFileParser::addResource(
   nlohmannV340::json thread_name;
   thread_name["name"] = "thread_name";
   thread_name["ph"] = "M";
-  thread_name["ts"] = 0;
+  thread_name["ts"] = 0.0;
   thread_name["pid"] = deviceId;
   thread_name["tid"] = id;
   thread_name["args"]["name"] = name;
@@ -159,7 +159,7 @@ void JsonFileParser::addResource(
   nlohmannV340::json thread_sort_index;
   thread_sort_index["name"] = "thread_sort_index";
   thread_sort_index["ph"] = "M";
-  thread_sort_index["ts"] = 0;
+  thread_sort_index["ts"] = 0.0;
   thread_sort_index["pid"] = deviceId;
   thread_sort_index["tid"] = id;
   thread_sort_index["args"]["sort_index"] = sortIndex;
@@ -239,11 +239,8 @@ std::string JsonFileParser::toHex(uint64_t handle) {
   return stream.str();
 }
 
-std::string JsonFileParser::splitNs(uint64_t value) {
-  return std::to_string(value / 1000) + '.' +
-      (std::ostringstream()
-       << std::setw(3) << std::setfill('0') << value % 1000)
-          .str();
+double JsonFileParser::convertToMs(uint64_t value) {
+  return static_cast<double>(value) / 1000.0;
 }
 
 nlohmannV340::json JsonFileParser::constructEvent(
@@ -256,7 +253,7 @@ nlohmannV340::json JsonFileParser::constructEvent(
   runtime["name"] = activity.name;
   runtime["pid"] = activity.device;
   runtime["tid"] = activity.resource;
-  runtime["ts"] = splitNs(ts);
+  runtime["ts"] = convertToMs(ts);
 
   nlohmannV340::json args;
 
@@ -294,7 +291,7 @@ nlohmannV340::json JsonFileParser::constructFlow(
   flow["ph"] = start ? "s" : "f";
   flow["cat"] = cat;
   flow["name"] = name;
-  flow["ts"] = splitNs(ts);
+  flow["ts"] = convertToMs(ts);
   flow["pid"] = pid;
   flow["tid"] = tid;
   flow["bp"] = "e"; // if binding point is not set to enclosing slice ("e")
@@ -322,7 +319,7 @@ nlohmannV340::json JsonFileParser::constructMemoryEvent(
   memory_event["pid"] = pid;
   memory_event["s"] = "t";
   memory_event["tid"] = tid;
-  memory_event["ts"] = ts;
+  memory_event["ts"] = convertToMs(ts);
 
   profiler_event_index_++;
   nlohmannV340::json args;
