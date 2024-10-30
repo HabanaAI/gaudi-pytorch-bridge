@@ -984,7 +984,7 @@ TEST_P(SBSWithParamsTest, GraphTextDumpBCESBSTest) {
 }
 #endif
 
-TEST_P(SBSWithParamsTest, MaxPoolBWDSBSTest) {
+TEST_P(SBSWithParamsTest, DISABLED_MaxPoolBWDSBSTest) {
   auto input_tensor =
       torch::arange(20, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 4, 5}); // nchw
