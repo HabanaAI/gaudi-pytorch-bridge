@@ -579,7 +579,9 @@ SharedMetaDataVector MaxPoolWithIndicesBwdSharedMeta(
   return {maxPoolWithIndicesSharedMeta};
 }
 
-SharedMetaDataVector EmptySharedMeta(const at::Stack&) {
+SharedMetaDataVector EmptySharedMeta(
+    const at::Stack&,
+    habana_helpers::HabanaExecutionMode) {
   // op doesn't call any kernels or [SW-205149] return empty vector because
   // shape tensor validation will block shape agnostic flow
   return {};
