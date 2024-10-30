@@ -1455,42 +1455,30 @@ amin.out:
 
 aminmax:
   output_meta: AminmaxMeta
-  dtypes:
-    Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
-    Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Aminmax
   custom_fill_params: FillAminAmaxParams
   out_ids: [0, 0]
+  op_validator: AminmaxSharedMeta
 
 aminmax.out:
   output_meta: AminmaxMeta
-  dtypes:
-    Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
-    Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Aminmax
   custom_fill_params: FillAminAmaxParams
+  op_validator: AminmaxSharedMeta
 
 _aminmax:
   output_meta: AminmaxMeta
-  dtypes:
-    Gaudi: [Float, BFloat16, Long, Int, Byte, Short, Char]
-    Gaudi2: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Aminmax
   custom_fill_params: FillAminAmaxParams
   out_ids: [0, 0]
+  op_validator: AminmaxSharedMeta
 
 _aminmax.dim:
   output_meta: AminmaxMeta
-  dtypes:
-    Gaudi: [Float, BFloat16, Long, Int, Byte, Short, Char]
-    Gaudi2: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Aminmax
   custom_fill_params: FillAminAmaxParams
   out_ids: [0, 0]
+  op_validator: AminmaxSharedMeta
 
 any.all_out:
   output_meta: AllAnyMeta

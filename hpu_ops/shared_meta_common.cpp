@@ -351,33 +351,40 @@ SharedMetaDataVector AminAmaxSharedMeta(
     const at::Stack& stack,
     const std::string& guid,
     habana_helpers::HabanaExecutionMode executionMode) {
-  auto self = stack.at(0).toTensor();
-  const bool keepDim = stack.at(2).toBool();
-  auto rank = self.dim();
+  const auto self = stack.at(0).toTensor();
+  const bool keepDim = stack.size() >= 3 ? stack.at(2).toBool() : false;
+  const auto rank = self.dim();
   auto inputDtype = self.scalar_type();
+
+  SharedMetaDataVector metaVec;
+  if (inputDtype == c10::ScalarType::Bool) {
+    metaVec = BoolCastSharedMeta({self}, executionMode);
+  }
 
   if (c10::isIntegralType(inputDtype, true)) {
     inputDtype = c10::ScalarType::Int;
   }
   auto outputDtype = inputDtype;
 
-  SharedMetaDataVector metaVec;
-  if (inputDtype == c10::ScalarType::Bool) {
-    metaVec = BoolCastSharedMeta({self}, executionMode);
-    inputDtype = at::kBool;
-  }
-
   auto outputRank = rank;
   if (!keepDim) {
-    auto dim = stack.at(1);
-    auto dimVec = dim.isNone() ? std::vector<int64_t>{} : dim.toIntVector();
-    auto dimNum = dimVec.size();
-    outputRank = dimNum == 0 ? 0 : outputRank - dimNum;
+    int dimNum = 0;
+    if (stack.size() >= 2) {
+      const auto dim = stack.at(1);
+      if (dim.isIntList())
+        dimNum = dim.isNone() ? 0 : dim.toIntVector().size();
+      else if (dim.isInt())
+        dimNum = 1;
+    }
+    outputRank = dimNum == 0 || outputRank == 0 ? 0 : outputRank - dimNum;
   }
 
   SharedMetaData reduceMaxMultiDimFwdMeta(guid);
+  reduceMaxMultiDimFwdMeta.options.allowLongType = true;
   reduceMaxMultiDimFwdMeta.inputs_data = {{rank, inputDtype}};
-  reduceMaxMultiDimFwdMeta.outputs_data = {{outputRank, outputDtype}};
+  reduceMaxMultiDimFwdMeta.outputs_data.emplace_back(outputRank, outputDtype);
+  reduceMaxMultiDimFwdMeta.outputs_data.emplace_back(
+      outputRank, c10::ScalarType::Long);
   metaVec.push_back(reduceMaxMultiDimFwdMeta);
   return metaVec;
 }

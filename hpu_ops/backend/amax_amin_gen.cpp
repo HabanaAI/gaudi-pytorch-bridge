@@ -68,6 +68,20 @@ SharedMetaDataVector AminSharedMeta(
   return AminAmaxSharedMeta(stack, "reduce_min_multi_dim_fwd", executionMode);
 }
 
+SharedMetaDataVector AminmaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  auto aminmaxSharedMeta =
+      AminAmaxSharedMeta(stack, "reduce_min_multi_dim_fwd", executionMode);
+  auto amaxSharedMeta =
+      AminAmaxSharedMeta(stack, "reduce_max_multi_dim_fwd", executionMode);
+
+  aminmaxSharedMeta.insert(
+      aminmaxSharedMeta.end(), amaxSharedMeta.begin(), amaxSharedMeta.end());
+
+  return aminmaxSharedMeta;
+}
+
 std::shared_ptr<void> FillAminAmaxParams(const at::Stack& stack, size_t& size) {
   const auto [self, dim_vec, keepdim] = ParseSignature(stack);
   auto rank = self.dim();
