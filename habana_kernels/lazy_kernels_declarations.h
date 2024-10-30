@@ -940,9 +940,4 @@ CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
 
 #undef CONV2D_FP8_LAZY
 
-at::Tensor sum_fp8_lazy(
-    const at::Tensor& self,
-    at::OptionalIntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> out_dtype);
 } // namespace habana_lazy

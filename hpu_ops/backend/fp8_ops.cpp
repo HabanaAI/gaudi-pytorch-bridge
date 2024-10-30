@@ -700,67 +700,6 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(conv[0]);
 }
 
-/********** SumFp8 **********/
-
-static std::shared_ptr<void> FillSumFp8Params(
-    int ndims,
-    at::IntArrayRef dims,
-    bool keepdim,
-    size_t& size) {
-  PARAMS_STUB(ns_Reduction::ParamsV2);
-  unsigned maskval = 0;
-  for (size_t i = 0; i < dims.size(); ++i) {
-    auto d = c10::maybe_wrap_dim(dims[i], ndims); // handling negative indices
-    maskval = maskval | (1 << (ndims - d - 1)); // (ndims-i-1) is TPC order
-  }
-
-  params->reductionDimensionMask = maskval;
-  params->keepDim = keepdim;
-  return params;
-}
-
-sizes_vec SumFp8OutputShape(const at::Stack& stack) {
-  auto dims = get_dims(stack, 1);
-  at::DimVector shape = at::meta::get_reduction_shape(
-      stack_tensor(stack, 0), dims, stack[2].toBool());
-  return {std::vector<int64_t>(shape.begin(), shape.end())};
-}
-
-SumFp8::SumFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "reduce_sum_multi_dim_fwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetComputeOutputShapes(SumFp8OutputShape);
-}
-
-void SumFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
-  auto input = stack_tensor(stack, 0);
-  auto dims = get_dims(stack, 1);
-  auto keepdims = stack[2].toBool();
-  auto out_dtype =
-      stack[3].toOptional<at::ScalarType>().value_or(input.scalar_type());
-
-  auto out_shape = SumFp8OutputShape(stack)[0];
-
-  size_t size = 0;
-  auto params = FillSumFp8Params(input.dim(), dims, keepdims, size);
-
-  auto result = OpBackend::BuildNode(
-      this,
-      graph,
-      {GetGuid(),
-       {syn_in(0)},
-       {{out_shape, out_dtype, 0}},
-       params.get(),
-       size});
-  syn_out(0) = std::move(result[0]);
-}
-
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -791,5 +730,4 @@ static const auto& CastKernelRegistry =
             "hpu::in_place_interleave",
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave))
         .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
-        .add("hpu::conv2d_fp8.scalar", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
-        .add("hpu::sum_fp8", KERNEL_FN_GLOBAL(habana::SumFp8));
+        .add("hpu::conv2d_fp8.scalar", KERNEL_FN_GLOBAL(habana::Conv2dFp8));

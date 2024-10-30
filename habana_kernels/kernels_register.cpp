@@ -2572,8 +2572,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor");
   m.def(
-      "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor");
-  m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   HABANA_RANDOM_DEF(bernoulli, "Tensor seed, Tensor self")
   HABANA_RANDOM_DEF_VARIANT(bernoulli, p, "Tensor seed, Tensor self, float p")
@@ -2653,7 +2651,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain_wrap);
-  m.impl("hpu::sum_fp8", sum_fp8_lazy);
   m.impl("hpu::kv_reorder_", kv_reorder_wrap);
   m.impl(
       "hpu::scaled_masked_triangular_softmax",

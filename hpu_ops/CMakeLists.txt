@@ -182,6 +182,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/floor_divide_gen.cpp
   backend/foreach_gen.cpp
   backend/fp8_ops.cpp
+  backend/fp8_ops_gen.cpp
   backend/frac_gen.cpp
   backend/frexp_gen.cpp
   backend/full_gen.cpp

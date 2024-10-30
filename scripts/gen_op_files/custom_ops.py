@@ -47,6 +47,7 @@ input_types_map = {
     "int?": "c10::optional<int64_t>",
     "int[]": "IntArrayRef",
     "int[]?": "OptionalIntArrayRef",
+    "int[1]?": "OptionalIntArrayRef",
     "str": "c10::string_view",
     "str?": "c10::optional<c10::string_view>",
 }

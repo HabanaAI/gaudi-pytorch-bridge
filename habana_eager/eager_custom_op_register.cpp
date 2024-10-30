@@ -1288,22 +1288,6 @@ at::Tensor custom_softmax(const at::Tensor& input, int64_t flavor) {
   return hpu_op.call();
 }
 
-at::Tensor sum_fp8(
-    const at::Tensor& self,
-    at::OptionalIntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> out_dtype) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("sum_fp8 :", DUMP_4ARGS(self, dim, keepdim, out_dtype));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::sum_fp8",
-      {self, dim, keepdim, out_dtype},
-      habana::SumFp8OutputShape};
-  hpu_op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
-  return hpu_op.call();
-}
-
 at::Tensor slice_ds(
     const at::Tensor& self,
     c10::SymInt dim,
@@ -2358,8 +2342,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
   m.def(
-      "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor");
-  m.def(
       "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor, Tensor)");
@@ -2539,7 +2521,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain);
-  m.impl("hpu::sum_fp8", sum_fp8);
   m.impl("hpu::slice_ds", slice_ds);
   m.impl("hpu::constant_pad_nd_ds", constant_pad_nd_ds);
   m.impl("hpu::fused_clip_norm", fused_clip_norm);

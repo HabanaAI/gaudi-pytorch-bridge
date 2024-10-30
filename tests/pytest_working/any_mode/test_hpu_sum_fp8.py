@@ -14,18 +14,14 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_pytest_mode_compile,
 )
 
-pytestmark = [
-    pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support fp8"),
-]
 
-
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-184492")
+@pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support fp8")
 @pytest.mark.parametrize("dim", [0, 1, 2, (0, 1), None])
 @pytest.mark.parametrize("keep_dim", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float8_e5m2, torch.float8_e4m3fn])
@@ -35,11 +31,7 @@ def test_sum_fp8(dim, keep_dim, dtype, out_dtype):
     input_hpu = input.to("hpu")
     fn = torch.ops.hpu.sum_fp8
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
-
+    fn = compile_function_if_compile_mode(fn)
     result = fn(input_hpu, dim, keep_dim, out_dtype)
 
     if out_dtype:

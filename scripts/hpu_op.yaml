@@ -7393,6 +7393,13 @@ rms_norm_fast_backward:
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
 
+sum_fp8:
+  custom_op_schema: "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor"
+  custom_fill_params: FillSumFp8Params
+  output_meta: SumFp8Meta
+  guid: reduce_sum_multi_dim_fwd
+  out_ids: [0]
+
 plain_index:
   custom_op_schema: "hpu::plain_index(Tensor self, Tensor[] indices) -> Tensor"
   output_meta: PlainIndexMeta

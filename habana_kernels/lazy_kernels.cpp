@@ -7654,15 +7654,5 @@ at::Tensor conv2d_fp8_lazy_common(
 CONV2D_FP8_LAZY(conv2d_fp8_lazy, const c10::optional<at::Tensor>&)
 CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
 
-at::Tensor sum_fp8_lazy(
-    const at::Tensor& self,
-    at::OptionalIntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> out_dtype) {
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::sum_fp8", {self, dim, keepdim, out_dtype}, SumFp8OutputShape};
-  hpu_op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
-  return hpu_op.call();
-}
 
 } // namespace habana_lazy
