@@ -29,7 +29,7 @@ cpu = torch.device("cpu")
 
 
 def is_torch_at_least(req_ver_str: str):
-    return Version(torch.__version__) >= Version(req_ver_str)
+    return Version(Version(torch.__version__).base_version) >= Version(req_ver_str)
 
 
 def is_device(device_name):
