@@ -13,11 +13,16 @@
 import pytest
 import torch
 import torch.distributed._functional_collectives as funcol
+from test_utils import is_torch_at_least
 from torch.distributed._tensor import Replicate, Shard, distribute_tensor, init_device_mesh
-from torch.distributed._tensor.debug import CommDebugMode
 from torch.distributed._tensor.experimental import local_map
 from torch.testing._internal.common_utils import run_tests
 from torch.testing._internal.distributed._tensor.common_dtensor import DTensorTestBase, with_comms
+
+if is_torch_at_least("2.5"):
+    from torch.distributed.tensor.debug import CommDebugMode
+else:
+    from torch.distributed._tensor.debug import CommDebugMode
 
 funcol_py = torch.ops.c10d_functional
 
