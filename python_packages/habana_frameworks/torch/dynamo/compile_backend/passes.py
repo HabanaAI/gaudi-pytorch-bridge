@@ -18,7 +18,7 @@ import queue
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
@@ -1014,7 +1014,7 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     return False
 
 
-def match_full_copy_pattern(node: torch.fx.Node) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
+def match_full_copy_pattern(node: torch.fx.Node) -> Tuple[bool, torch.fx.Node, torch.fx.Node]:
     is_full_copy_pattern = (
         node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
     )
@@ -1025,7 +1025,7 @@ def match_full_copy_pattern(node: torch.fx.Node) -> tuple[bool, torch.fx.Node, t
     copy_args = list(copy_node.args)
     if full_node != copy_args[0]:
         return (False, None, None)
-    return (True, full_node, copy_node)
+    return True, full_node, copy_node
 
 
 def pass_post_process_partitions(ctx: OptimizerContext):
