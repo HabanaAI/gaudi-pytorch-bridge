@@ -12,9 +12,11 @@
  */
 
 #include "hpu_ops/fp8_ops.h"
+#include "generated/backend/conv2d_fp8.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/batched_matmul_output_shape.h"
+#include "hpu_ops/common/convolution_gen.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/fp8_utils.h"
 
@@ -583,15 +585,23 @@ sym_sizes_vec conv2d_fp8_out_shape(
 
 REGISTER_CUSTOM_OP_OUTSHAPE_FUN(conv2d_fp8, conv2d_fp8_out_shape);
 
-sizes_vec Conv2dFp8OutputShape(const at::Stack& stack) {
-  auto shape_in = stack_tensor(stack, 0).sizes();
-  auto shape_wt = stack_tensor(stack, 1).sizes();
-  const auto stride = stack[3].toIntList().vec();
-  const auto padding = stack[4].toIntList().vec();
-  const auto dilation = stack[5].toIntList().vec();
+OutputMetaDataVector Conv2dFp8Meta(const at::Stack& stack) {
+  const auto input_shape = stack_tensor(stack, 0).sizes();
+  const auto weight_shape = stack_tensor(stack, 1).sizes();
+  const auto stride =
+      expand_param_if_needed(stack[3].toIntList().vec(), "stride", 2);
+  const auto padding =
+      expand_param_if_needed(stack[4].toIntList().vec(), "padding", 2);
+  const auto dilation =
+      expand_param_if_needed(stack[5].toIntList().vec(), "dilation", 2);
+  const auto out_dtype =
+      stack[7].toOptional<c10::ScalarType>().value_or(at::ScalarType::BFloat16);
 
-  return {
-      ComputeConv2dOutputSize(shape_in, shape_wt, stride, padding, dilation)};
+  OutputMetaData meta;
+  meta.dtype = out_dtype;
+  meta.shape = ComputeConv2dOutputSize(
+      input_shape, weight_shape, stride, padding, dilation);
+  return {meta};
 }
 
 static synConvolutionParams FillConv2dFp8Params(
@@ -616,19 +626,17 @@ static synConvolutionParams FillConv2dFp8Params(
   return params;
 }
 
-Conv2dFp8::Conv2dFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "conv2d_fp8", scalar_type, {0}, {}, {}, false) {
-  SetComputeOutputShapes(Conv2dFp8OutputShape);
-}
-
 void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "Conv2dFp8::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto weight = stackGetter.getNextInput<TensorsPair>();
   auto bias_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto stride = stackGetter.getNextInput<std::vector<int64_t>>();
-  auto padding = stackGetter.getNextInput<std::vector<int64_t>>();
-  auto dilation = stackGetter.getNextInput<std::vector<int64_t>>();
+  auto stride = expand_param_if_needed(
+      stackGetter.getNextInput<std::vector<int64_t>>(), "stride", 2);
+  auto padding = expand_param_if_needed(
+      stackGetter.getNextInput<std::vector<int64_t>>(), "padding", 2);
+  auto dilation = expand_param_if_needed(
+      stackGetter.getNextInput<std::vector<int64_t>>(), "dilation", 2);
   auto groups = stackGetter.getNextInput<int>();
   auto out_dtype =
       stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
@@ -648,18 +656,12 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
         "Bias must be 1D tensor with size equal to weight dim0");
   }
 
-  SetSynapseLayouts(
-      {sh::layouts::SynapseLayoutFormat::WHCN,
-       sh::layouts::SynapseLayoutFormat::SRCK,
-       sh::layouts::SynapseLayoutFormat::DONT_CARE,
-       sh::layouts::SynapseLayoutFormat::DONT_CARE,
-       sh::layouts::SynapseLayoutFormat::DONT_CARE,
-       sh::layouts::SynapseLayoutFormat::DONT_CARE},
-      {sh::layouts::SynapseLayoutFormat::WHCN});
+  update_guid_dtype(guid_, out_dtype);
 
-  auto out_shape = Conv2dFp8OutputShape(stack)[0];
+  auto out_shape = ComputeConv2dOutputSize(
+      input.pt_t.sizes(), weight.pt_t.sizes(), stride, padding, dilation);
   auto params = FillConv2dFp8Params(
-      weight.pt_t.sizes().vec(), stride, padding, dilation, groups);
+      weight.pt_t.sizes(), stride, padding, dilation, groups);
 
   std::vector<synTensor> syn_inputs{input.syn_t, weight.syn_t};
   syn_inputs.push_back(bias_opt ? bias_opt->syn_t : nullptr);
@@ -691,7 +693,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto conv = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("conv2d_fp8", out_dtype),
+      {guid_,
        std::move(syn_inputs),
        {{out_shape, out_dtype, 0}},
        &params,
@@ -728,6 +730,4 @@ static const auto& CastKernelRegistry =
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave_))
         .add(
             "hpu::in_place_interleave",
-            KERNEL_FN_GLOBAL(habana::InPlaceInterleave))
-        .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
-        .add("hpu::conv2d_fp8.scalar", KERNEL_FN_GLOBAL(habana::Conv2dFp8));
+            KERNEL_FN_GLOBAL(habana::InPlaceInterleave));

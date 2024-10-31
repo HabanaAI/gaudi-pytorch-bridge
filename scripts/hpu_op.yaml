@@ -7338,6 +7338,26 @@ cast_to_fp8_hybrid:
   output_meta: CastToFp8HybridMeta
   custom_fill_params: CastToFp8HybridParams
 
+conv2d_fp8:
+  custom_op_schema: "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, SymInt[2] padding=0, SymInt[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor"
+  guid: conv2d_fp8
+  out_ids: [0]
+  op_backend: Conv2dFp8
+  output_meta: Conv2dFp8Meta
+  synapse_layouts:
+  - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN]
+
+conv2d_fp8.scalar:
+  custom_op_schema: "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, SymInt[2] padding=0, SymInt[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor"
+  guid: conv2d_fp8
+  out_ids: [0]
+  op_backend: Conv2dFp8
+  output_meta: Conv2dFp8Meta
+  synapse_layouts:
+  - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN]
+
 fake_quant_fp4:
   custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
   custom_fill_params: FillFakeQuantFp4Params

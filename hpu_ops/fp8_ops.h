@@ -41,11 +41,9 @@ DEFINE_OP(CastFromFp8)
 DEFINE_OP(Fp8Gemm)
 DEFINE_OP(Fp8GemmV2)
 HPU_OP_BACKEND(InPlaceInterleaveCommon)
-DEFINE_OP(Conv2dFp8)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
 OUTSHAPE_DECL(Fp8GemmV2OutputShape)
-OUTSHAPE_DECL(Conv2dFp8OutputShape)
 
 // Determines if STOCHASTIC_FLUSH_TO_ZERO should be used instead
 // of STORCHASTIC_ROUNDING.

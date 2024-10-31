@@ -33,6 +33,7 @@ input_types_map = {
     "SymInt": "c10::SymInt",
     "SymInt?": "c10::optional<c10::SymInt>",
     "SymInt[]": "c10::SymIntArrayRef",
+    "SymInt[2]": "c10::SymIntArrayRef",
     "SymInt[]?": "OptionalSymIntArrayRef",
     "Tensor": "const Tensor &",
     "Tensor?": "const c10::optional<Tensor> &",

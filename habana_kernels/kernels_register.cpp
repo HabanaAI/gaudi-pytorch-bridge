@@ -2568,10 +2568,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
   m.def(
-      "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor");
-  m.def(
-      "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor");
-  m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   HABANA_RANDOM_DEF(bernoulli, "Tensor seed, Tensor self")
   HABANA_RANDOM_DEF_VARIANT(bernoulli, p, "Tensor seed, Tensor self, float p")
@@ -2656,8 +2652,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax_wrap);
   m.impl("hpu::in_place_interleave_", in_place_interleave_wrap);
-  m.impl("hpu::conv2d_fp8", conv2d_fp8_lazy);
-  m.impl("hpu::conv2d_fp8.scalar", conv2d_fp8_lazy_scalar);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

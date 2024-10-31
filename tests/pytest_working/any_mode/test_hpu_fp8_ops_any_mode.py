@@ -834,6 +834,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
     kernel = (2, 2)
     stride = (1, 1)
     padding = (0, 0)
+    dilation = (1,)
 
     input_cpu = torch.rand((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
     input_hpu = input_cpu.to("hpu").to(fp8_dtype)
@@ -844,7 +845,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
     bias_cpu = torch.rand(out_channels, dtype=out_dtype).to(fp8_dtype).to(out_dtype) if bias else None
     bias_hpu = bias_cpu.to("hpu") if bias else None
 
-    conv_ref_unscaled = torch.nn.functional.conv2d(input_cpu, weight_cpu, None, stride, padding, 1, 1)
+    conv_ref_unscaled = torch.nn.functional.conv2d(input_cpu, weight_cpu, None, stride, padding, dilation, 1)
 
     def process_scale(scale, value):
         scale_cpu = 1
@@ -870,7 +871,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
         torch._dynamo.reset()
         fn = torch.compile(fn, backend="hpu_backend", dynamic=dynamic)
 
-    conv_args = [input_hpu, weight_hpu, bias_hpu, stride, padding, 1, 1, out_dtype]
+    conv_args = [input_hpu, weight_hpu, bias_hpu, stride, padding, dilation, 1, out_dtype]
     if scaleA_hpu is not None or scaleB_hpu is not None:
         conv_args.extend([scaleA_hpu, scaleB_hpu])
 
@@ -887,7 +888,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
 
     compare_tensors(conv, conv_ref, atol=1e-2, rtol=rtol)
 
-    if is_pytest_mode_compile() and not dynamic:  # https://jira.habana-labs.com/browse/SW-206693
+    if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("conv2d_fp8")
 
 
@@ -904,8 +905,9 @@ def test_conv2d_fp8_scalar_optimization(scaleA, scaleB):
     N, C, H, W = (4, 3, 12, 12)
     out_channels = 16
     kernel = (2, 2)
-    stride = (1, 1)
+    stride = (1,)
     padding = (0, 0)
+    dilation = (1, 1)
 
     input_cpu = torch.rand((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
     input_hpu = input_cpu.to("hpu").to(fp8_dtype)
@@ -920,8 +922,8 @@ def test_conv2d_fp8_scalar_optimization(scaleA, scaleB):
         torch._dynamo.reset()
         fn = torch.compile(fn, backend="hpu_backend")
 
-    conv = fn(input_hpu, weight_hpu, None, stride, padding, 1, 1, out_dtype, scaleA, scaleB)
-    conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, None, stride, padding, 1, 1) * (scaleA * scaleB)
+    conv = fn(input_hpu, weight_hpu, None, stride, padding, dilation, 1, out_dtype, scaleA, scaleB)
+    conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, None, stride, padding, dilation, 1) * (scaleA * scaleB)
 
     compare_tensors(conv, conv_ref, atol=1e-2, rtol=0.02)
 
@@ -943,7 +945,8 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
     out_channels = 16
     kernel = (2, 2)
     stride = (1, 1)
-    padding = (0, 0)
+    padding = (0,)
+    dilation = (1, 1)
 
     input_hpu = (torch.rand(N, C, H, W) * 5).to(fp8_dtype).to("hpu")
     weight_hpu = (torch.rand(out_channels, C, kernel[0], kernel[1]) * 5).to(fp8_dtype).to("hpu")
@@ -955,7 +958,9 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
     def fn(input, weight, scale_a, scale_b, scale_out):
         return (
             torch.ops.hpu.cast_to_fp8_v2(
-                torch.ops.hpu.conv2d_fp8(input, weight, None, stride, padding, 1, 1, out_dtype, scale_a, scale_b),
+                torch.ops.hpu.conv2d_fp8(
+                    input, weight, None, stride, padding, dilation, 1, out_dtype, scale_a, scale_b
+                ),
                 scale_out,
                 False,
                 False,

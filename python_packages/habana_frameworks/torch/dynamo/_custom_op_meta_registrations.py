@@ -192,7 +192,9 @@ def meta_fp8_gemm_v2_scalar_list(
 
 
 def to_list_if_necessary(input, size):
-    return input if hasattr(input, "__iter__") else [input] * size
+    if hasattr(input, "__iter__"):
+        return input * size if len(input) == 1 else input
+    return [input] * size
 
 
 def meta_conv2d_fp8_common(
