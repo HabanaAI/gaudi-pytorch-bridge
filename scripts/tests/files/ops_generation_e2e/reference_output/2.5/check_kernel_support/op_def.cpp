@@ -7,7 +7,7 @@
 #include "bitwise_left_shift.h"
 #include "bucketize.h"
 #include "clone.h"
-#include "convolution_backward_overrideable.h"
+#include "convolution_backward.h"
 #include "elu.h"
 #include "eq.h"
 #include "isfinite.h"
@@ -39,6 +39,7 @@ using namespace torch::jit;
 #include<hpu_op7.h>
 #include<hpu_op8.h>
 #include<hpu_op9.h>
+#include<hpu_op_custom.h>
 std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, const py::list&, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {
 {"__ilshift__", &check_support<habana::shared_layer___ilshift__>},
 {"_foreach_add_", &check_support<habana::shared_layer__foreach_add_>},
@@ -49,9 +50,10 @@ std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, b
 {"bitwise_left_shift", &check_support<habana::shared_layer_bitwise_left_shift>},
 {"bucketize", &check_support<habana::shared_layer_bucketize>},
 {"clone", &check_support<habana::shared_layer_clone>},
-{"convolution_backward_overrideable", &check_support<habana::shared_layer_convolution_backward_overrideable>},
+{"convolution_backward", &check_support<habana::shared_layer_convolution_backward>},
 {"elu", &check_support<habana::shared_layer_elu>},
 {"eq_out", &check_support<habana::shared_layer_eq_out>},
+{"exp_fast_math", &check_support<habana::shared_layer_exp_fast_math>},
 {"isfinite", &check_support<habana::shared_layer_isfinite>},
 {"linear_backward", &check_support<habana::shared_layer_linear_backward>},
 {"mul_out", &check_support<habana::shared_layer_mul_out>},
