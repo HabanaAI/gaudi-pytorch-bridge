@@ -20,10 +20,8 @@
 namespace at {
 namespace hpu {
 HPUEvent::~HPUEvent() {
-  auto& dev = habana::HPUDeviceContext::get_device();
-  if (is_created_) {
-    dev.delete_event(id_, flags_);
-  }
+  if (is_created_ && habana::HPUDeviceContext::is_device_acquired())
+    habana::HPUDeviceContext::get_device().delete_event(id_, flags_);
 }
 
 void HPUEvent::createEvent([[maybe_unused]] DeviceIndex device_index) {
