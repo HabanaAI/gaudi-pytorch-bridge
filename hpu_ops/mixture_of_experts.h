@@ -23,9 +23,4 @@ struct MixtureOfExperts : OpBackend {
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
-struct MixtureOfExpertsFusedWeights : OpBackend {
-  MixtureOfExpertsFusedWeights(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
-
 } // namespace habana

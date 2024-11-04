@@ -18,100 +18,82 @@ namespace habana {
 MixtureOfExperts::MixtureOfExperts(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "moe", scalar_type, {0}, {}, {}, false) {}
 
-MixtureOfExpertsFusedWeights::MixtureOfExpertsFusedWeights(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(device_id, "moe", scalar_type, {0}, {}, {}, false) {}
-
 static const std::map<c10::string_view, MoeActivationMode_t> activationModeMap =
     {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
      {"relu", MoeActivationMode_t::MOE_ACTIVATION_MODE_RELU},
      {"silu", MoeActivationMode_t::MOE_ACTIVATION_MODE_SILU}};
 
+std::shared_ptr<void> FillMixtureOfExpertsParams(
+    const at::Stack& stack,
+    size_t& size,
+    const int permuted_weights_idx,
+    const bool fused_gemm) {
+  const auto permuted_weights = stack.at(permuted_weights_idx).toBool();
+  const auto activation_mode =
+      stack.at(permuted_weights_idx + 1).to<c10::string_view>();
+  auto activationIterator = activationModeMap.find(activation_mode);
+  TORCH_CHECK(
+      activationIterator != activationModeMap.end(),
+      "Activation \"",
+      activation_mode,
+      "\" not found among MoeActivationMode_t enum values.")
+
+  PARAMS_STUB(ns_MoeKernel::ParamsV2);
+  params->experts.activation = activationIterator->second;
+  params->router.experts_min =
+      stack.at(permuted_weights_idx + 2).toScalar().toInt();
+  params->router.experts_max =
+      stack.at(permuted_weights_idx + 3).toScalar().toInt();
+  params->flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
+  params->flags |= (fused_gemm ? MoeFlags_t::MOE_FLAGS_FUSED_GEMM : 0);
+  return params;
+}
+
+OutputMetaDataVector MixtureOfExpertsMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  OutputMetaDataVector meta(1);
+  meta[0].shape = self.sizes().vec();
+  meta[0].dtype = self.scalar_type();
+  return meta;
+}
+
 void MixtureOfExperts::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto hidden_states = stack.at(0).toTensor();
-  auto numExperts = stack.at(3).toTensorList().size();
+  const bool fused_weights = !stack.at(5).isTensorList();
+  auto num_experts = stack.at(3).toTensorList().size();
+  auto weights_per_expert = fused_weights ? 2 : 3;
+  auto permute_weights_idx = fused_weights ? 5 : 6;
 
-  std::vector<synTensor> inputs = {syn_in(0), syn_in(1), syn_in(2)};
-  for (size_t i = 3; i < 3 + numExperts * 3; i++) {
+  std::vector<synTensor> inputs;
+  for (size_t i = 0; i < 3 + num_experts * weights_per_expert; i++) {
     inputs.push_back(syn_in(i));
   }
 
-  const bool permuted_weights = stack.at(6).toBool();
-  const auto activation_mode = stack.at(7).to<c10::string_view>();
-  auto activationIterator = activationModeMap.find(activation_mode);
-  TORCH_CHECK(
-      activationIterator != activationModeMap.end(),
-      "Activation \"",
-      activation_mode,
-      "\" not found among MoeActivationMode_t enum values.")
-
-  ns_MoeKernel::ParamsV2 params;
-  params.experts.activation = activationIterator->second;
-  params.router.experts_min = stack.at(8).toScalar().toInt();
-  params.router.experts_max = stack.at(9).toScalar().toInt();
-  params.flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
+  size_t size = 0;
+  auto params = FillMixtureOfExpertsParams(
+      stack, size, permute_weights_idx, fused_weights);
+  auto meta = MixtureOfExpertsMeta(stack)[0];
 
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe", hidden_states.scalar_type()),
+      {get_guid_with_precision("moe", meta.dtype),
        std::move(inputs),
-       {{hidden_states.sizes(), hidden_states.scalar_type(), 0}},
-       &params,
-       sizeof(params)});
-
-  syn_out(0) = std::move(moe_result[0]);
-}
-
-void MixtureOfExpertsFusedWeights::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto hidden_states = stack.at(0).toTensor();
-  auto numExperts = stack.at(3).toTensorList().size();
-
-  std::vector<synTensor> inputs = {syn_in(0), syn_in(1), syn_in(2)};
-  for (size_t i = 3; i < 3 + numExperts * 2; i++) {
-    inputs.push_back(syn_in(i));
-  }
-
-  const bool permuted_weights = stack.at(5).toBool();
-  const auto activation_mode = stack.at(6).to<c10::string_view>();
-
-  auto activationIterator = activationModeMap.find(activation_mode);
-  TORCH_CHECK(
-      activationIterator != activationModeMap.end(),
-      "Activation \"",
-      activation_mode,
-      "\" not found among MoeActivationMode_t enum values.")
-
-  ns_MoeKernel::ParamsV2 params;
-  params.experts.activation = activationIterator->second;
-  params.router.experts_min = stack.at(7).toScalar().toInt();
-  params.router.experts_max = stack.at(8).toScalar().toInt();
-  params.flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
-  params.flags |= MoeFlags_t::MOE_FLAGS_FUSED_GEMM;
-
-  auto moe_result = OpBackend::BuildNode(
-      this,
-      graph,
-      {get_guid_with_precision("moe", hidden_states.scalar_type()),
-       std::move(inputs),
-       {{hidden_states.sizes(), hidden_states.scalar_type(), 0}},
-       &params,
-       sizeof(params)});
+       {{meta.shape, meta.dtype, 0}},
+       params.get(),
+       size});
 
   syn_out(0) = std::move(moe_result[0]);
 }
 
 } // namespace habana
 
-static const auto& MoEKernelRegistry = habana::KernelRegistry().add(
-    "hpu::mixture_of_experts",
-    KERNEL_FN_GLOBAL(habana::MixtureOfExperts));
-
-static const auto& MoEFusedWeightsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::mixture_of_experts.fused_weights",
-    KERNEL_FN_GLOBAL(habana::MixtureOfExpertsFusedWeights));
+static const auto& MixtureOfExpertsKernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "hpu::mixture_of_experts",
+            KERNEL_FN_GLOBAL(habana::MixtureOfExperts))
+        .add(
+            "hpu::mixture_of_experts.fused_weights",
+            KERNEL_FN_GLOBAL(habana::MixtureOfExperts));
