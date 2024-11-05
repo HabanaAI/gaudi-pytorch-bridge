@@ -25,6 +25,7 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from packaging.version import Version
 from test_utils import fga_assert_helper, is_gaudi1
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
@@ -199,6 +200,9 @@ def use_pt2e_quant_flow(
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
 def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export):
+    if Version(Version(torch.__version__).base_version) >= Version("2.5"):
+        if not (use_graph_break == False and pass_input_during_export == True):
+            pytest.xfail("SW-203886")
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(quant_dtype)
@@ -232,6 +236,9 @@ def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_br
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
 def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export):
+    if Version(Version(torch.__version__).base_version) >= Version("2.5"):
+        if not (use_graph_break == False and pass_input_during_export == True):
+            pytest.xfail("SW-203887")
 
     class custom_quantizer(Quantizer):
 
