@@ -101,9 +101,12 @@ void HPUDeviceContextImpl::Init() {
 }
 
 void HPUDeviceContextImpl::Finish() {
-  device_context.lowering_thread_.reset();
-  device_context.compile_thread_.reset();
-  device_context.execute_thread_.reset();
+  {
+    habana_helpers::AutoNoGIL gil_release;
+    device_context.lowering_thread_.reset();
+    device_context.compile_thread_.reset();
+    device_context.execute_thread_.reset();
+  }
   device_context.recipe_cache_.reset();
   device_context.scalar_cache_.reset();
 
