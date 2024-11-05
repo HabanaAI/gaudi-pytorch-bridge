@@ -1508,8 +1508,6 @@ eager_custom_frontends_whitelist = [
     "BernoulliFE",
     "BernoulliFEOut",
     "ClampFE",
-    "ConvolutionFE",
-    "ConvolutionBackwardFE",
     "FillFE",
     "BinaryScalarFE",
     "GeneratorToSeed",
@@ -1518,6 +1516,8 @@ eager_custom_frontends_whitelist = [
     "IndexOutFE",
     "NativeDropoutFE",
     "TopKFE",
+    "ConvolutionOverrideableFE",
+    "ConvolutionBackwardOverrideableFE",
 ]
 
 
@@ -1665,6 +1665,18 @@ def get_op_group(opname):
     return opgroup
 
 
+# List of ops that shouldn't be generated in lazy mode
+lazy_frontend_blacklist = [
+    # convolution and convolution_backward are handled in lazy mode with
+    # convolution_overrideable and convolution_backward_overrideable
+    "convolution",
+    "convolution_backward",
+]
+
+# List of ops that shouldn't be generated in eager mode
+eager_frontend_blacklist = []
+
+
 def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False, ns="aten"):
     dtdf = fndef.dtdf
     tree = parser.parse(fndef.cpp_sig)
@@ -1701,7 +1713,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         op_backend = get_op_backend_class_impl(ctxop, fname, op_backend_class, len(call_args), param_vars)
 
     op_frontend_eager = None
-    if dtdf:
+    if dtdf and opgroup not in eager_frontend_blacklist:
         op_frontend_eager = eager_frontend(
             ctxop,
             tfetcher,
@@ -1719,19 +1731,21 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     if ctxop.get_lazy():
         ctxop.set_lazy()
 
-    op_frontend_lazy = lazy_frontend(
-        ctxop,
-        tfetcher,
-        fname,
-        aten_sig,
-        rtype,
-        param_vars,
-        call_args,
-        sig,
-        params,
-        is_check_kernel_support,
-        ns,
-    )
+    op_frontend_lazy = None
+    if is_check_kernel_support or opgroup not in lazy_frontend_blacklist:
+        op_frontend_lazy = lazy_frontend(
+            ctxop,
+            tfetcher,
+            fname,
+            aten_sig,
+            rtype,
+            param_vars,
+            call_args,
+            sig,
+            params,
+            is_check_kernel_support,
+            ns,
+        )
 
     return OpGen(
         tree=tree,
@@ -1835,8 +1849,8 @@ non_mandatory_ops_whitelist = [
     "all",
     "any",
     "complex",
-    "convolution",
-    "convolution_backward",
+    "convolution_overrideable",
+    "convolution_backward_overrideable",
     "is_pinned",
     "native_layer_norm",
     "native_group_norm",

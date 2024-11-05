@@ -11,7 +11,7 @@ using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
 #include "_native_batch_norm_legit.h"
-#include "convolution_backward.h"
+#include "convolution_backward_overrideable.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -55,10 +55,10 @@ namespace habana {
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_native_batch_norm_legit, hpu_op);
 }
 
-::std::tuple<at::Tensor,at::Tensor,at::Tensor> convolution_backward(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, at::OptionalSymIntArrayRef bias_sizes, c10::SymIntArrayRef stride, c10::SymIntArrayRef padding, c10::SymIntArrayRef dilation, bool transposed, c10::SymIntArrayRef output_padding, c10::SymInt groups, ::std::array<bool,3> output_mask) {
+::std::tuple<at::Tensor,at::Tensor,at::Tensor> convolution_backward_overrideable(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, c10::SymIntArrayRef stride, c10::SymIntArrayRef padding, c10::SymIntArrayRef dilation, bool transposed, c10::SymIntArrayRef output_padding, c10::SymInt groups, ::std::array<bool,3> output_mask) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("convolution_backward: ", DUMP_11ARGS(grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask));
+  PT_OP_INFO("convolution_backward_overrideable: ", DUMP_10ARGS(grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
@@ -66,13 +66,13 @@ namespace habana {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward, grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  FALLBACK_IF_UNSUPPORTED_DTYPE(input, convolution_backward, grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  FALLBACK_IF_UNSUPPORTED_DTYPE(weight, convolution_backward, grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  FALLBACK_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  FALLBACK_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
 
-  LazyOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::convolution_backward", {grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask}};
-  hpu_op.SetOutputMetaFn(ConvolutionMetaBwd);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(convolution_backward, hpu_op);
+  ConvolutionBackwardOverrideableFE<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::convolution_backward_overrideable", {grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask}};
+  hpu_op.SetOutputMetaFn(ConvolutionOverrideableMetaBwd);
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(convolution_backward_overrideable, hpu_op);
 }
 
 
@@ -84,7 +84,7 @@ static const auto& kr_gen_8 = KernelRegistry()
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("_native_batch_norm_legit", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, at::Tensor &, at::Tensor &, bool, double, double)>(&habana::_native_batch_norm_legit));
-  m.impl("convolution_backward", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, at::OptionalSymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward));
+  m.impl("convolution_backward_overrideable", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward_overrideable));
 
 }
 

@@ -15,46 +15,26 @@ namespace habana {
 
 
 
-struct shared_layer_convolution_backward : SharedLayerOp {
+struct shared_layer_convolution_backward_overrideable : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 11) {
-    auto ivalue_arr = torch::jit::last(stack, 11);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() && ivalue_arr[7].isBool() ) {
+  if (stack.size() == 10) {
+    auto ivalue_arr = torch::jit::last(stack, 10);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() && ivalue_arr[6].isBool() ) {
 
-      c10::IValue grad_output = std::move(peek(stack, 0, 11));
-      c10::IValue input = std::move(peek(stack, 1, 11));
-      c10::IValue weight = std::move(peek(stack, 2, 11));
-      c10::IValue bias_sizes = std::move(peek(stack, 3, 11));
-      c10::IValue stride = std::move(peek(stack, 4, 11));
-      c10::IValue padding = std::move(peek(stack, 5, 11));
-      c10::IValue dilation = std::move(peek(stack, 6, 11));
-      c10::IValue transposed = std::move(peek(stack, 7, 11));
-      c10::IValue output_padding = std::move(peek(stack, 8, 11));
-      c10::IValue groups = std::move(peek(stack, 9, 11));
-      c10::IValue output_mask = std::move(peek(stack, 10, 11));
+      c10::IValue grad_output = std::move(peek(stack, 0, 10));
+      c10::IValue input = std::move(peek(stack, 1, 10));
+      c10::IValue weight = std::move(peek(stack, 2, 10));
+      c10::IValue stride = std::move(peek(stack, 3, 10));
+      c10::IValue padding = std::move(peek(stack, 4, 10));
+      c10::IValue dilation = std::move(peek(stack, 5, 10));
+      c10::IValue transposed = std::move(peek(stack, 6, 10));
+      c10::IValue output_padding = std::move(peek(stack, 7, 10));
+      c10::IValue groups = std::move(peek(stack, 8, 10));
+      c10::IValue output_mask = std::move(peek(stack, 9, 10));
 
       at::Tensor grad_output_base = grad_output.to<at::Tensor>();
       at::Tensor input_base = input.to<at::Tensor>();
       at::Tensor weight_base = weight.to<at::Tensor>();
-      std::vector<int64_t> bias_sizes_opt_in_vec;
-
-      auto bias_sizes_opt = bias_sizes.toOptional<c10::IValue>();
-      at::OptionalIntArrayRef bias_sizes_opt_out;
-      if (bias_sizes_opt.has_value()) {
-          const c10::IValue bias_sizes_opt_in = bias_sizes_opt.value();
-          const c10::List<c10::IValue> bias_sizes_opt_in_list_in = bias_sizes_opt_in.toList();
-
-        for (c10::IValue bias_sizes_opt_in_elem: bias_sizes_opt_in_list_in) {
-            int64_t bias_sizes_opt_in_elem_base = bias_sizes_opt_in_elem.to<int64_t>();
-            bias_sizes_opt_in_vec.push_back(bias_sizes_opt_in_elem_base);
-        }
-        at::IntArrayRef bias_sizes_opt_in_list_out(bias_sizes_opt_in_vec);
-
-          bias_sizes_opt_out = at::OptionalIntArrayRef(bias_sizes_opt_in_list_out);
-      } else {
-          bias_sizes_opt_out = at::OptionalIntArrayRef();
-      }
-
       std::vector<int64_t> stride_vec;
       const c10::List<c10::IValue> stride_list_in = stride.toList();
 
@@ -97,20 +77,20 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 
       ::std::array<bool,3> output_mask_list_out = as_array<bool, 3>(output_mask_list_in);
 
-      auto is_supported = impl(grad_output_base, input_base, weight_base, bias_sizes_opt_out, stride_list_out, padding_list_out, dilation_list_out, transposed_base, output_padding_list_out, groups_base, output_mask_list_out, is_dynamic);
+      auto is_supported = impl(grad_output_base, input_base, weight_base, stride_list_out, padding_list_out, dilation_list_out, transposed_base, output_padding_list_out, groups_base, output_mask_list_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, at::OptionalIntArrayRef bias_sizes, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool,3> output_mask, bool is_dynamic) {
+bool impl(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool,3> output_mask, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward, is_dynamic, grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(input, convolution_backward, is_dynamic, grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(weight, convolution_backward, is_dynamic, grad_output, input, weight, bias_sizes, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
 
   return true;
 }
