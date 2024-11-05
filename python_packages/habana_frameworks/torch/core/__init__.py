@@ -30,13 +30,18 @@ from .quantization import (
 
 # expose lazy-only APIs
 from .step_closure import add_step_closure, iter_mark_step, mark_step
-from .torch_overwrites import overwrite_native_pt2e_quantization_interface, overwrite_torch_functions
+from .torch_overwrites import (
+    overwrite_capture_pre_autograd_graph,
+    overwrite_native_pt2e_quantization_interface,
+    overwrite_torch_functions,
+)
 
 # expose habana_frameworks.torch.hpu as torch.hpu
 torch._register_device_module("hpu", hpu)
 
 # wrap some torch functionalitis required to work with HPU
 overwrite_torch_functions()
+overwrite_capture_pre_autograd_graph()
 
 # this is to prevent potential circular imports caused by the function *overwrite_native_pt2e_quantization_interface()*
 from functools import wraps
@@ -75,7 +80,7 @@ def create_and_apply_on_import_wrapper():
     def wrapper(*args, **kwargs):
         nonlocal did_handle_backend, did_handle_overwrites
         # we only need to overwrite once, after importing one of these modules
-        if args[0] in ["torch._export", "torch.ao.quantization.quantize_pt2e"] and not did_handle_overwrites:
+        if args[0] in ["torch.ao.quantization.quantize_pt2e"] and not did_handle_overwrites:
             did_handle_overwrites = True
             overwrite_native_pt2e_quantization_interface()  # wrap pt2e-quant apis required to work on HPU with graph-breaks
             ret = original_fn(*args, **kwargs)

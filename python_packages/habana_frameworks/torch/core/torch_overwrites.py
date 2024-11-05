@@ -562,17 +562,18 @@ def overwrite_torch_functions():
 # The fields that hold the implementations are set when overwrite_native_pt2e_quantization_interface() is called
 class NativeFunctions:
     org_export = None
+    _did_overwrite_capture_pre_autograd_graph = False
     org_prepare_pt2e = None
     org_convert_pt2e = None
+    _did_overwrite_native_pt2e_quantization_interface = False
 
 
 def _native_pt2e_quantization_interface(name):
     # Call this function, which saves the native functions in NativeFunction, if for some reason it hasn't happened yet
-    if any(
-        f is None
-        for f in [NativeFunctions.org_convert_pt2e, NativeFunctions.org_prepare_pt2e, NativeFunctions.org_export]
-    ):
+    if any(f is None for f in [NativeFunctions.org_convert_pt2e, NativeFunctions.org_prepare_pt2e]):
         overwrite_native_pt2e_quantization_interface()
+    if NativeFunctions.org_export is None:
+        overwrite_capture_pre_autograd_graph()
     if name == "export":
         return NativeFunctions.org_export
     elif name == "prepare_pt2e":
@@ -583,21 +584,13 @@ def _native_pt2e_quantization_interface(name):
         return None
 
 
-def overwrite_native_pt2e_quantization_interface():
+def overwrite_capture_pre_autograd_graph():
+    # calling this function more than one time makes the wrapper wrap itself, causing infinite recursion, hence the guard to make sure it doesn't happen
+    if NativeFunctions._did_overwrite_capture_pre_autograd_graph:
+        return
 
-    # This is to make sure the native funcitons implementations are saved in NativeFunctions before overwriting them
-    import torch.ao.quantization.quantize_pt2e as quantize_pt2e
-    from packaging.version import Version, parse
-
-    # PT 2.5 changes add torch.ao.quantization.observer for dynamo tracing
-    from torch._dynamo.trace_rules import MOD_INLINELIST
-
-    if Version(parse(torch.__version__).base_version) >= Version("2.5"):
-        MOD_INLINELIST.add("torch.ao.quantization.observer")
-
+    NativeFunctions._did_overwrite_capture_pre_autograd_graph = True
     NativeFunctions.org_export = torch._export.capture_pre_autograd_graph
-    NativeFunctions.org_convert_pt2e = quantize_pt2e.convert_pt2e
-    NativeFunctions.org_prepare_pt2e = quantize_pt2e.prepare_pt2e
 
     # wrap capture_pre_autograd_graph
     @wraps(torch._export.capture_pre_autograd_graph)
@@ -612,6 +605,25 @@ def overwrite_native_pt2e_quantization_interface():
         return export(f, args, kwargs, dynamic_shapes)
 
     torch._export.capture_pre_autograd_graph = wrap_capture_pre_autograd_graph
+
+
+def overwrite_native_pt2e_quantization_interface():
+    # calling this function more than one time makes the wrappers wrap themselves, causing infinite recursion, hence the guard to make sure it doesn't happen
+    if NativeFunctions._did_overwrite_native_pt2e_quantization_interface:
+        return
+    NativeFunctions._did_overwrite_native_pt2e_quantization_interface = True
+    import torch.ao.quantization.quantize_pt2e as quantize_pt2e
+    from packaging.version import Version, parse
+
+    # PT 2.5 changes add torch.ao.quantization.observer for dynamo tracing
+    from torch._dynamo.trace_rules import MOD_INLINELIST
+
+    if Version(parse(torch.__version__).base_version) >= Version("2.5"):
+        MOD_INLINELIST.add("torch.ao.quantization.observer")
+
+    # This is to make sure the native funcitons implementations are saved in NativeFunctions before overwriting them
+    NativeFunctions.org_convert_pt2e = quantize_pt2e.convert_pt2e
+    NativeFunctions.org_prepare_pt2e = quantize_pt2e.prepare_pt2e
 
     from torch.ao.quantization.quantizer import Quantizer
     from torch.fx import GraphModule
