@@ -3243,12 +3243,11 @@ native_group_norm_backward:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   output_meta: GroupNormBwdMeta
-  custom_fill_params: FillNativeGroupNormBwdParams
+  op_backend: NativeGroupNormBwdHabanaOperator
   synapse_layouts:
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
   out_ids: [0, 0, 0]
-  guid: native_group_norm_bwd
   op_validator: NativeGroupNormBwdSharedMeta
   lazy:
     acc_thread: true
