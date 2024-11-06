@@ -970,7 +970,8 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 @pytest.mark.parametrize("manual", [True, False])
 @pytest.mark.parametrize("reduce_amax", [True, False])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
-@pytest.mark.skipif(is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()), reason="SW-189837")
+@pytest.mark.skipif(is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()), reason="SW-189837, SW-207314")
+@pytest.mark.xfail(is_gaudi2() and is_pytest_mode_compile(), reason="SW-207314")
 def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce_amax, fp8_format, margin=0):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
@@ -1157,6 +1158,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 @pytest.mark.parametrize("init_before_load", [True, False])
 @pytest.mark.parametrize("amax_history_len", [1, 4])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
+@pytest.mark.xfail((is_gaudi2() or is_gaudi3()) and is_pytest_mode_compile(), reason="SW-207314")
 def test_save_load_module(init_before_load, amax_history_len, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
