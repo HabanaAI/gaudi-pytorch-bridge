@@ -446,7 +446,7 @@ def overwrite_torch_functions():
             pickle_module=pickle_module,
             pickle_file=pickle_file,
             overall_storage=overall_storage,
-            **pickle_load_args
+            **pickle_load_args,
         )
 
     # Pickle protocol 4 is used by default for lazy mode.
@@ -522,7 +522,7 @@ def overwrite_torch_functions():
         pickle_module: Any = pickle,
         weights_only: bool = False,
         mmap: Optional[bool] = None,
-        **pickle_load_args
+        **pickle_load_args,
     ) -> Any:
 
         # When weights_only is True, it tells torch.load to only load the model weights,
@@ -537,7 +537,7 @@ def overwrite_torch_functions():
             pickle_module=pickle_module,
             weights_only=weights_only,
             mmap=mmap,
-            **pickle_load_args
+            **pickle_load_args,
         )
 
         if map_location is not None:
@@ -565,12 +565,22 @@ class NativeFunctions:
     _did_overwrite_capture_pre_autograd_graph = False
     org_prepare_pt2e = None
     org_convert_pt2e = None
+    org_save_pt2e = None
+    org_load_pt2e = None
     _did_overwrite_native_pt2e_quantization_interface = False
 
 
 def _native_pt2e_quantization_interface(name):
     # Call this function, which saves the native functions in NativeFunction, if for some reason it hasn't happened yet
-    if any(f is None for f in [NativeFunctions.org_convert_pt2e, NativeFunctions.org_prepare_pt2e]):
+    if any(
+        f is None
+        for f in [
+            NativeFunctions.org_load_pt2e,
+            NativeFunctions.org_save_pt2e,
+            NativeFunctions.org_convert_pt2e,
+            NativeFunctions.org_prepare_pt2e,
+        ]
+    ):
         overwrite_native_pt2e_quantization_interface()
     if NativeFunctions.org_export is None:
         overwrite_capture_pre_autograd_graph()
@@ -580,6 +590,10 @@ def _native_pt2e_quantization_interface(name):
         return NativeFunctions.org_prepare_pt2e
     elif name == "convert_pt2e":
         return NativeFunctions.org_convert_pt2e
+    elif name == "save_pt2e":
+        return NativeFunctions.org_save_pt2e
+    elif name == "load_pt2e":
+        return NativeFunctions.org_load_pt2e
     else:
         return None
 
@@ -624,6 +638,8 @@ def overwrite_native_pt2e_quantization_interface():
     # This is to make sure the native funcitons implementations are saved in NativeFunctions before overwriting them
     NativeFunctions.org_convert_pt2e = quantize_pt2e.convert_pt2e
     NativeFunctions.org_prepare_pt2e = quantize_pt2e.prepare_pt2e
+    NativeFunctions.org_save_pt2e = torch.export.save
+    NativeFunctions.org_load_pt2e = torch.export.load
 
     from torch.ao.quantization.quantizer import Quantizer
     from torch.fx import GraphModule
@@ -652,3 +668,34 @@ def overwrite_native_pt2e_quantization_interface():
         return convert_pt2e(model, use_reference_representation, fold_quantize)
 
     quantize_pt2e.convert_pt2e = wrap_convert_pt2e
+
+    import io
+
+    # wrap torch.export.save
+    @wraps(torch.export.save)
+    def wrap_torch_export_save(
+        model: Any,  # e.g. torch.nn.Module, GraphModule, ExportedProgram
+        f: Union[str, os.PathLike, io.BytesIO],
+        *,
+        extra_files: Optional[Dict[str, Any]] = None,
+        opset_version: Optional[Dict[str, int]] = None,
+    ) -> None:
+        from habana_frameworks.torch.core.quantize_pt2e import save_pt2e
+
+        return save_pt2e(model, f, extra_files=extra_files, opset_version=opset_version)
+
+    torch.export.save = wrap_torch_export_save
+
+    # wrap torch.export.load
+    @wraps(torch.export.load)
+    def wrap_torch_export_load(
+        f: Union[str, os.PathLike, io.BytesIO],
+        *,
+        extra_files: Optional[Dict[str, Any]] = None,
+        expected_opset_version: Optional[Dict[str, int]] = None,
+    ) -> Any:
+        from habana_frameworks.torch.core.quantize_pt2e import load_pt2e
+
+        return load_pt2e(f, extra_files=extra_files, expected_opset_version=expected_opset_version)
+
+    torch.export.load = wrap_torch_export_load
