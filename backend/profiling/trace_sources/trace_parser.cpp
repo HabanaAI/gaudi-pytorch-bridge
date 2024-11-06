@@ -151,13 +151,9 @@ struct EngineDatabase {
         "DmaTranspose"};
     return whitelisted_events.find(operatorString) != whitelisted_events.end();
   }
-  static std::unique_ptr<EngineDatabase> buildDatabase(
-      synTraceEvent* events_ptr,
-      size_t num_events,
-      unsigned offset) {
-    std::unique_ptr<EngineDatabase> result =
-        std::make_unique<EngineDatabase>(offset);
-    auto& engine_types = result->engine_types_;
+
+  void update(synTraceEvent* events_ptr, size_t num_events) {
+    auto& engine_types = engine_types_;
 
     // Create host engine type first
     synTraceEvent* host_meta_event_ptr = events_ptr;
@@ -189,30 +185,32 @@ struct EngineDatabase {
         engine_type.engines.push_back(
             {.index = events_ptr->engineIndex,
              .name = events_ptr->arguments.name});
-        result->setLine(engine_type, events_ptr->engineIndex);
+        setLine(engine_type, events_ptr->engineIndex);
       }
     }
-    return result;
-  };
+  }
 };
 
-HpuTraceParser::HpuTraceParser(
-    long double hpu_start_time,
-    long double wall_start_time,
-    unsigned offset)
-    : hpu_start_time_{hpu_start_time},
-      wall_start_time_{wall_start_time},
-      offset_{offset} {}
+HpuTraceParser::HpuTraceParser(unsigned offset)
+    : hpu_start_time_{0.0}, wall_start_time_{0.0}, offset_{offset} {
+  engine_type_database_ = std::make_unique<EngineDatabase>(offset);
+}
 
 HpuTraceParser::~HpuTraceParser() {}
+
+void HpuTraceParser::update(
+    long double hpu_start_time,
+    long double wall_start_time) {
+  hpu_start_time_ = hpu_start_time;
+  wall_start_time_ = wall_start_time;
+}
 
 void HpuTraceParser::Export(
     synTraceEvent* events_ptr,
     size_t num_events,
     long double wall_stop_time,
     TraceSink& trace_sink) {
-  engine_type_database_ =
-      EngineDatabase::buildDatabase(events_ptr, num_events, offset_);
+  engine_type_database_->update(events_ptr, num_events);
   initLanes(trace_sink);
   convertEventsToActivities(events_ptr, num_events, wall_stop_time, trace_sink);
 }

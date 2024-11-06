@@ -57,6 +57,7 @@ SynapseProfilerSource::SynapseProfilerSource() {
     throw std::runtime_error(
         "Tensorboard callback for HPU hardware profiling disabled. To enable set \"HABANA_PROFILE\"");
   }
+  parser_ = std::make_unique<HpuTraceParser>(offset_);
 }
 
 void SynapseProfilerSource::start(TraceSink&) {
@@ -67,8 +68,7 @@ void SynapseProfilerSource::start(TraceSink&) {
   synProfilerGetCurrentTimeNS(&hpu_start_time_ns);
   long double hpu_start_time = hpu_start_time_ns;
   long double wall_start_time = NowNanos();
-  parser_ = std::make_unique<HpuTraceParser>(
-      hpu_start_time, wall_start_time, offset_);
+  parser_->update(hpu_start_time, wall_start_time);
 
   uint32_t bytes_req = 0;
   synStatus status = synProfilerQueryRequiredMemory(0, &bytes_req);
@@ -95,9 +95,7 @@ void SynapseProfilerSource::start(TraceSink&) {
 }
 
 void SynapseProfilerSource::stop() {
-  uint64_t wall_stop_time_ns{};
-  synProfilerGetCurrentTimeNS(&wall_stop_time_ns);
-  wall_stop_time_ = wall_stop_time_ns;
+  wall_stop_time_ = NowNanos();
   synStatus status = synProfilerStop(synTraceAll, 0);
   if (status != synSuccess) {
     std::cerr << "synProfilerStop failed" << std::endl;

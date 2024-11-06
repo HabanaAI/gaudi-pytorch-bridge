@@ -25,12 +25,11 @@ struct EngineDatabase;
 
 class HpuTraceParser {
  public:
-  HpuTraceParser(
-      long double hpu_start_time,
-      long double wall_start_time,
-      unsigned offset_);
+  HpuTraceParser(unsigned offset_);
 
   ~HpuTraceParser();
+
+  void update(long double hpu_start_time, long double wall_start_time);
 
   void Export(
       synTraceEvent* events_ptr,
