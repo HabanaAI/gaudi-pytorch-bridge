@@ -139,9 +139,3 @@ else:
     import habana_frameworks.torch.dynamo.compile_backend
 
 _enable_profiler_if_needed()
-
-
-# PT2.5 Upgrade related fixes
-
-# Fix [SW-203883]: set inductor backend freezing config to populate tracing context
-torch._inductor.config.freezing = True
