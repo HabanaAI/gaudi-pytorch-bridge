@@ -2398,6 +2398,10 @@ build_pytorch_text()
         $__python_cmd setup.py clean
     fi
 
+    # Replace tcmalloc_minimal with tcmalloc to avoid Segmentation fault during torchtext importing.
+    # For details look here: SW-201537
+    sed -i 's/tcmalloc_minimal/tcmalloc/g' third_party/sentencepiece/src/CMakeLists.txt
+
     echo "Build parameters ${__whl_params}"
 
     (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
