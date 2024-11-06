@@ -83,6 +83,7 @@ operations on the param input to the FX graph
 """
 
 
+@pytest.mark.xfail(reason="https://jira.habana-labs.com/browse/SW-203883")
 def test_graph_freeze():
     torch.manual_seed(123)
     x = torch.randn((5, 4), dtype=torch.float, device=torch.device("cpu"))
