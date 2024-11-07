@@ -1,18 +1,16 @@
+# yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/test_config.json
 testJobConfig:
   cpp_suite:
     devices:
       gaudi:
         hwType:
           sim:
-            jobTimeout: 180
+            jobTimeout: '180'
       gaudi2:
         hwType:
           sim:
-            jobTimeout: 180
+            jobTimeout: '180'
       gaudi3:
-        hwType:
-          sim:
-      greco:
         hwType:
           sim:
   py_suite_lazy:
@@ -56,11 +54,8 @@ testJobConfig:
       gaudi2:
         hwType:
           sim:
-            jobTimeout: 180
+            jobTimeout: '180'
       gaudi3:
-        hwType:
-          sim:
-      greco:
         hwType:
           sim:
   py_suite_lazy_future:
