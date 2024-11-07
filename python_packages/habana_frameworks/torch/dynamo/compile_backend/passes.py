@@ -409,6 +409,7 @@ def optimize_graph(
         is_dynamic,
         stage,
         None,
+        None,
     )
 
     def run_passes(ctx: OptimizerContext):
@@ -464,6 +465,7 @@ def optimize_graph(
                 ctx.is_backward,
                 ctx.is_dynamic,
                 ctx.stage,
+                None,
                 None,
                 None,
                 True,
@@ -997,16 +999,18 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
     assert ctx.graph_module is not None
     assert ctx.current_partitions is None
+    assert ctx.current_partitions_non_mergeable is None
     assert ctx.habana_partitioner is None
 
     ctx.current_partitions = []
+    ctx.current_partitions_non_mergeable = []
     if hpu_backend_config.enable_allreduce_graph_split:
         allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
         cls = FusedCollectiveOperatorSupport
         ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
         for allreduce in allreduces:
             setattr(cls, "allreduce_name", allreduce.name)
-            ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
+            ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
     ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
 
@@ -1107,7 +1111,7 @@ def pass_post_process_partitions(ctx: OptimizerContext):
 
     assignments: Dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
     partitions_by_id: Dict[int, Partition] = {}  # mapping from partition_id to partition
-    for partition in ctx.current_partitions:
+    for partition in ctx.current_partitions + ctx.current_partitions_non_mergeable:
         id = partition.id
         partitions_by_id[id] = partition
         for node in list(partition.nodes):
@@ -1133,9 +1137,10 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
     assert ctx.graph_module is not None
     assert ctx.current_partitions is not None
+    assert ctx.current_partitions_non_mergeable is not None
     assert ctx.habana_partitioner is not None
 
-    ctx.habana_partitioner.fuse_partitions(ctx.current_partitions)
+    ctx.habana_partitioner.fuse_partitions(ctx.current_partitions + ctx.current_partitions_non_mergeable)
 
     return True
 
