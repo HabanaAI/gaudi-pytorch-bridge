@@ -795,10 +795,6 @@ PT_HPU_GPU_MIGRATION:
   default: false
   doc: "Option to enable GPU Migration Toolkit"
 
-PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT:
-  type: bool
-  default: False
-
 PT_HPU_SDPA_SFMX_BWD_V2:
   type: bool
   default: false
