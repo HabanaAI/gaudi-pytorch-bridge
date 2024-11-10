@@ -22,7 +22,7 @@ sourceControl:
     - synapse
     - synapse_profiler
     - synapse_utils
-    - third_party/github.com/kineto
+    - kineto
     - tpc_kernels
 
 steps:

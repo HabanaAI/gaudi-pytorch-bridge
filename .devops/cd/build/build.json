@@ -10,7 +10,7 @@
             "specs_external",
             "synapse",
             "synapse_profiler",
-            "third_party/github.com/kineto",
+            "kineto",
             "hcl"
         ],
         "env": {
