@@ -3,14 +3,20 @@ common:
   testRepos:
     - repository: automation
     - repository: pytorch-integration
+      githubOrg: habana-internal
     - repository: habanalabs
+      githubOrg: habana-internal
     - repository: nic_kmd
       isHybrid: true
-      githubOrg: gerrit
+      githubOrg: habana-internal
     - repository: habanaqa
+      githubOrg: habana-internal
     - repository: pytorch-training-tests
+      githubOrg: habana-internal
     - repository: event_tests_plugin
+      githubOrg: habana-internal
     - repository: model_garden
+      githubOrg: habana-internal
   dependencies:
     - CODEC
     - COMPLEX_GUID

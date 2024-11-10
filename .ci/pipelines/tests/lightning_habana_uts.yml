@@ -3,13 +3,18 @@ common:
   testRepos:
     - repository: automation
     - repository: pytorch-integration
+      githubOrg: habana-internal
     - repository: coral-sim
+      githubOrg: habana-internal
     - repository: tpcsim
+      githubOrg: habana-internal
     - repository: habanalabs
+      githubOrg: habana-internal
     - repository: nic_kmd
       isHybrid: true
-      githubOrg: gerrit
+      githubOrg: habana-internal
     - repository: deepspeed-fork
+      githubOrg: habana-internal
   dependencies:
     - CODEC
     - HCL
