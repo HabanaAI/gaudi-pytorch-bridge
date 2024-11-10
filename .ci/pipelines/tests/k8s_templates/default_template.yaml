@@ -1,0 +1,46 @@
+# The values are based on the offical MPI Job specs.
+# You can see more example in: https://github.com/kubeflow/mpi-operator/tree/master/examples/v2beta1
+# Documentation for mpirun: https://www-lb.open-mpi.org/doc/current/man1/mpirun.1.php
+apiVersion: kubeflow.org/v1
+kind: TFJob
+metadata:
+  # jobName will be resolved by jenkins pipeline. It's the base for the generated name by HLCTL
+  name: $jobName
+  # DO NOT REMOVE 'annotations' completely
+  # You can add any annotation you'd like.
+  annotations:
+    # Set the drivers version to work with. Accepted values are branches names
+    # If you delete it, the job will fail
+    habana.ai/hl_driver_version: $driverRevision
+    habana.ai/automation: $automationRevision
+    habana.ai/nic_kmd: $nicKmdRevision
+    # repoList variable will be resolved by the jenkins pipeline
+    # in case of additions, add it in the test yaml files under testRepos
+    # do not add repos here.
+    repos: $repoList
+    # job lifetime duration. accepted values are between 1h-24h
+    pod-reaper/max-duration: $testTimeout
+spec:
+  tfReplicaSpecs:
+    Worker:
+      replicas: 1
+      template:
+        spec:
+          hostPID: true
+          hostIPC: true
+          containers:
+            - name: pytorch
+              image: "$dockerImage"
+              workingDir: /root/
+              env:
+                - name: ENABLE_CONSOLE
+                  value: "false"
+                - name: LOG_LEVEL_ALL
+                  value: "3"
+                - name: WORKSPACE
+                  value: "/root"
+              command:
+                - /bin/bash
+                - -c
+              args:
+                - $testArgs
