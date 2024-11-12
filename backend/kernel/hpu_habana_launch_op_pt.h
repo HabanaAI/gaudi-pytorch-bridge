@@ -443,8 +443,9 @@ class HabanaLaunchOpPT {
   size_t sym_expr_hash_ = 0;
   // If true, static recipe_arg_spec will be evaluated
   bool maybe_static_recipe_ = true;
+  size_t curr_symval_hash_ = 0;
   // Is true if symbol value hash changes from the
-  // previous run of the same JIT graph
+  // previous run of the same recipe
   bool is_symval_changed_from_prev_ = true;
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>

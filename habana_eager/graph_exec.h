@@ -112,7 +112,7 @@ class GraphExec {
   SeedTensors m_seed_tensors{};
   size_t m_sym_expr_hash = 0;
   size_t m_initial_symval_hash = SIZE_MAX;
-  size_t m_current_symval_hash = 0;
+  size_t m_curr_symval_hash = 0;
   size_t m_initial_graph_key_with_perm = SIZE_MAX;
 };
 

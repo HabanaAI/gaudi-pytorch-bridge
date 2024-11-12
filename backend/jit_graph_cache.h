@@ -373,12 +373,12 @@ struct OptimizedJITGraphAndMetaData {
     return maybe_static_recipe_;
   }
 
-  void set_is_symval_changed_from_prev(bool is_symval_changed_from_prev) {
-    is_symval_changed_from_prev_ = is_symval_changed_from_prev;
+  void set_curr_symval_hash(size_t symval_hash) {
+    curr_symval_hash_ = symval_hash;
   }
 
-  bool get_is_symval_changed_from_prev() {
-    return is_symval_changed_from_prev_;
+  size_t get_curr_symval_hash() {
+    return curr_symval_hash_;
   }
 
   struct PermutationWithOutputPosition {
@@ -479,7 +479,7 @@ struct OptimizedJITGraphAndMetaData {
   size_t graph_perm_hash_ = 0;
   bool enable_optim_output_sif_ = false;
   bool maybe_static_recipe_ = true;
-  bool is_symval_changed_from_prev_ = true;
+  size_t curr_symval_hash_ = 0;
   std::optional<PermutationInfo> permutation_info_{};
   bool is_param_agnostic_supported_ = false;
   CValPtrMap param_jit_val_map_{};

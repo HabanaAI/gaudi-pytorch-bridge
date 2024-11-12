@@ -265,8 +265,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   if (enable_optim_output_sif_) {
     maybe_static_recipe_ =
         optimized_jit_graph_and_meta_data->get_maybe_static_recipe();
-    is_symval_changed_from_prev_ =
-        optimized_jit_graph_and_meta_data->get_is_symval_changed_from_prev();
+    curr_symval_hash_ =
+        optimized_jit_graph_and_meta_data->get_curr_symval_hash();
   }
 }
 
@@ -4181,6 +4181,12 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
       std::unordered_map<int64_t, at::Tensor> tidx_to_tensor_map;
       rv.update_hit_count();
+
+      if (rv.curr_symval_hash_ == curr_symval_hash_) {
+        is_symval_changed_from_prev_ = false;
+      } else {
+        rv.curr_symval_hash_ = curr_symval_hash_;
+      }
 
       if (rv.dynamic_graph) {
         // For Dynamic shapes in case of cache hit, we need to run

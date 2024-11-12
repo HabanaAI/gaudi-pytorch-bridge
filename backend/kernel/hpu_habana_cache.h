@@ -416,6 +416,7 @@ struct RecipeValueSpec {
   std::shared_ptr<torch::jit::Graph> jit_graph_{nullptr};
   std::unique_ptr<synapse_helpers::graph> shape_agnostic_synapse_graph_{
       nullptr};
+  size_t curr_symval_hash_{0};
 
   static size_t current_id_;
   static size_t count;

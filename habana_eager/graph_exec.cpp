@@ -555,39 +555,25 @@ torch::jit::Stack GraphExec::LaunchRecipe(
 
   if (enable_optim_output_sif) {
     m_graph_and_meta->set_maybe_static_recipe(true);
-    m_graph_and_meta->set_is_symval_changed_from_prev(true);
 
-    if (m_initial_graph_key_with_perm == SIZE_MAX) {
-      // Save the graph_key_with_perm of the very first run.
+    if (m_initial_graph_key_with_perm == SIZE_MAX)
       m_initial_graph_key_with_perm = graph_key_with_perm;
-    }
 
-    auto curr_symval_hash =
+    m_curr_symval_hash =
         habana_helpers::CalculateSymbolValuesHash(in_symbol_value_map);
+    m_graph_and_meta->set_curr_symval_hash(m_curr_symval_hash);
+
     if (m_initial_symval_hash == SIZE_MAX) {
-      // Save the symbol values hash of the very first run.
-      // The first recipe is always compiled in static flow.
-      m_initial_symval_hash = curr_symval_hash;
-      m_current_symval_hash = curr_symval_hash;
-    } else if (m_initial_symval_hash != curr_symval_hash) {
-      // If any subsequent symbol values hash is different from
-      // that of the first run, then that recipe will compile
-      // in dynamic flow.
-      // Only exception is when the graph_key_with_perm has changed
-      // from that of then first run, then a new static recipe
-      // will get compiled.
-      if (graph_key_with_perm == m_initial_graph_key_with_perm) {
-        m_graph_and_meta->set_maybe_static_recipe(false);
-      }
-      if (m_current_symval_hash != curr_symval_hash) {
-        // Save the current symbol values hash
-        m_current_symval_hash = curr_symval_hash;
-      } else {
-        m_graph_and_meta->set_is_symval_changed_from_prev(false);
-      }
+      m_initial_symval_hash = m_curr_symval_hash;
+    } else if (
+        (m_initial_symval_hash != m_curr_symval_hash) &&
+        (graph_key_with_perm == m_initial_graph_key_with_perm)) {
+      // If current symbol values differ from those in initial run,
+      // then a dynamic recipe will get compiled.
+      // But if graph_key_with_perm changes from intial run,
+      // then a new static recipe will get compiled.
+      m_graph_and_meta->set_maybe_static_recipe(false);
     }
-    // and if 'm_initial_symval_hash == curr_symval_hash'
-    // then it is a static cache hit.
   }
 
   m_graph_and_meta->SetHPUStream(stream);
