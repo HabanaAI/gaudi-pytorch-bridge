@@ -59,6 +59,13 @@ OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   return metaVec;
 }
 
+void moveLastOutputTensorAtFront(OpBackend& op) {
+  auto& outputInfMeta = op.GetOutputInfMeta();
+  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
+  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
+  outputInfMeta.RemoveOutput(output_tensor_idx);
+  outputInfMeta.PushOutputTensorAtFront(output_tensor);
+}
 void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto metas = WeightNormMeta(stack);
   auto v_in = stack_tensor(stack, 0);
@@ -114,6 +121,9 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       {syn_in(0), divOp.at(0).get()},
       {{v_shape, v_dtype, 0}});
 
+  if (isOutputInfMode()) {
+    moveLastOutputTensorAtFront(*this);
+  }
   syn_out(0) = std::move(mulOp[0]);
   syn_out(1) = std::move(normOp);
 }
