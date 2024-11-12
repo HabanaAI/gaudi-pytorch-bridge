@@ -1,0 +1,8 @@
+# Each line is a file pattern followed by one or more owners.
+
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# below owners will be requested for review when someone opens a pull request.
+* @rbabukv @satheeshhab @jayachandranb-ai @wbakowski @aostrowski-hbn @australopitek @moksiuc @kbinias @bsochack @kbadz @jerome-habana @asharmahabana @atul29gupta @ltowarek @tszulist-hbn @mryszt @xgu3 @YangQun1 @HBN-MichalSzy @AdrShv @jwieczorekhabana @tdomagal @tbohutyn @wdziurdz @mieshkiwrk @amitsrivastava78 @mkumargarg
+
+CODEOWNERS @mryszt
