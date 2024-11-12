@@ -4646,10 +4646,22 @@ multilabel_margin_loss_forward.output:
 
 multilabel_margin_loss_forward:
   custom_fill_params: FillMultilabelMarginLossParams
-  guid: multilabel_margin_loss
+  guid: multilabel_margin_loss_fwd
   op_validator: check-node-with-shared-layer
   out_ids: [0, 0]
   output_meta: MultilabelMarginLossMeta
+
+multilabel_margin_loss_backward.grad_input:
+  custom_fill_params: FillMultilabelMarginLossBackwardParams
+  guid: multilabel_margin_loss_bwd
+  op_validator: check-node-with-shared-layer
+
+multilabel_margin_loss_backward:
+  custom_fill_params: FillMultilabelMarginLossBackwardParams
+  guid: multilabel_margin_loss_bwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [1]
+  output_meta: MultilabelMarginLossBackwardMeta
 
 multi_margin_loss.out:
   custom_fill_params: FillMultiMarginLossParams

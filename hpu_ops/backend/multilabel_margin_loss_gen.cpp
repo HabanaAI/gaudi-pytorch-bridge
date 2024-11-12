@@ -15,11 +15,10 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillMultilabelMarginLossParams(
-    const at::Stack& stack,
-    size_t& size) {
-  int64_t reduction = stack.at(2).toInt();
-
+std::shared_ptr<void> FillMultilabelMarginLossParamsCommon(
+    const at::Stack&,
+    size_t& size,
+    int64_t reduction) {
   PARAMS_STUB(ns_MultilabelMarginLoss::Params);
   switch (reduction) {
     case at::Reduction::Reduction::None:
@@ -38,6 +37,24 @@ std::shared_ptr<void> FillMultilabelMarginLossParams(
           reduction);
   }
   return params;
+}
+
+std::shared_ptr<void> FillMultilabelMarginLossParams(
+    const at::Stack& stack,
+    size_t& size) {
+  return FillMultilabelMarginLossParamsCommon(stack, size, stack.at(2).toInt());
+}
+
+std::shared_ptr<void> FillMultilabelMarginLossBackwardParams(
+    const at::Stack& stack,
+    size_t& size) {
+  return FillMultilabelMarginLossParamsCommon(stack, size, stack.at(3).toInt());
+}
+
+OutputMetaDataVector MultilabelMarginLossBackwardMeta(const at::Stack& stack) {
+  const auto& input = stack.at(1).toTensor();
+
+  return {OutputMetaData(input.scalar_type(), input.sizes().vec())};
 }
 
 OutputMetaDataVector MultilabelMarginLossMeta(const at::Stack& stack) {
