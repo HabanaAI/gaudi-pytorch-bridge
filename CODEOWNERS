@@ -3,6 +3,6 @@
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence,
 # below owners will be requested for review when someone opens a pull request.
-* @rbabukv @satheeshhab @jayachandranb-ai @wbakowski @aostrowski-hbn @australopitek @moksiuc @kbinias @bsochack @kbadz @jerome-habana @sujoysaraswati @asharmahabana @atul29gupta @ltowarek @tszulist-hbn @mryszt @xgu3 @YangQun1 @HBN-MichalSzy @AdrShv @jwieczorekhabana @tdomagal @tbohutyn @wdziurdz @mieshkiwrk @amitsrivastava78 @mkumargarg
+* @rbabukv @wbakowski @aostrowski-hbn @bsochack @sujoysaraswati @mryszt @xgu3 @HBN-MichalSzy @amitsrivastava78
 
 CODEOWNERS @mryszt
