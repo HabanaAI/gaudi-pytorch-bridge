@@ -2077,7 +2077,7 @@ Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(matmul, true, self, other)
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(matmul, false, self, other)
   return MatmulFunction::apply(self, other);
 }
 
@@ -2087,7 +2087,7 @@ Tensor matmul_inference(const Tensor& self, const Tensor& other) {
   PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(matmul, true, self, other)
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(matmul, false, self, other)
   return matmul_hpu_lazy(self, other);
 }
 
