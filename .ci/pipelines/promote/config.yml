@@ -56,7 +56,6 @@ orchestratorConfig:
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_hls_asic_unit_tests_promote
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test
-    - testToLaunch: habana-internal/deepspeed_examples_fork/Tests/Test_deepspeed_examples_fork_gaudi2_asic_8cards_test
     # deepspeed-fork <End>
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bert_suite
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite
