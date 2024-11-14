@@ -2,7 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "_native_batch_norm_legit.h"
-#include "convolution_backward.h"
+#include "convolution_backward_overrideable.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -25,10 +25,10 @@ struct Gen_native_batch_norm_legit : BatchNormOpBackend {
   }
 };
 
-struct Genconvolution_backward : ConvolutionBackward {
-  Genconvolution_backward(int device_id, c10::ScalarType scalar_type) :
-      ConvolutionBackward(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
-        SetOutputMetaFn(ConvolutionMetaBwd);
+struct Genconvolution_backward_overrideable : ConvolutionBackwardOverrideable {
+  Genconvolution_backward_overrideable(int device_id, c10::ScalarType scalar_type) :
+      ConvolutionBackwardOverrideable(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
+        SetOutputMetaFn(ConvolutionOverrideableMetaBwd);
   }
 };
 
@@ -36,7 +36,7 @@ struct Genconvolution_backward : ConvolutionBackward {
 
 static const auto& kr_gen_8 = KernelRegistry()
 .REGISTER_HPU_BACKEND("aten::_native_batch_norm_legit", Gen_native_batch_norm_legit)
-.REGISTER_HPU_BACKEND("aten::convolution_backward", Genconvolution_backward)
+.REGISTER_HPU_BACKEND("aten::convolution_backward_overrideable", Genconvolution_backward_overrideable)
 ;
 
 
