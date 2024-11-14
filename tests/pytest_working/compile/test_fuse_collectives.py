@@ -61,18 +61,15 @@ def test_collective_block_fuse():
 
 @contextmanager
 def allreduce_graph_split_setter():
-    backup1 = config.enable_allreduce_graph_split
-    backup2 = torch._inductor.config._fuse_ddp_communication
+    backup = torch._inductor.config._fuse_ddp_communication
     try:
-        config.enable_allreduce_graph_split = True
         torch._inductor.config._fuse_ddp_communication = False
         yield
     finally:
-        config.enable_allreduce_graph_split = backup1
-        torch._inductor.config._fuse_ddp_communication = backup2
+        torch._inductor.config._fuse_ddp_communication = backup
 
 
-@torch.compile(backend="hpu_backend")
+@torch.compile(backend="hpu_backend", options={"enable_allreduce_graph_split": True, "use_eager_fallback": True})
 def fn1(x, y, pg):
     x = torch.sigmoid(x)
     y = torch.tanh(y)
