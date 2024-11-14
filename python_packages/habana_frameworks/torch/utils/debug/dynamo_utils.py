@@ -40,6 +40,7 @@ class FxGraphAnalyzer:
         self.reset_dynamo = reset_dynamo
         self.id = next(FxGraphAnalyzer.id_iter)
         self.graphs = list()
+        self.partition_num = 0
         atexit.register(self._at_exit_callback)
 
     def __del__(self):
@@ -74,6 +75,7 @@ class FxGraphAnalyzer:
             if n.op == "call_module":
                 submodule = ctx.graph_module.get_submodule(n.target)
                 self.count_ops(submodule.graph.nodes, ctx, True, ops_in_graph)
+                self.partition_num += 1
             elif n.op in {"call_function", "call_method"}:
                 if (
                     "output_device" not in n.meta
@@ -92,3 +94,6 @@ class FxGraphAnalyzer:
 
     def get_ops_summary(self):
         return self.graphs
+
+    def get_partition_num(self):
+        return self.partition_num

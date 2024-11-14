@@ -14,6 +14,7 @@ from contextlib import contextmanager
 import torch
 import torch.distributed as dist
 import torch.distributed._functional_collectives as fcol
+from habana_frameworks.torch.dynamo.compile_backend import config
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import fga_assert_helper
 from torch.distributed.distributed_c10d import _get_default_group
@@ -56,3 +57,41 @@ def test_collective_block_fuse():
             fga_assert_helper(
                 ops_summary=ops_summary, op="torch.ops._c10d_functional.all_reduce.default", count_list=[(0, 3)]
             )
+
+
+@contextmanager
+def allreduce_graph_split_setter():
+    backup1 = config.enable_allreduce_graph_split
+    backup2 = torch._inductor.config._fuse_ddp_communication
+    try:
+        config.enable_allreduce_graph_split = True
+        torch._inductor.config._fuse_ddp_communication = False
+        yield
+    finally:
+        config.enable_allreduce_graph_split = backup1
+        torch._inductor.config._fuse_ddp_communication = backup2
+
+
+@torch.compile(backend="hpu_backend")
+def fn1(x, y, pg):
+    x = torch.sigmoid(x)
+    y = torch.tanh(y)
+    x0 = fcol.all_reduce(x, "sum", pg)
+    y0 = fcol.all_reduce(y, "sum", pg)
+    return x0, y0
+
+
+def test_allreduce_graph_split():
+    import habana_frameworks.torch.distributed.hccl
+
+    with allreduce_graph_split_setter():
+        if not dist.is_initialized():
+            dist.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
+
+        pg = dist.new_group(ranks=[0], backend="hpu:hccl")
+        with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            t1 = torch.tensor([6], device="hpu")
+            t2 = torch.tensor([2], device="hpu")
+            fn1(t1, t2, pg)
+            part_num = fga.get_partition_num()
+            assert part_num == 2, "intentionally splited partitions are merged unexpectedly"
