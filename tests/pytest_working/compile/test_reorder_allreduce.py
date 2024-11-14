@@ -107,7 +107,7 @@ def test_reorder_allreduce_with_no_users():
 
     graph_module = make_fx(fn)(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, None, None
     )
 
     for node in graph_module.graph.nodes:
@@ -134,45 +134,45 @@ def test_reorder_allreduce_with_no_users():
     sub_str = """\
     def forward(self):
         # No stacktrace found for following nodes
-        fused_0 = self.fused_0()
-        getitem_1: "f32[8, 8]" = fused_0[1]
+        fused_1 = self.fused_1()
+        getitem_1: "f32[8, 8]" = fused_1[1]
         all_reduce: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(getitem_1, 'sum', '0');  getitem_1 = None
         wait_tensor: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce);  all_reduce = wait_tensor = None
-        getitem: "f32[8, 8]" = fused_0[0];  fused_0 = None
-        fused_1 = self.fused_1(getitem);  getitem = None
-        getitem_3: "f32[8, 8]" = fused_1[1]
+        getitem: "f32[8, 8]" = fused_1[0];  fused_1 = None
+        fused_2 = self.fused_2(getitem);  getitem = None
+        getitem_3: "f32[8, 8]" = fused_2[1]
         all_reduce_1: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(getitem_3, 'sum', '0');  getitem_3 = None
         wait_tensor_1: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce_1);  all_reduce_1 = wait_tensor_1 = None
-        getitem_2: "f32[8, 8]" = fused_1[0];  fused_1 = None
-        fused_2 = self.fused_2(getitem_2);  getitem_2 = None
-        getitem_5: "f32[8, 8]" = fused_2[1]
+        getitem_2: "f32[8, 8]" = fused_2[0];  fused_2 = None
+        fused_3 = self.fused_3(getitem_2);  getitem_2 = None
+        getitem_5: "f32[8, 8]" = fused_3[1]
         all_reduce_2: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(getitem_5, 'sum', '0');  getitem_5 = None
         wait_tensor_2: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce_2);  all_reduce_2 = wait_tensor_2 = None
-        getitem_4: "f32[8, 8]" = fused_2[0];  fused_2 = None
-        fused_3 = self.fused_3(getitem_4);  getitem_4 = None
-        getitem_7: "f32[8, 8]" = fused_3[1]
+        getitem_4: "f32[8, 8]" = fused_3[0];  fused_3 = None
+        fused_4 = self.fused_4(getitem_4);  getitem_4 = None
+        getitem_7: "f32[8, 8]" = fused_4[1]
         all_reduce_3: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(getitem_7, 'sum', '0');  getitem_7 = None
         wait_tensor_3: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce_3);  all_reduce_3 = wait_tensor_3 = None
-        getitem_6: "f32[8, 8]" = fused_3[0];  fused_3 = None
-        fused_4 = self.fused_4(getitem_6);  getitem_6 = None
-        getitem_9: "f32[8, 8]" = fused_4[1]
+        getitem_6: "f32[8, 8]" = fused_4[0];  fused_4 = None
+        fused_5 = self.fused_5(getitem_6);  getitem_6 = None
+        getitem_9: "f32[8, 8]" = fused_5[1]
         all_reduce_4: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(getitem_9, 'sum', '0');  getitem_9 = None
         wait_tensor_4: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce_4);  all_reduce_4 = wait_tensor_4 = None
-        getitem_8: "f32[8, 8]" = fused_4[0];  fused_4 = None
-        fused_5 = self.fused_5(getitem_8);  getitem_8 = None
-        getitem_11: "f32[8, 8]" = fused_5[1]
+        getitem_8: "f32[8, 8]" = fused_5[0];  fused_5 = None
+        fused_6 = self.fused_6(getitem_8);  getitem_8 = None
+        getitem_11: "f32[8, 8]" = fused_6[1]
         all_reduce_5: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(getitem_11, 'sum', '0');  getitem_11 = None
         wait_tensor_5: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce_5);  all_reduce_5 = wait_tensor_5 = None
-        getitem_10: "f32[8, 8]" = fused_5[0];  fused_5 = None
-        fused_6 = self.fused_6(getitem_10);  getitem_10 = None
-        getitem_13: "f32[8, 8]" = fused_6[1]
+        getitem_10: "f32[8, 8]" = fused_6[0];  fused_6 = None
+        fused_7 = self.fused_7(getitem_10);  getitem_10 = None
+        getitem_13: "f32[8, 8]" = fused_7[1]
         all_reduce_6: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(getitem_13, 'sum', '0');  getitem_13 = None
         wait_tensor_6: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce_6);  all_reduce_6 = wait_tensor_6 = None
-        getitem_12: "f32[8, 8]" = fused_6[0];  fused_6 = None
-        fused_7: "f32[8, 8]" = self.fused_7(getitem_12);  getitem_12 = None
-        all_reduce_7: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(fused_7, 'sum', '0')
+        getitem_12: "f32[8, 8]" = fused_7[0];  fused_7 = None
+        fused_8: "f32[8, 8]" = self.fused_8(getitem_12);  getitem_12 = None
+        all_reduce_7: "f32[8, 8]" = torch.ops._c10d_functional.all_reduce.default(fused_8, 'sum', '0')
         wait_tensor_7: "f32[8, 8]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce_7);  all_reduce_7 = None
-        fused_8 = self.fused_8(fused_7, wait_tensor_7);  fused_7 = wait_tensor_7 = fused_8 = None"""
+        fused_0 = self.fused_0(fused_8, wait_tensor_7);  fused_8 = wait_tensor_7 = fused_0 = None"""
     assert sub_str in optimized_fn_str, "the optimized graph not match"
 
     config.use_cpp_partitioner = orig_use_cpp_partitioner_flag
