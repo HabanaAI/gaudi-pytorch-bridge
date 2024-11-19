@@ -12,6 +12,7 @@
  */
 
 #include "hpu_ops/ctc_loss_custom.h"
+#include "backend/kernel/hpu_shape_inference.h"
 #include "hpu_ops/custom_op_outshape.h"
 
 namespace habana {
@@ -133,6 +134,35 @@ CTCLossCustomBackward::CTCLossCustomBackward(
 void CTCLossCustomBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  // Validate log_alpha shape in the max pass
+  if (habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MAX_SHAPE &&
+      graph.is_dry_run() && graph.is_dynamic_graph()) {
+    const synapse_helpers::tensor& logAlphaTensor = ReadSynInput(6);
+    std::vector<int64_t> logAlphaCurrentMaxShape = std::get<1>(
+        habana::ShapeInference::GetMinMaxShape(logAlphaTensor.id()));
+    const auto actualLastDimSizeInLogAlphaTensor =
+        logAlphaCurrentMaxShape.back();
+
+    const synapse_helpers::tensor& targetsTensor = ReadSynInput(2);
+    std::vector<int64_t> targetsCurrentMaxShape =
+        std::get<1>(habana::ShapeInference::GetMinMaxShape(targetsTensor.id()));
+
+    const auto maxTargetSize = targetsCurrentMaxShape.size() > 1
+        ? targetsCurrentMaxShape.at(1)
+        : targetsCurrentMaxShape.at(0);
+    const auto expectedLastDimSizeInLogAlphaTensor = maxTargetSize * 2 + 1;
+
+    TORCH_CHECK(
+        (actualLastDimSizeInLogAlphaTensor <=
+         expectedLastDimSizeInLogAlphaTensor),
+        "Actual size of the last dim in LogAlpha tensor (",
+        actualLastDimSizeInLogAlphaTensor,
+        ") is greater than the expected size (",
+        expectedLastDimSizeInLogAlphaTensor,
+        ")");
+  }
+
   auto grad = stack_tensor(stack, 0);
   auto log_probs = stack_tensor(stack, 1);
   auto targets = stack_tensor(stack, 2);
