@@ -125,6 +125,11 @@ class HPURegistrar {
         std::move(lazy_execution_arena_cleanup));
   }
 
+  void register_thread_deleter(CallFinally::FinalFunc&& thread_deleter) {
+    TORCH_CHECK(!thread_deleter_);
+    thread_deleter_.reset(std::move(thread_deleter));
+  }
+
   void register_device_deleter(CallFinally::FinalFunc&& device_deleter) {
     TORCH_CHECK(!device_deleter_);
     device_deleter_.reset(std::move(device_deleter));
@@ -144,6 +149,7 @@ class HPURegistrar {
 
   CallFinally device_deleter_;
   CallFinally lazy_execution_arena_cleanup_{};
+  CallFinally thread_deleter_;
   CallFinally lazy_exec_thread_pool_cleanup_{};
   CallFinally process_group_finalizer_;
   CallFinally accumulation_thread_cleanup_{};

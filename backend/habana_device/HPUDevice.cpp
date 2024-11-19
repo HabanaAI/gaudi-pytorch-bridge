@@ -45,6 +45,7 @@ struct HPUDeviceContextImpl {
   void JoinPipelineThreads();
   void CreateDevice();
   void Finish();
+  void ThreadsRelease();
 } device_context;
 
 void HPUDeviceContextImpl::JoinAllThreads() {
@@ -96,17 +97,20 @@ void HPUDeviceContextImpl::Init() {
   constant_information_ = ConstantInformationPtr();
   scalar_cache_ = std::make_unique<backend::ScalarCache>();
 
+  HPURegistrar::get_hpu_registrar().register_thread_deleter(
+      []() { device_context.ThreadsRelease(); });
   HPURegistrar::get_hpu_registrar().register_device_deleter(
       []() { device_context.Finish(); });
 }
 
+void HPUDeviceContextImpl::ThreadsRelease() {
+  habana_helpers::AutoNoGIL gil_release;
+  device_context.lowering_thread_.reset();
+  device_context.compile_thread_.reset();
+  device_context.execute_thread_.reset();
+}
+
 void HPUDeviceContextImpl::Finish() {
-  {
-    habana_helpers::AutoNoGIL gil_release;
-    device_context.lowering_thread_.reset();
-    device_context.compile_thread_.reset();
-    device_context.execute_thread_.reset();
-  }
   device_context.recipe_cache_.reset();
   device_context.scalar_cache_.reset();
 
