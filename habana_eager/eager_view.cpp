@@ -53,6 +53,7 @@ std::unordered_set<std::string_view> ops_needing_cast = {
     "aten::remainder"sv,   "aten::floor_divide_"sv,
     "aten::clamp"sv,       "aten::clamp_max"sv,
     "aten::clamp_min"sv,   "aten::xlogy"sv,
+    "aten::cumprod"sv,     "aten::cumsum"sv,
 };
 
 bool check_if_op_doesnt_use_input(const JitNode* node) {
