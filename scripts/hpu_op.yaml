@@ -4590,6 +4590,7 @@ mul.Tensor:
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   st_meta: BinarySTMeta
+  output_meta: MulMeta
   out_ids: [0]
   broadcast: true
   promote_to_common_type: [self, other]
@@ -4600,6 +4601,7 @@ mul.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   st_meta: BinarySTMeta
+  output_meta: MulMeta
   promote_to_common_type: [self, other]
   op_validator: check-node-with-shared-layer
 
@@ -4607,6 +4609,7 @@ mul.Scalar_out:
   broadcast: true
   guid: mult_fwd
   st_meta: BinarySTMeta
+  output_meta: MulMeta
   promote_to_common_type: [self, other]
   scalar_ids: [1]
   op_validator: check-node-with-shared-layer
@@ -4617,12 +4620,14 @@ mul_.Tensor:
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
+  output_meta: MulMeta
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
 
 mul_.Scalar:
   guid: mult_fwd
+  output_meta: MulMeta
   inplace_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -4635,6 +4640,7 @@ mul.out:
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
+  output_meta: MulMeta
   st_meta: BinarySTMeta
   op_frontend: BinaryScalarFE
   promote_to_common_type: [self, other]

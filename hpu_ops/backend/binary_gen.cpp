@@ -15,6 +15,7 @@
 #include "generated/backend/_foreach_add.h"
 #include "generated/backend/_foreach_div.h"
 #include "generated/backend/add.h"
+#include "generated/backend/mul.h"
 #include "generated/backend/rsub.h"
 #include "generated/backend/sub.h"
 #include "hpu_ops/backend/foreach.h"
@@ -530,6 +531,40 @@ struct CustomForeachAdd : ForeachBinary {
   CustomForeachAdd(int device_id, c10::ScalarType scalar_type)
       : ForeachBinary(device_id, "add_fwd", scalar_type, {}, {0}, {}, false) {}
 };
+
+OutputMetaDataVector BinaryMeta(
+    const at::Stack& stack,
+    std::string& guid,
+    bool castIntToFloat,
+    bool supportI8,
+    bool supportI16) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto other = stack.at(1);
+  const bool out_is_available = (stack.size() > 2 && stack.at(2).isTensor());
+  at::ScalarType resultType;
+  OutputMetaData meta;
+  if (other.isTensor()) {
+    const auto& otherTensor = other.toTensor();
+    resultType = out_is_available ? stack.at(2).toTensor().scalar_type()
+                                  : at::result_type(self, otherTensor);
+  } else {
+    const auto& otherScalar = stack.at(1).toScalar();
+    resultType = out_is_available ? stack.at(2).toTensor().scalar_type()
+                                  : at::result_type(self, otherScalar);
+  }
+  update_result_type(resultType, guid, castIntToFloat, supportI8, supportI16);
+  meta.dtype = resultType;
+  meta.shape = BinaryOutputShape(stack)[0];
+  return {meta};
+}
+
+OutputMetaDataVector MulMeta(const at::Stack& stack) {
+  const bool castIntToFloat = false;
+  const bool supportI8 = true;
+  const bool supportI16 = true;
+  std::string guid = "mult_fwd";
+  return BinaryMeta(stack, guid, castIntToFloat, supportI8, supportI16);
+}
 
 } // namespace habana
 
