@@ -406,9 +406,11 @@ ActivityType HpuTraceParser::getActivityType(const synTraceEvent* events_ptr) {
 std::unordered_map<std::string, std::string> HpuTraceParser::getExtraArgs(
     const synTraceEvent* events_ptr) {
   std::unordered_map<std::string, std::string> extraArgs;
-  extraArgs.reserve(events_ptr->arguments.extraArgs.count + 1);
+  extraArgs.reserve(events_ptr->arguments.extraArgs.count + 2);
 
   extraArgs["dataType"] = events_ptr->arguments.dataType;
+  extraArgs["EventName"] = events_ptr->name;
+
 
   for (size_t i{}; i < events_ptr->arguments.extraArgs.count; i++) {
     const auto& arg = events_ptr->arguments.extraArgs.args[i];
