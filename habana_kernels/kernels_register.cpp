@@ -1402,83 +1402,6 @@ at::Tensor habana_expand_into_jagged_permute_wrap(
       permute, input_offsets, output_offsets, output_size);
 }
 
-at::Tensor mixture_of_experts_wrap(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts :",
-      DUMP_10ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w1,
-          w2,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
-
-  return mixture_of_experts_lazy(
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w1,
-      w2,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max);
-}
-
-at::Tensor mixture_of_experts_fused_weights_wrap(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts :",
-      DUMP_9ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w12,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
-
-  return mixture_of_experts_fused_weights_lazy(
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w12,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max);
-}
-
 at::Tensor habana_split_permute_cat_wrap(
     const at::Tensor& input,
     const at::Tensor& indices,
@@ -2595,10 +2518,10 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
   m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax_wrap);
   m.impl("hpu::custom_softmax", custom_softmax_wrap);
-  m.impl("hpu::mixture_of_experts", mixture_of_experts_wrap);
+  m.impl("hpu::mixture_of_experts", mixture_of_experts_lazy);
   m.impl(
       "hpu::mixture_of_experts.fused_weights",
-      mixture_of_experts_fused_weights_wrap);
+      mixture_of_experts_fused_weights_lazy);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm_hpu_lazy);
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
