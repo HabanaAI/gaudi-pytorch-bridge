@@ -16,7 +16,6 @@ from typing import Optional
 
 import torch
 import torch._prims_common as utils
-from packaging.version import Version, parse
 from torch._decomp import core_aten_decompositions, get_decompositions
 from torch._ops import DispatchKey
 
@@ -183,6 +182,7 @@ hpu_backend_decompositions_list = [
     aten.rot90.default,
     aten.rot90.out,
     aten.rsub.Tensor,
+    aten._safe_softmax.default,
     aten.select_backward.default,
     aten.select_backward.out,
     aten.sgn.default,
@@ -245,11 +245,6 @@ hpu_backend_decompositions_list = [
     aten.zeros_like.default,
     aten.zeros_like.out,
 ]
-
-# aten._safe_softmax decomposition is available since PT2.5. As this change must be compatible also
-# with earlier versions of pytorch, following condition must be added.
-if Version(parse(torch.__version__).base_version) >= Version("2.5"):
-    hpu_backend_decompositions_list.append(aten._safe_softmax.default)
 
 hpu_backend_decompositions_common = get_decompositions(hpu_backend_decompositions_list)
 

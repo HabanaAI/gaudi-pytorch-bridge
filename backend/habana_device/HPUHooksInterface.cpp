@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "backend/habana_device/HPUHooksInterface.h"
-#if IS_PYTORCH_AT_LEAST(2, 5)
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
@@ -62,4 +61,3 @@ using at::RegistererHPUHooksRegistry;
 REGISTER_HPU_HOOKS(HPUHooks);
 
 } // namespace habana
-#endif

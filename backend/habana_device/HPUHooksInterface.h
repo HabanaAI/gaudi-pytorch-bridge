@@ -11,9 +11,8 @@
  *******************************************************************************
  */
 #pragma once
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#if IS_PYTORCH_AT_LEAST(2, 5)
 #include <ATen/detail/HPUHooksInterface.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {
 
@@ -34,4 +33,3 @@ struct HPUHooks : public at::HPUHooksInterface {
   bool hasPrimaryContext(at::DeviceIndex device_index) const override;
 };
 } // namespace habana
-#endif

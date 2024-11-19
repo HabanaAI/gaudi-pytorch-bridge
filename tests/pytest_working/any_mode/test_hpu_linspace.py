@@ -12,13 +12,7 @@
 
 import pytest
 import torch
-from test_utils import (
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-    compare_tensors,
-    is_pytest_mode_compile,
-    is_torch_at_least,
-)
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, is_pytest_mode_compile
 
 
 @pytest.mark.parametrize("start", [0.1664, 0.6964, 4.124])
@@ -48,10 +42,6 @@ def test_hpu_linspace(start, end, steps):
             check_ops_executed_in_jit_ir("arange")
 
 
-@pytest.mark.skipif(
-    not is_torch_at_least("2.2.0a0"),
-    reason="Scalar_Tensor and Tensor_scalar variants only support PyTorch version >= 2.2.0",
-)
 @pytest.mark.parametrize("start", [0.1664, 1, 10])
 @pytest.mark.parametrize("end", [1.2032, 5])
 @pytest.mark.parametrize("steps", [0, 1, 5])
