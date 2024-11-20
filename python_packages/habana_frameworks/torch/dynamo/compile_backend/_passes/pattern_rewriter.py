@@ -81,46 +81,12 @@ class replace_rewrite_floor_divide:
         return x
 
 
-class replace_rewrite_plain_index:
-    def pattern(tensor_input, list_indexes):
-        x = torch.ops.aten.index.Tensor(tensor_input, list_indexes)
-        return x
-
-    def replace(tensor_input, list_indexes):
-        x = torch.ops.hpu.plain_index(tensor_input, list_indexes)
-        return x
-
-    def filter(match, *args, **kwargs):
-        """
-        It checks if all tensors are on hpu and there is no nope or fake tensor in indices list,
-        so this rules out advance indexing and dynamic shapes.
-        """
-        src = match.placeholder_nodes[0]
-        if not (isinstance(src, torch.fx.node.Node) and src.meta.get("val").device.type == "hpu"):
-            return False
-        indices = match.placeholder_nodes[1]
-        if isinstance(indices, list):
-            for index in indices:
-                if index is None or (
-                    isinstance(index, torch.fx.node.Node)
-                    and (
-                        index.meta.get("val") is None
-                        or index.meta.get("val").device.type != "hpu"
-                        or any(isinstance(dim, torch.SymInt) for dim in index.meta.get("val").size())
-                    )
-                ):
-                    return False
-            return True
-        return False
-
-
 # Register pattern rewriters
 pattern_rewriters = []
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_floor))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_trunc))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_floor_divide))
-pattern_rewriters.append(PatternRewriter(replace_rewrite_plain_index))
 
 
 def pass_pattern_rewriter(ctx: OptimizerContext):

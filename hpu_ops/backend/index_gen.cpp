@@ -750,4 +750,58 @@ std::vector<int64_t> ComputeGatherOperatorOutputShape(
   return shape;
 }
 
+struct SimpleIndexCompileOperator : OpBackend {
+  SimpleIndexCompileOperator(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
+SimpleIndexCompileOperator::SimpleIndexCompileOperator(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
+
+static std::shared_ptr<void> FillSimpleIndexParams(
+    size_t num_index_tensors,
+    size_t& size) {
+  PARAMS_STUB(ns_IndexKernel::Params);
+  assert(
+      num_index_tensors <=
+      sizeof(params->self_permute_dims) / sizeof(params->self_permute_dims[0]));
+  // there is no advanced indexing
+  for (size_t i = 0; i < num_index_tensors; ++i) {
+    params->advanced_indexing_dims[i] = false;
+    params->self_permute_dims[i] = 0;
+  }
+  params->num_index_tensors = num_index_tensors;
+  return params;
+}
+
+void SimpleIndexCompileOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = IndexMeta(stack)[0];
+  StackGetter stackGetter(this, stack, "IndexHabanaOperator::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  size_t size = 0;
+  auto params = FillSimpleIndexParams(indices.size(), size);
+  std::vector<synTensor> index_input{input.syn_t};
+  for (auto const& index : indices)
+    index_input.push_back(index.syn_t);
+
+  auto result = BuildOp(
+      graph,
+      get_guid_with_precision("index", meta.dtype),
+      std::move(index_input),
+      {{meta.shape, meta.dtype, 0}},
+      params.get(),
+      size);
+
+  syn_out(0) = std::move(result[0]);
+}
+
 } // namespace habana
+
+static const auto& IndexAtenKernelRegistry = habana::KernelRegistry().add(
+    "aten::index.Tensor_hacked_twin",
+    KERNEL_FN_GLOBAL(habana::SimpleIndexCompileOperator));

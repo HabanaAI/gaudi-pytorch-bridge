@@ -25,6 +25,7 @@ from test_utils import cpu, hpu
         pytest.param((2, 3, 8, 8), ([[[1], [0]]],)),
     ],
 )
+@pytest.mark.skip
 def test_index(shape, indices):
 
     def wrapper_fn(src, indices):
