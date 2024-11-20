@@ -16,7 +16,7 @@ from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile
 
 
 @pytest.mark.parametrize("shape", [(20,), (5, 4, 3)], ids=format_tc)
-@pytest.mark.parametrize("op_name", ["exp", "sqrt", "rsqrt"])
+@pytest.mark.parametrize("op_name", ["exp", "sqrt", "rsqrt", "reciprocal"])
 def test_hpu_exp_fast_math(shape, op_name):
     self_cpu = torch.rand(shape, dtype=torch.bfloat16) * 10
     self_hpu = self_cpu.to("hpu")
