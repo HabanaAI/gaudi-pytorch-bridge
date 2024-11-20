@@ -403,7 +403,20 @@ SharedMetaDataVector BinaryWithAlphaSharedMeta(
   at::ScalarType outputType;
   if (other.isTensor()) {
     const at::Tensor& otherTensor = other.toTensor();
-    outputType = at::result_type(selfTensor, otherTensor);
+
+    if (!otherTensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+      outputType = at::result_type(selfTensor, otherTensor);
+    } else {
+      // create a new dummy scalar with default type, and
+      // then call result_type(Tensor, Scalar) variant
+      at::Scalar newOtherScalar;
+      if (at::is_floating_point(otherTensor)) {
+        newOtherScalar = at::Scalar((float)1.0);
+      } else {
+        newOtherScalar = at::Scalar((int64_t)1);
+      }
+      outputType = at::result_type(selfTensor, newOtherScalar);
+    }
   } else {
     const auto& otherScalar = other.toScalar();
     outputType = at::result_type(selfTensor, otherScalar);
