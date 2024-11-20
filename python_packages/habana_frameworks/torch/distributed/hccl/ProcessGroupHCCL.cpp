@@ -174,10 +174,11 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
       rank_);
   habana_helpers::AutoNoGIL gil_release;
   destroy();
-  destroyHandshake();
 }
 
 void ProcessGroupHCCL::destroy() {
+  if (is_destroyed_)
+    return;
   PT_DISTRIBUTED_DEBUG(
       "Destroy ProcessGroupHCCL name:",
       group_name_,
@@ -195,6 +196,8 @@ void ProcessGroupHCCL::destroy() {
   }
 
   hccl_communicator_ = {};
+  destroyHandshake();
+  is_destroyed_ = true;
 }
 
 ProcessGroupHCCL::WorkHCCL::WorkHCCL(
