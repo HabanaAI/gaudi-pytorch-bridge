@@ -98,6 +98,56 @@ void HandleScaleScalar(
     syn_inputs.push_back(nullptr);
   }
 }
+
+void HandleScale(
+    habana::OpBackend* op,
+    sh::graph& graph,
+    const habana::VariantWrapper<TensorsPair, c10::IValue>& scaleOpt,
+    const at::Tensor& input,
+    bool isTranspose,
+    std::vector<sh::tensor>& adjusted_scale,
+    std::vector<synTensor>& syn_inputs,
+    int deviceId,
+    const c10::IValue& scale_shape) {
+  if (scaleOpt.isTensorsPair()) {
+    auto scale = scaleOpt.toTensorsPair();
+    if (scale.pt_t.dim() == 2) {
+      TORCH_CHECK(
+          scale.pt_t.size(0) == 1 || scale.pt_t.size(1) == 1,
+          "Scale tensor must be 1D or 2D with one of the dimensions being 1.");
+    }
+
+    auto sizes = input.sizes().vec();
+    if (isTranspose) {
+      TORCH_CHECK(
+          sizes.size() >= 2,
+          "Input tensor must have at least 2 dimensions to perform transpose operation.");
+      std::swap(sizes[sizes.size() - 1], sizes[sizes.size() - 2]);
+    }
+    TORCH_CHECK(
+        at::are_expandable(at::IntArrayRef(sizes), scale.pt_t.sizes()),
+        "Input and its scale must be broadcastable. Got: ",
+        at::IntArrayRef(sizes),
+        " and ",
+        scale.pt_t.sizes());
+
+    ValidateScaleShape(scale.pt_t, scale_shape);
+    HandleScaleTensor(
+        op,
+        graph,
+        scale.pt_t,
+        scale.syn_t,
+        adjusted_scale,
+        syn_inputs,
+        scale_shape);
+  } else {
+    auto scale = scaleOpt.toIValue();
+    ValidateScaleShape(scale, scale_shape);
+    HandleScaleScalar(
+        op, graph, scale, deviceId, adjusted_scale, syn_inputs, scale_shape);
+  }
+}
+
 } // namespace fp8
 
 using namespace habana::fp8;
@@ -401,13 +451,13 @@ Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 11, "Fp8GemmV2 must have 10 input arguments");
+  TORCH_CHECK(stack.size() == 11, "Fp8GemmV2 must have 11 input arguments");
 
   StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
   auto A = stackGetter.getNextInput<TensorsPair>();
-  bool trans_A = stackGetter.getNextInput<bool>();
+  bool transA = stackGetter.getNextInput<bool>();
   auto B = stackGetter.getNextInput<TensorsPair>();
-  bool trans_B = stackGetter.getNextInput<bool>();
+  bool transB = stackGetter.getNextInput<bool>();
   auto DOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
   auto out_type = stackGetter.getNextInput<c10::ScalarType>();
   auto scaleAOpt =
@@ -423,42 +473,32 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
   std::vector<sh::tensor> adjusted_scale;
 
-  if (scaleAOpt.isTensorsPair()) {
-    auto scaleA = scaleAOpt.toTensorsPair();
-    HandleScaleTensor(
-        this, graph, scaleA.pt_t, scaleA.syn_t, adjusted_scale, syn_inputs);
-  } else {
-    HandleScaleScalar(
-        this,
-        graph,
-        scaleAOpt.toIValue(),
-        p_context_->device_id_,
-        adjusted_scale,
-        syn_inputs);
-  }
+  HandleScale(
+      this,
+      graph,
+      scaleAOpt,
+      A.pt_t,
+      transA,
+      adjusted_scale,
+      syn_inputs,
+      p_context_->device_id_);
+  HandleScale(
+      this,
+      graph,
+      scaleBOpt,
+      B.pt_t,
+      transB,
+      adjusted_scale,
+      syn_inputs,
+      p_context_->device_id_,
+      scale_shape);
 
-  if (scaleBOpt.isTensorsPair()) {
-    auto scaleB = scaleBOpt.toTensorsPair();
-    ValidateScaleShape(scaleB.pt_t, scale_shape);
-    HandleScaleTensor(
-        this,
-        graph,
-        scaleB.pt_t,
-        scaleB.syn_t,
-        adjusted_scale,
-        syn_inputs,
-        scale_shape);
-  } else {
-    auto scaleB = scaleBOpt.toIValue();
-    ValidateScaleShape(scaleB, scale_shape);
-    HandleScaleScalar(
-        this,
-        graph,
-        scaleB,
-        p_context_->device_id_,
-        adjusted_scale,
-        syn_inputs,
-        scale_shape);
+  if (scaleAOpt.isTensorsPair() && scaleBOpt.isTensorsPair()) {
+    TORCH_CHECK(
+        at::are_expandable(
+            scaleAOpt.toTensorsPair().pt_t.sizes(),
+            scaleBOpt.toTensorsPair().pt_t.sizes()),
+        "Scale tensors must be broadcastable.");
   }
 
   if (biasOpt) {
@@ -479,7 +519,7 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   // it to be explicitly filled with nullptr before.
   syn_inputs.push_back(nullptr);
 
-  synGEMMParams params{trans_A, trans_B};
+  synGEMMParams params{transA, transB};
 
   auto out_shapes = Fp8GemmV2OutputShape(stack);
 

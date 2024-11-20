@@ -376,6 +376,9 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
         scaleAInv = 1 / scaleA_hpu
         if not scaleB:
             scaleBInv = 1.0
+    elif scaleA == ScaleMode.TENSOR_CHANNEL:
+        scaleA_hpu = (FP8_MAX[fp8_dtype] / max_A).expand(shapeA[-1]).to(hpu)
+        scaleAInv = torch.reciprocal(scaleA_hpu)
 
     if scaleB == ScaleMode.TENSOR:
         scaleB_hpu = (FP8_MAX[fp8_dtype] / max_B).to(hpu)
@@ -394,6 +397,13 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
         scaleB_hpu = scaleB_h.numpy().tolist()
         if not scaleA:
             scaleAInv = [1.0]
+
+    if scaleA == scaleB == ScaleMode.TENSOR_CHANNEL:
+        scaleAInv = scaleAInv.unsqueeze(1)
+        scaleBInv = scaleBInv.unsqueeze(0)
+
+    if scaleA == ScaleMode.TENSOR_CHANNEL and scaleB == None:
+        scaleAInv = scaleAInv.unsqueeze(1)
 
     As = [A[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A]
     As_hpu = [A_hpu[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A_hpu]
@@ -513,6 +523,8 @@ scale_modes = [
     (ScaleMode.TENSOR, None),
     (ScaleMode.SCALAR, ScaleMode.SCALAR),
     (ScaleMode.SCALAR, None),
+    (ScaleMode.TENSOR_CHANNEL, None),
+    (ScaleMode.TENSOR_CHANNEL, ScaleMode.TENSOR_CHANNEL),
     (None, ScaleMode.TENSOR),
     (None, ScaleMode.SCALAR),
     (None, ScaleMode.TENSOR_CHANNEL),

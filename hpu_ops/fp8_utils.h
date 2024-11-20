@@ -48,6 +48,17 @@ void HandleScaleScalar(
     std::vector<sh::tensor>& maybe_const_scale,
     std::vector<synTensor>& syn_inputs,
     const c10::IValue& scale_shape_ival = c10::IValue{});
+
+void HandleScale(
+    habana::OpBackend* op,
+    sh::graph& graph,
+    const habana::VariantWrapper<TensorsPair, c10::IValue>& scaleOpt,
+    const at::Tensor& input,
+    bool isTranspose,
+    std::vector<sh::tensor>& adjusted_scale,
+    std::vector<synTensor>& syn_inputs,
+    int deviceId,
+    const c10::IValue& scale_shape = c10::IValue());
 } // namespace fp8
 
 } // namespace habana
