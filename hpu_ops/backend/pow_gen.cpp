@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/_foreach_pow.h"
 #include "generated/backend/pow.h"
@@ -19,57 +19,10 @@
 
 namespace habana {
 
-static synapse_helpers::tensor PowScalar(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const std::vector<synTensor>&& inputs,
-    const at::Scalar& other,
-    at::ScalarType scalar_type,
-    const std::vector<int64_t>& outshape,
-    const int out_index) {
-  const float exponent = other.toFloat();
-  std::optional<synapse_helpers::tensor> temp;
-  NodeAttr node_attr;
-  if (exponent == 1.) {
-    // fast path for identity
-    node_attr = {"identity", {inputs[0]}, {{outshape, scalar_type, out_index}}};
-  } else if (exponent == 2.) {
-    // fast path for square, mult_fwd_u8/s8_trunc will be used to handle
-    // overflow
-    node_attr = {
-        get_guid_with_precision("mult_fwd", scalar_type),
-        {inputs[0], inputs[0]},
-        {{outshape, scalar_type, out_index}}};
-  } else if (exponent == 3.) {
-    const std::string mult_node =
-        get_guid_with_precision("mult_fwd", scalar_type);
-    temp = std::move(OpBackend::BuildNode(
-        op,
-        graph,
-        {mult_node, {inputs[0], inputs[0]}, {{outshape, scalar_type}}})[0]);
-    node_attr = {
-        mult_node,
-        {temp.value().get(), inputs[0]},
-        {{outshape, scalar_type, out_index}}};
-  } else {
-    std::string guid = get_guid_with_precision("pow_fwd", scalar_type);
-    node_attr = {
-        guid, {inputs[0], inputs[1]}, {{outshape, scalar_type, out_index}}};
-  }
-  return std::move(OpBackend::BuildNode(op, graph, std::move(node_attr))[0]);
-}
-
-void PowOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-
-  syn_out(0) = PowScalar(
-      this,
-      graph,
-      {syn_in(0), syn_in(1)},
-      stack[1].toScalar(),
-      ScalarType(),
-      self.sizes().vec(),
-      0);
+std::shared_ptr<void> FillPowParams(const at::Stack& stack, size_t& size) {
+  PARAMS_STUB(ns_Power::Params);
+  params->exp_val = stack.at(1).toScalar().toDouble();
+  return params;
 }
 
 static synapse_helpers::tensor createForeachPowNode(
@@ -103,15 +56,17 @@ static synapse_helpers::tensor createForeachPowNode(
       result_type = torch::kFloat32;
     }
 
-    auto syn_other = OpBackend::BuildConstant(op, graph, other, result_type);
-    return PowScalar(
+    ns_Power::Params params{};
+    params.exp_val = other.toDouble();
+
+    return std::move(OpBackend::BuildNode(
         op,
         graph,
-        {syn_inputs[0], syn_other.get()},
-        other,
-        result_type,
-        self.sizes().vec(),
-        out_index);
+        {get_guid_with_precision("pow_fwd", result_type),
+         syn_inputs,
+         {{self.sizes().vec(), result_type, out_index}},
+         &params,
+         sizeof(params)})[0]);
   } else {
     const at::Scalar& self = pt_inputs[0].toScalar();
     const at::Tensor& other = pt_inputs[1].toTensor();
@@ -157,23 +112,10 @@ static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
     if (isIntegralType(dtype, true))
       dtype = torch::kFloat32;
 
-    const float exponent = otherScalar.toFloat();
-    if (exponent == 1.) {
-      SharedMetaData identitySharedMeta{"identity"};
-      identitySharedMeta.inputs_data.emplace_back(rank, dtype);
-      identitySharedMeta.outputs_data = identitySharedMeta.inputs_data;
-      return {identitySharedMeta};
-    } else if (exponent == 2. || exponent == 3.) {
-      SharedMetaData multSharedMeta{"mult_fwd"};
-      multSharedMeta.inputs_data = {{rank, dtype}, {rank, dtype}};
-      multSharedMeta.outputs_data.emplace_back(rank, dtype);
-      return {multSharedMeta};
-    } else {
-      SharedMetaData powSharedMeta{"pow_fwd"};
-      powSharedMeta.inputs_data = {{rank, dtype}, {1, dtype}};
-      powSharedMeta.outputs_data = {{rank, dtype}};
-      return {powSharedMeta};
-    }
+    SharedMetaData powSharedMeta{"pow_fwd"};
+    powSharedMeta.inputs_data = {{rank, dtype}, {1, dtype}};
+    powSharedMeta.outputs_data = {{rank, dtype}};
+    return {powSharedMeta};
   } else {
     const auto& selfScalar = self.toScalar();
     const auto& otherTensor = other.toTensor();
