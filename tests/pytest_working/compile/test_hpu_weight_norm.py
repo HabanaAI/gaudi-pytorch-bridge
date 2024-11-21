@@ -11,13 +11,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import format_tc
+from compile.test_dynamo_utils import use_eager_fallback
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
 from torch import nn
 
 
-@pytest.mark.skip(
-    reason="PT2.2 regression: https://github.com/pytorch/pytorch/issues/118742 - to unskip with future PT releases"
-)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_weight_norm_fwd_bwd(dtype):
     in_numel = 20
@@ -48,12 +46,17 @@ def test_weight_norm_fwd_bwd(dtype):
         output.backward(grad)
         return output, input.grad
 
-    model_compile_hpu = torch.compile(fn, backend="hpu_backend")
-    model_cpu = fn
+    with use_eager_fallback():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        model_compile_hpu = torch.compile(fn, backend="hpu_backend")
+        model_cpu = fn
 
-    output_hpu, x_grad_hpu = model_compile_hpu(x_hpu, g_hpu, w_cpu, "hpu")
-    output_cpu, x_grad_cpu = model_cpu(x_cpu, g_cpu, w_cpu, "cpu")
+        output_hpu, x_grad_hpu = model_compile_hpu(x_hpu, g_hpu, w_cpu, "hpu")
+        output_cpu, x_grad_cpu = model_cpu(x_cpu, g_cpu, w_cpu, "cpu")
 
     rtol = 5e-2 if dtype == torch.bfloat16 else 1e-5
     assert torch.allclose(output_hpu.cpu(), output_cpu, rtol=rtol)
     assert torch.allclose(x_grad_hpu.cpu(), x_grad_cpu, rtol=rtol)
+
+    check_ops_executed_in_jit_ir({"_weight_norm_interface_backward", "_weight_norm_interface"})

@@ -1291,8 +1291,10 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         dynamic_call_function = is_call_function_dynamic(node, ctx.is_dynamic) if node.op == "call_function" else False
         if node.op in ["placeholder", "output", "get_attr"]:
             placement = "eager"
+            logger.debug(f"Node {node}: eager placement as node is one of [placeholder, output, get_attr]")
         elif node.op == "call_function" and is_higher_order_node(node):
             placement = "eager"
+            logger.debug(f"Node {node}: eager placement as node is a higher order node")
         elif node.op == "call_function" and "to_copy" in node.target.__name__:
             input_node = None
             for arg in node.args:
@@ -1308,12 +1310,14 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             else:
                 placement = "eager"
                 logger.debug(
-                    f"{node._pretty_print_target(node.target)} fellback to eager becouse it was identified as non D2D copy"
+                    f"{node._pretty_print_target(node.target)} fallback to eager because node was identified as non D2D copy"
                 )
         elif node.op == "call_function" and node._pretty_print_target(node.target) in host_call_functions:
             placement = "eager"
+            logger.debug(f"Node {node}: eager placement as node is a host call function")
         elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=dynamic_call_function):
             placement = "eager"
+            logger.debug(f"Node {node}: eager placement as node require fallback to eager")
         elif node.meta["output_device"].type == "hpu":
             # Current assumption is that if OP outputs HPU tensor, then all its inputs are also on HPU.
             # Let's create an assert that will fire in case this assumption proves wrong.
@@ -1336,6 +1340,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             placement = "hpu_cluster"
         elif node.meta["output_device"].type == "cpu":
             placement = "eager"
+            logger.debug(f"Node {node}: eager placement as node output_device is cpu")
 
         if node.op == "call_function":
             # This log line is used by the logging analysis tool. Please be cautious
