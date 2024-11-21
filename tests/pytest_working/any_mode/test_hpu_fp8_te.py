@@ -410,6 +410,9 @@ def _verify_executed_ops(fp8_format):
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
+
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
 
     inp_size, weight_size, _ = _get_inp_weigth_bias_size(size_B, size_A, size_A)
@@ -466,6 +469,8 @@ def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
 def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     device = torch.device("hpu:0")
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
@@ -649,6 +654,8 @@ def test_longer_history_size():
 def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
 
@@ -686,6 +693,9 @@ def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
 def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torch.float32):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
+
     import habana_frameworks.torch as ht
 
     # Prepare te linear module
@@ -745,6 +755,8 @@ def test_te_multiple_fwd_multiple_bwd(
 ):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     def is_first_microbatch(i):
         if not microbatches_approach:
@@ -820,6 +832,9 @@ def test_te_multiple_fwd_multiple_bwd(
 def test_linear_weight_caching_in_microbatches_case(fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
+
     import habana_frameworks.torch as ht
 
     torch.manual_seed(12345)
