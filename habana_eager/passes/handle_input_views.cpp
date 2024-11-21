@@ -95,7 +95,15 @@ struct HandleInputViewsPass {
         }
 
         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
-        auto output_size = "[" + range_infos[input_idx].expr + "]";
+
+        std::string output_size;
+        if (range_infos.size()) {
+          output_size = "[" + range_infos[input_idx].expr + "]";
+        } else {
+          // node attribute "output_size" remains used in static
+          output_size = "[STATIC]";
+        }
+
         insert_strided_view_node(
             input_tensor,
             first_user,
@@ -109,24 +117,26 @@ struct HandleInputViewsPass {
         // tensor in the stack, we have to do the same in range_info DS. The
         // problem being we dont have a way currently to fetch shapes of base
         // tensor in form of symbolic so that min max can be inferred.
-        std::stringstream ss;
-        ss << "[";
-        for (auto value : m_input_base_sizes_to_set.at(input_idx)) {
-          ss << value << ", ";
+        if (range_infos.size()) {
+          std::stringstream ss;
+          ss << "[";
+          for (auto value : m_input_base_sizes_to_set.at(input_idx)) {
+            ss << value << ", ";
+          }
+          std::string result = ss.str();
+          if (!result.empty()) {
+            result.erase(result.size() - 2);
+          }
+          result += "]";
+          range_infos[input_idx].expr = result;
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "HandleViewPass filling RangeInfo at index ",
+              range_infos[input_idx].index,
+              " with static min and max = ",
+              result);
+          // Change the index to -1 so that min and max range be processed
+          range_infos[input_idx].index = -1;
         }
-        std::string result = ss.str();
-        if (!result.empty()) {
-          result.erase(result.size() - 2);
-        }
-        result += "]";
-        range_infos[input_idx].expr = result;
-        PT_DYNAMIC_SHAPE_DEBUG(
-            "HandleViewPass filling RangeInfo at index ",
-            range_infos[input_idx].index,
-            " with static min and max = ",
-            result);
-        // Change the index to -1 so that min and max range be processed
-        range_infos[input_idx].index = -1;
 
         changed |= true;
 

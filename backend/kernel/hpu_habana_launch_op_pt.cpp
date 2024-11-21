@@ -3175,7 +3175,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       uint64_t curr_st_id = habana::ShapeInference::GetShapeTensorId();
       HabanaKernel->AllocateAndAddSynapseNode(
           *syn_graph, input_stack, outputs_metadata);
-      // ST_Id is incremented only when the node is dynamic and it creates ST(s)
+      // ST_Id is incremented only when the node is dynamic and it creates
+      // backend ST(s)
       uint64_t changed_st_id = habana::ShapeInference::GetShapeTensorId();
 
       if (enable_optim_output_sif_ &&
@@ -4879,7 +4880,7 @@ void HabanaLaunchOpPT::run(
       graph_key_,
       ", hash_code with data layout : ",
       graph_key_with_perm_,
-      "is dynamic : ",
+      ", is dynamic : ",
       refine_ds_enabled_);
 
   if (enable_optim_output_sif_) {

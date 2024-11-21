@@ -736,7 +736,7 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
 
 
 def pass_make_symints_available(ctx: OptimizerContext) -> bool:
-    if (not ctx.is_dynamic) or (hpu_backend_config.force_static_compile):
+    if not ctx.is_dynamic:
         return True
 
     def get_all_symbolic_int_nodes():
@@ -2535,12 +2535,8 @@ def pass_compile_clusters(ctx: OptimizerContext):
             jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
             jit_node_annotation_propagation(jit_ir_function, submod_updated)
 
-            is_submod_dynamic = False
-
+            is_submod_dynamic = is_module_dynamic(submod)
             if not hpu_backend_config.force_static_compile:
-                # Submodule dynamicity has to recheck and set to the collable.
-                is_submod_dynamic = is_module_dynamic(submod)
-
                 if refine_dynamic:
                     is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
 

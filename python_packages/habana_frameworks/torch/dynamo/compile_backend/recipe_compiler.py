@@ -230,7 +230,7 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = []
         inputs = tuple(args)
 
-        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_hash_code, graph_compile, graph_launch
+        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_symval_hashcode, graph_compile, graph_launch
 
         if self._ds_output_prealloc:
             self._symbol_evaluator.clear_symbolic_value_dict()
@@ -240,22 +240,33 @@ class HabanaGraphModule(torch.nn.Module):
 
         outputs = batch_empty(self._outputs_batch_data)
 
-        # If dynamic recipe compilation is disabled
-        # recompilation will happen everytime
-        # except for static cache hit scenario
+        # If force_static_compile enabled, recipe will
+        # compile in static flow, even if graph is dynamic
         if self._force_static_compile:
-            new_hash_key = calculate_hash_code(inputs)
-            if self._hash_key != new_hash_key:
-                self._hash_key = new_hash_key
+            if self._pholder_symbolic_dict:
+                new_hash_key = calculate_symval_hashcode(inputs, self._pholder_symbolic_dict)
+                # Symbol(s) value changes indicate change in input shapes
+                # So recompilation will be needed
+                if self._hash_key != new_hash_key:
+                    self._hash_key = new_hash_key
+                    self._recipe_id = None
+            elif self._dynamic:
+                # If symbols not properly captured (pholder_symbolic_dict is empty)
+                # even though graph is dynamic, Recompilation is needed
+                # to avoid false negative cases of symbols not changing
                 self._recipe_id = None
+            self._dynamic = False
 
         if self._recipe_id is None:
-            self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
             self.check_for_random_ops()
+            if self._dynamic:
+                self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
+                if self._has_randoms:
+                    self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
+                    self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
+
             if self._has_randoms:
                 inputs = (None, None) + inputs
-                self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
-                self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
 
             if bc.get_pt_hpu_use_jit_fork():
                 graph = self._jit_ir
