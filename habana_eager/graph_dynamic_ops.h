@@ -34,7 +34,8 @@ void GetValueAndScalarIndexFromInput(
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
-    int64_t& index);
+    int64_t& index,
+    const bool setIndexWhenNegativeConstant = true);
 void GetValuesAndScalarIndexesFromListConst(
     torch::jit::Node* node,
     std::vector<int64_t>& values,

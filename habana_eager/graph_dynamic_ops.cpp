@@ -30,7 +30,8 @@ void GetValueAndScalarIndexFromInput(
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
-    int64_t& index) {
+    int64_t& index,
+    const bool setIndexWhenNegativeConstant) {
   if (input == nullptr)
     return;
   static const auto constant_symbol{
@@ -40,7 +41,7 @@ void GetValueAndScalarIndexFromInput(
   if (input->node()->kind() == constant_symbol) {
     try {
       value = static_cast<int64_t>(input->node()->i(value_attr));
-      if (value < 0)
+      if (value < 0 && setIndexWhenNegativeConstant)
         index = value;
     } catch (std::exception& e) {
       value = 0;
