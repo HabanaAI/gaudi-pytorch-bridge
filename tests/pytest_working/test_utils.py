@@ -626,22 +626,29 @@ def is_dtype_floating_point(dtype):
     return torch.is_floating_point(torch.tensor((), dtype=dtype))
 
 
-def print_tensors_internal(tensors, index=[]):
+def print_tensors_internal(tensors, atol, rtol, index=[]):
     if isinstance(tensors[0], Iterable):
         for i, (tensors_sub) in enumerate(zip(*tensors)):
-            print_tensors_internal(tensors_sub, index + [i])
+            print_tensors_internal(tensors_sub, atol, rtol, index + [i])
     else:
-        len = 22
-        s = ""
-        for v in tensors:
-            s += f"{v:{len}}"
-        print(f"{index} {s}")
+        tolerance_ok = False
+        if atol is not None and rtol is not None and len(tensors) == 2:
+            a = tensors[0]
+            b = tensors[1]
+            tolerance_ok = abs(a - b) <= (atol + rtol * abs(b))
+
+        if not tolerance_ok:
+            l = 22
+            s = ""
+            for v in tensors:
+                s += f"{v:{l}}"
+            print(f"{index} {s}")
 
 
-def print_tensors(labels, tensors):
+def print_tensors(labels, tensors, atol=None, rtol=None):
     for l, t in zip(labels, tensors):
         print(f"{l} : {t.shape}")
-    print_tensors_internal([t.tolist() for t in tensors])
+    print_tensors_internal([t.tolist() for t in tensors], atol, rtol)
 
 
 def fga_assert_helper(ops_summary, op, count_list):
