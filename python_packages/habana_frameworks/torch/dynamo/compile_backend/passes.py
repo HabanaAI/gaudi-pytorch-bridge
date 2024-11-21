@@ -106,6 +106,7 @@ def get_passes(stage: OptimizationPassPlacement):
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
             pass_graph_print,
+            pass_mark_waittensor_downstream_ops,
             # These passes will prepare proper placement for some corner-cases.
             pass_propose_partitions,
             pass_post_process_partitions,
@@ -137,8 +138,8 @@ def get_passes(stage: OptimizationPassPlacement):
 class FusedCollectiveOperatorSupport(OperatorSupport):
     def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
         if (
-            "downstream_allreduce_name" in node.meta
-            and node.meta["downstream_allreduce_name"] == self.allreduce_name
+            self.keyword in node.meta
+            and node.meta[self.keyword] == self.target_value
             and "partition_assigned" not in node.meta
             and node.meta["placement"] == "hpu_cluster"
         ):
@@ -167,6 +168,27 @@ def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
 
         return len(allreduces) > 0
     return False
+
+
+def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
+    if not hpu_backend_config.enable_waittensor_graph_split:
+        return False
+
+    gm = ctx.graph_module
+    waittensors = [n for n in gm.graph.nodes if n.name.startswith("wait_tensor")]
+    for waittensor in waittensors:
+        upstream_waittensor_name = waittensor.name
+        user_nodes = list(waittensor.users.keys())
+        new_user_nodes = []
+        while len(user_nodes) > 0:
+            for user_node in user_nodes:
+                if "upstream_waittensor_name" not in user_node.meta:
+                    user_node.meta["upstream_waittensor_name"] = upstream_waittensor_name
+                    new_user_nodes.extend(list(user_node.users.keys()))
+            user_nodes = new_user_nodes
+            new_user_nodes = []
+
+    return len(waittensors) > 0
 
 
 def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
@@ -1007,10 +1029,21 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     if hpu_backend_config.enable_allreduce_graph_split:
         allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
         cls = FusedCollectiveOperatorSupport
+        setattr(cls, "keyword", "downstream_allreduce_name")
         ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
         for allreduce in allreduces:
-            setattr(cls, "allreduce_name", allreduce.name)
+            setattr(cls, "target_value", allreduce.name)
             ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
+
+    if hpu_backend_config.enable_waittensor_graph_split:
+        wait_tensors = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("wait_tensor")]
+        cls = FusedCollectiveOperatorSupport
+        setattr(cls, "keyword", "upstream_waittensor_name")
+        ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
+        for wait_tensor in wait_tensors:
+            setattr(cls, "target_value", wait_tensor.name)
+            ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
+
     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
     ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
 
