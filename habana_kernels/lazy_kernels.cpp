@@ -6588,19 +6588,6 @@ at::Tensor mixture_of_experts_lazy(
     const int64_t experts_max) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts :",
-      DUMP_10ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w1,
-          w2,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
 
   LazyOp<at::Tensor> op{
       "hpu::mixture_of_experts",
@@ -6619,7 +6606,6 @@ at::Tensor mixture_of_experts_lazy(
 
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
 }
-
 at::Tensor mixture_of_experts_fused_weights_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
@@ -6632,18 +6618,6 @@ at::Tensor mixture_of_experts_fused_weights_lazy(
     const int64_t experts_max) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts.fused_weights :",
-      DUMP_9ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w12,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
 
   LazyOp<at::Tensor> op{
       "hpu::mixture_of_experts",
