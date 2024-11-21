@@ -671,15 +671,43 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
 void ProcessGroupHCCL::clearPermutesFromRecvTensors(
     std::vector<at::Tensor>& tensors) {
   for (auto& tensor : tensors) {
+    bool is_non_contiguous_view = false;
     auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
+    if (!self_hb_tensor.isStorageAttached()) {
+      auto& stride_params_opt = self_hb_tensor.getDataPtr()->stride_params;
+      if (stride_params_opt.has_value()) {
+        if (tensor.is_contiguous()) {
+          auto base = habana_lazy::HbLazyTensorViews::get_recent_base_tensor(
+              stride_params_opt.value().base);
+          TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+          self_hb_tensor = habana_lazy::GetHbLazyTensor(base);
+        } else {
+          is_non_contiguous_view = true;
+        }
+      } else {
+        TORCH_CHECK(
+            0, "Neither storage attached to input tensor, not its view.")
+      }
+    }
     auto self_internal_tensor = self_hb_tensor.EvaluateTensorData();
     auto hb_weight_impl =
         habana_lazy::GetHbInternalTensorImpl(self_internal_tensor);
-    PT_DISTRIBUTED_DEBUG(
-        "recieved tensor: ",
-        self_hb_tensor.getTensorUniqueId(),
-        " Clearing its permutation");
-    hb_weight_impl->SetMemoryPermutation({});
+    if (is_non_contiguous_view) {
+      HABANA_ASSERT(
+          hb_weight_impl->GetMemoryPermutation().empty(),
+          "Noncontiguous view output of Recv should not have permutation");
+      PT_DISTRIBUTED_DEBUG(
+          "recieved tensor: ",
+          self_hb_tensor.getTensorUniqueId(),
+          " is non contiguous view, skipping clearing its permutation");
+      continue;
+    } else {
+      PT_DISTRIBUTED_DEBUG(
+          "recieved tensor: ",
+          self_hb_tensor.getTensorUniqueId(),
+          " Clearing its permutation");
+      hb_weight_impl->SetMemoryPermutation({});
+    }
   }
 }
 } // namespace c10d
