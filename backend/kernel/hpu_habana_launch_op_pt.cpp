@@ -4287,6 +4287,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
         current_dbipsh_->get_statistics()->LogSelectedRecipe(
             cur_rargpsh_->hashCode(), 0);
+        current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
         current_dbipsh_->get_statistics()->LogShapes(
             jit_ir_graph_, graph_input_info.act_input_tshapes);
 
@@ -4314,6 +4315,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
         PT_DYNAMIC_SHAPE_DEBUG("Cache hit pipeline flow");
         current_dbipsh_->get_statistics()->LogSelectedRecipe(
             cur_rargpsh_->hashCode(), 0);
+        current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
         current_dbipsh_->get_statistics()->LogShapes(
             jit_ir_graph_, graph_input_info.act_input_tshapes);
         current_dbipsh_->get_statistics()->GetDigest(
@@ -4735,6 +4737,7 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
         cur_rargpsh_->hashCode(),
         "OK",
         habana_helpers::CompilationPass::STATIC);
+    current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
     current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph_, input_tshapes);
     current_dbipsh_->get_statistics()->LogUsedBucket(
         0, jit_ir_graph_, ranges, false);
@@ -4755,6 +4758,7 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
 
     current_dbipsh_->get_statistics()->LogSelectedRecipe(
         cur_rargpsh_->hashCode(), 0);
+    current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
     current_dbipsh_->get_statistics()->LogShapes(jit_ir_graph_, input_tshapes);
 
     auto t_ns_base{current_dbipsh_->GetTimeBase(0)};
@@ -5895,6 +5899,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
             graph_input_info.current_bucket_id),
         result,
         last_compilation_pass);
+    current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
     current_dbipsh_->get_statistics()->LogShapes(
         jit_ir_graph_, graph_input_info.act_input_tshapes);
     current_dbipsh_->get_statistics()->LogUsedBucket(
@@ -5941,6 +5946,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
             graph_input_info.current_bucket_id),
         result,
         last_compilation_pass);
+    current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
     current_dbipsh_->get_statistics()->LogShapes(
         jit_ir_graph_, graph_input_info.act_input_tshapes);
     bool refine_candidate = false;

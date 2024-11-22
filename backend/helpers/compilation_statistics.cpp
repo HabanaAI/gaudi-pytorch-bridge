@@ -195,6 +195,7 @@ void CompilationStatistics::LogShapes(
     }
   }
 }
+
 void CompilationStatistics::LogCompilation(
     const std::string& jit_ir,
     std::shared_ptr<torch::jit::Graph> jit_ir_graph,
@@ -241,6 +242,18 @@ void CompilationStatistics::LogUsedBucket(
   json_bucket["ranges"] = GetRanges(std::move(ranges), jit_ir_graph);
   json_bucket["refine candidate"] = refine_candidate;
   json_file_[GetStep(step)]["selected bucket"] = json_bucket;
+}
+
+void CompilationStatistics::LogSymbols(
+    InputSymbolMap& symbol_value_map,
+    uint64_t step) {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
+  json json_symbol_map;
+  for (auto& pair : symbol_value_map) {
+    if (pair.second.get())
+      json_symbol_map[pair.first] = *pair.second.get();
+  }
+  json_file_[GetStep(step)]["symbol values"] = json_symbol_map;
 }
 
 void CompilationStatistics::LogFallback(
