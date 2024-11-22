@@ -12,7 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-//  todo: cleanup licenses? https://jira.habana-labs.com/browse/SW-199903
+
 #pragma once
 
 #include "jit_fork/ir/ir.h"
