@@ -624,8 +624,9 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
           .permute({2, 0, 1})
           .unsqueeze(-1);
 
-  auto amax_per_expert =
-      torch::zeros({num_experts}, torch::dtype(torch::kFloat32));
+  auto amax_per_expert = torch::zeros(
+      {num_experts},
+      torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU));
   for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
     const at::Tensor current_expert_w1 =
         permuted_weights ? w1[expert_idx].transpose(0, 1) : w1[expert_idx];
@@ -638,8 +639,30 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
         activation_fn(torch::matmul(hidden_states, current_expert_w1));
     auto hidden_states_w2 = torch::matmul(hidden_states, current_expert_w2);
     auto hidden_states_w12 = hidden_states_w1 * hidden_states_w2;
-    amax_per_expert[expert_idx] =
-        torch::amax(hidden_states_w12).to(torch::kFloat32);
+    auto expert_mask = (expert_routing_table == expert_idx);
+    if (measurement_mode && expert_mask.sum().item<int>() > 0) {
+      std::vector<int64_t> selected_token_indices;
+      for (int64_t i = 0; i < expert_mask.size(0); i++) {
+        if (expert_mask[i].sum().item<int>() > 0) {
+          selected_token_indices.push_back(i);
+        }
+      }
+      auto top_x = torch::tensor(
+          selected_token_indices,
+          torch::TensorOptions().dtype(torch::kInt64).device(torch::kHPU));
+
+      auto current_state = hidden_states.index_select(0, top_x);
+      auto hidden_states_w1_measure =
+          activation_fn(torch::matmul(current_state, current_expert_w1));
+      auto hidden_states_w2_measure =
+          torch::matmul(current_state, current_expert_w2);
+      amax_per_expert[expert_idx] =
+          torch::amax(
+              torch::abs(hidden_states_w1_measure * hidden_states_w2_measure))
+              .to(torch::kFloat32);
+    } else {
+      amax_per_expert[expert_idx] = 0;
+    }
     auto hidden_states_w3 = torch::matmul(hidden_states_w12, current_expert_w3);
     final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
   }
