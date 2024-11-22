@@ -13,6 +13,8 @@
 * limitations under the License.
 */
 #include "generated/backend/linear.h"
+#include "hpu_ops/linear.h"
+#include "hpu_ops/op_backend.h"
 
 namespace habana {
 
@@ -35,4 +37,34 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
 
   return {meta};
 }
+
+void Linear::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  const auto meta = LinearMeta(stack)[0];
+  std::vector<synTensor> input_tensor{syn_in(0), syn_in(1)};
+
+  if (stack.at(2).isTensor()) {
+    input_tensor.push_back(syn_in(2));
+  }
+
+  std::string guid = get_guid_with_precision("linear_fwd", meta.dtype);
+
+  std::vector<synapse_helpers::tensor> linear = BuildOp(
+      graph, guid, std::move(input_tensor), {{meta.shape, meta.dtype, 0}});
+
+  syn_out(0) = std::move(linear[0]);
+}
+
+Linear::Linear(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "linear_fwd", scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn(LinearMeta);
+}
 } // namespace habana
+
+// When below flag is enabled, aten.linear and aten.matmul decompositions
+// are overriden in eager and torch.compile.
+static const auto& LinearKernelRegistry =
+    GET_ENV_FLAG_NEW(PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER)
+    ? habana::KernelRegistry().add(
+          "hpu::linear",
+          KERNEL_FN_GLOBAL(habana::Linear))
+    : habana::KernelRegistry();

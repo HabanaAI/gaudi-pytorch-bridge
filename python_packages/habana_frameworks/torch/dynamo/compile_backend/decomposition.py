@@ -21,6 +21,7 @@ from torch._ops import DispatchKey
 
 aten = torch.ops.aten
 
+import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
@@ -248,22 +249,42 @@ hpu_backend_decompositions_list = [
 
 hpu_backend_decompositions_common = get_decompositions(hpu_backend_decompositions_list)
 
+# Some ops are decomposed at the CompositeImplicitAutograd and PyTorch doesn't
+# allow for easy removal of this decomposition https://github.com/pytorch/pytorch/issues/112744.
+# Below code allows to override it.
 
-def override_instance_norm(dispatch_key):
-    def internal(input, weight, bias, running_mean, running_var, use_input_stats, momentum, eps, cudnn_enabled):
-        if input.device.type == "hpu":
-            out, mean_tensor, istd_tensor = torch.ops.hpu.instance_norm.default(input, weight, bias, eps)
-            return out
+
+def override_matmul(*args):
+    if args[0].device.type == "hpu":
+        return torch.ops.hpu.matmul(*args)
+
+
+def override_linear(*args):
+    if args[0].device.type == "hpu":
+        return torch.ops.hpu.linear.default(*args)
+
+
+def override_instance_norm(*args):
+    if args[0].device.type == "hpu":
+        out, _, _ = torch.ops.hpu.instance_norm.default(*args[0:3], args[7])
+        return out
+
+
+def override_function(dispatch_key, aten_op, hpu_override, original_decomp=None):
+    def internal(*args):
+        maybe_out = hpu_override(*args)
+
+        if maybe_out is not None:
+            return maybe_out
         else:
-            new_impl = torch.ops.aten.instance_norm.default.py_kernels.pop(dispatch_key, None)
-            torch.ops.aten.instance_norm.default._dispatch_cache.clear()
+            new_impl = aten_op.py_kernels.pop(dispatch_key, None)
+            aten_op._dispatch_cache.clear()
             # Call the original operation
-            out = torch.ops.aten.instance_norm(
-                input, weight, bias, running_mean, running_var, use_input_stats, momentum, eps, cudnn_enabled
-            )
+            decomp_fn = aten_op if original_decomp is None else original_decomp
+            out = decomp_fn(*args)
             # Restore the implementation
             if new_impl is not None:
-                torch.ops.aten.instance_norm.default.py_impl(dispatch_key)(new_impl)
+                aten_op.py_impl(dispatch_key)(new_impl)
             return out
 
     return internal
@@ -275,19 +296,26 @@ def override_composite_ops():
         (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.instance_norm.default, override_instance_norm),
     ]
 
+    # When below flag is enabled, aten.linear and aten.matmul decompositions
+    # are overriden in eager and torch.compile.
+    if bc.get_pt_hpu_override_linear_matmul_eager():
+        ops.append((DispatchKey.CompositeImplicitAutograd, torch.ops.aten.linear.default, override_linear))
+        ops.append((DispatchKey.CompositeImplicitAutograd, torch.ops.aten.matmul.default, override_matmul))
+
     old_tables = {}
 
     for dispatch_key, origin_impl, new_impl in ops:
-        old_tables[(dispatch_key, origin_impl)] = origin_impl.py_kernels.copy()
-        origin_impl.py_impl(dispatch_key)(new_impl(dispatch_key))
+        origin_decomp = origin_impl.py_kernels.pop(dispatch_key, None)
+        old_tables[(dispatch_key, origin_impl)] = origin_decomp
+        origin_impl.py_impl(dispatch_key)(override_function(dispatch_key, origin_impl, new_impl, origin_decomp))
 
     try:
         yield
     finally:
         for (dispatch_key, origin_impl), old_table in old_tables.items():
-            origin_impl.py_kernels.clear()
-            origin_impl.py_kernels.update(old_table)
-            origin_impl._dispatch_cache.clear()
+            if old_table is not None:
+                origin_impl.py_kernels[dispatch_key] = old_table
+                origin_impl._dispatch_cache.clear()
 
 
 # This function should be used to attach additional custom decompositions on top of builtin ones above.

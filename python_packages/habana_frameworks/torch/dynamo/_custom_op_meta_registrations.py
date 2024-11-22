@@ -140,6 +140,27 @@ def meta_fp8_gemm_v2_common(
     return out
 
 
+@register_meta([torch.ops.hpu.matmul.default])
+def meta_matmul(
+    A,
+    B,
+):
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_gemm_v2", [A, B], [False, False])[0]
+    out = A.new_empty(out_shape)
+    return out
+
+
+@register_meta([torch.ops.hpu.matmul_bwd.default])
+def meta_matmul_bwd(
+    grad_out,
+    self,
+    other,
+):
+    self_grad = self.new_empty(self.shape)
+    other_grad = other.new_empty(other.shape)
+    return self_grad, other_grad
+
+
 @register_meta([torch.ops.hpu.fp8_gemm_v2.default])
 def meta_fp8_gemm_v2(
     A,
@@ -875,6 +896,23 @@ def meta_plain_index(self, indices):
 )
 def meta_exp_fast_math(self):
     return torch.empty_like(self)
+
+
+@register_meta([torch.ops.hpu.linear.default])
+def linear(input, weight, bias=None):
+    out = input.new_empty((input.shape[:-1] + weight.shape[0:-1]), dtype=input.dtype)
+    return out
+
+
+@register_meta([torch.ops.hpu.linear_backward.default])
+def linear_backward(self, grad_output, weight, output_mask):
+    input_grad = self.new_empty(self.shape, dtype=self.dtype)
+    weight_grad = weight.new_empty(weight.shape, dtype=weight.dtype)
+    if output_mask[2] is True:
+        bias_grad = weight.new_empty((weight.shape[0]), dtype=weight.dtype)
+    else:
+        bias_grad = None
+    return input_grad, weight_grad, bias_grad
 
 
 def activate_hpu_custom_op_meta():

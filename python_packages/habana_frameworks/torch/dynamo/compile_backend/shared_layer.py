@@ -112,6 +112,11 @@ hpu_supported_op_list = {
     "run_with_rng_state",
 }
 
+# When below flag is enabled, aten.linear and aten.matmul decompositions
+# are overriden in eager and torch.compile.
+if bc.get_pt_hpu_override_linear_matmul_eager():
+    hpu_supported_op_list.update(["matmul_bwd", "linear", "linear_backward"])
+
 hpu_supported_ops_restricted = dict()
 
 if bc.get_pt_hpu_wrap_random_ops_compile():

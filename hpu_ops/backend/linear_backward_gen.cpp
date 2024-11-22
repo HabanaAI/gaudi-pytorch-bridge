@@ -14,6 +14,8 @@
 */
 
 #include "generated/backend/linear_backward.h"
+#include "hpu_ops/linear_backward.h"
+#include "hpu_ops/op_backend.h"
 
 namespace habana {
 OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
@@ -50,4 +52,51 @@ std::shared_ptr<void> FillLinearBwdParams(
   return params;
 }
 
+void LinearBackward::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto meta = LinearBackwardMeta(stack);
+  size_t size = 0;
+  auto params = FillLinearBwdParams(stack, size);
+
+  std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
+
+  std::string guid =
+      get_guid_with_precision("linear_temp_bwd", meta.at(0).dtype);
+
+  std::vector<synapse_helpers::tensor> linear_bwd = BuildOp(
+      graph,
+      guid,
+      std::move(input_tensor),
+      {{meta.at(0).shape, meta.at(0).dtype, 0},
+       {meta.at(1).shape, meta.at(1).dtype, 1},
+       {meta.at(2).shape, meta.at(2).dtype, 2}},
+      params.get(),
+      size);
+
+  for (size_t i = 0; i < 3; ++i) {
+    syn_out(i) = std::move(linear_bwd[i]);
+  }
+}
+
+LinearBackward::LinearBackward(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "linear_temp_bwd",
+          scalar_type,
+          {0, 1, 2},
+          {},
+          {},
+          false) {
+  SetOutputMetaFn(LinearBackwardMeta);
+}
 } // namespace habana
+
+// When below flag is enabled, aten.linear and aten.matmul decompositions
+// are overriden in eager and torch.compile.
+static const auto& LinearBackwardKernelRegistry =
+    GET_ENV_FLAG_NEW(PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER)
+    ? habana::KernelRegistry().add(
+          "hpu::linear_backward",
+          KERNEL_FN_GLOBAL(habana::LinearBackward))
+    : habana::KernelRegistry();
