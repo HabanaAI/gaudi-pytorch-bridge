@@ -825,3 +825,9 @@ Do not use it in production"
 PT_HPU_EVENT_TABLE_SIZE:
   type: unsigned
   default: 10000000
+
+KEEP_NUMERICS:
+  type: bool
+  default: false
+  doc: "Option to do cast for bf16->fp32 dtype inptuts and do \n
+  computation and getback the result to bf16."

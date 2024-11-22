@@ -274,8 +274,13 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         sizeof(params));
     syn_out(0) = std::move(addmv[0]);
   } else {
-    auto alpha_tensor = ConstantHelper(graph, alpha_val, ScalarType(), 1);
-    auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
+    // check if the KEEP_NUMERICS=True, if this is true , we need to cast bf16
+    // dtype to fp32 dtype
+    auto cast_scalar_type = (GET_ENV_FLAG_NEW(KEEP_NUMERICS) == 1)
+        ? c10::ScalarType::Float
+        : ScalarType();
+    auto alpha_tensor = ConstantHelper(graph, alpha_val, cast_scalar_type, 1);
+    auto beta_tensor = ConstantHelper(graph, beta_val, cast_scalar_type, 1);
     auto addmm = BuildOp(
         graph,
         guid,
