@@ -90,15 +90,6 @@ def is_initialized() -> bool:
     return _initialized
 
 
-def is_available() -> bool:
-    r"""Returns a bool indicating if HPU is currently available."""
-    if not hasattr(_hpu_C, "device_count"):
-        return False
-    # This function never throws and returns 0 if driver is missing or can't
-    # be initialized
-    return _hpu_C.device_count() > 0
-
-
 def device_count():
     r"""Returns the number of HPUs available."""
     if device_count._device_count is None:
@@ -110,6 +101,15 @@ def device_count():
 
 
 device_count._device_count = None
+
+
+def is_available() -> bool:
+    r"""Returns a bool indicating if HPU is currently available."""
+    if not hasattr(_hpu_C, "device_count"):
+        return False
+    # This function never throws and returns 0 if driver is missing or can't
+    # be initialized
+    return device_count() > 0
 
 
 def get_device_name(device: Optional[_device_t] = None) -> str:
@@ -133,7 +133,13 @@ def get_device_name(device: Optional[_device_t] = None) -> str:
     device = _get_device_index(device, optional=True)
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
-    return _hpu_C.get_device_name(device)
+
+    if get_device_name._device_name is None:
+        get_device_name._device_name = _hpu_C.get_device_name(device)
+    return get_device_name._device_name
+
+
+get_device_name._device_name = None
 
 
 def current_device() -> int:
