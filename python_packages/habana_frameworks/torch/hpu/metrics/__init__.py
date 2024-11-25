@@ -11,4 +11,11 @@
 ###############################################################################
 
 from .exceptions import *
-from .metrics import metric_global, metric_localcontext, metrics_dump
+from .metrics import (
+    metric_debug_atexit,
+    metric_debug_enable_saver,
+    metric_debug_reload,
+    metric_global,
+    metric_localcontext,
+    metrics_dump,
+)

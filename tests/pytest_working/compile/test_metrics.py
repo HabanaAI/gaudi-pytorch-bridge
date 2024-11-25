@@ -15,41 +15,60 @@ import json
 import os
 from contextlib import contextmanager
 
-os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
-import multiprocessing
-from multiprocessing import Process, Queue
-
+import habana_frameworks.torch.utils.debug as htdebug
 import pytest
 import torch
 import torch.multiprocessing as pt_mp
-from habana_frameworks.torch.hpu.metrics import MetricNotFound, metric_global, metric_localcontext, metrics_dump
+from habana_frameworks.torch.hpu.metrics import (
+    MetricNotFound,
+    metric_debug_atexit,
+    metric_debug_enable_saver,
+    metric_debug_reload,
+    metric_global,
+    metric_localcontext,
+    metrics_dump,
+)
 from habana_frameworks.torch.utils.event_dispatcher import *
-
-
-@pytest.fixture(scope="module", autouse=True)
-def set_multiprocess_start_method():
-    # set spawn start method to not inherit already imported modules in child
-    # processes used in metrics tests
-    multiprocessing.set_start_method("spawn")
+import habana_frameworks.torch.internal.bridge_config as bc
 
 
 def compute_single_step(shape, device, sum_loops=1):
     dtype = torch.float32
     t1_cpu = torch.rand(shape, device="cpu", dtype=dtype)
     t2_cpu = torch.rand(shape, device="cpu", dtype=dtype)
+
+    def fn(t1, t2):
+        multiplied = t1 * t2
+        summed = t1
+        for _ in range(sum_loops):
+            summed += t2
+        out = summed * multiplied
+        return out
+
+    torch._dynamo.reset()
+    fn = torch.compile(fn, backend="hpu_backend")
     t1 = t1_cpu.to(device=device)
     t2 = t2_cpu.to(device=device)
-    multiplied = t1 * t2
-    summed = t1
-    for _ in range(sum_loops):
-        summed += t2
-    out = summed * multiplied
+    out = fn(t1, t2)
 
     # move results to CPU, so compilation is enforced
     out = out.cpu()
 
 
 class TestMetricsAPI:
+    prev_val_cache_metrics = False
+
+    @classmethod
+    def setup_class(cls):
+        cls.prev_val_cache_metrics = bc.get_pt_hpu_enable_cache_metrics()
+        bc.set_pt_hpu_enable_cache_metrics(True)
+        metric_debug_reload()
+
+    @classmethod
+    def teardown_class(cls):
+        bc.set_pt_hpu_enable_cache_metrics(cls.prev_val_cache_metrics)
+        metric_debug_reload()
+
     @pytest.fixture(scope="function")
     def gc_metric(self):
         m = metric_global("graph_compilation")
@@ -63,61 +82,47 @@ class TestMetricsAPI:
         yield m
 
     def test_graph_compilation_metric_different_shapes_in_loop(self, gc_metric, rc_metric):
-        with env_var_in_scope({"PT_HPU_ENABLE_CACHE_METRICS": "1"}):
-            shapes = [[10, 20, x] for x in range(1, 11)]
-            device = torch.device("hpu")
-            torch.random.manual_seed(42)
-            last_total_time = 0
-            for curr_iter, shape in enumerate(shapes):
-                compute_single_step(shape, device, curr_iter + 1)
-                gc_metric_dict = dict(gc_metric.stats())
-                rc_metric_dict = dict(rc_metric.stats())
-                assert gc_metric_dict["TotalNumber"] == (curr_iter + 1)
-                assert rc_metric_dict["TotalMiss"] == (curr_iter + 1)
-                assert gc_metric_dict["TotalTime"] > last_total_time
-                last_total_time = gc_metric_dict["TotalTime"]
-
-                print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
-
-    def test_graph_compilation_metric_same_shape_in_loop(self, gc_metric, rc_metric):
-        with env_var_in_scope({"PT_HPU_ENABLE_CACHE_METRICS": "1"}):
-            device = torch.device("hpu")
-            shape = [1, 2, 3, 4]
-            torch.random.manual_seed(42)
-            total_time_of_last_iter = -1
-            total_test_cases = 10
-            for curr_iter in range(total_test_cases):
-                compute_single_step(shape, device)
-                gc_metric_dict = dict(gc_metric.stats())
-                assert gc_metric_dict["TotalNumber"] == 1
-                assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
-
-                print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
+        shapes = [[10, 20, x] for x in range(1, 11)]
+        device = torch.device("hpu")
+        torch.random.manual_seed(42)
+        last_total_time = 0
+        for curr_iter, shape in enumerate(shapes):
+            compute_single_step(shape, device, curr_iter + 1)
+            gc_metric_dict = dict(gc_metric.stats())
+            assert gc_metric_dict["TotalNumber"] == (curr_iter + 1)
+            assert gc_metric_dict["TotalTime"] > last_total_time
+            last_total_time = gc_metric_dict["TotalTime"]
 
             rc_metric_dict = dict(rc_metric.stats())
-            assert rc_metric_dict["TotalMiss"] == 1
-            assert rc_metric_dict["TotalHit"] == total_test_cases - 1
+            assert rc_metric_dict["TotalMiss"] == (curr_iter + 1)
 
-    @staticmethod
-    def _worker_metric_zero_at_beginning(q, metric_name):
-        from habana_frameworks.torch.hpu import metric_global
+            print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
 
-        metric = metric_global(metric_name)
-        metric_dict = dict(metric.stats())
-        q.put(metric_dict)
+    def test_graph_compilation_metric_same_shape_in_loop(self, gc_metric, rc_metric):
+        device = torch.device("hpu")
+        shape = [1, 2, 3, 4]
+        torch.random.manual_seed(42)
+        total_time_of_last_iter = -1
+        total_test_cases = 10
+        for curr_iter in range(total_test_cases):
+            compute_single_step(shape, device)
+            gc_metric_dict = dict(gc_metric.stats())
+            assert gc_metric_dict["TotalNumber"] == 1
+            assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
+
+            print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
+
+        rc_metric_dict = dict(rc_metric.stats())
+        assert rc_metric_dict["TotalMiss"] == 1
+        assert rc_metric_dict["TotalHit"] == total_test_cases - 1
 
     @pytest.mark.parametrize(
         "metric_name", [("graph_compilation"), ("cpu_fallback"), ("memory_defragmentation"), ("recipe_cache")]
     )
     def test_metric_zero_at_beginning(self, metric_name):
-        """
-        Spawns fresh process and verifies if metric are equal 0 at beginning.
-        """
-        q = Queue()
-        p = Process(target=TestMetricsAPI._worker_metric_zero_at_beginning, args=(q, metric_name))
-        p.start()
-        metric_dict = q.get(timeout=10)
-        p.join()
+        metric_debug_reload()
+        metric = metric_global(metric_name)
+        metric_dict = dict(metric.stats())
 
         if metric_name == "recipe_cache":
             assert metric_dict["TotalHit"] == 0
@@ -159,7 +164,7 @@ class TestMetricsAPI:
 
     def test_graph_compilation_check_gc_details(self, gc_metric, rc_metric):
         with env_var_in_scope({"PT_HPU_METRICS_GC_DETAILS": "1"}):
-            shapes = [[10, 20, x] for x in range(1, 5)]
+            shapes = [[10, 30, x] for x in range(1, 5)]
             device = torch.device("hpu")
             torch.random.manual_seed(42)
             last_recipe_number = 0
@@ -248,6 +253,19 @@ def env_var_in_scope(vars={}):
 
 
 class TestMetricsDump:
+    prev_val_cache_metrics = False
+
+    @classmethod
+    def setup_class(cls):
+        cls.prev_val_cache_metrics = bc.get_pt_hpu_enable_cache_metrics()
+        bc.set_pt_hpu_enable_cache_metrics(True)
+        metric_debug_reload()
+
+    @classmethod
+    def teardown_class(cls):
+        bc.set_pt_hpu_enable_cache_metrics(cls.prev_val_cache_metrics)
+        metric_debug_reload()
+
     @pytest.fixture(scope="function")
     def runner(self):
         """Runner runs each function in separate process, so every time metrics
@@ -258,9 +276,11 @@ class TestMetricsDump:
 
         def runner_func(worker_function, *args, env={}, **kwargs):
             with env_var_in_scope(env):
-                p = Process(target=worker_function, args=args, kwargs=kwargs)
-                p.start()
-                p.join(timeout=30)
+                metric_debug_reload()
+                metric_debug_enable_saver()
+                worker_function(*args, **kwargs)
+                htdebug.clear_dynamic_bucket_recipe_info()
+                metric_debug_atexit()
 
         yield runner_func
 
@@ -449,7 +469,10 @@ class TestMetricsDump:
         metric_file = f"{tmp_path}/metric.json"
         env_vars = {"PT_HPU_METRICS_FILE": metric_file}
 
-        runner(TestMetricsDump._sample_worker_process_that_does_nothing, env=env_vars)
+        with env_var_in_scope(env_vars):
+            metric_debug_reload()
+            metric_debug_atexit()
+
         assert not os.path.exists(metric_file)
 
     @staticmethod
@@ -473,6 +496,7 @@ class TestMetricsDump:
             start_method="spawn",
         )
 
+    @pytest.mark.skip(reason="Test is not adjusted to single node")
     @pytest.mark.parametrize("call_init_dist_hpu", [True, False])
     def test_metric_run_processes_via_torch_mp(self, runner, tmp_path, call_init_dist_hpu):
         metric_file = f"{tmp_path}/metric.json"

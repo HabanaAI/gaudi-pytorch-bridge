@@ -21,6 +21,8 @@ from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, Even
 from .exceptions import MetricNotFound
 from .saver import MetricDumpFormat, MetricDumpTrigger, MetricSaver
 
+import habana_frameworks.torch.internal.bridge_config as bc
+
 
 def bool_helper(value):
     value = value.lower()
@@ -72,6 +74,12 @@ class MetricManager(object):
         self._metrics_types[name] = metric_class
         self._global_metrics.append(metric_class())
         self._global_metrics[-1].on_metric_change(self._metric_saver.metric_change_callback)
+
+    def unregister(self, name):
+        assert name in self._metrics_types, f"Metric with given name ({name}) is not registered"
+        self.get_global_metric(name).stop()
+        del self._metrics_types[name]
+        self._global_metrics = [m for m in self._global_metrics if m.name() != name]
 
     def get_global_metric(self, name: str):
         metrics = [m for m in self._global_metrics if m.name() == name]
@@ -391,11 +399,26 @@ def _init_metric_mgr():
     _metric_mgr.register("graph_compilation", GraphCompilationMetric)
     _metric_mgr.register("cpu_fallback", CpuFallbackMetric)
     _metric_mgr.register("memory_defragmentation", MemoryDefragmentationMetric)
-    if "PT_HPU_ENABLE_CACHE_METRICS" in os.environ and bool_helper(os.getenv("PT_HPU_ENABLE_CACHE_METRICS")):
+    if bc.get_pt_hpu_enable_cache_metrics():
         _metric_mgr.register("recipe_cache", RecipeCacheMetric)
 
 
 _init_metric_mgr()
+
+
+def metric_debug_reload() -> None:
+    global _metric_mgr
+    del _metric_mgr
+    _metric_mgr = None
+    _init_metric_mgr()
+
+
+def metric_debug_atexit() -> None:
+    _metric_mgr._at_exit_callback()
+
+
+def metric_debug_enable_saver() -> None:
+    _metric_mgr._metric_saver.enable()
 
 
 def metric_global(name: str) -> Metric:

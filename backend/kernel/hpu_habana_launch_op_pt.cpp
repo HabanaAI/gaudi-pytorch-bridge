@@ -147,7 +147,7 @@ bool dropCachedRecipe_LRU(size_t& recipe_count) {
 void emitCacheEvent(
     habana_helpers::EventDispatcher::EventDispatcher::Topic topic,
     std::string cache_name) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_CACHE_METRICS, true)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_CACHE_METRICS)) {
     habana_helpers::EmitEvent(
         topic,
         habana_helpers::EventDispatcher::EventParams(

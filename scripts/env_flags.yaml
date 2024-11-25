@@ -130,6 +130,7 @@ PT_HPU_LAZY_EAGER_VIEW_HANDLING:
 PT_HPU_ENABLE_CACHE_METRICS:
   type: bool
   default: false
+  settable: true
 
 PT_HPU_ENABLE_COMPILE_THREAD:
   type: bool
