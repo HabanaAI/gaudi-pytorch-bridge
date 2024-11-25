@@ -7392,11 +7392,43 @@ conv2d_fp8.scalar:
   - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN]
 
+custom_softmax:
+  custom_op_schema: "hpu::custom_softmax(Tensor input, int flavor) -> Tensor"
+  guid: custom_softmax_fwd
+  op_backend: CustomSoftmax
+  out_ids: [0]
+
 fake_quant_fp4:
   custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
   custom_fill_params: FillFakeQuantFp4Params
   guid: fake_quantize_fp4
   out_ids: [0]
+
+scaled_masked_softmax:
+  custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
+  custom_fill_params: FillScaledMaskedSoftmaxParams
+  guid: scaled_masked_softmax_fwd
+  out_ids: [0]
+
+scaled_masked_triangular_softmax:
+  custom_op_schema: "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor"
+  output_meta: ScaledMaskedTriangularSoftmaxMeta
+  guid: scaled_masked_triangular_softmax_fwd
+  op_backend: ScaledMaskedTriangularSoftmax
+  out_ids: [0]
+
+scaled_triangular_softmax:
+  custom_op_schema: "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor"
+  guid: scaled_masked_triangular_softmax_fwd
+  op_backend: ScaledTriangularSoftmax
+  out_ids: [0]
+
+scaled_triangular_softmax_retain:
+  custom_op_schema: "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)"
+  custom_fill_params: FillScaledTriangularSoftmaxParams
+  output_meta: ScaledTriangularSoftmaxRetainMeta
+  guid: scaled_masked_triangular_softmax_fwd
+  out_ids: [0, 0, 0]
 
 softmax_fp8:
   custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"

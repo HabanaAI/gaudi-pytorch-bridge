@@ -13,7 +13,8 @@
 * limitations under the License.
 */
 
-#include "hpu_ops/scaled_masked_softmax.h"
+#include "generated/backend/scaled_masked_softmax.h"
+#include "generated/backend/scaled_masked_triangular_softmax.h"
 
 namespace habana {
 
@@ -25,42 +26,13 @@ std::shared_ptr<void> FillScaledMaskedSoftmaxParams(
   return params;
 }
 
-ScaledMaskedSoftmax::ScaledMaskedSoftmax(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "scaled_masked_softmax_fwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetFillParams(FillScaledMaskedSoftmaxParams);
-}
-
-OutputMetaDataVector ScaledMaskedTriangularSoftmaxOutputMeta(
-    const at::Stack& stack) {
+OutputMetaDataVector ScaledMaskedTriangularSoftmaxMeta(const at::Stack& stack) {
   OutputMetaData meta;
   const auto self = stack[0].toTensor();
   meta.shape = self.sizes().vec();
   meta.dtype =
       stack[6].toOptional<c10::ScalarType>().value_or(self.scalar_type());
   return {meta};
-}
-
-ScaledMaskedTriangularSoftmax::ScaledMaskedTriangularSoftmax(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "scaled_masked_triangular_softmax_fwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetOutputMetaFn(ScaledMaskedTriangularSoftmaxOutputMeta);
 }
 
 void ScaledMaskedTriangularSoftmax::AddNode(
@@ -125,12 +97,3 @@ void ScaledMaskedTriangularSoftmax::AddNode(
 }
 
 } // namespace habana
-
-static const auto& ScaledMaskedSoftmaxKernelRegistry =
-    habana::KernelRegistry()
-        .add(
-            "hpu::scaled_masked_softmax",
-            KERNEL_FN_GLOBAL(habana::ScaledMaskedSoftmax))
-        .add(
-            "hpu::scaled_masked_triangular_softmax",
-            KERNEL_FN_GLOBAL(habana::ScaledMaskedTriangularSoftmax));

@@ -6699,29 +6699,6 @@ at::Tensor _ragged_softmax(
   RUN_MAYBE_WITH_ACC_THREAD(_ragged_softmax, hpu_op);
 }
 
-at::Tensor scaled_masked_softmax_lazy(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    double scale) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> op{
-      "hpu::scaled_masked_softmax",
-      {input, mask, scale},
-      {{input.sizes().vec()}}};
-  RUN_MAYBE_WITH_ACC_THREAD(scaled_masked_softmax, op)
-}
-
-at::Tensor custom_softmax_lazy(const at::Tensor& input, int64_t flavor) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> op{
-      "hpu::custom_softmax", {input, flavor}, {{input.sizes().vec()}}};
-  RUN_MAYBE_WITH_ACC_THREAD(custom_softmax, op)
-}
-
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_lazy(
     at::Tensor& indices,
@@ -7541,38 +7518,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_bwd, hpu_op)
 }
-at::Tensor scaled_triangular_softmax_lazy(
-    const at::Tensor& self,
-    double inv_scale_attn,
-    const c10::optional<at::Tensor>& exp_sum_recpr,
-    const c10::optional<at::Tensor>& max) {
-  LazyOp<at::Tensor> op{
-      "hpu::scaled_triangular_softmax",
-      {self, inv_scale_attn, exp_sum_recpr, max},
-      {{self.sizes().vec()}}};
-
-  RUN_MAYBE_WITH_ACC_THREAD(scaled_triangular_softmax, op)
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor>
-scaled_triangular_softmax_retain_lazy(
-    const at::Tensor& self,
-    double inv_scale_attn) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  auto out_shape = self.sizes().vec();
-  auto retain_output_shape = out_shape;
-  retain_output_shape.back() = 1;
-  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> op{
-      "hpu::scaled_triangular_softmax_retain",
-      {self, inv_scale_attn},
-      {{out_shape, retain_output_shape, retain_output_shape}}};
-  op.set_scalar_types(
-      {self.scalar_type(), c10::ScalarType::Float, self.scalar_type()});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(scaled_triangular_softmax_retain, op)
-}
 
 at::Tensor& kv_reorder_lazy(
     at::Tensor& self,
@@ -7586,32 +7531,6 @@ at::Tensor& kv_reorder_lazy(
       "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
 
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(kv_reorder, op, self)
-}
-
-at::Tensor scaled_masked_triangular_softmax_lazy(
-    const at::Tensor& self,
-    const at::Tensor& start_end,
-    double inv_scale_attn,
-    int64_t grouped_batch_size,
-    bool use_max,
-    int64_t mode,
-    c10::optional<at::ScalarType> out_dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> op{
-      "hpu::scaled_masked_triangular_softmax",
-      {self,
-       start_end,
-       inv_scale_attn,
-       grouped_batch_size,
-       use_max,
-       mode,
-       out_dtype},
-      {{self.sizes().vec()}}};
-  op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
-
-  RUN_MAYBE_WITH_ACC_THREAD(scaled_masked_triangular_softmax, op)
 }
 
 at::Tensor& in_place_interleave_lazy(at::Tensor& self) {

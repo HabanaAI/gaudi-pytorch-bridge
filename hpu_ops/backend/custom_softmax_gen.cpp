@@ -13,19 +13,9 @@
 * limitations under the License.
 */
 
-#include "hpu_ops/custom_softmax.h"
+#include "generated/backend/custom_softmax.h"
 
 namespace habana {
-
-CustomSoftmax::CustomSoftmax(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "custom_softmax_fwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {}
 
 void CustomSoftmax::AddNode(
     synapse_helpers::graph& graph,
@@ -58,7 +48,3 @@ void CustomSoftmax::AddNode(
   syn_out(0) = std::move(output[0]);
 }
 } // namespace habana
-
-static const auto& CustomSoftmaxKernelRegistry = habana::KernelRegistry().add(
-    "hpu::custom_softmax",
-    KERNEL_FN_GLOBAL(habana::CustomSoftmax));

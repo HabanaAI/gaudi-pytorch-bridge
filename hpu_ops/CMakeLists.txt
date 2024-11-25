@@ -158,7 +158,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/ctc_loss_custom.cpp
   backend/ctc_loss_gen.cpp
   backend/cumsum_gen.cpp
-  backend/custom_softmax.cpp
+  backend/custom_softmax_gen.cpp
   backend/deform_conv2d_gen.cpp
   backend/diag_gen.cpp
   backend/div_gen.cpp
@@ -291,8 +291,8 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/roundingfunc_gen.cpp
   backend/rrelu_with_noise_gen.cpp
   backend/scalar_tensor_gen.cpp
-  backend/scaled_masked_softmax.cpp
-  backend/scaled_triangular_softmax.cpp
+  backend/scaled_masked_softmax_gen.cpp
+  backend/scaled_triangular_softmax_gen.cpp
   backend/scaled_mm_gen.cpp
   backend/scatter_add_gen.cpp
   backend/scatter_gen.cpp

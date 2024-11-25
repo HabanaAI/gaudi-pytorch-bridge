@@ -1054,46 +1054,6 @@ at::Tensor masked_batch_gemm(
   return hpu_op.call();
 }
 
-at::Tensor scaled_triangular_softmax(
-    const at::Tensor& self,
-    double inv_scale_attn,
-    const c10::optional<at::Tensor>& exp_sum_recpr,
-    const c10::optional<at::Tensor>& max) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "scaled_triangular_softmax :",
-      DUMP_4ARGS(self, inv_scale_attn, exp_sum_recpr, max));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::scaled_triangular_softmax",
-      {self, inv_scale_attn, exp_sum_recpr, max},
-      {self.sizes().vec()},
-      0};
-
-  return hpu_op.call();
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> scaled_triangular_softmax_retain(
-    const at::Tensor& self,
-    double inv_scale_attn) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "scaled_triangular_softmax_retain :", DUMP_2ARGS(self, inv_scale_attn));
-
-  auto out_shape = self.sizes().vec();
-  auto retain_output_shape = out_shape;
-  retain_output_shape.back() = 1;
-  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::scaled_triangular_softmax_retain",
-      {self, inv_scale_attn},
-      {out_shape, retain_output_shape, retain_output_shape},
-      0};
-  hpu_op.set_scalar_types(
-      {self.scalar_type(), c10::ScalarType::Float, self.scalar_type()});
-
-  return hpu_op.call();
-}
-
 at::Tensor& kv_reorder_(
     at::Tensor& self,
     const at::Tensor& start,
@@ -1145,59 +1105,6 @@ at::Tensor _ragged_softmax(
   return hpu_op.call();
 }
 
-at::Tensor scaled_masked_softmax(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    double scale) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "scaled_masked_softmax:",
-      " input=",
-      to_string(input),
-      " mask=",
-      to_string(mask),
-      " scale=",
-      to_string(scale));
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::scaled_masked_softmax",
-      {input, mask, scale},
-      {{input.sizes().vec()}}};
-  return hpu_op.call();
-}
-
-at::Tensor scaled_masked_triangular_softmax(
-    const at::Tensor& self,
-    const at::Tensor& start_end,
-    double inv_scale_attn,
-    int64_t grouped_batch_size,
-    bool use_max,
-    int64_t mode,
-    c10::optional<at::ScalarType> out_dtype) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "scaled_masked_triangular_softmax :",
-      DUMP_7ARGS(
-          self,
-          start_end,
-          inv_scale_attn,
-          grouped_batch_size,
-          use_max,
-          mode,
-          out_dtype));
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::scaled_masked_triangular_softmax",
-      {self,
-       start_end,
-       inv_scale_attn,
-       grouped_batch_size,
-       use_max,
-       mode,
-       out_dtype},
-      {{self.sizes().vec()}}};
-  hpu_op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
-  return hpu_op.call();
-}
-
 at::Tensor& in_place_interleave_(at::Tensor& self) {
   PT_EAGER_TRACE;
   PT_OP_INFO("in_place_interleave_ :", DUMP_ARG(self));
@@ -1213,15 +1120,6 @@ at::Tensor in_place_interleave(const at::Tensor& self) {
 
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::in_place_interleave", {self}, {{self.sizes().vec()}}};
-  return hpu_op.call();
-}
-
-at::Tensor custom_softmax(const at::Tensor& input, int64_t flavor) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("custom_softmax :", DUMP_2ARGS(input, flavor));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::custom_softmax", {input, flavor}, {{input.sizes().vec()}}};
   return hpu_op.call();
 }
 
@@ -2183,7 +2081,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def("hpu::custom_softmax(Tensor input, int flavor) -> Tensor");
   m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(
@@ -2241,14 +2138,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
   m.def(
       "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor");
-  m.def(
-      "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor");
-  m.def(
-      "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
-  m.def(
-      "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
-  m.def(
-      "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
   m.def("hpu::view_neg(Tensor input, Tensor shape, int[] shape) -> Tensor");
   m.def("hpu::slice_ht(Tensor input, Tensor shape, Tensor shape) -> Tensor");
@@ -2386,7 +2275,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list);
   m.impl("hpu::convert_from_int4", convert_from_int4);
   m.impl("hpu::convert_from_uint4", convert_from_uint4);
-  m.impl("hpu::custom_softmax", custom_softmax);
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::fp8_gemm_v2", fp8_gemm_v2);
   m.impl("hpu::fp8_gemm_v2.scalar", fp8_gemm_v2_scalar);
@@ -2422,11 +2310,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
   m.impl("hpu::ctc_loss_custom", ctc_loss_custom);
   m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward);
-  m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax);
-  m.impl(
-      "hpu::scaled_masked_triangular_softmax",
-      scaled_masked_triangular_softmax);
-  m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax);
   m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd);
   m.impl("hpu::sdpa_recomp_fwd_non_dropout", sdpa_recomp_fwd);
   m.impl("hpu::sdpa_recomp_bwd", sdpa_recomp_bwd);
@@ -2446,9 +2329,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar",
       fp8_sdpa_recomp_scalar_fwd);
   m.impl("hpu::fp8_sdpa_recomp_fwd_dropout.scalar", fp8_sdpa_recomp_scalar_fwd);
-  m.impl(
-      "hpu::scaled_triangular_softmax_retain",
-      scaled_triangular_softmax_retain);
   m.impl("hpu::slice_ds", slice_ds);
   m.impl("hpu::constant_pad_nd_ds", constant_pad_nd_ds);
   m.impl("hpu::fused_clip_norm", fused_clip_norm);

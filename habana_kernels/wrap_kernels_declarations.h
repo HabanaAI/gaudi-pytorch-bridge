@@ -185,11 +185,6 @@ at::Tensor _ragged_softmax_wrap(
     int64_t dim,
     bool half_to_float,
     const at::Tensor& valid_count);
-at::Tensor scaled_masked_softmax_wrap(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    double scale);
-at::Tensor custom_softmax_wrap(const at::Tensor& input, int64_t flavor);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_wrap(
     at::Tensor& indices,
@@ -315,23 +310,6 @@ at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b);
-at::Tensor scaled_triangular_softmax_wrap(
-    const at::Tensor& self,
-    double inv_scale_attn,
-    const c10::optional<at::Tensor>& exp_sum_recpr,
-    const c10::optional<at::Tensor>& max);
-std::tuple<at::Tensor, at::Tensor, at::Tensor>
-scaled_triangular_softmax_retain_wrap(
-    const at::Tensor& self,
-    double inv_scale_attn);
-at::Tensor scaled_masked_triangular_softmax_wrap(
-    const at::Tensor& self,
-    const at::Tensor& start_end,
-    double inv_scale_attn,
-    int64_t grouped_batch_size,
-    bool use_max,
-    int64_t mode,
-    c10::optional<at::ScalarType> out_dtype);
 at::Tensor& in_place_interleave_wrap(at::Tensor& self);
 
 namespace vision {
