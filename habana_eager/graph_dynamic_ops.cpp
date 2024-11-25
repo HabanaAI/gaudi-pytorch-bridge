@@ -284,7 +284,7 @@ void UpdateH2DPatchingData(
     at::Tensor& dtensor,
     std::vector<int64_t>& data,
     LaunchDynamicShapes& launch_shapes) {
-  PT_EAGER_DEBUG("Input data for updating H2D tensor:", data);
+  PT_EAGER_DEBUG("UpdateH2DPatchingData for updating H2D tensor:", data);
   launch_shapes.ds_tensors.push_back(dtensor);
   launch_shapes.patch_values.push_back(data);
   return;

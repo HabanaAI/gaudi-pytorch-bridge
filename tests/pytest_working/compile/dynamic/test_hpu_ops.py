@@ -1505,3 +1505,36 @@ def test_complex_symbolic_input():
             assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
     execute_model(input_shapes)
+
+
+def test_dynamic_strided():
+    from habana_frameworks.torch.hpex.kernels import RotaryPosEmbeddingHelperV2 as FusedRoPE
+
+    configuration_flags["use_eager_fallback"] = True
+
+    torch.manual_seed(12345)
+
+    cos = 2 * (torch.rand((15, 128), dtype=torch.float).to("hpu") - 0.5)
+    sin = 2 * (torch.rand((15, 128), dtype=torch.float).to("hpu") - 0.5)
+    pos = torch.rand((1, 15)).to("hpu")
+
+    def func(in1, shape, stride, c, s, p):
+        in1 = torch.as_strided(in1, shape, stride)
+
+        with torch.autocast(device_type="hpu", dtype=torch.bfloat16):
+            if in1.device.type == "hpu" and FusedRoPE:
+                out1 = FusedRoPE.apply(in1, c.unsqueeze(0).unsqueeze(0), s.unsqueeze(0).unsqueeze(0), p)
+                return out1
+            else:
+                pass
+
+    compiled_static_func = torch.compile(func, backend="hpu_backend", dynamic=False)
+    compiled_dynamic_func = torch.compile(func, backend="hpu_backend", dynamic=None)
+
+    shapes = [(1, 32, 15, 128), (1, 8, 15, 128), (1, 32, 15, 128), (1, 8, 15, 128)]
+    strides = [(61440, 128, 4096, 1), (15360, 128, 1024, 1), (61440, 128, 4096, 1), (15360, 128, 1024, 1)]
+    for shape, stride in zip(shapes, strides):
+        inp1 = torch.randn(shape).to("hpu")
+        static_res = compiled_static_func(inp1, shape, stride, cos, sin, pos)
+        dynamic_res = compiled_dynamic_func(inp1, shape, stride, cos, sin, pos)
+        torch.testing.assert_close(static_res.cpu(), dynamic_res.cpu())

@@ -96,7 +96,7 @@ void UpdateH2DPatchingData(
 
 template <typename T>
 void UpdateH2DTensorData(at::Tensor& dtensor, std::vector<T>& data) {
-  PT_EAGER_DEBUG("Input data for updating H2D tensor:", data);
+  PT_EAGER_DEBUG("UpdateH2DTensorData for updating H2D tensor:", data);
   auto tmeta{get_tensor_extra_meta(dtensor)};
   tmeta->update_host_data(data.data(), data.size(), sizeof(T), true);
   PT_EAGER_DEBUG("Updated dynamic H2D tensor sizes:", dtensor.sizes());
