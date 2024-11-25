@@ -22,9 +22,11 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
     auto ivalue_arr = torch::jit::last(stack, 1);
     if (ivalue_arr[0].isTensor() ) {
 
-     at::Tensor  self;
-      torch::jit::pop(stack ,self);
-      auto is_supported = impl(self, is_dynamic);
+      c10::IValue self = std::move(peek(stack, 0, 1));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+
+      auto is_supported = impl(self_base, is_dynamic);
       return is_supported;
     }
   }

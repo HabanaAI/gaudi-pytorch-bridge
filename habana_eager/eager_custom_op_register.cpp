@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <ATen/ATen.h>
 #include <ATen/FunctionalTensorWrapper.h>
@@ -23,7 +23,6 @@
 #include "habana_eager/graph_weight_permute.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
-#include "hpu_ops/ctc_loss_custom.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
@@ -909,129 +908,6 @@ void optimizer_sgd_momentum(
        "hpu::optimizer_sgd_momentum",
        decltype(habana::eager::EagerOpMetaData::out_indices_){1, 2}});
   hpu_op.call({weights, momentum});
-}
-
-at::Tensor rotary_pos_embedding(
-    const at::Tensor& input,
-    const at::Tensor& sin,
-    const at::Tensor& cos,
-    const c10::optional<at::Tensor>& position_ids,
-    const int64_t offset,
-    const int64_t mode) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "rotary_pos_embedding :",
-      DUMP_6ARGS(input, sin, cos, position_ids, offset, mode));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::rotary_pos_embedding",
-      {input, sin, cos, position_ids, offset, mode},
-      {input.sizes().vec()},
-      0};
-
-  return hpu_op.call();
-}
-
-at::Tensor rotary_pos_embedding_backward(
-    const at::Tensor& grad_in,
-    const at::Tensor& sin,
-    const at::Tensor& cos,
-    const c10::optional<at::Tensor>& position_ids,
-    const int64_t offset,
-    const int64_t mode) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "rotary_pos_embedding_backward :",
-      DUMP_6ARGS(grad_in, sin, cos, position_ids, offset, mode));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::rotary_pos_embedding_backward",
-      {grad_in, sin, cos, position_ids, offset, mode},
-      {grad_in.sizes().vec()},
-      0};
-
-  return hpu_op.call();
-}
-
-std::tuple<at::Tensor, at::Tensor> ctc_loss_custom(
-    const at::Tensor& log_probs,
-    const at::Tensor& targets,
-    const at::Tensor& input_lengths,
-    const at::Tensor& target_lengths,
-    int64_t blank,
-    int64_t reduction,
-    bool zero_infinity) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "ctc_loss_custom :",
-      DUMP_7ARGS(
-          log_probs,
-          targets,
-          input_lengths,
-          target_lengths,
-          blank,
-          reduction,
-          zero_infinity));
-  auto shapes = habana::calculate_output_shapes_for_ctc_loss_custom_fwd(
-      log_probs, targets, reduction);
-
-  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::ctc_loss_custom",
-      {log_probs,
-       targets,
-       input_lengths,
-       target_lengths,
-       blank,
-       reduction,
-       zero_infinity},
-      {std::get<0>(shapes), std::get<1>(shapes)},
-      0};
-
-  return hpu_op.call();
-}
-
-at::Tensor ctc_loss_custom_backward(
-    const at::Tensor& grad,
-    const at::Tensor& log_probs,
-    const at::Tensor& targets,
-    const at::Tensor& input_lengths,
-    const at::Tensor& target_lengths,
-    const at::Tensor& neg_log_likelihood,
-    const at::Tensor& log_alpha,
-    int64_t blank,
-    int64_t reduction,
-    bool zero_infinity) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "ctc_loss_custom_backward :",
-      DUMP_10ARGS(
-          grad,
-          log_probs,
-          targets,
-          input_lengths,
-          target_lengths,
-          neg_log_likelihood,
-          log_alpha,
-          blank,
-          reduction,
-          zero_infinity));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::ctc_loss_custom_backward",
-      {grad,
-       log_probs,
-       targets,
-       input_lengths,
-       target_lengths,
-       neg_log_likelihood,
-       log_alpha,
-       blank,
-       reduction,
-       zero_infinity},
-      {log_probs.sizes().vec()},
-      0};
-
-  return hpu_op.call();
 }
 
 at::Tensor masked_batch_gemm(
@@ -2130,14 +2006,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
       "hpu::mixture_of_experts.fp8_measurement_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
-  m.def(
-      "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
-  m.def(
-      "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor");
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
   m.def("hpu::view_neg(Tensor input, Tensor shape, int[] shape) -> Tensor");
   m.def("hpu::slice_ht(Tensor input, Tensor shape, Tensor shape) -> Tensor");
@@ -2306,10 +2174,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       mixture_of_experts_fp8_measurement_fused_weights);
   m.impl("hpu::optimizer_sgd", optimizer_sgd);
   m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum);
-  m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
-  m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
-  m.impl("hpu::ctc_loss_custom", ctc_loss_custom);
-  m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward);
   m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd);
   m.impl("hpu::sdpa_recomp_fwd_non_dropout", sdpa_recomp_fwd);
   m.impl("hpu::sdpa_recomp_bwd", sdpa_recomp_bwd);

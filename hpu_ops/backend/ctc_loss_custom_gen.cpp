@@ -13,8 +13,9 @@
 * limitations under the License.
 */
 
-#include "hpu_ops/ctc_loss_custom.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "generated/backend/ctc_loss_custom.h"
+#include "generated/backend/ctc_loss_custom_backward.h"
 #include "hpu_ops/custom_op_outshape.h"
 
 namespace habana {
@@ -82,9 +83,12 @@ OutputMetaDataVector CTCLossCustomMeta(const at::Stack& stack) {
   return {meta_loss, meta_alpha};
 }
 
-CTCLossCustom::CTCLossCustom(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "ctc_loss_fwd", scalar_type, {0, 0}, {}, {}, false) {
-  SetOutputMetaFn(CTCLossCustomMeta);
+OutputMetaDataVector CTCLossCustomBackwardMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  const at::Tensor log_probs = stack_tensor(stack, 1);
+  meta.shape = log_probs.sizes().vec();
+  meta.dtype = log_probs.scalar_type();
+  return {meta};
 }
 
 void CTCLossCustom::AddNode(
@@ -127,11 +131,6 @@ void CTCLossCustom::AddNode(
   syn_out(0) = std::move(op[0]); // loss
   syn_out(1) = std::move(op[1]); // alpha
 }
-
-CTCLossCustomBackward::CTCLossCustomBackward(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(device_id, "ctc_loss_bwd", scalar_type, {1}, {}, {}, false) {}
 
 void CTCLossCustomBackward::AddNode(
     synapse_helpers::graph& graph,
@@ -205,10 +204,3 @@ void CTCLossCustomBackward::AddNode(
 }
 
 } // namespace habana
-
-static const auto& CtcLossCustomKernelRegistry =
-    habana::KernelRegistry()
-        .add("hpu::ctc_loss_custom", KERNEL_FN_GLOBAL(habana::CTCLossCustom))
-        .add(
-            "hpu::ctc_loss_custom_backward",
-            KERNEL_FN_GLOBAL(habana::CTCLossCustomBackward));

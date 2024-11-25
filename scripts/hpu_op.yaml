@@ -7363,6 +7363,19 @@ is_pinned:
   hpu_wrap_all_versions: true
 
 # Custom ops
+ctc_loss_custom:
+  custom_op_schema: "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)"
+  output_meta: CTCLossCustomMeta
+  guid: ctc_loss_fwd
+  op_backend: CTCLossCustom
+  out_ids: [0, 0]
+
+ctc_loss_custom_backward:
+  custom_op_schema: "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor"
+  output_meta: CTCLossCustomBackwardMeta
+  guid: ctc_loss_bwd
+  op_backend: CTCLossCustomBackward
+  out_ids: [1]
 
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
@@ -7403,6 +7416,7 @@ fake_quant_fp4:
   custom_fill_params: FillFakeQuantFp4Params
   guid: fake_quantize_fp4
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 scaled_masked_softmax:
   custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
@@ -7479,12 +7493,25 @@ rms_norm_fast_backward:
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
 
+rotary_pos_embedding:
+  custom_op_schema: "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"
+  op_backend: RotaryPosEmbedding
+  guid: rotary_pos_embedding_fwd
+  out_ids: [0]
+
+rotary_pos_embedding_backward:
+  custom_op_schema: "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"
+  op_backend: RotaryPosEmbeddingBackward
+  guid: rotary_pos_embedding_bwd
+  out_ids: [0]
+
 sum_fp8:
   custom_op_schema: "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor"
   custom_fill_params: FillSumFp8Params
   output_meta: SumFp8Meta
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 plain_index:
   custom_op_schema: "hpu::plain_index(Tensor self, Tensor[] indices) -> Tensor"

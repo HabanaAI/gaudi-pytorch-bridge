@@ -1458,110 +1458,6 @@ habana_bounds_check_indices_wrap(
       indices, offsets, warning, rows_per_table, bounds_check_mode, weights);
 }
 
-at::Tensor rotary_pos_embedding_wrap(
-    const at::Tensor& input,
-    const at::Tensor& sin,
-    const at::Tensor& cos,
-    const c10::optional<at::Tensor>& position_ids,
-    const int64_t offset,
-    const int64_t mode) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "rotary_pos_embedding :",
-      DUMP_6ARGS(input, sin, cos, position_ids, offset, mode));
-
-  return rotary_pos_embedding_lazy(input, sin, cos, position_ids, offset, mode);
-}
-
-at::Tensor rotary_pos_embedding_backward_wrap(
-    const at::Tensor& grad_in,
-    const at::Tensor& sin,
-    const at::Tensor& cos,
-    const c10::optional<at::Tensor>& position_ids,
-    const int64_t offset,
-    const int64_t mode) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "rotary_pos_embedding_backward :",
-      DUMP_6ARGS(grad_in, sin, cos, position_ids, offset, mode));
-
-  return rotary_pos_embedding_backward_lazy(
-      grad_in, sin, cos, position_ids, offset, mode);
-}
-
-std::tuple<at::Tensor, at::Tensor> ctc_loss_custom_wrap(
-    const at::Tensor& log_probs,
-    const at::Tensor& targets,
-    const at::Tensor& input_lengths,
-    const at::Tensor& target_lengths,
-    int64_t blank,
-    int64_t reduction,
-    bool zero_infinity) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "ctc_loss_custom :",
-      DUMP_7ARGS(
-          log_probs,
-          targets,
-          input_lengths,
-          target_lengths,
-          blank,
-          reduction,
-          zero_infinity));
-
-  return ctc_loss_custom_lazy(
-      log_probs,
-      targets,
-      input_lengths,
-      target_lengths,
-      blank,
-      reduction,
-      zero_infinity);
-}
-
-at::Tensor ctc_loss_custom_backward_wrap(
-    const at::Tensor& grad,
-    const at::Tensor& log_probs,
-    const at::Tensor& targets,
-    const at::Tensor& input_lengths,
-    const at::Tensor& target_lengths,
-    const at::Tensor& neg_log_likelihood,
-    const at::Tensor& log_alpha,
-    int64_t blank,
-    int64_t reduction,
-    bool zero_infinity) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "ctc_loss_custom_backward :",
-      DUMP_10ARGS(
-          grad,
-          log_probs,
-          targets,
-          input_lengths,
-          target_lengths,
-          neg_log_likelihood,
-          log_alpha,
-          blank,
-          reduction,
-          zero_infinity));
-
-  return ctc_loss_custom_backward_lazy(
-      grad,
-      log_probs,
-      targets,
-      input_lengths,
-      target_lengths,
-      neg_log_likelihood,
-      log_alpha,
-      blank,
-      reduction,
-      zero_infinity);
-}
-
 at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& a,
     const at::Tensor& b,
@@ -2309,14 +2205,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
-      "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
-  m.def(
-      "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
-  m.def(
-      "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor");
-  m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
 
   // Seed is generated at FE and passed to BE. There is no seed at python
@@ -2433,11 +2321,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_adamw", optimizer_adamw_hpu_wrap);
-  m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding_wrap);
-  m.impl(
-      "hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward_wrap);
-  m.impl("hpu::ctc_loss_custom", ctc_loss_custom_wrap);
-  m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward_wrap);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
   m.impl("hpu::sdpa_fwd", sdpa_fwd_wrap);
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);

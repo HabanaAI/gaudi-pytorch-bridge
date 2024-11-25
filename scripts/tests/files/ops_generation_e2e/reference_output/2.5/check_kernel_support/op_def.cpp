@@ -10,6 +10,7 @@
 #include "convolution_backward_overrideable.h"
 #include "elu.h"
 #include "eq.h"
+#include "exp_fast_math.h"
 #include "isfinite.h"
 #include "linear_backward.h"
 #include "mul.h"

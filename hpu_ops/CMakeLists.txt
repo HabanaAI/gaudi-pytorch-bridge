@@ -155,7 +155,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/convolution_overrideable_gen.cpp
   backend/count_nonzero_gen.cpp
   backend/ctc_loss_backward_gen.cpp
-  backend/ctc_loss_custom.cpp
+  backend/ctc_loss_custom_gen.cpp
   backend/ctc_loss_gen.cpp
   backend/cumsum_gen.cpp
   backend/custom_softmax_gen.cpp
@@ -286,7 +286,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/rms_norm_gen.cpp
   backend/roi_align.cpp
   backend/roll_gen.cpp
-  backend/rotary_pos_embedding.cpp
+  backend/rotary_pos_embedding_gen.cpp
   backend/round_gen.cpp
   backend/roundingfunc_gen.cpp
   backend/rrelu_with_noise_gen.cpp

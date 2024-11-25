@@ -62,7 +62,6 @@ hpu_supported_op_list = {
     "scaled_triangular_softmax",
     "scaled_triangular_softmax_retain",
     "softmax_fp8",
-    "sum_fp8",
     # Torchvision
     "roi_align",
     "_roi_align_backward",

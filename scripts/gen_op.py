@@ -620,7 +620,8 @@ def fallback_if_unsupported(
 ):
     if is_check_kernel_support:
         fallback_string = "RETURN"
-    elif is_custom and prefix == "VAL_":
+    elif is_custom and (prefix == "VAL_" or prefix == "VAL_CUSTOM_"):
+        prefix = "VAL_"
         fallback_string = "FAIL_CUSTOM"
     else:
         fallback_string = "FALLBACK"
@@ -2268,16 +2269,46 @@ def codegen_torchgen(f):
     return code
 
 
-def codegen_stackpop(param_vars, fun_args):
-    arg_def = ""
+def codegen_custom_ops(param_vars, fun_args):
     func_args = ""
-    stack_args = ""
-    for fun_arg, param_var in zip(fun_args, param_vars):
-        arg = fun_arg.replace("&", "").replace("const", "")
-        arg_def += "{} {};".format(arg, param_var)
-        func_args += " ,{}".format(param_var)
-        stack_args += " ,{}".format(param_var)
-    return templates._STACK_POP_CODE_FORMAT_.format(arg_def, stack_args, func_args[2:])
+    ivalue_lines = []
+    base_lines = []
+
+    for i, (name, type_) in enumerate(zip(param_vars, fun_args)):
+        type_ = type_.replace("const ", "").replace("&", "").strip()
+        ivalue_lines.append(f"c10::IValue {name} = std::move(peek(stack, {i}, {len(param_vars)}));")
+
+        if type_ == "at::OptionalIntArrayRef":
+            optional_str = (
+                f"std::vector<int64_t> {name}_opt_in_vec;"
+                f"auto {name}_opt = {name}.toOptional<c10::IValue>();"
+                f"at::OptionalIntArrayRef {name}_opt_out;"
+                f"if ({name}_opt.has_value()) {{"
+                f"  const c10::IValue {name}_opt_in = {name}_opt.value();"
+                f"  const c10::List<c10::IValue> {name}_opt_in_list_in = {name}_opt_in.toList();"
+                f"  for (c10::IValue {name}_opt_in_elem : {name}_opt_in_list_in) {{"
+                f"    int64_t {name}_opt_in_elem_base = {name}_opt_in_elem.to<int64_t>();"
+                f"    {name}_opt_in_vec.push_back({name}_opt_in_elem_base);"
+                f"  }}"
+                f"  at::IntArrayRef {name}_opt_in_list_out({name}_opt_in_vec);"
+                f"  {name}_opt_out = at::OptionalIntArrayRef({name}_opt_in_list_out);"
+                f"}} else {{"
+                f"  {name}_opt_out = at::OptionalIntArrayRef();"
+                f"}}"
+            )
+            func_args += f"{name}_opt_out, "
+            base_lines.append(optional_str)
+        else:
+            base_lines.append(f"{type_} {name}_base = {name}.to<{type_}>();")
+            func_args += f"{name}_base, "
+
+    func_args = func_args[:-2]
+
+    connector = "\n      "
+    code_str = connector.join(line for line in ivalue_lines)
+    args_str = connector.join(line for line in base_lines)
+
+    return templates._STACK_POP_CODE_FORMAT_.format(code_str, args_str, func_args)
 
 
 def generate_stack_pop(fgens, fgen_pos, native_func_dict):
@@ -2340,7 +2371,7 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
         if aten_sig_name in native_func_dict:
             stack_unroll += codegen_torchgen(native_func_dict[aten_sig_name])
         else:
-            stack_unroll += codegen_stackpop(param_vars, fun_args)
+            stack_unroll += codegen_custom_ops(param_vars, fun_args)
     stack_unroll += "  }\n  return false;\n}\n"
     struct_def += stack_unroll
     struct_def += "private:\n"
@@ -2412,6 +2443,8 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
     unique_func_map_custom = {}
     for idx, fgen in enumerate(fgens_custom):
         if fgen.ctxop.get_op_validator():
+            fgen_files[fgen.opgroup].append(fgen)
+            op_groups.add(fgen.opgroup)
             add_fgen_idx_to_generate(fgen, idx, unique_func_map_custom, ops_added)
 
     num_fgens_per_shard = len(unique_func_map) // NUM_SHARDS
