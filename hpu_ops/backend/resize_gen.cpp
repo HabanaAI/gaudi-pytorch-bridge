@@ -56,19 +56,6 @@ OutputMetaDataVector ResizeOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector ResizeSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  const auto& self = stack_tensor(stack, 0);
-  auto dtype = self.scalar_type();
-  auto rank = stack.at(1).toIntVector().size();
-
-  SharedMetaData memcpySharedMeta{"memcpy"};
-  memcpySharedMeta.inputs_data.emplace_back(self.dim(), dtype);
-  memcpySharedMeta.outputs_data.emplace_back(rank, dtype);
-  return {memcpySharedMeta};
-}
-
 void ResizeOpBackend::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

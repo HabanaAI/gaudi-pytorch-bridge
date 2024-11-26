@@ -30,26 +30,6 @@ OutputMetaDataVector RepeatMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector RepeatSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  const auto& self = stack_tensor(stack, 0);
-  auto dtype = self.scalar_type();
-  auto inputRank = self.dim();
-  auto outputRank = inputRank;
-
-  if (!stack.at(1).isTensor()) {
-    auto repeats = static_cast<int64_t>(stack.at(1).toIntList().size());
-    outputRank = std::max(repeats, outputRank);
-  }
-
-  SharedMetaData repeatSharedMeta{"repeat_pt_fwd"};
-  repeatSharedMeta.inputs_data.emplace_back(inputRank, dtype);
-  repeatSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-
-  return {repeatSharedMeta};
-}
-
 std::shared_ptr<void> FillRepeatFwdParams(
     const at::Stack& stack,
     size_t& size) {

@@ -517,19 +517,6 @@ SharedMetaDataVector RandomSeedTensorInputSharedMeta(
   return {randomSharedMeta};
 }
 
-SharedMetaDataVector PadBwdSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  auto grad = stack_tensor(stack, 0);
-  auto self = stack_tensor(stack, 1);
-  auto dtype = self.scalar_type();
-
-  SharedMetaData padBwdSharedMeta{"pad_bwd"};
-  padBwdSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
-  padBwdSharedMeta.outputs_data.emplace_back(self.dim(), dtype);
-  return {padBwdSharedMeta};
-}
-
 SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(
     const at::Stack& stack,
     const std::string& guid) {
