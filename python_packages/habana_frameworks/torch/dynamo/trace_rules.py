@@ -13,8 +13,10 @@
 import habana_frameworks.torch as htorch
 import torch
 from packaging.version import Version, parse
-from torch._dynamo.trace_rules import SKIP_DIRS, _module_dir, _recompile_re
+from torch._dynamo.trace_rules import SKIP_DIRS, _module_dir, _recompile_re, manual_torch_name_rule_map
 from torch._dynamo.variables import TorchCtxManagerClassVariable, TorchInGraphFunctionVariable
+
+manual_torch_name_rule_map.pop("torch.cuda.current_device", None)
 
 htorch_skip_list = [
     htorch.hpu,
