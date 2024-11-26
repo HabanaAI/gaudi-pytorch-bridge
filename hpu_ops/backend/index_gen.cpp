@@ -24,6 +24,63 @@
 
 namespace habana {
 
+// broadcast index tensor shape and get the correct shape and size
+static std::vector<int64_t> broadcast_size(at::TensorList indices) {
+  std::vector<int64_t> size;
+  int max = 1;
+  int max_dim = 0;
+  int i = 0;
+  for (auto t : indices) {
+    if ((t.dim() > max) && (t.scalar_type() != c10::ScalarType::Bool)) {
+      max_dim = i;
+      max = t.dim();
+    }
+    i++;
+  }
+  auto isz = indices[max_dim].sizes().vec();
+  if ((indices[max_dim].dim() == 1) ||
+      (indices[max_dim].scalar_type() == c10::ScalarType::Bool)) {
+    std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
+                                     // rows indicates broadcast size
+    size = sz;
+  } else {
+    size = isz;
+  }
+  for (size_t i = 1; i < indices.size(); i++) {
+    size = at::infer_size(size, indices[i].sizes());
+  }
+  return size;
+}
+
+static std::vector<int64_t> CalcCatOutSize(
+    const std::vector<std::vector<int64_t>>* tensors,
+    int64_t* dim_inp) {
+  auto tensor_count = tensors->size();
+
+  if (tensor_count == 0) // if tensor is empty or its first element is empty,
+                         // then concatenate out size is 0
+    return {0};
+
+  int64_t dim =
+      at::maybe_wrap_dim(*dim_inp, tensors->at(0).size(), /*wrap_scalar=*/true);
+
+  CatOperator::validate_cat_tensor_dim_sizes(tensors, *dim_inp);
+
+  if (dim != *dim_inp) {
+    *dim_inp = dim;
+  }
+
+  // out tensor size should match along all dimensions for input tensors except
+  // along the dim in which to cat
+  auto out_size = tensors->at(0);
+  if (out_size.size() != 0) {
+    out_size[dim] = 0;
+    for (unsigned i = 0; i < tensor_count; i++)
+      out_size[dim] += tensors->at(i)[dim];
+  }
+  return out_size;
+}
+
 static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   at::Tensor self = stack_tensor(stack, 0);
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();

@@ -204,7 +204,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/index_reduce_gen.cpp
   backend/index_fill_gen.cpp
   backend/index_gen.cpp
-  backend/plain_index_gen.cpp
   backend/index_put_gen.cpp
   backend/index_select_gen.cpp
   backend/instance_norm_backward_gen.cpp

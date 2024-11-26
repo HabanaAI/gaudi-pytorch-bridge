@@ -13,7 +13,7 @@
 import torch
 from habana_frameworks.torch import _hpu_C
 from torch._decomp import global_decomposition_table
-from torch._meta_registrations import _compute_reduction_shape, meta_index_Tensor, register_meta, utils
+from torch._meta_registrations import _compute_reduction_shape, register_meta, utils
 from torch._ops import HigherOrderOperator, OpOverload
 
 _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library("hpu", "IMPL", "Meta")
@@ -879,11 +879,6 @@ def meta_sum_fp8(self, dim=None, keepdim=False, out_dtype=None):
     output_shape = _compute_reduction_shape(self, dim, keepdim)
     output_dtype = out_dtype if out_dtype else self.dtype
     return self.new_empty(output_shape, dtype=output_dtype)
-
-
-@register_meta([torch.ops.hpu.plain_index.default])
-def meta_plain_index(self, indices):
-    return meta_index_Tensor(self, indices)
 
 
 @register_meta(
