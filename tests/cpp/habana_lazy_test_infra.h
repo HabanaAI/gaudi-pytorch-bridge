@@ -249,7 +249,7 @@ class LazyDynamicTest : public LazyTest {
   void SetUp() override {
     SetDynamicMode();
     DisableDynamicPassFallback();
-    habana::HPUDeviceContext::recipe_cache().clear();
+    habana::HPUDeviceContext::recipe_cache_clear();
     LazyTest::SetUp();
   }
 
