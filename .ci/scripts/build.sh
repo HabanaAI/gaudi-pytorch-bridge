@@ -559,7 +559,7 @@ build_pytorch_fork()
     SECONDS=0
 
     local __scriptname=$(__get_func_name)
-    local __env_vars="DEBUG=1 USE_MPI=OFF"
+    local __env_vars="DEBUG=1 USE_MPI=OFF BUILD_TEST=0 INSTALL_TEST=0"
     local __configure=""
     local __release=""
     local __debug="yes"
