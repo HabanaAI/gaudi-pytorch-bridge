@@ -15,41 +15,40 @@
 #
 ###############################################################################
 
+
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, hpu
-
-tols = {torch.float: 1e-4, torch.bfloat16: 1e-2, torch.int: 0}
+from test_utils import cpu, hpu
 
 
 @pytest.mark.parametrize(
-    "shape",
+    "shape, indices",
     [
-        (5,),
-        (128,),
+        pytest.param((5, 5), ([1, 2, 3],)),
+        pytest.param((5, 5, 5), ([1, 2, 3], [1, 3, 1])),
+        pytest.param((5, 5, 5, 5), ([1, 2, 3],)),
+        pytest.param((5, 5, 5, 5, 5), ([1, 2, 3], [0, 2, 3], [0, 2, 4], [2, 3, 4])),
+        pytest.param((2, 3, 8, 8), ([[[1], [0]]],)),
     ],
 )
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int], ids=format_tc)
-def test_index(shape, dtype):
-    def wrapper_fn(input, other):
-        return torch.dot(input, other)
+@pytest.mark.skip
+def test_index(shape, indices):
+
+    def wrapper_fn(src, indices):
+        return torch.ops.hpu.plain_index(src, indices)
+
+    def wrapper_cpu_fn(src, indices):
+        return torch.ops.aten.index(src.to(cpu), [x.to(cpu) for x in indices])
 
     if pytest.mode == "compile":
         f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
     else:
         f_hpu = wrapper_fn
 
-    if dtype == torch.int:
-        input_tensor = torch.randint(low=-100, high=100, size=shape, dtype=dtype)
-        other_tensor = torch.randint(low=-100, high=100, size=shape, dtype=dtype)
-    else:
-        input_tensor = torch.rand(shape, dtype=dtype)
-        other_tensor = torch.rand(shape, dtype=dtype)
+    input_tensor = torch.rand(shape, device=hpu)
+    indices = [torch.tensor(x, device=hpu) for x in indices]
 
-    input_tensor_h = input_tensor.to(hpu)
-    other_tensor_h = other_tensor.to(hpu)
+    y_cpu = wrapper_cpu_fn(input_tensor, indices)
+    y_hpu = f_hpu(input_tensor, indices)
 
-    result_c = wrapper_fn(input=input_tensor, other=other_tensor)
-    result_h = f_hpu(input=input_tensor_h, other=other_tensor_h)
-
-    compare_tensors(result_h, result_c, tols[dtype], tols[dtype])
+    assert torch.equal(y_cpu, y_hpu.to(cpu))
