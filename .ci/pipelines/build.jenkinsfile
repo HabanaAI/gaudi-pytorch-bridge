@@ -35,7 +35,7 @@ def preCommitValidation = [
             Integer precommitResult = util.runShellCommandWrapper("""
                 set -xe
                 pushd \${PYTORCH_MODULES_ROOT_PATH}
-                pre-commit run --color never --show-diff-on-failure --from HEAD^ --to HEAD
+                pre-commit run --color never --show-diff-on-failure --from \$(git remote)/${GIT_TARGET_BRANCH} --to HEAD
                 popd
             """, null, false, true)
             if (precommitResult == 0) { return }
