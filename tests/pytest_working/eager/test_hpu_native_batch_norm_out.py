@@ -23,7 +23,7 @@ dtypes = [torch.bfloat16, torch.float]
 if not is_gaudi1():
     dtypes.append(torch.half)
 
-shapes = [(2, 3, 4, 5), (4, 3, 8)]
+shapes = [(2, 3, 4, 5), (4, 3, 8), (3, 2, 4, 5, 2, 3)]
 
 
 def fn(input, weight, bias, mean, var):

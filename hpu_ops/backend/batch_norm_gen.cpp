@@ -284,11 +284,6 @@ bool is_batch_norm_functional(const OpBackend& op) {
       std::string::npos;
 }
 
-bool is_no_reshape_op(const OpBackend& op) {
-  return op.GetGuid().find("batch_norm_inf_reshape") != std::string::npos ||
-      op.GetGuid().find("_native_batch_norm_legit.no_stats") != std::string::npos;
-}
-
 std::vector<sh::tensor> handle_batch_norm_training_fwd(
     OpBackend& op,
     sh::graph& graph,
@@ -346,63 +341,30 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   bool is_functional = is_batch_norm_functional(op);
 
   std::vector<sh::tensor> bn_out;
-  if (is_no_reshape_op(op)) {
-    auto input_4d_shape = input.pt_t.sizes().vec();
-    bn_out = OpBackend::BuildNode(
-        &op,
-        graph,
-        {get_guid_with_precision("batch_norm_reshape_fwd", op.ScalarType()),
-         {input.syn_t, bias, weight, running_mean, running_var},
-         {NodeAttr::NodeOutputAttr{
-              input_4d_shape, op.ScalarType(), c10::optional<int>(0)},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
-         params.get(),
-         params_size});
-  } else {
-    std::optional<sh::tensor> inputStorageOpt;
-    const auto [input_4d, input_4d_shape] =
-        transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
-            op, graph, input, inputStorageOpt);
-    const auto input_dim = input.pt_t.sizes().size();
-    bn_out = OpBackend::BuildNode(
-        &op,
-        graph,
-        {get_guid_with_precision("batch_norm_fwd", op.ScalarType()),
-         {input_4d, bias, weight, running_mean, running_var},
-         {NodeAttr::NodeOutputAttr{
-              input_4d_shape,
-              op.ScalarType(),
-              (input_dim != 4) ? c10::nullopt : c10::optional<int>(0)},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
-         params.get(),
-         params_size});
-  }
+  auto input_4d_shape = input.pt_t.sizes().vec();
+  bn_out = OpBackend::BuildNode(
+      &op,
+      graph,
+      {get_guid_with_precision("batch_norm_reshape_fwd", op.ScalarType()),
+       {input.syn_t, bias, weight, running_mean, running_var},
+       {NodeAttr::NodeOutputAttr{
+            input_4d_shape, op.ScalarType(), c10::optional<int>(0)},
+        NodeAttr::NodeOutputAttr{
+            out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
+        NodeAttr::NodeOutputAttr{
+            out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
+        is_functional
+            ? NodeAttr::
+                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
+            : NodeAttr::
+                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx},
+        is_functional
+            ? NodeAttr::
+                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
+            : NodeAttr::
+                  NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
+       params.get(),
+       params_size});
 
   if (running_mean_opt.has_value() && not is_functional) {
     op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
@@ -670,6 +632,20 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto params = FillBatchNormFwdParams(stack, paramsSize);
   const auto outShapes = BatchNormFwdOutputShape(stack);
 
+  auto inOutLayout = getSynapseLayout(input.pt_t.dim());
+
+  SetSynapseLayouts(
+      {inOutLayout,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
+      {inOutLayout,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+
   std::vector<sh::tensor> bnOut =
       (is_training(training, runningMeanOpt.has_value())
            ? handle_batch_norm_training_fwd
@@ -684,8 +660,6 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           params,
           paramsSize,
           outShapes);
-
-  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
 
   if (isOutputInfMode()) {
     moveLastOutputTensorAtFront(*this);
