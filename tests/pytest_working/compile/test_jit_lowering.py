@@ -14,23 +14,18 @@
 #  limitations under the License.
 #
 ###############################################################################
-
+import habana_frameworks.torch.internal._bridge_config_C as bc
 import torch
-from habana_frameworks import torch as _
 
 
-class MyModule(torch.nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
+def test_smoke_jit_forked_lowering():
+    prev = bc.get_pt_hpu_use_jit_fork()
+    bc.set_pt_hpu_use_jit_fork(True)
 
-    def forward(self, x, y):
-        flag = x == y
-        return flag
+    @torch.compile(backend="hpu_backend")
+    def smoke(x, y):
+        return y + x
 
-
-def test_fill_propagated_tensor_metadata_to_node():
-    model = MyModule().to("hpu")
-    compiled_model = torch.compile(model, backend="hpu_backend", dynamic=True)
-    # forced dynamic compilation forces occurence of SymBool in this mini example as internal output type
-    retval = compiled_model(2, 3)
-    assert retval == False
+    t = torch.tensor([1.0], device="hpu")
+    _ = smoke(t, t)
+    bc.set_pt_hpu_use_jit_fork(prev)

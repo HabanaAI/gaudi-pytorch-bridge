@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include <ATen/native/Resize.h>
 #include <ATen/record_function.h>
@@ -1349,16 +1349,23 @@ void HabanaLaunchOpPT::handlePrimNodes(
   PT_BRIDGE_TRACE;
   if (node->kind() == torch::jit::prim::Constant) {
     handlePrimConstantNode(node, syn_build_cache);
-  } else if (node->kind() == torch::jit::prim::ListConstruct) {
+  } else if (
+      node->kind() == torch::jit::prim::ListConstruct
+  ) {
     handlePrimListConstructNode(node);
-  } else if (node->kind() == torch::jit::prim::ListUnpack) {
+  } else if (
+      node->kind() == torch::jit::prim::ListUnpack
+  ) {
     // currently lowering code supports only TensorList+Unpack combination
     // [ToDo] Standalone ListUnpack support is not added here
   } else {
     HABANA_ASSERT(
         (node->kind() == torch::jit::prim::Constant) ||
         (node->kind() == torch::jit::prim::ListConstruct) ||
-        (node->kind() == torch::jit::prim::ListUnpack));
+        (node->kind() == torch::jit::prim::ListUnpack) ||
+        (node->kind() == torch::jit::prim::TupleConstruct) ||
+        (node->kind() == torch::jit::prim::TupleUnpack)
+    );
   }
 }
 
@@ -2817,8 +2824,10 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
 
     PT_DYNAMIC_SHAPE_DEBUG("Working on ", node_qual_str);
     if ((node->kind() == torch::jit::prim::Constant) ||
-        (node->kind() == torch::jit::prim::ListConstruct) ||
-        (node->kind() == torch::jit::prim::ListUnpack)) {
+        (node->kind() == torch::jit::prim::ListConstruct
+         ) ||
+        (node->kind() == torch::jit::prim::ListUnpack
+         )) {
       continue;
     }
 
@@ -3445,7 +3454,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // dont want to call delete untill we are done with whole graph
     habana_kernels_.push_back(HabanaKernel);
   }
-
 
   // Generate patching info for graph inputs during fast sif
   if ((refine_ds_enabled_ && enable_fast_shape_inf_ &&

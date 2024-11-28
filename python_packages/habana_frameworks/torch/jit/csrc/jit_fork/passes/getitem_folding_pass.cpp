@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "getitem_folding_pass.h"
 #include <iostream>
@@ -39,13 +39,17 @@ class ProcessGetItemNodes {
               "Replacing: ",
               getitem_value->debugName(),
               " with ",
-              dest_value->debugName(),
-              ".");
+              dest_value->debugName());
           getitem_value->replaceAllUsesWith(dest_value);
           graph_changed = true;
           // Collect debug names
-          if (value_new_names_map.find(dest_value) == value_new_names_map.end())
+          const bool rename_needed = isNumber(dest_value->debugName()) &&
+              !isNumber(getitem_value->debugName());
+          if (rename_needed &&
+              value_new_names_map.find(dest_value) ==
+                  value_new_names_map.end()) {
             value_new_names_map[dest_value] = getitem_value->debugName();
+          }
 
           removal_getitem_nodes.insert(n);
           // This const node can potentially be removed
@@ -125,7 +129,7 @@ class ProcessGetItemNodes {
   }
 
   void collectUnpackNodes(Node* n) {
-    if (n->kind() == prim::ListUnpack || n->kind() == prim::TupleConstruct) {
+    if (n->kind() == prim::ListUnpack || n->kind() == prim::TupleUnpack) {
       // Find nodes such as:
       //   %6 : Long(shape=[...], strides=[...], ...), | OUTPUT[0]
       //   %7 : Long(shape=[...], strides=[...], ...)  | OUTPUT[1]

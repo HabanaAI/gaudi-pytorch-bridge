@@ -93,7 +93,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         self._check_meta(node)
 
         # Rewrite the metadata from the FakeTensorProp execution.
-        self._apply_meta(node.meta["val"], returned_val)
+        self._apply_meta(node.meta["valX"], returned_val)
 
         return returned_val
 
@@ -118,7 +118,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         self._check_meta(node)
 
         # Rewrite the metadata from the FakeTensorProp execution.
-        self._apply_meta(node.meta["val"], input_val)
+        self._apply_meta(node.meta["valX"], input_val)
 
         # todo https://jira.habana-labs.com/browse/SW-200868
         # if config.dump_graph:
@@ -368,8 +368,8 @@ class FxToJitLowering(torch.fx.Interpreter):
     ##############################################################
 
     def _check_meta(self, node: torch.fx.Node):
-        if "val" not in node.meta:
-            raise RuntimeError(f"node.meta['val'] is not present for: {node}")
+        if "valX" not in node.meta:
+            raise RuntimeError(f"node.meta['valX'] is not present for: {node}")
 
     def _apply_meta_for_simple_types(self, meta_val, jit_val: jit.Value):
         jit_type = None

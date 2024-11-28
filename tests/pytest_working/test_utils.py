@@ -276,7 +276,7 @@ def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable]
     print("Reset env.")
 
 
-# fixutre that can be used for indirect initialization
+# fixture that can be used for indirect initialization
 @pytest.fixture
 def setup_teardown_env_fixture(request):
     yield from generic_setup_teardown_env(request.param)

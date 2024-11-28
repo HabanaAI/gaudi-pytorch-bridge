@@ -49,6 +49,7 @@ class OptimizerContext:
     current_partitions_non_mergeable: List
     habana_partitioner: HabanaPartitioner = None
     is_submod: bool = False
+    use_jit_fork: bool = False
 
 
 class ColorGraph:

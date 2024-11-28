@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 // todo cleanup https://jira.habana-labs.com/browse/SW-199903
 // probably should be moved to other place, optionally change file name
@@ -128,9 +128,9 @@ namespace detail {
     }                                                                                     \
   }
 
-// CREATE_UNWRAPPING_CASTER(Node);
+CREATE_UNWRAPPING_CASTER(Node);
 CREATE_UNWRAPPING_CASTER(Value);
-// CREATE_UNWRAPPING_CASTER(Block);
+CREATE_UNWRAPPING_CASTER(Block);
 
 #undef CREATE_UNWRAPPING_CASTER
 
@@ -264,7 +264,6 @@ Node* addNodeToBlock(Block* block, Symbol kind, ArrayRef<Value*> inputs) {
 
 void defineGraphClass(pybind11::module& m) {
 #define GS(name) def(#name, &Graph ::name)
-
   py::class_<Graph, std::shared_ptr<Graph>>(m, "Graph", py::module_local())
       .def(py::init<>())
       .def(
@@ -474,7 +473,10 @@ void defineGraphClass(pybind11::module& m) {
           })
       .GS(lint)
       .def("block", [](Graph& g) { return g.block(); })
-      .GS(insertNode);
+      .GS(insertNode)
+      .def("copyToUpstreamGraph", [](Graph& g) {
+        return g.copyToUpstreamGraph();
+      });
 #undef GS
 }
 

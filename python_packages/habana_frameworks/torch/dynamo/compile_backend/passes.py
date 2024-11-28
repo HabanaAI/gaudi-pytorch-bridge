@@ -46,13 +46,7 @@ from ._passes.propose_collective_blocks import pass_propose_collective_blocks
 from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
 from .cluster_compiler import pass_compile_clusters_jit_fork_version
 from .partitioner import HabanaPartitioner
-from .random_utils import (
-    backward_random_op_inputs,
-    is_backward_checkpoint_op,
-    is_multi_output_op,
-    is_random_op,
-    random_op_inputs,
-)
+from .random_utils import is_backward_checkpoint_op
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
 from .symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
@@ -346,29 +340,6 @@ def is_call_function_dynamic(node: torch.fx.Node, dynamic_graph: bool) -> bool:
     return is_dynamic
 
 
-def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
-    """
-    This function dynamicity per graph module.
-    """
-
-    from torch._subclasses.fake_tensor import FakeTensor
-    from torch.fx.experimental.proxy_tensor import py_sym_types
-    from torch.fx.passes.shape_prop import TensorMetadata
-
-    is_dynamic = False
-    for node in input_module.graph.nodes:
-        if node.op == "placeholder":
-            meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
-            if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
-                meta_val, py_sym_types
-            ):
-                is_dynamic = True
-                break
-
-    logger.debug("Module dynamicity %s", is_dynamic)
-    return is_dynamic
-
-
 def get_dynamic_config_value():
     """
     This function return the is_dynamic=True if user configured
@@ -445,10 +416,9 @@ def optimize_graph(
 
     def run_passes(ctx: OptimizerContext):
         graph_changed = False
-
         pass_counter = 0
-
-        dump_fx_graph(ctx.graph_module, graph_name, stage=stage, pass_counter=pass_counter)
+        ctx.use_jit_fork = bc.get_pt_hpu_use_jit_fork()
+        dump_fx_graph(ctx.graph_module, "fx_to_optimize", stage=stage, pass_counter=pass_counter)
         for optimization_pass in get_passes(stage):
             pass_name = optimization_pass.__name__
             env_name = "PT_HPU_DISABLE_" + pass_name
@@ -844,6 +814,7 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
             else:
                 result = super().run_node(node)
                 args, kwargs = self.fetch_args_kwargs_from_env(node)
+
             node.val_args = args
             node.val_kwargs = kwargs
             fill_propagated_tensor_metadata_to_node(result, node)
@@ -1193,7 +1164,7 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
     and adds output metadata according to subgraph outputs
     """
     graph_changed = False
-    if not bc.get_pt_hpu_use_jit_fork():
+    if not ctx.use_jit_fork:
         return graph_changed
 
     logger.debug("JitLowering pass_add_fused_op_metadata")
@@ -1215,11 +1186,11 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             assert all(
                 map(lambda x: isinstance(x, torch.fx.Node), args)
             ), "Currently we are assuming that all args of output should be Nodes"
-            meta_val = tuple([a.meta.get("val", None) for a in args])
+            meta_val = tuple([a.meta.get("valX", None) for a in args])
 
         assert meta_val, f"Target has 0 outputs: {target}"
 
-        graph_node.meta["val"] = meta_val if len(meta_val) > 1 else meta_val[0]
+        graph_node.meta["valX"] = meta_val if len(meta_val) > 1 else meta_val[0]
         graph_changed = True
 
     return graph_changed
@@ -2187,122 +2158,6 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     return graph_changed
 
 
-def wrap_random_ops(input_module: torch.fx.GraphModule):
-    """
-    This pass goes through habana cluster and:
-    - replaces run_and_save_rng_state ops with habana wrappers,
-    - replaces run_with_rng_state ops with habana checkpoint wrappers,
-    - replaces random ops with habana wrappers,
-    - creates seed and counter tensor for habana_seed_generator,
-    - feeds habana wrappers with generated seed tensors.
-    """
-
-    random_ops = [node for node in input_module.graph.nodes if is_random_op(node)]
-    backward_random_ops = [node for node in input_module.graph.nodes if is_backward_checkpoint_op(node)]
-
-    # run_with_rng_state op is replaced with the actual random op with seed acquired from
-    # the run_with_rng_state's first input.
-    if len(backward_random_ops) > 0:
-        for node in backward_random_ops:
-            with input_module.graph.inserting_before(node):
-                random_node = input_module.graph.call_function(*backward_random_op_inputs(node))
-                node.replace_all_uses_with(random_node, propagate_meta=True)
-                random_node.meta.update(node.meta)
-                input_module.graph.erase_node(node)
-
-        input_module.recompile()
-
-    if len(random_ops) == 0:
-        return
-
-    with input_module.graph.inserting_before():
-        counter_pl = input_module.graph.placeholder("counter_pl")
-        seed_pl = input_module.graph.placeholder("seed_pl")
-
-    with input_module.graph.inserting_after(counter_pl):
-        seeds = input_module.graph.call_function(
-            torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, len(random_ops)), {}
-        )
-        add_inplace = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, len(random_ops)), {})
-
-    multi_output_ops = []
-
-    for i, node in enumerate(random_ops):
-        with input_module.graph.inserting_before(node):
-            seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
-            random_node = input_module.graph.call_function(*random_op_inputs(node, seed))
-            node.replace_all_uses_with(random_node, propagate_meta=True)
-            random_node.meta.update(node.meta)
-            if is_multi_output_op(node):
-                multi_output_ops.append(random_node)
-            input_module.graph.erase_node(node)
-
-    for node in multi_output_ops:
-        for getitem in list(node.users):
-            if getitem.args[1] == 1:
-                for selector in list(getitem.users):
-                    idx = selector.args[1]
-                    selector.args = (node, idx + 1)
-
-    input_module.recompile()
-
-
-def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
-    """
-    This function will remove those outputs which are duplicated with inputs in
-    the fx graph. So that the generated JIT graph won't have duplicated output.
-    This function run before we convert fx graph to jit graph.
-
-    For example, the add_1 output in following graph will be removed. def
-    forward(self, mm: "bf16[4,4]", relu: "bf16[4,4]", _to_copy_1: "bf16[4,4]"):
-        add: "bf16[4, 4]" = torch.ops.aten.add_.Tensor(mm, relu) relu_1:
-        "bf16[4, 4]" = torch.ops.aten.relu.default(_to_copy_1) add_1: "bf16[4,
-        4]" = torch.ops.aten.add_.Tensor(add, relu_1) relu_2: "bf16[4, 4]" =
-        torch.ops.aten.relu.default(add_1) return (add_1, relu_2)
-    """
-    in_to_out_dups = input_module.meta.get("in_to_out_dups", None)
-    if in_to_out_dups is None:
-        return
-
-    duplicated_out_indexes = list(in_to_out_dups.values())
-    for node in input_module.graph.nodes:
-        if node.op == "output":
-            output_node = node
-            break  # expect only one output node per fx graph
-
-    # remove the duplicated outputs
-    outs = list(output_node.args[0]) if type(output_node.args[0]) == tuple else [output_node.args[0]]
-    for idx in duplicated_out_indexes:
-        outs.remove(outs[idx])
-
-    # create a new output node
-    input_module.graph.output(outs[0] if len(outs) == 1 else tuple(outs))
-    input_module.graph.erase_node(output_node)
-    input_module.graph.lint()
-    return
-
-
-def remove_no_effect_inplace_add(graph_module: torch.fx.GraphModule):
-    """
-    This function will convert some reinpalced add_ ops back to out-of-place
-    version if they don't cause partition input/output duplications. This is a
-    WA since those add_ ops will be converted back to out-of-place version
-    during generating jit graph by _jit_pass_remove_mutation, and that jit pass
-    will change the ops order inside the graph, and make the
-    jit_node_shape_propagation failed.
-    """
-    for node in graph_module.graph.nodes:
-        if not (node.op == "call_function" and node.target == torch.ops.aten.add_.Tensor):
-            continue
-
-        src0 = node.args[0]
-        if not (src0.op == "placeholder" or src0.target.__name__.split(".")[0].endswith("_")):
-            # this inplace add_ op doesn't have possbility to change the arg, so
-            # convert it to out-of-place version.
-            node.target = torch.ops.aten.add.Tensor
-    return
-
-
 def pass_compile_clusters(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated HPU cluster
@@ -2310,10 +2165,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
     it to the HPU backend for recipe compilation and substitute the target with
     newly compiled one.
     """
-
-    use_jit_fork = bc.get_pt_hpu_use_jit_fork()
-
-    if use_jit_fork:
+    if ctx.use_jit_fork:
         return pass_compile_clusters_jit_fork_version(ctx)
 
     # It seems that this pass assumes that the fx graph and the jit graph must
@@ -2617,8 +2469,6 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     graph_changed = False
     if not hpu_backend_config.use_inplace_allreduce:
         return graph_changed
-
-    graph = ctx.graph_module.graph
 
     def reinplace_collective_ops(gm: torch.fx.GraphModule):
         replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}

@@ -21,6 +21,14 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
+from ..random_utils import (
+    backward_random_op_inputs,
+    is_backward_checkpoint_op,
+    is_multi_output_op,
+    is_random_op,
+    random_op_inputs,
+)
+
 logger = get_compile_backend_logger()
 
 
@@ -170,9 +178,11 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     This function takes out basic information from propagated fake tensor, like
     dtype, layout and device and puts it to the node that created it.
     """
-    # just skip for get_attr node since it's not necessary
-    if node.op == "get_attr":
-        return
+    if not bc.get_pt_hpu_use_jit_fork():
+        # todo - cleanup [SW-199903]
+        # just skip for get_attr node since it's not necessary
+        if node.op == "get_attr":
+            return
 
     result = handle_noncontiguous_output(node, result)
 
@@ -215,10 +225,10 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         device = torch.device("cpu")
         dtypes = [None]
         layouts = [None]
-        output_shapes = [None]
-        output_strides = [None]
+        output_shapes = [()]
+        output_strides = [()]
         output_contiguous = [None]
-        output_offset = [None]
+        output_offset = [()]
         node.type = result_type_to_node_type[type(result)]
     elif str(node.target) == "inductor.accumulate_grad_.default":
         device = torch.device("hpu")
@@ -303,8 +313,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     node.meta["output_offset"] = output_offset  # list expected
 
     if bc.get_pt_hpu_use_jit_fork():
-        logger.debug(f'Filling metadata "val" for Lowering pass')
-
+        logger.debug(f'Filling metadata "valX" for Lowering pass')
         with torch._subclasses.fake_tensor.FakeTensorMode():
             meta_output_vals = []
             for i in range(len(dtypes)):
@@ -316,5 +325,143 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
                         device=device,
                     )
                 )
+        node.meta["valX"] = meta_output_vals[0] if len(meta_output_vals) == 1 else tuple(meta_output_vals)
 
-        node.meta["val"] = tuple(meta_output_vals) if len(meta_output_vals) > 1 else meta_output_vals[0]
+
+def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
+    """
+    This function will remove those outputs which are duplicated with inputs in
+    the fx graph. So that the generated JIT graph won't have duplicated output.
+    This function run before we convert fx graph to jit graph.
+
+    For example, the add_1 output in following graph will be removed. def
+    forward(self, mm: "bf16[4,4]", relu: "bf16[4,4]", _to_copy_1: "bf16[4,4]"):
+        add: "bf16[4, 4]" = torch.ops.aten.add_.Tensor(mm, relu) relu_1:
+        "bf16[4, 4]" = torch.ops.aten.relu.default(_to_copy_1) add_1: "bf16[4,
+        4]" = torch.ops.aten.add_.Tensor(add, relu_1) relu_2: "bf16[4, 4]" =
+        torch.ops.aten.relu.default(add_1) return (add_1, relu_2)
+    """
+    in_to_out_dups = input_module.meta.get("in_to_out_dups", None)
+    if in_to_out_dups is None:
+        return
+
+    duplicated_out_indexes = list(in_to_out_dups.values())
+    for node in input_module.graph.nodes:
+        if node.op == "output":
+            output_node = node
+            break  # expect only one output node per fx graph
+
+    # remove the duplicated outputs
+    outs = list(output_node.args[0]) if type(output_node.args[0]) == tuple else [output_node.args[0]]
+    for idx in duplicated_out_indexes:
+        outs.remove(outs[idx])
+
+    # create a new output node
+    input_module.graph.output(outs[0] if len(outs) == 1 else tuple(outs))
+    input_module.graph.erase_node(output_node)
+    input_module.graph.lint()
+    return
+
+
+def remove_no_effect_inplace_add(graph_module: torch.fx.GraphModule):
+    """
+    This function will convert some reinpalced add_ ops back to out-of-place
+    version if they don't cause partition input/output duplications. This is a
+    WA since those add_ ops will be converted back to out-of-place version
+    during generating jit graph by _jit_pass_remove_mutation, and that jit pass
+    will change the ops order inside the graph, and make the
+    jit_node_shape_propagation failed.
+    """
+    for node in graph_module.graph.nodes:
+        if not (node.op == "call_function" and node.target == torch.ops.aten.add_.Tensor):
+            continue
+
+        src0 = node.args[0]
+        if not (src0.op == "placeholder" or src0.target.__name__.split(".")[0].endswith("_")):
+            # this inplace add_ op doesn't have possbility to change the arg, so
+            # convert it to out-of-place version.
+            node.target = torch.ops.aten.add.Tensor
+    return
+
+
+def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
+    """
+    This function dynamicity per graph module.
+    """
+
+    from torch._subclasses.fake_tensor import FakeTensor
+    from torch.fx.experimental.proxy_tensor import py_sym_types
+    from torch.fx.passes.shape_prop import TensorMetadata
+
+    is_dynamic = False
+    for node in input_module.graph.nodes:
+        if node.op == "placeholder":
+            meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
+            if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+                meta_val, py_sym_types
+            ):
+                is_dynamic = True
+                break
+
+    logger.debug("Module dynamicity %s", is_dynamic)
+    return is_dynamic
+
+
+def wrap_random_ops(input_module: torch.fx.GraphModule):
+    """
+    This pass goes through habana cluster and:
+    - replaces run_and_save_rng_state ops with habana wrappers,
+    - replaces run_with_rng_state ops with habana checkpoint wrappers,
+    - replaces random ops with habana wrappers,
+    - creates seed and counter tensor for habana_seed_generator,
+    - feeds habana wrappers with generated seed tensors.
+    """
+
+    random_ops = [node for node in input_module.graph.nodes if is_random_op(node)]
+    backward_random_ops = [node for node in input_module.graph.nodes if is_backward_checkpoint_op(node)]
+
+    # run_with_rng_state op is replaced with the actual random op with seed acquired from
+    # the run_with_rng_state's first input.
+    if len(backward_random_ops) > 0:
+        for node in backward_random_ops:
+            with input_module.graph.inserting_before(node):
+                random_node = input_module.graph.call_function(*backward_random_op_inputs(node))
+                node.replace_all_uses_with(random_node, propagate_meta=True)
+                random_node.meta.update(node.meta)
+                input_module.graph.erase_node(node)
+
+        input_module.recompile()
+
+    if len(random_ops) == 0:
+        return
+
+    with input_module.graph.inserting_before():
+        counter_pl = input_module.graph.placeholder("counter_pl")
+        seed_pl = input_module.graph.placeholder("seed_pl")
+
+    with input_module.graph.inserting_after(counter_pl):
+        seeds = input_module.graph.call_function(
+            torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, len(random_ops)), {}
+        )
+        _ = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, len(random_ops)), {})
+
+    multi_output_ops = []
+
+    for i, node in enumerate(random_ops):
+        with input_module.graph.inserting_before(node):
+            seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
+            random_node = input_module.graph.call_function(*random_op_inputs(node, seed))
+            node.replace_all_uses_with(random_node, propagate_meta=True)
+            random_node.meta.update(node.meta)
+            if is_multi_output_op(node):
+                multi_output_ops.append(random_node)
+            input_module.graph.erase_node(node)
+
+    for node in multi_output_ops:
+        for getitem in list(node.users):
+            if getitem.args[1] == 1:
+                for selector in list(getitem.users):
+                    idx = selector.args[1]
+                    selector.args = (node, idx + 1)
+
+    input_module.recompile()

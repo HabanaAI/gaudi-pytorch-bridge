@@ -20,7 +20,9 @@ import torch
 from habana_frameworks.torch.dynamo._fx_to_jit_lowering import FxToJitLowering
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizerContext
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes import run_jit_fork_passes
 
+from ._helpers import remove_duplicated_outputs, remove_no_effect_inplace_add
 from .recipe_compiler import get_callable_recipe
 
 logger = get_compile_backend_logger()
@@ -52,32 +54,44 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
 
 class _ClusterCompiler(torch.fx.Interpreter):
     def __init__(self, graph_module: torch.fx.GraphModule, ctx: OptimizerContext):
-        logger.debug("xtdomagala tmp log _ClusterCompiler . ctor")
         super().__init__(graph_module)
         self.graph_module = graph_module
         self.ctx = ctx
         self.subgraph_cnt = 0
 
     def fx_to_jit_ir(self, submod, args):
+        # temporarily skiping this
+        # wrap_random_ops(submod)
+        # remove_duplicated_outputs(submod)
+        remove_no_effect_inplace_add(submod)
+
+        submod.graph.lint()
+        submod.recompile()
+
         fx_to_jit_lowering = FxToJitLowering(submod)
         fx_to_jit_lowering.run(*args)
-        # todo implement run_jit_passes https://jira.habana-labs.com/browse/SW-199897
-        # run_jit_passes(fx_to_jit_lowering.jit_ir)
-        return fx_to_jit_lowering.jit_ir
+
+        # todo verify run_jit_passes https://jira.habana-labs.com/browse/SW-199897
+        run_jit_fork_passes(fx_to_jit_lowering.jit_ir)
+
+        converted_jit_ir = fx_to_jit_lowering.jit_ir.copyToUpstreamGraph()
+        torch._C._jit_pass_remove_mutation(converted_jit_ir)
+
+        # todo cleanup [199903] - temporarily working on reconverted
+        return converted_jit_ir
 
     def run_node(self, n: torch.fx.Node):
         # This function has been overwritten because we need
         # access to FX nodes, not node.target as done in the base
         # run_node function.
-
         with self._set_current_node(n):
+            assert "valX" in n.meta.keys(), f"{n=} {n.target=} {n.meta.keys()=}"
             if n.op == "call_module":
-                assert "val" in n.meta.keys(), f"{n=} {n.target=} {n.meta.keys()=}"
                 args, kwargs = self.fetch_args_kwargs_from_env(n)
                 assert isinstance(args, tuple)
                 assert isinstance(kwargs, dict)
                 return getattr(self, n.op)(n, args, kwargs)
-            return n.meta["val"]
+            return n.meta["valX"]
 
     def call_module(self, node: torch.fx.Node, args, kwargs):
         target = node.target
@@ -94,7 +108,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
 
         is_submod_dynamic = is_module_dynamic(submod)
         syngraph_module = get_callable_recipe(
-            jit_ir, submod, is_training=self.ctx.is_training, is_dynamic=is_submod_dynamic
+            jit_ir, submod, self.ctx.graph_name, is_training=self.ctx.is_training, is_dynamic=is_submod_dynamic
         )
         # todo https://jira.habana-labs.com/browse/SW-201169:
         # in our case compilation:
@@ -116,7 +130,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
 
         self.subgraph_cnt += 1
 
-        return node.meta["val"]
+        return node.meta["valX"]
 
     @property
     def graph_changed(self):

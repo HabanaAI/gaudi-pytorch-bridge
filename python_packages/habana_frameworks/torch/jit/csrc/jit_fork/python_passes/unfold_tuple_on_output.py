@@ -15,22 +15,25 @@
 #
 ###############################################################################
 
-import torch
-from habana_frameworks import torch as _
+import habana_frameworks.torch._torch_jit_C.jit as jit
 
 
-class MyModule(torch.nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
+def pass_unfold_tuple_on_output(jit_graph: jit.Graph):
+    """
+    This pass unfolds prim::TupleConstruct to list of single outputs when it is
+    returned from FX graph. It allows to handle outputs from graph in unified
+    way.
+    """
+    graph_changed = False
+    jit_graph_nodes = list(jit_graph.nodes())
+    last_node = jit_graph_nodes[-1]
 
-    def forward(self, x, y):
-        flag = x == y
-        return flag
+    if last_node.kind() == "prim::TupleConstruct":
+        assert len(list(jit_graph.outputs())) == 1
+        jit_graph.eraseOutput(0)
+        for node_input in last_node.inputs():
+            jit_graph.registerOutput(node_input)
+        last_node.destroy()
+        graph_changed = True
 
-
-def test_fill_propagated_tensor_metadata_to_node():
-    model = MyModule().to("hpu")
-    compiled_model = torch.compile(model, backend="hpu_backend", dynamic=True)
-    # forced dynamic compilation forces occurence of SymBool in this mini example as internal output type
-    retval = compiled_model(2, 3)
-    assert retval == False
+    return graph_changed
