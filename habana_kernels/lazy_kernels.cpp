@@ -2944,19 +2944,21 @@ Tensor& index_add_hpu_lazy_out(
   auto func = [self, dim, indices, source, alpha, out]() mutable {
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), true);
 
-    // takes care of duplicate entries in index tensor and
-    // also the case where index tensor size can be greater than the self
-    // tensor size at the relevant dim
-    std::string op_name = "hpu::index_add";
-
-    if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-      // dtype smoke tests fails for bool (for scatter_add op) on Gaudi1
-      // so using aten::index_add on it, which uses scatter op.
-      // therefore, the accuracy problem with repeated index values will persist
-      // on Gaudi1
-      op_name = "aten::index_add";
+    auto dim_size = self.numel(); // for scalar tensor case
+    if (!self.sizes().vec().empty()) {
+      // for non-scalar tensor case
+      dim_size = self.sizes().vec()[dim_];
     }
 
+    std::string op_name = "aten::index_add";
+    if (indices.numel() > dim_size) {
+      // Implementation to take care of duplicate entries in index tensor and
+      // also the case where index tensor size can be greater than the self
+      // tensor size at the relevant dim. For now enable this only in the large
+      // index tensor condition. This will later be enabled as default after
+      // watching for perf impacts.
+      op_name = "hpu::index_add";
+    }
     LazyOp<Tensor> index_add_op(
         op_name, {self, dim_, indices, source, alpha}, {self.sizes().vec()}
         // out_shapes
@@ -2997,19 +2999,21 @@ Tensor& index_add_hpu_lazy_(
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
     auto hl_self = GetOrCreateHbLazyTensor(self);
 
-    // takes care of duplicate entries in index tensor and
-    // also the case where index tensor size can be greater than the self
-    // tensor size at the relevant dim
-    std::string op_name = "hpu::index_add";
-
-    if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-      // dtype smoke tests fails for bool (for scatter_add op) on Gaudi1
-      // so using aten::index_add on it, which uses scatter op.
-      // therefore, the accuracy problem with repeated index values will persist
-      // on Gaudi1
-      op_name = "aten::index_add";
+    auto dim_size = self.numel(); // for scalar tensor case
+    if (!self.sizes().vec().empty()) {
+      // for non-scalar tensor case
+      dim_size = self.sizes().vec()[dim_];
     }
 
+    std::string op_name = "aten::index_add";
+    if (indices.numel() > dim_size) {
+      // Implementation to take care of duplicate entries in index tensor and
+      // also the case where index tensor size can be greater than the self
+      // tensor size at the relevant dim. For now enable this only in the large
+      // index tensor condition. This will later be enabled as default after
+      // watching for perf impacts.
+      op_name = "hpu::index_add";
+    }
     LazyOp<Tensor> index_add_op(
         op_name, {self, dim_, indices, source, alpha}, {self.sizes().vec()}
         // out_shapes
