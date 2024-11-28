@@ -25,10 +25,10 @@ struct HPUHooks : public at::HPUHooksInterface {
   void init() const override;
 #else
   void initHPU() const override;
-#endif
-  bool hasHPU() const override;
   const at::Generator& getDefaultHPUGenerator(
       at::DeviceIndex device_index = -1) const override;
+#endif
+  bool hasHPU() const override;
   at::Device getDeviceFromPtr(void* data) const override;
   bool isPinnedPtr(const void* data) const override;
   at::Allocator* getPinnedMemoryAllocator() const override;

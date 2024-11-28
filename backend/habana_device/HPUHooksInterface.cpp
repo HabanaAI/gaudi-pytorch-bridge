@@ -22,6 +22,10 @@ namespace habana {
 #if IS_PYTORCH_AT_LEAST(2, 6)
 void HPUHooks::init() const {
 #else
+const at::Generator& HPUHooks::getDefaultHPUGenerator(at::DeviceIndex) const {
+  return detail::getDefaultHPUGenerator();
+}
+
 void HPUHooks::initHPU() const {
 #endif
   habana::HABANAGuardImpl device_guard;
@@ -30,10 +34,6 @@ void HPUHooks::initHPU() const {
 
 bool HPUHooks::hasHPU() const {
   return true;
-}
-
-const at::Generator& HPUHooks::getDefaultHPUGenerator(at::DeviceIndex) const {
-  return detail::getDefaultHPUGenerator();
 }
 
 at::Device HPUHooks::getDeviceFromPtr(void*) const {
