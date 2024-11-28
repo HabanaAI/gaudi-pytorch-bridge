@@ -140,7 +140,7 @@ def meta_fp8_gemm_v2_common(
     trans_B,
     out_dtype,
 ):
-    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_gemm_v2", [A, B], [trans_A, trans_B])[0]
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_gemm", [A, B], [trans_A, trans_B])[0]
     out = A.new_empty(out_shape, dtype=out_dtype)
     return out
 
@@ -150,7 +150,7 @@ def meta_matmul(
     A,
     B,
 ):
-    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_gemm_v2", [A, B], [False, False])[0]
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_gemm", [A, B], [False, False])[0]
     out = A.new_empty(out_shape)
     return out
 

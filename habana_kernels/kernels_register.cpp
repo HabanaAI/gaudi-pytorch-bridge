@@ -2158,29 +2158,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
-      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
-  m.def(
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
-      "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
-  m.def(
-      "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
-  m.def(
-      "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
-  m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
-  m.def(
-      "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv=None, Tensor? B_scale_inv=None, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
-  m.def(
-      "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
-  m.def(
-      "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
@@ -2297,18 +2279,9 @@ TORCH_LIBRARY(hpu, m) {
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8", cast_to_fp8_wrap);
-  m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2_lazy);
-  m.impl("hpu::cast_to_fp8_v2.scalar", cast_to_fp8_v2_scalar_lazy);
-  m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list_lazy);
   m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
   m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
-  m.impl("hpu::cast_from_fp8", cast_from_fp8_lazy);
-  m.impl("hpu::cast_from_fp8.scalar", cast_from_fp8_scalar_lazy);
-  m.impl("hpu::cast_from_fp8.scalar_list", cast_from_fp8_scalar_list_lazy);
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
-  m.impl("hpu::fp8_gemm_v2", fp8_gemm_v2_lazy);
-  m.impl("hpu::fp8_gemm_v2.scalar", fp8_gemm_v2_lazy_scalar);
-  m.impl("hpu::fp8_gemm_v2.scalar_list", fp8_gemm_v2_lazy_scalar_list);
   m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
   m.impl("hpu::mixture_of_experts", mixture_of_experts_lazy);
   m.impl(

@@ -38,14 +38,11 @@ ns_CastKernel::Params GetCastParams(
 // V2 ops are out-of-place ops that allocate outputs by themselves in
 // order to deal with that problem.
 DEFINE_OP(CastToFp8)
-DEFINE_OP(CastToFp8V2)
-DEFINE_OP(CastFromFp8)
 DEFINE_OP(Fp8Gemm)
-DEFINE_OP(Fp8GemmV2)
 HPU_OP_BACKEND(InPlaceInterleaveCommon)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
-OUTSHAPE_DECL(Fp8GemmV2OutputShape)
+OUTSHAPE_DECL(Fp8GemmOutputShape)
 
 // Determines if STOCHASTIC_FLUSH_TO_ZERO should be used instead
 // of STORCHASTIC_ROUNDING.

@@ -20,6 +20,7 @@ import json
 import os
 from contextlib import contextmanager
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import habana_frameworks.torch.utils.debug as htdebug
 import pytest
 import torch
@@ -34,7 +35,6 @@ from habana_frameworks.torch.hpu.metrics import (
     metrics_dump,
 )
 from habana_frameworks.torch.utils.event_dispatcher import *
-import habana_frameworks.torch.internal.bridge_config as bc
 
 
 def compute_single_step(shape, device, sum_loops=1):

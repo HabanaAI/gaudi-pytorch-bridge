@@ -21,12 +21,11 @@ from contextlib import contextmanager
 from statistics import mean
 from typing import Sequence, Tuple
 
+import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 
 from .exceptions import MetricNotFound
 from .saver import MetricDumpFormat, MetricDumpTrigger, MetricSaver
-
-import habana_frameworks.torch.internal.bridge_config as bc
 
 
 def bool_helper(value):

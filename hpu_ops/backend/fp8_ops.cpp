@@ -1,20 +1,23 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2023-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/fp8_ops.h"
+#include "generated/backend/cast_from_fp8.h"
+#include "generated/backend/cast_to_fp8_v2.h"
 #include "generated/backend/conv2d_fp8.h"
+#include "generated/backend/fp8_gemm_v2.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/batched_matmul_output_shape.h"
@@ -227,16 +230,19 @@ sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
   return {input_sv, amax_shape};
 }
 
-CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "cast_to_fp8_v2",
-          scalar_type,
-          {0, 0},
-          {},
-          {},
-          false) {
-  SetComputeOutputShapes(CastToFp8V2OutputShape);
+OutputMetaDataVector CastToFp8V2Meta(const at::Stack& stack) {
+  bool is_amax = stack[3].toBool();
+  std::vector<int64_t> amax_shape{};
+  if (not is_amax) {
+    amax_shape.push_back(0);
+  }
+
+  OutputMetaDataVector meta(2);
+  meta[0].shape = stack[0].toTensor().sizes().vec();
+  meta[0].dtype = stack[4].toScalarType();
+  meta[1].shape = amax_shape;
+  meta[1].dtype = c10::ScalarType::Float;
+  return meta;
 }
 
 void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -268,7 +274,7 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   auto guid = get_guid_with_precision("convert_to_fp8", src_type);
 
-  auto out_shapes = CastToFp8V2OutputShape(stack);
+  auto meta = CastToFp8V2Meta(stack);
   std::vector<synTensor> syn_inputs{syn_in(0)};
   std::vector<sh::tensor> adjusted_scale;
   if (scale.isTensor()) {
@@ -291,9 +297,9 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
         scale_shape);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_shapes[0], dst_type, 0}};
+      {meta[0].shape, meta[0].dtype, 0}};
   if (is_amax) {
-    output_attrs.push_back({out_shapes[1], at::ScalarType::Float, 1});
+    output_attrs.push_back({meta[1].shape, meta[1].dtype, 1});
   }
 
   auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
@@ -309,8 +315,12 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** CastFromFp8 **********/
 
-CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "cast_from_fp8", scalar_type, {0}, {}, {}, false) {}
+OutputMetaDataVector CastFromFp8Meta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = stack[0].toTensor().sizes().vec();
+  meta.dtype = stack[2].toScalarType();
+  return {meta};
+}
 
 void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 4, "CastFromFp8 must have 4 input arguments");
@@ -417,7 +427,8 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** Fp8GemmV2 **********/
 
-sym_sizes_vec fp8_gemm_v2_out_shape(
+// Left for now, used by torch.compile meta
+sym_sizes_vec fp8_gemm_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
   TORCH_CHECK(inputs.size() == 2);
@@ -429,9 +440,25 @@ sym_sizes_vec fp8_gemm_v2_out_shape(
       static_cast<bool>(params[1]))};
 }
 
-REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_gemm_v2, fp8_gemm_v2_out_shape);
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_gemm, fp8_gemm_out_shape);
 
-sizes_vec Fp8GemmV2OutputShape(const at::Stack& stack) {
+OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
+  auto A = stack_tensor(stack, 0);
+  bool trans_A = stack[1].toBool();
+  auto B = stack_tensor(stack, 2);
+  bool trans_B = stack[3].toBool();
+  OutputMetaData meta;
+  try {
+    meta.shape = getBatchMatmulOutShape(A.sizes(), B.sizes(), trans_A, trans_B);
+  } catch (const std::invalid_argument& e) {
+    TORCH_CHECK(false, e.what());
+    return {};
+  }
+  meta.dtype = stack[5].toScalarType();
+  return {meta};
+}
+
+sizes_vec Fp8GemmOutputShape(const at::Stack& stack) {
   auto A = stack_tensor(stack, 0);
   bool trans_A = stack[1].toBool();
   auto B = stack_tensor(stack, 2);
@@ -443,11 +470,6 @@ sizes_vec Fp8GemmV2OutputShape(const at::Stack& stack) {
     TORCH_CHECK(false, e.what());
     return {};
   }
-}
-
-Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_gemm_v2", scalar_type, {0}, {}, {}, false) {
-  SetComputeOutputShapes(Fp8GemmV2OutputShape);
 }
 
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -521,14 +543,14 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   synGEMMParams params{transA, transB};
 
-  auto out_shapes = Fp8GemmV2OutputShape(stack);
+  auto meta = Fp8GemmV2Meta(stack)[0];
 
   auto gemm = OpBackend::BuildNode(
       this,
       graph,
       {guid,
        syn_inputs,
-       {{out_shapes[0], out_type, 0}},
+       {{meta.shape, meta.dtype, 0}},
        &params,
        sizeof(params)});
 
@@ -749,24 +771,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
-        .add("hpu::cast_to_fp8_v2", KERNEL_FN_GLOBAL(habana::CastToFp8V2))
-        .add(
-            "hpu::cast_to_fp8_v2.scalar",
-            KERNEL_FN_GLOBAL(habana::CastToFp8V2))
-        .add(
-            "hpu::cast_to_fp8_v2.scalar_list",
-            KERNEL_FN_GLOBAL(habana::CastToFp8V2))
-        .add("hpu::cast_from_fp8", KERNEL_FN_GLOBAL(habana::CastFromFp8))
-        .add("hpu::cast_from_fp8.scalar", KERNEL_FN_GLOBAL(habana::CastFromFp8))
-        .add(
-            "hpu::cast_from_fp8.scalar_list",
-            KERNEL_FN_GLOBAL(habana::CastFromFp8))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
-        .add("hpu::fp8_gemm_v2", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
-        .add("hpu::fp8_gemm_v2.scalar", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
-        .add(
-            "hpu::fp8_gemm_v2.scalar_list",
-            KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
         .add(
             "hpu::in_place_interleave_",
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave_))

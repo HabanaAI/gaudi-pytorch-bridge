@@ -7365,6 +7365,42 @@ ctc_loss_custom_backward:
   op_backend: CTCLossCustomBackward
   out_ids: [1]
 
+cast_from_fp8:
+  custom_op_schema: "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
+  output_meta: CastFromFp8Meta
+  op_backend: CastFromFp8
+  out_ids: [0]
+
+cast_from_fp8.scalar:
+  custom_op_schema: "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
+  output_meta: CastFromFp8Meta
+  op_backend: CastFromFp8
+  out_ids: [0]
+
+cast_from_fp8.scalar_list:
+  custom_op_schema: "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
+  output_meta: CastFromFp8Meta
+  op_backend: CastFromFp8
+  out_ids: [0]
+
+cast_to_fp8_v2:
+  custom_op_schema: "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
+  output_meta: CastToFp8V2Meta
+  op_backend: CastToFp8V2
+  out_ids: [0, 0]
+
+cast_to_fp8_v2.scalar:
+  custom_op_schema: "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
+  output_meta: CastToFp8V2Meta
+  op_backend: CastToFp8V2
+  out_ids: [0, 0]
+
+cast_to_fp8_v2.scalar_list:
+  custom_op_schema: "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
+  output_meta: CastToFp8V2Meta
+  op_backend: CastToFp8V2
+  out_ids: [0, 0]
+
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
   guid: convert_to_fp8_hybrid
@@ -7405,6 +7441,24 @@ fake_quant_fp4:
   guid: fake_quantize_fp4
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+
+fp8_gemm_v2:
+  custom_op_schema: "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv=None, Tensor? B_scale_inv=None, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
+  output_meta: Fp8GemmV2Meta
+  op_backend: Fp8GemmV2
+  out_ids: [0]
+
+fp8_gemm_v2.scalar:
+  custom_op_schema: "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
+  output_meta: Fp8GemmV2Meta
+  op_backend: Fp8GemmV2
+  out_ids: [0]
+
+fp8_gemm_v2.scalar_list:
+  custom_op_schema: "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
+  output_meta: Fp8GemmV2Meta
+  op_backend: Fp8GemmV2
+  out_ids: [0]
 
 scaled_masked_softmax:
   custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"

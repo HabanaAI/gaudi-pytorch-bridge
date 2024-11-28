@@ -49,6 +49,7 @@ input_types_map = {
     "bool?": "c10::optional<bool>",
     "float": "double",
     "float?": "c10::optional<double>",
+    "float[]": "ArrayRef<double>",
     "float[]?": "c10::optional<ArrayRef<double>>",
     "int": "int64_t",
     "int?": "c10::optional<int64_t>",
