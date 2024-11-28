@@ -50,12 +50,11 @@ def test_hpu_lazy_dynamic_shape(output_mask_v, setup_teardown_env_fixture):
             print(f"{input.size() = }")
             print(f"{weight.size() = }")
 
-        # convolution_backward_overrideable is not implemented on CPU
-        # just check if it works without validating the results
-        result = torch.ops.aten.convolution_backward_overrideable(
+        result = torch.ops.aten.convolution_backward(
             grad_output,
             input,
             weight,
+            None,
             stride=[1, 1],
             padding=[0, 0],
             dilation=[1, 1],

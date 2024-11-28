@@ -1,21 +1,20 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-#include <string>
-#include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution_overrideable.h"
+ * Copyright (c) 2023-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "hpu_ops/common/convolution_gen.h"
+#include "backend/synapse_helpers/layout_utils.h"
+#include "generated/backend/convolution.h"
 
 using namespace synapse_helpers::layouts;
 
@@ -24,7 +23,7 @@ namespace habana {
 using SynapseLayouts =
     std::vector<synapse_helpers::layouts::SynapseLayoutFormat>;
 
-static std::shared_ptr<void> ConvolutionOverrideable3dParams(
+static std::shared_ptr<void> Convolution3dParams(
     const at::IntArrayRef& weight, // DHWCK
     const at::IntArrayRef& stride, // DHW
     const at::IntArrayRef& padding, // DHW
@@ -52,7 +51,7 @@ static std::shared_ptr<void> ConvolutionOverrideable3dParams(
   return params;
 }
 
-static std::shared_ptr<void> ConvolutionOverrideable2dParams(
+static std::shared_ptr<void> Convolution2dParams(
     const at::IntArrayRef& weight, // HWCK
     const at::IntArrayRef& stride, // HW
     const at::IntArrayRef& padding, // HW
@@ -75,7 +74,7 @@ static std::shared_ptr<void> ConvolutionOverrideable2dParams(
   return params;
 }
 
-std::shared_ptr<void> FillConvolutionOverrideableParams(
+std::shared_ptr<void> FillConvolutionParams(
     const at::Stack& stack,
     size_t& size) {
   auto weight_shape = stack_tensor(stack, 1).sizes().vec();
@@ -92,10 +91,10 @@ std::shared_ptr<void> FillConvolutionOverrideableParams(
   }
 
   if (stack_tensor(stack, 0).dim() == 5) {
-    return ConvolutionOverrideable3dParams(
+    return Convolution3dParams(
         weight_shape, stride, padding, dilation, groups, size);
   } else {
-    return ConvolutionOverrideable2dParams(
+    return Convolution2dParams(
         weight_shape, stride, padding, dilation, groups, size);
   }
 }
@@ -120,7 +119,7 @@ static int64_t ComputeOutputSize(
   }
 }
 
-OutputMetaDataVector ConvolutionOverrideableMeta(const at::Stack& stack) {
+OutputMetaDataVector ConvolutionMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto shapeIn = self.sizes();
   auto shapeWt = stack_tensor(stack, 1).sizes();
@@ -237,7 +236,7 @@ SharedMetaDataVector ConvolutionSharedMeta(
   return convolutionSharedMeta;
 }
 
-void ConvolutionOverrideable::AddNode(
+void Convolution::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   size_t size = 0;
@@ -268,7 +267,7 @@ void ConvolutionOverrideable::AddNode(
 
   std::vector<synTensor> inputs = {input_expanded, weight_expanded};
 
-  auto meta = ConvolutionOverrideableMeta(stack)[0];
+  auto meta = ConvolutionMeta(stack)[0];
 
   if (is_conv_1d)
     meta.shape.push_back(1);
@@ -278,7 +277,7 @@ void ConvolutionOverrideable::AddNode(
   else if (bias.defined())
     inputs.emplace_back(syn_in(2));
 
-  const auto& params = FillConvolutionOverrideableParams(stack, size);
+  const auto& params = FillConvolutionParams(stack, size);
 
   NodeAttr::NodeOutputAttr node_output_attr = {meta.shape, meta.dtype, 0};
   if ((transposed && bias.defined()) || is_conv_1d)

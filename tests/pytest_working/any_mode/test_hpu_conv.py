@@ -496,7 +496,7 @@ class NativeConv:
 
         return delN(
             delW(
-                torch.ops.aten.convolution_overrideable(
+                torch.ops.aten.convolution(
                     addN(addW(input)),
                     addW(self.weight),
                     self.bias,

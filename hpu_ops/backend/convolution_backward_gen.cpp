@@ -1,20 +1,20 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2023-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/helpers/lowering_util.h"
 #include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution_backward_overrideable.h"
+#include "generated/backend/convolution_backward.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/convolution_gen.h"
 
@@ -134,7 +134,7 @@ static std::shared_ptr<void> SynapseConv3dParamsBuilder(
   return params;
 }
 
-static std::shared_ptr<void> FillConvolutionBackwardOverrideableParams(
+static std::shared_ptr<void> FillConvolutionBackwardParams(
     size_t input_rank,
     std::vector<int64_t> weight_shape,
     std::vector<int64_t> stride,
@@ -172,7 +172,7 @@ static OutputMetaData CreateMetaData(
   return meta;
 }
 
-OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
+OutputMetaDataVector ConvolutionMetaBwd(const at::Stack& stack) {
   auto grad_output = stack_tensor(stack, 0);
   auto input = stack_tensor(stack, 1);
   auto weight = stack_tensor(stack, 2);
@@ -196,9 +196,9 @@ OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
   return {input_meta, weight_meta, grad_output_meta};
 }
 
-SharedMetaDataVector ConvolutionBwdCommonSharedMeta(
+SharedMetaDataVector ConvolutionBwdSharedMeta(
     const at::Stack& stack,
-    const std::string& guid) {
+    habana_helpers::HabanaExecutionMode) {
   const auto& grad = stack.at(0).toTensor();
   const auto& input = stack.at(1).toTensor();
   const auto& weight = stack.at(2).toTensor();
@@ -209,9 +209,8 @@ SharedMetaDataVector ConvolutionBwdCommonSharedMeta(
   auto inputDtype = input.scalar_type();
   auto weightDtype = weight.scalar_type();
 
-  const int index_shift = guid == "convolution_backward" ? 1 : 0;
-  const bool transposed = stack[6 + index_shift].toBool();
-  const auto output_mask_in = stack[9 + index_shift].toBoolList();
+  const bool transposed = stack[7].toBool();
+  const auto output_mask_in = stack[10].toBoolList();
 
   const bool is_conv_3d = inputRank == 5;
   const bool is_conv_1d = inputRank == 3;
@@ -295,18 +294,6 @@ SharedMetaDataVector ConvolutionBwdCommonSharedMeta(
   return convolutionBwdCommonSharedMeta;
 }
 
-SharedMetaDataVector ConvolutionBwdOverrideableSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  return ConvolutionBwdCommonSharedMeta(stack, "");
-}
-
-SharedMetaDataVector ConvolutionBwdSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  return ConvolutionBwdCommonSharedMeta(stack, "convolution_backward");
-}
-
 static int64_t ComputeOutputSize(
     const int64_t input_dim,
     const int64_t padding,
@@ -326,7 +313,7 @@ static int64_t ComputeOutputSize(
   }
 }
 
-void ConvolutionBackwardOverrideable::AddNode(
+void ConvolutionBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   size_t params_size = 0;
@@ -334,33 +321,17 @@ void ConvolutionBackwardOverrideable::AddNode(
   at::Tensor input = stack_tensor(stack, 1);
   at::Tensor weight = stack_tensor(stack, 2);
 
-  // Both convolution_backward_overrideable and convolution_backward ops
-  // are implemented by this backend. The difference in these two is that
-  // the latter takes additional argument at idx 3, which, as pytorch docs
-  // says:
-  //
-  // bias_sizes_opt: if specified, indicates that a bias was used in the forward
-  // pass and contains the shape
-  //   of the bias. While the bias shape can be computed from other inputs, it
-  //   is provided to this function for ease of use. The bias shape is
-  //   (weight.shape[0]) for normal convolution and (weight.shape[1] * groups)
-  //   for transposed convolution.
-  //
-  // Since it's not needed, it's just being ignored below, by shifting the rest
-  // of inputs' indices.
-  const int index_shift =
-      GetGuid().find("convolution_backward") != std::string::npos ? 1 : 0;
-  const auto stride = stack[3 + index_shift].toIntList().vec();
-  const auto padding = stack[4 + index_shift].toIntList().vec();
-  const auto dilation = stack[5 + index_shift].toIntList().vec();
-  const bool transposed = stack[6 + index_shift].toBool();
-  const int64_t groups = stack[8 + index_shift].toInt();
-  const auto output_mask_in = stack[9 + index_shift].toBoolList();
+  const auto stride = stack[4].toIntList().vec();
+  const auto padding = stack[5].toIntList().vec();
+  const auto dilation = stack[6].toIntList().vec();
+  const bool transposed = stack[7].toBool();
+  const int64_t groups = stack[9].toInt();
+  const auto output_mask_in = stack[10].toBoolList();
 
   const bool is_conv_1d = input.dim() == 3;
   const bool is_conv_3d = input.dim() == 5;
 
-  const auto output_meta = ConvolutionOverrideableMetaBwd(stack);
+  const auto output_meta = ConvolutionMetaBwd(stack);
   auto out0_shape = output_meta[0].shape;
   auto out1_shape = output_meta[1].shape;
 
@@ -369,7 +340,7 @@ void ConvolutionBackwardOverrideable::AddNode(
     out1_shape.push_back(1);
   }
 
-  const auto& params = FillConvolutionBackwardOverrideableParams(
+  const auto& params = FillConvolutionBackwardParams(
       input.dim(),
       weight.sizes().vec(),
       stride,
