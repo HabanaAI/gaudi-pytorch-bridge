@@ -203,6 +203,7 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
         graph_changed = False
         for allreduce in allreduces:
             upstream_nodes = allreduce.all_input_nodes
+            fused = None
             nodes_to_move = [allreduce]
             while len(upstream_nodes) > 0:
                 new_upstream_nodes = []
@@ -213,6 +214,9 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
                     else:
                         fused = upstream_node
                 upstream_nodes = new_upstream_nodes
+
+            if fused is None:
+                continue
 
             for node in nodes_to_move:
                 fused.append(node)
