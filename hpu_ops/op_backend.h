@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <absl/functional/any_invocable.h>
 #include "backend/habana_operator.h"
@@ -106,6 +106,15 @@ class OpBackend : public HabanaOperator {
   }
 
   OutputMetaDataVector OutputMeta(const at::Stack& stack) const;
+
+  static bool DefaultSTMetaFn(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs);
+
+  static bool DefaultSTMetaFnOneOutputShapeUpdate(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs);
+
   bool STMeta(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs) const;
@@ -210,6 +219,11 @@ class OpBackend : public HabanaOperator {
                        habana_helpers::IShapeList& inputs,
                        habana_helpers::IShapeList& outputs)> fn) {
     m_st_meta_fn = std::move(fn);
+  }
+
+  void SetSTMetaFn(std::string op_name) {
+    PT_BRIDGE_DEBUG("Setting DefaultSTMetaFn for operator: ", op_name);
+    m_st_meta_fn = DefaultSTMetaFn;
   }
 
   const OutputMetaData& GetOutputMetaData(int i) const {

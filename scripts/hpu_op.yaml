@@ -1156,7 +1156,7 @@ add.Tensor:
   broadcast: true
   custom_fill_params: FillBinaryAddParams
   guid: binary_with_alpha_fwd
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -1170,7 +1170,7 @@ add.Scalar:
   custom_fill_params: FillBinaryAddParams
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -1201,7 +1201,7 @@ add.out:
   broadcast: true
   custom_fill_params: FillBinaryAddParams
   guid: binary_with_alpha_fwd
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaAddSharedMeta
@@ -1211,7 +1211,7 @@ add.Scalar_out:
   broadcast: true
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaAddSharedMeta
@@ -1520,6 +1520,7 @@ any.out:
 
 arange:
   output_meta: ArangeDefaultEndMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: ArangeDefaultEnd
   guid: range
   custom_fill_params: FillArangeDefaultEndParams
@@ -1528,6 +1529,7 @@ arange:
 
 arange.start:
   output_meta: ArangeDefaultStartEndMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: ArangeDefaultStartEnd
   guid: range
   custom_fill_params: FillArangeDefaultStartEndParams
@@ -1536,6 +1538,7 @@ arange.start:
 
 arange.start_step:
   output_meta: ArangeDefaultStartEndStepMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: ArangeDefaultStartEndStep
   op_frontend: LazyArange
   guid: range
@@ -1549,6 +1552,7 @@ arange.start_out:
   op_frontend: ArangeFE
   guid: range
   output_meta: ArangeStartOutMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   custom_fill_params: FillArangeParams
   schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
   op_validator: ArangeDefaultStartOutSharedMeta
@@ -1677,6 +1681,7 @@ _adaptive_avg_pool2d_backward:
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd
   output_meta: Avgpool2dMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: avg_pool_2d_fwd
   out_ids: [0]
   op_backend: Avgpool2dFwd
@@ -1685,6 +1690,7 @@ avg_pool2d:
 avg_pool2d.out:
   custom_fill_params: Fillavgpool2dParamsFwd
   output_meta: Avgpool2dMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: avg_pool_2d_fwd
   op_backend: Avgpool2dFwd
   op_validator: AvgPool2dFwdSharedMeta
@@ -1692,12 +1698,14 @@ avg_pool2d.out:
 avg_pool2d_backward.grad_input:
   custom_fill_params: Fillavgpool2dParamsBwd
   output_meta: Avgpool2dBwdMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: Avgpool2dBwd
   op_validator: AvgPool2dBwdSharedMeta
 
 avg_pool2d_backward:
   custom_fill_params: Fillavgpool2dParamsBwd
   output_meta: Avgpool2dBwdMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: Avgpool2dBwd
   out_ids: [0]
   op_validator: AvgPool2dBwdSharedMeta
@@ -2156,7 +2164,7 @@ bucketize.Tensor_out:
 cat:
   promote_to_common_type: [tensors]
   output_meta: CatMeta
-  st_meta: CatSTMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: concat
   op_backend: CatHabanaOperator
   out_ids: [0]
@@ -2165,7 +2173,7 @@ cat:
 cat.out:
   promote_to_common_type: [tensors]
   output_meta: CatMeta
-  st_meta: CatSTMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: concat
   op_backend: CatHabanaOperator
   op_validator: CatSharedMeta
@@ -2885,6 +2893,7 @@ exponential:
   op_backend: ExponentialSeedTensorInput
   out_ids: [0]
   output_meta: ExponentialMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
   op_validator: ExponentialSharedMeta
 
@@ -2893,6 +2902,7 @@ exponential_:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
   op_validator: ExponentialSharedMeta
 
@@ -2901,6 +2911,7 @@ exponential.out:
   op_frontend: GeneratorToSeedOut
   op_backend: ExponentialSeedTensorInput
   output_meta: ExponentialMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
   op_validator: ExponentialSharedMeta
 
@@ -4259,7 +4270,7 @@ masked_fill_.Tensor:
   guid: masked_fill_fwd
   op_backend: MaskedFill
   op_validator: MaskedFillSharedMeta
-  st_meta: MaskedFillSTMeta
+  st_meta: DefaultSTMetaFn
   inplace_ids: [0]
 
 masked_fill.Scalar:
@@ -4268,7 +4279,7 @@ masked_fill.Scalar:
   guid: masked_fill_fwd
   op_backend: MaskedFill
   op_validator: MaskedFillSharedMeta
-  st_meta: MaskedFillSTMeta
+  st_meta: DefaultSTMetaFn
   scalar_ids: [2]
   out_ids: [0]
 
@@ -4278,7 +4289,7 @@ masked_fill.Tensor:
   guid: masked_fill_fwd
   op_backend: MaskedFill
   op_validator: MaskedFillSharedMeta
-  st_meta: MaskedFillSTMeta
+  st_meta: DefaultSTMetaFn
   out_ids: [0]
 
 max.dim:
@@ -4568,8 +4579,8 @@ mul.Tensor:
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
-  st_meta: BinarySTMeta
   output_meta: MulMeta
+  st_meta: DefaultSTMetaFn
   out_ids: [0]
   broadcast: true
   promote_to_common_type: [self, other]
@@ -4579,16 +4590,16 @@ mul.Scalar:
   guid: mult_fwd
   out_ids: [0]
   scalar_ids: [1]
-  st_meta: BinarySTMeta
   output_meta: MulMeta
+  st_meta: DefaultSTMetaFn
   promote_to_common_type: [self, other]
   op_validator: check-node-with-shared-layer
 
 mul.Scalar_out:
   broadcast: true
   guid: mult_fwd
-  st_meta: BinarySTMeta
   output_meta: MulMeta
+  st_meta: DefaultSTMetaFn
   promote_to_common_type: [self, other]
   scalar_ids: [1]
   op_validator: check-node-with-shared-layer
@@ -4620,7 +4631,7 @@ mul.out:
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   output_meta: MulMeta
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_frontend: BinaryScalarFE
   promote_to_common_type: [self, other]
 
@@ -5766,7 +5777,7 @@ rsub.Tensor:
   custom_fill_params: FillBinaryRSubParams
   out_ids: [0]
   scalar_ids: [2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   op_validator: BinaryWithAlphaRSubSharedMeta
 
@@ -5776,7 +5787,7 @@ rsub.Scalar:
   guid: binary_with_alpha_fwd
   out_ids: [0]
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   op_validator: BinaryWithAlphaRSubSharedMeta
 
@@ -6303,7 +6314,7 @@ sub.Tensor:
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
   out_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
@@ -6315,7 +6326,7 @@ sub.Scalar:
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   out_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
@@ -6324,7 +6335,7 @@ sub_.Tensor:
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
   inplace_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
@@ -6335,7 +6346,7 @@ sub_.Scalar:
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   inplace_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
@@ -6345,7 +6356,7 @@ sub.Scalar_out:
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
@@ -6354,7 +6365,7 @@ sub.out:
   broadcast: true
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
@@ -6487,6 +6498,7 @@ threshold_backward.grad_input:
 
 topk:
   output_meta: TopkMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: Topk
   op_frontend: LazyTopk
   out_ids: [0, 0]
@@ -6495,6 +6507,7 @@ topk:
 
 topk.values:
   output_meta: TopkMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_frontend: TopKFE
   op_backend: Topk
   schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
@@ -6502,6 +6515,7 @@ topk.values:
 
 sort.values_stable:
   output_meta: SortStableMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   op_validator: TopkSharedMeta
@@ -6510,6 +6524,7 @@ sort.stable:
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   output_meta: SortStableMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   out_ids: [0, 0]
   op_validator: TopkSharedMeta
 

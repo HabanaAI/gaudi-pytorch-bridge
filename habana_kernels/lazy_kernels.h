@@ -1308,6 +1308,8 @@ class LazyOp {
     static_cast<void>(fn);
   }
 
+  void SetSTMetaFn([[maybe_unused]] std::string op_name) {}
+
   void SetOutputMetaFn(
       std::function<habana::OutputMetaDataVector(const at::Stack&)>
           output_meta) {
