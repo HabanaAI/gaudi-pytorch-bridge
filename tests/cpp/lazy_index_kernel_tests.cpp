@@ -109,7 +109,6 @@ INSTANTIATE_TEST_CASE_P(
             true)));
 
 TEST_P(UniqueDimParameterizedTestFixture, tests) {
-  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-210652";
   c10::ScalarType dtype = std::get<1>(GetParam());
   int64_t dim = std::get<2>(GetParam());
   bool return_inverse = std::get<3>(GetParam());
