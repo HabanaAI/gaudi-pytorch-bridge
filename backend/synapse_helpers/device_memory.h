@@ -124,5 +124,9 @@ class device_memory {
   std::shared_ptr<HlMlMemoryReporter> m_hlml_memory_reporter;
   std::shared_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
   size_t alignment_;
+
+  static std::deque<std::chrono::high_resolution_clock::time_point> defragmentation_timestamps;
+  static std::mutex defrag_mutex;
+  void log_defragmentation_warning_if_needed();
 };
 } // namespace synapse_helpers

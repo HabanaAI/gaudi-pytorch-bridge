@@ -30,6 +30,9 @@
 
 namespace synapse_helpers {
 
+std::deque<std::chrono::high_resolution_clock::time_point> device_memory::defragmentation_timestamps;
+std::mutex device_memory::defrag_mutex;
+
 void device_memory::init_hlml_memory() {
   try {
     m_hlml_memory_reporter =
@@ -898,8 +901,32 @@ bool device_memory::defragment_memory(
     PT_DEVMEM_DEBUG("MemoryDefragmentation details:: ", details);
   }
 
+  // Record defragmentation timestamp
+  {
+    std::lock_guard<std::mutex> guard(defrag_mutex);
+    defragmentation_timestamps.push_back(std::chrono::high_resolution_clock::now());
+    log_defragmentation_warning_if_needed();
+  }
+
   return true;
 }
+
+void device_memory::log_defragmentation_warning_if_needed() {
+    using namespace std::chrono;
+
+    // Remove timestamps older than 5 minutes
+    auto now = high_resolution_clock::now();
+    auto threshold = now - minutes(5);
+    while (!defragmentation_timestamps.empty() && defragmentation_timestamps.front() < threshold) {
+        defragmentation_timestamps.pop_front();
+    }
+
+    // Check if the number of defragmentation events in the last 5 minutes exceeds 100
+    if (defragmentation_timestamps.size() == 100) {
+        TORCH_WARN_ONCE("defragmentation triggered more than 100 times in the last 5 minutes");
+    }
+}
+
 
 size_t device_memory::get_total_memory_required(
     absl::Span<const device_ptr> addresses) {
