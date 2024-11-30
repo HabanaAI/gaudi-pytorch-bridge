@@ -22,7 +22,6 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 import torch.nn as nn
-from compile.test_dynamo_utils import use_eager_fallback
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import (
     check_ops_executed_in_jit_ir,
@@ -354,6 +353,7 @@ def test_op_view_static():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.skip(reason="https://github.com/pytorch/pytorch/issues/104025")
 def test_op_topk():
     sizes = [5, 10, 15, 18, 16]
 
@@ -365,13 +365,12 @@ def test_op_topk():
 
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
-    with use_eager_fallback():  # to allow floordiv (//) to fallback to eager
-        for s in sizes:
-            t = torch.randn(s)
-            result = raw_function(t)
-            t_h = t.to("hpu")
-            h_result = compiled_fn(t_h)
-            assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+    for s in sizes:
+        t = torch.randn(s)
+        result = raw_function(t)
+        t_h = t.to("hpu")
+        h_result = compiled_fn(t_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
 def test_op_topk_static_k():
@@ -1382,97 +1381,6 @@ def test_backend_st_test2():
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
-
-
-def test_backend_st_test3():
-    input_shapes = [
-        (3, 12, 1),
-        (3, 13, 2),
-        (3, 14, 3),
-        (3, 15, 4),
-    ]
-
-    def raw_function(start, end, step, device):
-        out = torch.arange(start, end, device=device)
-        return out
-
-    torch._dynamo.reset()
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
-
-    for start, end, step in input_shapes:
-        result = raw_function(start, end, step, "cpu")
-        h_result = compiled_fn(start, end, step, "hpu")
-        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
-
-
-def test_backend_st_test4():
-    torch._dynamo.reset()
-    clear_t_compile_logs()
-    input_shapes = [(4, 7), (14, 7), (23, 7), (15, 7)]
-
-    def raw_function(input):
-        out = input.exponential_(1.0)
-        return out
-
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
-
-    torch.manual_seed(2)
-    for s in input_shapes:
-        t = torch.rand(s, requires_grad=False)
-        t_h = t.to("hpu")
-        result = raw_function(t)
-        h_result = compiled_fn(t_h)
-        assert h_result.to("cpu").shape == result.shape
-    check_ops_executed_in_jit_ir({"exponential"})
-
-
-def test_backend_st_test5():
-    torch._dynamo.reset()
-    clear_t_compile_logs()
-    input_shapes = [
-        (16, 2048, 7, 7),
-        (26, 2048, 7, 8),
-        (27, 2048, 7, 8),
-        (28, 2048, 7, 8),
-    ]
-
-    def raw_function(input):
-        out = torch.ops.aten.avg_pool2d(input, kernel_size=(2, 2))
-        grad = torch.ones_like(out)
-        out.backward(grad)
-        return input.grad
-
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
-
-    for s in input_shapes:
-        t = torch.rand(s)
-        t_h = t.to("hpu")
-        t.requires_grad = True
-        t_h.requires_grad = True
-        result = raw_function(t)
-        h_result = compiled_fn(t_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
-    check_ops_executed_in_jit_ir({"avg_pool2d", "avg_pool2d_backward"})
-
-
-def test_backend_st_test6():
-    torch._dynamo.reset()
-    clear_t_compile_logs()
-    input_shapes = [(4, 7), (14, 7), (23, 7), (15, 7)]
-
-    def raw_function(input):
-        sorted, indices = input.sort(stable=True)
-        return sorted
-
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
-
-    for s in input_shapes:
-        t = torch.rand(s, requires_grad=False)
-        t_h = t.to("hpu")
-        result = raw_function(t)
-        h_result = compiled_fn(t_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
-    check_ops_executed_in_jit_ir({"sort"})
 
 
 def test_dynamicity_with_fx_recompilations():

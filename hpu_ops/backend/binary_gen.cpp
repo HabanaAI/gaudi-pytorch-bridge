@@ -452,6 +452,14 @@ void ForeachBinary::AddNode(
   }
 }
 
+bool BinarySTMeta(
+    habana_helpers::IShapeList&,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(outputs);
+
+  return true;
+}
+
 void BinaryWithAlpha::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

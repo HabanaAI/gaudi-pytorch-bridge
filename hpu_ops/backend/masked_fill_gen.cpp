@@ -51,6 +51,14 @@ SharedMetaDataVector MaskedFillSharedMeta(
   return {maskedFillSharedMeta};
 }
 
+bool MaskedFillSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(outputs);
+  static_cast<void>(inputs);
+  return true;
+}
+
 std::shared_ptr<void> FillMaskedFillParams(
     const at::Stack& stack,
     size_t& size) {
