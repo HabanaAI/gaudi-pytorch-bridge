@@ -22,7 +22,7 @@ using namespace synapse_helpers::layouts;
 
 namespace habana {
 
-static synapse_helpers::tensor ComputeBiasGrad(
+static synapse_helpers::tensor ComputeBiasGradEager(
     habana::OpBackend* op,
     synapse_helpers::graph& graph,
     bool is_conv_3d,
@@ -64,6 +64,85 @@ static synapse_helpers::tensor ComputeBiasGrad(
          sizeof(params)});
 
     return std::move(multi_dim_reduce_sum[0]);
+  }
+}
+
+static synapse_helpers::tensor ComputeBiasGradGraph(
+    habana::OpBackend* op,
+    synapse_helpers::graph& graph,
+    bool is_conv_3d,
+    at::Tensor& grad_output,
+    std::vector<synTensor>&& syn_grad_output,
+    synapse_helpers::tensor& ten_output) {
+  int channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
+
+  std::vector<int64_t> dim_to_reduce;
+  for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
+    if (i != channel_dim) // skip C dimension
+      dim_to_reduce.push_back(i);
+  }
+
+  auto num_dims_to_reduce = dim_to_reduce.size();
+  // wrap dims to positive values, sort dim list and remove any duplicates
+  habana::LoweringUtil::SortAndRemoveDuplicateDims(
+      dim_to_reduce, grad_output.dim());
+
+  // Check whether all dims in list are the higher "continuous" dimensions
+  // if yes, "flatten" higher dims to a single unrolled-size dim.
+  // Note-1 that this is an optimization to avoid any precision loss we may
+  // get due to separate back 2 back reductions along single dimensions.
+  // Note-2 cases such as [0,1,3] where there is in additional dim to reduce
+  // in addition to continuous dims is not supported with flattening and falls
+  // back to regular flow
+  std::vector<int64_t> next_val{0, 1, 2, 3, 4};
+  bool flatten_higher_dims = false;
+  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
+    if (dim_to_reduce[i] == next_val[i]) {
+      flatten_higher_dims = true;
+    } else {
+      flatten_higher_dims = false;
+      break;
+    }
+  }
+
+  if (flatten_higher_dims) {
+    // TODO: remove or replace if we want to support flatten higher dims
+    return std::move(ten_output);
+  } else {
+    at::ScalarType scalar_type = grad_output.scalar_type();
+    std::string guid =
+        habana::get_guid_with_precision("reduce_sum_fwd", scalar_type);
+
+    std::vector<synapse_helpers::tensor> syn_tmp;
+    std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
+    for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
+      ns_Reduction::Params params{};
+      params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
+
+      pyt_shape[dim_to_reduce[i]] = 1;
+      c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
+
+      std::vector<synTensor> syn_tmp_in = (i == 0)
+          ? std::move(syn_grad_output)
+          : std::vector<synTensor>{syn_tmp[0].get()};
+      syn_tmp = habana::OpBackend::BuildNode(
+          op,
+          graph,
+          {guid,
+           std::move(syn_tmp_in),
+           {{shape_red, scalar_type}},
+           &params,
+           sizeof(params)});
+    }
+
+    synapse_helpers::tensor flattenOp = op->BuildFlatten(
+        op,
+        graph,
+        syn_tmp[0].get(),
+        grad_output.sizes()[channel_dim],
+        scalar_type,
+        2);
+    return flattenOp;
   }
 }
 
@@ -198,7 +277,7 @@ OutputMetaDataVector ConvolutionMetaBwd(const at::Stack& stack) {
 
 SharedMetaDataVector ConvolutionBwdSharedMeta(
     const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
+    habana_helpers::HabanaExecutionMode mode) {
   const auto& grad = stack.at(0).toTensor();
   const auto& input = stack.at(1).toTensor();
   const auto& weight = stack.at(2).toTensor();
@@ -285,10 +364,22 @@ SharedMetaDataVector ConvolutionBwdSharedMeta(
   }
 
   if (output_mask_in[2]) {
-    SharedMetaData reduceSumSharedMeta("reduce_sum_multi_dim");
-    reduceSumSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
-    reduceSumSharedMeta.outputs_data.emplace_back(1, gradDtype);
-    convolutionBwdCommonSharedMeta.push_back(reduceSumSharedMeta);
+    if (mode == habana_helpers::HabanaExecutionMode::EAGER) {
+      SharedMetaData reduceSumSharedMeta("reduce_sum_multi_dim");
+      reduceSumSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+      reduceSumSharedMeta.outputs_data.emplace_back(1, gradDtype);
+      convolutionBwdCommonSharedMeta.push_back(reduceSumSharedMeta);
+    } else {
+      SharedMetaData reduceSumSharedMeta("reduce_sum_fwd");
+      reduceSumSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+      reduceSumSharedMeta.outputs_data.emplace_back(gradRank, gradDtype);
+      convolutionBwdCommonSharedMeta.push_back(reduceSumSharedMeta);
+
+      SharedMetaData flattenFwdSharedMeta("flatten_fwd");
+      flattenFwdSharedMeta.inputs_data.emplace_back(gradRank, gradDtype);
+      flattenFwdSharedMeta.outputs_data.emplace_back(1, gradDtype);
+      convolutionBwdCommonSharedMeta.push_back(flattenFwdSharedMeta);
+    }
   }
 
   return convolutionBwdCommonSharedMeta;
@@ -523,8 +614,11 @@ void ConvolutionBackward::AddNode(
   // Bias grad computation is the same for conv2d bwd and conv2d_transpose bwd
   if (output_mask_in[2]) {
     SetSynapseLayouts({}, {});
-    auto biasRes = ComputeBiasGrad(
-        this, graph, is_conv_3d, grad_output, {syn_in(0)}, syn_out(2));
+    auto biasRes =
+        (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER
+             ? ComputeBiasGradEager
+             : ComputeBiasGradGraph)(
+            this, graph, is_conv_3d, grad_output, {syn_in(0)}, syn_out(2));
     syn_out(2) = std::move(biasRes);
   } else {
     AddUndefinedOutputTensor();
