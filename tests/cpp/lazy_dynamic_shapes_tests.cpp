@@ -720,8 +720,8 @@ TEST_F(LazyDynamicShapesTest, ProdDimIntTest) {
     auto input = torch::randn(input_shape);
     auto input_h = input.to(torch::kHPU);
 
-    torch::Tensor hOut = at::empty_like(input_h, dtype);
-    torch::Tensor out_cpu = at::empty_like(input, dtype);
+    torch::Tensor hOut = torch::randn({0}, dtype).to("hpu");
+    torch::Tensor out_cpu = torch::randn({0}, dtype);
     torch::prod_outf(input, dim, keepdim, dtype, out_cpu);
     torch::prod_outf(input_h, dim, keepdim, dtype, hOut);
 
@@ -741,8 +741,8 @@ TEST_F(LazyDynamicShapesTest, AllDimTest) {
         auto input = torch::randn(input_shape).to(dtype);
         auto input_h = input.to(torch::kHPU);
 
-        torch::Tensor hOut = at::empty_like(input_h);
-        torch::Tensor out_cpu = at::empty_like(input);
+        torch::Tensor hOut = torch::randn({0}, torch::dtype(dtype)).to("hpu");
+        torch::Tensor out_cpu = torch::randn({0}, torch::dtype(dtype));
         torch::all_out(out_cpu, input, dim, keepdim);
         torch::all_out(hOut, input_h, dim, keepdim);
 

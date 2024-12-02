@@ -612,12 +612,13 @@ TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse0D) {
 }
 
 TEST_F(LazyIndexKernelTest, NonZeroOutTestMixValues) {
+  auto dtype = torch::dtype(torch::kInt64);
   torch::Tensor input_cpu =
-      torch::randint(0, 7, {5, 7}, torch::dtype(torch::kInt64));
+      torch::randint(0, 7, {5, 7}, dtype);
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
-  torch::Tensor hOut = at::empty_like(input_hpu);
-  torch::Tensor out_cpu = at::empty_like(input_cpu);
+  torch::Tensor hOut = torch::randn({0}, dtype).to("hpu");
+  torch::Tensor out_cpu = torch::randn({0}, dtype);
   torch::nonzero_outf(input_cpu, out_cpu);
   torch::nonzero_outf(input_hpu, hOut);
   auto out_hpu = hOut.to(torch::kCPU);
@@ -697,7 +698,7 @@ TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
   torch::Scalar start = -100.0f;
   torch::Scalar end = -100.0f;
   int64_t step = 100; // wrong value
-  torch::Tensor out = torch::randn({10}, torch::requires_grad(false));
+  torch::Tensor out = torch::randn({100}, torch::requires_grad(false));
   auto hOut = out.to(torch::kHPU);
 
   auto h_a = torch::linspace_outf(start, end, step, hOut);

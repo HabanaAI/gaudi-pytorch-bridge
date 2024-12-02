@@ -128,7 +128,7 @@ class ArangeDTypeSupportTest : public DTypeSupportTest<c10::ScalarType> {};
 TEST_P(ArangeDTypeSupportTest, ArangeStartOutDTypeSupportTest) {
   auto dtype = GetParam();
   auto options = torch::TensorOptions().dtype(dtype).device(torch::kHPU);
-  auto out = torch::empty({10}, options);
+  auto out = torch::empty({1}, options);
 
   torch::arange_outf(0.0, 1.0, 10.0, out);
 
