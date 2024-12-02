@@ -71,6 +71,13 @@ class _ClusterCompiler(torch.fx.Interpreter):
         fx_to_jit_lowering = FxToJitLowering(submod)
         fx_to_jit_lowering.run(*args)
 
+        # Some tests require this pattern in logs, so for quick repair decided to
+        #  print here it. Although this is not a PyTorch-generated obviously.
+        logger.debug(
+            "####PyTorch-generated JIT IR graph for this HPU graph:####\n%s",
+            fx_to_jit_lowering.jit_ir,
+        )
+
         # todo verify run_jit_passes https://jira.habana-labs.com/browse/SW-199897
         run_jit_fork_passes(fx_to_jit_lowering.jit_ir)
 

@@ -16,9 +16,14 @@
 ###############################################################################
 from habana_frameworks.torch.utils.debug import Logger
 
+_compile_backend_logger = None
+
 
 def get_compile_backend_logger():
-    return Logger("PT_COMPILE")
+    global _compile_backend_logger
+    if _compile_backend_logger is None:
+        _compile_backend_logger = Logger("PT_COMPILE")
+    return _compile_backend_logger
 
 
 def get_fx_graph_logger():
