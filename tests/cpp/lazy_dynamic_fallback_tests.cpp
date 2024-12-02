@@ -65,6 +65,10 @@ class LazyDynamicFallbackTest : public habana_lazy_test::LazyTest {
 //                           out
 
 TEST_F(LazyDynamicFallbackTest, DynamicShapeTest4) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   int kH = 3;
   int kW = 3;
   const int C = 16;

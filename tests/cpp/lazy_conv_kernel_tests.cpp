@@ -24,6 +24,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -312,6 +313,10 @@ TEST_F(LazyConvKernelTest, ConvExecTest) {
 
 // Also validates OutputShapeInf for ConvTranspose2d
 TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
 
@@ -403,6 +408,10 @@ TEST_F(LazyConvKernelTest, ConvTranspose3dG2Test) {
 }
 
 TEST_F(LazyConvKernelTest, Conv3dTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   auto in =
       torch::randn({64, 5, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
   auto wt = torch::randn({3, 5, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
@@ -439,6 +448,10 @@ TEST_F(LazyConvKernelTest, Conv3dG2Test) {
 
 // Also validates OutputShapeInf for Conv2d
 TEST_F(LazyConvKernelTest, ConvInferenceTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   if (false == GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
     SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);
 
