@@ -56,7 +56,7 @@ def simple(rank, world_size, args):
     dist.scatter(output_tensor, scatter_list)
     result_cmp = torch.ones(3, 3, device="hpu") * rank
     result = torch.all(output_tensor.eq(result_cmp))
-    assert result.item() == True
+    assert result.item() is True
     print("DONE for rank :: ", rank)
     cleanup()
 

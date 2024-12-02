@@ -118,15 +118,15 @@ def vanilla_attention_impl_for_test(
 
     if attn_mask is not None:
         if attn_mask.dtype == torch.bool:
-            scores.masked_fill_(attn_mask == False, -float("inf"))
+            scores.masked_fill_(attn_mask == 0, -float("inf"))
         else:
             scores = scores + attn_mask
     elif is_causal:
         seq_len_N_t = query.shape[-2]
         seq_len_N_s = key.shape[-2]
         attn_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=torch.bool).tril(diagonal=0)
-        # scores.masked_fill_(attn_mask == False, -float('inf'))
-        scores.masked_fill_(attn_mask == False, LNEG)
+        # scores.masked_fill_(attn_mask == 0, -float('inf'))
+        scores.masked_fill_(attn_mask == 0, LNEG)
 
     softmax = F.softmax(scores, dim=-1)
     weight = softmax
@@ -846,7 +846,7 @@ def is_param_combo_valid(
 
     if not inference:
         # In training, fast softmax is supported only in Triangular mask case
-        if softmax_mode == "fast" and is_causal == False:
+        if softmax_mode == "fast" and is_causal is False:
             return False
         # return_attn_probs supported only for inference
         if return_attn_probs:
@@ -1180,7 +1180,7 @@ def test_sdpa(
         attn_mask_hpu = None
 
     if use_attn_mask:
-        assert is_causal == False, " use_attn_mask and is_causal can not be True at the same time"
+        assert is_causal is False, " use_attn_mask and is_causal can not be True at the same time"
 
     DBG_ONLY_dropout_mask_g = None
     return_dropout_mask = dropout_p > 0.0 and not recompute

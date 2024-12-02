@@ -71,7 +71,7 @@ def parse_yaml(f_yaml):
 
 
 def main(args):
-    if args.pt_integ_path == None:
+    if args.pt_integ_path is None:
         pt_integ_path = os.environ["PYTORCH_MODULES_ROOT_PATH"]
     else:
         pt_integ_path = args.pt_integ_path

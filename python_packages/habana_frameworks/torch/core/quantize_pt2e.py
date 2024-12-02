@@ -146,14 +146,14 @@ def graph_breaks(
     """
 
     # If sample input is not specified during export, Habana's PT2E-Quant flow is used
-    if args == None:
+    if args is None:
         return True
 
     # Next, check for user instruction, if any. 3 possibilities:
     # a. graph_break_present: False [Can be set only when user is sure about no graph breaks]
     # b. graph_break_present: True  [Can be set only when user is sure about graph breaks]
     # c. graph_break_present: unspecified
-    if kwargs != None and "graph_break_present" in kwargs:
+    if kwargs is not None and "graph_break_present" in kwargs:
         return kwargs["graph_break_present"]
 
     # Finally, try and figure out if there is any graph break.
@@ -214,7 +214,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             self.preprocess(*args)
 
         if habana_quantization_map_queue[self._module_key] == []:
-            if self._pt2e_quant_context != None:
+            if self._pt2e_quant_context is not None:
                 self._pt2e_quant_context.append_graph(self._fx_module, self._fx_module, args)
             return self._fx_module(*args, **kwargs)
 
@@ -227,7 +227,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     self._fx_module, queue_element["quantizer"]
                 )
 
-                if self._pt2e_quant_context != None:
+                if self._pt2e_quant_context is not None:
                     self._pt2e_quant_context.append_graph(self._fx_module, self._prepared_module, args)
 
                 # Now we use torch.compilation with hpu_backend.
@@ -274,7 +274,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
-                if self._pt2e_quant_context != None:
+                if self._pt2e_quant_context is not None:
                     self._pt2e_quant_context.append_graph(self._fx_module, self._converted_module, args)
                     self._pt2e_quant_context.append_quantized_fx_graph_with_args(self._converted_module, args)
 
@@ -300,7 +300,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             if not self._converted:
                 key = self.get_hash()
                 self._converted_module = self._pt2e_quant_context.get_ep(key).module()
-                assert self._converted_module != None
+                assert self._converted_module is not None
 
                 # We call hpu_inference_compiler to convert it into synapse graph.
                 if os.getenv("USE_FX_GRAPH_FREEZING", "0") != "0":
@@ -396,7 +396,7 @@ def export(
         )
         setattr(model, "meta_hb_quant_id", model_key)
         habana_pt2e_quant_context.set_model(model)
-        if args != None:
+        if args is not None:
             model(*args)
             logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
 
@@ -405,7 +405,7 @@ def export(
         return model
     else:
         habana_pt2e_quant_context = None
-        if kwargs != None and "graph_break_present" in kwargs:
+        if kwargs is not None and "graph_break_present" in kwargs:
             kwargs.pop("graph_break_present")
         model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
@@ -437,7 +437,7 @@ def prepare_pt2e(
         global habana_pt2e_quant_context
         habana_pt2e_quant_context.clear_graphs()
         habana_pt2e_quant_context.set_model(model)
-        if habana_pt2e_quant_context.get_input_for_tracing() != None:
+        if habana_pt2e_quant_context.get_input_for_tracing() is not None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
         setattr(model, "multi_graph", True)
@@ -480,7 +480,7 @@ def convert_pt2e(
         global habana_pt2e_quant_context
         habana_pt2e_quant_context.clear_graphs()
         habana_pt2e_quant_context.set_model(model)
-        if habana_pt2e_quant_context.get_input_for_tracing() != None:
+        if habana_pt2e_quant_context.get_input_for_tracing() is not None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
         setattr(model, "multi_graph", True)

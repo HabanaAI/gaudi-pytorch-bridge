@@ -608,8 +608,8 @@ def generate_entry_debug_code(fname, params, is_eager_frontend):
     params_count = len(params)
     dump_args = "DUMP_ARG" if params_count == 1 else f"DUMP_{params_count}ARGS"
     code += f'  PT_OP_INFO("{fname}: ", {dump_args}({", ".join(params_names)}));\n\n'
-    code += f"  [[maybe_unused]] bool require_h2d = false;\n"
-    code += f"  [[maybe_unused]] bool require_st = false;\n\n"
+    code += "  [[maybe_unused]] bool require_h2d = false;\n"
+    code += "  [[maybe_unused]] bool require_st = false;\n\n"
     return code
 
 

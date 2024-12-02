@@ -51,8 +51,8 @@ def test_remove_unnecessary_full_copy():
     changed = pass_remove_unnecessary_full_copy(ctx)
     assert changed
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
-    assert "torch.ops.aten.full.default" not in reinplaced_fn_str, f"full op should be removed"
-    assert "torch.ops.aten.copy.default" not in reinplaced_fn_str, f"copy op should be removed"
+    assert "torch.ops.aten.full.default" not in reinplaced_fn_str, "full op should be removed"
+    assert "torch.ops.aten.copy.default" not in reinplaced_fn_str, "copy op should be removed"
 
     ctx.graph_module.recompile()
     res = ctx.graph_module(a)

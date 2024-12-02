@@ -106,7 +106,7 @@ build_py = os.path.realpath(__file__)
 
 build_root = os.environ.get("BUILD_ROOT", None)
 if not build_root:
-    log.fatal(f"$BUILD_ROOT not set or is empty.")
+    log.fatal("$BUILD_ROOT not set or is empty.")
     sys.exit(1)
 
 build_dir_suffix = "pytorch_modules_multi_build"
@@ -820,7 +820,7 @@ def prepare_build_dirs(
 
 
 def create_ctest_target(pmake):
-    pmake(f"ctest: $(addsuffix /ctest,$(SUBNAMES))")
+    pmake("ctest: $(addsuffix /ctest,$(SUBNAMES))")
 
 
 def target_reldir(py_ver, pt_ver, cmake_config, target=None):
@@ -1941,7 +1941,7 @@ def main():
         ensure_icecc_setup()
 
     if args.manylinux:  # TODO
-        raise NotImplemented("Manylinux builds not yet supported for PT")
+        raise NotImplementedError("Manylinux builds not yet supported for PT")
         ManylinuxRunner(with_icecc=args.use_icecc).run(raw_args)
         exit()
 

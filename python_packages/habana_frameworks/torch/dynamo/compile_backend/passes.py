@@ -1316,7 +1316,7 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
     graph_changed = False
 
     if len(ctx.current_partitions) == 1:
-        logger.debug(f"Merging skipped for single partition graph")
+        logger.debug("Merging skipped for single partition graph")
         # In case of single partition there is no merging to be done
         return graph_changed
 

@@ -380,7 +380,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     logger.debug("Node: %s requires fallback: %s", node, do_fallback)
 
     assert (
-        hpu_backend_config.use_eager_fallback or do_fallback == False
+        hpu_backend_config.use_eager_fallback or do_fallback is False
     ), f"Node: {node} requires fallback: {do_fallback}"
 
     return do_fallback

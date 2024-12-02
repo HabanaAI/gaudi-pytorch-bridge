@@ -110,9 +110,9 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
             raise NotImplementedError("AbsMaxObserver: dtype only supports torch.float8_e5m2 and torch.float8_e4m3fn.")
         if qscheme != torch.per_tensor_symmetric:
             raise NotImplementedError("AbsMaxObserver: qscheme only supports torch.per_tensor_symmetric.")
-        if reduce_range != False:
+        if reduce_range:
             raise NotImplementedError("AbsMaxObserver: reduce_range is not supported.")
-        if is_dynamic != False:
+        if is_dynamic:
             raise NotImplementedError("AbsMaxObserver: is_dynamic is not supported.")
 
         assert quant_min == -quant_max
@@ -180,7 +180,7 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
             def get_fullscale(dtype, exp_bias=None):
                 default_exp_bias = get_default_exp_bias(dtype)
                 fullscale = MAX_RANGE[dtype]
-                exp_bias = default_exp_bias if exp_bias == None else exp_bias
+                exp_bias = default_exp_bias if exp_bias is None else exp_bias
                 fullscale = fullscale * (2 ** (default_exp_bias - exp_bias))
                 return fullscale
 
@@ -191,7 +191,7 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
                 exp_bias_set = EXP_BIAS_SETS.get((device, dtype), None)
                 return (
                     None
-                    if exp_bias_set == None
+                    if exp_bias_set is None
                     else [x / MAX_RANGE[dtype] for x in get_fullscales_by_expbias_set(dtype, exp_bias_set)]
                 )
 
@@ -317,9 +317,9 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
             )
         if qscheme != torch.per_tensor_symmetric:
             raise NotImplementedError("SimpleAbsMaxObserver: qscheme only supports torch.per_tensor_symmetric.")
-        if reduce_range != False:
+        if reduce_range:
             raise NotImplementedError("SimpleAbsMaxObserver: reduce_range is not supported.")
-        if is_dynamic != False:
+        if is_dynamic:
             raise NotImplementedError("SimpleAbsMaxObserver: is_dynamic is not supported.")
 
         assert quant_min == -quant_max
@@ -384,7 +384,7 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
             def get_fullscale(dtype, exp_bias=None):
                 default_exp_bias = get_default_exp_bias(dtype)
                 fullscale = MAX_RANGE[dtype]
-                exp_bias = default_exp_bias if exp_bias == None else exp_bias
+                exp_bias = default_exp_bias if exp_bias is None else exp_bias
                 fullscale = fullscale * (2 ** (default_exp_bias - exp_bias))
                 return fullscale
 
@@ -395,7 +395,7 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
                 exp_bias_set = EXP_BIAS_SETS.get((device, dtype), None)
                 return (
                     None
-                    if exp_bias_set == None
+                    if exp_bias_set is None
                     else [x / MAX_RANGE[dtype] for x in get_fullscales_by_expbias_set(dtype, exp_bias_set)]
                 )
 

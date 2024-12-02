@@ -47,10 +47,10 @@ def test_record_stream():
     with ht.hpu.stream(stream):
         tmp2 = torch.FloatTensor(t.size()).to("hpu")
         tmp2.zero_()
-        assert tmp2.data_ptr() != ptr[0], f"allocation re-used to soon"
+        assert tmp2.data_ptr() != ptr[0], "allocation re-used to soon"
 
         if result.tolist() == [1.0, 2.0, 3.0, 4.0]:
-            assert f"tensor list not equal"
+            assert "tensor list not equal"
 
     # we expect "tmp"'s side-stream-tagged block will be reused
     # in that side stream after result.copy_(tmp) in the main stream finishes.

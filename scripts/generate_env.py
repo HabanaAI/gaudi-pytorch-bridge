@@ -171,7 +171,7 @@ def generate_bindings(dictionary, flag):
     cpp_binding_line = cpp_bindings_get
     python_binding_line = python_bindings_get
 
-    if "settable" in dictionary[flag] and dictionary[flag]["settable"] == True:
+    if "settable" in dictionary[flag] and dictionary[flag]["settable"] is True:
         cpp_bindings_set, python_bindings_set = generate_bindings_set(dictionary, flag)
         cpp_binding_line += cpp_bindings_set
         python_binding_line += python_bindings_set

@@ -133,7 +133,7 @@ def tp_set_config_from_env():
 
 def tp_model_params_check_tensor_group(group):
     #By default dump all groups of tensors
-    if tp_config['TP_MODEL_PARAM_DUMP_TENSOR_GROUP'] == None:
+    if tp_config['TP_MODEL_PARAM_DUMP_TENSOR_GROUP'] is None:
         return True
     if group in tp_config['TP_MODEL_PARAM_DUMP_TENSOR_GROUP']:
         return True
@@ -203,7 +203,7 @@ class ModelParamsDump(object):
                 self.save_tensor(device, param.data, tensor_name, path_modifier)
 
     def save_tensor(self, device, torch_tensor, tensor_name, path_modifier=None, force_dump = False):
-        if force_dump == False:
+        if force_dump is False:
             if self.to_dump_data() is False:
                 return
         path = self.get_data_dump_path()
@@ -281,7 +281,7 @@ class Hook():
     def fwd_hook_fn(self, module, inputs, outputs):
         if self.to_dump_data() is False:
             return
-        if module.training == False: # For now, use hooks only during training, not during eval
+        if module.training is False: # For now, use hooks only during training, not during eval
             return
         #self.print_io_info(module, inputs, outputs)
         self.save_tensors(inputs, outputs)
@@ -379,7 +379,7 @@ def tp_hooks_register(model, device):
     return [fwd_hooks, bwd_hooks]
 
 def tp_hooks_increment_iteration_idx(hooks):
-    if hooks == None:
+    if hooks is None:
         return
     if tp_config['TP_HOOKS_ENABLE'] == 0:
         return
@@ -390,7 +390,7 @@ def tp_hooks_increment_iteration_idx(hooks):
         hk.increment_iteration_idx()
 
 def tp_hooks_set_current_epoch_no(hooks, epoch):
-    if hooks == None:
+    if hooks is None:
         return
     if tp_config['TP_HOOKS_ENABLE'] == 0:
         return

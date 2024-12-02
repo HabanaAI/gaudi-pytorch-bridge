@@ -31,6 +31,6 @@ def setup_teardown_env():
     hthpu.enable_optim_output_sif()
 
     yield
-    if ds_org_status == False:
+    if ds_org_status is False:
         hthpu.disable_dynamic_shape()
     hthpu.disable_optim_output_sif()

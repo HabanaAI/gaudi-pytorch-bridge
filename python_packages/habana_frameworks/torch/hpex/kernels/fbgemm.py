@@ -49,7 +49,7 @@ def split_embedding_codegen_lookup_function(
 ) -> torch.Tensor:
     if kernel_mode is None:
         kernel_mode = [1] * len(weights_offsets)
-    assert pooling_mode == 0, f"Only PoolingMode.SUM is supported for HPU"
+    assert pooling_mode == 0, "Only PoolingMode.SUM is supported for HPU"
     assert total_D == D_offsets[-1], f"total_D ({total_D}) must match D_offsets[-1] ({D_offsets[-1]})"
 
     indices = indices.to(torch.int32)

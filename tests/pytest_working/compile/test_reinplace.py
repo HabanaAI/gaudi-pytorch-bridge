@@ -48,8 +48,8 @@ def test_reinplace_index_copy():
     )
     pass_reinplace_index_copy_ops(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
-    assert "torch.ops.aten.index_copy.default" not in reinplaced_fn_str, f"index_copy is not removed"
-    assert "torch.ops.aten.index_copy_.default" in reinplaced_fn_str, f"index_copy_ is not inserted"
+    assert "torch.ops.aten.index_copy.default" not in reinplaced_fn_str, "index_copy is not removed"
+    assert "torch.ops.aten.index_copy_.default" in reinplaced_fn_str, "index_copy_ is not inserted"
 
 
 def test_not_reinplace_index_copy():
@@ -83,8 +83,8 @@ def test_not_reinplace_index_copy():
     )
     pass_reinplace_index_copy_ops(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
-    assert "torch.ops.aten.index_copy.default" in reinplaced_fn_str, f"index_copy should not be removed"
-    assert "torch.ops.aten.index_copy_.default" not in reinplaced_fn_str, f"index_copy_ should not be inserted"
+    assert "torch.ops.aten.index_copy.default" in reinplaced_fn_str, "index_copy should not be removed"
+    assert "torch.ops.aten.index_copy_.default" not in reinplaced_fn_str, "index_copy_ should not be inserted"
 
 
 def test_not_reinplace_leaf_index_copy():
@@ -114,8 +114,8 @@ def test_not_reinplace_leaf_index_copy():
     pass_eagerize_leaf_views(ctx)
     pass_reinplace_index_copy_ops(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
-    assert "torch.ops.aten.index_copy.default" in reinplaced_fn_str, f"index_copy should not be removed"
-    assert "torch.ops.aten.index_copy_.default" not in reinplaced_fn_str, f"index_copy_ should not be inserted"
+    assert "torch.ops.aten.index_copy.default" in reinplaced_fn_str, "index_copy should not be removed"
+    assert "torch.ops.aten.index_copy_.default" not in reinplaced_fn_str, "index_copy_ should not be inserted"
 
 
 def test_reinpalce_all_add():

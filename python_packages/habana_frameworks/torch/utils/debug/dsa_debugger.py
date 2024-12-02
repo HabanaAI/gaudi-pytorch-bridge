@@ -331,9 +331,9 @@ class DivergenceAnalyzer:
         idx_data = column_indices[3]
         idx_iter = column_indices[4]
 
-        cursor1.execute(f"SELECT * FROM TENSORS")
+        cursor1.execute("SELECT * FROM TENSORS")
         tensors_static = cursor1.fetchall()
-        cursor2.execute(f"SELECT * FROM TENSORS")
+        cursor2.execute("SELECT * FROM TENSORS")
         tensors_dynamic = cursor2.fetchall()
 
         compare_len = len(tensors_dynamic)
@@ -349,7 +349,7 @@ class DivergenceAnalyzer:
         tensor_names_dynamic = [item[idx_tensor_name] for item in tensors_dynamic[:compare_len]]
         if not tensor_names_static == tensor_names_dynamic:
             self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing.")
-            if self.cfg.cache == True:
+            if self.cfg.cache:
                 self.log("[ERROR] Check with --cache 0.")
             exit(0)
 

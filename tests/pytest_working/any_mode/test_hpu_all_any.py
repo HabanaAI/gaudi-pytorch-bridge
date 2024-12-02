@@ -50,13 +50,13 @@ if not is_gaudi1():
 def fn(input_tensor, use_out, output_device, op, dim):
     if use_out:
         output_tensor = torch.tensor(True).to(output_device)
-        if dim == None:
+        if dim is None:
             op(input_tensor, out=output_tensor)
         else:
             op(input_tensor, dim=dim, out=output_tensor)
         return output_tensor
 
-    if dim == None:
+    if dim is None:
         return op(input_tensor)
     else:
         return op(input_tensor, dim=dim)

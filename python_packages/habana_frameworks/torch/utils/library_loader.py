@@ -87,7 +87,7 @@ def is_habana_available():
                 status = True
             else:
                 status = False
-    if enable_console == False:
+    if enable_console is False:
         os.environ["ENABLE_CONSOLE"] = "false"
     return status
 

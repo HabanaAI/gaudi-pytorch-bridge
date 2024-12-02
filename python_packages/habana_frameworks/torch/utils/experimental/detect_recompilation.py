@@ -36,7 +36,7 @@ class Node:
         self.name = name
         self.children = []
         self.parent = parent
-        if self.parent != None:
+        if self.parent is not None:
             # self could get readded even though it might already exist
             self.add_self_as_child(parent)
 
@@ -271,7 +271,7 @@ def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
         inp_hash = htcore.hpu.input_hash((args, kwargs))
         htcore.mark_step()
         time.sleep(waittime)
-        with metric_localcontext(f"graph_compilation") as local_metric:
+        with metric_localcontext("graph_compilation") as local_metric:
             res = old_fn(*args, **kwargs)
             htcore.mark_step()
             time.sleep(waittime)
@@ -375,9 +375,9 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
         for name, layer in model.named_children():
             layer = helper(layer, write_to, mdlname + "/" + name, level + 1, waittime=waittime)
         if level == 0:
-            assert not hasattr(model, "raw_logs"), f"The model already has field raw_logs"
+            assert not hasattr(model, "raw_logs"), "The model already has field raw_logs"
             model.raw_logs = MethodType(lambda self: write_to, model)
-            assert not hasattr(model, "analyse_dynamicity"), f"The model already has field analyse_dynamicity"
+            assert not hasattr(model, "analyse_dynamicity"), "The model already has field analyse_dynamicity"
             model.analyse_dynamicity = MethodType(_get_analyser(csv_out), model)
         return model
 

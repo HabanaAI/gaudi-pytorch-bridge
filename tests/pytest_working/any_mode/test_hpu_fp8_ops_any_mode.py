@@ -407,7 +407,7 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
         scaleAInv = scaleAInv.unsqueeze(1)
         scaleBInv = scaleBInv.unsqueeze(0)
 
-    if scaleA == ScaleMode.TENSOR_CHANNEL and scaleB == None:
+    if scaleA == ScaleMode.TENSOR_CHANNEL and scaleB is None:
         scaleAInv = scaleAInv.unsqueeze(1)
 
     As = [A[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A]

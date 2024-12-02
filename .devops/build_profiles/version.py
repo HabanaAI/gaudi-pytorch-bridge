@@ -115,8 +115,8 @@ class Version(packaging.version.Version):
         compute platform match those from candidate.
 
         For instance:
-        Version(" ").significant_matches(candidate=Version("2.2.3.4a0")) == True
-        Version("1.3+cpu").significant_matches(Version("1.3.0+cpu")) == True
+        Version(" ").significant_matches(candidate=Version("2.2.3.4a0")) is True
+        Version("1.3+cpu").significant_matches(Version("1.3.0+cpu")) is True
 
         Assume git hashes in local part of version mean a CPU platform.
         """

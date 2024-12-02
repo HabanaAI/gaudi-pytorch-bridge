@@ -61,7 +61,7 @@ if not is_gaudi1():
 @pytest.mark.parametrize("size", [(1,), (1, 1), (2, 3)], ids=format_tc)
 @pytest.mark.parametrize("dtype, fill_value", test_data, ids=format_tc)
 def test_full(size, dtype, fill_value):
-    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() == False:
+    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() is False:
         pytest.skip(reason="fill_value exceed int32 range which is unsupported")
 
     if is_pytest_mode_compile() and dtype == torch.bool:

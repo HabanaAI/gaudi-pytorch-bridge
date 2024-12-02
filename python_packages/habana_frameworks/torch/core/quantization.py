@@ -140,7 +140,7 @@ def _set_quantization_attributes(model):
     if (
         "HB_QUANTIZATION" in model._buffers
         and "quantization" in model._buffers["HB_QUANTIZATION"]
-        and model._buffers["HB_QUANTIZATION"]["quantization"] == True
+        and model._buffers["HB_QUANTIZATION"]["quantization"] is True
     ):
         hpu.enable_quantization()
 

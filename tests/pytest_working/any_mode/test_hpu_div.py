@@ -83,7 +83,7 @@ def test_hpu_floor_divide_tensor_scalar_mode(input_shape, other_scalar, dtype):
     cpu_input = torch.rand(input_shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
 
-    if other_scalar == None:
+    if other_scalar is None:
         cpu_other = torch.rand(input_shape, dtype=dtype)
         hpu_other = cpu_other.to("hpu")
     else:

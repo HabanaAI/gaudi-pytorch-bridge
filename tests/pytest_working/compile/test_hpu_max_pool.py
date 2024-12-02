@@ -113,7 +113,7 @@ def test_hpu_max_pool3d(shape, kernel_size_and_padding, stride, dilation, dtype)
 @pytest.mark.parametrize("dilation", [[1, 2, 2]])
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool3d_bwd(shape, kernel_size_and_padding, stride, dilation, dtype):
-    if is_gaudi1() == True:
+    if is_gaudi1():
         pytest.xfail("[SW-165533] result mismatch")
 
     def fn(input):

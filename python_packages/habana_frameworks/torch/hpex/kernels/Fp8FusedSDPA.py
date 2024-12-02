@@ -111,7 +111,7 @@ def fp8_sdpa_fwd_wrapper(
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()
-    if scale == None:
+    if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
     # Check if recompute variant is enabled
@@ -119,10 +119,10 @@ def fp8_sdpa_fwd_wrapper(
         recompute = ht.recompute_sdp_enabled()
 
     if requires_backward:
-        assert is_causal == True, "Fp8 FusedSDPA in trining only supports Triangular mask"
+        assert is_causal, "Fp8 FusedSDPA in trining only supports Triangular mask"
     if valid_seq_len is not None:
         assert (
-            is_causal and (requires_backward == False) and (attn_mask == None)
+            is_causal and (requires_backward is False) and (attn_mask is None)
         ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
 
     gqa = is_gqa(q, k)

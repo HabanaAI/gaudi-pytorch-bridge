@@ -196,7 +196,7 @@ def use_pt2e_quant_flow_with_separate_calibration(
                 calibrate_result = model(*example_inputs0)
                 calibrate_result = model(*example_inputs1)
 
-            if use_graph_break == True:
+            if use_graph_break:
                 verify_nodes(fga.get_ops_summary(), expected_op_count["after_prepare_pt2e"])
 
             with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -222,7 +222,7 @@ def use_pt2e_quant_flow_with_separate_calibration(
         else:
             pass
 
-        if use_graph_break == True:
+        if use_graph_break:
             verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
         else:

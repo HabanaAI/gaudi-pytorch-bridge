@@ -46,7 +46,7 @@ def _is_inference():
 
 
 def _names_hook_already_registered(module):
-    if hasattr(module, "names_hook") and module.names_hook == True:
+    if hasattr(module, "names_hook") and module.names_hook is True:
         return True
     return False
 
@@ -197,7 +197,7 @@ def overwrite_torch_functions():
         if cache_enable and hpu_backend_invoke:
             nonlocal ranks_cache
             ranks_cache[backend] = {}
-            if ranks == None:
+            if ranks is None:
                 actual_world_size = torch.distributed.distributed_c10d.get_world_size()
                 ranks_tuple = tuple(list(range(0, actual_world_size)))
             else:
@@ -294,7 +294,7 @@ def overwrite_torch_functions():
                 irecv_aux.dummy_mode_seq = 0  # it doesn't exist yet, so initialize it
 
             dummy_folder_path = (
-                environ.get("P2P_DUMMY_MODE_PATH") if environ.get("P2P_DUMMY_MODE_PATH") != None else "./"
+                environ.get("P2P_DUMMY_MODE_PATH") if environ.get("P2P_DUMMY_MODE_PATH") is not None else "./"
             )
             tensor_file = (
                 dummy_folder_path + str(distributed_c10d.get_rank()) + "_" + str(irecv_aux.dummy_mode_seq) + ".pt"

@@ -118,7 +118,7 @@ def _patch_file(f):
     elif "/*" in contents[0] or "//" in contents[0]:
         formatting = formats["cpp"]
     else:
-        raise PatchError(f, f"unknown header in file")
+        raise PatchError(f, "unknown header in file")
     i = contents[1].split(" ")
 
     if not "Habana" in contents[1]:

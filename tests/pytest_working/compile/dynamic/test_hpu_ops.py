@@ -1314,7 +1314,7 @@ test_data = [
 
 @pytest.mark.parametrize("dtype, fill_value", test_data)
 def test_full(dtype, fill_value):
-    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() == False:
+    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() is False:
         pytest.skip(reason="fill_value exceed int32 range which is unsupported")
 
     input_shapes = [(8, 2), (16, 3), (20, 2), (24, 3), (28, 3)]

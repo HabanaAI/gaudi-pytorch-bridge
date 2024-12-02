@@ -59,7 +59,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         return is_view_node(node) and node.target.__name__.split(".")[0] in supported_view_ops
 
     if ctx.is_dynamic:
-        logger.warn(f"Pass fuse view chains doesn't support dynamic graphs")
+        logger.warn("Pass fuse view chains doesn't support dynamic graphs")
         return False
 
     view_chains = {}
@@ -89,7 +89,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         view_chains[node] = []
         current_node = node
         reached_end_of_chain = False
-        while reached_end_of_chain == False:
+        while reached_end_of_chain is False:
             current_node.meta["visited"] = True
             view_chains[node].append(current_node)
             if len(current_node.users) != 1:  # node.users is a dict

@@ -120,7 +120,7 @@ def test_divergence_tool(
     test_status = os.system(cmd)
 
     assert expected_status == test_status
-    assert os.path.exists(os.path.join(outdir, "dumps", "mismatch.txt")) == False
+    assert os.path.exists(os.path.join(outdir, "dumps", "mismatch.txt")) is False
 
 
 if __name__ == "__main__":

@@ -438,7 +438,7 @@ def replace_pattern_view_mm_view(graph_module: torch.fx.GraphModule):
                     user_node_if_view = user_node
                     output_view_shape = list(user_node.args[1])
 
-            if input_node_if_view == None or user_node_if_view == None:
+            if input_node_if_view is None or user_node_if_view is None:
                 continue
 
             if len(output_view_shape) >= 3 and len(input_view_shape) <= len(output_view_shape):

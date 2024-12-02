@@ -181,12 +181,12 @@ def print_config(
     print(f"Iterations = {iterations}")
 
     if do_one_shard:
-        print(f"Running in 1 shard without SFG")
+        print("Running in 1 shard without SFG")
     else:
         print(f"Running in {num_shards} shards with SFG")
 
     if do_hpu_graph:
-        print(f"HPU graph is enabled")
+        print("HPU graph is enabled")
 
     if do_host_profile:
         print("Host profile is enabled from script")

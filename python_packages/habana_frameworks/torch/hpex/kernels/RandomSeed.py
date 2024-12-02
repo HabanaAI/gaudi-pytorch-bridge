@@ -27,7 +27,7 @@ def random_seed(x: torch.tensor) -> torch.tensor:
     device = x.device
 
     if device == torch.device("cpu"):
-        raise ValueError(f"HPU RandomSeed is only supported on hpu device")
+        raise ValueError("HPU RandomSeed is only supported on hpu device")
     else:
         try:
             from habana_frameworks.torch import _hpex_C

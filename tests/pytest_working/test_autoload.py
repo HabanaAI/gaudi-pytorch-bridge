@@ -31,7 +31,7 @@ do_not_import_habana_torch_flag = os.getenv("DO_NOT_IMPORT_HABANA_TORCH", "0") =
 
 # Test if our backend has been automatically imported
 @pytest.mark.skipif(
-    is_disabled or (do_not_import_habana_torch_flag == False),
+    is_disabled or (do_not_import_habana_torch_flag is False),
     reason="The autoload mechanism is disabled with env flag or DO_NOT_IMPORT_HABANA_TORCH flag is set to 0",
 )
 def test_backend_autoload():
@@ -45,7 +45,7 @@ def test_backend_autoload():
 
 # Test if hpu is available as a device (torch is linked with support for hpu devices)
 @pytest.mark.skipif(
-    is_disabled or (do_not_import_habana_torch_flag == False),
+    is_disabled or (do_not_import_habana_torch_flag is False),
     reason="The autoload mechanism is disabled with env flag or DO_NOT_IMPORT_HABANA_TORCH flag is set to 0",
 )
 def test_hpu_available_as_device():

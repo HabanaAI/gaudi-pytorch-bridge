@@ -61,7 +61,7 @@ def test_hpu_to(shape_strides, device_mode, dst_format, dtype):
         ref_input = torch.rand(shape, dtype=dtype, device="cpu")
 
     # if strides are set then view input will be created with regards to strides
-    if strides != None:
+    if strides is not None:
         ref_input = ref_input.as_strided(shape, strides)
     else:
         ref_input = ref_input.to(memory_format=src_format)

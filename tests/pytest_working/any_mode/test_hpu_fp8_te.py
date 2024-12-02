@@ -827,7 +827,7 @@ def test_te_multiple_fwd_multiple_bwd(
         assert torch.equal(ref_outputs[i], test_outputs[i]), f"output mismatch at i: {i}"
         assert torch.equal(ref_grads[i], test_grads[i]), f"grad mismatch at i: {i}"
 
-    assert torch.equal(ref_linear.weight.grad.cpu(), test_linear.weight.grad.cpu()), f"weight gradient mismatch"
+    assert torch.equal(ref_linear.weight.grad.cpu(), test_linear.weight.grad.cpu()), "weight gradient mismatch"
 
     _verify_executed_ops(fp8_format)
 
@@ -926,7 +926,7 @@ def test_measurement_interval_auto_mode(interval):
     fp8_recipe = DelayedScaling(interval=interval)
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        assert FP8GlobalStateManager.get_manual_measurement_mode() == None
+        assert FP8GlobalStateManager.get_manual_measurement_mode() is None
 
 
 def test_force_measurement_mode():
@@ -964,7 +964,7 @@ def test_auto_measurement_after_force_mode():
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         FP8GlobalStateManager.set_measurement_mode(True, False)
         FP8GlobalStateManager.set_measurement_mode(False)
-        assert FP8GlobalStateManager.get_manual_measurement_mode() == None
+        assert FP8GlobalStateManager.get_manual_measurement_mode() is None
 
 
 # We need to be able to check if amax measure is enabled after we go out of the fp8 context
@@ -981,7 +981,7 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         pass
 
-    assert FP8GlobalStateManager.get_manual_measurement_mode() == None
+    assert FP8GlobalStateManager.get_manual_measurement_mode() is None
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
@@ -1382,21 +1382,21 @@ def vanilla_attention_impl_for_test(
 
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
-    if scale == None:
+    if scale is None:
         scores = scores / sqrt_dim_head
     else:
         scores = scores * scale
 
     if attn_mask is not None:
         if attn_mask.dtype == torch.bool:
-            scores.masked_fill_(attn_mask == False, -float("inf"))
+            scores.masked_fill_(attn_mask == 0, -float("inf"))
         else:
             scores = scores + attn_mask
     elif is_causal:
         seq_len_N_t = query.shape[-2]
         seq_len_N_s = key.shape[-2]
         attn_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=torch.bool).tril(diagonal=0)
-        scores.masked_fill_(attn_mask == False, LNEG)
+        scores.masked_fill_(attn_mask == 0, LNEG)
 
     weight = torch.nn.functional.softmax(scores, dim=-1)
     weight = quantize(weight, fp8_format)
@@ -1498,7 +1498,7 @@ def test_te_fused_sdpa(
         pytest.skip(reason="FP8 not supported on Gaudi1")
     if is_causal and use_attn_mask:
         pytest.skip(reason="is_causal and use_attn_mask not supported together")
-    if softmax_mode == "fast" and is_causal == False:
+    if softmax_mode == "fast" and is_causal is False:
         pytest.skip(reason="In training, fast softmax is supported only in Triangular mask case")
     if fp8_format == Format.E5M2:
         pytest.xfail(reason="SW-189599 sdpa_fp8 support for E5M2")
@@ -1593,7 +1593,7 @@ def test_te_fused_sdpa(
         attn_mask_hpu = None
 
     if use_attn_mask:
-        assert is_causal == False, " use_attn_mask and is_causal can not be True at the same time"
+        assert is_causal is False, " use_attn_mask and is_causal can not be True at the same time"
 
     # ------------------------------- Vanilla SDPA implementation on CPU for test----------------------------
 
@@ -1646,7 +1646,7 @@ def test_te_fused_sdpa(
         print("bwd scale_inv       ", fp8_meta["scaling_bwd"].scale_inv)
 
     def compare_fp8_meta(fp8_meta, fp8_meta_ref, fp8_format):
-        if fp8_format == None:
+        if fp8_format is None:
             return
         assert torch.equal(fp8_meta["scaling_fwd"].amax_history, fp8_meta_ref["scaling_fwd"].amax_history)
         assert torch.equal(fp8_meta["scaling_fwd"].amax_history_index, fp8_meta_ref["scaling_fwd"].amax_history_index)
@@ -2124,4 +2124,4 @@ def test_te_amax_measure_state_perf(
     is_current_faster = compare_performance(
         function_=output_linear.module.get_amax_measure_state, linear=output_linear, reference_time=avg_time_old
     )
-    assert is_current_faster, f"Current implementation is slower than previous"
+    assert is_current_faster, "Current implementation is slower than previous"

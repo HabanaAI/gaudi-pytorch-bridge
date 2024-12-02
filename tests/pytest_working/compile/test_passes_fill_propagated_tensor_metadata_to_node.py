@@ -33,4 +33,4 @@ def test_fill_propagated_tensor_metadata_to_node():
     compiled_model = torch.compile(model, backend="hpu_backend", dynamic=True)
     # forced dynamic compilation forces occurence of SymBool in this mini example as internal output type
     retval = compiled_model(2, 3)
-    assert retval == False
+    assert retval is False

@@ -71,8 +71,8 @@ def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
     grad_t1_h = t1_h.grad.cpu()
     grad_t2_h = t2_h.grad.cpu()
 
-    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3), f"Data mismatch"
-    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3), f"Data mismatch"
+    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3), "Data mismatch"
+    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3), "Data mismatch"
 
 
 @pytest.mark.parametrize("size1, size2", matmul_lazy_list)

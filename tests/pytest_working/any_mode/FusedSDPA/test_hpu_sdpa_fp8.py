@@ -122,12 +122,12 @@ def process_results(results):
 
 def is_fp8_run(fp8_run_out_type, inference, is_amax_s, is_amax_o, is_amax_ds):
     if inference:
-        if is_amax_s == False:
+        if is_amax_s is False:
             return True
 
-        if is_amax_o == True:
+        if is_amax_o:
             return False
-        if is_amax_ds == True:
+        if is_amax_ds:
             return False
         return False
     else:
@@ -147,7 +147,7 @@ def get_scale_values(name, t, is_t_amax=False, scale_limit=None):
             return 0.00390625
 
     FP8_MAX_143 = 240 * 0.9
-    if is_t_amax == False:
+    if is_t_amax is False:
         maxT = torch.max(torch.abs(t)).to(torch.float).item()
     else:
         maxT = t.item()
@@ -167,7 +167,7 @@ def get_scale_values(name, t, is_t_amax=False, scale_limit=None):
     vb_print(name, ": Inv scale", scaleTInv)
 
     # scale_limit = 1.0
-    if scale_limit != None and is_gaudi3():
+    if scale_limit is not None and is_gaudi3():
         scaleT_pow2 = scale_limit
         scaleTInv = 1.0 / scaleT_pow2
         vb_print(name, ": after limiting : scale pow2", scaleT_pow2)
@@ -295,21 +295,21 @@ def vanilla_attention_impl_for_test(
 
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
-    if scale == None:
+    if scale is None:
         scores = scores / sqrt_dim_head
     else:
         scores = scores * scale
 
     if attn_mask is not None:
         if attn_mask.dtype == torch.bool:
-            scores.masked_fill_(attn_mask == False, -float("inf"))
+            scores.masked_fill_(attn_mask == 0, -float("inf"))
         else:
             scores = scores + attn_mask
     elif is_causal:
         seq_len_N_t = query.shape[-2]
         seq_len_N_s = key.shape[-2]
         attn_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=torch.bool).tril(diagonal=0)
-        scores.masked_fill_(attn_mask == False, LNEG)
+        scores.masked_fill_(attn_mask == 0, LNEG)
 
     weight = F.softmax(scores, dim=-1)
     fwd_out = torch.matmul(weight, value)
@@ -321,7 +321,7 @@ def vanilla_attention_impl_for_test(
 
 
 def vanilla_attention_impl_bwd_for_test(grad, query, key, value, P, scale=None, is_amax_ds=False):
-    if scale == None:
+    if scale is None:
         scale = 1.0 / (query.shape[-1] ** 0.5)
 
     dV = torch.matmul(P.transpose(-2, -1), grad)
@@ -411,7 +411,7 @@ def is_param_combo_valid(
         # In non-recomp inference case, there is an acc diff in non triangular mask case.
         # To be checked if it is an actual issue.
         if inference:
-            if is_causal == False:
+            if is_causal is False:
                 return False
     if not recompute and is_scalar_run:
         return False
@@ -423,7 +423,7 @@ def is_param_combo_valid(
     # fp8 mode supports only inference in Triangular and Non-Triangular mask mode
     # But training is supported only in Triangular mask mode as of now.
     if not inference:
-        if is_causal == False:
+        if is_causal is False:
             return False
 
     # fp8 mode supports only recompute mode as of now.
@@ -438,7 +438,7 @@ def is_param_combo_valid(
         return False
 
     # Fp8 measurement or  supported only if tensors are bf16 before convert to fp8
-    if enable_autocast == False:
+    if enable_autocast is False:
         return False
 
     is_amax = is_amax_s or is_amax_o
@@ -455,11 +455,11 @@ def is_param_combo_valid(
             return False
 
         if is_amax_s:
-            if fp8_run == True:
+            if fp8_run:
                 return False
 
         if fp8_run:
-            if is_amax_s == True:
+            if is_amax_s:
                 return False
             # fp8 run in inference has fast softmax internally.
             # So do not set from test.
@@ -903,6 +903,8 @@ tc_list_copy_tensor = [list(item) for item in tc_list_copy_tensor]
 [item.append(False) for item in tc_list_copy_tensor]
 
 tc_list = tc_list_copy_scalar + tc_list_copy_tensor
+
+
 # DONOT remove following line: re-enable black formatting
 # fmt: on
 @pytest.mark.parametrize(
@@ -1036,7 +1038,7 @@ def test_sdpa(
     fp8_run = is_fp8_run(fp8_run_out_type, inference, is_amax_s, is_amax_o, is_amax_ds)
 
     if is_amax_s and inference:
-        assert fp8_run == False, "Fp8 measurement and run can not be True at the same time in inference"
+        assert fp8_run is False, "Fp8 measurement and run can not be True at the same time in inference"
 
     amax_s_ref = None
     amax_ds_ref = None
@@ -1155,7 +1157,7 @@ def test_sdpa(
         attn_mask_hpu = None
 
     if use_attn_mask:
-        assert is_causal == False, " use_attn_mask and is_causal can not be True at the same time"
+        assert is_causal is False, " use_attn_mask and is_causal can not be True at the same time"
 
     # Set the env. var to enable batchsize/Num heads slicing if needed.
     if rhslice:
@@ -1274,14 +1276,14 @@ def test_sdpa(
     vb_print("\n")
     O_hpu_c = O_hpu.detach().to("cpu")
     vb_print("DPA output dtype from HPU = ", O_hpu_c.dtype)
-    if fp8_run and fp8_run_out_type == "fp8_143" and recompute == True:
+    if fp8_run and fp8_run_out_type == "fp8_143" and recompute:
         O_hpu_c = O_hpu_c.to(q_t.dtype) / q_scale_o_copy.to("cpu").to(q_t.dtype)
 
     if is_amax_s:
         amax_s_hpu_c = amax_s.detach().to("cpu")
         vb_print("cpu amax_s = ", amax_s_ref)
         vb_print("hpu amax_s = ", amax_s_hpu_c)
-    if is_amax_o and inference == False and recompute == True:
+    if is_amax_o and inference is False and recompute:
         amax_o_hpu_c = amax_o.detach().to("cpu")
         vb_print("cpu amax_o = ", amax_o_ref)
         vb_print("hpu amax_o = ", amax_o_hpu_c)
@@ -1300,7 +1302,7 @@ def test_sdpa(
         },
         {
             "name": "amax_o",
-            "compare": is_amax_o and inference == False and recompute == True,
+            "compare": is_amax_o and inference is False and recompute,
             "assert": True,
             "t_cpu": amax_o_ref,
             "t_hpu": amax_o_hpu_c,
@@ -1328,7 +1330,7 @@ def test_sdpa(
     if recompute:
         return
 
-    # if test_backward == False:
+    # if test_backward is False:
     #    return
 
     with torch.autocast(device_type="cpu", dtype=torch.bfloat16, enabled=enable_autocast):
@@ -1373,7 +1375,7 @@ def test_sdpa(
     q_scale_s = None
     q_scale_ds = scaledS_hpu
 
-    if attention_scale == None:
+    if attention_scale is None:
         scale = q_hpu.shape[-1] ** 0.5
         scale = 1.0 / scale
     else:

@@ -45,7 +45,7 @@ def test_hpu_norm(shape, dim, keepdim, p, dtype):
         else:
             return torch.norm(input, p=p, dim=dim, keepdim=keepdim, dtype=dtype)
 
-    input_dtype = dtype if dtype != None else torch.bfloat16
+    input_dtype = dtype if dtype is not None else torch.bfloat16
     if p == "nuc":
         input_dtype = torch.float
 

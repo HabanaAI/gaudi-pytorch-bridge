@@ -130,7 +130,7 @@ class MetricTextWriter(MetricWriter):
             f"Metric name: {name}\n",
             f"Triggered by: {dump_trigger}\n",
             f"Generated on: {timestamp}\n",
-            f"Statistics:\n",
+            "Statistics:\n",
             *[f"\t{stat_name}: {stat_value}\n" for stat_name, stat_value in stats],
             "\n",
         ]

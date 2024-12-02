@@ -610,7 +610,7 @@ def test_fill():
 # https://jira.habana-labs.com/browse/SW-152023
 @pytest.mark.skip(reason="We are to fix SW-152023 to get pass")
 def test_view_split_op_int64_default():
-    assert bc.get_pt_enable_int64_support() == False
+    assert bc.get_pt_enable_int64_support() is False
     t = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.int64)
     t1 = t.to("hpu")
     assert list(t1[1:3].to("cpu")) == list(t[1:3])
@@ -619,7 +619,7 @@ def test_view_split_op_int64_default():
 @pytest.mark.skip(reason="SW-203898")
 def test_view_split_op_int64_enabled():
     with bc.env_setting("PT_ENABLE_INT64_SUPPORT", True):
-        assert bc.get_pt_enable_int64_support() == True
+        assert bc.get_pt_enable_int64_support() is True
         t = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.int64)
         t1 = t.to("hpu")
         assert list(t1[1:3].to("cpu")) == list(t[1:3])
@@ -630,7 +630,7 @@ def test_view_split_op_int64_enabled():
 @pytest.mark.skip(reason="We are to fix SW-152023 to get pass")
 def test_view_split_op_int64_disabled():
     with bc.env_setting("PT_ENABLE_INT64_SUPPORT", False):
-        assert bc.get_pt_enable_int64_support() == False
+        assert bc.get_pt_enable_int64_support() is False
         t = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.int64)
         t1 = t.to("hpu")
         assert list(t1[1:3].to("cpu")) == list(t[1:3])

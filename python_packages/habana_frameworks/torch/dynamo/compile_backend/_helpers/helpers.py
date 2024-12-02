@@ -313,7 +313,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     node.meta["output_offset"] = output_offset  # list expected
 
     if bc.get_pt_hpu_use_jit_fork():
-        logger.debug(f'Filling metadata "valX" for Lowering pass')
+        logger.debug('Filling metadata "valX" for Lowering pass')
         with torch._subclasses.fake_tensor.FakeTensorMode():
             meta_output_vals = []
             for i in range(len(dtypes)):

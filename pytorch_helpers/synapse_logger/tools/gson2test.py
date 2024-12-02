@@ -662,13 +662,13 @@ class Flow:
                         fields["m_sizes"] = f"dims{no}"
                         if "const" in args:
                             if "data_offset" in args:
-                                fields["m_ptr"] = f"data_adr + " + str(args["data_offset"])
+                                fields["m_ptr"] = "data_adr + " + str(args["data_offset"])
                             else:
                                 out(f"std::vector<uint8_t> tensor_descriptor_{no}_buffer({args['byte_size']}, 0);")
                                 out(f"uint8_t* tensor_descriptor_{no}_data = tensor_descriptor_{no}_buffer.data();")
                                 fields["m_ptr"] = f"tensor_descriptor_{no}_data"
                         else:
-                            fields["m_ptr"] = f"nullptr"
+                            fields["m_ptr"] = "nullptr"
                         fields = ", ".join(f"/*.{k}*/{v}" for k, v in fields.items())
                         v = space.memory.add(
                             args["at"],

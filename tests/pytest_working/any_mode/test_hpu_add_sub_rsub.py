@@ -59,7 +59,7 @@ def test_hpu(scalar, shape, alpha, dtype, op):
 
     cpu_input_tensor, hpu_input_tensor = generate_tensors(shape, dtype)
 
-    if scalar == None:
+    if scalar is None:
         cpu_other, hpu_other = generate_tensors(shape, dtype)
     else:
         # comparison is always done with float (even for integral dtype) due to this issue:

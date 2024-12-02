@@ -39,7 +39,7 @@ class TestHpuSpecialXlog1py:
     @staticmethod
     def test_hpu_special_xlog1py(shapes, in_place_out, dtype):
         def fn(input, other, out=None):
-            if out == None:
+            if out is None:
                 return torch.special.xlog1py(input, other)
             else:
                 torch.special.xlog1py(input, other, out=out)
