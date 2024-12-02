@@ -4363,29 +4363,6 @@ void setTensorDim(at::Tensor& tensor, int64_t n) {
   THHTensor_resizeNd(reshaped, shape.size(), shape.data(), nullptr);
   tensor.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(shape));
 }
-#if IS_PYTORCH_OLDER_THAN(2, 1)
-Tensor& randperm_hpu_lazy(
-    int64_t n,
-    c10::optional<Generator> gen,
-    Tensor& output) {
-  PT_LAZY_TRACE;
-  auto seed = habana::get_seed_tensor_hpu(gen);
-  // resizing the output as it is coming as empty from model
-  setTensorDim(output, n);
-
-  // Currently synapse support dynamic shape arange only for int datatypes.
-  // For any other output datatype, will fallback to normal flow.
-  if (habana_helpers::GetRefineDynamicShapeStatus() &&
-      (output.scalar_type() == c10::ScalarType::Int ||
-       output.scalar_type() == c10::ScalarType::Long)) {
-    return randperm_hpu_lazy_ht(output, n, seed);
-  } else {
-    LazyOp<Tensor&> op{
-        "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {{n}}};
-    RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
-  }
-}
-#else
 Tensor& randperm_hpu_lazy(
     c10::SymInt n_,
     c10::optional<Generator> gen,
@@ -4427,7 +4404,7 @@ Tensor randperm_nogen_hpu_lazy(
   out_t = randperm_hpu_lazy(n, c10::nullopt, out_t);
   return out_t.to(dtype.value_or(c10::ScalarType::Int));
 }
-#endif
+
 at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;
   std::vector<at::IValue> vector_of_inputs;

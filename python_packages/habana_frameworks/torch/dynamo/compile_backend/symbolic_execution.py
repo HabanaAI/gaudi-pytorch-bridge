@@ -33,12 +33,8 @@ torch_sympy_functions = {}
 
 
 def substitute_sympyfn(expr):
-    from packaging.version import Version
-
-    if Version(Version(torch.__version__).base_version) < Version("2.4"):
-        return expr
-
     import torch.utils._sympy.functions as functions
+    from packaging.version import Version
     from torch.utils._sympy.functions import CeilToInt, TruncToInt
 
     def get_torch_sympy_functions():

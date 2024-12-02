@@ -20,7 +20,7 @@
 #include <future>
 #include <map>
 
-#include <pt_ver/2.2/torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
+#include <torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch/csrc/distributed/c10d/Types.hpp>
 #include "backend/helpers/collective_utils.h"

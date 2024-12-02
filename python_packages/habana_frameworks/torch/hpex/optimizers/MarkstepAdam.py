@@ -25,14 +25,9 @@ from typing import List, Optional, Tuple, Union
 import torch
 from packaging.version import Version
 from torch import Tensor
-
-if Version(torch.__version__) >= Version("2.1.2"):
-    from torch.optim.optimizer import ParamsT
-else:
-    from torch.optim.optimizer import params_t as ParamsT
-
 from torch.optim.optimizer import (
     Optimizer,
+    ParamsT,
     _capturable_doc,
     _default_to_fused_or_foreach,
     _differentiable_doc,
