@@ -98,7 +98,9 @@ class BlockingQueue {
 template <template <typename> typename Queue, typename Task>
 class ThreadPoolBase {
  public:
-  ThreadPoolBase(bool propagate_exception = false);
+  ThreadPoolBase(
+      bool propagate_exception = false,
+      const std::function<void()>& init_thread = nullptr);
   ~ThreadPoolBase();
 
   template <

@@ -21,11 +21,17 @@
 namespace habana_helpers {
 
 template <template <typename> typename Queue, typename Task>
-ThreadPoolBase<Queue, Task>::ThreadPoolBase(bool propagate_exception)
+ThreadPoolBase<Queue, Task>::ThreadPoolBase(
+    bool propagate_exception,
+    const std::function<void()>& init_thread)
     : stop_(false),
       ex_ptr_(nullptr),
       propagate_exception_(propagate_exception) {
-  thread_ = std::thread(&ThreadPoolBase<Queue, Task>::main_loop, this);
+  thread_ = std::thread([this, init_thread]() {
+    if (init_thread)
+      init_thread();
+    this->main_loop();
+  });
   original_pid_ = getpid();
 }
 
