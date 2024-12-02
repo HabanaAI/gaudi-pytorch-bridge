@@ -7432,6 +7432,12 @@ fp8_gemm_v2.scalar_list:
   op_backend: Fp8GemmV2
   out_ids: [0]
 
+kv_reorder_:
+  custom_op_schema: "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))"
+  guid: kv_reorder_
+  op_backend: KvReorderCommon
+  inplace_ids: [0]
+
 scaled_masked_softmax:
   custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
   custom_fill_params: FillScaledMaskedSoftmaxParams

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <ATen/ATen.h>
 #include <ATen/FunctionalTensorWrapper.h>
@@ -54,7 +54,6 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8(
   auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
   return hpu_op.call(result);
 }
-
 
 at::Tensor& fp8_gemm(
     const at::Tensor& A,
@@ -709,23 +708,6 @@ at::Tensor masked_batch_gemm(
       habana::MaskedBatchGemmOutputShape};
 
   return hpu_op.call();
-}
-
-at::Tensor& kv_reorder_(
-    at::Tensor& self,
-    const at::Tensor& start,
-    const at::Tensor& end,
-    const at::Tensor& beam_idx) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("kv_reorder_ :", DUMP_4ARGS(self, start, end, beam_idx));
-
-  habana::eager::EagerOp<at::Tensor&> hpu_op{
-      "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::Inplace,
-       "hpu::kv_reorder_",
-       decltype(habana::eager::EagerOpMetaData::out_indices_){0}});
-  return hpu_op.call(self);
 }
 
 at::Tensor kv_reorder(
@@ -1733,8 +1715,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
   m.def(
-      "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
-  m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
   m.def(
       "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales = None, Tensor(e!)[]? exp_avg_sq_scales = None) -> ()");
@@ -1904,7 +1884,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::in_place_interleave", in_place_interleave);
   m.impl("hpu::in_place_interleave_", in_place_interleave_);
   m.impl("hpu::kv_reorder", kv_reorder);
-  m.impl("hpu::kv_reorder_", kv_reorder_);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
   m.impl("hpu::optimizer_adamw", optimizer_adamw);
   m.impl("hpu::optimizer_ema", optimizer_ema);

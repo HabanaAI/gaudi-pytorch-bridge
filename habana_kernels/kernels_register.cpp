@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/core/Tensor.h>
 #include <torch/library.h>
 #include "backend/helpers/habana_types.h"
@@ -1757,18 +1757,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
       fwd_out);
 }
 
-at::Tensor& kv_reorder_wrap(
-    at::Tensor& self,
-    const at::Tensor start,
-    const at::Tensor end,
-    const at::Tensor beam_idx) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_4ARGS(self, start, end, beam_idx));
-
-  return kv_reorder_lazy(self, start, end, beam_idx);
-}
-
 at::Tensor& in_place_interleave_wrap(at::Tensor& self) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -2240,8 +2228,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_sdpa_recomp_fwd_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
-  m.def(
-      "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
@@ -2303,7 +2289,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd", fp8_sdpa_recomp_fwd_lazy);
   m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_fwd_scalar_lazy);
   m.impl("hpu::fp8_sdpa_fwd", fp8_sdpa_fwd_wrap);
-  m.impl("hpu::kv_reorder_", kv_reorder_wrap);
   m.impl("hpu::in_place_interleave_", in_place_interleave_wrap);
 }
 

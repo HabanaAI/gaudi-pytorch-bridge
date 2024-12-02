@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
 #include <ATen/native/TypeProperties.h>
@@ -7230,20 +7230,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
       SDPARecompBwdOutputShape};
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_bwd, hpu_op)
-}
-
-at::Tensor& kv_reorder_lazy(
-    at::Tensor& self,
-    const at::Tensor start,
-    const at::Tensor end,
-    const at::Tensor beam_idx) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor&> op{
-      "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
-
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(kv_reorder, op, self)
 }
 
 at::Tensor& in_place_interleave_lazy(at::Tensor& self) {
