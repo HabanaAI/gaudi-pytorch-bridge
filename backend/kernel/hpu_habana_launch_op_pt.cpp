@@ -164,14 +164,9 @@ std::string makeIdStr(const std::string& name, size_t graph_index) {
 std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
     const std::string& name,
     size_t g_index) {
-  if (id_str_ == std::string()) {
-    if (IS_BRIDGE_DEBUG_ENABLED ||
-        GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH)) {
-      id_str_ = makeIdStr(name, g_index);
-    } else {
-      id_str_ = name;
-    }
-  }
+  if (id_str_ == std::string())
+    id_str_ = makeIdStr(name, g_index);
+
   return id_str_;
 }
 
@@ -196,6 +191,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       optimized_jit_graph_and_meta_data->IsUserMarkDynamic();
   optimized_jit_graph_and_meta_data->SetUserMarkDynamic(false);
   range_infos_ = optimized_jit_graph_and_meta_data->GetUserRangesDynamic();
+
+  compile_stats_path_ = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
 
   PT_BRIDGE_DEBUG(
       "Creating : ", SetAndGetSynapseGraphName(name_, graph_index_));
@@ -3707,7 +3704,6 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
 }
 
 void HabanaLaunchOpPT::CreateStaticCompilationDBI(size_t graph_key_with_perm) {
-  std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
 
   if (!HabanaLaunchOpUtils::ref_input_shape_map().count(graph_key_with_perm)) {
     habana_helpers::InpTensorShapes input_tshapes;
@@ -3723,11 +3719,11 @@ void HabanaLaunchOpPT::CreateStaticCompilationDBI(size_t graph_key_with_perm) {
         "\n--------------------");
     HabanaLaunchOpUtils::ref_input_shape_map().emplace(
         graph_key_with_perm, input_tshapes);
-    if (path != "") {
+    if (!compile_stats_path_.empty()) {
       CreateFirstDynamicBucket();
       DumpStaticCompilationStatistics(graph_key_with_perm, true);
     }
-  } else if (path != "") {
+  } else if (!compile_stats_path_.empty()) {
     DumpStaticCompilationStatistics(graph_key_with_perm);
   }
 }
@@ -4074,6 +4070,32 @@ void HabanaLaunchOpPT::CreateFirstDynamicBucket(
   }
 }
 
+void HabanaLaunchOpPT::UpdateRanges(
+    habana_helpers::ResultShapes& ranges,
+    DynamicShapeInfo& graph_input_info) {
+  ranges = current_dbipsh_->CalculateShapes(current_bucket_id_);
+  if (ranges.empty()) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "exact graph with token : ",
+        cur_ds_token_,
+        "\n",
+        "--------------------");
+  } else {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "dynamic graph with token : ",
+        cur_ds_token_,
+        '\n',
+        "Input range ::\n",
+        ranges.DebugString(),
+        "--------------------");
+
+    graph_input_info.min_input_tshapes.insert(
+        ranges.min_shapes.begin(), ranges.min_shapes.end());
+    graph_input_info.max_input_tshapes.insert(
+        ranges.max_shapes.begin(), ranges.max_shapes.end());
+  }
+}
+
 void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
     HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution) {
   PT_BRIDGE_BEGIN;
@@ -4096,7 +4118,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
   if (enable_user_dynamic_ranges_)
     CreateDynamicDBI(graph_key_with_perm_);
-  CreateFirstDynamicBucket(rargpsh_graph);
+
+  current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
+  if (nullptr == current_dbipsh_)
+    CreateFirstDynamicBucket(rargpsh_graph);
 
   DynamicShapeInfo graph_input_info;
   CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
@@ -4119,38 +4144,12 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       current_bucket_id_ =
           current_dbipsh_->GetBucketId(graph_input_info.act_input_tshapes);
     }
-    ranges = current_dbipsh_->CalculateShapes(current_bucket_id_);
   }
 
   cur_ds_token_ = current_dbipsh_->GetTokenForBucketId(current_bucket_id_);
 
   PT_DYNAMIC_SHAPE_DEBUG(
       jit_ir_graph_->toString(), "current bucket id : ", current_bucket_id_);
-  if (ranges.empty()) {
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "exact graph with token : ",
-        cur_ds_token_,
-        "\n",
-        "--------------------");
-  } else {
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "dynamic graph with token : ",
-        cur_ds_token_,
-        '\n',
-        "Input range ::\n",
-        ranges.DebugString(),
-        "--------------------");
-
-    graph_input_info.min_input_tshapes.insert(
-        ranges.min_shapes.begin(), ranges.min_shapes.end());
-    graph_input_info.max_input_tshapes.insert(
-        ranges.max_shapes.begin(), ranges.max_shapes.end());
-  }
-  graph_input_info.current_bucket_id = current_bucket_id_;
-  graph_input_info.min_policy = current_dbipsh_->GetMinPolicy();
-  graph_input_info.max_policy = current_dbipsh_->GetMaxPolicy();
-  habana::ShapeInference::SetMinMaxPolicyInUse(
-      graph_input_info.min_policy, graph_input_info.max_policy);
 
   cur_rargpsh_ = std::make_shared<RecipeArgumentSpec>(
       input_refs_,
@@ -4161,9 +4160,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       cur_ds_token_);
   PT_DYNAMIC_SHAPE_DEBUG("cur_rargpsh_ = ", *cur_rargpsh_);
   DynamicBucketInfoMap::get_instance().add(cur_rargpsh_, current_dbipsh_);
-  // Used only for compilation statistics purpose now
-  current_dbipsh_->SetLastUsedStepForBucket(
-      current_bucket_id_, current_dbipsh_->get_statistics()->GetCurrentStep());
 
   // Check for cached recipe
   if (enable_graph_caching_) {
@@ -4193,12 +4189,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       std::unordered_map<int64_t, at::Tensor> tidx_to_tensor_map;
       rv.update_hit_count();
 
-      if (rv.curr_symval_hash_ == curr_symval_hash_) {
-        is_symval_changed_from_prev_ = false;
-      } else {
-        rv.curr_symval_hash_ = curr_symval_hash_;
-      }
-
       if (rv.dynamic_graph) {
         // For Dynamic shapes in case of cache hit, we need to run
         // shape inference for determining the output shape and
@@ -4220,6 +4210,17 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
         PT_DYNAMIC_SHAPE_DEBUG(
             "Cached recipe's dynamic shape enable symbolic output sif value: ",
             cached_enable_optim_output_sif)
+
+        bool is_symval_changed_from_prev = true;
+        if (enable_optim_output_sif_) {
+          if (rv.curr_symval_hash_ == curr_symval_hash_) {
+            is_symval_changed_from_prev = false;
+          } else {
+            rv.curr_symval_hash_ = curr_symval_hash_;
+            CreateValueToIvalueMapForInputs();
+            ProcessGraphForConstantTensors(*jit_ir_graph_, value_to_ivalue_);
+          }
+        }
 
         PT_DYNAMIC_SHAPE_DEBUG("Running output shape inference pass");
         if (enable_fast_shape_inf_ && GET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF)) {
@@ -4246,16 +4247,27 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
           RunHybridSif<dynamic_shapes_true>(tidx_to_tensor_map);
           PT_DYNAMIC_SHAPE_DEBUG("HybridSif_END");
         } else {
-          PT_DYNAMIC_SHAPE_DEBUG("OutputSif_BEGIN");
-          try_run_shape_inference(
-              ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
-          PT_DYNAMIC_SHAPE_DEBUG("OutputSif_END");
+          if (is_symval_changed_from_prev) {
+            PT_DYNAMIC_SHAPE_DEBUG("OutputSif_BEGIN");
+            try_run_shape_inference(
+                ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
+            PT_DYNAMIC_SHAPE_DEBUG("OutputSif_END");
+          } else {
+            PT_DYNAMIC_SHAPE_DEBUG(
+                "Skipping OUTPUT_PASS SIF as symbol values have not changed from previous run!!");
+          }
         }
         current_dbipsh_->SetInputMetaData(*pt_stack_, current_bucket_id_);
-        bool refine_candidate =
-            (current_dbipsh_->GetMFUBucket() == current_bucket_id_);
-        current_dbipsh_->get_statistics()->LogUsedBucket(
-            current_bucket_id_, jit_ir_graph_, ranges, refine_candidate);
+        if (!compile_stats_path_.empty()) {
+          current_dbipsh_->SetLastUsedStepForBucket(
+              current_bucket_id_,
+              current_dbipsh_->get_statistics()->GetCurrentStep());
+          bool refine_candidate =
+              (current_dbipsh_->GetMFUBucket() == current_bucket_id_);
+          UpdateRanges(ranges, graph_input_info);
+          current_dbipsh_->get_statistics()->LogUsedBucket(
+              current_bucket_id_, jit_ir_graph_, ranges, refine_candidate);
+        }
       }
 
       UpdatePatchingInformation(
@@ -4293,46 +4305,54 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
             current_dbipsh_->digest_str(), current_dbipsh_->history_str());
         PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
 
-        current_dbipsh_->get_statistics()->LogSelectedRecipe(
-            cur_rargpsh_->hashCode(), 0);
-        current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
-        current_dbipsh_->get_statistics()->LogShapes(
-            jit_ir_graph_, graph_input_info.act_input_tshapes);
+        if (!compile_stats_path_.empty()) {
+          current_dbipsh_->get_statistics()->LogSelectedRecipe(
+              cur_rargpsh_->hashCode(), 0);
+          current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
+          current_dbipsh_->get_statistics()->LogShapes(
+              jit_ir_graph_, graph_input_info.act_input_tshapes);
 
-        auto t_ns_base{current_dbipsh_->GetTimeBase(current_bucket_id_)};
-        auto t_ns{current_dbipsh_->GetTime(current_bucket_id_)};
+          auto t_ns_base{current_dbipsh_->GetTimeBase(current_bucket_id_)};
+          auto t_ns{current_dbipsh_->GetTime(current_bucket_id_)};
 
-        current_dbipsh_->get_statistics()->LogLaunchBase(t_ns_base, 0);
-        current_dbipsh_->get_statistics()->LogLaunch(t_ns, 0);
-        current_dbipsh_->get_statistics()->LogLaunchPerf(t_ns_base, t_ns, 0);
-        if (t_ns && t_ns_base) {
-          habana_helpers::DynamicBucketInfo::update_improvement_map(
-              cur_rargpsh_->hashCode(), (t_ns < t_ns_base));
+          current_dbipsh_->get_statistics()->LogLaunchBase(t_ns_base, 0);
+          current_dbipsh_->get_statistics()->LogLaunch(t_ns, 0);
+          current_dbipsh_->get_statistics()->LogLaunchPerf(t_ns_base, t_ns, 0);
+
+          if (t_ns && t_ns_base) {
+            habana_helpers::DynamicBucketInfo::update_improvement_map(
+                cur_rargpsh_->hashCode(), (t_ns < t_ns_base));
+          }
+          current_dbipsh_->get_statistics()->GetDigest(
+              cur_rargpsh_->graphHashCode(),
+              current_bucket_id_,
+              cur_ds_token_,
+              cur_rargpsh_->hashCode(),
+              true);
+
+          current_dbipsh_->get_statistics()->DumpAndNextStep();
         }
-        current_dbipsh_->get_statistics()->GetDigest(
-            cur_rargpsh_->graphHashCode(),
-            current_bucket_id_,
-            cur_ds_token_,
-            cur_rargpsh_->hashCode(),
-            true);
-
-        current_dbipsh_->get_statistics()->DumpAndNextStep();
         ClearMembers();
         ClearStatics();
       } else {
         PT_DYNAMIC_SHAPE_DEBUG("Cache hit pipeline flow");
-        current_dbipsh_->get_statistics()->LogSelectedRecipe(
-            cur_rargpsh_->hashCode(), 0);
-        current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
-        current_dbipsh_->get_statistics()->LogShapes(
-            jit_ir_graph_, graph_input_info.act_input_tshapes);
-        current_dbipsh_->get_statistics()->GetDigest(
-            cur_rargpsh_->graphHashCode(),
-            current_bucket_id_,
-            cur_ds_token_,
-            cur_rargpsh_->hashCode(),
-            true);
-        current_dbipsh_->get_statistics()->DumpAndNextStep();
+        if (!compile_stats_path_.empty()) {
+          current_dbipsh_->SetLastUsedStepForBucket(
+              current_bucket_id_,
+              current_dbipsh_->get_statistics()->GetCurrentStep());
+          current_dbipsh_->get_statistics()->LogSelectedRecipe(
+              cur_rargpsh_->hashCode(), 0);
+          current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
+          current_dbipsh_->get_statistics()->LogShapes(
+              jit_ir_graph_, graph_input_info.act_input_tshapes);
+          current_dbipsh_->get_statistics()->GetDigest(
+              cur_rargpsh_->graphHashCode(),
+              current_bucket_id_,
+              cur_ds_token_,
+              cur_rargpsh_->hashCode(),
+              true);
+          current_dbipsh_->get_statistics()->DumpAndNextStep();
+        }
         execution_control_.cached_task(graph_key_with_perm_);
         pipeline_execution();
       }
@@ -4345,6 +4365,18 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
     }
   }
 
+  if (enable_optim_output_sif_) {
+    CreateValueToIvalueMapForInputs();
+    ProcessGraphForConstantTensors(*jit_ir_graph_, value_to_ivalue_);
+  }
+
+  graph_input_info.current_bucket_id = current_bucket_id_;
+  graph_input_info.min_policy = current_dbipsh_->GetMinPolicy();
+  graph_input_info.max_policy = current_dbipsh_->GetMaxPolicy();
+  habana::ShapeInference::SetMinMaxPolicyInUse(
+      graph_input_info.min_policy, graph_input_info.max_policy);
+
+  UpdateRanges(ranges, graph_input_info);
   CompileAndRunDynamicGraph(graph_input_info, pipeline_execution);
   ival_hash_to_input_index_map_.clear();
 
@@ -4895,9 +4927,9 @@ void HabanaLaunchOpPT::run(
       ", is dynamic : ",
       refine_ds_enabled_);
 
-  if (enable_optim_output_sif_) {
-    DumpSymbolValueMap(in_symbol_value_map_);
-  }
+  // if (enable_optim_output_sif_) {
+  //   DumpSymbolValueMap(in_symbol_value_map_);
+  // }
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
     if (maybe_static_recipe_ &&
@@ -4986,8 +5018,10 @@ void HabanaLaunchOpPT::run(
   }
   // eager and graph recipe caching :: end
 
-  CreateValueToIvalueMapForInputs();
-  ProcessGraphForConstantTensors(*jit_ir_graph_, value_to_ivalue_);
+  if (maybe_static_recipe_) {
+    CreateValueToIvalueMapForInputs();
+    ProcessGraphForConstantTensors(*jit_ir_graph_, value_to_ivalue_);
+  }
 
   if (enable_shape_agnostic_caching_) {
     ValidateInputsAndOutputsAndDisableSA(input_refs_);
@@ -5558,12 +5592,7 @@ void HabanaLaunchOpPT::run_pass() {
   if (enable_optim_output_sif_ &&
       habana::ShapeInference::GetCurrentPass() ==
           habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
-    if (is_symval_changed_from_prev_) {
-      BuildSynapseGraphLite(syn_graph, cache);
-    } else {
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "Skipping OUTPUT_PASS SIF as symbol values have not changed from previous run!!");
-    }
+    BuildSynapseGraphLite(syn_graph, cache);
   } else {
     CreateValueToIvalueMapForInputs();
     habana_helpers::createGraphInputStackIndexMap(

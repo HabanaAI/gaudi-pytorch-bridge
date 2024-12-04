@@ -225,7 +225,7 @@ GraphExec::GraphExec(
 
     // Check if any of the symbols where replaced with concrete values.
     // If then, make the m_sym_expr_hash invalid.
-    bool invalid_symbols = HasInvalidDynanmicSymbols();
+    bool invalid_symbols = HasInvalidDynamicSymbols();
     if (invalid_symbols) {
       m_sym_expr_hash = ULONG_MAX;
       PT_DYNAMIC_SHAPE_DEBUG(
@@ -621,15 +621,20 @@ void GraphExec::UpdateSeedTensors(torch::jit::Stack& stack) {
   }
 }
 
-bool GraphExec::HasInvalidDynanmicSymbols() {
+bool GraphExec::HasInvalidDynamicSymbols() {
   bool invalid_symbol = false;
 
   for (auto it = m_in_symbol_idx_map.begin(); it != m_in_symbol_idx_map.end();
        ++it) {
     if (std::isdigit(it->first[0])) {
-      PT_DYNAMIC_SHAPE_DEBUG("key:", it->first, ", value:", it->second);
-      invalid_symbol = true;
-      break;
+      size_t pos = 0;
+      std::stod(it->first, &pos);
+      // invalid symbol if it's completely numeric
+      if (pos == it->first.size()) {
+        PT_DYNAMIC_SHAPE_DEBUG("key:", it->first, ", value:", it->second);
+        invalid_symbol = true;
+        break;
+      }
     }
   }
 

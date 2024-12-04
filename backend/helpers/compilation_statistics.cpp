@@ -121,7 +121,7 @@ std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
     size_t hash_code) {
   std::unique_ptr<CompilationStatistics> result;
   std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
-  if (path != "") {
+  if (!path.empty()) {
     if (fs::exists(fs::path(path)) == false) {
       try {
         fs::create_directories(path);

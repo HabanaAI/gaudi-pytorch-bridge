@@ -446,9 +446,7 @@ class HabanaLaunchOpPT {
   // If true, static recipe_arg_spec will be evaluated
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
-  // Is true if symbol value hash changes from the
-  // previous run of the same recipe
-  bool is_symval_changed_from_prev_ = true;
+  std::string compile_stats_path_ = "";
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;
@@ -626,6 +624,9 @@ class HabanaLaunchOpPT {
       std::shared_ptr<torch::jit::Graph>& jit_graph);
   void ResetIShapeUpdateStatus(RecipeValueSpec& rv);
   void InitiateSynlaunchTimeCapture(RecipeLauncher& rv);
+  void UpdateRanges(
+      habana_helpers::ResultShapes& ranges,
+      DynamicShapeInfo& graph_input_info);
   void ProcessHabanaFusedOpWithDS(
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution);
   void CreateFirstDynamicBucket(

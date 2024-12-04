@@ -210,7 +210,8 @@ size_t ComputeNodeSymOutputHashCode(
     const std::shared_ptr<torch::jit::Graph>& jit_graph) {
   std::hash<std::string> str_hash;
   size_t sym_output_hash_code = 0;
-  bool has_valid_hash = false;
+  bool all_nodes_have_attr = true;
+  bool is_any_node_symbolic = false;
 
   for (auto node : jit_graph->nodes()) {
     if ((torch::jit::prim::Constant != node->kind()) &&
@@ -219,16 +220,17 @@ size_t ComputeNodeSymOutputHashCode(
       std::string shape_str = "";
       if (node->hasAttribute(outputshapes_attr)) {
         shape_str = node->s(outputshapes_attr);
+      } else {
+        all_nodes_have_attr = false;
+        break;
       }
-      bool is_symbolic = habana_helpers::is_symbolic_expr(shape_str);
-      has_valid_hash = is_symbolic || (shape_str == "") ||
-          (shape_str.find("[]") != std::string::npos);
+      is_any_node_symbolic |= habana_helpers::is_symbolic_expr(shape_str);
       sym_output_hash_code =
           at::hash_combine(sym_output_hash_code, str_hash(shape_str));
     }
   }
 
-  if (!has_valid_hash) {
+  if (!(is_any_node_symbolic && all_nodes_have_attr)) {
     sym_output_hash_code = ULONG_MAX;
     PT_DYNAMIC_SHAPE_DEBUG(
         "Symbolic expressions doesnot contain real symbols, dynamic symbolic hash is invalid!!!");
