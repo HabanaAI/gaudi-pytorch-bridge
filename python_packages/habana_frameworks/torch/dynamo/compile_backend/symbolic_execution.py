@@ -22,10 +22,16 @@ import sys
 import sympy
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from packaging.version import Version
 from symengine import sympify as sympify_engine
 from sympy import Function, sympify
 from sympy.printing.printer import Printer
-from torch._inductor.codegen.common import ExprPrinter as ExprPrinterPT
+
+if Version(Version(torch.__version__).base_version) < Version("2.6.0"):
+    from torch._inductor.codegen.common import ExprPrinter as ExprPrinterPT
+else:
+    from torch.utils._sympy.printers import ExprPrinter as ExprPrinterPT
+
 
 logger = get_compile_backend_logger()
 
