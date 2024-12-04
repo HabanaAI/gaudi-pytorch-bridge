@@ -829,42 +829,6 @@ void accumulate_grads_(
   }
 }
 
-at::Tensor convert_from_int4_common(
-    const std::string& op_name,
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const c10::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(op_name + " :", DUMP_4ARGS(input, scale, zero_point, out_dtype));
-
-  auto output_shape = input.sizes().vec();
-  output_shape.back() *= 8;
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::" + op_name, {input, scale, zero_point, out_dtype}, {output_shape}};
-  hpu_op.set_scalar_types({out_dtype});
-  return hpu_op.call();
-}
-
-at::Tensor convert_from_int4(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const c10::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype) {
-  return convert_from_int4_common(
-      "convert_from_int4", input, scale, zero_point, out_dtype);
-}
-
-at::Tensor convert_from_uint4(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const c10::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype) {
-  return convert_from_int4_common(
-      "convert_from_uint4", input, scale, zero_point, out_dtype);
-}
-
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
@@ -1878,8 +1842,6 @@ TORCH_LIBRARY(hpu, m) {
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::accumulate_grads_", accumulate_grads_);
   m.impl("hpu::cast_to_fp8", cast_to_fp8);
-  m.impl("hpu::convert_from_int4", convert_from_int4);
-  m.impl("hpu::convert_from_uint4", convert_from_uint4);
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::in_place_interleave", in_place_interleave);
   m.impl("hpu::in_place_interleave_", in_place_interleave_);
