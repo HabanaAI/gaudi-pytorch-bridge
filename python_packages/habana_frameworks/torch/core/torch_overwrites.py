@@ -220,6 +220,7 @@ def overwrite_torch_functions():
         store=None,
         group_name="",
         pg_options=None,
+        device_id=None,
     ):
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
@@ -228,14 +229,7 @@ def overwrite_torch_functions():
             ranks_cache[backend] = {}
             if len(ranks_cache[backend]) == 0:
                 init_process_group_orig(
-                    backend,
-                    init_method,
-                    timeout,
-                    world_size,
-                    rank,
-                    store,
-                    group_name,
-                    pg_options,
+                    backend, init_method, timeout, world_size, rank, store, group_name, pg_options, device_id
                 )
             actual_world_size = torch.distributed.distributed_c10d.get_world_size()
             ranks_tuple = tuple(list(range(0, actual_world_size)))
