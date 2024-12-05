@@ -221,7 +221,7 @@ OutputMetaDataVector Maxpool3dWithIndicesMeta(const at::Stack& stack) {
 SharedMetaDataVector MaxPool2DWithIndicesFwdSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  return MaxPoolWithIndicesFwdSharedMeta(stack, "pt_maxpool_2d_fwd");
+  return MaxPoolWithIndicesFwdSharedMeta(stack, "maxpool_2d_fwd");
 }
 
 SharedMetaDataVector MaxPool2DWithIndicesBwdSharedMeta(
@@ -486,20 +486,19 @@ void MaxPool2DWithIndices::AddNode(
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   } else {
     SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHN},
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHN});
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHC});
   }
-
   auto maxPool2d = BuildOp(
       graph,
       GetGuid(),
       {syn_in(0)},
-      {{meta.shape, meta.dtype, 0}, {meta.shape, at::kLong, 1}},
+      {{meta.shape, at::kLong, 1}, {meta.shape, meta.dtype, 0}},
       params.get(),
       size);
-  syn_out(0) = std::move(maxPool2d[0]);
-  syn_out(1) = std::move(maxPool2d[1]);
+  syn_out(0) = std::move(maxPool2d[1]);
+  syn_out(1) = std::move(maxPool2d[0]);
 }
 
 // Since the out varriant intices tensor has some issue

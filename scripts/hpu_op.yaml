@@ -4323,7 +4323,7 @@ fmax.out:
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
   output_meta: MaxPool2DMeta
-  guid: pt_maxpool_2d_fwd
+  guid: maxpool_2d_fwd
   op_backend: MaxPool2DWithIndices
   op_validator: MaxPool2DWithIndicesFwdSharedMeta
   op_frontend: LazyMaxPool
@@ -4332,7 +4332,7 @@ max_pool2d_with_indices:
 max_pool2d_with_indices.out:
   custom_fill_params: FillSpatialReduction2DParamsFwd
   output_meta: MaxPool2DMeta
-  guid: pt_maxpool_2d_fwd
+  guid: maxpool_2d_fwd
   op_backend: MaxPool2DWithIndices
   op_validator: MaxPool2DWithIndicesFwdSharedMeta
 
