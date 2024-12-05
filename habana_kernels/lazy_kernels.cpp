@@ -42,6 +42,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/hpu_stage_submission.h"
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/ops/cast_ops.h"
@@ -5342,7 +5343,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   PT_LAZY_TRACE;
 
   habana_lazy::NoAccThread no_acc_thread;
-
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
   if (self.numel() == 0) {
     auto result_ = empty_hpu_lazy(
         self.sizes(), self.options(), self.suggest_memory_format(), true);
