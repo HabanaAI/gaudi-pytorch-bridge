@@ -32,16 +32,6 @@
   },
   "pt_versions": {
     "previous": {
-      "version": "2.4.1",
-      "default_source": "build",
-      "extras": {
-        "torchvision": "v0.19.0",
-        "torchaudio": "v2.4.0",
-        "torchtext": "v0.18.0",
-        "torchdata": "v0.8.0"
-      }
-    },
-    "current": {
       "version": "2.5.1",
       "default_source": "build",
       "extras": {
@@ -51,15 +41,26 @@
         "torchdata": "v0.9.0"
       }
     },
-    "next": {
+    "current": {
       "version": "2.6.0",
       "default_source": "build",
       "cpu_index_url" : "none",
       "extras": {
-        "torchvision": "v0.21.0-rc3",
-        "torchaudio": "v2.6.0-rc2",
+        "torchvision": "v0.21.0-rc5",
+        "torchaudio": "v2.6.0-rc4",
         "torchtext": "v0.18.0",
         "torchdata": "v0.10.1"
+      }
+    },
+    "next": {
+      "version": "2.7.0",
+      "default_source": "build",
+      "cpu_index_url" : "none",
+      "extras": {
+        "torchvision": "main",
+        "torchaudio": "main",
+        "torchtext": "main",
+        "torchdata": "main"
       }
     },
     "rc": {
@@ -67,7 +68,7 @@
       "default_source": "https://download.pytorch.org/whl/test/cpu"
     },
     "future": {
-      "version": "2.7.0",
+      "version": "2.8.0",
       "default_source": "https://download.pytorch.org/whl/nightly/cpu"
     },
     "nightly": {
