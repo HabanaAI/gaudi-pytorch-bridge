@@ -35,6 +35,7 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/op_logger.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/supported_dtypes.cpp
           ops/as_strided.cpp
+          ops/batch_as_strided.cpp
           ops/bincount.cpp
           ops/empty.cpp
           ops/copy_from.cpp

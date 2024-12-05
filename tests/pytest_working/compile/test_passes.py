@@ -49,6 +49,6 @@ def test_pass_fuse_view_chains():
         results_hpu = fnc_hpu(inp_hpu)
         results_cpu = fnc_cpu(inp_cpu)
     ops_summary = fga.get_ops_summary()
-    assert ops_summary[0]["torch.as_strided"].eager_count == 2
+    assert ops_summary[0]["torch.ops.hpu.batch_as_strided"].eager_count == 1
     for r_hpu, r_cpu in zip(results_hpu, results_cpu):
         torch.allclose(r_hpu.to("cpu"), r_cpu)

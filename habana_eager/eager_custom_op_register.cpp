@@ -28,6 +28,7 @@
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "hpu_ops/sdpa_gen.h"
+#include "ops/batch_as_strided.h"
 
 namespace {
 using habana::to_string; // For DUMP_*ARGS
@@ -1665,6 +1666,8 @@ at::Tensor cdist(
 namespace habana::eager {
 
 TORCH_LIBRARY(hpu, m) {
+  m.def(
+      "hpu::batch_as_strided(Tensor[] inputs, int[][] sizes, int[][] strides, int[]? storage_offsets=None) -> Tensor[]");
   m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");

@@ -184,6 +184,9 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         if node.op == "get_attr":
             return
 
+    if node.meta.get("val") is None:
+        node.meta["val"] = result
+
     result = handle_noncontiguous_output(node, result)
 
     device = None

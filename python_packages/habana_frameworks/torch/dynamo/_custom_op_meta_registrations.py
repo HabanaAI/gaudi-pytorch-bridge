@@ -898,6 +898,11 @@ def meta_exp_fast_math(self):
     return torch.empty_like(self)
 
 
+@register_meta([torch.ops.hpu.batch_as_strided])
+def meta_batch_as_strided(inputs, sizes, strides, storage_offsets=None):
+    return tuple(t.new_empty(sizes[i]) for i, t in enumerate(inputs))
+
+
 @register_meta([torch.ops.hpu.linear.default])
 def linear(input, weight, bias=None):
     out = input.new_empty((input.shape[:-1] + weight.shape[0:-1]), dtype=input.dtype)

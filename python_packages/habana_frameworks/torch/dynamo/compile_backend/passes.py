@@ -39,6 +39,7 @@ from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
 
 from ._helpers import *
+from ._passes.batch_as_strided import pass_batch_as_strided
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
@@ -114,6 +115,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_reorder_allreduce,
             pass_make_symints_available,
             pass_fuse_view_chains,
+            pass_batch_as_strided,
             pass_graph_print,
             pass_wa_fix_output,
         ]
