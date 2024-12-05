@@ -196,7 +196,7 @@ class HabanaGraphModule(torch.nn.Module):
         self._has_randoms = False
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
         self._outputs_batch_data = []
-        self._hash_key = 0
+        self._symval_recipe_id_map = {}
         if self._ds_output_prealloc:
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData((), md[1], md[2]))
@@ -248,14 +248,14 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = batch_empty(self._outputs_batch_data)
 
         # If force_static_compile enabled, recipe will
-        # compile in static flow, even if graph is dynamic
+        # compile in static flow, even if fx-graph is dynamic
+        curr_symval_hash = sys.maxsize
         if self._force_static_compile:
             if self._pholder_symbolic_dict:
-                new_hash_key = calculate_symval_hashcode(inputs, self._pholder_symbolic_dict)
-                # Symbol(s) value changes indicate change in input shapes
-                # So recompilation will be needed
-                if self._hash_key != new_hash_key:
-                    self._hash_key = new_hash_key
+                curr_symval_hash = calculate_symval_hashcode(inputs, self._pholder_symbolic_dict)
+                if curr_symval_hash in self._symval_recipe_id_map:
+                    self._recipe_id = self._symval_recipe_id_map[curr_symval_hash]
+                else:
                     self._recipe_id = None
             elif self._dynamic:
                 # If symbols not properly captured (pholder_symbolic_dict is empty)
@@ -298,7 +298,12 @@ class HabanaGraphModule(torch.nn.Module):
                 range_infos=self._range_list,
                 mark_dynamic=self._mark_dynamic,
             )
+
+            if curr_symval_hash != sys.maxsize:
+                self._symval_recipe_id_map[curr_symval_hash] = self._recipe_id
+
             dump_fx_graph(self._fx_module, graph, self._recipe_id)
+
         elif self._has_randoms:
             inputs = (None, None) + inputs
 
