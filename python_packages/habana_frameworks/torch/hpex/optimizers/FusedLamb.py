@@ -103,8 +103,6 @@ class FusedLamb(Optimizer):
         else:
             super(FusedLamb, self).zero_grad()
 
-    # should remove this decorator after fixing https://jira.habana-labs.com/browse/SW-206476
-    @torch.compiler.disable()
     def step(self, closure=None):
         """Performs a single optimization step.
         Arguments:
@@ -159,6 +157,8 @@ class FusedLamb(Optimizer):
                 adam_step_list,
             ) = ([], [], [], [], [], [], [])
 
+            # should remove this graph break and 3 next graph breaks after fixing https://jira.habana-labs.com/browse/SW-211682
+            torch._dynamo.graph_break()
             htcore.step_closure._mark_step_if_lazy()
 
             for p in group["params"]:
@@ -184,6 +184,7 @@ class FusedLamb(Optimizer):
                 adam_norm_list.append(torch.empty((1,), device=self.device).to(p.dtype))
                 adam_step_list.append(torch.empty_like(exp_avg).to(p.dtype))
 
+            torch._dynamo.graph_break()
             htcore.step_closure._mark_step_if_lazy()
 
             torch.ops.hpu.optimizer_lamb_phase1(
@@ -204,6 +205,7 @@ class FusedLamb(Optimizer):
                 group["weight_decay"],
             )
 
+            torch._dynamo.graph_break()
             htcore.step_closure._mark_step_if_lazy()
 
             torch.ops.hpu.optimizer_lamb_phase2(
@@ -216,4 +218,5 @@ class FusedLamb(Optimizer):
                 self.use_lamb,
             )
 
+            torch._dynamo.graph_break()
             htcore.step_closure._mark_step_if_lazy()
