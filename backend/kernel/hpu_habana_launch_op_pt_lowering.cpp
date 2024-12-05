@@ -105,8 +105,9 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
   }
 }
 
-void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache() {
-  for (auto& el : jit_graph_and_meta_data_->get_permute()) {
+void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache(
+    bool is_dynamic_recipe) {
+  for (auto& el : jit_graph_and_meta_data_->get_permute(is_dynamic_recipe)) {
     auto oit =
         value_to_ivalue_.find(jit_ir_graph_->outputs().at(el.output_index));
     HABANA_ASSERT(oit != value_to_ivalue_.end());

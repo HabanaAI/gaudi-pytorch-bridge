@@ -392,17 +392,30 @@ struct OptimizedJITGraphAndMetaData {
 
   using PermutationInfo = std::vector<PermutationWithOutputPosition>;
 
-  const PermutationInfo& get_permute() const {
-    HABANA_ASSERT(permutation_info_.has_value());
-    return permutation_info_.value();
+  const PermutationInfo& get_permute(bool is_dynamic_recipe = false) const {
+    if (is_dynamic_recipe) {
+      HABANA_ASSERT(permutation_info_dynamic_.has_value());
+      return permutation_info_dynamic_.value();
+    }
+    HABANA_ASSERT(permutation_info_static_.has_value());
+    return permutation_info_static_.value();
   }
 
-  bool is_permute_set() const {
-    return permutation_info_.has_value();
+  bool is_permute_set(bool is_dynamic_recipe = false) const {
+    if (is_dynamic_recipe) {
+      return permutation_info_dynamic_.has_value();
+    }
+    return permutation_info_static_.has_value();
   }
 
-  void store_permutation_info(PermutationInfo&& permutation_info) {
-    permutation_info_ = std::move(permutation_info);
+  void store_permutation_info(
+      PermutationInfo&& permutation_info,
+      bool is_dynamic_recipe = false) {
+    if (is_dynamic_recipe) {
+      permutation_info_dynamic_ = std::move(permutation_info);
+    } else {
+      permutation_info_static_ = std::move(permutation_info);
+    }
   }
 
   SynBuildCache syn_build_cache_;
@@ -484,7 +497,8 @@ struct OptimizedJITGraphAndMetaData {
   bool enable_optim_output_sif_ = false;
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
-  std::optional<PermutationInfo> permutation_info_{};
+  std::optional<PermutationInfo> permutation_info_static_{};
+  std::optional<PermutationInfo> permutation_info_dynamic_{};
   bool is_param_agnostic_supported_ = false;
   CValPtrMap param_jit_val_map_{};
   CValPtrtoIValueMap param_jit_val_to_ivalue_map_{};

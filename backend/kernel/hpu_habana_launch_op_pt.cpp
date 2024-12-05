@@ -5957,12 +5957,16 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
         cur_rargpsh_->hashCode(),
         false);
     current_dbipsh_->get_statistics()->DumpAndNextStep();
-    bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
+    bool is_dynamic_recipe = is_dynamic_graph &&
+        (graph_input_info.min_input_tshapes !=
+         graph_input_info.max_input_tshapes);
+    bool is_permute_data_cached =
+        jit_graph_and_meta_data_->is_permute_set(is_dynamic_recipe);
     if (is_permute_data_cached) {
-      ApplyOutputPermutationsFromCache();
+      ApplyOutputPermutationsFromCache(is_dynamic_recipe);
     } else {
-      permutation_info_saver_ =
-          std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
+      permutation_info_saver_ = std::make_unique<PermutationInfoSaver>(
+          jit_graph_and_meta_data_, is_dynamic_recipe);
     }
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
     pipeline_execution.compile_sync();

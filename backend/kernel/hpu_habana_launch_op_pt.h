@@ -90,20 +90,23 @@ class PassException : public std::exception {
 class PermutationInfoSaver {
  public:
   PermutationInfoSaver(
-      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph)
-      : jit_graph_(jit_graph){};
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
+      bool is_dynamic_recipe = false)
+      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe){};
   void add_permutation(
       uint64_t index,
       synapse_helpers::layouts::MemoryPermutation permutation) {
     permutation_info_.push_back({index, permutation});
   }
   ~PermutationInfoSaver() {
-    jit_graph_->store_permutation_info(std::move(permutation_info_));
+    jit_graph_->store_permutation_info(
+        std::move(permutation_info_), is_dynamic_recipe_);
   }
 
  private:
   OptimizedJITGraphAndMetaData::PermutationInfo permutation_info_;
   std::shared_ptr<OptimizedJITGraphAndMetaData> jit_graph_;
+  bool is_dynamic_recipe_ = false;
 };
 
 struct ExecutionControl {
@@ -223,7 +226,7 @@ class HabanaLaunchOpPT {
   void UpdateSynapsePermutations(
       RecipeValueSpec& rvs,
       const synapse_helpers::graph::recipe_handle& recipe);
-  void ApplyOutputPermutationsFromCache();
+  void ApplyOutputPermutationsFromCache(bool is_dynamic_recipe = false);
   void StoreCompiledInformation(std::shared_ptr<RecipeValueSpec>& rvs);
   void ExecuteSynapse();
   void ExecuteSynapseGraph();

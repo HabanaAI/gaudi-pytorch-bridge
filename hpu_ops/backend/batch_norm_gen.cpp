@@ -665,13 +665,6 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
     moveLastOutputTensorAtFront(*this);
   }
 
-  // [SW-176505] Set allowPermutation=False as GC cannot handle
-  // the case transpose -> reshape -> batchnorm
-  // If not set, GC will add an extra transpose on batchnorm output
-  if (input.pt_t.sizes().size() != 4) {
-    bnOut[0].set_dont_allow_permute(true);
-  }
-
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);
   syn_out(2) = std::move(bnOut[2]);
@@ -773,13 +766,6 @@ void BatchNormNoStatsOpBackend::AddNode(
           params,
           paramsSize,
           outShapes);
-
-  // [SW-176505] Set allowPermutation=False as GC cannot handle
-  // the case transpose -> reshape -> batchnorm
-  // If not set, GC will add an extra transpose on batchnorm output
-  if (input.pt_t.sizes().size() != 4) {
-    bnOut[0].set_dont_allow_permute(true);
-  }
 
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);
@@ -919,13 +905,6 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       meta[INPUT_GRAD_IDX].shape,
       bn_out[INPUT_GRAD_IDX],
       meta[INPUT_GRAD_IDX].dtype);
-
-  // [SW-176505] Set allowPermutation=False as GC cannot handle
-  // the case transpose -> reshape -> batchnorm
-  // If not set, GC will add an extra transpose on batchnorm output
-  if ((meta[INPUT_GRAD_IDX].shape).size() != 4) {
-    bn_out[INPUT_GRAD_IDX].set_dont_allow_permute(true);
-  }
 
   syn_out(INPUT_GRAD_IDX) = std::move(bn_out[0]);
   syn_out(WEIGHT_GRAD_IDX) = std::move(bn_out[2]);
