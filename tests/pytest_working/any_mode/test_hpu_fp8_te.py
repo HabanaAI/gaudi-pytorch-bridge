@@ -1994,7 +1994,7 @@ def test_save_load_te_module_indirectly(
                         assert loaded_extra_state[key][k] == saved_extra_state[key][k]
 
     def print_extra_state(state_dict):
-        if not torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in state_dict.keys():
+        if torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX not in state_dict.keys():
             return None
         extra_state = state_dict[f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX}"]
 

@@ -58,7 +58,7 @@ setuptools.setup(
             "habana_torch_dataloader.egg-info",
         )
     ),
-    classifiers=[  #'License :: Approved ::  License',
+    classifiers=[  # 'License :: Approved ::  License',
         "Programming Language :: Python :: 3",
     ],
 )

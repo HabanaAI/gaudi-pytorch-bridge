@@ -163,7 +163,7 @@ def logs_figure_tid_mapping(events):
     def add_tid(new_tid):
         # when new syn tid comes it can be mapped to any tf thread that is not yet mapped and vice versa
         if new_tid < 20:
-            if not new_tid in tf_tids:
+            if new_tid not in tf_tids:
                 print("new tid: " + str(new_tid))
                 pomap.update(
                     {(stid, new_tid): True for stid in syn_tids.keys()}
@@ -172,7 +172,7 @@ def logs_figure_tid_mapping(events):
                 threads[new_tid] = {"ts": 0, "dur": 0}
             return TF
         else:
-            if not new_tid in syn_tids:
+            if new_tid not in syn_tids:
                 print("new stid: " + str(new_tid))
                 pomap.update({(new_tid, ttid): True for ttid in tf_tids})
                 syn_tids[new_tid] = 0
@@ -248,7 +248,7 @@ def logs_figure_tid_mapping(events):
 
 def apply_mapping(events, mapping):
     for e in events:
-        if not "tid" in e:
+        if "tid" not in e:
             continue
         new_tid = mapping.get(e["tid"], None)
         if new_tid is not None:

@@ -90,11 +90,11 @@ def update_habana_parameter(result):
 def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
     result = self.original__get_attr__(name)
     try:
-        if not name in self.checked_parameters:
+        if name not in self.checked_parameters:
             update_habana_parameter(result)
             self.checked_parameters.add(name)
     except:
-        self.checked_parameters = set(["name"])
+        self.checked_parameters = {"name"}
         update_habana_parameter(result)
     return result
 

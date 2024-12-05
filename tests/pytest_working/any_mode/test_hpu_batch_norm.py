@@ -31,7 +31,7 @@ from test_utils import (
 
 @pytest.fixture
 def enable_determinism():
-    ### Enable determinism before test starts, and restore the flag once it is finished
+    # Enable determinism before test starts, and restore the flag once it is finished
     previously_deterministic = torch.are_deterministic_algorithms_enabled()
     torch.use_deterministic_algorithms(True)
     yield

@@ -52,7 +52,7 @@ def add_endofgraph(file_name):
     f.close()
 
 
-## main
+# main
 os.system(
     "rm -rf single_graph.pdf; python pytorch_helpers/synapse_logger/tools/browse_log.py draw ;  rm -rf .graph_dumps/*.svg; rm -rf .graph_dumps/*.used"
 )

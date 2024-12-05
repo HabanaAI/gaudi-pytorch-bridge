@@ -127,4 +127,4 @@ def test_hpu_zero_sized_batch_norm(shape):
     compare_tensors(output_hpu, output_cpu, atol=0, rtol=0)
     if is_pytest_mode_compile():
         # batch norm is decomposed
-        check_ops_executed_in_jit_ir({"sum", "full", "select_scatter", "mul", "full"})
+        check_ops_executed_in_jit_ir({"sum", "full", "select_scatter", "mul"})

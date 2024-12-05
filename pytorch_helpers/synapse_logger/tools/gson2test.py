@@ -292,7 +292,7 @@ class Flow:
 
         def set_tid(self, tid):
             self.tid = tid
-            if not tid in self.threads:
+            if tid not in self.threads:
                 self.threads[tid] = StringIO()
 
         def out(self, *args, **kwargs):

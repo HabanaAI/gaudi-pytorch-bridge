@@ -90,7 +90,7 @@ class HabanaPT2EQuantContext:
     def append_graph(self, fx_graph_module, modified_fx_graph_module, args):
         self._graphs = self._graphs + "\n\n" + f"{modified_fx_graph_module.graph}"
         self._total_number_of_graphs = self._total_number_of_graphs + 1
-        setattr(self._model, "graph", self._graphs)
+        self._model.graph = self._graphs
 
     def initialize_ep_dict(self, ep_dict=dict()):
         self._ep_dict = ep_dict
@@ -116,11 +116,7 @@ class HabanaPT2EQuantContext:
 
     def set_model(self, model):
         self._model = model
-        setattr(
-            self._model,
-            "graph",
-            "If you haven't provided sample input during export, run the model at least once with actual input to cature the graphs.",
-        )
+        self._model.graph = "If you haven't provided sample input during export, run the model at least once with actual input to capture the graphs."
 
     def get_original_model(self):
         return self._original_model
@@ -394,13 +390,13 @@ def export(
             dynamic=False,
             options={"keep_input_mutations": True},
         )
-        setattr(model, "meta_hb_quant_id", model_key)
+        model.meta_hb_quant_id = model_key
         habana_pt2e_quant_context.set_model(model)
         if args is not None:
             model(*args)
             logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
 
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
@@ -409,7 +405,7 @@ def export(
             kwargs.pop("graph_break_present")
         model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
 
@@ -430,7 +426,7 @@ def prepare_pt2e(
     if multi_graph:
         # Set "prepare_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
-        model_key = getattr(model, "meta_hb_quant_id")
+        model_key = model.meta_hb_quant_id
         habana_quantization_map_queue[model_key] = []
         habana_quantization_map_queue[model_key].append({"task": "prepare_pt2e", "quantizer": quantizer})
 
@@ -440,12 +436,12 @@ def prepare_pt2e(
         if habana_pt2e_quant_context.get_input_for_tracing() is not None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         return model
     else:
         model = _native_pt2e_quantization_interface("prepare_pt2e")(model, quantizer)
         logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         return model
 
 
@@ -467,7 +463,7 @@ def convert_pt2e(
         reset_hash_counter()
         # Set "convert_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
-        model_key = getattr(model, "meta_hb_quant_id")
+        model_key = model.meta_hb_quant_id
         habana_quantization_map_queue[model_key] = []
         habana_quantization_map_queue[model_key].append(
             {
@@ -483,14 +479,14 @@ def convert_pt2e(
         if habana_pt2e_quant_context.get_input_for_tracing() is not None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         return model
     else:
         model = _native_pt2e_quantization_interface("convert_pt2e")(
             model, use_reference_representation, fold_quantize=fold_quantize
         )
         logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         return model
 
 
@@ -753,7 +749,7 @@ def load_pt2e(
             dynamic=False,
             options={"keep_input_mutations": True},
         )
-        setattr(model, "meta_hb_quant_id", model_key)
+        model.meta_hb_quant_id = model_key
         habana_pt2e_quant_context.set_model(model)
 
         # load all exported converted fx graphs and create a dictionary
@@ -774,7 +770,7 @@ def load_pt2e(
         )
         reset_hash_counter()
 
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         logger.debug("LOADING All export program COMPLETED !!!")
         # ModelWrapper module() method will return the original model
         return ModelWrapper(model)
@@ -785,7 +781,7 @@ def load_pt2e(
                 f, extra_files=extra_files, expected_opset_version=expected_opset_version
             )
         logger.debug(f"Graph after pt2e load:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         return model
 
 

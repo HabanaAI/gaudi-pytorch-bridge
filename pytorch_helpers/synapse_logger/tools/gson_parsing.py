@@ -109,7 +109,7 @@ def replace_with_dur(matched_sequence):
             if e["ph"] == "E":
                 continue
             if e["ph"] == "B":
-                if not "end_ts" in e:
+                if "end_ts" not in e:
                     continue
                 e["ph"] = "X"
                 e["dur"] = e["end_ts"] - e["ts"]

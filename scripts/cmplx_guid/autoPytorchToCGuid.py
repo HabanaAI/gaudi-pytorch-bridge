@@ -140,7 +140,7 @@ gen_file = path_to_npu_stack + "/pytorch-integration/hpu_ops/" + reg_decl_op + "
 greco_pbtxt_file = greco_pbtxt_file_path
 pbtxt_file = pbtxt_file_path
 
-######## Global Variables used and description
+# Global Variables used and description
 # op_info - Information of op
 #           "outputs_var" - Output variables in complex guid mlir
 #           "op" - op name in complex guid mlir
@@ -171,7 +171,7 @@ op_info = {
 
 features_map = {}
 
-######## Populate .td file
+# Populate .td file
 if make_changes_in_folders.count("tpc_fuser") > 0 and (make_changes_in_file == "" or make_changes_in_file == td_file):
     print("Writing in file = ", td_file)
 
@@ -359,7 +359,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (make_changes_in_file == "
             contents = "".join(contents)
             f.write(contents)
 
-######## Populate ComplexGuidSupportedList.inc
+# Populate ComplexGuidSupportedList.inc
 if make_changes_in_folders.count("tpc_fuser") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == cmplx_guid_supp_list_file
 ):
@@ -389,7 +389,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
             lines = "".join(lines)
             f.write(lines)
 
-######## Populate op.cpp
+# Populate op.cpp
 if make_changes_in_folders.count("tpc_fuser") > 0 and (make_changes_in_file == "" or make_changes_in_file == op_file):
     print("Writing in file = ", op_file)
 
@@ -543,7 +543,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (make_changes_in_file == "
             kernelop += "KernelOp"
             return kernelop
 
-        if is_opbackend_present and not "op_backend" in features_map:
+        if is_opbackend_present and "op_backend" not in features_map:
             print("ERROR: hpu_op.yaml doesnt have op_backend field for this op. Exiting")
             exit()
 
@@ -853,7 +853,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (make_changes_in_file == "
     writeHeader(op_file_buf)
     writeFn(op_file_buf, params, num_inputs, num_outputs, features_map, op_info)
 
-######## Populate tpckernel.mlir
+# Populate tpckernel.mlir
 if make_changes_in_folders.count("tpc_fuser") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == tpckernel_ops_file
 ):
@@ -1029,7 +1029,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
             lines = "".join(lines)
             f.write(lines)
 
-######## Populate complex-guid.mlir
+# Populate complex-guid.mlir
 if make_changes_in_folders.count("tpc_fuser") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == complex_guid_file
 ):
@@ -1263,7 +1263,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
             lines = "".join(lines)
             f.write(lines)
 
-######## Populate opTest.hpp
+# Populate opTest.hpp
 if make_changes_in_folders.count("tpc_fuser") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == op_test_hpp_file
 ):
@@ -1834,7 +1834,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
     op_test_hpp_file_buf.write("\n")
     op_test_hpp_file_buf.write("#endif // MLIR_PYTENETTESTS_COMPLEXGUIDTESTS_" + op + "_HPP\n")
 
-######## Populate opTest.cpp
+# Populate opTest.cpp
 if make_changes_in_folders.count("tpc_fuser") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == op_test_cpp_file
 ):
@@ -1973,7 +1973,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
         op_test_cpp_file_buf.write("))),\n")
         op_test_cpp_file_buf.write("    " + test_cases["class_name"][i] + "::GetName());\n\n")
 
-######## Populate CMakeList file
+# Populate CMakeList file
 if make_changes_in_folders.count("tpc_fuser") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == cmakelist_file
 ):
@@ -2000,7 +2000,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
             lines = "".join(lines)
             f.write(lines)
 
-######## Populate ShapeInference.cpp file
+# Populate ShapeInference.cpp file
 if make_changes_in_folders.count("tpc_fuser") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == shape_inference_file
 ):
@@ -2125,7 +2125,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
             lines = "".join(lines)
             f.write(lines)
 
-######## Populate Hpu_Op.yaml file
+# Populate Hpu_Op.yaml file
 if make_changes_in_folders.count("pytorch-integration") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == hpu_yaml_file
 ):
@@ -2212,7 +2212,7 @@ if make_changes_in_folders.count("pytorch-integration") > 0 and (
             lines = "".join(lines)
             f.write(lines)
 
-######## Populate op_gen.cpp file
+# Populate op_gen.cpp file
 if make_changes_in_folders.count("pytorch-integration") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == gen_file
 ):
@@ -2247,7 +2247,7 @@ if make_changes_in_folders.count("pytorch-integration") > 0 and (
             lines = "".join(lines)
             f.write(lines)
 
-######## Populate op_greco.pbtxt file
+# Populate op_greco.pbtxt file
 if make_changes_in_folders.count("tpc_kernels") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == greco_pbtxt_file_path
 ):
@@ -2339,7 +2339,7 @@ if make_changes_in_folders.count("tpc_kernels") > 0 and (
     greco_pbtxt_file_path_buf.write("  supported_devices: [greco]\n")
     greco_pbtxt_file_path_buf.write("}")
 
-######## Populate op.pbtxt file
+# Populate op.pbtxt file
 if make_changes_in_folders.count("tpc_kernels") > 0 and (
     make_changes_in_file == "" or make_changes_in_file == pbtxt_file_path
 ):

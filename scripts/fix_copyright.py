@@ -121,7 +121,7 @@ def _patch_file(f):
         raise PatchError(f, "unknown header in file")
     i = contents[1].split(" ")
 
-    if not "Habana" in contents[1]:
+    if "Habana" not in contents[1]:
         raise NoCopyrightError(f, f"Unexpected start of file {f}, not a Habana header")
     try:
         p = i.index("(C)")

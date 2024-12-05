@@ -441,7 +441,7 @@ def test_leaf_views_post_fx_partitions():
     # cpu
     ref_out = raw_function(t1, t2)
 
-    ## hpu
+    # hpu
     hpu_model = torch.compile(raw_function, backend="hpu_backend", options={"use_eager_fallback": True})
     hpu_out = hpu_model(t1.to("hpu"), t2.to("hpu"))
 

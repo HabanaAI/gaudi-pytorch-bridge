@@ -858,7 +858,7 @@ def is_param_combo_valid(
 # DONOT remove next line:Disable black formatting for easier parameter update
 # fmt: off
 
-#@pytest.mark.xfail(reason="Temporarily disabled")
+# @pytest.mark.xfail(reason="Temporarily disabled")
 """
 @pytest.mark.parametrize(
     "batch_size",
@@ -999,9 +999,6 @@ def is_param_combo_valid(
     "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs",
     total_tc_list,
 )
-
-
-# @pytest.mark.skip(reason="Too many tests; So Temporarily disabled")
 def test_sdpa(
     batch_size,
     n_heads,

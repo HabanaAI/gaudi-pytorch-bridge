@@ -911,8 +911,6 @@ tc_list = tc_list_copy_scalar + tc_list_copy_tensor
     "batch_size,q_heads,kv_heads,seq_len_N_t,seq_len_N_s,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,is_amax_s,is_amax_o,is_amax_ds,fp8_run_out_type, scalar_run",
     tc_list,
 )
-
-# @pytest.mark.skip(reason="Temporarily disabled : Lots of tests")
 def test_sdpa(
     batch_size,
     q_heads,

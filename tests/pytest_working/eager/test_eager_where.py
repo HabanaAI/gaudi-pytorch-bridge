@@ -46,7 +46,7 @@ class TestHpuWhere:
 
         cpu_x = torch.randn(
             3, 2, device="cpu", dtype=torch.float32
-        )  ## since aten::gt.Scalar_out is not supported for few dtypes
+        )  # since aten::gt.Scalar_out is not supported for few dtypes
         cpu_input = torch.ones([3, 2], device="cpu", dtype=dtype)
         cpu_other = torch.zeros([3, 2], device="cpu", dtype=dtype)
 

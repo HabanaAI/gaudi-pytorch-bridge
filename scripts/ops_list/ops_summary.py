@@ -266,7 +266,7 @@ def main():
         entry["tert"] = op in tert_ops
 
         op_key = op
-        if not op_key in ops_in_topos:
+        if op_key not in ops_in_topos:
             op_key = op_key.replace(".Tensor", "")
 
         entry["in_topos"] = op_key in ops_in_topos

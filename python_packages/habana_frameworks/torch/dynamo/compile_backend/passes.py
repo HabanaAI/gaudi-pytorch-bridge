@@ -160,7 +160,7 @@ def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
                 for previous_node in previous_nodes:
                     if "downstream_allreduce_name" not in previous_node.meta:
                         previous_node.meta["downstream_allreduce_name"] = downstream_allreduce_name
-                        setattr(previous_node, "parent", downstream_allreduce_name)
+                        previous_node.parent = downstream_allreduce_name
                         new_previous_nodes.extend(previous_node.all_input_nodes)
                 previous_nodes = new_previous_nodes
                 new_previous_nodes = []
@@ -924,19 +924,19 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     if hpu_backend_config.enable_allreduce_graph_split:
         allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
         cls = FusedCollectiveOperatorSupport
-        setattr(cls, "keyword", "downstream_allreduce_name")
+        cls.keyword = "downstream_allreduce_name"
         ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
         for allreduce in allreduces:
-            setattr(cls, "target_value", allreduce.name)
+            cls.target_value = allreduce.name
             ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
 
     if hpu_backend_config.enable_waittensor_graph_split:
         wait_tensors = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("wait_tensor")]
         cls = FusedCollectiveOperatorSupport
-        setattr(cls, "keyword", "upstream_waittensor_name")
+        cls.keyword = "upstream_waittensor_name"
         ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
         for wait_tensor in wait_tensors:
-            setattr(cls, "target_value", wait_tensor.name)
+            cls.target_value = wait_tensor.name
             ctx.current_partitions_non_mergeable.extend(ctx.habana_partitioner.propose_partitions())
 
     ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
@@ -1265,19 +1265,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     return True
 
 
-collective_ops = set(
-    [
-        torch.ops._c10d_functional.all_reduce_.default,
-        torch.ops._c10d_functional.all_reduce.default,
-    ]
-)
+collective_ops = {torch.ops._c10d_functional.all_reduce_.default, torch.ops._c10d_functional.all_reduce.default}
 
-view_ops_set = set(
-    [
-        torch.ops.aten.view.default,
-        torch.ops.aten._unsafe_view.default,
-    ]
-)
+view_ops_set = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
 
 
 def pass_mark_collective_input(ctx: OptimizerContext) -> bool:

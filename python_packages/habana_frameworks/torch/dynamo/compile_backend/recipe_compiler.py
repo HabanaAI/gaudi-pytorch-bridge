@@ -490,7 +490,7 @@ def get_outputs_metadata_dynamic(graph_module):
                             sz_sympy = substitute_sympyfn(sz_sympy)
                             dynamic_shape_sympy.append(sz_sympy)
                             dynamic_shape_str.append(sz_str)
-                            if not sz_str in sym_expr_list:
+                            if sz_str not in sym_expr_list:
                                 sym_expr_list.append(sz_str)
 
                             sym_expr_token = sym_expr_list.index(sz_str)

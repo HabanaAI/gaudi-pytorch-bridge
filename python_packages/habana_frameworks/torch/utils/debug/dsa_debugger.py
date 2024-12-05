@@ -543,7 +543,7 @@ class DivergenceAnalyzer:
             data_static = data_dict["Static"]
             data_dynamic = data_dict["Dynamic"]
             assert len(set(data_static) - set(data_dynamic)) == 0
-            graph_names = list(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
+            graph_names = sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1]))
 
             for graph_name in graph_names:
                 self.compare_databases(data_static[graph_name]["db"], data_dynamic[graph_name]["db"])

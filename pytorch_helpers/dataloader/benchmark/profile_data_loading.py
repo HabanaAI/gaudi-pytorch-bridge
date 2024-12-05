@@ -47,7 +47,7 @@ def profile_dataloader(s, dataloader, dl_type, workers, num_iterations):
         t = time.time()
         t_diff = t - last_time
         t_sum += t_diff
-        ##save_points(t_diff, t_sum)
+        # save_points(t_diff, t_sum)
         save_points(i, t_diff)
         last_time = t
 

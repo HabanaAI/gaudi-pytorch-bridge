@@ -29,13 +29,13 @@ from .internal import optimize_post_partitioner, optimize_pre_partitioner, optim
 
 
 def _gen_graph_name():
-    current_ordinal = getattr(_gen_graph_name, "ordinal")
+    current_ordinal = _gen_graph_name.ordinal
     graph_name = f"fx_graph_{current_ordinal:04d}"
-    setattr(_gen_graph_name, "ordinal", current_ordinal + 1)
+    _gen_graph_name.ordinal = current_ordinal + 1
     return graph_name
 
 
-setattr(_gen_graph_name, "ordinal", 0)
+_gen_graph_name.ordinal = 0
 
 
 @log_function_start_end

@@ -32,7 +32,7 @@ class PatternRewriter:
     def __init__(self, pattern_replace_cls):
         self.patternGraph = symbolic_trace(pattern_replace_cls.pattern).graph
         self.replaceGraph = symbolic_trace(pattern_replace_cls.replace).graph
-        if hasattr(pattern_replace_cls, "filter") and callable(getattr(pattern_replace_cls, "filter")):
+        if hasattr(pattern_replace_cls, "filter") and callable(pattern_replace_cls.filter):
             self.filter = pattern_replace_cls.filter
         else:
             self.filter = generic_filter

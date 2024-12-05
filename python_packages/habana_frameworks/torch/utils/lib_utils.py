@@ -24,7 +24,7 @@ import habana_frameworks.torch as hftorch
 
 def _check_hftorch_path():
     if not isinstance(hftorch.__path__, list) or len(hftorch.__path__) != 1:
-        assert (False, "Bad __path__ of habana_frameworks.torch, expecting list with 1 element")
+        assert False, "Bad __path__ of habana_frameworks.torch, expecting list with 1 element"
 
 
 def get_include_dir():

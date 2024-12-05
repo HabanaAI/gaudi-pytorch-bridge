@@ -26,7 +26,7 @@ import torch.nn as nn
 
 def check_for_inference_mode(model):
     if model.training:
-        raise ("Fusion only applicable for eval")
+        raise RuntimeError("Fusion only applicable for eval")
 
 
 def check_for_model_device(model):
@@ -34,7 +34,7 @@ def check_for_model_device(model):
     for param in model.parameters():
         # Check if the parameter is on the CPU
         if not param.is_cpu:
-            raise ("The next parameter is not on the CPU.")
+            raise RuntimeError("The next parameter is not on the CPU.")
 
 
 def fuse_conv_bn_eval(conv, bn):
@@ -85,13 +85,13 @@ def fuse(model: torch.nn.Module) -> torch.nn.Module:
 
     try:
         check_for_inference_mode(model)
-    except:
+    except RuntimeError:
         print("Fusion is only applicable for eval mode")
         return model
 
     try:
         check_for_model_device(model)
-    except:
+    except RuntimeError:
         print("This fusion pass is to be run for model on CPU, Skipping!")
         return model
 

@@ -79,13 +79,7 @@ OpMeta = namedtuple_with_defaults("OpMeta", "op_variant, mapsig, func, funsig")
 
 # List of non-leaf ops we want to override both forward + backward.
 # TODO(https://github.com/pytorch/pytorch/issues/39959)
-_FN_AUTOGRAD_HPU = set(
-    [
-        "matmul",
-        "softmax.int",
-        "dropout",
-    ]
-)
+_FN_AUTOGRAD_HPU = {"matmul", "softmax.int", "dropout"}
 
 _TYPE_NSMAP = {
     "Tensor": "at::Tensor",

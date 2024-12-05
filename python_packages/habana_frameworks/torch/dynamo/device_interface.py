@@ -229,9 +229,9 @@ class HpuInterface(DeviceInterface):
     from habana_frameworks.torch.hpu.streams import Stream
 
     # register Event and Stream class into the backend interface
-    ### PyTorch 2.5.1
+    # PyTorch 2.5.1
     # make sure Event and Stream are implemented and inherited from the _EventBase and _StreamBase
-    ### PyTorch 2.6.0
+    # PyTorch 2.6.0
     # make sure Event and Stream are implemented and inherited from the torch.Event and torch.Stream
 
     Event = torch.hpu.Event
