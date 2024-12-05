@@ -55,8 +55,8 @@
       "version": "2.6.0",
       "default_source": "build",
       "extras": {
-        "torchvision": "v0.20.1",
-        "torchaudio": "v2.5.1",
+        "torchvision": "6279faa88a3fe7de49bf58284d31e3941b768522",
+        "torchaudio": "332760d4b300f00a0d862e3cfe1495db3b1a14f9",
         "torchtext": "v0.18.0",
         "torchdata": "v0.9.0"
       }
