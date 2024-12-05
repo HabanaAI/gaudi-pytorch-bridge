@@ -2588,33 +2588,40 @@ Tensor& _index_put_impl_hpu_lazy_(
       MAX_DIMS_FOR_ADVANCED_INDEXING,
       " dims");
   at::Tensor self_permuted;
-  if (self.device().type() != c10::DeviceType::HPU)
-    self_permuted = self.to(c10::kHPU);
-  else
-    self_permuted = self;
 
-  at::Tensor value_in;
-  if (value.device().type() != c10::DeviceType::HPU)
-    value_in = value.to(c10::kHPU);
-  else
-    value_in = value;
+  HABANA_ASSERT(
+      self.device().type() == c10::DeviceType::HPU,
+      "Expected all tensors to be on the HPU device, but found self on ",
+      self.device(),
+      " (details: ",
+      self.toString(),
+      ")");
+
+  HABANA_ASSERT(
+      value.device().type() == c10::DeviceType::HPU,
+      "Expected all tensors to be on the HPU device, but found values on ",
+      value.device(),
+      " (details: ",
+      value.toString(),
+      ")");
+
   if (advanced_indexing) {
     at::Stack stack;
     stack.emplace_back(self);
     stack.emplace_back(c10::IValue(indices));
-    std::tie(self_permuted, indices_vec) =
-        generate_advanced_indexing_indices_list(stack); //(self, indices_in);
+    std::tie(self, indices_vec) =
+        generate_advanced_indexing_indices_list(stack);
   } else {
     for (c10::optional<at::Tensor> input_ind : indices) {
-      auto input_temp = input_ind.value_or(Tensor());
-      at::Tensor input;
-      if (input_temp.defined() &&
-          (input_temp.device().type() != c10::DeviceType::HPU)) {
-        input = input_temp.to(c10::kHPU);
-      } else {
-        input = input_temp;
-      }
+      auto input = input_ind.value_or(Tensor());
       if (input.defined()) {
+        HABANA_ASSERT(
+            input.device().type() == c10::DeviceType::HPU,
+            "Expected all tensors to be on the HPU device, but found indices on ",
+            input.device(),
+            " (details: ",
+            input.toString(),
+            ")");
         indices_vec.push_back(input);
       } else {
         HABANA_ASSERT(
@@ -2640,8 +2647,7 @@ Tensor& _index_put_impl_hpu_lazy_(
       indices_out_opt_vec);
   // index backward is not supported on hpu, indices needs to be
   // bool, byte or long type for cpu fallback
-  index_put_hpu_lazy_(
-      self_permuted, indices_out_opt_list, value_in, accumulate);
+  index_put_hpu_lazy_(self, indices_out_opt_list, value, accumulate);
   return self;
 }
 
