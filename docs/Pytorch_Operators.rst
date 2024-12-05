@@ -183,6 +183,7 @@ gt                                       Yes      Yes      Yes     Yes       Yes
 heaviside                                Yes      Yes      No      No        No       Yes       No        No       No     torch
 hypot                                    Yes      Yes      No      No        No       No        No        No       No     torch
 index_fill                               Yes      Yes      Yes     Yes       No       Yes       No        Yes      Yes    torch
+index_reduce                             Yes      Yes      No      No        Yes      Yes       No        No       No     torch
 index_select                             Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 is_complex                               Yes      Yes      No      No        No       Yes       No        No       No     torch
 is_floating_point                        Yes      Yes      No      No        No       Yes       No        No       No     torch
@@ -508,6 +509,8 @@ index_fill                               Yes      Yes      Yes     Yes       No 
 index_fill\_                             Yes      Yes      Yes     Yes       No       Yes       Yes       Yes      Yes    torch.Tensor
 index_put                                Yes      Yes      No      No        No       Yes       No        No       No     torch.Tensor
 index_put\_                              Yes      Yes      No      No        No       Yes       No        No       No     torch.Tensor
+index_reduce                             Yes      Yes      No      No        Yes      Yes       No        No       No     torch.Tensor
+index_reduce\_                           Yes      Yes      No      No        Yes      Yes       No        No       No     torch.Tensor
 index_select                             Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 is_complex                               Yes      Yes      No      No        No       Yes       No        No       No     torch.Tensor
 is_floating_point                        Yes      Yes      No      No        No       Yes       No        No       No     torch.Tensor

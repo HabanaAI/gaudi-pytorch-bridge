@@ -12,21 +12,17 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include "backend/habana_device/HPUGuardImpl.h"
+
 #include "generated/backend/index_reduce.h"
 
 namespace habana {
 
 FALLBACK_CHECK(
     IndexReduceFallbackCheck,
-    int64_t dim,
     c10::string_view reduce,
     bool include_self) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-  // Currently only small subset of features is supported by tpc kernel.
-  if (include_self == true && reduce == "amax" && dim == 0 &&
-      habana::HPUDeviceContext::get_device().type() != synDeviceGaudi) {
+  // Currently only subset of features is supported by tpc kernel.
+  if (include_self && (reduce != "mean")) {
     return true;
   }
   return false;
@@ -37,6 +33,9 @@ std::shared_ptr<void> IndexReduceFillParams(
     size_t& size) {
   PARAMS_STUB(ns_IndexReduce::Params);
   params->axis = stack.at(1).toScalar().toInt();
+  if (params->axis < 0) {
+    params->axis += stack.at(0).toTensor().dim();
+  }
 
   const auto mode = stack.at(4).toStringView();
   static const std::unordered_map<c10::string_view, IndexReduceMode_t>
