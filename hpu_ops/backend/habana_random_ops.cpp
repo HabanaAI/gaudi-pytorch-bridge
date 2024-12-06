@@ -48,9 +48,11 @@ std::shared_ptr<void> FillHabanaRandParams(const at::Stack&, size_t& size) {
 }
 
 std::shared_ptr<void> FillHabanaRandnParams(const at::Stack&, size_t& size) {
-  PARAMS_STUB(ns_RandomNormal::Params);
+  static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
+  PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = 0.0;
   params->stddev = 1.0;
+  params->usePhilox = use_philox;
   return params;
 }
 

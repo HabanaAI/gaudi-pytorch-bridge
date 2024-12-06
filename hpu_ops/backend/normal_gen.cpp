@@ -17,9 +17,11 @@
 
 namespace habana {
 std::shared_ptr<void> FillNormalParams(const at::Stack& stack, size_t& size) {
-  PARAMS_STUB(ns_RandomNormal::Params);
+  static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
+  PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(stack.at(1).toDouble());
   params->stddev = static_cast<float>(stack.at(2).toDouble());
+  params->usePhilox = use_philox;
 
   return params;
 }

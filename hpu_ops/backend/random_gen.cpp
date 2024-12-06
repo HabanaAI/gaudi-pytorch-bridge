@@ -206,13 +206,6 @@ std::shared_ptr<void> FillPhiloxUniformParams(
   return params;
 }
 
-std::shared_ptr<void> FillNormal2Params(const at::Stack& stack, size_t& size) {
-  PARAMS_STUB(ns_RandomNormal::Params);
-  params->mean = static_cast<float>(stack.at(0).toDouble());
-  params->stddev = static_cast<float>(stack.at(1).toDouble());
-  return params;
-}
-
 synapse_helpers::tensor NormalTensorHelper(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -231,9 +224,11 @@ synapse_helpers::tensor NormalTensorHelper(
   inputs.push_back(nullptr);
   inputs.push_back(syn_seed);
   size_t size = 0;
-  PARAMS_STUB(ns_RandomNormal::Params);
+  static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
+  PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(0.); // mean;
   params->stddev = static_cast<float>(1.); // stddev;
+  params->usePhilox = use_philox;
   op->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto normal = OpBackend::BuildNode(
       op,
@@ -332,9 +327,11 @@ synapse_helpers::tensor NormalFloatFloatHelper(
   inputs.push_back(nullptr);
   inputs.push_back(syn_seed);
   size_t size = 0;
-  PARAMS_STUB(ns_RandomNormal::Params);
+  static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
+  PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(mean);
   params->stddev = static_cast<float>(stddev);
+  params->usePhilox = use_philox;
   op->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto normal = OpBackend::BuildNode(
       op,
