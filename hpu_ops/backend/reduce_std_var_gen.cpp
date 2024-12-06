@@ -205,8 +205,15 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
         {get_guid_with_precision("sub_fwd", op->ScalarType()),
          {slice_size_output[0].get(), correction_tensor.get()},
          {{{1}, op->ScalarType()}}});
+    auto zero = OpBackend::BuildConstant(op, graph, 0.0, op->ScalarType());
+    auto max = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("max_fwd", op->ScalarType()),
+         {diff.at(0).get(), zero.get()},
+         {{{1}, op->ScalarType()}}});
     reciprocal = OpBackend::BuildNode(
-        op, graph, {"reciprocal_fwd_f32", {diff.at(0).get()}, {{1}}});
+        op, graph, {"reciprocal_fwd_f32", {max.at(0).get()}, {{1}}});
   } else {
     reciprocal = OpBackend::BuildNode(
         op,
