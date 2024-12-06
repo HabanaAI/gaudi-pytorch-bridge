@@ -95,6 +95,7 @@ addbmm                                   Yes      Yes      Yes     No        No 
 addcdiv                                  Yes      Yes      No      No        No       No        Yes       No       No     torch
 addcmul                                  Yes      Yes      No      No        No       No        Yes       No       No     torch
 addmm                                    Yes      Yes      Yes     No        No       No        No        No       No     torch
+_addmm_activation                        Yes      Yes      Yes     No        No       No        No        No       No     torch
 addmv                                    Yes      Yes      Yes     No        No       No        No        No       No     torch
 addmv\_                                  Yes      Yes      Yes     No        No       No        No        No       No     torch
 addr                                     Yes      Yes      Yes     No        No       No        No        No       No     torch
@@ -102,6 +103,7 @@ all                                      Yes      Yes      No      No        No 
 amax                                     Yes      Yes      Yes     Yes       No       Yes       Yes       No       No     torch
 amin                                     Yes      Yes      Yes     Yes       No       Yes       Yes       No       No     torch
 aminmax                                  Yes      Yes      No      Yes       Yes      Yes       Yes       Yes      No     torch
+_aminmax                                 Yes      Yes      No      Yes       Yes      Yes       Yes       Yes      No     torch
 any                                      Yes      Yes      Yes     No        No       Yes       Yes       Yes      Yes    torch
 arange                                   Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 arccos                                   Yes      Yes      No      No        No       No        No        No       No     torch
@@ -122,6 +124,7 @@ arctan2                                  Yes      Yes      No      No        No 
 atanh                                    Yes      Yes      No      No        No       No        No        No       No     torch
 baddbmm                                  Yes      Yes      Yes     No        No       No        No        No       No     torch
 bernoulli                                Yes      Yes      Yes     No        No       No        No        No       No     torch
+bincount                                 No       No       No      No        Yes      Yes       Yes       Yes      No     torch
 bitwise_and                              No       No       No      No        No       Yes       No        Yes      Yes    torch
 bitwise_left_shift                       No       No       No      No        No       Yes       No        Yes      Yes    torch
 bitwise_not                              No       No       No      No        No       No        Yes       No       Yes    torch
@@ -669,6 +672,7 @@ zero\_                                   Yes      Yes      Yes     Yes       No 
 entr                                     Yes      No       No      No        No       No        No        No       No     torch.special
 erf                                      Yes      Yes      No      No        No       No        No        No       No     torch.special
 erfc                                     Yes      Yes      No      No        No       No        No        No       No     torch.special
+erfcx                                    Yes      Yes      No      No        No       No        No        No       No     torch.special
 exp2                                     Yes      Yes      No      No        No       No        No        No       No     torch.special
 expit                                    Yes      Yes      No      No        No       No        No        No       No     torch.special
 expm1                                    Yes      No       No      No        No       No        No        No       No     torch.special
