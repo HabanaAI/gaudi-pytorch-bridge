@@ -5197,13 +5197,11 @@ _weight_norm_interface_backward:
   out_ids: [0, 0]
 
 one_hot:
+  custom_fill_params: FillOneHotParams
   output_meta: OneHotMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
-  op_backend: OneHot
+  guid: one_hot_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 permute:
   override_fn: permute_hpu_lazy

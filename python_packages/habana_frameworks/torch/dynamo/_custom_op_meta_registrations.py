@@ -911,6 +911,12 @@ def meta_ctc_loss_custom_backward(
     return log_probs.new_empty(log_probs.shape)
 
 
+@register_meta([torch.ops.hpu.one_hot.default])
+def meta_one_hot(self, num_classes=-1):
+    shape = list(self.shape) + [num_classes]
+    return self.new_empty(shape)
+
+
 @register_meta([torch.ops.hpu.sum_fp8.default])
 def meta_sum_fp8(self, dim=None, keepdim=False, out_dtype=None):
     dim = utils.reduction_dims(self.shape, dim)

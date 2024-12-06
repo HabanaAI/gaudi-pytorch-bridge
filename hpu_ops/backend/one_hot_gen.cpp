@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/one_hot.h"
 
 namespace {
@@ -28,6 +28,16 @@ int64_t calculateNumberOfClasses(const at::Stack& stack) {
   return num_classes;
 }
 
+std::shared_ptr<void> FillOneHotParams(const at::Stack& stack, size_t& size) {
+  PARAMS_STUB(ns_OneHotKernel::Params);
+  params->axis = 0;
+  params->depth = static_cast<int>(calculateNumberOfClasses(stack));
+  params->on_value = 1.0f;
+  params->off_value = 0.0f;
+
+  return params;
+}
+
 OutputMetaDataVector OneHotMeta(const at::Stack& stack) {
   auto input = stack_tensor(stack, 0);
   OutputMetaData meta;
@@ -39,59 +49,16 @@ OutputMetaDataVector OneHotMeta(const at::Stack& stack) {
   return {meta};
 }
 
-void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto num_classes = calculateNumberOfClasses(stack);
-  const auto meta = OutputMeta(stack)[0];
-  auto input = stack_tensor(stack, 0);
-  const std::string guid{"one_hot_fwd"};
-  std::optional<synapse_helpers::tensor> cast{};
-
-  ns_OneHotKernel::Params oneHotParams{
-      .axis = 0,
-      .depth = static_cast<int>(num_classes),
-      .on_value = 1.0f,
-      .off_value = 0.0f};
-
-  auto output_type = c10::ScalarType::Float;
-
-  if (!isIntegralType(meta.dtype, true)) {
-    output_type = meta.dtype;
-    c10::ScalarType target_type = c10::ScalarType::Short;
-
-    if (output_type == at::kHalf || output_type == at::kFloat) {
-      target_type = c10::ScalarType::Int;
-    }
-    cast = BuildCast(
-        this, graph, syn_in(0), input.sizes(), output_type, target_type);
+struct OneHot : OpBackend {
+  OneHot(int device_id, c10::ScalarType scalar_type)
+      : OpBackend(device_id, "one_hot_fwd", scalar_type, {0}, {}, {}, false) {
+    SetOutputMetaFn(OneHotMeta);
+    SetFillParams(FillOneHotParams);
   }
+};
 
-  auto input_feature_map = (cast.has_value()) ? cast->get() : syn_in(0);
-  auto result = BuildOp(
-      graph,
-      get_guid_with_precision(guid, output_type),
-      {input_feature_map},
-      {{meta.shape, output_type}},
-      &oneHotParams,
-      sizeof(oneHotParams));
-
-  // If output datatype of one_hot op and Int datatype map
-  // to the same precision datatype in TPC, cast is not needed.
-  // Different datatypes can map to same precision.
-  // For example, if INT64 is not supported, both Long and INT
-  // map to i32 precision in TPC.
-  auto from_dtype = habana_helpers::GetPrecisionString(output_type);
-  auto to_dtype = habana_helpers::GetPrecisionString(c10::ScalarType::Int);
-  if (from_dtype != to_dtype) {
-      syn_out(0) = BuildCast(
-          this,
-          graph,
-          result[0].get(),
-          meta.shape,
-          output_type,
-          c10::ScalarType::Int,
-          0);
-  } else {
-      syn_out(0) = std::move(result.at(0));
-  }
-}
 } // namespace habana
+
+static const auto& OneHotKernelRegistry = habana::KernelRegistry().add(
+    "hpu::one_hot",
+    KERNEL_FN_GLOBAL(habana::OneHot));

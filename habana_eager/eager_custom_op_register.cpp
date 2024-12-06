@@ -20,6 +20,7 @@
 #include "backend/random.h"
 #include "common/dump_args.h"
 #include "common/random_utils.h"
+#include "generated/backend/one_hot.h"
 #include "habana_eager/graph_weight_permute.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
@@ -1661,6 +1662,15 @@ at::Tensor cdist(
   return _cdist_forward(x1, x2, p, compute_mode);
 }
 
+at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("one_hot: ", DUMP_2ARGS(self, num_classes));
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::one_hot", {self, num_classes}};
+  hpu_op.SetOutputMetaFn(habana::OneHotMeta);
+  return hpu_op.call();
+}
+
 } // namespace
 
 namespace habana::eager {
@@ -1840,6 +1850,7 @@ TORCH_LIBRARY(hpu, m) {
       "Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None")
   HABANA_RANDOM_DEF_2_OUTS(
       native_dropout, "Tensor seed, Tensor input, float p, bool? train")
+  m.def("hpu::one_hot(Tensor self, int num_classes=-1) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -1895,11 +1906,13 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::constant_pad_nd_ds", constant_pad_nd_ds);
   m.impl("hpu::fused_clip_norm", fused_clip_norm);
   m.impl("hpu::weight_permutation", weight_permutation);
+  m.impl("hpu::one_hot", one_hot_forward);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("cdist", cdist);
   m.impl("dropout", dropout);
+  m.impl("one_hot", one_hot_forward);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

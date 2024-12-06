@@ -14,11 +14,10 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import format_tc
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, format_tc, is_pytest_mode_compile
 
 shapes_data = [
     ((0, 6), (3, 2), 6),
@@ -28,20 +27,40 @@ shapes_data = [
 
 
 @pytest.mark.parametrize("classes", [6, 50])
-# If INT64 is not enabled in HPU, Long maps to i32 in TPC (in eager mode)
-@pytest.mark.parametrize("dtype", ["long"])
-@pytest.mark.parametrize("shape", shapes_data, ids=format_tc)
-def test_hpu_one_hot(shape, classes, dtype):
+@pytest.mark.parametrize("dtype", [torch.long, torch.int32, torch.int16], ids=format_tc)
+@pytest.mark.parametrize("arange, view, mod", shapes_data, ids=format_tc)
+def test_hpu_one_hot(arange, view, mod, classes, dtype):
     def fn(input, classes):
         return F.one_hot(input, num_classes=classes)
 
-    arange, view, mod = shape
-    cpu_input = torch.arange(*arange, dtype=getattr(torch, dtype)).view(*view) % mod
+    cpu_input = torch.arange(*arange, dtype=dtype).view(*view) % mod
     hpu_input = cpu_input.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
-    torch._dynamo.reset()
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
-    cpu_output = fn(cpu_input, classes)
+    cpu_output = fn(cpu_input.to(torch.long), classes)
     hpu_output = hpu_compiled_fn(hpu_input, classes).cpu()
 
     assert torch.equal(cpu_output, hpu_output)
+
+
+def test_one_hot_multiple_calls():
+    input_shapes = [(20, 15), (12, 15), (16, 15), (30, 15), (25, 15)]
+    num_classes_list = [(10), (10), (10), (10), (10)]
+
+    def fn(input, num_classes):
+        x = F.one_hot(input, num_classes)
+        return x
+
+    fn = compile_function_if_compile_mode(fn)
+
+    for input_shape, num_classes in zip(input_shapes, num_classes_list):
+        input_cpu = torch.randint(0, num_classes, input_shape).to(torch.long)
+        input_hpu = input_cpu.to("hpu")
+
+        result_cpu = F.one_hot(input_cpu, num_classes)
+        result_hpu = fn(input_hpu, num_classes)
+
+        torch.testing.assert_close(result_hpu.to("cpu"), result_cpu, atol=0.0, rtol=0.0)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("one_hot")

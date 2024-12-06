@@ -295,10 +295,16 @@ def override_function(dispatch_key, aten_op, hpu_override, original_decomp=None)
     return internal
 
 
+def override_one_hot(*args):
+    if args[0].device.type == "hpu":
+        return torch.ops.hpu.one_hot.default(*args)
+
+
 @contextmanager
 def override_composite_ops():
     ops = [
         (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.instance_norm.default, override_instance_norm),
+        (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.one_hot.default, override_one_hot),
     ]
 
     # When below flag is enabled, aten.linear and aten.matmul decompositions
