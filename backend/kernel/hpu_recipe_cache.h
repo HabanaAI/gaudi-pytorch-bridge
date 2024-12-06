@@ -69,6 +69,10 @@ class RecipeCacheLRU {
     return list_.size();
   }
 
+  const std::string& get_cache_path() const {
+    return recipe_cache_config_.path();
+  }
+
   void clear() {
     std::lock_guard<std::mutex> lg(mutex_);
     map_.clear();
@@ -94,6 +98,7 @@ class RecipeCacheLRU {
   void ResetDiskCache();
   void DeleteDiskCache();
   void FlushDiskCache();
+  void UpdateCachePath(const std::string& new_path);
   void Serialize();
   void Deserialize();
 

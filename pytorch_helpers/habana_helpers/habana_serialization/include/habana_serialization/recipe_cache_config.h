@@ -28,9 +28,9 @@ class RecipeCacheConfig {
   bool delete_on_init() const;
   void disable_delete_on_init();
   unsigned cache_dir_max_size_mb() const;
+  static std::vector<std::string> split_params(const std::string& config);
 
  private:
-  std::vector<std::string> split_params(const std::string& config);
   std::string cache_directory_path_;
   bool delete_cache_on_init_;
   unsigned int cache_dir_max_size_mb_;

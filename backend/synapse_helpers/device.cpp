@@ -208,8 +208,6 @@ void dumpEnvSettings() {
     // Make sure to update the user docs, if new flag is added.
     // NOTE: Only flags represented in env_flags.h are logged.
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_MODE)
-    PRINT_ENV_FLAG_DEFAULT(PT_RECIPE_CACHE_PATH)
-    PRINT_ENV_FLAG_DEFAULT(PT_CACHE_FOLDER_DELETE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_RECIPE_CACHE_CONFIG)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_MAX_COMPOUND_OP_SIZE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_ACC_PAR_MODE)

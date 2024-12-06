@@ -37,26 +37,25 @@ class HabanaSerializationRecipeTest : public ::testing::Test {
   bool m_cache_overriden = false;
 
   void SetUp() override {
-    m_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    m_cache_path = HPUDeviceContext::recipe_cache().get_cache_path();
     overrideEmptyCachePathEnv();
-    HPUDeviceContext::recipe_cache().ResetDiskCache();
   }
 
   void TearDown() override {
-    if (m_cache_overriden) {
-      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "", 1); // set empty path
-    }
     HPUDeviceContext::recipe_cache().DeleteDiskCache();
+    if (m_cache_overriden) {
+      HPUDeviceContext::recipe_cache().UpdateCachePath("");
+    }
   }
 
  private:
   void overrideEmptyCachePathEnv() {
-    const std::string dafault_cache_path = "cache_dir";
     if (m_cache_path == "") {
       m_cache_overriden = true;
-      m_cache_path = dafault_cache_path;
-      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, m_cache_path.c_str(), 1);
+      m_cache_path = "cache_dir";
+      HPUDeviceContext::recipe_cache().UpdateCachePath(m_cache_path);
     }
+    HPUDeviceContext::recipe_cache().ResetDiskCache();
   }
 
  protected:

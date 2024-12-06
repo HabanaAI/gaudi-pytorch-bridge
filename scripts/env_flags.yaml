@@ -63,22 +63,17 @@ PT_HPU_DYNAMIC_MAX_POLICY_ORDER:
   default: "2,4,5,3,1"
 
 PT_HPU_RECIPE_CACHE_CONFIG:
-  default: ""
-  doc: "It replaces PT_RECIPE_CACHE_PATH, PT_CACHE_FOLDER_DELETE and\n
-PT_CACHE_FOLDER_SIZE_MB. PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
+  default: ",false,1024"
+  doc: "PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
 where params are encoded in the following way:\n
 - 1st param: recipe cache directory path, if empty then disk cache is\n
-disabled\n
+disabled. If proper path is set, disk cache is enabled for all compiled recipes.\n
 - 2nd param: delete recipe cache one init, if set to true then PT bridge\n
 clears recipe cache on init\n
 - 3rd param: recipe cache max size in MB, if set to value > 0, PT bridge\n
 keeps the size of cache dir under defined threshold.\n
+1GB per worker to save recipes to the disk.\n
 Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024"
-
-PT_RECIPE_CACHE_PATH:
-  default: ""
-  doc: "Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.\n
-If proper path is set, disk cache is enabled for all compiled recipes."
 
 PT_HPU_LAZY_MODE:
   type: unsigned
@@ -507,7 +502,7 @@ PT_RECIPE_CACHE_DUMP_DEBUG:
   type: bool
   default: false
   doc: "Option to dump additional debug information to disk cache directory.\n
-This works only with PT_RECIPE_CACHE_PATH set.\n
+This works only with recipe cache directory path set via PT_HPU_RECIPE_CACHE_CONFIG.\n
 In the disk cache folder for every recipe, '<hash>.hash_content' files are\n
 dumped. These files contain all the information that contribute to hash of a\n
 given recipe and can be used i.e. in cases when graphs are expected to\n
@@ -718,16 +713,6 @@ solution for accumulation thread\n
 CPU time\n
  2 - accumulation thread with spinning and mutexes is not used,\n
  the fastest solution, but could consume more CPU time"
-
-PT_CACHE_FOLDER_SIZE_MB:
-  type: unsigned
-  default: 1024
-  doc: "clang-format on\n
-1GB per worker to save recipes to the disk"
-
-PT_CACHE_FOLDER_DELETE:
-  type: bool
-  default: false
 
 PT_COMPILE_ONLY_MODE:
   type: bool

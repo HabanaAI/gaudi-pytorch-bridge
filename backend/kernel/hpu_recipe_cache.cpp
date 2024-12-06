@@ -221,9 +221,10 @@ RecipeCacheLRU::RecipeCacheLRU() {
 }
 
 void RecipeCacheLRU::InitDiskCache() {
-  // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  if (!recipe_cache_config_.path().empty())
+  // Set disk_cache_ if recipe cache directory path is defined via PT_HPU_RECIPE_CACHE_CONFIG
+  if (!recipe_cache_config_.path().empty()) {
     disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
+  }
 }
 
 void RecipeCacheLRU::ResetDiskCache() {
@@ -241,6 +242,16 @@ void RecipeCacheLRU::FlushDiskCache() {
   if (disk_cache_) {
     disk_cache_->flush();
   }
+}
+
+void RecipeCacheLRU::UpdateCachePath(const std::string& new_path) {
+
+  std::string config = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
+  auto pos = config.find(',');
+  std::string new_config = (pos != std::string::npos) ? new_path + config.substr(pos) : new_path;
+
+  SET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG, new_config.c_str(), 1);
+  recipe_cache_config_.reload();
 }
 
 void RecipeCacheLRU::SetHostMemoryThreshold(uint32_t host_memory_threshold) {
