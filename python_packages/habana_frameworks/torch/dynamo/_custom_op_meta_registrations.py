@@ -839,6 +839,39 @@ def meta_mixture_of_experts_fused_weights(
     return hidden_states.new_empty(hidden_states.shape)
 
 
+@register_meta([torch.ops.hpu.mixture_of_experts.fp8_measurement])
+def meta_mixture_of_experts_fp8_measurement(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w1,
+    w2,
+    w3,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+    measurement_mode,
+):
+    return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w1))
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights])
+def meta_mixture_of_experts_fp8_measurement_fused_weights(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+    measurement_mode,
+):
+    return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w12))
+
+
 @register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])
 def meta_rotary_pos_embedding_backward(grad_in, sin, cos, position_ids, offset, mode):
     return grad_in.new_empty(grad_in.shape)

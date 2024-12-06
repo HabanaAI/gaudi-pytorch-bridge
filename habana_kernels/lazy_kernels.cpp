@@ -6475,6 +6475,100 @@ at::Tensor mixture_of_experts_fused_weights_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
 }
 
+std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const bool measurement_mode) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_measurement :",
+      DUMP_11ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max,
+          measurement_mode));
+
+  LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
+      "hpu::mixture_of_experts",
+      {hidden_states,
+       expert_routing_table,
+       router_weights,
+       w1,
+       w2,
+       w3,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max,
+       measurement_mode},
+      {hidden_states.sizes().vec(), {static_cast<int64_t>(w1.size())}},
+      0};
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
+}
+
+std::tuple<at::Tensor, at::Tensor>
+mixture_of_experts_fp8_measurement_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max,
+    const bool measurement_mode) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_measurement_fused_weights :",
+      DUMP_10ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max,
+          measurement_mode));
+
+  LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
+      "hpu::mixture_of_experts",
+      {hidden_states,
+       expert_routing_table,
+       router_weights,
+       w12,
+       w3,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max,
+       measurement_mode},
+      {hidden_states.sizes().vec(), {static_cast<int64_t>(w12.size())}},
+      0};
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
+}
+
 at::Tensor habana_split_permute_cat_lazy(
     const at::Tensor& input,
     const at::Tensor& indices,

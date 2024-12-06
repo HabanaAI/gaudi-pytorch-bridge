@@ -17,8 +17,18 @@
 
 namespace habana {
 
-MixtureOfExperts::MixtureOfExperts(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "moe", scalar_type, {0}, {}, {}, false) {}
+MixtureOfExperts::MixtureOfExperts(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool measurement_mode)
+    : OpBackend(
+          device_id,
+          "moe",
+          scalar_type,
+          measurement_mode ? std::vector<int>{0, 0} : std::vector<int>{0},
+          {},
+          {},
+          false) {}
 
 static const std::map<c10::string_view, MoeActivationMode_t> activationModeMap =
     {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
@@ -29,7 +39,8 @@ std::shared_ptr<void> FillMixtureOfExpertsParams(
     const at::Stack& stack,
     size_t& size,
     const int permuted_weights_idx,
-    const bool fused_gemm) {
+    const bool fused_gemm,
+    const bool measurement_mode) {
   const auto permuted_weights = stack.at(permuted_weights_idx).toBool();
   const auto activation_mode =
       stack.at(permuted_weights_idx + 1).to<c10::string_view>();
@@ -48,14 +59,24 @@ std::shared_ptr<void> FillMixtureOfExpertsParams(
       stack.at(permuted_weights_idx + 3).toScalar().toInt();
   params->flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
   params->flags |= (fused_gemm ? MoeFlags_t::MOE_FLAGS_FUSED_GEMM : 0);
+  params->flags |= (measurement_mode ? MoeFlags_t::MOE_FLAGS_CALC_AMAX : 0);
   return params;
 }
 
-OutputMetaDataVector MixtureOfExpertsMeta(const at::Stack& stack) {
+OutputMetaDataVector MixtureOfExpertsMeta(
+    const at::Stack& stack,
+    bool measurement_mode) {
   const auto& self = stack_tensor(stack, 0);
   OutputMetaDataVector meta(1);
   meta[0].shape = self.sizes().vec();
   meta[0].dtype = self.scalar_type();
+  if (measurement_mode) {
+    auto numExperts = stack.at(3).toTensorList().size();
+    OutputMetaData measurement_meta;
+    measurement_meta.shape = {static_cast<int>(numExperts)};
+    measurement_meta.dtype = self.scalar_type();
+    meta.push_back(measurement_meta);
+  }
   return meta;
 }
 
@@ -66,6 +87,8 @@ void MixtureOfExperts::AddNode(
   auto num_experts = stack.at(3).toTensorList().size();
   auto weights_per_expert = fused_weights ? 2 : 3;
   auto permute_weights_idx = fused_weights ? 5 : 6;
+  auto measurement_mode =
+      fused_weights ? stack.size() == 10 : stack.size() == 11;
 
   std::vector<synTensor> inputs;
   for (size_t i = 0; i < 3 + num_experts * weights_per_expert; i++) {
@@ -74,28 +97,40 @@ void MixtureOfExperts::AddNode(
 
   size_t size = 0;
   auto params = FillMixtureOfExpertsParams(
-      stack, size, permute_weights_idx, fused_weights);
-  auto meta = MixtureOfExpertsMeta(stack)[0];
+      stack, size, permute_weights_idx, fused_weights, measurement_mode);
+  auto meta = MixtureOfExpertsMeta(stack, measurement_mode);
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {meta[0].shape, meta[0].dtype, 0}};
+  if (measurement_mode) {
+    output_attrs.push_back({meta[1].shape, meta[1].dtype, 1});
+  }
 
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe", meta.dtype),
+      {get_guid_with_precision("moe", meta[0].dtype),
        std::move(inputs),
-       {{meta.shape, meta.dtype, 0}},
+       output_attrs,
        params.get(),
        size});
 
   syn_out(0) = std::move(moe_result[0]);
+  if (measurement_mode) {
+    syn_out(1) = std::move(moe_result[1]);
+  }
 }
 
 } // namespace habana
 
 static const auto& MixtureOfExpertsKernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "hpu::mixture_of_experts",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExperts))
+        .add("hpu::mixture_of_experts", KERNEL_FN_ARG(MixtureOfExperts, false))
         .add(
             "hpu::mixture_of_experts.fused_weights",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExperts));
+            KERNEL_FN_ARG(MixtureOfExperts, false))
+        .add(
+            "hpu::mixture_of_experts.fp8_measurement",
+            KERNEL_FN_ARG(MixtureOfExperts, true))
+        .add(
+            "hpu::mixture_of_experts.fp8_measurement_fused_weights",
+            KERNEL_FN_ARG(MixtureOfExperts, true));

@@ -21,7 +21,10 @@
 namespace habana {
 
 struct MixtureOfExperts : OpBackend {
-  MixtureOfExperts(int device_id, c10::ScalarType scalar_type);
+  MixtureOfExperts(
+      int device_id,
+      c10::ScalarType scalar_type,
+      bool measurement_mode);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
