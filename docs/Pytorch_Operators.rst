@@ -112,6 +112,7 @@ arctan                                   Yes      Yes      No      No        No 
 arctanh                                  Yes      Yes      No      No        No       No        No        No       No     torch
 argmax                                   Yes      Yes      Yes     No        No       Yes       Yes       Yes      Yes    torch
 argmin                                   Yes      Yes      Yes     No        No       Yes       Yes       Yes      Yes    torch
+argsort                                  Yes      Yes      Yes     No        Yes      Yes       Yes       No       No     torch
 asin                                     Yes      Yes      No      No        No       No        No        No       No     torch
 asinh                                    Yes      Yes      No      No        No       No        No        No       No     torch
 as_strided                               Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch
@@ -129,8 +130,10 @@ bitwise_right_shift                      No       No       No      No        No 
 bitwise_xor                              No       No       No      No        No       Yes       No        Yes      Yes    torch
 bmm                                      Yes      Yes      Yes     No        No       No        No        No       No     torch
 broadcast_tensors                        Yes      Yes      No      No        No       No        No        No       No     torch
+bucketize                                Yes      Yes      Yes     No        No       No        No        No       No     torch
 cat                                      Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 ceil                                     Yes      Yes      Yes     No        No       Yes       Yes       Yes      No     torch
+cholesky                                 Yes      No       No      No        No       No        No        No       No     torch
 chunk                                    Yes      Yes      No      No        No       Yes       No        No       No     torch
 clamp                                    Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 clip                                     Yes      Yes      No      No        No       Yes       No        No       No     torch
@@ -288,7 +291,9 @@ topk                                     Yes      Yes      Yes     No        No 
 trace                                    Yes      Yes      No      No        No       Yes       No        No       No     torch
 transpose                                Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 tril                                     Yes      Yes      No      No        No       No        No        Yes      Yes    torch
+tril_indices                             No       No       No      No        Yes      Yes       No        No       No     torch
 triu                                     Yes      Yes      No      No        No       No        No        Yes      Yes    torch
+triu_indices                             No       No       No      No        Yes      Yes       No        No       No     torch
 trunc                                    Yes      Yes      Yes     No        No       Yes       Yes       Yes      No     torch
 unbind                                   Yes      Yes      No      No        No       Yes       No        No       No     torch
 unique                                   Yes      No       No      No        No       Yes       No        No       No     torch
