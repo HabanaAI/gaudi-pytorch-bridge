@@ -7436,6 +7436,12 @@ kv_reorder_:
   op_backend: KvReorderCommon
   inplace_ids: [0]
 
+ragged_softmax:
+  custom_op_schema: "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor"
+  custom_fill_params: FillSoftmaxForwardParams
+  guid: ragged_softmax_fwd
+  out_ids: [0]
+
 scaled_masked_softmax:
   custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
   custom_fill_params: FillScaledMaskedSoftmaxParams

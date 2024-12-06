@@ -6586,27 +6586,6 @@ at::Tensor habana_split_permute_cat_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(split_permute_cat, op)
 }
 
-at::Tensor _ragged_softmax(
-    const at::Tensor& self,
-    int64_t dim,
-    bool half_to_float,
-    const at::Tensor& valid_count) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "HpuOp _ragged_softmax :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " half_to_float=",
-      to_string(half_to_float));
-
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::ragged_softmax", {self, dim, half_to_float, valid_count}};
-  RUN_MAYBE_WITH_ACC_THREAD(_ragged_softmax, hpu_op);
-}
-
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_lazy(
     at::Tensor& indices,

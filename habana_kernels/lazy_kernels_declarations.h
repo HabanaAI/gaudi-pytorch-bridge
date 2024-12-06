@@ -654,11 +654,6 @@ at::Tensor habana_split_permute_cat_lazy(
     int64_t batch_size,
     int64_t num_features,
     int64_t dims);
-at::Tensor _ragged_softmax(
-    const at::Tensor& self,
-    int64_t dim,
-    bool half_to_float,
-    const at::Tensor& valid_count);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_lazy(
     at::Tensor& indices,

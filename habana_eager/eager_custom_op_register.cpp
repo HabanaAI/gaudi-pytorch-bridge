@@ -725,27 +725,6 @@ at::Tensor kv_reorder(
   return hpu_op.call();
 }
 
-at::Tensor _ragged_softmax(
-    const at::Tensor& self,
-    int64_t dim,
-    bool half_to_float,
-    const at::Tensor& valid_count) {
-  PT_EAGER_TRACE;
-
-  PT_OP_INFO(
-      "HpuOp _ragged_softmax :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " half_to_float=",
-      to_string(half_to_float));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::ragged_softmax", {self, dim, half_to_float, valid_count}};
-  return hpu_op.call();
-}
-
 at::Tensor& in_place_interleave_(at::Tensor& self) {
   PT_EAGER_TRACE;
   PT_OP_INFO("in_place_interleave_ :", DUMP_ARG(self));
@@ -1717,8 +1696,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def(
-      "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
-  m.def(
       "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
   m.def(
       "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
@@ -1870,7 +1847,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
-  m.impl("hpu::ragged_softmax", _ragged_softmax);
   m.impl("hpu::mixture_of_experts", mixture_of_experts);
   m.impl(
       "hpu::mixture_of_experts.fused_weights",

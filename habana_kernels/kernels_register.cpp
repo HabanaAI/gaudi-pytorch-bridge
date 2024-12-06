@@ -1894,14 +1894,6 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
   return DropoutFunction::apply(input, p, train);
 }
 
-at::Tensor _ragged_softmax_wrap(
-    const at::Tensor& self,
-    int64_t dim,
-    bool half_to_float,
-    const at::Tensor& valid_count) {
-  return habana_lazy::_ragged_softmax(self, dim, half_to_float, valid_count);
-}
-
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(
@@ -2175,8 +2167,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_split_permute_cat(Tensor input, Tensor indices, int batch_size, int num_features, int dims) -> Tensor");
   m.def(
-      "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
-  m.def(
       "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
@@ -2272,7 +2262,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
   m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
-  m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
   m.impl("hpu::mixture_of_experts", mixture_of_experts_lazy);
   m.impl(
       "hpu::mixture_of_experts.fused_weights",
