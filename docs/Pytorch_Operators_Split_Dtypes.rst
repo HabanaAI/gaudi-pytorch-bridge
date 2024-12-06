@@ -10,9 +10,9 @@ PyTorch Operators
 Overview
 ========
 
-This document summarizes the SynapseAI® Software PyTorch supported operators for
-Habana® Gaudi®. Note that the operators listed below support only selected
-variants and limited optional parameters for Gaudi.
+This document provides an overview of PyTorch-supported operators for the
+Intel® Gaudi® AI accelerator. Note that the operators listed below support
+only selected variants and limited optional parameters for Gaudi.
 
 For details on Fused Ops, see :ref:`custom_operators`.
 
@@ -64,6 +64,8 @@ max_pool2d_with_indices                  Yes      Yes      Yes     No    torch.n
 max_pool3d                               Yes      Yes      No      No    torch.nn.functional
 max_pool3d_with_indices                  Yes      Yes      No      No    torch.nn.functional
 mish                                     Yes      Yes      No      No    torch.nn.functional
+multilabel_margin_loss                   Yes      Yes      Yes     No    torch.nn.functional
+multi_margin_loss                        Yes      Yes      Yes     No    torch.nn.functional
 mse_loss                                 Yes      Yes      Yes     No    torch.nn.functional
 nll_loss                                 Yes      Yes      Yes     No    torch.nn.functional
 one_hot                                  Yes      Yes      Yes     No    torch.nn.functional
@@ -346,6 +348,8 @@ LogSigmoid                               Yes      No       No      No    torch.n
 LogSoftmax                               Yes      Yes      Yes     No    torch.nn
 MaxPool2d                                Yes      Yes      Yes     No    torch.nn
 MaxPool3d                                Yes      Yes      No      No    torch.nn
+MultiLabelMarginLoss                     Yes      Yes      Yes     No    torch.nn
+MultiMarginLoss                          Yes      Yes      Yes     No    torch.nn
 Mish                                     Yes      Yes      No      No    torch.nn
 MSELoss                                  Yes      Yes      Yes     No    torch.nn
 NLLLoss                                  Yes      Yes      Yes     No    torch.nn
@@ -722,6 +726,8 @@ max_pool2d_with_indices                   No       No        No        No       
 max_pool3d                                No       No        No        No       No     torch.nn.functional
 max_pool3d_with_indices                   No       No        No        No       No     torch.nn.functional
 mish                                      No       No        No        No       No     torch.nn.functional
+multilabel_margin_loss                    No       No        No        No       No     torch.nn.functional
+multi_margin_loss                         No       No        No        No       No     torch.nn.functional
 mse_loss                                  No       No        No        No       No     torch.nn.functional
 nll_loss                                  No       No        No        No       No     torch.nn.functional
 one_hot                                   Yes      Yes       No        No       No     torch.nn.functional
@@ -1004,6 +1010,8 @@ LogSigmoid                                No       No        No        No       
 LogSoftmax                                No       No        No        No       No     torch.nn
 MaxPool2d                                 No       No        No        No       No     torch.nn
 MaxPool3d                                 No       No        No        No       No     torch.nn
+MultiLabelMarginLoss                      No       No        No        No       No     torch.nn
+MultiMarginLoss                           No       No        No        No       No     torch.nn
 Mish                                      No       No        No        No       No     torch.nn
 MSELoss                                   No       No        No        No       No     torch.nn
 NLLLoss                                   No       No        No        No       No     torch.nn

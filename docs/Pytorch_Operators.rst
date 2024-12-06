@@ -10,9 +10,9 @@ PyTorch Operators
 Overview
 ========
 
-This document summarizes the SynapseAI® Software PyTorch supported operators for
-Habana® Gaudi®. Note that the operators listed below support only selected
-variants and limited optional parameters for Gaudi.
+This document provides an overview of PyTorch-supported operators for the
+Intel® Gaudi® AI accelerator. Note that the operators listed below support
+only selected variants and limited optional parameters for Gaudi.
 
 For details on Fused Ops, see :ref:`custom_operators`.
 
