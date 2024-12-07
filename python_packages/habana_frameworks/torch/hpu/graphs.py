@@ -494,7 +494,7 @@ def input_hash(obj):
     elif torch.is_tensor(obj):
         return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()]))
     elif isinstance(obj, collections.UserDict):
-        return hash(tuple((k, tuple(v)) for k, v in obj.items()))
+        return hash(tuple((k, tuple(input_hash(v_el) for v_el in v)) for k, v in obj.items()))
     else:
         return hash((obj, torch.hpu.is_autocast_hpu_enabled()))
 
