@@ -586,6 +586,10 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     synapse_helpers::graph::recipe_handle& recipe) {
   std::vector<synSectionId> constSectionIds;
   uint32_t numOfTensors = 0;
+  std::unordered_set<int> handled_ids_set;
+  if (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) {
+    return;
+  }
   synStatus status =
       synTensorRetrieveLaunchAmount(recipe.syn_recipe_handle_, &numOfTensors);
   HABANA_ASSERT(
@@ -600,15 +604,15 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     if (src.has_storage()) {
       auto tmeta{get_tensor_extra_meta(src)};
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
-        if (tmeta->is_const_tensor()) {
+        if (tmeta->is_const_tensor() &&
+            (handled_ids_set.count(tmeta->get_const_id()) == 0)) {
           PT_BRIDGE_DEBUG(
               "const tensor name:: ",
               tensor.name(),
               " const id: ",
               tmeta->get_const_id());
           // habana_helpers::handle_const_section_tensor(src, tensor);
-          // remove the const marking to avoid copy more than once
-          TensorExtraMeta::set_const_tensor(src, false);
+          handled_ids_set.insert(tmeta->get_const_id());
           uint64_t section_size = 0, section_data = 0;
           synSectionId tensorSectionId;
           bool isInput;
