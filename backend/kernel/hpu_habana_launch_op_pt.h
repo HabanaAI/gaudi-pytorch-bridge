@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include "backend/helpers/dynamic_bucket_info.h"
@@ -191,8 +191,7 @@ class HabanaLaunchOpPT {
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution =
           HabanaLaunchOpPipeline::NoPipeline);
 
-  void ProcessIntermediateSymbolicShapes(
-      std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void ProcessIntermediateSymbolicShapes(torch::jit::Graph& jit_graph);
   void CreateORUpdateExprSymbolicTable(RecipeValueSpec* rv = nullptr);
   void CreateIValueForNodeInputs(
       torch::jit::Node* node,
@@ -204,8 +203,7 @@ class HabanaLaunchOpPT {
       torch::jit::Node* rv_node,
       const torch::jit::Stack& input_stack,
       OutputMetaDataVector& meta_vec);
-  void CreateValueToIShapeMapForInputs(
-      std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void CreateValueToIShapeMapForInputs(torch::jit::Graph& jit_graph);
   void UpdateValueIShapeMapForListUnpack(
       torch::jit::Node* node,
       RecipeValueSpec& rv);
@@ -585,6 +583,16 @@ class HabanaLaunchOpPT {
       std::shared_ptr<synapse_helpers::graph>& syn_graph,
       SynBuildCache& syn_build_cache,
       bool is_shape_inference = false);
+
+  static void BuildSynapseGraphReset();
+
+  void BuildSynapseGraphInternal(
+      synapse_helpers::graph& syn_graph,
+      SynBuildCache& syn_build_cache,
+      bool is_shape_inference = false);
+
+  torch::jit::graph_node_list::iterator BuildSgGetItrRvNode(
+      synapse_helpers::graph& syn_graph);
 
   void BuildSynapseGraphLite(
       std::shared_ptr<synapse_helpers::graph>& syn_graph,
