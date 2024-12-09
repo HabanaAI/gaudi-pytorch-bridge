@@ -69,6 +69,12 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
     seedHasValue = seed.toOptional<at::Generator>().has_value();
   }
 
+  // For inplace bernoulli, self can have integral dtype, in this case we will
+  // be performing computation in float, so we need to cast self to float.
+  if (isIntegralType(selfDtype, false)) {
+    selfDtype = c10::ScalarType::Float;
+  }
+
   // Precision type and output shape will be taken from self tensor, so even if
   // it is not passed, due to the specificty of SharedLayer the first input must
   // be provided so that the precision type match. "P" tensor will be
@@ -117,7 +123,9 @@ static auto bernoulli_impl(
   auto bernoulli = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("pt_bernoulli", dtype),
+      {get_guid_with_precision(
+           "pt_bernoulli",
+           isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
        inputs,
        {{outshape, dtype, final_result_index}},
        params.get(),
@@ -156,7 +164,9 @@ void BernoulliWithP::AddNode(
 
     auto bernoulli = BuildOp(
         graph,
-        get_guid_with_precision("pt_bernoulli", dtype),
+        get_guid_with_precision(
+            "pt_bernoulli",
+            isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
         std::move(inputs),
         {{outshape, dtype, 0}},
         params.get(),

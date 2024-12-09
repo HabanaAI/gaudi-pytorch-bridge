@@ -414,14 +414,22 @@ def diagonal(
 
 @register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
 def bernoulli(input, p, *, generator=None):
+    p_dtype = input.dtype if input.dtype.is_floating_point else torch.float32
     p_like_input = torch.full(
         [],
         p,
-        dtype=input.dtype,
+        dtype=p_dtype,
         layout=input.layout,
         device=input.device,
     ).expand(input.shape)
     return torch.bernoulli(p_like_input, generator=generator)
+
+
+@register_custom_decomposition(aten.bernoulli.Tensor, hpu_backend_decompositions_common)
+def bernoulli_Tensor(input, p, *, generator=None):
+    p_expanded = p.expand_as(input)
+
+    return torch.bernoulli(p_expanded, generator=generator)
 
 
 @register_custom_decomposition(aten.randn.generator, hpu_backend_decompositions_common)
