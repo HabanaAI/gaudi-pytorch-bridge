@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2024 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -83,15 +83,47 @@ class MixtralSparseMoeBlock(torch.nn.Module):
 
 
 def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, dtype):
-    w1_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
-    w2_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
-    w3_cpu = [torch.randn((ffn_dim, hidden_dim), dtype=dtype) for _ in range(num_experts)]
+    if dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
+        w1 = [torch.randn((hidden_dim, ffn_dim), dtype=torch.float).to(dtype) for _ in range(num_experts)]
+        w2 = [torch.randn((hidden_dim, ffn_dim), dtype=torch.float).to(dtype) for _ in range(num_experts)]
+        w3 = [torch.randn((ffn_dim, hidden_dim), dtype=torch.float).to(dtype) for _ in range(num_experts)]
 
-    w1_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w1_cpu]
-    w2_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w2_cpu]
-    w3_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w3_cpu]
+        w1_cpu = [w.float() for w in w1]
+        w2_cpu = [w.float() for w in w2]
+        w3_cpu = [w.float() for w in w3]
 
+        w1_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w1]
+        w2_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w2]
+        w3_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w3]
+    else:
+        w1_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
+        w2_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
+        w3_cpu = [torch.randn((ffn_dim, hidden_dim), dtype=dtype) for _ in range(num_experts)]
+
+        w1_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w1_cpu]
+        w2_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w2_cpu]
+        w3_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w3_cpu]
     return (w1_cpu, w2_cpu, w3_cpu), (w1_hpu, w2_hpu, w3_hpu)
+
+
+def generate_weights_scales(num_experts):
+    # All set to 1 to test easiest case first
+    w1_scales = [torch.tensor(1.0) for _ in range(num_experts)]
+    w2_scales = [torch.tensor(1.0) for _ in range(num_experts)]
+    w3_scales = [torch.tensor(1.0) for _ in range(num_experts)]
+    intermediate_hidden_states_scales = [torch.tensor(1.0) for _ in range(num_experts)]
+
+    w1_scales_hpu = [s.to(hpu) for s in w1_scales]
+    w2_scales_hpu = [s.to(hpu) for s in w2_scales]
+    w3_scales_hpu = [s.to(hpu) for s in w3_scales]
+    intermediate_hidden_states_scales_hpu = [s.to(hpu) for s in intermediate_hidden_states_scales]
+
+    hidden_states_scale = 1.0
+
+    cpu_scales = (w1_scales, w2_scales, w3_scales, intermediate_hidden_states_scales)
+    hpu_scales = (w1_scales_hpu, w2_scales_hpu, w3_scales_hpu, intermediate_hidden_states_scales_hpu)
+
+    return cpu_scales, hpu_scales, hidden_states_scale
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
@@ -117,7 +149,6 @@ def test_mixture_of_experts(
 ):
     if measurement_mode and pytest.mode != "eager":
         pytest.skip("Currently measurement mode is supported only in eager mode")
-
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
@@ -186,6 +217,83 @@ def test_mixture_of_experts(
         amax_mask_hpu = (amax_per_expert_cpu != 0).to(hpu)
         amax_per_expert_hpu = torch.where(amax_mask_hpu, amax_per_expert_hpu, 0)
         compare_tensors(amax_per_expert_hpu, amax_per_expert_cpu, atol=1e-5, rtol=1e-5)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("mixture_of_experts")
+
+
+@pytest.mark.skip(reason="Need other components promotion")
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
+@pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2])
+@pytest.mark.parametrize("activation", ["gelu", "relu", "silu"])
+@pytest.mark.parametrize("hidden_dim", [64])
+@pytest.mark.parametrize("ffn_dim", [224])
+@pytest.mark.parametrize("num_experts", [8])
+@pytest.mark.parametrize("num_tokens", [1, 32])
+@pytest.mark.parametrize("fused_weights", [True, False])
+@pytest.mark.parametrize("permuted_weights", [True, False])
+def test_mixture_of_experts_fp8(
+    permuted_weights,
+    fused_weights,
+    num_tokens,
+    num_experts,
+    activation,
+    hidden_dim,
+    ffn_dim,
+    fp8_dtype,
+):
+    if activation == "silu" and not fused_weights:
+        pytest.skip("Graph compile failed bug")
+    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
+    router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
+    router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
+    hidden_states = hidden_states_hpu.float().to(cpu)
+    router_weights = router_weights_hpu.float().to(cpu)
+    expert_routing_table = expert_routing_table_hpu.to(cpu)
+
+    expert_weights_cpu, expert_weights_hpu = generate_expert_weights(
+        hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype
+    )
+    expert_scales_cpu, expert_scales_hpu, hidden_states_scale = generate_weights_scales(num_experts)
+
+    mixtral_ref = MixtralSparseMoeBlock(hidden_dim, num_experts, expert_weights_cpu, activation)
+    result_cpu, _ = mixtral_ref(hidden_states, expert_routing_table, router_weights)
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+    w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
+    cat_dim = 0 if permuted_weights else 1
+    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu)]
+
+    w1_scale_hpu, w2_scale_hpu, w3_scale_hpu, intermediate_hidden_states_scale_hpu = expert_scales_hpu
+    w12_scale_hpu = w1_scale_hpu  # Same scale for w1 and w2, as it's single GEMM
+
+    def call_moe_fn():
+        common_inputs = (
+            hidden_states_hpu,
+            expert_routing_table_hpu,
+            router_weights_hpu,
+        )
+        weights = (w12_hpu, w3_hpu) if fused_weights else (w1_hpu, w2_hpu, w3_hpu)
+        hidden_state_scales = (
+            hidden_states_scale,
+            intermediate_hidden_states_scale_hpu,
+        )
+        weights_scales = (w12_scale_hpu, w3_scale_hpu) if fused_weights else (w1_scale_hpu, w2_scale_hpu, w3_scale_hpu)
+        common_params = (
+            permuted_weights,
+            activation,
+            0,
+            num_experts - 1,
+        )
+        return fn(*common_inputs, *weights, *hidden_state_scales, *weights_scales, *common_params)
+
+    result_hpu = partial(call_moe_fn)()
+
+    cos_sim_tol = 0.8  # ?
+    cos_sim = nn.CosineSimilarity(dim=0)(result_hpu.to(cpu).view(-1), result_cpu.view(-1))
+
+    assert cos_sim > cos_sim_tol
+    assert result_hpu.shape == result_cpu.shape
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")

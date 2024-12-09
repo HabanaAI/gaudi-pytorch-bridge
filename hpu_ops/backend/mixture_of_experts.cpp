@@ -1,21 +1,30 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/mixture_of_experts.h"
 
+namespace sh = synapse_helpers;
+
 namespace habana {
+
+OutputMetaDataVector MixtureOfExpertsFp8Meta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = stack_tensor(stack, 0).sizes().vec();
+  meta.dtype = c10::ScalarType::BFloat16;
+  return {meta};
+}
 
 MixtureOfExperts::MixtureOfExperts(
     int device_id,
@@ -29,6 +38,13 @@ MixtureOfExperts::MixtureOfExperts(
           {},
           {},
           false) {}
+
+MixtureOfExpertsFp8::MixtureOfExpertsFp8(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(device_id, "moe", scalar_type, {2}, {}, {}, false) {
+  SetOutputMetaFn(MixtureOfExpertsFp8Meta);
+}
 
 static const std::map<c10::string_view, MoeActivationMode_t> activationModeMap =
     {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
@@ -74,15 +90,13 @@ OutputMetaDataVector MixtureOfExpertsMeta(
     auto numExperts = stack.at(3).toTensorList().size();
     OutputMetaData measurement_meta;
     measurement_meta.shape = {static_cast<int>(numExperts)};
-    measurement_meta.dtype = self.scalar_type();
+    measurement_meta.dtype = c10::ScalarType::Float;
     meta.push_back(measurement_meta);
   }
   return meta;
 }
 
-void MixtureOfExperts::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool fused_weights = !stack.at(5).isTensorList();
   auto num_experts = stack.at(3).toTensorList().size();
   auto weights_per_expert = fused_weights ? 2 : 3;
@@ -120,6 +134,54 @@ void MixtureOfExperts::AddNode(
   }
 }
 
+void HandleScaleScalar(
+    habana::OpBackend* op,
+    sh::graph& graph,
+    float scale,
+    std::vector<sh::tensor>& scale_wrapper,
+    std::vector<synTensor>& inputs,
+    size_t insert_index) {
+  scale_wrapper.emplace_back(
+      op->BuildConstantTensor(op, graph, scale, c10::ScalarType::Float));
+  inputs.insert(inputs.begin() + insert_index, scale_wrapper.back().get());
+}
+
+void MixtureOfExpertsFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
+  const bool fused_weights = stack.size() == 13;
+  const auto weights_and_scales_per_expert = fused_weights ? 5 : 7;
+  const auto permuted_weights_idx = fused_weights ? 9 : 11;
+  auto hidden_states = stack.at(0).toTensor();
+  auto numExperts = stack.at(3).toTensorList().size();
+
+  std::vector<synTensor> inputs;
+  for (size_t i = 0; i < 3 + numExperts * weights_and_scales_per_expert; i++) {
+    inputs.push_back(syn_in(i));
+  }
+
+  std::vector<sh::tensor> scale_wrapper;
+  auto hidden_states_scale =
+      stack.at(fused_weights ? 5 : 6).toScalar().toFloat();
+  auto insert_index = fused_weights ? 19 : 27;
+  HandleScaleScalar(
+      this, graph, hidden_states_scale, scale_wrapper, inputs, insert_index);
+
+  size_t size = 0;
+  auto params = FillMixtureOfExpertsParams(
+      stack, size, permuted_weights_idx, fused_weights, false);
+  auto meta = MixtureOfExpertsFp8Meta(stack)[0];
+
+  auto moe_result = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("moe", hidden_states.scalar_type()),
+       std::move(inputs),
+       {{meta.shape, meta.dtype, 0}},
+       params.get(),
+       size});
+
+  syn_out(0) = std::move(moe_result[0]);
+}
+
 } // namespace habana
 
 static const auto& MixtureOfExpertsKernelRegistry =
@@ -133,4 +195,10 @@ static const auto& MixtureOfExpertsKernelRegistry =
             KERNEL_FN_ARG(MixtureOfExperts, true))
         .add(
             "hpu::mixture_of_experts.fp8_measurement_fused_weights",
-            KERNEL_FN_ARG(MixtureOfExperts, true));
+            KERNEL_FN_ARG(MixtureOfExperts, true))
+        .add(
+            "hpu::mixture_of_experts.fp8",
+            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsFp8))
+        .add(
+            "hpu::mixture_of_experts.fp8_fused_weights",
+            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsFp8));
