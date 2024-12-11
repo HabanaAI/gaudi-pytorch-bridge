@@ -14,8 +14,13 @@ def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLE
 String releaseVersion = extractReleaseVersion()
 def testBuildOsMap = [
     "rh86" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:rhel8.6-${releaseVersion}",
-    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}",
-    "a2" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:amzn2-${releaseVersion}"
+    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}"
+]
+def testBuildEnvVarsMap = [
+    "su15" : [
+        "CC" : "gcc",
+        "CXX" : "g++"
+    ]
 ]
 
 if (testBuildOsMap.keySet().contains(env.OS_SHORT_NAME)) {
@@ -78,8 +83,14 @@ if((env.GIT_PROJECT == 'lightning-habana-fork' ) && !isPromote) {
 }
 preBuildStages =  preBuildStages + lightningHabanaFork + ccacheStats
 def buildCommands = [
-    'Pytorch vision': 'build_pytorch_vision -c',
-    'Pytorch modules': 'build_pytorch_modules -c'
+    'Pytorch vision': [
+        'command': 'build_pytorch_vision -c',
+        'environmentVariables': testBuildEnvVarsMap.get(env.OS_SHORT_NAME, [:])
+    ],
+    'Pytorch modules': [
+        'command': 'build_pytorch_modules -c',
+        'environmentVariables': testBuildEnvVarsMap.get(env.OS_SHORT_NAME, [:])
+    ]
 ]
 
 genericBuilder(
