@@ -439,7 +439,11 @@
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-True-True]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-True-False]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-True]",
-            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-False]"
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-False]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid[False-True-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid[False-True-dtype1]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid[False-False-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid_scales[True-False]"
         ],
         "compile": [
             "pytest_working/compile/test_compile_conv_bn.py::test_hpu_conv_and_batch_norm_2d_fwd_compile_only[16-224-224-3]",
