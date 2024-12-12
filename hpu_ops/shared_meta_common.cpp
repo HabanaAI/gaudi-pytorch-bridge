@@ -527,7 +527,6 @@ SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(
 
   SharedMetaData maxPoolWithIndicesSharedMeta{guid};
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
-
   if (guid.find("maxpool_3d") != std::string::npos) {
     switch (dtype) {
       case c10::ScalarType::BFloat16:
@@ -538,11 +537,13 @@ SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(
         indexType = c10::ScalarType::Byte;
         break;
     }
+    maxPoolWithIndicesSharedMeta.outputs_data = {
+        {rank, indexType}, {rank, dtype}};
   } else {
     maxPoolWithIndicesSharedMeta.options.allowLongType = true;
+    maxPoolWithIndicesSharedMeta.outputs_data = {
+        {rank, dtype}, {rank, indexType}};
   }
-  maxPoolWithIndicesSharedMeta.outputs_data = {
-      {rank, indexType}, {rank, dtype}};
 
   return {maxPoolWithIndicesSharedMeta};
 }
