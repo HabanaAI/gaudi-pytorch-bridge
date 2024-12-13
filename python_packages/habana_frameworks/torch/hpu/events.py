@@ -24,9 +24,9 @@ from typing import Any, Dict, Optional, Union
 import habana_frameworks.torch as htorch
 import torch
 from habana_frameworks.torch import _hpu_C
-from packaging.version import Version
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
-if Version(Version(torch.__version__).base_version) < Version("2.6.0"):
+if is_pytorch_older_than("2.6.0"):
     from torch._streambase import _EventBase
 
     class Event(_hpu_C._HpuEventBase, _EventBase):

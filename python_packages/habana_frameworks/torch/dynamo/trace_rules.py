@@ -18,7 +18,6 @@
 
 import habana_frameworks.torch as htorch
 import torch
-from packaging.version import Version, parse
 from torch._dynamo.trace_rules import SKIP_DIRS, _module_dir, _recompile_re, manual_torch_name_rule_map
 from torch._dynamo.variables import TorchCtxManagerClassVariable, TorchInGraphFunctionVariable
 
@@ -84,65 +83,27 @@ _htorch_non_c_binding_in_graph_functions = {
 
 from torch._dynamo.trace_rules import get_torch_obj_rule_map, torch_name_rule_map
 
-if Version(parse(torch.__version__).base_version) >= Version("2.3"):
-    habana_torch_name_rule_list = [
-        _manual_htorch_name_rule_map,
-        _htorch_ctx_manager_classes,
-        _htorch_c_binding_in_graph_functions,
-        _htorch_non_c_binding_in_graph_functions,
-    ]
+habana_torch_name_rule_list = [
+    _manual_htorch_name_rule_map,
+    _htorch_ctx_manager_classes,
+    _htorch_c_binding_in_graph_functions,
+    _htorch_non_c_binding_in_graph_functions,
+]
 
-    torch_name_rule_map.extend(habana_torch_name_rule_list)
-    get_torch_obj_rule_map.cache_clear()
+torch_name_rule_map.extend(habana_torch_name_rule_list)
+get_torch_obj_rule_map.cache_clear()
 
-    from torch._dynamo.trace_rules import _allowed_callable_ids
+from torch._dynamo.trace_rules import _allowed_callable_ids
 
-    functions_to_add = [
-        htorch.hpu.stream,
-        htorch.hpu.current_stream,
-        htorch.hpu._utils._get_device_index,
-    ]
+functions_to_add = [
+    htorch.hpu.stream,
+    htorch.hpu.current_stream,
+    htorch.hpu._utils._get_device_index,
+]
 
-    for obj in functions_to_add:
-        _allowed_callable_ids.add(id(obj))
+for obj in functions_to_add:
+    _allowed_callable_ids.add(id(obj))
 
-else:
-    habana_torch_name_rule_map = {
-        **_manual_htorch_name_rule_map,
-        **_htorch_ctx_manager_classes,
-        **_htorch_c_binding_in_graph_functions,
-        **_htorch_non_c_binding_in_graph_functions,
-    }
-
-    torch_name_rule_map.update(habana_torch_name_rule_map)
-    get_torch_obj_rule_map.cache_clear()
-
-    """
-    A note on allowed functions:
-
-    Dynamo consults _allowed_function_ids in torch._dynamo.allowed_functions to determine
-    if a particular function/module is allowed to appear as a node in its fx output.
-
-    If a function is disallowed, it may either be traced-through, or skipped.
-
-    Trace-through means dynamo will continue to trace the interior code for
-    the function/module rather than stopping at its boundary and recording it
-    as a node in the fx graph. Whether tracing through or allowing, the functionality
-    of the function/module is part of the dynamo graph.  Caveat: if tracing through,
-    any interior operation could trigger its own graph-break.
-
-    Skips are determined by (torch/_dynamo/skipfiles.py) - see "a note on
-    skipfiles" there.
-    """
-    from torch._dynamo.allowed_functions import _allowed_function_ids
-
-    functions_to_add = [
-        htorch.hpu.streams.Stream,
-        htorch.hpu.events.Event,
-    ]
-
-    for obj in functions_to_add:
-        _allowed_function_ids.add(id(obj))
 
 from torch._dynamo.variables.torch import constant_fold_functions
 
@@ -152,7 +113,4 @@ functions_to_add = [
     htorch.hpu._utils._get_device_index,
 ]
 
-if Version(parse(torch.__version__).base_version) >= Version("2.4.0"):
-    constant_fold_functions.update(dict.fromkeys(functions_to_add))
-else:
-    constant_fold_functions.extend(functions_to_add)
+constant_fold_functions.update(dict.fromkeys(functions_to_add))

@@ -22,12 +22,12 @@ import sys
 import sympy
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from packaging.version import Version
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from symengine import sympify as sympify_engine
 from sympy import Function, sympify
 from sympy.printing.printer import Printer
 
-if Version(Version(torch.__version__).base_version) < Version("2.6.0"):
+if is_pytorch_older_than("2.6.0"):
     from torch._inductor.codegen.common import ExprPrinter as ExprPrinterPT
 else:
     from torch.utils._sympy.printers import ExprPrinter as ExprPrinterPT
@@ -40,7 +40,6 @@ torch_sympy_functions = {}
 
 def substitute_sympyfn(expr):
     import torch.utils._sympy.functions as functions
-    from packaging.version import Version
     from torch.utils._sympy.functions import CeilToInt, TruncToInt
 
     def get_torch_sympy_functions():

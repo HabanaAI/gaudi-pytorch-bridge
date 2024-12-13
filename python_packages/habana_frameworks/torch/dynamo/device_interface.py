@@ -18,7 +18,7 @@
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 
 import torch
-from packaging.version import Version
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 get_hpu_stream: Optional[Callable[[int], int]]
 
@@ -33,7 +33,7 @@ caching_worker_device_properties: Dict[str, Any] = {}
 caching_worker_current_devices: Dict[str, int] = {}
 
 
-if Version(Version(torch.__version__).base_version) < Version("2.6.0"):
+if is_pytorch_older_than("2.6.0"):
     import inspect
 
     from torch._streambase import _EventBase, _StreamBase

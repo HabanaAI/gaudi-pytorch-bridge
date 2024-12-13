@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Union
 import habana_frameworks.torch as htorch
 import torch
 from habana_frameworks.torch import _hpu_C
-from packaging.version import Version
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 from ._utils import _get_device_index
 
@@ -52,7 +52,7 @@ class _device:
 
 _device_t = Union[_device, str, int, None]
 
-if Version(Version(torch.__version__).base_version) < Version("2.6.0"):
+if is_pytorch_older_than("2.6.0"):
 
     from torch._streambase import _StreamBase
 
