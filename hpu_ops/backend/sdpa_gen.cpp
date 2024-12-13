@@ -1,21 +1,25 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/sdpa_gen.h"
+#include "generated/backend/fp8_sdpa_bwd.h"
+#include "generated/backend/sdpa_bwd.h"
+#include "generated/backend/sdpa_recomp_bwd.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/fp8_utils.h"
+
 namespace fp8 = habana::fp8;
 namespace sh = synapse_helpers;
 
@@ -34,18 +38,6 @@ namespace habana {
 
 SDPAFwd::SDPAFwd(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "sdpa_fwd", scalar_type, {0, 0, 0}, {}, {}, false) {}
-
-SDPABwd::SDPABwd(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "sdpa_bwd", scalar_type, {0, 0, 0}, {}, {}, false) {}
-Fp8SDPABwd::Fp8SDPABwd(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "fp8_sdpa_bwd",
-          scalar_type,
-          {0, 0, 0, 0},
-          {},
-          {},
-          false) {}
 
 SDPARecompFwd::SDPARecompFwd(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
@@ -73,16 +65,6 @@ Fp8SDPAFwd::Fp8SDPAFwd(int device_id, c10::ScalarType scalar_type)
           "fp8_sdpa_fwd",
           scalar_type,
           {0, 0, 0, 0},
-          {},
-          {},
-          false) {}
-
-SDPARecompBwd::SDPARecompBwd(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "sdpa_recomp_bwd",
-          scalar_type,
-          {0, 0, 0},
           {},
           {},
           false) {}
@@ -234,14 +216,6 @@ sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
   auto dk_shape = at::infer_size(p_bdim_sizes, q_bdim_sizes);
 
   return {q_shape, k_shape, v_shape};
-}
-
-sizes_vec Fp8SDPABwdOutputShape(const at::Stack& stack) {
-  sizes_vec out_shape = SDPABwdOutputShape(stack);
-  // insert amax_ds shape
-  out_shape.push_back({1});
-
-  return out_shape;
 }
 
 static void fillSdpaParams(
@@ -450,6 +424,19 @@ void Fp8SDPAFwd::AddNode(
   }
 }
 
+OutputMetaDataVector SDPABwdMeta(const at::Stack& stack) {
+  auto out_dtype = stack_tensor(stack, 1).scalar_type();
+  auto sdpa_out_shapes = SDPABwdOutputShape(stack);
+  OutputMetaDataVector meta(3);
+  meta[0].shape = sdpa_out_shapes[0];
+  meta[1].shape = sdpa_out_shapes[1];
+  meta[2].shape = sdpa_out_shapes[2];
+  meta[0].dtype = out_dtype;
+  meta[1].dtype = out_dtype;
+  meta[2].dtype = out_dtype;
+  return meta;
+}
+
 void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "SDPABwd::AddNode");
   auto grad = stackGetter.getNextInput<TensorsPair>();
@@ -469,7 +456,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
   std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
-  auto out_shapes = SDPABwdOutputShape(stack);
+  auto meta = SDPABwdMeta(stack);
 
   std::vector<synTensor> syn_inputs = {
       grad.syn_t, q.syn_t, k.syn_t, v.syn_t, P.syn_t};
@@ -486,9 +473,9 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
-      {out_shapes[0], q.pt_t.scalar_type(), 0},
-      {out_shapes[1], q.pt_t.scalar_type(), 1},
-      {out_shapes[2], q.pt_t.scalar_type(), 2}};
+      {meta[0].shape, meta[0].dtype, 0},
+      {meta[1].shape, meta[1].dtype, 1},
+      {meta[2].shape, meta[2].dtype, 2}};
 
   auto output = OpBackend::BuildNode(
       this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
@@ -496,6 +483,21 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(output[0]);
   syn_out(1) = std::move(output[1]);
   syn_out(2) = std::move(output[2]);
+}
+
+OutputMetaDataVector Fp8SDPABwdMeta(const at::Stack& stack) {
+  auto sdpa_out_shapes = SDPABwdOutputShape(stack);
+  OutputMetaDataVector meta(4);
+  meta[0].shape = sdpa_out_shapes[0];
+  meta[1].shape = sdpa_out_shapes[1];
+  meta[2].shape = sdpa_out_shapes[2];
+  meta[3].shape = {1};
+
+  meta[0].dtype = c10::ScalarType::BFloat16;
+  meta[1].dtype = c10::ScalarType::BFloat16;
+  meta[2].dtype = c10::ScalarType::BFloat16;
+  meta[3].dtype = c10::ScalarType::Float;
+  return meta;
 }
 
 void Fp8SDPABwd::AddNode(
@@ -573,15 +575,13 @@ void Fp8SDPABwd::AddNode(
     syn_inputs.push_back(fwd_out.syn_t);
   }
 
-  auto out_shapes = Fp8SDPABwdOutputShape(stack);
-  // set gradType to BF16 for now.
-  auto gradType = at::ScalarType::BFloat16;
+  auto meta = Fp8SDPABwdMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
-      {out_shapes[0], gradType, 0},
-      {out_shapes[1], gradType, 1},
-      {out_shapes[2], gradType, 2}};
+      {meta[0].shape, meta[0].dtype, 0},
+      {meta[1].shape, meta[1].dtype, 1},
+      {meta[2].shape, meta[2].dtype, 2}};
   if (is_amax_ds) {
-    output_attrs.push_back({out_shapes[3], c10::ScalarType::Float, 3});
+    output_attrs.push_back({meta[3].shape, meta[3].dtype, 3});
   }
 
   auto output = OpBackend::BuildNode(
@@ -701,18 +701,19 @@ sizes_vec Fp8SDPARecompFwdOutputShape(const at::Stack& stack) {
   return out_shape;
 }
 
-sizes_vec SDPARecompBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector SDPARecompBwdMeta(const at::Stack& stack) {
   auto q = stack_tensor(stack, 1);
-  auto k = stack_tensor(stack, 2);
-  auto v = stack_tensor(stack, 3);
-
-  std::vector<int64_t> q_shape = q.sizes().vec();
-  std::vector<int64_t> k_shape = k.sizes().vec();
-  std::vector<int64_t> v_shape = v.sizes().vec();
+  OutputMetaDataVector meta(3);
   // TODO: Add shape checks needed for DS:
   // It must be enough to do shape checks similar to FWD pass
   // in the case of BWD with recomp.
-  return {q_shape, k_shape, v_shape};
+  meta[0].shape = q.sizes().vec();
+  meta[1].shape = stack_tensor(stack, 2).sizes().vec();
+  meta[2].shape = stack_tensor(stack, 3).sizes().vec();
+  meta[0].dtype = q.scalar_type();
+  meta[1].dtype = q.scalar_type();
+  meta[2].dtype = q.scalar_type();
+  return meta;
 }
 
 void SDPARecompFwd::AddNode(
@@ -1009,7 +1010,7 @@ void SDPARecompBwd::AddNode(
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
-  auto out_shapes = SDPARecompBwdOutputShape(stack);
+  auto meta = SDPARecompBwdMeta(stack);
 
   std::vector<synTensor> syn_inputs = {grad.syn_t, q.syn_t, k.syn_t, v.syn_t};
 
@@ -1031,9 +1032,9 @@ void SDPARecompBwd::AddNode(
   }
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
-      {out_shapes[0], q.pt_t.scalar_type(), 0},
-      {out_shapes[1], q.pt_t.scalar_type(), 1},
-      {out_shapes[2], q.pt_t.scalar_type(), 2}};
+      {meta[0].shape, meta[0].dtype, 0},
+      {meta[1].shape, meta[1].dtype, 1},
+      {meta[2].shape, meta[2].dtype, 2}};
 
   auto output = OpBackend::BuildNode(
       this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
@@ -1050,8 +1051,6 @@ static const auto& SDPAKernelRegistry =
         .add("hpu::sdpa_fwd_dropout_seed", KERNEL_FN_GLOBAL(habana::SDPAFwd))
         .add("hpu::sdpa_fwd_non_dropout", KERNEL_FN_GLOBAL(habana::SDPAFwd))
         .add("hpu::sdpa_fwd", KERNEL_FN_GLOBAL(habana::SDPAFwd))
-        .add("hpu::sdpa_bwd", KERNEL_FN_GLOBAL(habana::SDPABwd))
-        .add("hpu::fp8_sdpa_bwd", KERNEL_FN_GLOBAL(habana::Fp8SDPABwd))
         .add("hpu::sdpa_recomp_fwd", KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
         .add(
             "hpu::sdpa_recomp_fwd_non_dropout",
@@ -1083,5 +1082,4 @@ static const auto& SDPAKernelRegistry =
             KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
         .add(
             "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add("hpu::sdpa_recomp_bwd", KERNEL_FN_GLOBAL(habana::SDPARecompBwd));
+            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd));

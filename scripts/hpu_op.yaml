@@ -7443,6 +7443,12 @@ fp8_gemm_v2.scalar_list:
   op_backend: Fp8GemmV2
   out_ids: [0]
 
+fp8_sdpa_bwd:
+  custom_op_schema: "hpu::fp8_sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)"
+  output_meta: Fp8SDPABwdMeta
+  op_backend: Fp8SDPABwd
+  out_ids: [0, 0, 0, 0]
+
 kv_reorder_:
   custom_op_schema: "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))"
   guid: kv_reorder_
@@ -7479,6 +7485,12 @@ scaled_triangular_softmax_retain:
   custom_fill_params: FillScaledTriangularSoftmaxParams
   output_meta: ScaledTriangularSoftmaxRetainMeta
   guid: scaled_masked_triangular_softmax_fwd
+  out_ids: [0, 0, 0]
+
+sdpa_recomp_bwd:
+  custom_op_schema: "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
+  output_meta: SDPARecompBwdMeta
+  op_backend: SDPARecompBwd
   out_ids: [0, 0, 0]
 
 softmax_fp8:
@@ -7549,6 +7561,12 @@ sum_fp8:
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+
+sdpa_bwd:
+  custom_op_schema: "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
+  output_meta: SDPABwdMeta
+  op_backend: SDPABwd
+  out_ids: [0, 0, 0]
 
 exp_fast_math:
   custom_op_schema: "hpu::exp_fast_math(Tensor self) -> Tensor"
