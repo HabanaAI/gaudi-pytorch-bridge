@@ -77,6 +77,7 @@ orchestratorConfig:
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llama7b_bf16_4096t_suite
     # Quantization toolkit tests
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt2e_quant
+      silentMode: true
     # PT Dynamic Subgraph tests
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_dynamic_subgraphs
     # PT Gaudi2 Optimum Habana Models Job <Start>
