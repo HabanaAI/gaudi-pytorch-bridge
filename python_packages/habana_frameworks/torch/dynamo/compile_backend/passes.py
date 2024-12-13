@@ -409,7 +409,7 @@ def optimize_graph(
         graph_changed = False
         pass_counter = 0
         ctx.use_jit_fork = bc.get_pt_hpu_use_jit_fork()
-        dump_fx_graph(ctx.graph_module, "fx_to_optimize", stage=stage, pass_counter=pass_counter)
+        dump_fx_graph(ctx.graph_module, graph_name, stage=stage, pass_counter=pass_counter)
         for optimization_pass in get_passes(stage):
             pass_name = optimization_pass.__name__
             env_name = "PT_HPU_DISABLE_" + pass_name
