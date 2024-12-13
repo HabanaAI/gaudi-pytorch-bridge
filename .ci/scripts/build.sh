@@ -318,6 +318,8 @@ build_pytorch_modules()
         fi
     fi
 
+    set_os_specific_vars
+
     #CI job creates venv for every job. So we need to have python pkg install unconditionally
     install_pkg=($__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt)
     if ! __running_in_venv; then
@@ -649,6 +651,7 @@ build_pytorch_fork()
         shift
     done
 
+    set_os_specific_vars
     unset CMAKE_ROOT  # we're using CMake from requirements files
 
     __provide_mkl || exit $?
@@ -2659,6 +2662,7 @@ build_pytorch_vision()
     rm -rf $PYTORCH_VISION_ROOT
     mkdir -p $PYTORCH_VISION_ROOT
     pushd $PYTORCH_VISION_ROOT
+    set_os_specific_vars
 
     # checkout github torch vision repo
     if [ -z ${__pt_vision_version} ]; then
@@ -2754,4 +2758,15 @@ dsa_debugger()
     ${__dsa_debugger_py} "$@"
 
     return $?
+}
+
+set_os_specific_vars() {
+    case $OS in
+        'sles')
+            export CC="gcc"
+            export CXX="g++"
+            ;;
+        *)
+            ;;
+    esac
 }
