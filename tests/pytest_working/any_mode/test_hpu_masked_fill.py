@@ -21,6 +21,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_gaudi3,
@@ -59,7 +60,7 @@ class TestHpuMaskedMixedDevices:
         def fn(input, mask, value):
             input.masked_fill_(mask, value)
 
-        wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+        wrapped_fn = compile_function_if_compile_mode(fn)
         iters = 3 if dynamic else 1
         for i in range(iters):
             modified_shape = [(dim * (i + 1)) for dim in shape]
