@@ -331,34 +331,6 @@ TEST_F(LazyBasicKernelTest, SelectOnChlastInput) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(B, hB.cpu()), true);
 }
-TEST_F(LazyBasicKernelTest, DISABLED_asStridedOnChlastInput) {
-  torch::Tensor A =
-      torch::randn({2, 3, 4, 5}).contiguous(c10::MemoryFormat::ChannelsLast);
-  auto hA = A.to(torch::kHPU);
-  std::vector<int64_t> sz{2, 4};
-  std::vector<int64_t> str{4, 1};
-  c10::IntArrayRef sizes(sz.data(), sz.size());
-  c10::IntArrayRef strides(str.data(), str.size());
-  int64_t offset = 0;
-  auto out = torch::as_strided(A, sizes, strides, offset);
-  auto hOut = torch::as_strided(hA, sizes, strides, offset);
-  EXPECT_EQ(allclose(out, hOut.cpu()), true);
-}
-TEST_F(LazyBasicKernelTest, DISABLED_asStridedOnChlastOutput) {
-  torch::Tensor A =
-      torch::randn({2, 3, 4, 5}).contiguous(c10::MemoryFormat::ChannelsLast);
-  auto hA = A.to(torch::kHPU);
-  std::vector<int64_t> sz{2, 4};
-  std::vector<int64_t> str{4, 1};
-  c10::IntArrayRef sizes(sz.data(), sz.size());
-  c10::IntArrayRef strides(str.data(), str.size());
-  int64_t offset = 0;
-  auto B = torch::relu(A);
-  auto out = torch::as_strided(B, sizes, strides, offset);
-  auto hB = torch::relu(hA);
-  auto hOut = torch::as_strided(hB, sizes, strides, offset);
-  EXPECT_EQ(allclose(out, hOut.cpu()), true);
-}
 TEST_F(LazyBasicKernelTest, InplaceView) {
   torch::Tensor A = torch::randn({2, 3, 4, 5});
   auto hA = A.to(torch::kHPU);
