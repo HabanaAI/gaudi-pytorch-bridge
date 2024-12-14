@@ -45,7 +45,7 @@ def use_randint_eager_fallback():
         hpu_fallback_op_list.remove("randint")
 
 
-@torch.compile(backend="hpu_backend")
+@torch.compile(backend="hpu_backend", options={"reinplace_add": False})
 def fn(x, y, device):
     res = x + y
     eager_fallback_res = torch.randint(high=100, size=[1], device=device, dtype=torch.int32)
@@ -108,7 +108,7 @@ def test_multiple():
 
 
 def test_bulitin():
-    @torch.compile(backend="hpu_backend")
+    @torch.compile(backend="hpu_backend", options={"reinplace_add": False})
     def clone_fn(x):
         return x.add_(x)
 

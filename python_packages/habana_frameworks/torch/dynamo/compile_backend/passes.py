@@ -78,6 +78,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_allreduce_parents,
             pass_pattern_rewriter,
             pass_fake_propagation,
+            pass_reinplace_inplaceable_ops_v2,
             pass_weight_permutation,
             pass_remove_unnecessary_full_copy,
             pass_remove_unnecessary_expand,
@@ -1159,6 +1160,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                     input_copy_node.meta["output_shapes"] = [arg.meta["output_shapes"][0]]
                     input_copy_node.meta["output_strides"] = [arg.meta["output_strides"][0]]
                     input_copy_node.meta["output_contiguous"] = [arg.meta["output_contiguous"][0]]
+                    input_copy_node.meta["output_offset"] = [arg.meta["output_offset"][0]]
                     node.replace_input_with(arg, input_copy_node)
                 graph_changed = True
 
@@ -1959,7 +1961,7 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     is replace with all_reduce_ which is an inplace variant of collective
     """
     graph_changed = False
-    if not hpu_backend_config.use_inplace_allreduce:
+    if not hpu_backend_config.use_inplace_allreduce or hpu_backend_config.use_generic_reinplacer:
         return graph_changed
 
     def reinplace_collective_ops(gm: torch.fx.GraphModule):
@@ -1997,6 +1999,20 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     return graph_changed
 
 
+def pass_reinplace_inplaceable_ops_v2(ctx: OptimizerContext) -> bool:
+    if not hpu_backend_config.use_generic_reinplacer:
+        return False
+
+    from ._passes.reinplace import reinplace_inplaceable_ops
+
+    pass_fake_propagation(ctx)
+    graph_changed = reinplace_inplaceable_ops(ctx.graph_module.graph)
+    if graph_changed:
+        ctx.graph_module.recompile()
+
+    return graph_changed
+
+
 def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
     """
     This pass tries to replace the usage of out of place variant with the
@@ -2005,7 +2021,7 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
     is replace with index_copy_ which is an inplace variant of index_copy
     """
     graph_changed = False
-    if not hpu_backend_config.use_inplace_index_copy:
+    if not hpu_backend_config.use_inplace_index_copy or hpu_backend_config.use_generic_reinplacer:
         return graph_changed
 
     graph = ctx.graph_module.graph
@@ -2065,7 +2081,7 @@ def pass_reinplace_add_ops(ctx: OptimizerContext):
     In this pass, we will reinplace all possible out-of-place
     torch.ops.aten.add.Tensor ops, to optimize the memory consumption.
     """
-    if not hpu_backend_config.reinplace_add:
+    if not hpu_backend_config.reinplace_add or hpu_backend_config.use_generic_reinplacer:
         return False
 
     graph_changed = False
@@ -2364,6 +2380,9 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
     return graph_changed
 
 
+# Note: This pass must run after any passes that rely on pass_fake_propagation,
+# because it will make bmm op consume non-3D input tensors and cause "batch1
+# must be a 3D tensor" error.
 def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
     def is_view_node(node):
         view_ops = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
