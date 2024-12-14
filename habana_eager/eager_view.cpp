@@ -98,7 +98,8 @@ JitNode* insert_strided_view_node(
     JitNode* node,
     at::Tensor input,
     JitValue* jitval_in,
-    const bool consumer_op_doesnt_use_input) {
+    const bool consumer_op_doesnt_use_input,
+    size_t tensor_idx) {
   ViewParam p;
   p.setParam(input);
   torch::jit::WithInsertPoint insert_point(node);
@@ -124,7 +125,7 @@ JitNode* insert_strided_view_node(
       sizes);
 
   set_deterministic(jit_node);
-  if (consumer_op_doesnt_use_input) {
+  if (consumer_op_doesnt_use_input && tensor_idx == 0) {
     set_as_strided_meta(jit_node);
   }
   graph.insertNode(jit_node);
@@ -339,7 +340,7 @@ void HandleInputOutputView(
 
   if (!idx_is_out || (eager_op_meta_data.num_out_tensors_ > 1)) {
     auto sv_node = insert_strided_view_node(
-        graph, node_consuming_input, t, input_jitval, op_doesnt_use_input);
+        graph, node_consuming_input, t, input_jitval, op_doesnt_use_input, input_idx_in_node_po);
     ++state.strided_view_nodes_count;
 
     // update node params jit value map
@@ -521,7 +522,7 @@ void HandleOutputInsert(
       bool op_doesnt_use_input = check_if_op_doesnt_use_input(si_node);
       pt_eager_graph_debug.before("Copy node replacement with SV:");
       auto sv_node = insert_strided_view_node(
-          graph, si_node, t, jitval, op_doesnt_use_input);
+          graph, si_node, t, jitval, op_doesnt_use_input, idx);
       pt_eager_graph_debug.after("Copy node replacement with SV:");
 
       // update node params jit value map
