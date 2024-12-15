@@ -173,17 +173,6 @@ def get_node_users(node):
     return node_list
 
 
-def is_symbolic_shape(shape):
-    """
-    This function checks if the shape is symbolic.
-    """
-    from torch.fx.experimental.symbolic_shapes import is_symbolic
-
-    if isinstance(shape, torch.Size):
-        return any(is_symbolic(dim) for dim in shape)
-    return False
-
-
 def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
     """
     This function takes out basic information from propagated fake tensor, like
@@ -315,8 +304,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
             assert node.meta["output_device"] == device
         assert node.meta["output_dtypes"] == dtypes
         assert node.meta["output_layouts"] == layouts
-        if not any(is_symbolic_shape(shape) for shape in output_shapes):
-            assert node.meta["output_shapes"] == output_shapes
+        assert node.meta["output_shapes"] == output_shapes
         assert node.meta["output_offset"] == output_offset
 
     node.meta["output_device"] = device
