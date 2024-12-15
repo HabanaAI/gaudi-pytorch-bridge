@@ -209,9 +209,9 @@ def patch_files(file_names, prefix, verbose, git):
     """
     Simple, stupid and effective tool to help with copyright header update.
     \b
-    (1) It will open file(s) and assume that Habana copyright is in at the top.
+    (1) It will open file(s) and assume that Intel copyright is in at the top.
     (2) It will capture the creation year.
-    (3) It will then update the file with the new Habana copyright header with year range starting with the original creation year and current year.
+    (3) It will then update the file with the new Intel copyright header with year range starting with the original creation year and current year.
 
     Don't fully trust this tool. Make sure to always review that the updates were correct.
 

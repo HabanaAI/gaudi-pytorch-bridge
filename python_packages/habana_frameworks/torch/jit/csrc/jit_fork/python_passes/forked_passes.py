@@ -15,17 +15,6 @@
 #
 ###############################################################################
 
-###############################################################################
-# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
-# All Rights Reserved.
-#
-# Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited.
-# This file contains Habana Labs, Ltd. proprietary and confidential information
-# and is subject to the confidentiality and license agreements under which it
-# was provided.
-#
-###############################################################################
 import habana_frameworks.torch._torch_jit_C.jit as jit
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
