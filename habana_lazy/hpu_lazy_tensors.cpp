@@ -1557,7 +1557,7 @@ void HbLazyTensor::ExecuteCachedGraph(
   hlexec.set_opstrs(opStrs);
 
   // Launch the execution
-  hlexec.Launch(stack, cached_rarg_psh, c10::hpu::getCurrentHPUStream());
+  hlexec.Launch(stack, c10::hpu::getCurrentHPUStream(), cached_rarg_psh, false);
 
   HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
   for (const auto& in : hblazy_tensors_in) {
