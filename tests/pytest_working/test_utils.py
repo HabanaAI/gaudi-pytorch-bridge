@@ -28,6 +28,8 @@ import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
 import torch
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from packaging.version import Version
 
 hpu = torch.device("hpu")
@@ -668,3 +670,26 @@ def fga_assert_helper(ops_summary, op, count_list):
                 assert op in single_graph_summary
                 assert single_graph_summary[op].graph_count == graph_count
                 assert single_graph_summary[op].eager_count == eager_count
+
+
+@contextmanager
+def use_eager_fallback():
+    original = configuration_flags["use_eager_fallback"]
+    configuration_flags["use_eager_fallback"] = True
+    try:
+        yield
+    finally:
+        configuration_flags["use_eager_fallback"] = original
+
+
+@contextmanager
+def force_op_eager_fallback(op):
+    revert = False
+    if op and op not in hpu_fallback_op_list:
+        revert = True
+        hpu_fallback_op_list.add(op)
+    try:
+        yield
+    finally:
+        if revert:
+            hpu_fallback_op_list.remove(op)

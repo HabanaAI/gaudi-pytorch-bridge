@@ -15,34 +15,10 @@
 #
 ###############################################################################
 
-from contextlib import contextmanager
 
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper
-
-
-@contextmanager
-def use_eager_fallback():
-    original = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
-    try:
-        yield
-    finally:
-        configuration_flags["use_eager_fallback"] = original
-
-
-@contextmanager
-def use_randint_eager_fallback():
-    revert = False
-    if "randint" not in hpu_fallback_op_list:
-        revert = True
-        hpu_fallback_op_list.add("randint")
-    yield
-    if revert:
-        hpu_fallback_op_list.remove("randint")
+from test_utils import fga_assert_helper, force_op_eager_fallback, use_eager_fallback
 
 
 @torch.compile(backend="hpu_backend")
@@ -61,7 +37,7 @@ def fn2(x, y):
 
 def test_simple():
     with use_eager_fallback():
-        with use_randint_eager_fallback():
+        with force_op_eager_fallback("randint"):
             with FxGraphAnalyzer(reset_dynamo=True) as fga:
                 t1 = torch.tensor([6], device="hpu")
                 t2 = torch.tensor([2], device="hpu")

@@ -191,72 +191,96 @@ def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
 
 
 def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
-    if hpu_backend_config.enable_allreduce_graph_split:
-        graph = ctx.graph_module.graph
-        allreduces = [n for n in graph.nodes if n.name.startswith("all_reduce")]
-        graph_changed = False
-        for allreduce in allreduces:
-            upstream_nodes = allreduce.all_input_nodes
-            fused = None
-            nodes_to_move = [allreduce]
-            while len(upstream_nodes) > 0:
-                new_upstream_nodes = []
-                for upstream_node in upstream_nodes:
-                    if not upstream_node.name.startswith("fused"):
-                        new_upstream_nodes.extend(upstream_node.all_input_nodes)
-                        nodes_to_move.append(upstream_node)
-                    else:
-                        fused = upstream_node
-                upstream_nodes = new_upstream_nodes
+    """
+    This pass aims to move all_reduce nodes as early in graph as possible,
+    and wait_tensor nodes as late as possible.
 
-            if fused is None:
-                continue
+    For all_reduces we traverse through the graph upstream and collect all nodes
+    until we reach an input then we ensure all these nodes are just after last input.
+    Then we save last processed all_reduce node as a new target to append nodes to
+    and repeat the process. For wait_tensor the process is analogous but we traverse downstream.
+    """
+    if not hpu_backend_config.enable_allreduce_graph_split:
+        return False
 
+    graph = ctx.graph_module.graph
+    allreduces = list()
+    waittensors = list()
+    traversed_nodes = list()
+    ar_move_target = None
+    wt_move_target = None
+    graph_changed = False
+    for n in graph.nodes:
+        if n.op == "placeholder":
+            traversed_nodes.append(n)
+            ar_move_target = n  # Finding last placeholder node
+        if n.op == "output":
+            wt_move_target = n
+        if n.name.startswith("all_reduce"):
+            allreduces.append(n)  # Collecting all all_reduce nodes
+        if n.name.startswith("wait_tensor"):
+            waittensors.append(n)  # Collecting all all_reduce nodes
+
+    for allreduce in allreduces:
+        upstream_nodes = allreduce.all_input_nodes
+        nodes_to_move = [allreduce]
+        while len(upstream_nodes) > 0:
+            new_upstream_nodes = []
+            for upstream_node in upstream_nodes:
+                if upstream_node in traversed_nodes:
+                    continue
+                new_upstream_nodes.extend(upstream_node.all_input_nodes)
+                nodes_to_move.append(upstream_node)
+            upstream_nodes = new_upstream_nodes
+
+        traversed_nodes.extend(nodes_to_move)
+
+        if ar_move_target is not None:
             for node in nodes_to_move:
-                fused.append(node)
+                ar_move_target.append(node)
 
             if len(nodes_to_move) > 0:
                 graph_changed = True
 
-        waittensors = [n for n in graph.nodes if n.name.startswith("wait_tensor")]
-        for waittensor in waittensors:
-            downstream_nodes = list(waittensor.users.keys())
+        ar_move_target = allreduce
 
-            # if the wait_tensor has no users. move it to after the
-            # corresponding collective node
-            if len(downstream_nodes) == 0:
-                producer = waittensor.all_input_nodes[0]
-                producer.append(waittensor)
-                graph_changed = True
-                continue
+    traversed_nodes = []
+    for waittensor in reversed(waittensors):
+        downstream_nodes = list(waittensor.users.keys())
 
-            fused = None
+        # if the wait_tensor has no users. move it to after the
+        # corresponding collective node
+        if len(downstream_nodes) == 0:
+            producer = waittensor.all_input_nodes[0]
+            producer.append(waittensor)
+            graph_changed = True
+            continue
 
-            nodes_to_move = [waittensor]
-            while len(downstream_nodes) > 0:
-                new_downstream_nodes = []
-                for downstream_node in downstream_nodes:
-                    if not downstream_node.name.startswith("fused"):
-                        new_downstream_nodes.extend(list(downstream_node.users.keys()))
-                        nodes_to_move.append(downstream_node)
-                    else:
-                        fused = downstream_node
-                downstream_nodes = new_downstream_nodes
+        nodes_to_move = [waittensor]
+        while len(downstream_nodes) > 0:
+            new_downstream_nodes = []
+            for downstream_node in downstream_nodes:
+                if downstream_node in traversed_nodes:
+                    continue
+                new_downstream_nodes.extend(list(downstream_node.users.keys()))
+                nodes_to_move.append(downstream_node)
+            downstream_nodes = new_downstream_nodes
 
-            if fused is None:
-                continue
+        traversed_nodes.extend(nodes_to_move)
 
+        if wt_move_target is not None:
             for node in nodes_to_move:
-                fused.prepend(node)
+                wt_move_target.prepend(node)
 
             if len(nodes_to_move) > 0:
                 graph_changed = True
 
-        if graph_changed:
-            ctx.graph_module.recompile()
+        wt_move_target = waittensor
 
-        return graph_changed
-    return False
+    if graph_changed:
+        ctx.graph_module.recompile()
+
+    return graph_changed
 
 
 @dataclass(frozen=True)
