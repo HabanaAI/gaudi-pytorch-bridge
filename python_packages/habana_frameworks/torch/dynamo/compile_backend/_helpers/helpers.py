@@ -355,7 +355,7 @@ def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
             break  # expect only one output node per fx graph
 
     # remove the duplicated outputs
-    outs = list(output_node.args[0]) if type(output_node.args[0]) == tuple else [output_node.args[0]]
+    outs = list(output_node.args[0]) if type(output_node.args[0]) is tuple else [output_node.args[0]]
     for idx in duplicated_out_indexes:
         outs.remove(outs[idx])
 

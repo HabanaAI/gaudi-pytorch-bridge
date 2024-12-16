@@ -61,7 +61,7 @@ def parse_yaml(f_yaml):
     # print(op_dict)
 
     with open("parsed_hpu_ops_yaml.csv", "w", newline="") as op_csv:
-        header = ["op_name"] + sorted(list(keyset))
+        header = ["op_name"] + sorted(keyset)
         writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
         writer.writeheader()
         for k in op_dict.keys():

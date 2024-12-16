@@ -500,7 +500,7 @@ def input_hash(obj):
 
 
 def copy_to(dst, src):
-    assert type(dst) == type(src)
+    assert type(dst) is type(src)
     if isinstance(dst, dict):
         for (dk, dv), (sk, sv) in zip(dst.items(), src.items()):
             assert dk == sk

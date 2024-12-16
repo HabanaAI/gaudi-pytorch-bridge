@@ -55,18 +55,18 @@ class HabanaParameterWrapper(torch.nn.Parameter):
             kwargs = {}
         else:
             for k, v in kwargs.items():
-                if type(v) == HabanaParameterWrapper:
+                if type(v) is HabanaParameterWrapper:
                     kwargs[k] = HabanaParameterWrapper.db[id(v)]
         new_args = [None] * len(args)
         for i in range(len(args)):
             arg = args[i]
             if type(arg) is list:
                 new_args[i] = [
-                    HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) == HabanaParameterWrapper else inner_arg
+                    HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) is HabanaParameterWrapper else inner_arg
                     for inner_arg in arg
                 ]
             else:
-                new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) == HabanaParameterWrapper else arg
+                new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) is HabanaParameterWrapper else arg
         if func.__name__ == "__set__":
             if hasattr(new_args[0], "device") and hasattr(new_args[1], "device"):
                 if new_args[0].device != new_args[1].device:
@@ -82,7 +82,7 @@ class HabanaParameterWrapper(torch.nn.Parameter):
 
 
 def update_habana_parameter(result):
-    if type(result) == torch.nn.Parameter:
+    if type(result) is torch.nn.Parameter:
         result.__class__ = HabanaParameterWrapper
         HabanaParameterWrapper.db[id(result)] = result
 

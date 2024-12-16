@@ -2079,7 +2079,7 @@ def pass_reinplace_add_ops(ctx: OptimizerContext):
             return False
 
         src0, src1 = node.args[0], node.args[1]
-        is_add_two_tensors = type(src0) == torch.fx.Node and type(src1) == torch.fx.Node
+        is_add_two_tensors = type(src0) is torch.fx.Node and type(src1) is torch.fx.Node
         is_float_dtype = (
             is_add_two_tensors
             and src0.meta["output_dtypes"][0] == src1.meta["output_dtypes"][0]
@@ -2163,7 +2163,7 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
                         # assume mutable arg is always the arg0)
                         queue.append(user_node)
                     elif user_node.op == "output":
-                        outs = list(user_node.args[0]) if type(user_node.args[0]) == tuple else [user_node.args[0]]
+                        outs = list(user_node.args[0]) if type(user_node.args[0]) is tuple else [user_node.args[0]]
                         for out_idx, out in enumerate(outs):
                             if out == current:
                                 in_to_out_dups[in_idx] = out_idx

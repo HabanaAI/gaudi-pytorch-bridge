@@ -75,7 +75,7 @@ def gen_inputs(size, weight_use, dtype, force_f32_for_cpu=False):
     reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
 )
 def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction, dtype):
-    if type(input_size) == tuple and len(input_size) == 5:
+    if type(input_size) is tuple and len(input_size) == 5:
         pytest.xfail("Binary cross entropy Op doesn't support 5D inputs on hpu - [SW-163929]")
     if weight_use:
         pytest.xfail(

@@ -199,9 +199,9 @@ def overwrite_torch_functions():
             ranks_cache[backend] = {}
             if ranks is None:
                 actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-                ranks_tuple = tuple(list(range(0, actual_world_size)))
+                ranks_tuple = tuple(range(0, actual_world_size))
             else:
-                ranks_tuple = tuple(sorted(tuple(ranks)))
+                ranks_tuple = tuple(sorted(ranks))
             if ranks_tuple in ranks_cache[backend]:
                 return ranks_cache[backend][ranks_tuple]
             else:
@@ -232,7 +232,7 @@ def overwrite_torch_functions():
                     backend, init_method, timeout, world_size, rank, store, group_name, pg_options, device_id
                 )
             actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-            ranks_tuple = tuple(list(range(0, actual_world_size)))
+            ranks_tuple = tuple(range(0, actual_world_size))
             if ranks_tuple not in ranks_cache[backend]:
                 ranks_cache[backend][ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
         else:

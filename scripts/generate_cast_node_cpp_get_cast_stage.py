@@ -377,9 +377,6 @@ def Floyd_Warshall(casts, device):
                     w.min_int_mant,
                     w.num_identities,
                     w.max_mant_inc_after_sign_change,
-                    w.mant_bits_begin_end[0],
-                    w.mant_bits_begin_end[1],
-                    w.next,
                 )
             )
 

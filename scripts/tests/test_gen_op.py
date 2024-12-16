@@ -206,6 +206,9 @@ def test_generate_op_hclasses(is_backend):
     header_file = "header.h"
     base_class = "ns::BaseClass"
 
+    def generate_frontend_hclasses(*args):
+        return generate_op_frontend_hclasses(*args, base_class)
+
     if is_backend:
         default_class = "OpBackend"
         generate_func = generate_op_backend_hclasses
@@ -213,7 +216,7 @@ def test_generate_op_hclasses(is_backend):
         getter = "op_backend_class"
     else:
         default_class = "LazyOp"
-        generate_func = lambda *args: generate_op_frontend_hclasses(*args, base_class)
+        generate_func = generate_frontend_hclasses
         macro_suffix = f"FRONTEND({base_class}, "
         getter = "op_frontend_class"
 

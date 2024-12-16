@@ -560,8 +560,8 @@ class DivergenceAnalyzer:
         valid_files_count = min(len(data_static), len(data_dynamic))
         if not is_final:
             valid_files_count -= 1
-        static_files = set(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
-        dynamic_files = set(sorted(data_dynamic.keys(), key=lambda item: int(item.split("_")[-1])))
+        static_files = set(data_static.keys(), key=lambda item: int(item.split("_")[-1]))
+        dynamic_files = set(data_dynamic.keys(), key=lambda item: int(item.split("_")[-1]))
         common_files = sorted(static_files.intersection(dynamic_files))
         graph_names = list(common_files)[:valid_files_count]
         self.log(f"[INFO] Comparing Graphs: {graph_names}", console=False)

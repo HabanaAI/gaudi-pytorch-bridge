@@ -706,10 +706,10 @@ def split(self, split_size, dim=0):
     assert dim < self.dim() and dim >= 0, " given dimension value is out of range"
     cur_size = self.size(dim)
     assert (
-        type(split_size) == int or type(split_size) == list or type(split_size) == torch.SymInt
+        type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt
     ), "split_size_or_sections is not a int value or list"
     # create a new list based on split_size(int)
-    if type(split_size) != list:
+    if type(split_size) is not list:
         split_size = [split_size] * (cur_size // split_size)
         if cur_size != sum(split_size):
             split_size.append(cur_size - sum(split_size))

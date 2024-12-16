@@ -69,7 +69,7 @@ def gen_inputs(size, weight_use, dtype, force_f32_for_cpu=False):
 @pytest.mark.parametrize("reduction", reductions)
 @pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_lazy_binary_cross_entropy_fwd(input_size, weight_use, reduction, dtype):
-    if type(input_size) == tuple and len(input_size) == 5:
+    if type(input_size) is tuple and len(input_size) == 5:
         pytest.xfail("HPU implementation of Binary cross entropy Op doesn't support 5D+ inputs - [SW-163929]")
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
@@ -87,7 +87,7 @@ def test_hpu_lazy_binary_cross_entropy_fwd(input_size, weight_use, reduction, dt
 @pytest.mark.parametrize("reduction", bwd_reductions)
 @pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_lazy_binary_cross_entropy_bwd(input_size, weight_use, reduction, dtype):
-    if type(input_size) == tuple and len(input_size) == 5:
+    if type(input_size) is tuple and len(input_size) == 5:
         pytest.xfail("HPU implementation of Binary cross entropy Op doesn't support 5D+ inputs - [SW-163929]")
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)

@@ -92,9 +92,9 @@ def test_clamp(shape, min_mode, max_mode, dtype):
 
     if dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
         input = input.float()
-        if type(min) == torch.Tensor:
+        if type(min) is torch.Tensor:
             min = min.float()
-        if type(max) == torch.Tensor:
+        if type(max) is torch.Tensor:
             max = max.float()
 
     def fn(input, min, max):

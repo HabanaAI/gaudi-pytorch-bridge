@@ -32,7 +32,7 @@ DYNSHAPE_FIELD = "_dynshape_info"
 
 class Node:
     def __init__(self, name, parent=None):
-        assert type(name) == str
+        assert type(name) is str
         self.name = name
         self.children = []
         self.parent = parent
@@ -386,11 +386,11 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
 
 
 def get_shape(item):
-    if type(item) == type(torch.tensor([])):
+    if type(item) is type(torch.tensor([])):
         return tuple(item.shape)
-    elif type(item) == type([]):
+    elif type(item) is type([]):
         return tuple([get_shape(k) for k in item])
-    elif type(item) == type(tuple()):
+    elif type(item) is type(tuple()):
         return tuple([get_shape(k) for k in item])
     elif isinstance(item, dict):
         return tuple((get_shape(k), get_shape(v)) for k, v in item.items())
