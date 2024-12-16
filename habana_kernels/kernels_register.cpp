@@ -2033,6 +2033,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
   m.def(
+      "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
+      "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
       "hpu::habana_split_permute_cat(Tensor input, Tensor indices, int batch_size, int num_features, int dims) -> Tensor");
   m.def(
       "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
@@ -2137,6 +2141,12 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::mixture_of_experts.fp8_fused_weights",
       mixture_of_experts_fp8_fused_weights_lazy);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_scalars",
+      mixture_of_experts_fp8_scalars_lazy);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_fused_weights_scalars",
+      mixture_of_experts_fp8_fused_weights_scalars_lazy);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm_hpu_lazy);
   m.impl(
       "hpu::optimizer_resource_apply_momentum",

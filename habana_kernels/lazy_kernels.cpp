@@ -6639,8 +6639,8 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     const at::TensorList w3,
     const double d_scale_hidden_states,
     const at::TensorList d_scale_intermediate_hidden_states,
-    const at::TensorList w12_scale,
-    const at::TensorList w3_scale,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
@@ -6657,8 +6657,8 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
           w3,
           d_scale_hidden_states,
           d_scale_intermediate_hidden_states,
-          w12_scale,
-          w3_scale,
+          d_scale_w12,
+          d_scale_w3,
           permuted_weights,
           activation,
           experts_min,
@@ -6673,8 +6673,124 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
        w3,
        d_scale_hidden_states,
        d_scale_intermediate_hidden_states,
-       w12_scale,
-       w3_scale,
+       d_scale_w12,
+       d_scale_w3,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max},
+      {hidden_states.sizes().vec()},
+      0};
+  op.SetOutputMetaFn(MixtureOfExpertsFp8Meta);
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
+}
+
+at::Tensor mixture_of_experts_fp8_scalars_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const double d_scale_hidden_states,
+    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
+    const c10::ArrayRef<double>& d_scale_w1,
+    const c10::ArrayRef<double>& d_scale_w2,
+    const c10::ArrayRef<double>& d_scale_w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_scalars :",
+      DUMP_15ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w1,
+          d_scale_w2,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  LazyOp<at::Tensor> op{
+      "hpu::mixture_of_experts",
+      {hidden_states,
+       expert_routing_table,
+       router_weights,
+       w1,
+       w2,
+       w3,
+       d_scale_hidden_states,
+       d_scale_intermediate_hidden_states,
+       d_scale_w1,
+       d_scale_w2,
+       d_scale_w3,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max},
+      {hidden_states.sizes().vec()},
+      0};
+  op.SetOutputMetaFn(MixtureOfExpertsFp8Meta);
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
+}
+
+at::Tensor mixture_of_experts_fp8_fused_weights_scalars_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const double d_scale_hidden_states,
+    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
+    const c10::ArrayRef<double>& d_scale_w12,
+    const c10::ArrayRef<double>& d_scale_w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_fused_weights_scalars :",
+      DUMP_13ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          d_scale_hidden_states,
+          d_scale_intermediate_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  LazyOp<at::Tensor> op{
+      "hpu::mixture_of_experts",
+      {hidden_states,
+       expert_routing_table,
+       router_weights,
+       w12,
+       w3,
+       d_scale_hidden_states,
+       d_scale_intermediate_hidden_states,
+       d_scale_w12,
+       d_scale_w3,
        permuted_weights,
        activation,
        experts_min,

@@ -35,6 +35,11 @@ struct MixtureOfExpertsFp8 : OpBackend {
   void AddNode(sh::graph&, const at::Stack&) override;
 };
 
+struct MixtureOfExpertsFp8Scalars : OpBackend {
+  MixtureOfExpertsFp8Scalars(int device_id, c10::ScalarType scalar_type);
+  void AddNode(sh::graph&, const at::Stack&) override;
+};
+
 OutputMetaDataVector MixtureOfExpertsFp8Meta(const at::Stack& stack);
 
 } // namespace habana

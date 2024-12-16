@@ -118,12 +118,12 @@ def generate_weights_scales(num_experts):
     w3_scales_hpu = [s.to(hpu) for s in w3_scales]
     intermediate_hidden_states_scales_hpu = [s.to(hpu) for s in intermediate_hidden_states_scales]
 
-    hidden_states_scale = 1.0
+    d_scale_hidden_states = 1.0
 
     cpu_scales = (w1_scales, w2_scales, w3_scales, intermediate_hidden_states_scales)
     hpu_scales = (w1_scales_hpu, w2_scales_hpu, w3_scales_hpu, intermediate_hidden_states_scales_hpu)
 
-    return cpu_scales, hpu_scales, hidden_states_scale
+    return cpu_scales, hpu_scales, d_scale_hidden_states
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
@@ -168,19 +168,6 @@ def test_mixture_of_experts(
     w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
     cat_dim = 0 if permuted_weights else 1
     w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu)]
-
-    common_args_before_weights = (
-        hidden_states.to(hpu),
-        expert_routing_table.to(hpu),
-        router_weights.to(hpu),
-    )
-
-    common_args_after_weights = (
-        permuted_weights,
-        activation,
-        0,
-        num_experts - 1,
-    )
 
     def call_moe_fn():
         common_inputs = (
@@ -232,6 +219,7 @@ def test_mixture_of_experts(
 @pytest.mark.parametrize("num_tokens", [1, 32])
 @pytest.mark.parametrize("fused_weights", [True, False])
 @pytest.mark.parametrize("permuted_weights", [True, False])
+@pytest.mark.parametrize("overwrite_scales", [True, False])
 def test_mixture_of_experts_fp8(
     permuted_weights,
     fused_weights,
@@ -241,6 +229,7 @@ def test_mixture_of_experts_fp8(
     hidden_dim,
     ffn_dim,
     fp8_dtype,
+    overwrite_scales,
 ):
     if activation == "silu" and not fused_weights:
         pytest.skip("Graph compile failed bug")
@@ -254,7 +243,8 @@ def test_mixture_of_experts_fp8(
     expert_weights_cpu, expert_weights_hpu = generate_expert_weights(
         hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype
     )
-    expert_scales_cpu, expert_scales_hpu, hidden_states_scale = generate_weights_scales(num_experts)
+
+    expert_scales_cpu, expert_scales_hpu, d_scale_hidden_states = generate_weights_scales(num_experts)
 
     mixtral_ref = MixtralSparseMoeBlock(hidden_dim, num_experts, expert_weights_cpu, activation)
     result_cpu, _ = mixtral_ref(hidden_states, expert_routing_table, router_weights)
@@ -267,6 +257,14 @@ def test_mixture_of_experts_fp8(
     w1_scale_hpu, w2_scale_hpu, w3_scale_hpu, intermediate_hidden_states_scale_hpu = expert_scales_hpu
     w12_scale_hpu = w1_scale_hpu  # Same scale for w1 and w2, as it's single GEMM
 
+    if overwrite_scales:
+        w1_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        w2_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        w12_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        w3_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        intermediate_hidden_states_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        d_scale_hidden_states = 1.0
+
     def call_moe_fn():
         common_inputs = (
             hidden_states_hpu,
@@ -275,7 +273,7 @@ def test_mixture_of_experts_fp8(
         )
         weights = (w12_hpu, w3_hpu) if fused_weights else (w1_hpu, w2_hpu, w3_hpu)
         hidden_state_scales = (
-            hidden_states_scale,
+            d_scale_hidden_states,
             intermediate_hidden_states_scale_hpu,
         )
         weights_scales = (w12_scale_hpu, w3_scale_hpu) if fused_weights else (w1_scale_hpu, w2_scale_hpu, w3_scale_hpu)
