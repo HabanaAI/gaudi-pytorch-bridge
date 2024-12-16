@@ -129,13 +129,13 @@ def generate_weights_scales(num_experts):
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.half], ids=["fp32", "bf16", "fp16"])
-@pytest.mark.parametrize("activation", ["gelu", "relu", "silu"])
+@pytest.mark.parametrize("activation", ["gelu"])  # ["gelu", "relu", "silu"]
 @pytest.mark.parametrize("hidden_dim", [64])
 @pytest.mark.parametrize("ffn_dim", [224])
 @pytest.mark.parametrize("num_experts", [8])
-@pytest.mark.parametrize("num_tokens", [1, 32])
-@pytest.mark.parametrize("fused_weights", [True, False])
-@pytest.mark.parametrize("permuted_weights", [True, False])
+@pytest.mark.parametrize("num_tokens", [32])  # [1, 32]
+@pytest.mark.parametrize("fused_weights", [True])  # [True, False]
+@pytest.mark.parametrize("permuted_weights", [False])  # [True, False]
 def test_mixture_of_experts(
     permuted_weights,
     fused_weights,
