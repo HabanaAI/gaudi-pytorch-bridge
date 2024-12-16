@@ -874,6 +874,15 @@ void SliceScatterOperatorDSUtil::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(slicescatterOp->GetOutputs()[0]);
 
 }
+
+bool SliceScatterOperator::STMeta(
+    [[maybe_unused]] habana_helpers::IShapeList& inputs,
+    [[maybe_unused]] habana_helpers::IShapeList& outputs) {
+  // Handle scalar inputs only
+  PT_BRIDGE_DEBUG("SliceScatterOperator STMeta");
+  return true;
+}
+
 // slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None, SymInt?
 // end=None, SymInt step=1) -> Tensor
 void SliceScatterOperator::AllocateAndAddSynapseNode(
@@ -890,6 +899,14 @@ void SliceScatterOperator::AllocateAndAddSynapseNode(
   Stack inputs_mod = {inputs[0], inputs[1], IValue(params)};
   SliceInsertOperator::AllocateAndAddSynapseNode(
       graph, inputs_mod, output_metadata);
+}
+
+bool SelectScatterOperator::STMeta(
+    [[maybe_unused]] habana_helpers::IShapeList& inputs,
+    [[maybe_unused]] habana_helpers::IShapeList& outputs) {
+  // Handle scalar inputs only
+  PT_BRIDGE_DEBUG("SelectScatterOperator STMeta");
+  return true;
 }
 
 // func: select_scatter(Tensor self, Tensor src, SymInt? dim, SymInt index) -> Tensor

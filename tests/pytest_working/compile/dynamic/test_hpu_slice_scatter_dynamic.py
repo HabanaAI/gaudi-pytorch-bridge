@@ -125,3 +125,30 @@ def test_slice_scatter():
         y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), shape[2], shape[3], shape[4], shape[5])
 
         assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.01, rtol=0.01)
+
+
+def test_slice_scatter_st_meta():
+    input_shapes = [
+        ((16, 16), (1, 16), 0, 4, 5, 1),
+        ((17, 17), (1, 17), 0, 3, 4, 1),
+        ((18, 18), (18, 1), 1, 9, 10, 1),
+        ((19, 12), (1, 12), 0, 7, 8, 1),
+    ]
+
+    # Created a mini graph for testing
+    # add op -> slice_scatter op -> mul op
+    def wrapper_fn(t, t_src, dim, start, end, step):
+        t2 = t.slice_scatter(t_src, dim, start, end, step)
+        return t2
+
+    f_cpu = torch.compile(wrapper_fn)
+    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
+
+    for shape in input_shapes:
+        input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
+        src_tensor = torch.rand(shape[1], requires_grad=False, device=cpu)
+
+        y_cpu = f_cpu(input_tensor, src_tensor, shape[2], shape[3], shape[4], shape[5])
+        y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), shape[2], shape[3], shape[4], shape[5])
+
+        assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.01, rtol=0.01)

@@ -54,3 +54,32 @@ def test_select_scatter():
         y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), shape[2], shape[3])
 
         assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)
+
+
+def test_select_scatter_st_meta():
+    # (input_shape, shape_src, index)
+    input_shapes = [
+        ((16, 16, 1, 2, 3), (16, 1, 2, 3), 0),
+        ((17, 17, 1, 2, 3), (17, 1, 2, 3), 1),
+        ((18, 18, 1, 2, 3), (18, 1, 2, 3), 2),
+        ((19, 19, 1, 2, 3), (19, 1, 2, 3), 0),
+        ((20, 20, 1, 2, 3), (20, 1, 2, 3), 1),
+    ]
+
+    # Created a mini graph for testing
+    # add op -> select_scatter op -> mul op
+    def wrapper_fn(t, t_src, indices):
+        t2 = t.select_scatter(t_src, 0, indices)
+        return t2
+
+    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
+
+    for shape in input_shapes:
+        print("Input shape: ", shape)
+        input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
+        src_tensor = torch.rand(shape[1], requires_grad=False, device=cpu)
+
+        y_cpu = wrapper_fn(input_tensor, src_tensor, shape[2])
+        y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), shape[2])
+
+        assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)

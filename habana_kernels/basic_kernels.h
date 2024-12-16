@@ -181,6 +181,10 @@ class SliceScatterOperator : public SliceInsertOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
+
+  virtual bool STMeta(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs) override;
 };
 
 class SelectScatterOperator : public SliceScatterOperator {
@@ -192,6 +196,10 @@ class SelectScatterOperator : public SliceScatterOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
+
+  virtual bool STMeta(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs) override;
 };
 
 class StridedInsertOperator : public habana::HabanaOperator {
