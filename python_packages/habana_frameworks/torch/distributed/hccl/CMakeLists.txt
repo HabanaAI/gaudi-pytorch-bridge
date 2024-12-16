@@ -29,4 +29,4 @@ target_link_libraries(_hccl_eager_C PUBLIC bindings torch absl::strings ${TORCH_
 
 set_target_properties(_hccl_C _hccl_lazy_C _hccl_eager_C PROPERTIES PREFIX "")
 
-install(TARGETS _hccl_C _hccl_lazy_C _hccl_eager_C LIBRARY DESTINATION habana_torch_plugin/distributed)
+install(TARGETS _hccl_C _hccl_lazy_C _hccl_eager_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

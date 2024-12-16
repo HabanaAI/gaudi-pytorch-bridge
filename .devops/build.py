@@ -36,7 +36,7 @@ from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Se
 import op_stats_generator
 from build_profiles import profiles
 from build_profiles.profiles import VersionLiteralAndSource
-from build_profiles.version import Version, is_wheel_version
+from build_profiles.version import Version, is_official_stable_cpu_version, is_wheel_version
 
 log = logging.getLogger(__file__)
 
@@ -94,7 +94,6 @@ supported_pt_versions = tuple(map(_to_version_and_source, profiles.get_available
 recommended_pt_version = _to_version_and_source(profiles.get_version_literal_and_source("current"))
 
 supported_python_versions = (
-    Version("3.8"),
     Version("3.10"),
     Version("3.11"),
     Version("3.12"),
@@ -176,7 +175,9 @@ def get_release_version():
     return ".".join(ver_str)
 
 
-def get_supported_python_version(candidate: str, supported_list: Iterable[Union[str, Version]]) -> Optional[Version]:
+def get_supported_python_version(
+    candidate: str, supported_list: Iterable[Union[str, Version]]
+) -> Optional[Union[str, Version]]:
     for supported in supported_list:
         if supported.significant_matches(candidate):
             log.debug(f"Matched supported version: {supported}")
@@ -695,11 +696,7 @@ def prepare_build_envs(
                 required_pt_package_name = profiles.get_required_pt_package_name(
                     pt_ver.version, profiles.RequirementPurpose.BUILD
                 )
-                use_preinstalled_pt = (
-                    current_pt_version
-                    and get_supported_pt_version(current_pt_version, (pt_ver,))
-                    and required_pt_package_name in installed_packages
-                )
+                use_preinstalled_pt = pt_ver.source == "preinstalled"
                 if use_preinstalled_pt and use_current_py:
                     log.info(
                         f"Need {required_pt_package_name}=={pt_ver.version} and python=={py_ver} and will "
@@ -764,46 +761,45 @@ def prepare_build_dirs(
         log.info(f"Preparing for the following builds: {combinations}")
 
         for build_envs, cmake_config in combinations:
-            common_venv_build_env = build_envs[0]
+            for build_env in build_envs:
 
-            # needs to do explicit copy, to support multiple -DPYTHON_EXECUTABLE flags
-            cmake_flags = CMakeFlags(cmake_configurations[cmake_config].copy())
-            log.info(
-                f"In {build_root_dir}, preparing {cmake_config} build for PT {common_venv_build_env.pt_ver_and_src}, Python {common_venv_build_env.py_ver}."
-            )
-            current_ver_build_dir = os.path.join(
-                build_root_dir,
-                target_reldir(
-                    common_venv_build_env.py_ver,
-                    common_venv_build_env.pt_ver_and_src.version.label,
-                    cmake_config,
-                ),
-            )
-
-            if clean:
-                log.info(f"Removing {current_ver_build_dir} to reconfigure")
-                rm_link_or_dir(current_ver_build_dir)
-
-            os.makedirs(current_ver_build_dir, exist_ok=True)
-            log.info(
-                f"Building {cmake_config}, PT {common_venv_build_env.pt_ver_and_src}, "
-                f"Python {common_venv_build_env.py_ver} in {current_ver_build_dir}"
-            )
-
-            optional = all(build_env.optional for build_env in build_envs)
-            cmake_build_configs.append((current_ver_build_dir, common_venv_build_env.venv_dir, optional))
-            with chdir(current_ver_build_dir):
-                prepare_single_build_directory(
-                    pt_modules_root,
-                    clean,
-                    whl_build_dir,
-                    pmake,
-                    build_envs,
-                    cmake_config,
-                    common_venv_build_env,
-                    current_ver_build_dir,
-                    cmake_flags,
+                # needs to do explicit copy, to support multiple -DPYTHON_EXECUTABLE flags
+                cmake_flags = CMakeFlags(cmake_configurations[cmake_config].copy())
+                log.info(
+                    f"In {build_root_dir}, preparing {cmake_config} build for PT {build_env.pt_ver_and_src}, Python {build_env.py_ver}."
                 )
+                current_ver_build_dir = os.path.join(
+                    build_root_dir,
+                    target_reldir(
+                        build_env.py_ver,
+                        build_env.pt_ver_and_src.version.label,
+                        cmake_config,
+                    ),
+                )
+
+                if clean:
+                    log.info(f"Removing {current_ver_build_dir} to reconfigure")
+                    rm_link_or_dir(current_ver_build_dir)
+
+                os.makedirs(current_ver_build_dir, exist_ok=True)
+                log.info(
+                    f"Building {cmake_config}, PT {build_env.pt_ver_and_src}, "
+                    f"Python {build_env.py_ver} in {current_ver_build_dir}"
+                )
+
+                optional = all(build_env.optional for build_env in build_envs)
+                cmake_build_configs.append((current_ver_build_dir, build_env.venv_dir, optional))
+                with chdir(current_ver_build_dir):
+                    prepare_single_build_directory(
+                        pt_modules_root,
+                        clean,
+                        whl_build_dir,
+                        pmake,
+                        cmake_config,
+                        build_env,
+                        current_ver_build_dir,
+                        cmake_flags,
+                    )
 
         wheel_configs = create_wheel_targets(
             wheels_per_build_envs,
@@ -866,18 +862,12 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
         pmake("\trm $$DESTINATION/*.py 2>/dev/null;\\")
         pmake("\trm $$DESTINATION/test_* 2>/dev/null;\\")
         pmake("\tmkdir -p $$DESTINATION && \\")
-        # TODO: uncomment once we merge versioned .so's
-        # for pt_ver_and_src in lib_versions:
-        #     source = target_absdir(py_ver, pt_ver_and_src.version.label, cmake_config)
-        #     pmake(
-        #         f'\techo "Copying {pt_ver_and_src.version} targets from {source} to $$DESTINATION" &&\\'
-        #     )
-        #     pmake(f"\tcp -f {source}/*.so.{pt_ver_and_src.version}* $$DESTINATION &&\\")
-        source = target_absdir(py_ver, next(iter(lib_versions)).version.label, cmake_config)
-        pmake(f'\techo "Copying remaining targets from {source} to $$DESTINATION" &&\\')
-        pmake(f"\tcp -fs {source}/*.so* $$DESTINATION && \\")
+        for pt_ver_and_src in lib_versions:
+            source = target_absdir(py_ver, pt_ver_and_src.version.label, cmake_config)
+            pmake(f'\techo "Copying {pt_ver_and_src.version} targets from {source} to $$DESTINATION" &&\\')
+            pmake(f"\tcp -fs {source}/*.so $$DESTINATION && \\")
+            pmake(f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\")  # skip if not building tests
         pmake(f"\tcp -fs {source}/*.py $$DESTINATION && \\")
-        pmake(f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\")  # skip if not building tests
         cmake_config_upper = cmake_config.upper()
         pmake(
             '\tfind -D exec $${DESTINATION} -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
@@ -992,6 +982,7 @@ def create_wheel_targets(
             pt_vers_config[(env.py_ver, wheel)].append(env.pt_ver_and_src)
             ref_venv_configs[(env.py_ver, wheel, env.optional)].append(env.venv_dir)
     serializer = ""
+    pt_vers = []
     for key, venv_dirs in ref_venv_configs.items():
         py_ver, wheel_name_and_src, optional = key
         pt_vers = pt_vers_config[(py_ver, wheel_name_and_src)]
@@ -1106,37 +1097,35 @@ def prepare_single_build_directory(
     clean,
     whl_build_dir,
     pmake,
-    build_envs,
     cmake_config: str,
-    common_venv_build_env: BuildEnv,
+    build_env: BuildEnv,
     current_ver_build_dir,
     cmake_flags: CMakeFlags,
 ):
+
+    if is_official_stable_cpu_version(build_env.pt_ver_and_src.version):
+        cmake_flags.insert("UPSTREAM_COMPILE", "ON")
     if clean or not os.path.exists(os.path.join(current_ver_build_dir, "Makefile")):
-        run_cmake_build_generation(pt_modules_root, cmake_config, common_venv_build_env, cmake_flags)
+        run_cmake_build_generation(pt_modules_root, cmake_config, build_env, cmake_flags)
         # emit implicit rule to pass target to a recursive make
 
     subtarget = target_reldir(
-        common_venv_build_env.py_ver,
-        common_venv_build_env.pt_ver_and_src.version.label,
+        build_env.py_ver,
+        build_env.pt_ver_and_src.version.label,
         cmake_config,
     )
-    activate = (
-        f"source {common_venv_build_env.venv_dir}/bin/activate" if common_venv_build_env.venv_dir != "." else "true"
-    )
+    activate = f"source {build_env.venv_dir}/bin/activate" if build_env.venv_dir != "." else "true"
     pmake(f".PHONY: {subtarget}/all {subtarget}/wheel {subtarget}/ctest")
     pmake(f"{subtarget}/all:")
     pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS))")
     pmake(f"SUBNAMES += {subtarget}")
-    for build_env in build_envs:
-        pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
+    pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
     pmake(f"{subtarget}/wheel_install:")
-    pt_ver_dir = common_venv_build_env.pt_ver_and_src.version.label.replace(".", "_")
+    pt_ver_dir = build_env.pt_ver_and_src.version.label.replace(".", "_")
     wheel_installs = [
         f"\t{'-' if build_env.optional else ''} "
         f"DESTDIR={whl_build_dir}/py{build_env.py_ver}/pt{pt_ver_dir} "
         f"cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target install"
-        for build_env in build_envs
     ]
     pmake("\n".join(wheel_installs))
     pmake(f"{subtarget}/ctest: {subtarget}/all")
@@ -1185,8 +1174,8 @@ def define_top_level_targets(build_envs, cmake_configurations, pmake):
     #  TODO: proper debug build support in subnames
     pmake(
         "\n".join(
-            f"SUBNAMES_PY_{e.py_ver}_{cmake_config.upper()} ="
-            for e in build_envs
+            f"SUBNAMES_PY_{py_ver}_{cmake_config.upper()} ="
+            for py_ver in {e.py_ver for e in build_envs}
             for cmake_config in cmake_configurations.keys()
         )
     )
@@ -1269,7 +1258,7 @@ def is_running_in_venv():
     return native
 
 
-def get_cmake_configurations(args) -> Dict[str, str]:
+def get_cmake_configurations(args) -> Dict[str, List[str]]:
     """Compiles user-supplied cmd args into a mapping of configurations names
     and lists of CMake flags.
     Deals with conflicts like passing -DCMAKE_BUILD_TYPE=Debug together with -r,
@@ -1291,8 +1280,6 @@ def get_cmake_configurations(args) -> Dict[str, str]:
         cmake_flags.set_if_missing("THREAD_SANITIZER", "ON")
     if args.no_cpp_tests:
         cmake_flags.set_if_missing("BUILD_TESTS", "OFF")
-    if args.upstream_compile:
-        cmake_flags.set_if_missing("UPSTREAM_COMPILE", "ON")
     if args.coverage:
         cmake_flags.set_if_missing("CODE_COVERAGE", "ON")
         args.release = False
@@ -1581,9 +1568,9 @@ def parse_args():
         help="(experimental) run CTest on every build",
     )
     parser.add_argument(
-        "--upstream_compile",
+        "--upstream-compile",
         action="store_true",
-        help="Compile for upstream workspace",
+        help="Additionally compile with upstream fork",
     )
 
     args = parser.parse_args()
@@ -1932,6 +1919,24 @@ def install_wheels_in_venvs(selected_wheel_configs):
         # else: checked in log_produced_wheels_and_dump_manifest
 
 
+def add_upstream_versions(wheel_specs: List[WheelSpec]):
+    for ws in wheel_specs:
+        new_pt_versions: Set[VersionAndSource] = set()
+        for pt_ver in ws.pt_versions:
+            version, _ = pt_ver
+            if str(version).endswith("+cpu"):
+                continue
+
+            new_version = Version(f"{version.major}.{version.minor}.{version.micro}+cpu")
+
+            new_source = "https://download.pytorch.org/whl/"
+            new_pt_versions.add(VersionAndSource(new_version, new_source))
+            new_pt_versions.add(pt_ver)
+        ws.pt_versions = new_pt_versions
+
+    return wheel_specs
+
+
 def main():
     args, raw_args = parse_args()
 
@@ -1960,13 +1965,17 @@ def main():
 
         current_pt_version, wheel_specs = prepare_wheel_specs(args.wheel_spec, args.pt_versions, current_pt_version)
 
+        if args.upstream_compile:
+            wheel_specs = add_upstream_versions(wheel_specs)
+
         selected_pt_versions = set([item for sublist in wheel_specs for item in sublist.pt_versions])
         log.debug(f"Selected PyTorch versions: {selected_pt_versions}")
         unsupported_pt_versions = selected_pt_versions.difference(supported_pt_versions)
         unsupported_pt_versions = list(
             filter(
                 lambda ver_and_str: ver_and_str.version != "nightly"
-                and ver_and_str.source not in ("preinstalled", "uri"),
+                and ver_and_str.source not in ("preinstalled", "uri")
+                and not is_official_stable_cpu_version(ver_and_str.version),
                 unsupported_pt_versions,
             )
         )

@@ -23,4 +23,4 @@ target_link_libraries(_core_C PUBLIC bindings torch ${TORCH_PYTHON_LIBRARY})
 
 set_target_properties(_core_C PROPERTIES PREFIX "")
 
-install(TARGETS _core_C LIBRARY DESTINATION habana_torch_plugin)
+install(TARGETS _core_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

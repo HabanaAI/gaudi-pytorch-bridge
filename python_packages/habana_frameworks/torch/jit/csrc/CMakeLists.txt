@@ -35,4 +35,4 @@ target_link_libraries(${TARGET_NAME} PUBLIC bindings torch ${TORCH_PYTHON_LIBRAR
 target_include_directories(${TARGET_NAME} PRIVATE "${TORCH_JIT_ROOT}")
 
 
-install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin)
+install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

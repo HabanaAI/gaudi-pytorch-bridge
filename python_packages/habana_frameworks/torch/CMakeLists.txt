@@ -27,6 +27,13 @@ target_include_directories(
 
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 
+if(UPSTREAM_COMPILE)
+  set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
+  set(PYBIND_INSTALL_DIRNAME "lib/upstream_pybind")
+else()
+  set(PYBIND_INSTALL_DIRNAME "lib/fork_pybind")
+endif()
+
 include(pt_ver)
 set_up_pt_ver_mechanism()
 

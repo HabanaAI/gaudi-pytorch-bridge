@@ -14,10 +14,20 @@
 #  limitations under the License.
 #
 ###############################################################################
-add_habana_library(_activity_profiler_C SHARED
-    bindings.cpp)
-target_compile_definitions(_activity_profiler_C PRIVATE TORCH_EXTENSION_NAME=_activity_profiler_C)
 
-set_target_properties(_activity_profiler_C PROPERTIES PREFIX "")
-target_link_libraries(_activity_profiler_C PRIVATE bindings torch ${TORCH_PYTHON_LIBRARY})
-install(TARGETS _activity_profiler_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
+from habana_frameworks.torch import is_torch_fork as _is_torch_fork
+
+if _is_torch_fork:
+    from habana_frameworks.torch.lib.fork_pybind._lop_profiler_C import *
+    from habana_frameworks.torch.lib.fork_pybind._lop_profiler_C import (
+        _flush_lo_host_profiler,
+        _start_lo_host_profiler,
+        _stop_lo_host_profiler,
+    )
+else:
+    from habana_frameworks.torch.lib.upstream_pybind._lop_profiler_C import *
+    from habana_frameworks.torch.lib.upstream_pybind._lop_profiler_C import (
+        _flush_lo_host_profiler,
+        _start_lo_host_profiler,
+        _stop_lo_host_profiler,
+    )

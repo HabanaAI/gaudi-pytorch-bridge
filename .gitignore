@@ -15,8 +15,8 @@ data/
 *.swp
 *.swo
 *.egg-info
-test_pt_integration
-test_pt2_integration
+test_pt_integration*
+test_pt2_integration*
 python_packages/habana_frameworks/torch/internal/bridge_config.py
 python_packages/habana_frameworks/torch/required_version.txt
 python_packages/habana_frameworks/torch/dynamo/debug_utils/visualization/graph_visualization_pb2.py

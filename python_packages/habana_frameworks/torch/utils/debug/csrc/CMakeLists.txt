@@ -30,4 +30,4 @@ target_compile_definitions(_debug_lazy_C PRIVATE TORCH_EXTENSION_NAME=_debug_laz
 set_target_properties(_debug_lazy_C PROPERTIES PREFIX "")
 target_link_libraries(_debug_lazy_C PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
 
-install(TARGETS _debug_C _debug_eager_C _debug_lazy_C LIBRARY DESTINATION habana_torch_plugin/utils)
+install(TARGETS _debug_C _debug_eager_C _debug_lazy_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

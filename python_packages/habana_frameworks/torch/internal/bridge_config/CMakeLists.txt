@@ -25,7 +25,7 @@ set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
 target_link_libraries(${TARGET_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/pytorch_helpers)
 install(TARGETS ${TARGET_NAME} INCLUDES ${CMAKE_BINARY_DIR}/generated/env_flags/bridge_config.py LIBRARY
-  DESTINATION habana_torch_plugin/internal)
+  DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
 add_dependencies(${TARGET_NAME} pytorch_generate_env)
 
 add_custom_command(OUTPUT

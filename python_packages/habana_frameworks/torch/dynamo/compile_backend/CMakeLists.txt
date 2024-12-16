@@ -19,7 +19,7 @@ add_habana_library(_recipe_compiler_C SHARED recipe_compiler.cpp)
 target_compile_definitions(_recipe_compiler_C PRIVATE TORCH_EXTENSION_NAME=_recipe_compiler_C)
 set_target_properties(_recipe_compiler_C PROPERTIES PREFIX "")
 target_link_libraries(_recipe_compiler_C PUBLIC bindings torch absl::hash ${TORCH_PYTHON_LIBRARY})
-install(TARGETS _recipe_compiler_C LIBRARY DESTINATION habana_torch_plugin/dynamo/compile_backend)
+install(TARGETS _recipe_compiler_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
 
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/generated/check_kernel_support/op_def.cpp
@@ -45,11 +45,11 @@ target_include_directories(
 target_compile_definitions(_shared_layer_C PRIVATE TORCH_EXTENSION_NAME=_shared_layer_C)
 set_target_properties(_shared_layer_C PROPERTIES PREFIX "")
 target_link_libraries(_shared_layer_C PUBLIC bindings torch absl::hash ${TORCH_PYTHON_LIBRARY})
-install(TARGETS _shared_layer_C LIBRARY DESTINATION habana_torch_plugin/dynamo/compile_backend)
+install(TARGETS _shared_layer_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
 
 
 add_habana_library(_partition_bind_C SHARED partitioner_bind.cpp)
 target_compile_definitions(_partition_bind_C PRIVATE TORCH_EXTENSION_NAME=_partition_bind_C)
 set_target_properties(_partition_bind_C PROPERTIES PREFIX "")
 target_link_libraries(_partition_bind_C PUBLIC bindings torch absl::hash ${TORCH_PYTHON_LIBRARY})
-install(TARGETS _partition_bind_C LIBRARY DESTINATION habana_torch_plugin/dynamo/compile_backend)
+install(TARGETS _partition_bind_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

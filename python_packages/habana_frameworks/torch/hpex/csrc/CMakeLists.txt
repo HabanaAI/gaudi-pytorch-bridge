@@ -23,4 +23,4 @@ target_compile_definitions(_hpex_C PRIVATE TORCH_EXTENSION_NAME=_hpex_C)
 
 set_target_properties(_hpex_C PROPERTIES PREFIX "")
 target_link_libraries(_hpex_C PUBLIC bindings torch ${TORCH_PYTHON_LIBRARY})
-install(TARGETS _hpex_C LIBRARY DESTINATION habana_torch_plugin)
+install(TARGETS _hpex_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

@@ -34,16 +34,20 @@ option(MANYLINUX "build for manylinux configuration, synapse shim will be used" 
 option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
 
 if(MANYLINUX)
-  message("Building with shim layer")
+  message(STATUS "Building with shim layer")
   set(PYTORCH_SYNAPSE_UTILS_LIB pytorch_synapse_utils_shim)
 else()
-  message("Building without shim layer")
+  message(STATUS "Building without shim layer")
   set(PYTORCH_SYNAPSE_UTILS_LIB SynapseUtils)
 endif()
 
 if(UPSTREAM_COMPILE)
-  ADD_DEFINITIONS(-DUPSTREAM_COMPILE)
+  message(STATUS "Building with upstream torch")
+  add_definitions(-DUPSTREAM_COMPILE)
+  set(CMAKE_SHARED_LIBRARY_SUFFIX
+    .upstream${CMAKE_SHARED_LIBRARY_SUFFIX})
   set(CMAKE_CXX_FLAGS "-fabi-version=11")
+  set(CMAKE_EXECUTABLE_SUFFIX "_upstream")
 endif(UPSTREAM_COMPILE)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)

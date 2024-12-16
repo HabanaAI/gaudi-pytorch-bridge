@@ -16,6 +16,7 @@
 ###############################################################################
 
 add_subdirectory(synapse_helpers)
+
 add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpers>
   jit_graph_cache.cpp
   jitgraph_utils.cpp

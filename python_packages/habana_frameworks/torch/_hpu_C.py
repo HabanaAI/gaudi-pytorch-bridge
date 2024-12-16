@@ -15,9 +15,27 @@
 #
 ###############################################################################
 
-add_habana_library(_profiler_C SHARED bindings.cpp)
-target_compile_definitions(_profiler_C PRIVATE TORCH_EXTENSION_NAME=_profiler_C)
+from habana_frameworks.torch import is_torch_fork as _is_torch_fork
 
-set_target_properties(_profiler_C PROPERTIES PREFIX "")
-target_link_libraries(_profiler_C PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
-install(TARGETS _profiler_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})
+if _is_torch_fork:
+    from habana_frameworks.torch.lib.fork_pybind._hpu_C import *
+    from habana_frameworks.torch.lib.fork_pybind._hpu_C import (
+        _hpu_getCurrentRawStream,
+        _hpu_getCurrentStream,
+        _hpu_getDefaultStream,
+        _hpu_getStreamInfo,
+        _hpu_setStream,
+        _HpuEventBase,
+        _HpuStreamBase,
+    )
+else:
+    from habana_frameworks.torch.lib.upstream_pybind._hpu_C import *
+    from habana_frameworks.torch.lib.upstream_pybind._hpu_C import (
+        _hpu_getCurrentRawStream,
+        _hpu_getCurrentStream,
+        _hpu_getDefaultStream,
+        _hpu_getStreamInfo,
+        _hpu_setStream,
+        _HpuEventBase,
+        _HpuStreamBase,
+    )

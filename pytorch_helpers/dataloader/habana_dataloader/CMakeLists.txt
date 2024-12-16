@@ -27,4 +27,9 @@ target_link_libraries(
   habana_dl_app
   PUBLIC torch nlohmann_json aeon ${TORCH_PYTHON_LIBRARY}
   PRIVATE Python::Python)
-install(TARGETS habana_dl_app LIBRARY DESTINATION habana_torch_dataloader)
+if (UPSTREAM_COMPILE)
+  set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
+  install(TARGETS habana_dl_app LIBRARY DESTINATION habana_torch_dataloader/upstream)
+else()
+  install(TARGETS habana_dl_app LIBRARY DESTINATION habana_torch_dataloader/fork)
+endif()

@@ -22,4 +22,4 @@ target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_
 
 set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
 target_link_libraries(${TARGET_NAME} PRIVATE bindings torch ${TORCH_PYTHON_LIBRARY})
-install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/utils)
+install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

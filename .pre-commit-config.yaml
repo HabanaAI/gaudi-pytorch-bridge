@@ -88,7 +88,7 @@ repos:
           - --comment-style
           - |-
             ###############################################################################|#|###############################################################################
-        exclude: ^(topologies|python_packages/habana_frameworks/torch/hpex/|python_packages/habana_frameworks/torch/dynamo/)
+        exclude: ^(topologies)
   # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121816
   #       - id: insert-license
   #         name: Handle copyright headers in C++ files
