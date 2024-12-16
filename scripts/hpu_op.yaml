@@ -571,14 +571,16 @@ _foreach_floor_:
   op_backend: Foreach
 
 _foreach_frac:
-  op_backend: ForeachFrac
+  guid: frac_fwd
+  op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_frac_:
+  guid: frac_fwd
   inplace_ids: [0]
-  op_backend: ForeachFrac
+  op_backend: Foreach
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_lerp.Scalar:
@@ -3020,18 +3022,18 @@ floor_divide.Scalar_out:
   op_validator: check-node-with-shared-layer
 
 frac:
-  op_backend: Frac
+  guid: frac_fwd
   out_ids: [0]
-  op_validator: FracSharedMeta
+  op_validator: check-node-with-shared-layer
 
 frac_:
-  op_backend: Frac
+  guid: frac_fwd
   inplace_ids: [0]
-  op_validator: FracSharedMeta
+  op_validator: check-node-with-shared-layer
 
 frac.out:
-  op_backend: Frac
-  op_validator: FracSharedMeta
+  guid: frac_fwd
+  op_validator: check-node-with-shared-layer
 
 frexp.Tensor:
   output_meta: FrexpMeta
