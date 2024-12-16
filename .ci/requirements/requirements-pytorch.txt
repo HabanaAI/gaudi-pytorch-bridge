@@ -16,7 +16,7 @@ typing-extensions>=4.10.0
 urllib3>=1.26.2,<2  # <2 is an Amazon Linux 2 requirement
 
 # Lightning with Habana support
-lightning==2.4.0
+lightning==2.3.3
 lightning-habana==1.6.0
 torchmetrics>=0.8.0
 packaging>=24.1
