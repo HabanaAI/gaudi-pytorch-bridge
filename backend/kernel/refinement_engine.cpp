@@ -40,8 +40,14 @@ void habana::RefinementEngine::Initialize() {
 
 void habana::RefinementEngine::Refine() {
   PT_BRIDGE_BEGIN;
-  habana_lazy::get_habana_lazy_executor().setExecutionMode(
-      LazyExecutionMode::kLOWERING);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+    habana_lazy::get_habana_lazy_executor().setExecutionMode(
+        LazyExecutionMode::kLOWERING);
+  }
+
+  PT_DYNAMIC_SHAPE_DEBUG("Bucket refinement thread started... ");
+
   while (m_refineFlag) {
     std::unique_lock<std::mutex> mutex_lock(m_mutex);
     m_refineCV.wait(mutex_lock, [&]() { return !m_readyQueue.empty(); });

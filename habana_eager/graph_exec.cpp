@@ -201,10 +201,7 @@ GraphExec::GraphExec(
   habana::eager::JoinPendingPipelineThreads();
 
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
-  bool ds_refine = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD);
-
-  m_is_pipeline_supported =
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && !ds_refine;
+  m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 
   UpdateSeedTensors(example_inputs);
   RunGraphPasses(example_inputs);

@@ -1635,3 +1635,30 @@ def test_dynamic_strided():
         static_res = compiled_static_func(inp1, shape, stride, cos, sin, pos)
         dynamic_res = compiled_dynamic_func(inp1, shape, stride, cos, sin, pos)
         torch.testing.assert_close(static_res.cpu(), dynamic_res.cpu())
+
+
+def test_bucket_refinement():
+    A = 50
+    C = 30
+
+    input_sizes = [34, 16, 32, 22, 17, 18, 16]
+    test_rounds = [1, 1, 1, 1, 1, 2, 30]
+
+    def raw_function(t0, t1):
+        t4 = torch.add(t0, t1)
+        t5 = torch.mul(t0, t1)
+        t6 = torch.mul(t4, t5)
+        t7 = torch.relu(t6)
+        return t7
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for i, B in enumerate(input_sizes):
+        for j in range(1, test_rounds[i] + 1):
+            t0 = torch.randn((C, B, A), requires_grad=False)
+            t1 = torch.randn((C, B, A), requires_grad=False)
+            result = raw_function(t0, t1)
+            t0_h = t0.to("hpu")
+            t1_h = t1.to("hpu")
+            result_h = compiled_fn(t0_h, t1_h)
+            assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
