@@ -2732,7 +2732,7 @@ install_pytorch_whls_future() {
     rm -fv $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
     rm -fv $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
     rm -fv $PYTORCH_VISION_FORK_BUILD/pkgs/*.whl
-    rm -fv $PYTORCH_VISION_BUILD/pkgs/*.
+    rm -fv $PYTORCH_VISION_BUILD/pkgs/*.whl
     if [ -d "/dependencies" ]; then
         find_root="/dependencies"
     else
