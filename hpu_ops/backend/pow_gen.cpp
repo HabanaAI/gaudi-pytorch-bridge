@@ -200,6 +200,12 @@ SharedMetaDataVector PowForeachBinarySharedMeta(
   return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
+SharedMetaDataVector PowBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return ForeachPowOneIterationSharedMeta(stack);
+}
+
 void PowForeachBinary::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

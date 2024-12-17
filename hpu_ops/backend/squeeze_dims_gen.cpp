@@ -46,6 +46,33 @@ OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector SqueezeDimsSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+  const auto dims = stack[1].toIntList().size();
+
+  if (dims == 0) {
+    SharedMetaData identitySharedMeta{"identity"};
+    identitySharedMeta.inputs_data.emplace_back(rank, dtype);
+    identitySharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {identitySharedMeta};
+  }
+
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(dims);
+  for (uint64_t i = 0; i < dims; i++) {
+    SharedMetaData squeezeSharedMeta{"squeeze"};
+    squeezeSharedMeta.inputs_data.emplace_back(rank, dtype);
+    squeezeSharedMeta.outputs_data.emplace_back(rank--, dtype);
+    metaVec.push_back(squeezeSharedMeta);
+  }
+
+  return metaVec;
+}
+
 void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "SqueezeDims::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();

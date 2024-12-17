@@ -273,7 +273,7 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
   SharedMetaDataVector metaVec;
   if (other.isTensor()) {
     const auto& otherTensor = other.toTensor();
-    if (stack.size() > 2) {
+    if (stack.size() > 2 && stack.at(ALPHA_INDEX).isScalar()) {
       alpha = stack.at(ALPHA_INDEX).toScalar();
     }
 
