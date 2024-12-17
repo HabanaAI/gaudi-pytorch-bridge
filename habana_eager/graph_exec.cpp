@@ -62,13 +62,25 @@ void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
       habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
       if (h2d_dt_type == habana::HostDataType::INT32_T) {
         std::vector<int32_t> h2d_data(patch_data.begin(), patch_data.end());
-        UpdateH2DTensorData<int32_t>(tensor, h2d_data);
+        tmeta->set_host_data(
+            h2d_data.data(),
+            tmeta->get_host_size(),
+            tmeta->get_host_el_size(),
+            h2d_dt_type);
       } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
         std::vector<uint32_t> h2d_data(patch_data.begin(), patch_data.end());
-        UpdateH2DTensorData<uint32_t>(tensor, h2d_data);
+        tmeta->set_host_data(
+            h2d_data.data(),
+            tmeta->get_host_size(),
+            tmeta->get_host_el_size(),
+            h2d_dt_type);
       } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
         std::vector<uint64_t> h2d_data(patch_data.begin(), patch_data.end());
-        UpdateH2DTensorData<uint64_t>(tensor, h2d_data);
+        tmeta->set_host_data(
+            h2d_data.data(),
+            tmeta->get_host_size(),
+            tmeta->get_host_el_size(),
+            h2d_dt_type);
       }
     } else if (tmeta->get_tensor_type() == SHAPE_TENSOR) {
       tensor.unsafeGetTensorImpl()->set_sizes_contiguous(patch_data);

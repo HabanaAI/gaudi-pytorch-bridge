@@ -21,6 +21,8 @@
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 
+#define DEFAULT_RECIPE_COUNT 0
+
 namespace synapse_helpers {
 host_memory::host_memory(device& device)
     : mutex_{}, device_{device}, available_(BlockComparator) {}
@@ -31,7 +33,7 @@ host_memory::~host_memory() {
 }
 
 synStatus host_memory::malloc(void** ptr, size_t size) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::unique_lock<std::mutex> lock(mutex_);
 
   if (device_.HostMemoryCacheEnabled_()) {
     /* search for the smallest block which can hold this allocation */
@@ -42,6 +44,7 @@ synStatus host_memory::malloc(void** ptr, size_t size) {
       block.allocated = true;
       *ptr = block.ptr;
       available_.erase(it);
+      lock.unlock();
       return synSuccess;
     }
   }
@@ -55,12 +58,36 @@ synStatus host_memory::malloc(void** ptr, size_t size) {
         "SynHostMalloc Failed OOM, Retrying by dropping cache.", err);
     dropCache();
     err = synHostMalloc(device_.id(), size, 0, ptr);
+    if (err == synOutOfHostMemory) {
+      // Wait till a recipe execution is complete so that memory gets freed to
+      // allocate again
+      uint64_t counter_state{0};
+      auto& recipe_counter = device_.get_active_recipe_counter();
+      if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
+        do {
+          lock.unlock();
+          counter_state = recipe_counter.wait_for_next_decrease_call();
+          PT_CUSTOM_DEBUG(
+              "Retrying memory alloc, ",
+              "waiting for recipe launch completion, recipe count ",
+              counter_state,
+              " requested size ",
+              size);
+          lock.lock();
+          dropCache();
+          err = synHostMalloc(device_.id(), size, 0, ptr);
+        } while (err == synOutOfHostMemory &&
+                 counter_state > DEFAULT_RECIPE_COUNT);
+      }
+    }
   }
   if (err != synSuccess) {
+    lock.unlock();
     return err;
   }
 
   blocks.insert({*ptr, Block(size, *ptr, true)});
+  lock.unlock();
   return synSuccess;
 }
 

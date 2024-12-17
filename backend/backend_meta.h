@@ -371,6 +371,18 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     return dt_type_;
   }
 
+  template <typename T>
+  void set_h2d_data(std::vector<T> data) {
+    h2d_host_data_.clear();
+    for (auto d : data) {
+      h2d_host_data_.push_back(static_cast<int32_t>(d));
+    }
+  }
+
+  std::vector<int32_t> get_h2d_data() {
+    return h2d_host_data_;
+  }
+
   ShapeTensorStruct& get_shape_struct() {
     return shape_tensor_struct_;
   }
@@ -516,6 +528,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
 
   bool is_tensor_pipelined_{false};
   std::shared_ptr<SendTensorMeta> send_tensor_meta_{nullptr};
+  std::vector<int32_t> h2d_host_data_;
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

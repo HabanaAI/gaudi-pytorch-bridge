@@ -121,6 +121,7 @@ void SetH2DTensorHostData(
       dt_type,
       ", type size:",
       sizeof(T));
+  tmeta->set_h2d_data<T>(h2d_data);
   tmeta->set_host_data(h2d_data.data(), h2d_data.size(), sizeof(T), dt_type);
   tmeta->set_H2D_data_for_bucketing();
 }

@@ -51,12 +51,11 @@ std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
   std::vector<T> host_data;
   auto tmeta = get_tensor_extra_meta(tensor);
   size_t data_size = tensor.sizes()[0];
-  PT_EAGER_DEBUG("Read H2D data of size :", data_size);
   if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
-    void* host_ptr = tmeta->get_host_ptr();
-    T* h2d_data = static_cast<T*>(host_ptr);
+    PT_EAGER_DEBUG("Read H2D data of size :", data_size);
+    auto h2d_data = tmeta->get_h2d_data();
     for (size_t i = 0; i < data_size; i++) {
-      host_data.push_back(static_cast<T>(*h2d_data++));
+      host_data.push_back(static_cast<T>(h2d_data[i]));
     }
   }
 

@@ -327,11 +327,10 @@ void ReplaceInUseH2D(torch::jit::Stack& ds_stack, int index) {
     at::Tensor new_h2d_tensor = habana::createDynamicTensor(
         old_dtensor.sizes().vec(), HOST_TO_DEVICE_TENSOR);
     auto new_tmeta{habana::get_tensor_extra_meta(new_h2d_tensor)};
-    new_tmeta->set_host_data(
-        old_tmeta->get_host_ptr(),
-        old_tmeta->get_host_size(),
-        old_tmeta->get_host_el_size(),
-        old_tmeta->get_host_dt_type());
+    new_tmeta->set_h2d_data<int32_t>(old_tmeta->get_h2d_data());
+    new_tmeta->set_host_size(old_tmeta->get_host_size());
+    new_tmeta->set_host_el_size(old_tmeta->get_host_el_size());
+    new_tmeta->set_host_dt_type(old_tmeta->get_host_dt_type());
     if (old_tmeta->peek_H2D_data_for_bucketing())
       new_tmeta->set_H2D_data_for_bucketing();
     ds_stack[index] = torch::jit::IValue(new_h2d_tensor);
