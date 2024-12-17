@@ -58,5 +58,6 @@ SHARED_META_GUID(MaxPoolWithIndicesBwd)
 SHARED_META(Empty)
 SHARED_META(Matmul)
 SHARED_META(StridedView)
+SHARED_META(InstanceNorm)
 
 } // namespace habana

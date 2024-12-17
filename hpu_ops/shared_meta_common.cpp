@@ -716,4 +716,19 @@ SharedMetaDataVector StridedViewSharedMeta(
   return {stridedViewSharedMeta};
 }
 
+SharedMetaDataVector InstanceNormSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  auto rank = self.dim() > 3 ? self.dim() : 4;
+  const auto dtype = self.scalar_type();
+
+  SharedMetaData instanceNormSharedMeta{"instance_norm_fwd"};
+  instanceNormSharedMeta.inputs_data = {
+      {rank, dtype}, {1, c10::ScalarType::Float}, {1, c10::ScalarType::Float}};
+  instanceNormSharedMeta.outputs_data = {
+      {rank, dtype}, {2, c10::ScalarType::Float}, {2, c10::ScalarType::Float}};
+  return {instanceNormSharedMeta};
+}
+
 } // namespace habana

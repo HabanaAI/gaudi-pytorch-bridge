@@ -61,6 +61,11 @@ static CheckNodeWithSharedLayerValidator validator__unsafe_view(
     "_unsafe_view",
     StridedViewSharedMeta,
     habana_helpers::HabanaExecutionMode::LAZY);
+
+static CheckNodeWithSharedLayerValidator validator_instance_norm(
+    "instance_norm",
+    InstanceNormSharedMeta,
+    habana_helpers::HabanaExecutionMode::LAZY);
 } // namespace habana
 
 bool hpu_wrap::is_pinned(
@@ -676,7 +681,20 @@ Tensor hpu_wrap::instance_norm(
         eps,
         cudnn_enabled);
   }
-
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(
+      instance_norm,
+      false,
+      input,
+      weight,
+      bias,
+      running_mean,
+      running_var,
+      use_input_stats,
+      momentum,
+      eps,
+      cudnn_enabled)
   return InstanceNorm::apply(input, weight, bias, eps);
 }
 
@@ -759,6 +777,27 @@ Tensor hpu_wrap::softmax(
       to_string(dim),
       " dtype=",
       to_string(dtype));
+  const auto selfDtype = self.scalar_type();
+  auto computeDtype = dtype.has_value() ? dtype.value() : selfDtype;
+  const bool needFp8ToFp32Cast = selfDtype == at::ScalarType::Float8_e5m2 ||
+      selfDtype == at::ScalarType::Float8_e4m3fn;
+  if (needFp8ToFp32Cast)
+    computeDtype = at::ScalarType::Float;
+
+  if (computeDtype != at::ScalarType::Float &&
+      computeDtype != at::ScalarType::BFloat16 &&
+      !((computeDtype == at::ScalarType::Half ||
+         computeDtype == at::ScalarType::Float8_e5m2 ||
+         computeDtype == at::ScalarType::Float8_e4m3fn) &&
+        habana::HPUDeviceContext::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
+    return dispatch_fallback<ATEN_OP2(softmax, int)>::call(
+        OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, dim, dtype));
+  }
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP2(softmax, int)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(self, dim, dtype));
+  }
   return SoftmaxFunction::apply(self, dim, dtype);
 }
 
