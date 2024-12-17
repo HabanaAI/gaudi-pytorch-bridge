@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/binary_cross_entropy.h"
 #include "generated/backend/binary_cross_entropy_backward.h"
@@ -172,39 +172,36 @@ void BinaryCrossEntropyFwd::AddNode(
   StackGetter stackGetter(this, stack, "BinaryCrossEntropyFwd::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
   auto target = stackGetter.getNextInput<TensorsPair>();
-  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
-  auto output_shape = BinaryCrossEntropyFwdMetaData(stack)[0].shape;
-  const bool is_weights_used = weights.has_value();
+  const auto output_shape = BinaryCrossEntropyFwdMetaData(stack)[0].shape;
+  const bool is_weight_used = weight.has_value();
   const int reduction_index = 3;
   const bool is_binary_cross_entropy_without_sigmoid = true;
   const PosWeightMode_t pos_mode = PosWeightMode_t::POS_WEIGHT_DISABLE;
-  size_t size = 0;
-  auto params = BceParams(
+  size_t params_size = 0;
+
+  const auto params = BceParams(
       stack,
-      size,
-      is_weights_used,
+      params_size,
+      is_weight_used,
       reduction_index,
       is_binary_cross_entropy_without_sigmoid,
       pos_mode);
 
   std::vector<synTensor> input{self.syn_t, target.syn_t};
-  std::vector<synapse_helpers::tensor> weight;
-  if (is_weights_used) {
-    std::vector<int64_t> target_shape = target.pt_t.sizes().vec();
-    auto broadcast_weight =
-        BroadcastHelper(graph, weights->syn_t, target_shape, ScalarType());
-    weight.emplace_back(std::move(broadcast_weight));
-    input.emplace_back(weight[0].get());
+  if (is_weight_used) {
+    input.emplace_back(weight->syn_t);
   }
 
   auto bce_fwd = BuildOp(
       graph,
-      get_guid_with_precision("binary_cross_entropy_fwd", ScalarType()),
+      get_guid_with_precision("binary_cross_entropy_pt_fwd", ScalarType()),
       std::move(input),
       {{output_shape, ScalarType(), 0}},
       params.get(),
-      size);
+      params_size);
+
   syn_out(0) = std::move(bce_fwd[0]);
 }
 
@@ -216,46 +213,43 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
       this, stack, "BinaryCrossEntropyWithLogitsFwd::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
   auto target = stackGetter.getNextInput<TensorsPair>();
-  auto output_shape = BinaryCrossEntropyLogitsFwdMetaData(stack)[0].shape;
-  const bool is_weights_used = !stack.at(2).isNone();
-  const bool is_pos_weights_used = !stack.at(3).isNone();
+  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto pos_weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+
+  const auto output_shape = BinaryCrossEntropyLogitsFwdMetaData(stack)[0].shape;
+  const bool is_weights_used = weight.has_value();
+  const bool is_pos_weights_used = pos_weight.has_value();
   const int reduction_index = 4;
   const bool is_binary_cross_entropy_without_sigmoid = false;
   const PosWeightMode_t pos_mode = is_pos_weights_used
       ? PosWeightMode_t::POS_WEIGHT_ENABLE
       : PosWeightMode_t::POS_WEIGHT_DISABLE;
-  size_t size = 0;
+  size_t params_size = 0;
+
   auto params = BceParams(
       stack,
-      size,
+      params_size,
       is_weights_used,
       reduction_index,
       is_binary_cross_entropy_without_sigmoid,
       pos_mode);
 
   std::vector<synTensor> input{self.syn_t, target.syn_t};
-  if (is_pos_weights_used) {
-    if (is_weights_used)
-      input.emplace_back(syn_in(3));
-    else
-      input.emplace_back(syn_in(2));
+  if (pos_weight) {
+    input.emplace_back(pos_weight->syn_t);
   }
-  std::vector<synapse_helpers::tensor> weight;
-  if (is_weights_used) {
-    std::vector<int64_t> target_shape = target.pt_t.sizes().vec();
-    auto broadcast_weight =
-        BroadcastHelper(graph, syn_in(2), target_shape, ScalarType());
-    weight.emplace_back(std::move(broadcast_weight));
-    input.emplace_back(weight[0].get());
+  if (weight) {
+    input.emplace_back(weight->syn_t);
   }
 
   auto bce_logits_fwd = BuildOp(
       graph,
-      get_guid_with_precision("binary_cross_entropy_fwd", ScalarType()),
+      get_guid_with_precision("binary_cross_entropy_pt_fwd", ScalarType()),
       std::move(input),
       {{output_shape, ScalarType(), 0}},
       params.get(),
-      size);
+      params_size);
+
   syn_out(0) = std::move(bce_logits_fwd[0]);
 }
 
@@ -274,37 +268,31 @@ void BinaryCrossEntropyBwd::AddNode(
   const int reduction_index = 4;
   const bool is_binary_cross_entropy_without_sigmoid = true;
   const PosWeightMode_t pos_mode = PosWeightMode_t::POS_WEIGHT_DISABLE;
-  size_t size = 0;
+  size_t params_size = 0;
+
   auto params = BceParams(
       stack,
-      size,
+      params_size,
       is_weights_used,
       reduction_index,
       is_binary_cross_entropy_without_sigmoid,
       pos_mode);
 
-  auto neg_grad = BuildOp(
-      graph,
-      get_guid_with_precision("neg_fwd", bce_meta.dtype),
-      {grad.syn_t},
-      {{grad.pt_t.sizes().vec(), bce_meta.dtype}});
+  std::vector<synTensor> bce_bwd_inputs = {
+      grad.syn_t, self.syn_t, target.syn_t};
 
-  std::vector<synTensor> bce_bwd_inputs = {self.syn_t, target.syn_t};
-
-  if (is_weights_used)
+  if (is_weights_used) {
     bce_bwd_inputs.push_back(weights->syn_t);
-
-  bce_bwd_inputs.push_back(neg_grad[0].get());
+  }
 
   auto bce_bwd = BuildOp(
       graph,
-      get_guid_with_precision("binary_cross_entropy_bwd", bce_meta.dtype),
+      get_guid_with_precision("binary_cross_entropy_pt_bwd", bce_meta.dtype),
       std::move(bce_bwd_inputs),
       {{bce_meta.shape, bce_meta.dtype, 0}},
       params.get(),
-      size);
+      params_size);
 
-  // output of bce_bwd is the output of this op
   syn_out(0) = std::move(bce_bwd[0]);
 }
 } // namespace habana

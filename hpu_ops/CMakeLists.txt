@@ -388,7 +388,6 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/arange_gen.cpp
           lazy/bernoulli_gen.cpp
           lazy/binary_gen.cpp
-          lazy/binarycrossentropy_gen.cpp
           lazy/binaryscalar2tensor.cpp
           lazy/bitwise_gen.cpp
           lazy/bitwise_shift_gen.cpp
