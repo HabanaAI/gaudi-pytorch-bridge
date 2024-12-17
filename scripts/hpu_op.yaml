@@ -7438,6 +7438,12 @@ fp8_gemm_v2.scalar_list:
   op_backend: Fp8GemmV2
   out_ids: [0]
 
+in_place_interleave_:
+  custom_op_schema: "hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))"
+  output_meta: InPlaceInterleaveMeta
+  guid: in_place_interleave_fwd
+  inplace_ids: [0]
+
 fp8_sdpa_bwd:
   custom_op_schema: "hpu::fp8_sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)"
   output_meta: Fp8SDPABwdMeta

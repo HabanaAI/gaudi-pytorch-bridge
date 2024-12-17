@@ -874,6 +874,4 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const double scale,
     const c10::string_view softmax_mode,
     const at::Tensor& fwd_out);
-at::Tensor& in_place_interleave_lazy(at::Tensor& self);
-
 } // namespace habana_lazy

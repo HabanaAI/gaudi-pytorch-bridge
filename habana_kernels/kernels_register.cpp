@@ -1621,14 +1621,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
       seq_padding_type);
 }
 
-at::Tensor& in_place_interleave_wrap(at::Tensor& self) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_ARG(self));
-
-  return in_place_interleave_lazy(self);
-}
-
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2087,7 +2079,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_sdpa_recomp_fwd_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
-  m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   HABANA_RANDOM_DEF(bernoulli, "Tensor seed, Tensor self")
@@ -2160,7 +2151,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd", fp8_sdpa_recomp_fwd_lazy);
   m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_fwd_scalar_lazy);
   m.impl("hpu::fp8_sdpa_fwd", fp8_sdpa_fwd_wrap);
-  m.impl("hpu::in_place_interleave_", in_place_interleave_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

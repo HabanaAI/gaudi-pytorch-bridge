@@ -7429,14 +7429,4 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
   }
 }
 
-at::Tensor& in_place_interleave_lazy(at::Tensor& self) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor&> op{
-      "hpu::in_place_interleave_", {self}, {{self.sizes().vec()}}};
-
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(in_place_interleave, op, self)
-}
-
 } // namespace habana_lazy

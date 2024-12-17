@@ -559,52 +559,34 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** InPlaceInterleave **********/
 
-struct InPlaceInterleave : InPlaceInterleaveCommon {
-  InPlaceInterleave(int device_id, c10::ScalarType scalar_type)
-      : InPlaceInterleaveCommon(
-            device_id,
-            "in_place_interleave",
-            scalar_type,
-            {0},
-            {},
-            {},
-            false) {}
-};
+OutputMetaDataVector InPlaceInterleaveMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto shape = self.sizes().vec();
 
-struct InPlaceInterleave_ : InPlaceInterleaveCommon {
-  InPlaceInterleave_(int device_id, c10::ScalarType scalar_type)
-      : InPlaceInterleaveCommon(
-            device_id,
-            "in_place_interleave_",
-            scalar_type,
-            {},
-            {0},
-            {},
-            false) {}
-};
-
-void InPlaceInterleaveCommon::AddNode(
-    sh::graph& graph,
-    const at::Stack& stack) {
   TORCH_CHECK(
       stack.size() == 1, "InPlaceInterleave must have 1 input argument");
-
-  StackGetter stackGetter(this, stack, "InPlaceInterleave::AddNode");
-  auto self = stackGetter.getNextInput<TensorsPair>();
-  auto shape = self.pt_t.sizes().vec();
-  auto dst_type = self.pt_t.scalar_type();
   TORCH_CHECK(shape.size() == 4, "Input has to be a 4D tensor.");
   TORCH_CHECK(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
 
-  auto output = BuildNode(
-      this,
-      graph,
-      {get_guid_with_precision("in_place_interleave_fwd", dst_type),
-       {self.syn_t},
-       {{shape, dst_type, 0}}});
-
-  syn_out(0) = std::move(output[0]);
+  OutputMetaData meta;
+  meta.shape = shape;
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
+
+struct InPlaceInterleave : OpBackend {
+  InPlaceInterleave(int device_id, c10::ScalarType scalar_type)
+      : OpBackend(
+            device_id,
+            "in_place_interleave_fwd",
+            scalar_type,
+            {0},
+            {},
+            {},
+            false) {
+    SetOutputMetaFn(InPlaceInterleaveMeta);
+  }
+};
 
 /********** Conv2dFp8 **********/
 
@@ -772,9 +754,6 @@ static const auto& CastKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
-        .add(
-            "hpu::in_place_interleave_",
-            KERNEL_FN_GLOBAL(habana::InPlaceInterleave_))
         .add(
             "hpu::in_place_interleave",
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave));

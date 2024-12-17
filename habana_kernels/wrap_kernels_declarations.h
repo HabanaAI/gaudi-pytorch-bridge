@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2020-2024 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -265,6 +265,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const double scale,
     const c10::string_view softmax_mode,
     const at::Tensor& fwd_out);
+
 at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& a,
     const at::Tensor& b,
@@ -272,7 +273,6 @@ at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b);
-at::Tensor& in_place_interleave_wrap(at::Tensor& self);
 
 namespace vision {
 namespace ops {

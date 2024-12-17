@@ -442,15 +442,6 @@ at::Tensor kv_reorder(
   return hpu_op.call();
 }
 
-at::Tensor& in_place_interleave_(at::Tensor& self) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("in_place_interleave_ :", DUMP_ARG(self));
-
-  habana::eager::EagerOp<at::Tensor&> hpu_op{
-      "hpu::in_place_interleave_", {self}, {{self.sizes().vec()}}};
-  return hpu_op.call(self);
-}
-
 at::Tensor in_place_interleave(const at::Tensor& self) {
   PT_EAGER_TRACE;
   PT_OP_INFO("in_place_interleave :", DUMP_ARG(self));
@@ -1230,7 +1221,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
-  m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
   m.def(
@@ -1400,7 +1390,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8", cast_to_fp8);
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::in_place_interleave", in_place_interleave);
-  m.impl("hpu::in_place_interleave_", in_place_interleave_);
   m.impl("hpu::kv_reorder", kv_reorder);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
   m.impl("hpu::optimizer_adamw", optimizer_adamw);
