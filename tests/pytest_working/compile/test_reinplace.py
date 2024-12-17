@@ -15,25 +15,31 @@
 #
 ###############################################################################
 
+import pytest
 import torch
+import torch.distributed._functional_collectives as fcol
 from compile.test_dynamo_utils import use_eager_fallback
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
 from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_eagerize_leaf_views,
     pass_fake_propagation,
-    pass_reinplace_add_ops,
-    pass_reinplace_index_copy_ops,
+    pass_reinplace_inplaceable_ops_v2,
 )
+from torch.func import functionalize
 from torch.fx.experimental.proxy_tensor import make_fx
+
+
+def reinplace_test_helper(ctx):
+    pass_fake_propagation(ctx)
+    return pass_reinplace_inplaceable_ops_v2(ctx)
 
 
 def test_reinplace_index_copy():
     def fn(x, y, cache, index):
         z = x * y
-        index_copy = cache.index_copy(0, index, z)
+        index_copy = cache.index_copy_(0, index, z)
         res = index_copy - 1
         res2 = index_copy + 1
-        copy_1 = cache.copy_(index_copy)
         return res, res2
 
     x = torch.randn(1, 2, 4, requires_grad=False)
@@ -42,11 +48,11 @@ def test_reinplace_index_copy():
     index = torch.tensor([1])
     example_inputs = [x, y, cache, index]
 
-    graph_module = make_fx(fn)(*example_inputs)
+    graph_module = make_fx(functionalize(fn))(*example_inputs)
     ctx = OptimizerContext(
         graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
     )
-    pass_reinplace_index_copy_ops(ctx)
+    reinplace_test_helper(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
     assert "torch.ops.aten.index_copy.default" not in reinplaced_fn_str, "index_copy is not removed"
     assert "torch.ops.aten.index_copy_.default" in reinplaced_fn_str, "index_copy_ is not inserted"
@@ -76,22 +82,23 @@ def test_not_reinplace_index_copy():
     index = torch.tensor([1])
     example_inputs = [x, y, cache, index]
 
-    graph_module = make_fx(fn)(*example_inputs)
+    graph_module = make_fx(fn, tracing_mode="fake")(*example_inputs)
 
     ctx = OptimizerContext(
         graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
     )
-    pass_reinplace_index_copy_ops(ctx)
+    graph_changed = reinplace_test_helper(ctx)
+    assert not graph_changed, "pass_reinplace_inplaceable_ops_v2 should not do reinplace"
+
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
     assert "torch.ops.aten.index_copy.default" in reinplaced_fn_str, "index_copy should not be removed"
     assert "torch.ops.aten.index_copy_.default" not in reinplaced_fn_str, "index_copy_ should not be inserted"
 
 
-def test_not_reinplace_leaf_index_copy():
+def test_reinplace_leaf_index_copy():
     def fn(x, y, cache, index):
         z = x * y
-        index_copy = cache.index_copy(0, index, z)
-        copy_1 = cache.copy_(index_copy)
+        index_copy = cache.index_copy_(0, index, z)
         res = index_copy[:, 1, :]
         return res
 
@@ -101,7 +108,7 @@ def test_not_reinplace_leaf_index_copy():
     index = torch.tensor([1])
     example_inputs = [x, y, cache, index]
 
-    graph_module = make_fx(fn)(*example_inputs)
+    graph_module = make_fx(functionalize(fn))(*example_inputs)
 
     ctx = OptimizerContext(
         graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PRE_PARTITIONER, [], None
@@ -112,10 +119,12 @@ def test_not_reinplace_leaf_index_copy():
         else:
             node.meta["placement"] = "hpu_cluster"
     pass_eagerize_leaf_views(ctx)
-    pass_reinplace_index_copy_ops(ctx)
+    graph_changed = reinplace_test_helper(ctx)
+    assert graph_changed, "pass_reinplace_inplaceable_ops_v2 doesn't take effect"
+
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
-    assert "torch.ops.aten.index_copy.default" in reinplaced_fn_str, "index_copy should not be removed"
-    assert "torch.ops.aten.index_copy_.default" not in reinplaced_fn_str, "index_copy_ should not be inserted"
+    assert "torch.ops.aten.index_copy.default" not in reinplaced_fn_str, "index_copy is not removed"
+    assert "torch.ops.aten.index_copy_.default" in reinplaced_fn_str, "index_copy_ is not inserted"
 
 
 def test_reinpalce_all_add():
@@ -136,9 +145,8 @@ def test_reinpalce_all_add():
         graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
     )
 
-    pass_fake_propagation(ctx)
-    changed = pass_reinplace_add_ops(ctx)
-    assert changed, "pass_reinplace_add_ops doesn't take effect"
+    changed = reinplace_test_helper(ctx)
+    assert changed, "pass_reinplace_inplaceable_ops_v2 doesn't take effect"
 
     sub_str = """\
     def forward(self, arg0_1: "bf16[64, 64]"):
@@ -174,9 +182,8 @@ def test_reinpalce_only_1st_add():
         graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
     )
 
-    pass_fake_propagation(ctx)
-    changed = pass_reinplace_add_ops(ctx)
-    assert changed, "pass_reinplace_add_ops doesn't take effect"
+    changed = reinplace_test_helper(ctx)
+    assert changed, "pass_reinplace_inplaceable_ops_v2 doesn't take effect"
 
     sub_str = """\
     def forward(self, arg0_1: "bf16[64, 64]"):
@@ -237,3 +244,118 @@ def test_reinpalce_add_e2e():
         # run twice to check cache hit case
         res2 = compiled_fn(*example_inputs)
         assert torch.allclose(ref.to("cpu"), res2.to("cpu")), "2nd run results not match"
+
+
+def test_reinpalce_single_add_e2e():
+    def fn(arg0, arg1):
+        arg0.add_(arg1)
+        return arg0
+
+    with use_eager_fallback():
+        x = torch.randn([32, 256], dtype=torch.bfloat16, requires_grad=False)
+        y = torch.randn([32, 256], dtype=torch.bfloat16, requires_grad=False)
+
+        # run eager to get reference
+        ref = fn(x.to("hpu"), y.to("hpu"))
+
+        # run compile mode and check results
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        res = compiled_fn(x.to("hpu"), y.to("hpu"))
+        assert torch.allclose(ref.to("cpu"), res.to("cpu")), "results not match"
+
+        # run twice to check cache hit case
+        res2 = compiled_fn(x.to("hpu"), y.to("hpu"))
+        assert torch.allclose(ref.to("cpu"), res2.to("cpu")), "2nd run results not match"
+
+
+def test_not_reinpalce_single_add_with_viewed_input_e2e():
+    def fn(arg0, arg1):
+        arg0.add_(arg1)
+        return arg0
+
+    def transpose(x):
+        return x.transpose(0, 1)
+
+    with use_eager_fallback():
+        x = torch.randn([2, 4], dtype=torch.bfloat16, requires_grad=False)
+        y = torch.randn([4, 2], dtype=torch.bfloat16, requires_grad=False)
+
+        # run eager to get reference
+        ref = fn(transpose(x.to("hpu")), y.to("hpu"))
+
+        # run compile mode and check results
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        res = compiled_fn(transpose(x.to("hpu")), y.to("hpu"))
+        assert torch.allclose(ref.to("cpu"), res.to("cpu")), "results not match"
+
+        # run twice to check cache hit case
+        res2 = compiled_fn(transpose(x.to("hpu")), y.to("hpu"))
+        assert torch.allclose(ref.to("cpu"), res2.to("cpu")), "2nd run results not match"
+
+
+def test_reinplace_allreduce():
+    import habana_frameworks.torch.distributed.hccl
+
+    if not torch.distributed.is_initialized():
+        torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
+
+    def fn(arg0, arg1, arg2):
+        x = torch.mm(arg0, arg1)
+        x_synced = fcol.all_reduce(x, "sum", "0")
+        y = torch.mm(x_synced, arg2)
+        return y
+
+    example_inputs = [torch.randn([32, 32]).to("hpu") for i in range(3)]
+    graph_module = make_fx(functionalize(fn))(*example_inputs)
+
+    ctx = OptimizerContext(
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+    )
+
+    changed = reinplace_test_helper(ctx)
+    assert changed, "pass_reinplace_inplaceable_ops_v2 doesn't take effect"
+
+    sub_str = """\
+    def forward(self, arg0_1: "f32[32, 32]", arg1_1: "f32[32, 32]", arg2_1: "f32[32, 32]"):
+        # No stacktrace found for following nodes
+        mm: "f32[32, 32]" = torch.ops.aten.mm.default(arg0_1, arg1_1);  arg0_1 = arg1_1 = None
+        all_reduce: "f32[32, 32]" = torch.ops._c10d_functional.all_reduce_.default(mm, 'sum', '0');  mm = None
+        wait_tensor: "f32[32, 32]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce);  all_reduce = None
+        mm_1: "f32[32, 32]" = torch.ops.aten.mm.default(wait_tensor, arg2_1);  wait_tensor = arg2_1 = None
+        return mm_1
+    """
+    assert sub_str in ctx.graph_module.print_readable(False)
+
+
+def test_reinplace_functionalized_allreduce():
+    import habana_frameworks.torch.distributed.hccl
+
+    if not torch.distributed.is_initialized():
+        torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
+
+    def fn(arg0, arg1, arg2):
+        x = torch.mm(arg0, arg1)
+        x_synced = fcol.all_reduce_inplace(x, "sum", "0")
+        y = torch.mm(x_synced, arg2)
+        return y
+
+    example_inputs = [torch.randn([32, 32]).to("hpu") for i in range(3)]
+    graph_module = make_fx(functionalize(fn))(*example_inputs)
+
+    ctx = OptimizerContext(
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+    )
+
+    changed = reinplace_test_helper(ctx)
+    assert changed, "pass_reinplace_inplaceable_ops_v2 doesn't take effect"
+
+    sub_str = """\
+    def forward(self, arg0_1: "f32[32, 32]", arg1_1: "f32[32, 32]", arg2_1: "f32[32, 32]"):
+        # No stacktrace found for following nodes
+        mm: "f32[32, 32]" = torch.ops.aten.mm.default(arg0_1, arg1_1);  arg0_1 = arg1_1 = None
+        all_reduce: "f32[32, 32]" = torch.ops._c10d_functional.all_reduce_.default(mm, 'sum', '0');  mm = None
+        wait_tensor: "f32[32, 32]" = torch.ops._c10d_functional.wait_tensor.default(all_reduce);  all_reduce = None
+        mm_1: "f32[32, 32]" = torch.ops.aten.mm.default(wait_tensor, arg2_1);  wait_tensor = arg2_1 = None
+        return mm_1
+    """
+    assert sub_str in ctx.graph_module.print_readable(False)

@@ -35,7 +35,7 @@ def fuse_ddp_setter():
         torch._inductor.config._fuse_ddp_communication = fuse_ddp_saved
 
 
-@torch.compile(backend="hpu_backend")
+@torch.compile(backend="hpu_backend", options={"use_inplace_allreduce": False})
 def fn(x, y, pg):
     x0 = fcol.all_reduce(x, "sum", pg)
     y0 = fcol.all_reduce(y, "sum", pg)
