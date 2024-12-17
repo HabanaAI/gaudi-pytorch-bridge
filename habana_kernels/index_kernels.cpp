@@ -1920,11 +1920,20 @@ void SliceOperator::ValidateSliceInputs(
     std::vector<int64_t>& out_shape,
     std::vector<int64_t>& step,
     std::vector<int64_t>& start) {
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "SliceOperator validate for inp_shape::",
+      inp_shape,
+      ", out_shape::",
+      out_shape,
+      ", step::",
+      step,
+      ", start::",
+      start);
   for (unsigned i = 0; i < inp_shape.size(); i++) {
     // exclude ZST from shape validation check
     if (inp_shape[i]) {
       TORCH_CHECK(
-          (start[i] < inp_shape[i]),
+          (start[i] <= inp_shape[i]),
           "Slice invalid starts param, which is greater or equal to the dimension");
     }
 
@@ -1942,16 +1951,6 @@ void SliceOperator::ValidateSliceInputs(
         " ",
         inp_shape[i]);
   }
-
-  PT_DYNAMIC_SHAPE_DEBUG(
-      "SliceOperator validated for inp_shape::",
-      inp_shape,
-      ", out_shape::",
-      out_shape,
-      ", step::",
-      step,
-      ", start::",
-      start);
 }
 
 InferOutputMetaRetType SliceOperator::InferOutputMeta(
