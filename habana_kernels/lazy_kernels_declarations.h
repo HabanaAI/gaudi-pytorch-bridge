@@ -722,13 +722,6 @@ habana_bounds_check_indices_lazy(
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
     const c10::optional<at::Tensor>& weights);
-at::Tensor masked_batch_gemm_lazy(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    const at::Tensor& mask_a,
-    const at::Tensor& mask_b,
-    bool trans_a,
-    bool trans_b);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,

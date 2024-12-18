@@ -7419,6 +7419,13 @@ kv_reorder_:
   op_backend: KvReorderCommon
   inplace_ids: [0]
 
+masked_batch_gemm:
+  custom_op_schema: "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor"
+  custom_fill_params: FillMaskedBatchGemmParams
+  output_meta: MaskedBatchGemmMeta
+  guid: masked_batch_gemm
+  out_ids: [0]
+
 ragged_softmax:
   custom_op_schema: "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor"
   custom_fill_params: FillSoftmaxForwardParams

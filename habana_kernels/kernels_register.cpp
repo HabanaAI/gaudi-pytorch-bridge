@@ -1518,25 +1518,6 @@ habana_bounds_check_indices_wrap(
       indices, offsets, warning, rows_per_table, bounds_check_mode, weights);
 }
 
-at::Tensor masked_batch_gemm_wrap(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    const at::Tensor& mask_a,
-    const at::Tensor& mask_b,
-    bool trans_a,
-    bool trans_b) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "masked_batch_gemm :",
-      DUMP_6ARGS(a, b, mask_a, mask_b, trans_a, trans_b));
-
-  TORCH_CHECK(
-      HPUDeviceContext::get_device().type() == synDeviceGaudi2,
-      "masked_batch_gemm is supported only on Gaudi2.");
-  return masked_batch_gemm_lazy(a, b, mask_a, mask_b, trans_a, trans_b);
-}
-
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
@@ -2092,8 +2073,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_split_permute_cat(Tensor input, Tensor indices, int batch_size, int num_features, int dims) -> Tensor");
   m.def(
       "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
-  m.def(
-      "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
 
   // Seed is generated at FE and passed to BE. There is no seed at python
   // interface. So the schema with python interface and BE differ. Register the
@@ -2205,7 +2184,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_adamw", optimizer_adamw_hpu_wrap);
-  m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
   m.impl("hpu::sdpa_fwd", sdpa_fwd_wrap);
   m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd_wrap);
   m.impl("hpu::fp8_sdpa_recomp_fwd", fp8_sdpa_recomp_fwd_lazy);

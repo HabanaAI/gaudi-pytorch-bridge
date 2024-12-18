@@ -266,14 +266,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const c10::string_view softmax_mode,
     const at::Tensor& fwd_out);
 
-at::Tensor masked_batch_gemm_wrap(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    const at::Tensor& mask_a,
-    const at::Tensor& mask_b,
-    bool trans_a,
-    bool trans_b);
-
 namespace vision {
 namespace ops {
 

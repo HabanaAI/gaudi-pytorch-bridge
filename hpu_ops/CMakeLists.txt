@@ -233,7 +233,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/logsigmoid_gen.cpp
   backend/logsoftmax_gen.cpp
   backend/logspace_gen.cpp
-  backend/masked_batch_gemm.cpp
+  backend/masked_batch_gemm_gen.cpp
   backend/masked_fill_gen.cpp
   backend/_masked_scale_gen.cpp
   backend/matmul.cpp

@@ -26,7 +26,6 @@
 #include "habana_eager/ops/mixture_of_experts.h"
 #include "habana_helpers/logging.h"
 #include "hpu_ops/fp8_ops.h"
-#include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "hpu_ops/sdpa_gen.h"
@@ -407,26 +406,6 @@ void optimizer_sgd_momentum(
        "hpu::optimizer_sgd_momentum",
        decltype(habana::eager::EagerOpMetaData::out_indices_){1, 2}});
   hpu_op.call({weights, momentum});
-}
-
-at::Tensor masked_batch_gemm(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    const at::Tensor& mask_a,
-    const at::Tensor& mask_b,
-    bool trans_a,
-    bool trans_b) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "masked_batch_gemm :",
-      DUMP_6ARGS(a, b, mask_a, mask_b, trans_a, trans_b));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::masked_batch_gemm",
-      {a, b, mask_a, mask_b, trans_a, trans_b},
-      habana::MaskedBatchGemmOutputShape};
-
-  return hpu_op.call();
 }
 
 at::Tensor kv_reorder(
@@ -1224,8 +1203,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
   m.def(
-      "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
-  m.def(
       "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales = None, Tensor(e!)[]? exp_avg_sq_scales = None) -> ()");
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
@@ -1391,7 +1368,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::in_place_interleave", in_place_interleave);
   m.impl("hpu::kv_reorder", kv_reorder);
-  m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
   m.impl("hpu::optimizer_adamw", optimizer_adamw);
   m.impl("hpu::optimizer_ema", optimizer_ema);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm);

@@ -56,7 +56,6 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/bincount.h"
 #include "hpu_ops/fp8_ops.h"
-#include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/mixture_of_experts.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
@@ -6948,24 +6947,6 @@ void optimizer_lamb_phase2(
        use_lamb});
   loo.call(weights);
   flush_op(weights.size());
-}
-
-at::Tensor masked_batch_gemm_lazy(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    const at::Tensor& mask_a,
-    const at::Tensor& mask_b,
-    bool trans_a,
-    bool trans_b) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::masked_batch_gemm",
-      {a, b, mask_a, mask_b, trans_a, trans_b},
-      MaskedBatchGemmOutputShape};
-
-  RUN_MAYBE_WITH_ACC_THREAD(masked_batch_gemm, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
