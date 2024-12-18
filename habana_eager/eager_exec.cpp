@@ -993,6 +993,8 @@ void EagerExec::mark_maybe_grad_view() {
   if (!m_inputs.back().isTensor())
     return;
   auto& t = m_inputs.back().toTensor();
+  if (t.dim() != 4 && t.dim() != 5)
+    return;
   if (!t.is_contiguous())
     return;
   auto tmeta{habana::get_tensor_extra_meta(t)};
