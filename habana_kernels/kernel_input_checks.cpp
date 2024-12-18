@@ -3518,6 +3518,22 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Double}},
         },
         {
+            "_unique",
+            {{at::ScalarType::Float,
+              at::ScalarType::BFloat16,
+              at::ScalarType::Int,
+              at::ScalarType::Long,
+              at::ScalarType::Double}},
+        },
+        {
+            "_unique2",
+            {{at::ScalarType::Float,
+              at::ScalarType::BFloat16,
+              at::ScalarType::Int,
+              at::ScalarType::Long,
+              at::ScalarType::Double}},
+        },
+        {
             "unravel_index",
             {{at::ScalarType::Int, at::ScalarType::Long}},
         },

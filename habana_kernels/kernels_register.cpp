@@ -338,6 +338,11 @@ at::Tensor& hpu_wrap::_index_put_impl_(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
   }
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, indices, values, accumulate, unsafe));
+  }
   return _index_put_impl_hpu_lazy_(self, indices, values, accumulate, unsafe);
 }
 
@@ -367,6 +372,13 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
     const at::Tensor& self,
     bool sorted,
     bool return_inverse) {
+  FALLBACK_IF_UNSUPPORTED_OP(
+      _unique, PARAMS1(self), PARAMS2(self, sorted, return_inverse))
+  if (self.dim() > 4) {
+    return dispatch_fallback<ATEN_OP(_unique)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, sorted, return_inverse));
+  }
   return _unique_hpu_lazy(self, sorted, return_inverse);
 }
 
@@ -375,6 +387,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
     bool sorted,
     bool return_inverse,
     bool return_counts) {
+  FALLBACK_IF_UNSUPPORTED_OP(
+      _unique2,
+      PARAMS1(self),
+      PARAMS2(self, sorted, return_inverse, return_counts))
+  if (self.dim() > 4) {
+    return dispatch_fallback<ATEN_OP(_unique2)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, sorted, return_inverse, return_counts));
+  }
   return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
 }
 
