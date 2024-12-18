@@ -1713,6 +1713,7 @@ avg_pool3d.out:
 avg_pool3d_backward:
   custom_fill_params: FillAvgPool3dParamsBwd
   output_meta: AvgPool3dBwdMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: avg_pool_3d_bwd
   op_backend: AvgPool3dBwd
   out_ids: [0]

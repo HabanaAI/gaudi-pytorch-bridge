@@ -97,3 +97,32 @@ def test_hpu_avg_pool3d_bwd_dynamic(shape_stride_kernel_size, dtype, setup_teard
         hpu_output = hpu_compiled_fn(inputs_hpu[i], kernel_size, stride)
         assert torch.allclose(cpu_output, hpu_output.cpu())
     check_ops_executed_in_jit_ir("avg_pool3d_backward")
+
+
+def test_backend_st_avg_pool3d_bwd_st_meta():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    input_shapes = [
+        (16, 24, 7, 7, 7),
+        (26, 24, 7, 8, 8),
+        (27, 24, 7, 8, 8),
+        (28, 24, 7, 8, 8),
+    ]
+
+    def raw_function(input):
+        out = torch.ops.aten.avg_pool3d(input, kernel_size=(2, 2, 2))
+        grad = torch.ones_like(out)
+        out.backward(grad)
+        return input.grad
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for s in input_shapes:
+        t = torch.rand(s)
+        t_h = t.to("hpu")
+        t.requires_grad = True
+        t_h.requires_grad = True
+        result = raw_function(t)
+        h_result = compiled_fn(t_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir({"avg_pool3d", "avg_pool3d_backward"})
