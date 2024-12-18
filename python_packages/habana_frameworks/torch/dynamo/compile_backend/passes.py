@@ -15,13 +15,11 @@
 #
 ###############################################################################
 
-import contextlib
 import copy
 import operator
 import os
 import queue
 import sys
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
