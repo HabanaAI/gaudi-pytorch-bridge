@@ -615,7 +615,7 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
   if (!eager_mode_) {
     habana_helpers::EmitEvent(
         habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE,
-        habana_helpers::EventDispatcher::EventParams(
+        habana_helpers::EventParams(
             {{"duration", std::to_string(syn_compile_duration_us)},
              {"recipe", recipe_handle->recipe_name_}}));
   }

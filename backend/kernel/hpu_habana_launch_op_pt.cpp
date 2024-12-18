@@ -149,9 +149,7 @@ void emitCacheEvent(
     std::string cache_name) {
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_CACHE_METRICS)) {
     habana_helpers::EmitEvent(
-        topic,
-        habana_helpers::EventDispatcher::EventParams(
-            {{"recipe_id", cache_name}}));
+        topic, habana_helpers::EventParams({{"recipe_id", cache_name}}));
   }
 }
 

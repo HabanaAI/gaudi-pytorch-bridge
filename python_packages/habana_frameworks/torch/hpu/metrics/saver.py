@@ -162,8 +162,6 @@ class MetricDumpFormat(str, Enum):
 
 class MetricDumpTrigger(str, Enum):
     process_exit = "process_exit"
-    mark_step = "mark_step"
-    metric_change = "metric_change"
     user = "user"
 
 

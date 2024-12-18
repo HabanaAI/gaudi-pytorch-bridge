@@ -67,17 +67,14 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
 
  protected:
   std::atomic<int> defragmentationCount{0};
-  habana_helpers::EventDispatcher::EventCallback
-      defragmentationTriggeredCallback =
-          [=](habana_helpers::EventDispatcher::EventTsType timestamp,
-              const habana_helpers::EventDispatcher::EventParams& params) {
-            for (const habana_helpers::EventDispatcher::EventParam& param :
-                 params) {
-              if (param.first == "success" && param.second == "1") {
-                defragmentationCount++;
-              }
-            }
-          };
+  habana_helpers::EventCallback defragmentationTriggeredCallback =
+      [=](const habana_helpers::EventParams& params) {
+        for (const habana_helpers::EventParam& param : params) {
+          if (param.first == "success" && param.second == "1") {
+            defragmentationCount++;
+          }
+        }
+      };
 
   static constexpr size_t GB_1 = 1073741824;
   static constexpr size_t GB_2 = 2147483648;
@@ -155,9 +152,8 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_one) {
   freeDeviceMemoryAtAdress(device_ptrs[3]);
 
   // set listener to detect defragmentation
-  habana_helpers::EventDispatcher::Instance().subscribe(
-      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-      defragmentationTriggeredCallback);
+  auto event_handler = habana_helpers::EventDispatcher::Instance().subscribe(
+      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
   // allocate 400 MB memory what will lead OOM and defragmentor will kick in
   // here
   synapse_helpers::device_ptr device_ptr_400mb;
@@ -169,6 +165,9 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_one) {
   freeDeviceMemoryAtAdress(device_ptrs[2]);
   freeDeviceMemoryAtAdress(device_ptrs[4]);
   freeDeviceMemoryAtAdress(device_ptr_400mb);
+
+  habana_helpers::EventDispatcher::Instance().process(
+      event_handler, defragmentationTriggeredCallback);
 
   EXPECT_EQ(defragmentationCount, 1);
 }
@@ -208,9 +207,8 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_multiple) {
       memory_free += chunks_sizes[index];
     }
     // set listener to detect defragmentation
-    habana_helpers::EventDispatcher::Instance().subscribe(
-        habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-        defragmentationTriggeredCallback);
+    auto event_handler = habana_helpers::EventDispatcher::Instance().subscribe(
+        habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
 
     // allocate memoryFree memory this willl lead OOM and defragmentor will kick
     // in here
@@ -218,6 +216,9 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_multiple) {
     device.get_device_memory().malloc(
         reinterpret_cast<void**>(&device_ptr_free_memory), memory_free);
     device.lock_addresses(device_ptr_free_memory);
+
+    habana_helpers::EventDispatcher::Instance().process(
+        event_handler, defragmentationTriggeredCallback);
 
     // unset the dealocation listener
     habana_helpers::EventDispatcher::Instance().unsubscribe_all();
@@ -258,16 +259,16 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
   freeDeviceMemoryAtAdress(device_ptrs[1]);
 
   // Increase workspace buffer to 2.2GB what will trigger defragmentation
-  habana_helpers::EventDispatcher::Instance().subscribe(
-      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-      defragmentationTriggeredCallback);
+  auto event_handler = habana_helpers::EventDispatcher::Instance().subscribe(
+      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
   device.get_workspace_buffer(GB_2 + MB_200);
 
   freeDeviceMemoryAtAdress(device_ptrs[0]);
   freeDeviceMemoryAtAdress(device_ptrs[2]);
   freeDeviceMemoryAtAdress(device_ptrs[3]);
   freeDeviceMemoryAtAdress(device_ptrs[4]);
-
+  habana_helpers::EventDispatcher::Instance().process(
+      event_handler, defragmentationTriggeredCallback);
   EXPECT_EQ(defragmentationCount, 1);
 }
 
@@ -369,9 +370,8 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   freeDeviceMemoryAtAdress(device_ptrs[4]);
 
   // set listener to detect defragmentation
-  habana_helpers::EventDispatcher::Instance().subscribe(
-      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-      defragmentationTriggeredCallback);
+  auto event_handler = habana_helpers::EventDispatcher::Instance().subscribe(
+      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
 
   // allocate 400 MB memory this willl lead OOM and defragmentor will kick in
   // here
@@ -400,6 +400,9 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
     freeDeviceMemoryAtAdress(device_ptrs[i]);
   }
   freeDeviceMemoryAtAdress(device_ptr_400mb);
+
+  habana_helpers::EventDispatcher::Instance().process(
+      event_handler, defragmentationTriggeredCallback);
 
   EXPECT_EQ(defragmentationCount, 1);
 }
@@ -446,9 +449,8 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
     }
 
     // set listener to detect defragmentation
-    habana_helpers::EventDispatcher::Instance().subscribe(
-        habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-        defragmentationTriggeredCallback);
+    auto event_handler = habana_helpers::EventDispatcher::Instance().subscribe(
+        habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
 
     synapse_helpers::device_ptr device_ptr_free_memory;
     std::vector<char> local_device_free_chunk =
@@ -461,6 +463,8 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
         device_ptr_free_memory,
         memoryFree,
         device);
+    habana_helpers::EventDispatcher::Instance().process(
+        event_handler, defragmentationTriggeredCallback);
     habana_helpers::EventDispatcher::Instance().unsubscribe_all();
 
     // compare the moved data
@@ -490,6 +494,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
     }
     freeDeviceMemoryAtAdress(device_ptr_free_memory);
   }
+
   EXPECT_EQ(defragmentationCount, 2);
 }
 
@@ -514,9 +519,8 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
       GB_2 - MB_200 - SMALL_CHUNK_SIZE * SMALL_CHUNKS_NUMBER);
 
   // set listener to detect defragmentation
-  habana_helpers::EventDispatcher::Instance().subscribe(
-      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-      defragmentationTriggeredCallback);
+  auto event_handler = habana_helpers::EventDispatcher::Instance().subscribe(
+      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
 
   // allocate small chunks of memory
   for (int j = 0; j < SMALL_CHUNKS_NUMBER; j++) {
@@ -566,6 +570,8 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
           j == FREE_CHUNK_INDEX_3))
       freeDeviceMemoryAtAdress(device_ptrs_small_chunks[j]);
   }
+  habana_helpers::EventDispatcher::Instance().process(
+      event_handler, defragmentationTriggeredCallback);
   EXPECT_EQ(defragmentationCount, 3);
 }
 
@@ -626,9 +632,8 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
   }
 
   // set listener to detect defragmentation
-  habana_helpers::EventDispatcher::Instance().subscribe(
-      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-      defragmentationTriggeredCallback);
+  auto event_handler = habana_helpers::EventDispatcher::Instance().subscribe(
+      habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION);
 
   synapse_helpers::device_ptr device_ptr_free_memory;
   // allocate memoryFree memory this willl lead OOM and defragmentor will kick
@@ -655,6 +660,9 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
   freeDeviceMemoryAtAdress(device_ptrs_small_chunks[ALLOCATED_SMALL_CHUNK_2]);
   freeDeviceMemoryAtAdress(device_ptrs_small_chunks[ALLOCATED_SMALL_CHUNK_3]);
   freeDeviceMemoryAtAdress(device_ptrs_small_chunks[ALLOCATED_SMALL_CHUNK_4]);
+
+  habana_helpers::EventDispatcher::Instance().process(
+      event_handler, defragmentationTriggeredCallback);
 
   habana_helpers::EventDispatcher::Instance().unsubscribe_all();
 

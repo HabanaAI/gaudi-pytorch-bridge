@@ -155,8 +155,8 @@ class TestMetricsAPI:
 
         ed = EventDispatcher.instance()
 
-        h1 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda1 <<< {p}"))
-        h2 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda2 <<< {p}"))
+        h1 = ed.subscribe(EventId.GRAPH_COMPILATION)
+        h2 = ed.subscribe(EventId.GRAPH_COMPILATION)
 
         compute_single_step(shape, device)
 
@@ -409,11 +409,11 @@ class TestMetricsDump:
         assert datetime.datetime.fromisoformat(metric["generated_on"])
 
     @pytest.mark.parametrize("format", ["json", "text"])
-    def test_metric_dump_on_metric_change_and_process_exit(self, runner, tmp_path, format):
+    def test_metric_dump_on_process_exit(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
         env_vars = {
             "PT_HPU_METRICS_FILE": metric_file,
-            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
+            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
             "PT_HPU_METRICS_FILE_FORMAT": format,
         }
 
@@ -422,30 +422,13 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 10  # 9 metrics chanages + process exit
-        prev_total_time = 0
-        prev_generated_on = None
+        assert len(parsed) == 4
         gc_only = [p for p in parsed if p["metric_name"] == "graph_compilation"]
-        for idx, metric_on_metric_change in enumerate(gc_only[:3]):
-            assert metric_on_metric_change["metric_name"] == "graph_compilation"
-            assert metric_on_metric_change["triggered_by"] == "metric_change"
-            assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (idx + 1)
-            assert int(metric_on_metric_change["statistics"]["TotalTime"]) > prev_total_time
-            prev_total_time = int(metric_on_metric_change["statistics"]["TotalTime"])
-
-            curr_generated_on = datetime.datetime.fromisoformat(metric_on_metric_change["generated_on"])
-            if prev_generated_on is not None:
-                assert curr_generated_on > prev_generated_on
-            prev_generated_on = curr_generated_on
 
         metric_on_process_exit = gc_only[-1]
-        last_metric_on_metric_change = gc_only[-2]
         assert metric_on_process_exit["metric_name"] == "graph_compilation"
         assert metric_on_process_exit["triggered_by"] == "process_exit"
         assert int(metric_on_process_exit["statistics"]["TotalNumber"]) == 3
-        assert int(metric_on_process_exit["statistics"]["TotalTime"]) == int(
-            last_metric_on_metric_change["statistics"]["TotalTime"]
-        )
 
     def test_metric_if_defaults_are_correct(self, runner, tmp_path):
         metric_file = f"{tmp_path}/metric.json"
@@ -562,3 +545,34 @@ class TestMetricsDump:
         assert metric["triggered_by"] == "user"
         assert int(metric["statistics"]["TotalNumber"]) == 2
         assert int(metric["statistics"]["TotalTime"]) > 0
+
+
+from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
+
+
+def test_event_process():
+    count = 0
+
+    def increment(event_params):
+        nonlocal count
+        count += 1
+
+    ed = EventDispatcher.instance()
+    event_handle1 = ed.subscribe(EventId.CUSTOM_EVENT)
+    event_handle2 = ed.subscribe(EventId.CUSTOM_EVENT)
+    ed.publish(EventId.CUSTOM_EVENT, [])
+    ed.publish(EventId.CUSTOM_EVENT, [])
+    ed.process(event_handle1, increment)
+    assert count == 2
+    ed.publish(EventId.CUSTOM_EVENT, [])
+    ed.publish(EventId.CUSTOM_EVENT, [])
+    ed.publish(EventId.CUSTOM_EVENT, [])
+    ed.process(event_handle1, increment)
+    assert count == 5
+    ed.process(event_handle2, increment)
+    assert count == 10
+    ed.process(event_handle1, increment)
+    assert count == 10
+
+    ed.unsubscribe(event_handle1)
+    ed.unsubscribe(event_handle2)
