@@ -2760,6 +2760,20 @@ dsa_debugger()
     return $?
 }
 
+stats_parser()
+{
+    if [ -z "$PYTORCH_MODULES_ROOT_PATH" ]
+    then
+        echo "PYTORCH_MODULES_ROOT_PATH path is not defined"
+        return 1
+    fi
+
+    local __stats_parser_py="$__python_cmd $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/stats_parser.py"
+    ${__stats_parser_py} "$@"
+
+    return $?
+}
+
 set_os_specific_vars() {
     case $OS in
         'sles')
