@@ -139,8 +139,38 @@ def freeze(
 
     Assumes that this function is run in dynamo tracing post aot_autograd.
 
-    Is disabled by default. Can be enabled using following torch.compile backend options
-    options = {"use_graph_freezing": True}
+    Is disabled by default. It can be enabled by setting "torch._inductor.config.freezing = True" or by decorating or using
+    context manager as shown below.
+
+    @torch._inductor.config.patch("freezing", True)
+    def func(tensor):
+        m = ...
+        return m(tensor)
+
+    func_tc = torch.compile(func, backend="hpu_backend")
+    output = func_tc(input)
+
+    or
+
+    with torch._inductor.config.patch({"freezing": True}):
+        m = torch.compile(m, backend="hpu_backend")
+        output = m(input)
+
+    or
+
+    m = torch.compile(m, backend="hpu_backend")
+    with torch._inductor.config.patch({"freezing": True}):
+        output = m(input)
+
+    or
+
+    @torch._inductor.config.patch("freezing", True)
+    @torch.compile(backend="hpu_backend")
+    def test_freeze(...):
+        m = ...
+        m = torch.compile(m, backend="hpu_backend")
+        output = m(input)
+
     Discarding the parameters frozen by this method can be enabled using following torch.compile backend options
     (note that this does not work when recompilation of the module is required)
     options = {"discard_frozen_params": True}

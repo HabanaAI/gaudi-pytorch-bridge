@@ -624,6 +624,7 @@ def overwrite_native_pt2e_quantization_interface():
     # calling this function more than one time makes the wrappers wrap themselves, causing infinite recursion, hence the guard to make sure it doesn't happen
     if NativeFunctions._did_overwrite_native_pt2e_quantization_interface:
         return
+
     NativeFunctions._did_overwrite_native_pt2e_quantization_interface = True
     import torch.ao.quantization.quantize_pt2e as quantize_pt2e
 

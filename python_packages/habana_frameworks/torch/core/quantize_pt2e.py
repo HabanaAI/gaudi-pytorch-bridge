@@ -275,19 +275,18 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     self._pt2e_quant_context.append_quantized_fx_graph_with_args(self._converted_module, args)
 
                 # Now we call hpu_inference_compiler to convert it into synapse graph.
-                if os.getenv("USE_FX_GRAPH_FREEZING", "0") != "0":
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(
-                            self._converted_module, backend="hpu_backend", options={"use_graph_freezing": True}
-                        )
-                else:
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
+                with torch.no_grad():
+                    self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
 
                 self._converted = True
 
             self._pt2e_quant_context.set_input_for_tracing(args[-1])
-            return self._converted_module(*args, **kwargs)
+
+            if os.getenv("PT_HPU_USE_FX_GRAPH_FREEZING", "0") != "0":
+                with torch._inductor.config.patch({"freezing": True}):
+                    return self._converted_module(*args, **kwargs)
+            else:
+                return self._converted_module(*args, **kwargs)
 
         elif queue_element["task"] == "inference_pt2e":
             self._preprocessed = True
@@ -299,18 +298,16 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 assert self._converted_module is not None
 
                 # We call hpu_inference_compiler to convert it into synapse graph.
-                if os.getenv("USE_FX_GRAPH_FREEZING", "0") != "0":
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(
-                            self._converted_module, backend="hpu_backend", options={"use_graph_freezing": True}
-                        )
-                else:
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
+                with torch.no_grad():
+                    self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
 
                 self._converted = True
 
-            return self._converted_module(*args, **kwargs)
+            if os.getenv("PT_HPU_USE_FX_GRAPH_FREEZING", "0") != "0":
+                with torch._inductor.config.patch({"freezing": True}):
+                    return self._converted_module(*args, **kwargs)
+            else:
+                return self._converted_module(*args, **kwargs)
 
 
 def habana_quant_compiler_fw(

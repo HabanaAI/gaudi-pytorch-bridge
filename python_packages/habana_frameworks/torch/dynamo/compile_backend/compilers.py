@@ -158,7 +158,7 @@ def hpu_inference_compiler(
     """
     Just passthrough for forward inference compilation.
     """
-    if hpu_backend_config.use_graph_freezing:
+    if torch._inductor.config.freezing:
         return hpu_freezing_compiler_inner(graph_module, dyn_graph_module, example_inputs, False, False)
     else:
         return hpu_compiler_inner(graph_module, example_inputs, False, False)

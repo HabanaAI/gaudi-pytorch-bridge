@@ -156,10 +156,11 @@ def test_hpu_const_marking():
 
     print("Infer on HPU....................................", flush=True)
 
+    @torch._inductor.config.patch("freezing", True)
     def raw_function(tensor):
         return model_hpu(tensor)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend", options={"use_graph_freezing": True})
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
     with env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}):
         with torch.no_grad():
             with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
