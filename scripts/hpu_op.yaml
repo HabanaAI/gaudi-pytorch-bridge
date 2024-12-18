@@ -1358,6 +1358,7 @@ addmv.out:
 
 addr:
   output_meta: AddRMeta
+  st_meta: DefaultSTMetaFn
   guid: addr_fwd
   custom_fill_params: FillAddrParams
   out_ids: [0]
@@ -1372,6 +1373,7 @@ addr_:
 
 addr.out:
   output_meta: AddRMeta
+  st_meta: DefaultSTMetaFn
   guid: addr_fwd
   custom_fill_params: FillAddrParams
   op_validator: check-node-with-shared-layer
