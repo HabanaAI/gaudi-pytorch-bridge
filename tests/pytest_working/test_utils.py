@@ -442,6 +442,8 @@ class TcLimitedFormatter:
             return val.__name__
         elif isinstance(val, types.BuiltinMethodType):
             return val.__name__
+        elif isinstance(val, types.FunctionType):
+            return val.__name__
         else:
             s = str(val)
 
