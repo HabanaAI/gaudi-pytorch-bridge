@@ -454,3 +454,42 @@ def test_randperm(n, g, dtype):
     torch.manual_seed(seed)
     hpu_res2 = compiled_hpu(n, g, dtype)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float, torch.int32])
+def test_index_add(dtype):
+    def compile_fn(x, ind1, src, y, dim):
+        return torch.index_add(x, dim, ind1, src, out=y)
+
+    def index_add_test(dtype_used, dim: int, ind1: torch.Tensor, src: torch.Tensor) -> torch.Tensor:
+        device = torch.device(ind1.device.type)
+        x = torch.ones(s0 * s1).view(s0, s1).to(dtype_used).to(device)
+        y = torch.zeros(x.shape, dtype=dtype_used).to(device)
+
+        if device == torch.device("hpu"):
+            compiled_hpu = torch.compile(compile_fn, backend="hpu_backend", dynamic=None)
+            compiled_hpu(x, ind1, src, y, dim)
+        else:
+            compile_fn(x, ind1, src, y, dim)
+
+        return y
+
+    s0 = 8
+    s1 = 4
+    dtype_used = dtype
+    for i in range(2):
+        dim = i
+        ind_len = s1 if dim else s0
+        redundancy = ind_len
+        ind_cpu = torch.randint(0, ind_len, (ind_len + redundancy,), dtype=torch.long)
+        ind_hpu = ind_cpu.to("hpu")
+        src = None
+        if dim:
+            src = torch.ones((s0, ind_cpu.shape[0]), dtype=dtype_used)
+        else:
+            src = torch.ones((ind_cpu.shape[0], s1), dtype=dtype_used)
+
+        index_put_res = index_add_test(dtype_used, dim, ind_cpu, src)
+        src_hpu = src.to("hpu")
+        index_put_res_hpu = index_add_test(dtype_used, dim, ind_hpu, src_hpu)
+        assert torch.allclose(index_put_res_hpu.to("cpu"), index_put_res, atol=0.001, rtol=0.001)
