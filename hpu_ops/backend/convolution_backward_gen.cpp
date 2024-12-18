@@ -404,6 +404,22 @@ static int64_t ComputeOutputSize(
   }
 }
 
+bool ConvBwdDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  auto input_tensor_rank = inputs[1].getTensorShape().size();
+  std::vector<int64_t> out_shape = outputs[0].getTensorShape();
+
+  // Add a dim for 1d Conv
+  if (input_tensor_rank == 3) {
+    out_shape.push_back(1);
+  }
+
+  PT_BRIDGE_DEBUG("ConvBwdDSSTMeta output shape ", out_shape);
+  habana_helpers::UpdateSTShapeInfo(out_shape);
+  return true;
+}
+
 void ConvolutionBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

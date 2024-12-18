@@ -1475,6 +1475,44 @@ def test_backend_st_test6():
     check_ops_executed_in_jit_ir({"sort"})
 
 
+def test_backend_st_test7():
+    # test for torch.ops.aten.convolution_overrideable DS STMeta
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    C, H, W, K, R, stride, padding, bias = 3, 28, 28, 16, 2, 1, 1, False
+    input_shapes = [
+        (2, C, H, W),
+        (4, C, H, W),
+        (7, C, H, W),
+        (8, C, H, W),
+    ]
+
+    from copy import deepcopy
+
+    def raw_function(conv_fn, input):
+        out = conv_fn(input)
+        out = torch.relu(out)
+        return out
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for s in input_shapes:
+        kernel = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias)
+        kernel_hpu = deepcopy(kernel).to("hpu")
+        t = torch.rand(s, dtype=torch.float, requires_grad=True)
+        t_h = t.to("hpu")
+        # Conv forward through t.compile
+        result = raw_function(kernel, t)
+        h_result = compiled_fn(kernel_hpu, t_h)
+        # Now do backward
+        bwd_in = torch.randn(result.shape)
+        result.backward(bwd_in)
+        h_result.backward(bwd_in.to("hpu"))
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir({"convolution_backward"})
+
+
 def test_dynamicity_with_fx_recompilations():
     inputs = [(2, 2, 2, 3), (2, 3, 3, 3), (2, 4, 4, 3), (2, 1, 1, 3)]
     inputs1 = [(2, 4, 3), (2, 9, 3), (2, 16, 3), (2, 2, 3)]

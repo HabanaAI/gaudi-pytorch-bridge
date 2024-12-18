@@ -2368,6 +2368,7 @@ convolution:
   output_meta: ConvolutionMeta
   op_backend: Convolution
   op_frontend: ConvolutionFE
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   out_ids: [0]
   op_validator: ConvolutionSharedMeta
 
@@ -2375,6 +2376,7 @@ convolution_backward:
   output_meta: ConvolutionMetaBwd
   op_backend: ConvolutionBackward
   op_frontend: ConvolutionBackwardFE
+  st_meta: ConvBwdDSSTMeta
   out_ids: [0, 0, 0]
   op_validator: ConvolutionBwdSharedMeta
 
