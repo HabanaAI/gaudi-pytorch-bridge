@@ -2677,7 +2677,7 @@ embedding:
   output_meta: EmbeddingMeta
   guid: embedding_pt_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer - disabled due to [SW-205212]
+  op_validator: check-node-with-shared-layer
 
 embedding_dense_backward:
   custom_fill_params: FillEmbeddingDenseBackwardParams
