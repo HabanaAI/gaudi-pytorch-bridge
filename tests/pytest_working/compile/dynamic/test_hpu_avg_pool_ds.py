@@ -23,6 +23,7 @@ import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi3,
     setup_teardown_env_fixture,
@@ -50,14 +51,14 @@ def test_hpu_adaptive_avg_pool3d_bwd_dynamic(shape, output_size, dtype, setup_te
         fwd.backward(grad)
         return input.grad
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
     inputs_cpu = [torch.rand(inputShape, dtype=dtype) for inputShape in shapes]
     inputs_hpu = [input_cpu.to("hpu") for input_cpu in inputs_cpu]
     for i in range(len(inputs_cpu)):
         inputs_cpu[i].requires_grad = True
         inputs_hpu[i].requires_grad = True
     for i in range(len(inputs_cpu)):
+        torch._dynamo.reset()
         cpu_output = fn(inputs_cpu[i])
         hpu_output = hpu_compiled_fn(inputs_hpu[i])
         assert torch.allclose(cpu_output, hpu_output.cpu())
@@ -84,15 +85,15 @@ def test_hpu_avg_pool3d_bwd_dynamic(shape_stride_kernel_size, dtype, setup_teard
     shapes = [copy.copy(shape), copy.copy(shape), copy.copy(shape)]
     shapes[1][-2] = shape[-2] * 2
     shapes[2][-2] = shape[-2] * 3
-    clear_t_compile_logs()
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
     inputs_cpu = [torch.rand(inputShape, dtype=dtype) for inputShape in shapes]
     inputs_hpu = [input_cpu.to("hpu") for input_cpu in inputs_cpu]
     for i in range(len(inputs_cpu)):
         inputs_cpu[i].requires_grad = True
         inputs_hpu[i].requires_grad = True
     for i in range(len(inputs_cpu)):
+        torch._dynamo.reset()
         cpu_output = fn(inputs_cpu[i], kernel_size, stride)
         hpu_output = hpu_compiled_fn(inputs_hpu[i], kernel_size, stride)
         assert torch.allclose(cpu_output, hpu_output.cpu())
