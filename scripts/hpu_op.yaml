@@ -3571,21 +3571,9 @@ kthvalue.values:
   op_validator: check-node-with-shared-layer
 
 index_add_:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int]
-      index: [Int]
-      source: [BFloat16, Float, Int]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int]
-      source: [BFloat16, Float, Int, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int]
-      source: [BFloat16, Float, Int, Half]
   override_fn: index_add_hpu_lazy_
   acc_thread: true
+  op_validator: IndexAddSharedMeta
 
 index_copy:
   guid: index_copy_fwd
@@ -6583,7 +6571,7 @@ uniform_:
 unique_dim:
   override_fn: unique_dim_hpu_lazy
   fallback_check: [UniqueFallbackCheck, sorted]
-  dtypes: [BFloat16, Float, Int]
+  op_validator: UniqueDimSharedMeta
 
 unsqueeze_:
   override_fn: unsqueeze_hpu_lazy_

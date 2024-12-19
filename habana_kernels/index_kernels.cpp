@@ -498,6 +498,124 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   }
 }
 
+namespace habana {
+SharedMetaDataVector IndexAddSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack.at(0).toTensor();
+  const auto& indices = stack.at(2).toTensor();
+  const auto& value = stack.at(3).toTensor();
+
+  const auto selfDim = self.dim();
+  const auto selfDtype = self.scalar_type();
+  const auto indicesDim = indices.dim();
+  const auto indicesDtype = indices.scalar_type();
+  const auto valueDim = value.dim();
+  const auto valueDtype = value.scalar_type();
+
+  const auto alphaDimBroadcasted = valueDim;
+  const auto alphaCastedDtype = valueDtype;
+
+  SharedMetaDataVector indexAddSharedMeta;
+
+  // Shared meta for IndexAddV2Operator.
+  SharedMetaData multSharedMetaV2("mult");
+  multSharedMetaV2.inputs_data.emplace_back(valueDim, valueDtype);
+  multSharedMetaV2.inputs_data.emplace_back(
+      alphaDimBroadcasted, alphaCastedDtype);
+  multSharedMetaV2.outputs_data.emplace_back(valueDim, valueDtype);
+  indexAddSharedMeta.push_back(multSharedMetaV2);
+
+  const auto indicesDtypeCasted = c10::ScalarType::Float;
+  SharedMetaData topkSharedMetaV2("topk");
+  topkSharedMetaV2.inputs_data.emplace_back(indicesDim, indicesDtypeCasted);
+  topkSharedMetaV2.outputs_data.emplace_back(indicesDim, indicesDtypeCasted);
+  topkSharedMetaV2.outputs_data.emplace_back(indicesDim, indicesDtypeCasted);
+  indexAddSharedMeta.push_back(topkSharedMetaV2);
+
+  std::pair<int, c10::ScalarType> castedTopkOutputV2 = {
+      topkSharedMetaV2.outputs_data[1].first, c10::ScalarType::Int};
+
+  SharedMetaData gatherFwdSharedMetaV2("gather_fwd");
+  gatherFwdSharedMetaV2.inputs_data.emplace_back(selfDim, selfDtype);
+  gatherFwdSharedMetaV2.inputs_data.push_back(castedTopkOutputV2);
+  gatherFwdSharedMetaV2.outputs_data.emplace_back(selfDim, selfDtype);
+  indexAddSharedMeta.push_back(gatherFwdSharedMetaV2);
+
+  std::pair<int, c10::ScalarType> topkOutput0AfterReshapeAndBroadcast = {
+      selfDim, c10::ScalarType::Int};
+
+  const bool self_is_int32 = selfDtype == c10::ScalarType::Int;
+  const bool useUnsortedScatter =
+      GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
+      HPUGlobalConfig::get().getDeterministic() == false &&
+      at::globalContext().deterministicAlgorithms() == false &&
+      HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi;
+
+  SharedMetaData scatterAddFwdSharedMetaV2(
+      useUnsortedScatter ? "unsorted_scatter_add_fwd" : "scatter_add_fwd");
+
+  c10::ScalarType castedSelfDtype =
+      self_is_int32 || useUnsortedScatter ? c10::ScalarType::Float : selfDtype;
+
+  scatterAddFwdSharedMetaV2.inputs_data.emplace_back(selfDim, castedSelfDtype);
+  scatterAddFwdSharedMetaV2.inputs_data.push_back(
+      topkOutput0AfterReshapeAndBroadcast);
+  scatterAddFwdSharedMetaV2.inputs_data.emplace_back(
+      gatherFwdSharedMetaV2.outputs_data[0].first, castedSelfDtype);
+  scatterAddFwdSharedMetaV2.outputs_data.emplace_back(selfDim, castedSelfDtype);
+  indexAddSharedMeta.push_back(scatterAddFwdSharedMetaV2);
+
+  std::pair<int, c10::ScalarType> scatterOutputV2 = {
+      scatterAddFwdSharedMetaV2.outputs_data[0].first, selfDtype};
+
+  SharedMetaData memcpySharedMetaV2("memcpy");
+  memcpySharedMetaV2.inputs_data.push_back(scatterOutputV2);
+  memcpySharedMetaV2.outputs_data.push_back(scatterOutputV2);
+  indexAddSharedMeta.push_back(memcpySharedMetaV2);
+
+  // Shared meta for IndexAddOperator.
+  SharedMetaData gatherFwdSharedMeta("gather_fwd");
+  gatherFwdSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
+  gatherFwdSharedMeta.inputs_data.emplace_back(indicesDim, indicesDtype);
+  gatherFwdSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
+  indexAddSharedMeta.push_back(gatherFwdSharedMeta);
+
+  SharedMetaData multSharedMeta("mult");
+  multSharedMeta.inputs_data.emplace_back(valueDim, valueDtype);
+  multSharedMeta.inputs_data.emplace_back(
+      alphaDimBroadcasted, alphaCastedDtype);
+  multSharedMeta.outputs_data.emplace_back(valueDim, valueDtype);
+  indexAddSharedMeta.push_back(multSharedMeta);
+
+  SharedMetaData addFwdSharedMeta("add_fwd");
+  addFwdSharedMeta.inputs_data.push_back(gatherFwdSharedMeta.outputs_data[0]);
+  addFwdSharedMeta.inputs_data.push_back(multSharedMeta.outputs_data[0]);
+  addFwdSharedMeta.outputs_data.push_back(gatherFwdSharedMeta.outputs_data[0]);
+  indexAddSharedMeta.push_back(addFwdSharedMeta);
+
+  const auto indicesExpandedDim = valueDim;
+
+  SharedMetaData scatterFwdSharedMeta("scatter_fwd");
+  scatterFwdSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
+  scatterFwdSharedMeta.inputs_data.emplace_back(
+      indicesExpandedDim, indicesDtype);
+  scatterFwdSharedMeta.inputs_data.push_back(addFwdSharedMeta.outputs_data[0]);
+  scatterFwdSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
+  indexAddSharedMeta.push_back(scatterFwdSharedMeta);
+
+  std::pair<int, c10::ScalarType> scatterOutput =
+      scatterFwdSharedMeta.outputs_data[0];
+
+  SharedMetaData memcpySharedMeta("memcpy");
+  memcpySharedMeta.inputs_data.push_back(scatterOutput);
+  memcpySharedMeta.outputs_data.push_back(scatterOutput);
+  indexAddSharedMeta.push_back(memcpySharedMeta);
+
+  return indexAddSharedMeta;
+}
+} // namespace habana
+
 void IndexAddOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -2719,6 +2837,28 @@ void Unique_Operator::AllocateAndAddSynapseNode(
       graph.is_dynamic_graph());
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
+
+namespace habana {
+SharedMetaDataVector UniqueDimSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack.at(0).toTensor();
+  const auto selfDim = self.dim();
+  const auto selfDtype = self.scalar_type();
+
+  const int DimVector1 = 1;
+
+  SharedMetaData uniqueSharedMeta("unique_fwd");
+  uniqueSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
+  uniqueSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
+  uniqueSharedMeta.outputs_data.emplace_back(
+      DimVector1, c10::ScalarType::UInt32);
+  uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
+  uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
+
+  return {uniqueSharedMeta};
+}
+} // namespace habana
 
 void UniqueDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
