@@ -46,9 +46,14 @@ if(UPSTREAM_COMPILE)
   add_definitions(-DUPSTREAM_COMPILE)
   set(CMAKE_SHARED_LIBRARY_SUFFIX
     .upstream${CMAKE_SHARED_LIBRARY_SUFFIX})
-  set(CMAKE_CXX_FLAGS "-fabi-version=11")
   set(CMAKE_EXECUTABLE_SUFFIX "_upstream")
 endif(UPSTREAM_COMPILE)
+
+
+message(STATUS "USE_CXX11_ABI is ${USE_CXX11_ABI}")
+if (NOT USE_CXX11_ABI)
+  set(CMAKE_CXX_FLAGS "-fabi-version=11")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
