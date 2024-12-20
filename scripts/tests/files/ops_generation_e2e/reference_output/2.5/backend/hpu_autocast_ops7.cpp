@@ -111,7 +111,6 @@ TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
   Hpu_KERNEL(leaky_relu, "leaky_relu", at::Tensor(const at::Tensor &, const at::Scalar &))
   Hpu_KERNEL(log_sigmoid, "log_sigmoid", at::Tensor(const at::Tensor &))
   Hpu_KERNEL(log_sigmoid_forward, "log_sigmoid_forward", tuple_2_tensors(const at::Tensor &))
-  Hpu_KERNEL(rrelu_with_noise, "rrelu_with_noise", at::Tensor(const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &, bool, c10::optional<at::Generator>))
   Hpu_KERNEL(softplus, "softplus", at::Tensor(const at::Tensor &, const at::Scalar &, const at::Scalar &))
   Hpu_KERNEL(softshrink, "softshrink", at::Tensor(const at::Tensor &, const at::Scalar &))
   Hpu_KERNEL(adaptive_avg_pool2d, "adaptive_avg_pool2d", at::Tensor(const at::Tensor &, c10::IntArrayRef))
@@ -183,6 +182,7 @@ TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
   Hpu_KERNEL(_remove_batch_dim, "_remove_batch_dim", at::Tensor(const at::Tensor &, int64_t, int64_t, int64_t))
   Hpu_KERNEL(special_entr, "special_entr", at::Tensor(const at::Tensor &))
   Hpu_KERNEL(special_ndtri, "special_ndtri", at::Tensor(const at::Tensor &))
+  Hpu_KERNEL(special_log_ndtr, "special_log_ndtr", at::Tensor(const at::Tensor &))
 }
 
 } // namespace

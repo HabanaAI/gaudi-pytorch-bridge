@@ -1043,6 +1043,9 @@ def generate_autocast_ops(op_metas, args):
         "_efficient_attention_forward",
         "_batch_norm_with_update",
         "_scaled_dot_product_fused_attention_overrideable",
+        "rrelu_with_noise",
+        "rrelu_with_noise_",
+        "rrelu_with_noise_out",
     ]
 
     def op_to_skip(function_name, op_name):
@@ -1104,6 +1107,19 @@ inplace_params_blacklist = [
     "_native_batch_norm_legit",
 ]
 
+# SW-212132
+inplace_params_blacklist_dict = {
+    "rrelu_with_noise": "noise",
+    "rrelu_with_noise_": "noise",
+    "rrelu_with_noise_out": "noise",
+}
+
+
+def should_skip_inplace_params(fname, pname):
+    return fname in inplace_params_blacklist or (
+        fname in inplace_params_blacklist_dict.keys() and inplace_params_blacklist_dict[fname] == pname
+    )
+
 
 def parse_params(params, fname, rtype, fc, funsig, out_ids):
     param_vars = []
@@ -1125,7 +1141,7 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
                 tfetcher.add(pname)
             else:
                 tfetcher.add(pname)
-                if fname not in inplace_params_blacklist:
+                if not should_skip_inplace_params(fname, pname):
                     call_args.append(pname)
                     out_indices.append(i)
 

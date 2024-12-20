@@ -5697,20 +5697,20 @@ rrelu_with_noise:
   op_frontend: GeneratorToSeed
   op_backend: Rrelu_with_noise
   out_ids: [0]
-  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
+  schema_args: "(Tensor self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
   op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise_:
   op_frontend: GeneratorToSeed
   op_backend: Rrelu_with_noise
   inplace_ids: [0]
-  schema_args: "(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
   op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise.out:
   op_frontend: GeneratorToSeedOut
   op_backend: Rrelu_with_noise
-  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  schema_args: "(Tensor self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
   op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise_backward:

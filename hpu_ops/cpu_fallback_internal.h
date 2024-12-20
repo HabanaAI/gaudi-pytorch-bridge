@@ -149,24 +149,28 @@ inline T cast_arg(bool& arg_changed, at::ScalarType dtype, T arg) {
   PT_FALLBACK_TRACE
   auto after{at::autocast::cached_cast(dtype, arg, at::DeviceType::HPU)};
   bool did_cast = !is_unchanged(arg, after);
-  arg_changed |= did_cast;
-  set_attribute(arg, after);
-  return after;
-}
-
-inline at::Tensor cast_arg(
-    bool& arg_changed,
-    at::ScalarType dtype,
-    const at::Tensor& arg) {
-  PT_FALLBACK_TRACE
-
-  auto after{at::autocast::cached_cast(dtype, arg, at::DeviceType::HPU)};
-  bool did_cast = !is_unchanged(arg, after);
   PT_FALLBACK_DEBUG(
       "arg_changed on entry=", arg_changed, " did_cast=", did_cast);
   arg_changed |= did_cast;
   set_attribute(arg, after);
   return after;
+}
+
+inline at::Tensor& cast_arg(
+    bool& arg_changed,
+    at::ScalarType dtype,
+    at::Tensor& arg) {
+  PT_FALLBACK_TRACE
+  auto after{at::autocast::cached_cast(dtype, arg, at::DeviceType::HPU)};
+  bool did_cast = !is_unchanged(arg, after);
+  PT_FALLBACK_DEBUG(
+      "arg_changed on entry=", arg_changed, " did_cast=", did_cast);
+  arg_changed |= did_cast;
+  if (did_cast) {
+    arg = at::autocast::cached_cast(dtype, after, at::DeviceType::HPU);
+  }
+  set_attribute(arg, after);
+  return arg;
 }
 
 template <typename ResultType, typename ResultIndexes = void>
@@ -398,7 +402,9 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
       if (is_eligible_for_redispatch(t) &&
           (is_eligible_for_redispatch(args) && ...)) {
         bool arg_changed = false;
-        at::Tensor cast_input{cast_arg(arg_changed, at::ScalarType::Float, t)};
+        const auto originalDtype = t.scalar_type();
+        at::Tensor& cast_input{cast_arg(arg_changed, at::ScalarType::Float, t)};
+
         at::Tensor& new_tensor{
             redispatch_if_any_arg_changed<
                 Op,
@@ -409,27 +415,22 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
                     arg_changed,
                     cast_input,
                     cast_arg(arg_changed, at::ScalarType::Float, args)...)};
-        if (arg_changed) {
-          t = at::autocast::cached_cast(
-              t.scalar_type(), new_tensor, at::DeviceType::HPU);
-          set_attribute(cast_input, t);
-          return t;
-        } else {
-          t = new_tensor;
-          set_attribute(cast_input, t);
-          return t;
-        }
+
+        t = arg_changed ? at::autocast::cached_cast(
+                              originalDtype, new_tensor, at::DeviceType::HPU)
+                        : new_tensor;
+        set_attribute(cast_input, t);
+        return t;
       }
     }
-
     return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
   }
 };
 
 /*
- * Specialization of fallback dispatcher for inplace ops that use const Tensor
- * references.
+ * Specialization of fallback dispatcher for inplace ops that use const
+ * Tensor references.
  *
  */
 template <class Op, class... ParameterTypes>

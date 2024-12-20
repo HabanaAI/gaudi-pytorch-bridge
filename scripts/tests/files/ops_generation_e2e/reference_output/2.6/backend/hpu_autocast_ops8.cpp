@@ -47,7 +47,6 @@ using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::T
 using tuple_4_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
-  Hpu_KERNEL(special_log_ndtr, "special_log_ndtr", at::Tensor(const at::Tensor &))
   Hpu_KERNEL(special_expm1, "special_expm1", at::Tensor(const at::Tensor &))
   Hpu_KERNEL(special_exp2, "special_exp2", at::Tensor(const at::Tensor &))
   Hpu_KERNEL(special_psi, "special_psi", at::Tensor(const at::Tensor &))
@@ -183,6 +182,7 @@ TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
   Hpu_KERNEL(unflatten_dense_tensors, "unflatten_dense_tensors", ::std::vector<at::Tensor>(const at::Tensor &, at::TensorList))
   Hpu_KERNEL(_nested_tensor_from_tensor_list, "_nested_tensor_from_tensor_list", at::Tensor(at::TensorList, c10::optional<at::ScalarType>, c10::optional<at::Layout>, c10::optional<c10::Device>, c10::optional<bool>))
   Hpu_KERNEL(_fw_primal_copy, "_fw_primal_copy", at::Tensor(const at::Tensor &, int64_t))
+  Hpu_KERNEL(_make_dual_copy, "_make_dual_copy", at::Tensor(const at::Tensor &, const at::Tensor &, int64_t))
 }
 
 } // namespace
