@@ -23,6 +23,7 @@ pytest-forked==1.4.0
 pytest-html==3.1.1
 pytest-logger==0.5.1
 pytest-mock
+pytest-rerunfailures
 pytest-profiling==1.7.0
 pytest-random-order==1.0.4
 pytest-repeat==0.9.1
