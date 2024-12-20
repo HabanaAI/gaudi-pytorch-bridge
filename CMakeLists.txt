@@ -190,8 +190,6 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_lazy/lazy_arg_spec.cpp
   habana_lazy/lazy_executor.cpp
   habana_lazy/permute_tensors.cpp
-  habana_lazy/sbs_debug.cpp
-  habana_lazy/sbs_runner.cpp
   habana_lazy/lazy_storage.cpp
   habana_lazy/lazy_graph_hash_builder.cpp
   habana_lazy/view_utils.cpp
@@ -293,8 +291,6 @@ add_habana_library(habana_pytorch2_plugin SHARED
   habana_lazy/passes/replace_inplace_ops.cpp
   habana_lazy/passes/replace_views_with_reshapes.cpp
   habana_lazy/passes/transform_graph.cpp
-  habana_lazy/sbs_debug.cpp
-  habana_lazy/sbs_runner.cpp
   habana_lazy/tensor_impl.cpp
   habana_lazy/view_utils.cpp
   hpu_ops/lazy/binaryscalar2tensor.cpp

@@ -172,7 +172,6 @@ at::Tensor get_tensor_for_scalar(double, const at::TensorOptions&) {
 }
 
 void flush_op(
-    size_t,
     std::shared_ptr<HbLazyFrontEndInfoToBackend>,
     std::vector<HbLazyTensor>) {
   EAGER_NOT_SUPPORTED;

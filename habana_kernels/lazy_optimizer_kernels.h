@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/ops/unpack.h"
@@ -143,10 +143,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       context->MarkTensorStatus(
           hl_result4.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     }
-    LazyOp<T>::runSBS(tList1);
-    LazyOp<T>::runSBS(tList2);
-    LazyOp<T>::runSBS(tList3);
-    flush_op(tList1.size() + tList2.size() + tList3.size());
+    flush_op();
   }
 
  private:
@@ -177,9 +174,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       context->MarkTensorStatus(
           hl_result2.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     }
-    LazyOp<T>::runSBS(tList1);
-    LazyOp<T>::runSBS(tList2);
-    flush_op(tList1.size() + tList2.size());
+    flush_op();
   }
 
   template <typename T = ReturnType>
@@ -205,9 +200,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       context->MarkTensorStatus(
           hl_result2.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     }
-    LazyOp<T>::runSBS(tList1);
-    LazyOp<T>::runSBS(tList2);
-    flush_op(tList1.size() + tList2.size());
+    flush_op();
   }
 
 }; // class LazyOptimizationOp

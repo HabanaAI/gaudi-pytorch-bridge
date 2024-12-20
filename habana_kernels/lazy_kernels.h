@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <c10_ver/core/SymIntArrayRef.h>
@@ -29,7 +29,6 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/lazy_graph_hash_builder.h"
-#include "habana_lazy/sbs_runner.h"
 #include "habana_lazy/view_utils.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
@@ -86,7 +85,6 @@ at::Tensor get_tensor_for_scalar(
     const at::TensorOptions& options = {});
 
 void flush_op(
-    size_t out_tensor_count = 0,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
     std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
 
@@ -115,7 +113,6 @@ class LazyOp {
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
@@ -129,7 +126,6 @@ class LazyOp {
       int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     if (out_shapes_fn) {
@@ -146,8 +142,6 @@ class LazyOp {
       : m_node{std::move(node)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(
-            m_node ? m_node->op().toQualString() : "")},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
@@ -163,7 +157,6 @@ class LazyOp {
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_index{},
         m_out_meta_tensors{output_meta_tensors},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     set_inputs(inputs);
     module_name = *(habana_lazy::ir::getCurrentModuleName());
@@ -225,8 +218,7 @@ class LazyOp {
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(tensors);
-    flush_op(tensors.size(), info_to_lazy_backend, hl_results);
+    flush_op(info_to_lazy_backend, hl_results);
     return results;
   }
 
@@ -366,8 +358,7 @@ class LazyOp {
       info_to_lazy_backend->set_input_values(std::move(input_vals));
     }
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(tensors);
-    flush_op(tensors.size(), info_to_lazy_backend, hl_results);
+    flush_op(info_to_lazy_backend, hl_results);
     return results;
   }
 
@@ -412,7 +403,6 @@ class LazyOp {
     hl_result.IrSetNode(node);
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(result);
     return result.item().template to<T>();
   }
 
@@ -442,12 +432,11 @@ class LazyOp {
           context->MarkTensorStatus(
               hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
         }
-        runSBS(tensors);
       } while (customIt.has_more_items());
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    flush_op(out_index);
+    flush_op();
   }
 
  public:
@@ -490,8 +479,7 @@ class LazyOp {
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(tensors);
-    flush_op(tensors.size());
+    flush_op();
 
     return tensors;
   }
@@ -508,8 +496,7 @@ class LazyOp {
       auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
       hl_result.IrSetNode(node, i++);
     }
-    runSBS(tensors);
-    flush_op(tensors.size());
+    flush_op();
   }
 
   template <typename T = ReturnType>
@@ -543,8 +530,7 @@ class LazyOp {
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(result);
-    flush_op(1, info_to_lazy_backend, {hl_result});
+    flush_op(info_to_lazy_backend, {hl_result});
     return result;
   }
 
@@ -577,8 +563,7 @@ class LazyOp {
       info_to_lazy_backend->set_input_values(std::move(input_vals));
     }
 
-    runSBS(self);
-    flush_op(1, info_to_lazy_backend, {hl_result});
+    flush_op(info_to_lazy_backend, {hl_result});
     // walkaround here due to the second input of rrelu will be write
     using namespace std::literals;
     const auto node_str = std::string_view{m_symbol.toQualString()};
@@ -756,7 +741,7 @@ class LazyOp {
       } else {
         hl_self.IrSetNode(node);
 
-        flush_op(1);
+        flush_op();
         // add strided insert node and update most recent version of original
         // tensor
         strided_insert_hpu_lazy(self, out_t);
@@ -851,12 +836,6 @@ class LazyOp {
 
         const auto& node = create_node();
         hl_self.IrSetNode(node);
-        // Special handling for SBS in inplace, before the inplace op will
-        // override the tensor
-        if (is_inplace(m_symbol)) {
-          m_sbs_runner->populateInputForCPUOp(
-              get_inputs(), node->GetMetaData(), sbs_stack);
-        }
       } else {
         PT_LAZY_DEBUG("Optimized Lazy Eager Inplace Path Chosen");
         std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
@@ -892,8 +871,7 @@ class LazyOp {
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(self, sbs_stack);
-    flush_op(1, info_to_lazy_backend, {hl_self});
+    flush_op(info_to_lazy_backend, {hl_self});
     return self;
   }
 
@@ -1018,8 +996,7 @@ class LazyOp {
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(self);
-    flush_op(1, std::move(info_to_lazy_backend));
+    flush_op(std::move(info_to_lazy_backend));
     return self;
   }
 
@@ -1495,7 +1472,6 @@ class LazyOp {
       if (!m_collective_op)
         handle_collective(t);
     }
-    m_sbs_runner->setCPUInputs(inputsHpu);
     m_inputs = inputsHpu;
     // [toDo] this is for gtest we will eventually move to MACRO
     RUNNING_HASH_COMBINE_OPERATOR_STR(m_symbol, m_inputs);
@@ -1702,23 +1678,6 @@ class LazyOp {
     hl_self.IrSetNode(strided_node);
   }
 
-  // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
-  // between tensors that are calculated by HPU to tensors that are calculated
-  // by CPU.
-  // Run it by adding the env var PT_SBS with one of the enum values described
-  // here: debug_utils.h :: SBSModes
-  // See more here:
-  // https://confluence.habana-labs.com/display/SYN/Side-By-Side+Debug+Tool
-  void runSBS(
-      const at::TensorList results,
-      const std::vector<at::IValue>& preallocated_stack =
-          std::vector<at::IValue>()) {
-    if (GET_ENV_FLAG_NEW(PT_SBS) != SBSModes::SBS_MODE_DISABLED) {
-      PT_LAZY_DEBUG("Calling runSBS for op: ", m_symbol.toQualString());
-      m_sbs_runner->run(results, get_inputs(), preallocated_stack);
-    }
-  }
-
   template <typename N = NodeConstruct>
   std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
     return m_node;
@@ -1753,7 +1712,6 @@ class LazyOp {
   std::vector<c10::ScalarType> m_scalar_types;
   std::function<habana::OutputMetaDataVector(const at::Stack&)>
       m_output_meta_fn;
-  const std::shared_ptr<SBSInterface> m_sbs_runner;
   std::string module_name = std::string();
   bool m_shape_was_changed =
       false; // bool for changed input shape for _out ops (non-tuple input)

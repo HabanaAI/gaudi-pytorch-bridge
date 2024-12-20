@@ -356,10 +356,6 @@ PT_HPU_ENABLE_SFG:
   type: bool
   default: false
 
-PT_SBS:
-  type: unsigned
-  default: 0
-
 PT_HPU_FORCE_TANH_FOR_GELU:
   type: bool
   default: true

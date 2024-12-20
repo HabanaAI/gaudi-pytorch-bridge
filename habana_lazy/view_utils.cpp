@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_lazy/view_utils.h"
 #include "habana_kernels/basic_kernels.h"
@@ -20,7 +20,6 @@
 #include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/tensor_shape.h"
-#include "habana_lazy/sbs_debug.h"
 
 using namespace habana;
 using namespace at;
@@ -74,7 +73,7 @@ at::Tensor add_slice_insert_node(
   habana::get_and_set_tensor_const(orig_t, result);
   auto hl_result = GetHbLazyTensor(result);
   hl_result.IrSetNode(node);
-  flush_op(1);
+  flush_op();
   return result;
 }
 
@@ -238,7 +237,7 @@ Tensor add_strided_insert_node(
   hl_result.IrSetNode(node);
 
   if (is_flush) {
-    flush_op(1);
+    flush_op();
   }
   return result;
 }
@@ -350,9 +349,6 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
       }
 
       is_view = true;
-      // Ops inside HandleViews function do not call flush_op separately.
-      // Hence handling SBS debug counter here
-      SBSDebug::getInstance().IncreaseOpsAndTensors(1);
     }
   }
   return is_view;
@@ -568,8 +564,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
 
     Tensor base;
     Tensor base_internal_tensor;
-    if (src.is_contiguous() &&
-        (GET_ENV_FLAG_NEW(PT_SBS) == SBSModes::SBS_MODE_DISABLED)) {
+    if (src.is_contiguous()) {
       base =
           get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
       TORCH_CHECK(base.storage(), "base tensor should have valid storage");
@@ -1032,7 +1027,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
   input_pt_vec.emplace_back(self);
   input_pt_vec.emplace_back(expand_shape);
   node->AddInputPtTensors(input_pt_vec);
-  flush_op(1);
+  flush_op();
   return result;
 }
 

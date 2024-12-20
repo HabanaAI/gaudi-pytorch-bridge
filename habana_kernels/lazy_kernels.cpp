@@ -52,7 +52,6 @@
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/permute_tensors.h"
-#include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/bincount.h"
 #include "hpu_ops/fp8_ops.h"
@@ -122,7 +121,7 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   input_pt_vec.push_back(src);
   input_pt_vec.push_back(dst);
   copy_node->AddInputPtTensors(input_pt_vec);
-  flush_op(1);
+  flush_op();
 }
 constexpr size_t INPUT_BATCH_INDEX = 0;
 constexpr size_t INPUT_CHANNEL_INDEX = 1;
@@ -195,7 +194,6 @@ void flushWithMarkStep() {
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
 void flush_op(
-    size_t out_tensor_count,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,
     std::vector<HbLazyTensor> out_hb_lazy_tensor) {
   // Count number of ops added by both accumulation thread and the main thread.
@@ -212,7 +210,6 @@ void flush_op(
   const bool m_flush_op = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2;
   const bool m_random_flush = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 3;
   StageSubmission::getInstance().incrementAccumulatedOps();
-  SBSDebug::getInstance().IncreaseOpsAndTensors(out_tensor_count);
 
   if (m_flush_op) {
     bool async =
@@ -647,7 +644,7 @@ Tensor& copy_hpu_lazy_D2D(
             auto hl_src_cast = GetHbLazyTensor(src_cast);
 
             hl_src_cast.IrSetNode(node);
-            flush_op(1);
+            flush_op();
 
             HbLazyTensorViews::HandleViewsD2D(src_cast, self);
           } else {
@@ -692,19 +689,17 @@ at::Tensor handleWeightTensorLayout(const Tensor& src) {
 }
 
 void d2h_maybe_eval(const Tensor& src, bool async = false) {
-  if (GET_ENV_FLAG_NEW(PT_SBS) == SBSModes::SBS_MODE_DISABLED) {
-    auto hl_t = GetHbLazyTensor(src);
-    auto& params_opt = hl_t.getDataPtr()->stride_params;
-    if (params_opt.has_value()) {
-      hl_t = GetHbLazyTensor(
-          HbLazyTensorViews::get_recent_base_tensor(params_opt.value().base));
-    }
+  auto hl_t = GetHbLazyTensor(src);
+  auto& params_opt = hl_t.getDataPtr()->stride_params;
+  if (params_opt.has_value()) {
+    hl_t = GetHbLazyTensor(
+        HbLazyTensorViews::get_recent_base_tensor(params_opt.value().base));
+  }
 
-    if (hl_t.CurrentIrValue() && !hl_t.CurrentIrValue().IsHpuInputNode()) {
-      PT_LAZY_DEBUG("Triggering mark_step before D2H copy");
-      PT_IRGRAPH_DEBUG("step marker due to d2h_maybe_eval");
-      HbLazyTensor::StepMarker({}, nullptr, {}, async);
-    }
+  if (hl_t.CurrentIrValue() && !hl_t.CurrentIrValue().IsHpuInputNode()) {
+    PT_LAZY_DEBUG("Triggering mark_step before D2H copy");
+    PT_IRGRAPH_DEBUG("step marker due to d2h_maybe_eval");
+    HbLazyTensor::StepMarker({}, nullptr, {}, async);
   }
 }
 
@@ -1081,7 +1076,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
 
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
-  flush_op(1);
+  flush_op();
   return self;
 }
 
@@ -1411,7 +1406,7 @@ Tensor as_strided_hpu(
         true /*is_update_view*/,
         c10::nullopt);
     if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
-      flush_op(1);
+      flush_op();
     }
     return out;
   }
@@ -1448,7 +1443,7 @@ Tensor as_strided_hpu_lazy(
 
     habana::get_and_set_tensor_const(self, out);
     if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
-      flush_op(1);
+      flush_op();
     }
     return out;
   }
@@ -1476,7 +1471,7 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
     auto context = get_device_lazy_execution_context();
     context->MarkTensorStatus(
         hb_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
-    flush_op(1);
+    flush_op();
   } else {
     TORCH_CHECK(
         0,
@@ -2694,7 +2689,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
     auto shape = DimVector{0, dimensions};
     auto output =
         empty_hpu_lazy(shape, hb_options, self.suggest_memory_format(), true);
-    flush_op(1);
+    flush_op();
     return output;
   }
 
@@ -2750,14 +2745,14 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
     auto shape = DimVector{0, dimensions};
     auto output =
         empty_hpu_lazy(shape, hb_options, self.suggest_memory_format(), true);
-    flush_op(1);
+    flush_op();
     return output;
   }
 
   // Add a slice node to capture relevent elements from nonzero node
   // in case we have relevant elements
   auto result = slice_hpu_lazy(where_tensor, 0, 0, end, 1);
-  flush_op(1);
+  flush_op();
   return result;
 }
 
@@ -2779,7 +2774,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
     THHTensor_resizeNd(
         out_reshaped, out_shape.size(), out_shape.data(), nullptr);
     output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
-    flush_op(1);
+    flush_op();
     return output;
   }
 
@@ -2823,7 +2818,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
         out_reshaped, sliced_shape.size(), sliced_shape.data(), nullptr);
     output.unsafeGetTensorImpl()->set_sizes_contiguous(
         IntArrayRef(sliced_shape));
-    flush_op(1);
+    flush_op();
     return output;
   }
 
@@ -2839,7 +2834,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   auto node = std::make_shared<ir::Slice>(where_tensor, 0, 0, end, 1);
 
   hl_result.IrSetNode(node);
-  flush_op(1);
+  flush_op();
   return output;
 }
 
@@ -3092,7 +3087,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
   // TBD: Investigate further and raise a JIRA on GC.
   if (indices_out_list[0].numel() == 0 || value_in.numel() == 0) {
     auto result = self.clone();
-    flush_op(1);
+    flush_op();
     return result;
   }
 
@@ -3206,7 +3201,7 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
     auto shape = DimVector{0, dimensions};
     auto output =
         empty_hpu_lazy(shape, hb_options, self.suggest_memory_format(), true);
-    flush_op(1);
+    flush_op();
     return {output, output};
   }
 
@@ -3235,7 +3230,7 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
           self.options().dtype(c10::ScalarType::Int),
           self.suggest_memory_format(),
           true);
-      flush_op(2);
+      flush_op();
       return {where_tensor, shape_tensor};
     }
   };
@@ -3283,7 +3278,7 @@ Tensor index_put_hpu_lazy(
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].numel() == 0 || value_in.numel() == 0) {
       auto result = self.clone();
-      flush_op(1);
+      flush_op();
       return result;
     }
   }
@@ -3392,7 +3387,7 @@ Tensor& index_put_hpu_lazy_(
     std::vector<HbLazyTensor> hl_flush_end = {GetHbLazyTensor(self)};
     HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
   } else {
-    flush_op(1);
+    flush_op();
   }
   return self;
 }
@@ -4931,7 +4926,7 @@ Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
     auto result = empty_hpu_lazy(
         size_in.vec(), self.options(), self.suggest_memory_format(), true);
     auto hl_result = GetHbLazyTensor(result);
-    flush_op(1);
+    flush_op();
     return result;
   }
 
@@ -5204,7 +5199,7 @@ Tensor fused_norm_hpu_lazy(
       }
     }
 
-    flush_op(1);
+    flush_op();
   };
   // running hash
   {
@@ -5257,7 +5252,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
         self.suggest_memory_format(),
         true);
     auto hl_inverse_tensor = GetHbLazyTensor(inverse_tensor);
-    flush_op(2);
+    flush_op();
     return {output, inverse_tensor};
   }
 
@@ -5317,7 +5312,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
   auto result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
   // Flipping to match the cpu results
   result = torch::flip(result, {0});
-  flush_op(1);
+  flush_op();
 
   if (return_inverse) {
     auto inverse_tensor = std::get<2>(output);
@@ -5327,7 +5322,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     inverse_result =
         view_hpu(inverse_result, fromIntArrayRefUnchecked(self.sizes()));
 
-    flush_op(1);
+    flush_op();
     return std::make_tuple(result, inverse_result);
   } else {
     Tensor inverse_indices;
@@ -5420,7 +5415,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   auto unique_result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
   auto counts_result = slice_hpu_lazy(counts_tensor, 0, 0, end, 1);
 
-  flush_op(3);
+  flush_op();
 
   // These are optional tensors which shall be populated only when we
   // start supporting return_inverse and return_counts
@@ -5457,21 +5452,21 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
     auto shape = DimVector{0};
     auto output = empty_hpu_lazy(
         shape, self.options(), self.suggest_memory_format(), true);
-    flush_op(1);
+    flush_op();
     auto inverse_tensor = empty_hpu_lazy(
         shape,
         self.options().dtype(c10::ScalarType::Long),
         self.suggest_memory_format(),
         true);
     auto hl_inverse_tensor = GetHbLazyTensor(inverse_tensor);
-    flush_op(1);
+    flush_op();
     auto counts_tensor = empty_hpu_lazy(
         shape,
         self.options().dtype(c10::ScalarType::Long),
         self.suggest_memory_format(),
         true);
     auto hl_counts_tensor = GetHbLazyTensor(counts_tensor);
-    flush_op(1);
+    flush_op();
     return {output, inverse_tensor, counts_tensor};
   }
 
@@ -5550,7 +5545,7 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
   auto unique_result = slice_hpu_lazy(feature_map, dim, 0, end, 1);
   auto counts_result = slice_hpu_lazy(counts_tensor, 0, 0, end, 1);
 
-  flush_op(3);
+  flush_op();
 
   if (return_inverse && return_counts) {
     return std::make_tuple(unique_result, inverse_tensor, counts_result);
@@ -5703,7 +5698,7 @@ Tensor habana_nms_hpu_lazy(
   // Extract correct output using shape information.
   // Add a slice node to capture relevent elements
   auto result = slice_hpu_lazy(box_id_out, 0, 0, end, 1);
-  flush_op(1);
+  flush_op();
   return result;
 }
 
@@ -5723,7 +5718,7 @@ Tensor batched_nms_hpu_lazy(
         scores.suggest_memory_format(),
         true);
     auto hl_output = GetHbLazyTensor(output);
-    flush_op(1);
+    flush_op();
     return output;
   }
   // Ensuring that the boxes and scores input to batched_nms is always FP32,
@@ -5819,7 +5814,7 @@ Tensor batched_nms_hpu_lazy(
   // Extract correct output using shape information.
   // Add a slice node to capture relevent elements
   auto result = slice_hpu_lazy(box_id_out, 0, 0, end, 1);
-  flush_op(1);
+  flush_op();
   return result;
 }
 
@@ -6946,7 +6941,7 @@ void optimizer_lamb_phase2(
        weight_decay,
        use_lamb});
   loo.call(weights);
-  flush_op(weights.size());
+  flush_op();
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
