@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/habana_random_ops.h"
 
@@ -151,7 +151,8 @@ HabanaRandomBase::HabanaRandomBase(
     int device_id,
     std::string_view kernel_name,
     c10::ScalarType scalar_type,
-    std::vector<int> res_ids)
+    std::vector<int> res_ids,
+    bool is_deterministic)
     : OpBackend(
           device_id,
           kernel_name.data(),
@@ -159,7 +160,8 @@ HabanaRandomBase::HabanaRandomBase(
           std::move(res_ids),
           {},
           {},
-          false) {}
+          false),
+      is_deterministic(is_deterministic) {}
 
 void HabanaRandomBase::AddNodeCommon(
     synapse_helpers::graph& graph,
@@ -201,13 +203,14 @@ void HabanaRandomBase::AddNodeCommon(
   syn_out(idx) = std::move(rand[0]);
 }
 
-HabanaRandBase::HabanaRandBase(
-    int device_id,
-    std::string_view kernel_name,
-    c10::ScalarType scalar_type)
-    : HabanaRandomBase(device_id, kernel_name, scalar_type, {0}) {}
+void HabanaRandomBase::CustomHandler(synapse_helpers::graph&, at::Stack&) {
+  // Setting only to true because we don't want to overwrite deterministic mode.
+  if (is_deterministic) {
+    setDeterministic(true);
+  }
+}
 
-void HabanaRandBase::AddNode(
+void HabanaRandomBase::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   AddNodeCommon(graph, stack, false);
@@ -227,15 +230,31 @@ bool RandDSSTMeta(
   return true;
 }
 
-HabanaRand::HabanaRand(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, "random_uniform", scalar_type) {
+HabanaRandBase::HabanaRandBase(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
+          device_id,
+          "random_uniform",
+          scalar_type,
+          {1},
+          is_deterministic) {
   SetFillParams(FillHabanaRandParams);
   SetOutputMetaFn(HabanaRandOutputMeta);
   SetSTMetaFn(RandDSSTMeta);
 }
 
-HabanaRandn::HabanaRandn(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, "random_normal", scalar_type) {
+HabanaRandnBase::HabanaRandnBase(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
+          device_id,
+          "random_normal",
+          scalar_type,
+          {1},
+          is_deterministic) {
   SetFillParams(FillHabanaRandnParams);
   SetOutputMetaFn(HabanaRandOutputMeta);
   SetSTMetaFn(RandDSSTMeta);
@@ -244,8 +263,14 @@ HabanaRandn::HabanaRandn(int device_id, c10::ScalarType scalar_type)
 HabanaRandCheckpointBase::HabanaRandCheckpointBase(
     int device_id,
     std::string_view kernel_name,
-    c10::ScalarType scalar_type)
-    : HabanaRandomBase(device_id, kernel_name, scalar_type, {0, 0}) {}
+    c10::ScalarType scalar_type,
+    std::vector<int> res_ids)
+    : HabanaRandomBase(
+          device_id,
+          kernel_name,
+          scalar_type,
+          std::move(res_ids),
+          true) {}
 
 void HabanaRandCheckpointBase::AddNode(
     synapse_helpers::graph& graph,
@@ -355,13 +380,21 @@ static std::vector<synapse_helpers::tensor> HabanaRandintCommon(
   }
 }
 
-HabanaRandint::HabanaRandint(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, "random_uniform", scalar_type) {
+HabanaRandintBase::HabanaRandintBase(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
+          device_id,
+          "random_uniform",
+          scalar_type,
+          {1},
+          is_deterministic) {
   SetOutputMetaFn(HabanaRandintOutputMeta);
   SetSTMetaFn(RandIntDSSTMeta);
 }
 
-void HabanaRandint::AddNode(
+void HabanaRandintBase::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   syn_out(0) = std::move(HabanaRandintCommon(
@@ -387,8 +420,16 @@ void HabanaRandintCheckpoint::AddNode(
       this, graph, stack, GetOutputMetaData()[1], guid_, syn_in(0), true)[0]);
 }
 
-HabanaUniform::HabanaUniform(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, "philox_random_uniform", scalar_type) {
+HabanaUniformBase::HabanaUniformBase(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
+          device_id,
+          "philox_random_uniform",
+          scalar_type,
+          {1},
+          is_deterministic) {
   SetOutputMetaFn(HabanaUniformOutputMeta);
   SetFillParams(FillHabanaUniformParams);
   SetSTMetaFn(RandDSSTMeta);
@@ -425,7 +466,12 @@ bool RandSeedGeneratorDSSTMeta(
 HabanaSeedGenerator::HabanaSeedGenerator(
     int device_id,
     c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, "habana_seed_generator", scalar_type) {
+    : HabanaRandomBase(
+          device_id,
+          "habana_seed_generator",
+          scalar_type,
+          {0},
+          false) {
   SetOutputMetaFn(HabanaSeedGeneratorOutputMeta);
   SetFillParams(FillHabanaSeedGeneratorParams);
   SetSTMetaFn(RandSeedGeneratorDSSTMeta);
@@ -435,10 +481,10 @@ HabanaSeedGenerator::HabanaSeedGenerator(
 
 static const auto& HabanaRandomKernelRegistry =
     habana::KernelRegistry()
-        .REGISTER_RANDOM_OP(rand, Rand)
-        .REGISTER_RANDOM_OP(randn, Randn)
-        .REGISTER_RANDOM_OP(randint, Randint)
-        .REGISTER_RANDOM_OP(uniform, Uniform)
+        .REGISTER_RANDOM_CHECKPOINT_OP(rand, Rand)
+        .REGISTER_RANDOM_CHECKPOINT_OP(randn, Randn)
+        .REGISTER_RANDOM_CHECKPOINT_OP(randint, Randint)
+        .REGISTER_RANDOM_CHECKPOINT_OP(uniform, Uniform)
         .add(
             "hpu::habana_seed_generator",
             KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator))

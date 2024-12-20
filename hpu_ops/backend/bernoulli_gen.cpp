@@ -180,17 +180,18 @@ void BernoulliWithP::AddNode(
   }
 }
 
-HabanaBernoulli::HabanaBernoulli(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
+HabanaBernoulliBase::HabanaBernoulliBase(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
           device_id,
           "habana_bernoulli",
           scalar_type,
           {1},
-          {},
-          {},
-          false) {}
+          is_deterministic) {}
 
-void HabanaBernoulli::AddNode(
+void HabanaBernoulliBase::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 1);
@@ -207,14 +208,11 @@ void HabanaBernoulli::AddNode(
 HabanaBernoulliCheckpoint::HabanaBernoulliCheckpoint(
     int device_id,
     c10::ScalarType scalar_type)
-    : OpBackend(
+    : HabanaRandCheckpointBase(
           device_id,
           "habana_bernoulli",
           scalar_type,
-          {0, 1},
-          {},
-          {},
-          false) {}
+          {0, 1}) {}
 
 void HabanaBernoulliCheckpoint::AddNode(
     synapse_helpers::graph& graph,
@@ -236,4 +234,6 @@ void HabanaBernoulliCheckpoint::AddNode(
 } // namespace habana
 
 static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry().REGISTER_RANDOM_OP(bernoulli, Bernoulli);
+    habana::KernelRegistry().REGISTER_RANDOM_CHECKPOINT_OP(
+        bernoulli,
+        Bernoulli);

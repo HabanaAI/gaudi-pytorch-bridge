@@ -43,6 +43,10 @@ HABANA_RANDOM_OPS.update(
 )
 HABANA_RANDOM_OPS = HABANA_RANDOM_OPS if bc.get_pt_hpu_wrap_random_ops_compile() else {}
 
+HABANA_CHECKPOINT_OPS_BACKWARD = HABANA_RANDOM_OPS.copy()
+for op in HABANA_RANDOM_OPS_LIST:
+    HABANA_CHECKPOINT_OPS_BACKWARD[op] = getattr(torch.ops.hpu, "habana_" + op.split(".")[1] + "_checkpoint_backward")
+
 # Supported habana checkpoint wrappers for random ops to proper handling in torch.compile activation checkpoint
 HABANA_CHECKPOINT_OPS = (
     {op: getattr(torch.ops.hpu, "habana_" + op.split(".")[1] + "_checkpoint") for op in HABANA_RANDOM_OPS_LIST}
@@ -79,7 +83,7 @@ def random_op_inputs(node, seed):
 
 
 def backward_random_op_inputs(node):
-    op = HABANA_RANDOM_OPS[str(node.args[1])]
+    op = HABANA_CHECKPOINT_OPS_BACKWARD[str(node.args[1])]
     args = (node.args[0],) + node.args[2:]
     kwargs = node.kwargs.copy()
     kwargs.pop("generator", None)

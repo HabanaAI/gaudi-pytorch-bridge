@@ -1331,33 +1331,26 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::custom_bernoulli.Size(SymInt[] size, float p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
-  HABANA_RANDOM_DEF(bernoulli, "Tensor seed, Tensor self")
-  HABANA_RANDOM_DEF_VARIANT(bernoulli, p, "Tensor seed, Tensor self, float p")
-  HABANA_RANDOM_DEF_VARIANT(
-      bernoulli, Tensor, "Tensor seed, Tensor self, Tensor p")
-  HABANA_RANDOM_DEF_VARIANT(
-      bernoulli,
-      Size,
-      "Tensor seed, SymInt[] size, Scalar p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF(poisson, "Tensor seed, Tensor self")
-  HABANA_RANDOM_DEF(
+  HABANA_RANDOM_DEF_CHECKPOINT(bernoulli, "Tensor seed, Tensor self")
+  HABANA_RANDOM_DEF_CHECKPOINT(poisson, "Tensor seed, Tensor self")
+  HABANA_RANDOM_DEF_CHECKPOINT(
       rand,
       "Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF(
+  HABANA_RANDOM_DEF_CHECKPOINT(
       randn,
       "Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF(
+  HABANA_RANDOM_DEF_CHECKPOINT(
       randint,
       "Tensor seed, SymInt low, SymInt high, SymInt[] size, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF(
+  HABANA_RANDOM_DEF_CHECKPOINT(
       multinomial,
       "Tensor seed, Tensor self, int num_samples, bool replacement=False")
-  HABANA_RANDOM_DEF(
+  HABANA_RANDOM_DEF_CHECKPOINT(
       uniform, "Tensor seed, Tensor self, float from=0, float to=1")
-  HABANA_RANDOM_DEF(
+  HABANA_RANDOM_DEF_CHECKPOINT(
       randperm,
       "Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None")
-  HABANA_RANDOM_DEF_2_OUTS(
+  HABANA_RANDOM_DEF_CHECKPOINT_2_OUTS(
       native_dropout, "Tensor seed, Tensor input, float p, bool? train")
   m.def("hpu::one_hot(Tensor self, int num_classes=-1) -> Tensor");
 }
