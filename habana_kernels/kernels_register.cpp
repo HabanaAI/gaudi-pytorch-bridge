@@ -2119,6 +2119,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
+      "hpu::fp8_sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)");
+  m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   HABANA_RANDOM_DEF_CHECKPOINT(bernoulli, "Tensor seed, Tensor self")
   HABANA_RANDOM_DEF_CHECKPOINT(poisson, "Tensor seed, Tensor self")
@@ -2182,6 +2184,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd", fp8_sdpa_recomp_fwd_lazy);
   m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_fwd_scalar_lazy);
   m.impl("hpu::fp8_sdpa_fwd", fp8_sdpa_fwd_wrap);
+  m.impl("hpu::fp8_sdpa_recomp_bwd", fp8_sdpa_recomp_bwd_lazy);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

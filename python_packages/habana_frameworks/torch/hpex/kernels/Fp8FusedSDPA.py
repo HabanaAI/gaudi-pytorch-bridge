@@ -193,7 +193,7 @@ def fp8_sdpa_fwd_wrapper(
     ctx.gqa = gqa
 
     if recompute:
-        return out, amax_s, amax_o
+        return out, m, linv, seed, amax_s, amax_o
 
     if not dbg_env_var_fsdpa:
         return out, amax_s, amax_o
@@ -385,7 +385,7 @@ def fp8_fused_sdpa(
         seq_padding_type,
         recompute,
     )
-    out, amax_s, amax_o = Fp8FusedSDPA.apply(
+    outputs = Fp8FusedSDPA.apply(
         q,
         k,
         v,
@@ -407,4 +407,4 @@ def fp8_fused_sdpa(
         recompute,
     )
 
-    return out, amax_s, amax_o
+    return outputs

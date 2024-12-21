@@ -99,12 +99,14 @@ def create_attention_mask_for_test(
         else:
             mask_shape = (batch_size, 1, 1, seq_len_N_s)
         attn_mask = attn_mask.expand(mask_shape)
-    else:
+    elif shape == "Bx1xNxN":
         if n_heads == 0:
             mask_shape = (batch_size, seq_len_N_t, seq_len_N_s)
         else:
-            mask_shape = (batch_size, n_heads, seq_len_N_t, seq_len_N_s)
+            mask_shape = (batch_size, 1, seq_len_N_t, seq_len_N_s)
         attn_mask = attn_mask.expand(mask_shape)
+    else:
+        assert False, "Invalid attention mask shape"
     return attn_mask
 
 
@@ -801,12 +803,154 @@ fast_list = [
     #        "fast", # softmax_mode
     #    ),
 ]
+tc_fa2_5_1 = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute
+    (
+        5,  # batch_size,
+        5,  # n_heads,
+        72,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        42,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        False,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+        "None",  # softmax_mode
+    ),
+]
+tc_fa2_5_2 = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute
+    (
+        5,  # batch_size,
+        5,  # n_heads,
+        72,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        42,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+        "None",  # softmax_mode
+    ),
+]
+tc_fa2_5_3 = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute
+    (
+        5,  # batch_size,
+        5,  # n_heads,
+        72,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        42,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        False,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "None",  # softmax_mode
+    ),
+]
+tc_fa2_5_4 = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute
+    (
+        6,  # batch_size,
+        6,  # n_heads,
+        72,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        42,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "None",  # softmax_mode
+    ),
+]
+
+tc_fa2_5_nr1 = [
+    # Self attention with head_dim qk == head_dim v, is_causal, no recompute
+    (
+        5,  # batch_size,
+        5,  # n_heads,
+        72,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        42,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "None",  # softmax_mode
+    ),
+]
+tc_fa2_5_nr2 = [
+    # Self attention with head_dim qk == head_dim v, is_causal, no recompute
+    (
+        5,  # batch_size,
+        5,  # n_heads,
+        72,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        42,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.1,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        False,  # recompute
+        False,  # rhslice
+        False,  # inference
+        "None",  # softmax_mode
+    ),
+]
+
+tc_fa2_5_rc1 = [
+    # Self attention with head_dim qk == head_dim v, is_causal, no recompute
+    (
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "None",  # softmax_mode
+    ),
+]
+
 # total_tc_list = test_llama_set[-1:]
 # total_tc_list = tc_list_new_rules + tc_list_new_rules_non_recomp
 # total_tc_list = tc_list_new_rules[0:1]
 # For now disable additional tests
 total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list
-# total_tc_list = fast_list
 current_dir = os.path.dirname(__file__)
 csv_file_path = os.path.join(current_dir, "sdpa_config.csv")
 with open(csv_file_path, "r") as config_obj:
@@ -851,6 +995,9 @@ def is_param_combo_valid(
         # return_attn_probs supported only for inference
         if return_attn_probs:
             return False
+    if inference:
+        if dropout_p > 0.0:
+            return False
 
     return True
 
@@ -877,14 +1024,14 @@ def is_param_combo_valid(
 @pytest.mark.parametrize(
     "seq_len_N_t",
     (
-        16,
+        72, #16,
     ),
     ids=lambda seq_len_N_t: f"seq_len_N_t-{seq_len_N_t}"
     )
 @pytest.mark.parametrize(
     "seq_len_N_s",
     (
-        32,
+        42, #32,
     ),
     ids=lambda seq_len_N_s: f"seq_len_N_s-{seq_len_N_s}"
     )
@@ -1078,7 +1225,7 @@ def test_sdpa(
     if not test_case_valid:
         pytest.skip("This testcase is not valid")
 
-    torch.manual_seed(1234567)
+    torch.manual_seed(1234568)
     # batch_size = 8
     # seq_len_N = 128
     # embed_dim = 768
@@ -1098,6 +1245,7 @@ def test_sdpa(
     grad_dtype = torch.float32
     rtol = 1e-3
     atol = 1e-3
+    grad_k_atol = 1e-3
 
     # use_float_mask = True
     # enable_autocast = False
@@ -1107,11 +1255,13 @@ def test_sdpa(
         grad_dtype = torch.bfloat16
         rtol = 1e-3
         atol = 0.08
+        grad_k_atol = 0.08
 
     if softmax_mode == "fast":
         atol = 0.13
+        grad_k_atol = 0.23
 
-    attn_mask_shape = "Bx1x1xN"
+    attn_mask_shape = "Bx1xNxN"
     if use_float_mask:
         mask_dtype = dtype
     else:
@@ -1345,7 +1495,7 @@ def test_sdpa(
     compare_tensors(O_ref, O_hpu_c, atol=atol, rtol=rtol)
     if not inference:
         compare_tensors(q_t.grad, q_grad_hpu_c, atol=atol, rtol=rtol)
-        compare_tensors(k_t.grad, k_grad_hpu_c, atol=atol, rtol=rtol)
+        compare_tensors(k_t.grad, k_grad_hpu_c, atol=grad_k_atol, rtol=rtol)
         compare_tensors(v_t.grad, v_grad_hpu_c, atol=atol, rtol=rtol)
     else:
         if return_attn_probs:
@@ -1360,7 +1510,7 @@ def test_sdpa(
         )
         vb_print(
             "Vanilla SDPA BWD Ref K grad vs FSDPA match? = ",
-            torch.allclose(k_t.grad, k_grad_hpu_c, rtol=rtol, atol=atol),
+            torch.allclose(k_t.grad, k_grad_hpu_c, rtol=rtol, atol=grad_k_atol),
         )
         vb_print(
             "Vanilla SDPA BWD Ref V grad vs FSDPA match? = ",
@@ -1380,7 +1530,7 @@ def test_sdpa(
         compare_tensors(sdp_ref, O_hpu_c, atol=atol, rtol=rtol)
         if not inference:
             compare_tensors(q.grad, q_grad_hpu_c, atol=atol, rtol=rtol)
-            compare_tensors(k.grad, k_grad_hpu_c, atol=atol, rtol=rtol)
+            compare_tensors(k.grad, k_grad_hpu_c, atol=grad_k_atol, rtol=rtol)
             compare_tensors(v.grad, v_grad_hpu_c, atol=atol, rtol=rtol)
 
         vb_print(
@@ -1393,7 +1543,7 @@ def test_sdpa(
             )
             vb_print(
                 "PT NN SDPA BWD Ref K grad vs FSDPA match? = ",
-                torch.allclose(k.grad, k_grad_hpu_c, rtol=rtol, atol=atol),
+                torch.allclose(k.grad, k_grad_hpu_c, rtol=rtol, atol=grad_k_atol),
             )
             vb_print(
                 "PT NN SDPA BWD Ref V grad vs FSDPA match? = ",

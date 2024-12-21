@@ -629,8 +629,40 @@ def meta_fp8_sdpa_bwd(
     grad_q = q_hpu.new_empty(q_hpu.shape, dtype=torch.bfloat16)
     grad_k = k_hpu.new_empty(k_hpu.shape, dtype=torch.bfloat16)
     grad_v = v_hpu.new_empty(v_hpu.shape, dtype=torch.bfloat16)
-    grad_amax = q_hpu.new_empty([1], dtype=torch.float)
-    return grad_q, grad_k, grad_v, grad_amax
+    amax_ds = q_hpu.new_empty([1], dtype=torch.float)
+    return grad_q, grad_k, grad_v, amax_ds
+
+
+@register_meta([torch.ops.hpu.fp8_sdpa_recomp_bwd.default])
+def meta_fp8_sdpa_recomp_bwd(
+    g_hpu,
+    q_hpu,
+    k_hpu,
+    v_hpu,
+    attention_mask,
+    m,
+    linv,
+    seed,
+    is_causal,
+    dropout_p,
+    scale,
+    softmax_mode,
+    d_scale_q,
+    d_scale_k,
+    d_scale_v,
+    d_scale_s,
+    d_scale_do,
+    d_scale_ds,
+    q_scale_s,
+    q_scale_ds,
+    is_amax_ds,
+    fwd_out,
+):
+    grad_q = q_hpu.new_empty(q_hpu.shape, dtype=torch.bfloat16)
+    grad_k = k_hpu.new_empty(k_hpu.shape, dtype=torch.bfloat16)
+    grad_v = v_hpu.new_empty(v_hpu.shape, dtype=torch.bfloat16)
+    amax_ds = q_hpu.new_empty([1], dtype=torch.float)
+    return grad_q, grad_k, grad_v, amax_ds
 
 
 def meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward):

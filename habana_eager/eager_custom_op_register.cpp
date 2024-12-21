@@ -1042,6 +1042,78 @@ fp8_sdpa_recomp_scalar_fwd(
       fwdOutType);
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_recomp_bwd(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const at::Tensor& m,
+    const at::Tensor& linv,
+    const c10::optional<at::Tensor>& seed,
+    const bool is_causal,
+    const double p,
+    const double scale,
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const c10::optional<at::Tensor>& d_scale_do,
+    const c10::optional<at::Tensor>& d_scale_ds,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_ds,
+    const bool is_amax_ds,
+    const at::Tensor& fwd_out) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_sdpa_recomp_bwd :",
+      DUMP_22ARGS(
+          grad,
+          q,
+          k,
+          v,
+          attention_mask,
+          m,
+          linv,
+          seed,
+          is_causal,
+          p,
+          scale,
+          softmax_mode,
+          d_scale_q,
+          d_scale_k,
+          d_scale_v,
+          d_scale_s,
+          d_scale_do,
+          d_scale_ds,
+          q_scale_s,
+          q_scale_ds,
+          is_amax_ds,
+          fwd_out));
+
+  habana::eager::EagerOp<
+      std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
+      hpu_op{
+          "hpu::fp8_sdpa_recomp_bwd",
+          {grad,           q,          k,         v,
+           attention_mask, m,          linv,      seed,
+           is_causal,      p,          scale,     softmax_mode,
+           d_scale_q,      d_scale_k,  d_scale_v, d_scale_s,
+           d_scale_do,     d_scale_ds, q_scale_s, q_scale_ds,
+           is_amax_ds,     fwd_out},
+          habana::Fp8SDPARecompBwdOutputShape};
+
+  // Set grad type to BF16 for now
+  auto gradType = c10::ScalarType::BFloat16;
+  hpu_op.set_scalar_types(
+      {gradType, // dQ
+       gradType, // dK
+       gradType, // dV
+       c10::ScalarType::Float}); // amax_ds
+
+  return hpu_op.call();
+}
 /***********************************************************************************
  * Native ops
  **********************************************************************************/
@@ -1306,6 +1378,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
 
+  m.def(
+      "hpu::fp8_sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)");
+
   m.def("hpu::accumulate_grads_(Tensor[] variables, Tensor[] new_grads) -> ()");
   m.def("hpu::custom_foreach_add_(Tensor(a!)[] self, Tensor[] other) -> ()");
   m.def(
@@ -1398,6 +1473,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar",
       fp8_sdpa_recomp_scalar_fwd);
   m.impl("hpu::fp8_sdpa_recomp_fwd_dropout.scalar", fp8_sdpa_recomp_scalar_fwd);
+  m.impl("hpu::fp8_sdpa_recomp_bwd", fp8_sdpa_recomp_bwd);
   m.impl("hpu::slice_ds", slice_ds);
   m.impl("hpu::constant_pad_nd_ds", constant_pad_nd_ds);
   m.impl("hpu::fused_clip_norm", fused_clip_norm);

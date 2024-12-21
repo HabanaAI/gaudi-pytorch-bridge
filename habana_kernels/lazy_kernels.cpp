@@ -19,7 +19,6 @@
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <cstdlib>
 #include <ctime>
-#include <type_traits>
 #include <utility>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
@@ -7404,5 +7403,78 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
   }
 }
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+fp8_sdpa_recomp_bwd_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const at::Tensor& m,
+    const at::Tensor& linv,
+    const c10::optional<at::Tensor>& seed,
+    const bool is_causal,
+    const double p,
+    const double scale,
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const c10::optional<at::Tensor>& d_scale_do,
+    const c10::optional<at::Tensor>& d_scale_ds,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_ds,
+    const bool is_amax_ds,
+    const at::Tensor& fwd_out) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "fp8_sdpa_recomp_bwd :",
+      DUMP_22ARGS(
+          grad,
+          q,
+          k,
+          v,
+          attention_mask,
+          m,
+          linv,
+          seed,
+          is_causal,
+          p,
+          scale,
+          softmax_mode,
+          d_scale_q,
+          d_scale_k,
+          d_scale_v,
+          d_scale_s,
+          d_scale_do,
+          d_scale_ds,
+          q_scale_s,
+          q_scale_ds,
+          is_amax_ds,
+          fwd_out));
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::fp8_sdpa_recomp_bwd",
+      {grad,           q,          k,         v,
+       attention_mask, m,          linv,      seed,
+       is_causal,      p,          scale,     softmax_mode,
+       d_scale_q,      d_scale_k,  d_scale_v, d_scale_s,
+       d_scale_do,     d_scale_ds, q_scale_s, q_scale_ds,
+       is_amax_ds,     fwd_out},
+      Fp8SDPARecompBwdOutputShape};
+
+  // Set grad type to BF16 for now
+  auto gradType = c10::ScalarType::BFloat16;
+  hpu_op.set_scalar_types(
+      {gradType, // dQ
+       gradType, // dK
+       gradType, // dV
+       c10::ScalarType::Float}); // amax_ds
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_bwd, hpu_op)
+}
+
 
 } // namespace habana_lazy
