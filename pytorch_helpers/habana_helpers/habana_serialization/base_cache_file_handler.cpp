@@ -165,7 +165,7 @@ void BaseCacheFileHandler::evict_recipe_if_needed() {
 
   release_access_for_eviction();
 
-  if (recipes_total_size <= recipe_cache_dir_max_size.value()) {
+  if (recipes_total_size > recipe_cache_dir_max_size.value()) {
     // Because recipe deleting may fail and this is normal case to handle
     // Show a warning instead of assertion error
     PT_HABHELPER_WARN(
