@@ -28,7 +28,7 @@
 #include <vector>
 
 #include "backend/synapse_helpers/env_flags.h"
-#include "pytorch_helpers/habana_helpers/thread_queue.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana_helpers {
 
@@ -100,6 +100,7 @@ class ThreadPoolBase {
  public:
   ThreadPoolBase(
       bool propagate_exception = false,
+      uint64_t queue_capacity = 0,
       const std::function<void()>& init_thread = nullptr);
   ~ThreadPoolBase();
 
@@ -130,6 +131,10 @@ class ThreadPoolBase {
   std::string ToString() const;
   uint64_t get_active_task_count() const;
 
+  // utility function for debug capability to change queue capacity
+  void set_queue_capacity(uint64_t queue_capacity) {
+    queue_capacity_ = queue_capacity;
+  }
  private:
   Queue<Task> tasks_;
 
@@ -140,6 +145,8 @@ class ThreadPoolBase {
   pid_t original_pid_;
 
   bool propagate_exception_ = false;
+  // queue capacity: 0 means unlimit and no throttling
+  uint64_t queue_capacity_ = 0;
 
   std::atomic<uint64_t> active_task_count_{0};
 
@@ -150,6 +157,7 @@ class ThreadPoolBase {
     }
   }
   void executePendingTask(Task&& task);
+  void throttleIfNeeded();
 };
 
 template <template <typename> typename Queue, typename Task>
@@ -159,8 +167,9 @@ template <
     typename T,
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
 void ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
-  ++active_task_count_;
   RethrowIfException();
+  throttleIfNeeded();
+  ++active_task_count_;
   auto task = [args = std::make_tuple(std::forward<Args>(args)...),
                func = std::move(f)]() mutable {
     std::apply([&](auto&&... x) { func(std::forward<Args>(x)...); }, args);

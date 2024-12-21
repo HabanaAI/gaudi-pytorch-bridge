@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include "backend/synapse_helpers/env_flags.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "thread_pool.h"
 
 namespace habana_helpers {
@@ -23,10 +24,12 @@ namespace habana_helpers {
 template <template <typename> typename Queue, typename Task>
 ThreadPoolBase<Queue, Task>::ThreadPoolBase(
     bool propagate_exception,
+    uint64_t queue_capacity,
     const std::function<void()>& init_thread)
     : stop_(false),
       ex_ptr_(nullptr),
-      propagate_exception_(propagate_exception) {
+      propagate_exception_(propagate_exception),
+      queue_capacity_(queue_capacity) {
   thread_ = std::thread([this, init_thread]() {
     if (init_thread)
       init_thread();
@@ -63,6 +66,20 @@ void ThreadPoolBase<Queue, Task>::executePendingTask(Task&& task) {
       PT_BRIDGE_WARN("Exception caught in thread: unknown");
     } else
       PT_BRIDGE_FATAL("Exception caught in thread: unknown");
+  }
+}
+
+template <template <typename> typename Queue, typename Task>
+void ThreadPoolBase<Queue, Task>::throttleIfNeeded() {
+  if (queue_capacity_ > 0 && active_task_count_ >= queue_capacity_) {
+    // throttle only when queue capacity is limited
+    // and active tasks exceeds the configured capacity
+    auto throttle_limit = queue_capacity_ / 2;
+    // Release GIL if going to wait (remove once SW-160978 is fixed)
+    habana_helpers::AutoNoGIL gil_release;
+    while (active_task_count_ > throttle_limit) {
+      std::this_thread::yield();
+    }
   }
 }
 

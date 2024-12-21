@@ -46,25 +46,44 @@ void ExecTask(bool error) {
   }
 }
 
-TEST_F(EagerPipelineTest, QueueFull) {
+void WorkTask() {
+  for (int i = 0; i < 5; i++) {
+    std::this_thread::yield();
+  }
+}
+
+void ProducerTask() {
+  for (int i = 0; i < 10; i++) {
+    habana::HPUDeviceContext::compile_thread().enqueue(WorkTask);
+  }
+}
+
+TEST_F(EagerPipelineTest, PipelineThrottling) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
-  SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  torch::Tensor A = torch::randn({3, 3, 3});
-  auto B = A.add(1.0);
-  auto C = B.add(1.0);
-  auto D = C.add(1.0);
-  auto E = D.add(1.0);
 
-  auto hA = A.to(torch::kHPU);
-  auto hB = hA.add(1.0);
-  auto hC = hB.add(1.0);
-  auto hD = hC.add(1.0);
-  auto hE = hD.add(1.0);
+  // make sure the thread pools are initialized
+  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
 
-  EXPECT_EQ(allclose(E, hE.cpu(), 0.001, 0.001), true);
-  SET_ENV_FLAG_NEW(
-      PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity_, 1);
+  habana::ThreadPoolWithGILRelease& lowering_thread =
+      habana::HPUDeviceContext::lowering_thread();
+  habana::ThreadPoolWithGILRelease& compile_thread =
+      habana::HPUDeviceContext::compile_thread();
+  compile_thread.set_queue_capacity(2);
+  lowering_thread.enqueue(ProducerTask);
+
+  auto producer_task = lowering_thread.get_active_task_count();
+  while (producer_task > 0) {
+    auto work_task = compile_thread.get_active_task_count();
+    ASSERT_LE(work_task, 2) << "Number of tasks exceeds capacity.";
+    std::this_thread::yield();
+    producer_task = lowering_thread.get_active_task_count();
+  }
+
+  lowering_thread.waitWorkComplete();
+  compile_thread.waitWorkComplete();
+
+  compile_thread.set_queue_capacity(default_queue_capacity_);
 }
 
 TEST_F(EagerPipelineTest, CompileError) {

@@ -30,8 +30,10 @@ namespace habana {
 
 class ThreadPoolWithGILRelease : public habana_helpers::ThreadPool {
  public:
-  ThreadPoolWithGILRelease(const std::function<void()>& init_thread)
-      : habana_helpers::ThreadPool(true, init_thread){};
+  ThreadPoolWithGILRelease(
+    const std::function<void()>& init_thread)
+      : habana_helpers::ThreadPool(
+            true, GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY), init_thread){};
   void waitWorkComplete();
 };
 
