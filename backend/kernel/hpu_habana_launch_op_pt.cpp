@@ -4767,11 +4767,17 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
         cur_rargpsh_->graphHashCode(), 0, 0, cur_rargpsh_->hashCode(), false);
   } else {
     std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
-        std::make_shared<RecipeArgumentSpec>(input_refs_, graph_key_, op_strs_);
+        std::make_shared<RecipeArgumentSpec>(
+            input_refs_,
+            graph_key_,
+            graph_symint_hash_,
+            graph_perm_hash_,
+            op_strs_);
     current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
     HABANA_ASSERT(
         (current_dbipsh_ != nullptr),
-        "Dynamic bucketinfo got NULL in static cache hit");
+        "Dynamic bucketinfo got NULL in static cache hit hash code ",
+        rargpsh_graph->graphHashCode());
     current_dbipsh_->SetLastUsedStepForBucket(
         0, current_dbipsh_->get_statistics()->GetCurrentStep());
 
