@@ -4947,6 +4947,17 @@ void HabanaLaunchOpPT::run(
         enable_graph_caching_ || enable_eager_caching_,
         " something went wrong! either eager or graph recipe caching should be enabled");
     PT_BRIDGE_DEBUG("Getting cached recipe : ", cur_rargpsh_->hashCode());
+
+    if (GET_ENV_FLAG_NEW(PT_COMPILE_ONLY_MODE)) {
+      auto rvs = TemporaryRecipeStore::get().GetRVS(cur_rargpsh_);
+      if (rvs) {
+        UpdatePatchingInformation(*rvs, true);
+        UpdateRecipeOutputs();
+        return;
+      }
+    }
+
+    TemporaryRecipeStore::get().Wait(cur_rargpsh_);
     auto recipe_holder = GetCachedRecipe(cur_rargpsh_);
 
     if (ABSL_PREDICT_TRUE(recipe_holder)) {
@@ -5341,12 +5352,47 @@ void HabanaLaunchOpPT::run(
     }
     pipeline_execution();
   } else {
-    CompileSynapseGraphAndPatchTable();
-    ExecuteSynapseGraph();
-    ClearStatics();
+    if (GET_ENV_FLAG_NEW(PT_COMPILE_ONLY_MODE) &&
+        !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+        enable_caching_ && !syn_graph_ptr_->is_empty()) {
+      CompileLazyGraphInParallel();
+    } else {
+      CompileSynapseGraphAndPatchTable();
+      ExecuteSynapseGraph();
+      ClearStatics();
+    }
   }
 
   PT_BRIDGE_END;
+}
+
+void HabanaLaunchOpPT::CompileLazyGraphInParallel() {
+  auto rvs = CreateRVSAndPatchTable({});
+  UpdateOutputs();
+  ClearStatics();
+
+  HABANA_ASSERT(!habana_helpers::IsInferenceMode());
+  std::promise<void> recipe_done;
+  auto is_recipe_done = recipe_done.get_future();
+  TemporaryRecipeStore::get().Add(cur_rargpsh_, std::move(is_recipe_done), rvs);
+
+  HPUDeviceContext::compile_thread_pool().enqueue(
+      [recipe_done = std::move(recipe_done),
+       syn_graph_ptr = syn_graph_ptr_,
+       cur_rargpsh = cur_rargpsh_,
+       rvs]() mutable {
+        auto recipe = syn_graph_ptr->compile();
+        rvs->populate_syn_tensor_ids(*recipe);
+        rvs->collective_kernels_info->ClearAllPtAndSynTensors();
+        auto recipe_launcher = std::make_shared<RecipeLauncher>(*rvs, recipe);
+        auto rh = std::make_shared<RecipeHolder>(recipe_launcher, rvs);
+        HPUDeviceContext::recipe_cache().add(cur_rargpsh, rh);
+        PT_BRIDGE_DEBUG(
+            "HabanaOp recipe cache :: adding new recipe to cache :: ",
+            rvs->key);
+        recipe_done.set_value();
+        TemporaryRecipeStore::get().Remove(cur_rargpsh);
+      });
 }
 
 void HabanaLaunchOpPT::CompileGraphWithRange(
@@ -5516,7 +5562,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       BuildSynapseGraph(syn_graph, cache);
       recipe = CompileSynapseGraph();
       ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
-      UpdateSynapsePermutations(*rvs, *recipe);
+      UpdateSynapsePermutations(*rvs, recipe);
     } catch (std::exception& e) {
       error_str = e.what();
       PT_DYNAMIC_SHAPE_DEBUG(

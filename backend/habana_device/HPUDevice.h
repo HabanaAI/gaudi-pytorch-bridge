@@ -28,20 +28,21 @@ class TimeSlot;
 
 namespace habana {
 
-class ThreadPoolWithGILRelease : public habana_helpers::ThreadPool {
+class ThreadPoolWithGILRelease : public habana_helpers::SingleThreadPool {
  public:
   ThreadPoolWithGILRelease(
     const std::function<void()>& init_thread)
-      : habana_helpers::ThreadPool(
+      : habana_helpers::SingleThreadPool(
             true, GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY), init_thread){};
   void waitWorkComplete();
 };
 
 namespace HPUDeviceContext {
-habana_helpers::ThreadPool& garbage_collection_thread();
+habana_helpers::SingleThreadPool& garbage_collection_thread();
 ThreadPoolWithGILRelease& compile_thread();
 ThreadPoolWithGILRelease& lowering_thread();
 ThreadPoolWithGILRelease& execute_thread();
+habana_helpers::ThreadPool& compile_thread_pool();
 RecipeCacheLRU& recipe_cache();
 void recipe_cache_clear();
 void flush_disk_cache();

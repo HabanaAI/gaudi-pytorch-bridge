@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include <c10/util/Backtrace.h>
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
 #include "backend/helpers/dynamic_graph_utils.h"
@@ -217,13 +218,16 @@ class HabanaLaunchOpPT {
   bool is_hccl_send_mark_step();
   void CompileSynapse();
   std::shared_ptr<RecipeValueSpec> CompileSynapseGraphAndPatchTable();
+  std::shared_ptr<RecipeValueSpec> CreateRVSAndPatchTable(
+      const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   std::shared_ptr<synapse_helpers::graph::recipe_handle> CompileSynapseGraph();
+  void CompileLazyGraphInParallel();
   void ConstructPatchingTableAndAtenOutputs(
       RecipeValueSpec& rv,
       const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   void UpdateSynapsePermutations(
       RecipeValueSpec& rvs,
-      const synapse_helpers::graph::recipe_handle& recipe);
+      const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   void ApplyOutputPermutationsFromCache(bool is_dynamic_recipe = false);
   void StoreCompiledInformation(std::shared_ptr<RecipeValueSpec>& rvs);
   void ExecuteSynapse();

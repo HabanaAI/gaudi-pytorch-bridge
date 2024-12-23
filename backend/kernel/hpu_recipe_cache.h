@@ -145,4 +145,41 @@ class RecipeCacheLRU {
 
   serialization::RecipeCacheConfig recipe_cache_config_;
 };
+
+class RecipeValueSpec;
+
+class TemporaryRecipeStore {
+ public:
+  static TemporaryRecipeStore& get() {
+    static TemporaryRecipeStore instance;
+    return instance;
+  }
+
+  void Add(
+      std::shared_ptr<RecipeArgumentSpec>& key,
+      std::future<void>&& recipe_ready,
+      std::shared_ptr<RecipeValueSpec> rvs);
+
+  void Remove(std::shared_ptr<RecipeArgumentSpec>& key) {
+    std::lock_guard lg(mtx_);
+    map_.erase(key);
+  }
+
+  std::shared_ptr<RecipeValueSpec> GetRVS(
+      std::shared_ptr<RecipeArgumentSpec>& key);
+
+  void Wait(std::shared_ptr<RecipeArgumentSpec>& key);
+
+ private:
+  TemporaryRecipeStore() = default;
+
+  std::mutex mtx_;
+  std::unordered_map<
+      std::shared_ptr<RecipeArgumentSpec>,
+      std::pair<std::future<void>, std::shared_ptr<RecipeValueSpec>>,
+      RecipeArgumentSpecHash,
+      RecipeArgumentSpecEqual>
+      map_;
+};
+
 } // namespace habana

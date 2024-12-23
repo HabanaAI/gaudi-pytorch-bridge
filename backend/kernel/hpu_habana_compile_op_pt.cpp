@@ -53,17 +53,24 @@ std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::
   PT_BRIDGE_BEGIN;
 
   auto recipe = CompileSynapseGraph();
-  auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
+  auto rvs = CreateRVSAndPatchTable(recipe);
 
+  recipe_launcher_ = std::make_shared<RecipeLauncher>(*rvs, recipe);
+  StoreCompiledInformation(rvs);
+
+  PT_BRIDGE_END;
+  return rvs;
+}
+
+std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::CreateRVSAndPatchTable(
+    const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe) {
+  PT_BRIDGE_BEGIN;
+  auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
   rvs->curr_symval_hash_ = curr_symval_hash_;
 
   ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
-  UpdateSynapsePermutations(*rvs, *recipe);
+  UpdateSynapsePermutations(*rvs, recipe);
   PT_BRIDGE_DEBUG(*rvs);
-
-  recipe_launcher_ = std::make_unique<RecipeLauncher>(*rvs, recipe);
-
-  StoreCompiledInformation(rvs);
 
   PT_BRIDGE_END;
   return rvs;

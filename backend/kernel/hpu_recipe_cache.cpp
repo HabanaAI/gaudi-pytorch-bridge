@@ -381,4 +381,37 @@ std::shared_ptr<RecipeHolder> DiskCache::Find(const RecipeArgumentSpec& spec) {
   return nullptr;
 }
 
+std::shared_ptr<RecipeValueSpec> TemporaryRecipeStore::GetRVS(
+    std::shared_ptr<RecipeArgumentSpec>& key) {
+  std::unique_lock lg(mtx_);
+  auto it = map_.find(key);
+  if (it == map_.end())
+    return {};
+  auto rvs = it->second.second;
+  return rvs;
+}
+
+void TemporaryRecipeStore::Add(
+    std::shared_ptr<RecipeArgumentSpec>& key,
+    std::future<void>&& recipe_ready,
+    std::shared_ptr<RecipeValueSpec> rvs) {
+  std::lock_guard lg(mtx_);
+  bool result =
+      map_.emplace(key, std::make_pair(std::move(recipe_ready), std::move(rvs)))
+          .second;
+  HABANA_ASSERT(result);
+}
+
+void TemporaryRecipeStore::Wait(std::shared_ptr<RecipeArgumentSpec>& key) {
+  std::unique_lock lg(mtx_);
+  auto it = map_.find(key);
+  if (it == map_.end())
+    return;
+  auto wait_for_recipe = std::move(it->second.first);
+  map_.erase(it);
+
+  lg.unlock();
+  wait_for_recipe.wait();
+}
+
 } // namespace habana

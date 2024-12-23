@@ -125,7 +125,7 @@ void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache(
  */
 void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     RecipeValueSpec& rvs,
-    const synapse_helpers::graph::recipe_handle& recipe) {
+    const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe) {
   PT_LAZY_TRACE;
 
   if (syn_graph_ptr_->is_empty()) {
@@ -174,6 +174,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+    HABANA_ASSERT(recipe, "Recipe must not be empty");
     std::map<uint64_t, uint64_t> persistent_to_tensor_id;
     std::vector<synRetrievedLaunchTensorInfo> tensor_info_vec;
     // creating a map of tensor id to tinfo
@@ -198,7 +199,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
       }
     }
     // querying synapse output tensors permutations:
-    synapse_helpers::graph::query_recipe_tensor_info(recipe, tensor_info_vec);
+    synapse_helpers::graph::query_recipe_tensor_info(*recipe, tensor_info_vec);
 
     // updating the BE tensor and the cache record with the permutation
     for (auto& info : tensor_info_vec) {

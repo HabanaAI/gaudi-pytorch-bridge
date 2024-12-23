@@ -95,14 +95,38 @@ class BlockingQueue {
   std::condition_variable cond_;
 };
 
-template <template <typename> typename Queue, typename Task>
-class ThreadPoolBase {
+class ThreadPool {
  public:
-  ThreadPoolBase(
+  using Task = move_only_function_void;
+  ThreadPool();
+  ~ThreadPool();
+
+  void enqueue(move_only_function_void&& task) {
+    tasks_.push(std::move(task));
+  }
+
+ private:
+  BlockingQueue<Task> tasks_;
+  std::atomic_bool stop_;
+  std::vector<std::thread> threads_;
+  std::atomic<uint32_t> active_count_{0};
+
+  void main_loop() {
+    while (!stop_) {
+      executePendingTask(std::move(tasks_.pop()));
+    }
+  }
+  void executePendingTask(Task&& task);
+};
+
+template <template <typename> typename Queue, typename Task>
+class SingleThreadPoolBase {
+ public:
+  SingleThreadPoolBase(
       bool propagate_exception = false,
       uint64_t queue_capacity = 0,
       const std::function<void()>& init_thread = nullptr);
-  ~ThreadPoolBase();
+  ~SingleThreadPoolBase();
 
   template <
       class F,
@@ -166,7 +190,7 @@ template <
     class... Args,
     typename T,
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
-void ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
+void SingleThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
   RethrowIfException();
   throttleIfNeeded();
   ++active_task_count_;
@@ -184,7 +208,9 @@ template <
     typename T,
     typename std::
         enable_if_t<std::is_same_v<T, std::packaged_task<void()>>, bool>>
-std::future<void> ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
+std::future<void> SingleThreadPoolBase<Queue, Task>::enqueue(
+    F&& f,
+    Args&&... args) {
   ++active_task_count_;
   auto packed_func = [args = std::make_tuple(std::forward<Args>(args)...),
                       func = std::move(f)]() mutable {
@@ -200,7 +226,7 @@ template <template <typename> typename Queue, typename Task>
 template <
     typename T,
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
-void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
+void SingleThreadPoolBase<Queue, Task>::waitWorkComplete() {
   RethrowIfException();
   if (active_task_count_ == 0 || stop_)
     return;
@@ -218,10 +244,11 @@ void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
   RethrowIfException();
 }
 
-using ThreadPool = ThreadPoolBase<BlockingQueue, move_only_function_void>;
+using SingleThreadPool =
+    SingleThreadPoolBase<BlockingQueue, move_only_function_void>;
 
 // This is deprecated version which has to be removed along with lazy execution
-using ThreadPoolWithFutures =
-    ThreadPoolBase<BlockingQueue, std::packaged_task<void()>>;
+using SingleThreadPoolWithFutures =
+    SingleThreadPoolBase<BlockingQueue, std::packaged_task<void()>>;
 
 } // namespace habana_helpers
