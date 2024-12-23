@@ -76,19 +76,15 @@ Tensor hpu_wrap::_reshape_alias(
       " stride",
       to_string(stride));
   auto result = habana::eager::alias_with_sizes_and_strides(self, size, stride);
-  auto pipeline_or_direct_reshape_alias = [](const at::Tensor& self,
-                                             const at::Tensor& result) {
-    habana::eager::view_propagate_permutation(self, result);
-  };
   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
   auto dst_backend =
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
-  habana::eager::pipeline_or_direct_generic(
-      pipeline_or_direct_reshape_alias,
-      std::move(src_backend),
-      std::move(dst_backend));
+  habana::eager::PipelineOrExecuteTask(
+      [self = std::move(src_backend), result = std::move(dst_backend)]() {
+        habana::eager::view_propagate_permutation(self, result);
+      });
   return result;
 }
 

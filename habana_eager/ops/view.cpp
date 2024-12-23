@@ -43,12 +43,10 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
-  auto pipeline_or_direct_view = [](const at::Tensor& self,
-                                    const at::Tensor& result) {
-    habana::eager::view_propagate_permutation(self, result);
-  };
-  pipeline_or_direct_generic(
-      pipeline_or_direct_view, std::move(src_backend), std::move(dst_backend));
+  habana::eager::PipelineOrExecuteTask(
+      [self = std::move(src_backend), result = std::move(dst_backend)]() {
+        habana::eager::view_propagate_permutation(self, result);
+      });
 
   return result;
 }
@@ -88,12 +86,10 @@ at::Tensor alias(const at::Tensor& self) {
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
-  auto pipeline_or_direct_alias = [](const at::Tensor& self,
-                                     const at::Tensor& result) {
-    habana::eager::view_propagate_permutation(self, result);
-  };
-  pipeline_or_direct_generic(
-      pipeline_or_direct_alias, std::move(src_backend), std::move(dst_backend));
+  habana::eager::PipelineOrExecuteTask(
+      [self = std::move(src_backend), result = std::move(dst_backend)]() {
+        habana::eager::view_propagate_permutation(self, result);
+      });
   return result;
 }
 

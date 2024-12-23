@@ -39,14 +39,11 @@ at::Tensor as_strided_hpu(
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
-  auto pipeline_or_direct_as_strided = [](const at::Tensor& self,
-                                          const at::Tensor& result) {
-    habana::eager::view_propagate_permutation(self, result);
-  };
-  habana::eager::pipeline_or_direct_generic(
-      pipeline_or_direct_as_strided,
-      std::move(src_backend),
-      std::move(dst_backend));
+
+  habana::eager::PipelineOrExecuteTask(
+      [self = std::move(src_backend), result = std::move(dst_backend)]() {
+        habana::eager::view_propagate_permutation(self, result);
+      });
 
   return result;
 }
