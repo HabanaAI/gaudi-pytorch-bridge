@@ -17,17 +17,6 @@
 
 namespace habana {
 
-FALLBACK_CHECK(
-    IndexReduceFallbackCheck,
-    c10::string_view reduce,
-    bool include_self) {
-  // Currently only subset of features is supported by tpc kernel.
-  if (include_self && (reduce != "mean")) {
-    return true;
-  }
-  return false;
-};
-
 std::shared_ptr<void> IndexReduceFillParams(
     const at::Stack& stack,
     size_t& size) {

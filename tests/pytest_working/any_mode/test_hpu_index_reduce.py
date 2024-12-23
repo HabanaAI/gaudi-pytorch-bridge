@@ -27,11 +27,10 @@ from test_utils import (
 )
 
 
-# More testcases will be added after broader support from tpc_kernel
 @pytest.mark.parametrize("shape", [(2, 2, 10), [5, 5]], ids=format_tc)
 @pytest.mark.parametrize("dim", [0, -1])
-@pytest.mark.parametrize("reduce", ["amax", "amin", "prod"])
-@pytest.mark.parametrize("include_self", [True])
+@pytest.mark.parametrize("reduce", ["amax", "amin", "prod", "mean"])
+@pytest.mark.parametrize("include_self", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.int32, torch.int64], ids=format_tc)
 @pytest.mark.skipif(is_gaudi1(), reason="index_reduce is not supported on Gaudi")
 def test_hpu_index_reduce(shape, dim, reduce, include_self, dtype):
@@ -52,4 +51,7 @@ def test_hpu_index_reduce(shape, dim, reduce, include_self, dtype):
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("index_reduce")
 
-    torch.testing.assert_close(result_cpu, result_hpu.cpu())
+    atol, rtol = None, None
+    if dtype == torch.bfloat16 and reduce == "mean":
+        atol, rtol = 1e-5, 0.03125
+    torch.testing.assert_close(result_cpu, result_hpu.cpu(), rtol=rtol, atol=atol)
