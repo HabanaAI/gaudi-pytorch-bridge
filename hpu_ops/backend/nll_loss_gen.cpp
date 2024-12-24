@@ -112,6 +112,21 @@ static std::vector<synapse_helpers::tensor> NllLoss(
        size});
 }
 
+bool NllLossDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("NllLossDSSTMeta called ");
+
+  // If the 3rd input is a scalar, then the weight is None
+  if (inputs.at(3).isScalar()) {
+    std::vector<int64_t> out_shape = outputs[0].getTensorShape();
+    PT_BRIDGE_DEBUG("NllLossDSSTMeta output shape ", out_shape);
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+    return true;
+  }
+  return false;
+}
+
 static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,

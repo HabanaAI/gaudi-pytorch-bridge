@@ -4997,6 +4997,7 @@ nextafter.out:
 nll_loss_backward:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLossBwd
   op_validator: NllLossBwdSharedMeta
@@ -5012,6 +5013,7 @@ nll_loss_forward:
 nll_loss2d_backward:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
   op_validator: NllLoss2DBwdSharedMeta
@@ -5034,6 +5036,7 @@ nll_loss2d_forward:
 nll_loss_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLossBwd
   op_validator: NllLossBwdSharedMeta
@@ -5047,6 +5050,7 @@ nll_loss_forward.output:
 nll_loss2d_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
   op_validator: NllLoss2DBwdSharedMeta

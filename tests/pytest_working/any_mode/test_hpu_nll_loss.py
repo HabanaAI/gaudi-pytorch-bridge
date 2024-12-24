@@ -17,6 +17,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import clear_t_compile_logs
 
 
 @pytest.mark.parametrize("N, C", [(3, 5)])
@@ -105,3 +106,31 @@ def test_hpu_nll_loss2d_bwd(N, C, H, W, reduction, dtype):
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
+
+def test_hpu_nll_loss_bwd_st_meta():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    test_cases = [(3, 5), (4, 6), (5, 7), (6, 8), (7, 9)]
+    reduction = "mean"
+    dtype = torch.float
+
+    def fn(input, target):
+        output = torch.nn.functional.nll_loss(input, target, reduction=reduction, weight=None)
+        grad = torch.ones_like(output)
+        output.backward(grad)
+        return input.grad
+
+    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    for N, C in test_cases:
+        cpu_input = torch.rand(N, C, dtype=dtype)
+        hpu_input = cpu_input.to("hpu")
+        cpu_input.requires_grad = True
+        hpu_input.requires_grad = True
+        cpu_target = torch.randint(0, C, (N,))
+        hpu_target = cpu_target.to("hpu")
+
+        cpu_output = fn(cpu_input, cpu_target)
+        hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
+        assert torch.allclose(cpu_output, hpu_output)
