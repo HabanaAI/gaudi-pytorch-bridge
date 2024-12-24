@@ -4374,6 +4374,7 @@ max_pool3d_with_indices:
 max_pool3d_with_indices_backward:
   custom_fill_params: FillSpatialReduction3DParamsBwd
   output_meta: MaxPoolMetaBwd
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: maxpool_3d_bwd
   op_backend: MaxPool3DWithIndicesBwd
   op_validator: MaxPool3DWithIndicesBwdSharedMeta

@@ -139,3 +139,46 @@ def test_hpu_max_pool3d_bwd(shape, kernel_size_and_padding, stride, dilation, dt
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
+
+def test_hpu_max_pool3d_bwd_st_meta():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    shapes = [
+        [7, 8, 16, 16],
+        [1, 7, 8, 16, 16],
+        [2, 3, 8, 8, 8],
+        [4, 5, 10, 10, 10],
+        [6, 7, 12, 12, 12],
+        [8, 9, 14, 14, 14],
+        [3, 4, 6, 6, 6],
+    ]
+    kernel_size, padding = ((2, 2, 2), (1, 1, 1))
+    stride = [1, 2, 2]
+    dilation = [1, 2, 2]
+    dtype = torch.float
+
+    def fn(input_t):
+        max_pool_3d = torch.ops.aten.max_pool3d(
+            input_t,
+            kernel_size=kernel_size,
+            padding=padding,
+            stride=stride,
+            dilation=dilation,
+        )
+        grad = torch.ones_like(max_pool_3d)
+        max_pool_3d.backward(grad)
+        return input_t.grad
+
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=True)
+
+    for shape in shapes:
+        input = torch.rand(shape, dtype=dtype)
+        input_hpu = input.to("hpu")
+        input.requires_grad = True
+        input_hpu.requires_grad = True
+
+        cpu_output = fn(input)
+        hpu_output = hpu_compiled_fn(input_hpu).cpu()
+        assert torch.allclose(cpu_output, hpu_output)
