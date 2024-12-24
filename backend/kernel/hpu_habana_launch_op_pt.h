@@ -588,12 +588,35 @@ class HabanaLaunchOpPT {
       SynBuildCache& syn_build_cache,
       bool is_shape_inference = false);
 
-  static void BuildSynapseGraphReset();
+  void BuildSynapseGraphReset(SynBuildCache& syn_build_cache);
 
   void BuildSynapseGraphInternal(
       synapse_helpers::graph& syn_graph,
       SynBuildCache& syn_build_cache,
       bool is_shape_inference = false);
+
+  struct BuildSynapseGraphNodesMainLoopRT {
+    std::vector<size_t> inputs_shape_tensors_vec;
+    std::vector<size_t> intermediate_shape_tensors_vec;
+    std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
+        memory_reuse_pairs;
+  };
+
+  BuildSynapseGraphNodesMainLoopRT BuildSynapseGraphNodesMainLoop(
+      synapse_helpers::graph&,
+      SynBuildCache&,
+      bool is_shape_inference,
+      torch::jit::graph_node_list&,
+      torch::jit::graph_node_list::iterator);
+
+  void GeneratePatchingInfoForGraphInputsDuringFastSif();
+
+  void GeneratePatchingInfoForInputsShapeTensorsDuringFastSif(
+      const std::vector<size_t>& shape_tensors_vec,
+      std::string_view label);
+
+  void AllowPermutationOnlyForOutputTensors(
+      const IValPtrSharedToTesorInfoMap& tensorinfo_map);
 
   torch::jit::graph_node_list::iterator BuildSgGetItrRvNode(
       synapse_helpers::graph& syn_graph);
