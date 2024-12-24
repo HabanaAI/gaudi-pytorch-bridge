@@ -1807,6 +1807,7 @@ bernoulli:
   op_backend: Bernoulli
   out_ids: [0]
   op_validator: BernoulliSharedMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, *, Tensor? seed=None) -> Tensor"
 
 bernoulli_.float:
@@ -1843,6 +1844,7 @@ bernoulli.out:
   op_frontend: GeneratorToSeedOut
   op_backend: BernoulliOut
   op_validator: BernoulliSharedMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 bernoulli.float_out:
@@ -1855,6 +1857,7 @@ bernoulli.float_out:
   op_frontend: BernoulliOutFE
   op_backend: BernoulliWithP
   op_validator: BernoulliWithPSharedMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, float p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 binary_cross_entropy:

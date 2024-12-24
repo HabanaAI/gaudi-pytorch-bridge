@@ -677,6 +677,54 @@ def test_op_bernoulli_half():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+def test_bernoulli_st_meta():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    input_shapes = [(2, 3), (2, 4), (2, 6), (2, 7)]
+
+    def fn(input_a, input_b):
+        a = torch.bernoulli(input_a)
+        b = torch.bernoulli(input_b)
+        c = torch.mul(a, b)
+        return c
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    for shape in input_shapes:
+        input_a = torch.empty(shape, dtype=torch.float).uniform_(0, 1).to("hpu")
+        input_b = torch.empty(shape, dtype=torch.float).uniform_(0, 1).to("hpu")
+
+        result_1 = compiled_fn(input_a, input_b).cpu()
+        result_2 = compiled_fn(input_a, input_b).cpu()
+        assert not torch.equal(result_1, result_2)
+
+        results = torch.tensor((0.0, 1.0), dtype=torch.float)
+        assert torch.equal(result_1.unique(), results)
+        assert torch.equal(result_2.unique(), results)
+
+    check_ops_executed_in_jit_ir("habana_bernoulli")
+
+    # test bernoulli_with_p
+
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    def fn(input):
+        result = torch.bernoulli(input, 0.5)
+        return result
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    for shape in input_shapes:
+        input = torch.empty(shape, dtype=torch.float).uniform_(0, 1).to("hpu")
+        torch.manual_seed(12345)
+        result_1 = compiled_fn(input).cpu()
+        torch.manual_seed(12346)
+        result_2 = compiled_fn(input).cpu()
+        assert not torch.equal(result_1, result_2)
+
+
 def test_op_adaptiveAvgPool2d():
     input_shapes = [
         (16, 2048, 7, 7),
