@@ -2109,7 +2109,7 @@ __install_habana_transformer_engine() {
     hte_whls=$(ls ${TRANSFORMER_ENGINE_FORK_BUILD}/pkgs/*.whl 2>/dev/null | wc -l || true)
     if [ ${hte_whls} -gt 0 ]; then
         echo "  -> Habana Transformer Engine wheel found"
-        $__pip_cmd install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
+        $__pip_cmd install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall
         echo "  -> Habana Transformer Engine installed"
     else
         echo "  -> Habana Transformer Engine wheel not found"
