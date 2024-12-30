@@ -1748,3 +1748,64 @@ def test_bucket_refinement():
             t1_h = t1.to("hpu")
             result_h = compiled_fn(t0_h, t1_h)
             assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_backend_st_test_empty():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    input_shapes = [(3, 1, 2), (4, 7, 6), (14, 32, 3), (23, 16, 3), (5, 14, 6)]
+
+    # 1. torch.ops.aten.empty.memory_format
+    def raw_function(s, dut):
+        t1 = torch.empty(s, device=dut)
+        return t1
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for s in input_shapes:
+        result = raw_function(s, "cpu")
+        h_result = compiled_fn(s, "hpu:0")
+        h_result.to("cpu")  # dummy copy to skip optimization
+        assert h_result.shape == result.shape
+    check_ops_executed_in_jit_ir({"empty"})
+
+    # 2. torch.ops.aten.empty_like
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    def raw_function(t):
+        t1 = torch.empty_like(t)
+        return t1
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    with use_eager_fallback():
+        for s in input_shapes:
+            t = torch.randn(s, requires_grad=False)
+            t_h = t.to("hpu")
+            result = raw_function(t)
+            h_result = compiled_fn(t_h)
+            h_result.to("cpu")  # dummy copy to skip optimization
+            assert h_result.shape == result.shape
+    check_ops_executed_in_jit_ir({"empty"})
+
+    # 3. torch.ops.aten.empty_strided
+    sizes = (20, 20), (20, 1), (1, 20), (1, 1)
+    strides = (20, 20), (30, 1), (1, 30), (1, 1)
+
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    def raw_function(size, stride, device):
+        x = torch.empty_strided(size, stride, device=device)
+        return x
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    with use_eager_fallback():
+        for size, stride in zip(sizes, strides):
+            result = raw_function(size, stride, "cpu")
+            h_result = compiled_fn(size, stride, "hpu:0")
+            h_result.to("cpu")  # dummy copy to skip optimization
+            assert h_result.shape == result.shape
+    check_ops_executed_in_jit_ir({"empty_strided"})
