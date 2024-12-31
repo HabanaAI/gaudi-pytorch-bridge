@@ -7,7 +7,6 @@ orchestratorConfig:
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_compile
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_eager
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager
