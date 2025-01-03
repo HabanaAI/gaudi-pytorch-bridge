@@ -210,8 +210,6 @@ GraphExec::GraphExec(
       m_mark_dynamic(mark_dynamic && dynamic) {
   PT_EAGER_TRACE;
 
-  habana::eager::JoinPendingPipelineThreads();
-
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
   m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 
