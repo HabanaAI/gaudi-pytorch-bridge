@@ -1,0 +1,1 @@
+This directory contains changes that need to be applied in other repositories when building the repo outside NPU stack.

@@ -1,0 +1,3758 @@
+"name": "call:synLaunchWithExternalEvents",
+"ph": "B",
+"func": "synStatus synLaunchWithExternalEvents(synStreamHandle, const synLaunchTensorInfo*, uint32_t, uint64_t, synRecipeHandle, EventInterfaceExternal**, uint32_t, uint32_t)",
+"args": {
+    "streamHandle": "0x29050a40",
+    "launchTensorsInfo": "0x43b889d0",
+    "numberOfTensors": 2,
+    "pWorkspace": "0x10016013f48c800",
+    "pRecipeHandle": "0xd725f60",
+    "eventHandleList": "0",
+    "numberOfEvents": 0,
+    "flags": 0,
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988636,
+"name": "call:synLaunchWithExternalEvents",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988645,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988649,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988653,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988662,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988664,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988670,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988671,
+"name": "run",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207988672,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988673,
+"name": "Launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988675,
+"name": "LaunchSyncTensorsGraph",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207988676,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988678,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988679,
+"name": "HandleViewsD2H",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988680,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988681,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988682,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988682,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988683,
+"name": "copy_hpu_",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988685,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988686,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988688,
+"name": "call:synMemCopyAsync",
+"ph": "B",
+"func": "synStatus synMemCopyAsync(synStreamHandle, uint64_t, uint64_t, uint64_t, synDmaDir)",
+"args": {
+    "streamHandle": "0x290509e0",
+    "src": "0x1001600254f5d380",
+    "size": "0x38e",
+    "dst": "0x7fb416e00000",
+    "direction": 1,
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988696,
+"name": "call:synMemCopyAsync",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988697,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988700,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207988714,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207988717,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988718,
+"name": "copy_hpu_",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988720,
+"name": "handlePermutedTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988720,
+"name": "getMemoryPermutation",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988721,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988722,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988722,
+"name": "getMemoryPermutation",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988723,
+"name": "handlePermutedTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988723,
+"name": "copy_hpu_lazy_D2H",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988724,
+"name": "copy_hpu_lazy_",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988964,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988965,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988969,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988972,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988974,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988977,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988979,
+"name": "copy_hpu_lazy_",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988980,
+"name": "copy_hpu_lazy_H2D",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988981,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988981,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988982,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988983,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988984,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988985,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988986,
+"name": "copy_hpu_",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988988,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988989,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207988995,
+"name": "call:synMemCopyAsync",
+"ph": "B",
+"func": "synStatus synMemCopyAsync(synStreamHandle, uint64_t, uint64_t, uint64_t, synDmaDir)",
+"args": {
+    "streamHandle": "0x29050f00",
+    "src": "0x7fb416e00000",
+    "size": "0x4",
+    "dst": "0x10016001ac0c8680",
+    "direction": 0,
+    "streamName": "STREAM_TYPE_COPY_HOST_TO_DEVICE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989014,
+"name": "call:synMemCopyAsync",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989018,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x29050f00",
+    "streamName": "STREAM_TYPE_COPY_HOST_TO_DEVICE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989025,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 36363,
+"pid": 34566,
+"ts": 1661619207989035,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x29050f00",
+    "streamName": "STREAM_TYPE_COPY_HOST_TO_DEVICE"
+}
+},
+{
+"tid": 36363,
+"pid": 34566,
+"ts": 1661619207989040,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989045,
+"name": "copy_hpu_",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989047,
+"name": "copy_hpu_lazy_H2D",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989047,
+"name": "copy_hpu_lazy_",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989060,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989064,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989065,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989066,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989077,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989078,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989081,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989082,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989083,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989085,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989086,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989087,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989087,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989090,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989091,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989092,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989093,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989093,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989103,
+"name": "select_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989104,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989105,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989105,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989106,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989107,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989108,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989108,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989109,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989110,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989111,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989112,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989113,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989113,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989114,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989115,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989115,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989116,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989117,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989117,
+"name": "squeeze_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989118,
+"name": "squeeze_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989119,
+"name": "select_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989124,
+"name": "_local_scalar_dense_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989125,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989126,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989127,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989128,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989129,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989130,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989130,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989131,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989132,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989132,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989133,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989134,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989137,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989138,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989140,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989141,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989142,
+"name": "StepMarker",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989143,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989143,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989144,
+"name": "SyncLiveTensorsGraph",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207989145,
+"name": "GetLiveTensors",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990288,
+"name": "GetLiveTensors",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990304,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990305,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990305,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990306,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990462,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990741,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990757,
+"name": "SyncLiveTensorsGraph",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990758,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990758,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990759,
+"name": "MarkStep",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990760,
+"name": "MarkStep",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990760,
+"name": "StepMarker",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990761,
+"name": "HandleViewsD2H",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990763,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990765,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990766,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990767,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990768,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990769,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990770,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990771,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990781,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990782,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990785,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990785,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990791,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990791,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990793,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990793,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990794,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990795,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990795,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990804,
+"name": "RunPostOrder",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990805,
+"name": "ComputePostOrder",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990806,
+"name": "ComputePostOrderNode",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990812,
+"name": "ComputePostOrderNode",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990812,
+"name": "ComputePostOrder",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990813,
+"name": "RunPostOrder",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990815,
+"name": "GetOrCreate",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990817,
+"name": "LazyArgumentSpec",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990818,
+"name": "GetArgSpecKey",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990819,
+"name": "GetInputHash",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990820,
+"name": "GetInputHash",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990820,
+"name": "GetOutputHash",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990821,
+"name": "GetOutputHash",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990821,
+"name": "GetArgSpecKey",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990822,
+"name": "LazyArgumentSpec",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990826,
+"name": "GetOrCreate",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990939,
+"name": "LaunchSyncTensorsGraph",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990940,
+"name": "Launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990945,
+"name": "run",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990950,
+"name": "update_patching_table",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990955,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990960,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990961,
+"name": "update_patching_table",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990962,
+"name": "launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990965,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990965,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990967,
+"name": "launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207990974,
+"name": "call:synLaunchWithExternalEvents",
+"ph": "B",
+"func": "synStatus synLaunchWithExternalEvents(synStreamHandle, const synLaunchTensorInfo*, uint32_t, uint64_t, synRecipeHandle, EventInterfaceExternal**, uint32_t, uint32_t)",
+"args": {
+    "streamHandle": "0x29050a40",
+    "launchTensorsInfo": "0x43b889d0",
+    "numberOfTensors": 2,
+    "pWorkspace": "0x10016013f48c800",
+    "pRecipeHandle": "0xe723e00",
+    "eventHandleList": "0",
+    "numberOfEvents": 0,
+    "flags": 0,
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991025,
+"name": "call:synLaunchWithExternalEvents",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991026,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991029,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991034,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991050,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991052,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991053,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991053,
+"name": "run",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991056,
+"name": "Launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991059,
+"name": "LaunchSyncTensorsGraph",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991085,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991086,
+"name": "HandleViewsD2H",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991087,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991088,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991090,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991090,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991092,
+"name": "call:synStreamWaitEvent",
+"ph": "B",
+"func": "synStatus synStreamWaitEvent(synStreamHandle, synEventHandle, uint32_t)",
+"args": {
+    "streamHandle": "0x290509e0",
+    "eventHandle": "0xae38000000000004",
+    "flags": 0,
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991100,
+"name": "call:synStreamWaitEvent",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991103,
+"name": "call:synMemCopyAsync",
+"ph": "B",
+"func": "synStatus synMemCopyAsync(synStreamHandle, uint64_t, uint64_t, uint64_t, synDmaDir)",
+"args": {
+    "streamHandle": "0x290509e0",
+    "src": "0x10016001ac0c8700",
+    "size": "0x1",
+    "dst": "0x7fb416e00000",
+    "direction": 1,
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207991111,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0xae38000000000004",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991122,
+"name": "call:synMemCopyAsync",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991125,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991129,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207991134,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207991148,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207991156,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991158,
+"name": "_local_scalar_dense_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991191,
+"name": "select_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991192,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991194,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991195,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991196,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991197,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991198,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991200,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991202,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991202,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991204,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991206,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991206,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991207,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991209,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991209,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991210,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991211,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991212,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991213,
+"name": "squeeze_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991213,
+"name": "squeeze_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991214,
+"name": "select_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991223,
+"name": "_local_scalar_dense_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991224,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991225,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991225,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991227,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991228,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991229,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991229,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991230,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991231,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991231,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991232,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991233,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991236,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991237,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991239,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991240,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991241,
+"name": "StepMarker",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991242,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991242,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991243,
+"name": "SyncLiveTensorsGraph",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207991244,
+"name": "GetLiveTensors",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992403,
+"name": "GetLiveTensors",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992419,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992420,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992421,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992422,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992579,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992862,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992878,
+"name": "SyncLiveTensorsGraph",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992879,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992879,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992880,
+"name": "MarkStep",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992881,
+"name": "MarkStep",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992882,
+"name": "StepMarker",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992883,
+"name": "HandleViewsD2H",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992884,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992886,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992887,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992888,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992889,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992890,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992891,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992893,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992893,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992894,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992896,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992897,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992903,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992903,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992904,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992905,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992905,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992906,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992907,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992915,
+"name": "RunPostOrder",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992917,
+"name": "ComputePostOrder",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992918,
+"name": "ComputePostOrderNode",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992933,
+"name": "ComputePostOrderNode",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992933,
+"name": "ComputePostOrder",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992934,
+"name": "RunPostOrder",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992936,
+"name": "GetOrCreate",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992938,
+"name": "LazyArgumentSpec",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992939,
+"name": "GetArgSpecKey",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992940,
+"name": "GetInputHash",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992940,
+"name": "GetInputHash",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992941,
+"name": "GetOutputHash",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992942,
+"name": "GetOutputHash",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992942,
+"name": "GetArgSpecKey",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992943,
+"name": "LazyArgumentSpec",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207992946,
+"name": "GetOrCreate",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993045,
+"name": "LaunchSyncTensorsGraph",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993046,
+"name": "Launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993051,
+"name": "run",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993055,
+"name": "update_patching_table",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993060,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993065,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993066,
+"name": "update_patching_table",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993067,
+"name": "launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993070,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993070,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993071,
+"name": "launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993079,
+"name": "call:synLaunchWithExternalEvents",
+"ph": "B",
+"func": "synStatus synLaunchWithExternalEvents(synStreamHandle, const synLaunchTensorInfo*, uint32_t, uint64_t, synRecipeHandle, EventInterfaceExternal**, uint32_t, uint32_t)",
+"args": {
+    "streamHandle": "0x29050a40",
+    "launchTensorsInfo": "0x43b889d0",
+    "numberOfTensors": 2,
+    "pWorkspace": "0x10016013f48c800",
+    "pRecipeHandle": "0xdc37e40",
+    "eventHandleList": "0",
+    "numberOfEvents": 0,
+    "flags": 0,
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993126,
+"name": "call:synLaunchWithExternalEvents",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993127,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993130,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993135,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993152,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993153,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993154,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993155,
+"name": "run",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207993156,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993157,
+"name": "Launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993161,
+"name": "LaunchSyncTensorsGraph",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207993161,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993184,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993184,
+"name": "HandleViewsD2H",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993186,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993187,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993188,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993189,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993192,
+"name": "call:synMemCopyAsync",
+"ph": "B",
+"func": "synStatus synMemCopyAsync(synStreamHandle, uint64_t, uint64_t, uint64_t, synDmaDir)",
+"args": {
+    "streamHandle": "0x290509e0",
+    "src": "0x10016001ac0c8700",
+    "size": "0x1",
+    "dst": "0x7fb416e00000",
+    "direction": 1,
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993202,
+"name": "call:synMemCopyAsync",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993203,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993207,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207993224,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207993231,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993232,
+"name": "_local_scalar_dense_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993250,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993255,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993256,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993257,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993258,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993259,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993260,
+"name": "CreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993262,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993263,
+"name": "empty_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993264,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993266,
+"name": "updateViewTable",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993266,
+"name": "add_strided_view_node",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993267,
+"name": "as_strided_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993270,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993271,
+"name": "getViewTableParams",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993271,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993273,
+"name": "is_fallback_original_op",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993284,
+"name": "slice_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993300,
+"name": "copy_hpu_lazy_",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993301,
+"name": "copy_hpu_lazy_D2H",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993302,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993302,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993303,
+"name": "HandleViewsD2H",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993304,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993305,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993307,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993307,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993308,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993309,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993309,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993310,
+"name": "GetOrCreateHbLazyTensor",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993311,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993311,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993316,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993317,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993320,
+"name": "add_slice_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993321,
+"name": "HandleViews",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993322,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993323,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993323,
+"name": "JoinPendingLaunchThread",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993324,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993325,
+"name": "CollectSyncTensors",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993331,
+"name": "RunPostOrder",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993332,
+"name": "ComputePostOrder",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993333,
+"name": "ComputePostOrderNode",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993337,
+"name": "ComputePostOrderNode",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993338,
+"name": "ComputePostOrder",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993339,
+"name": "RunPostOrder",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993340,
+"name": "GetOrCreate",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993342,
+"name": "LazyArgumentSpec",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993343,
+"name": "GetArgSpecKey",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993343,
+"name": "GetInputHash",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993344,
+"name": "GetInputHash",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993345,
+"name": "GetOutputHash",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993345,
+"name": "GetOutputHash",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993346,
+"name": "GetArgSpecKey",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993346,
+"name": "LazyArgumentSpec",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993349,
+"name": "GetOrCreate",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993352,
+"name": "LaunchSyncTensorsGraph",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993353,
+"name": "Launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993358,
+"name": "run",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993363,
+"name": "update_patching_table",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993366,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993371,
+"name": "empty_hpu_lazy",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993372,
+"name": "update_patching_table",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993373,
+"name": "launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993375,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993375,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993376,
+"name": "launch",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993384,
+"name": "call:synLaunchWithExternalEvents",
+"ph": "B",
+"func": "synStatus synLaunchWithExternalEvents(synStreamHandle, const synLaunchTensorInfo*, uint32_t, uint64_t, synRecipeHandle, EventInterfaceExternal**, uint32_t, uint32_t)",
+"args": {
+    "streamHandle": "0x29050a40",
+    "launchTensorsInfo": "0x43b889d0",
+    "numberOfTensors": 2,
+    "pWorkspace": "0x10016013f48c800",
+    "pRecipeHandle": "0x55d632c0",
+    "eventHandleList": "0",
+    "numberOfEvents": 0,
+    "flags": 0,
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993422,
+"name": "call:synLaunchWithExternalEvents",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993423,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993427,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993431,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993443,
+"name": "launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993445,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993445,
+"name": "ReturnCachedRecipe",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993446,
+"name": "run",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207993448,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x29050a40",
+    "streamName": "STREAM_TYPE_COMPUTE"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993459,
+"name": "Launch",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 36365,
+"pid": 34566,
+"ts": 1661619207993459,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993461,
+"name": "LaunchSyncTensorsGraph",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993464,
+"name": "SyncTensorsGraphInternal",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993464,
+"name": "HandleViewsD2H",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993466,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993467,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993468,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993469,
+"name": "GetHbLazyTensorData",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993470,
+"name": "copy_hpu_",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993471,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "B"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993472,
+"name": "wait_for_future",
+"cat": "foo",
+"ph": "E"
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993482,
+"name": "call:synMemCopyAsync",
+"ph": "B",
+"func": "synStatus synMemCopyAsync(synStreamHandle, uint64_t, uint64_t, uint64_t, synDmaDir)",
+"args": {
+    "streamHandle": "0x290509e0",
+    "src": "0x1001600254f5d380",
+    "size": "0x38e",
+    "dst": "0x7fb416e00000",
+    "direction": 1,
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993490,
+"name": "call:synMemCopyAsync",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993492,
+"name": "call:synEventRecord",
+"ph": "B",
+"func": "synStatus synEventRecord(synEventHandle, synStreamHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993495,
+"name": "call:synEventRecord",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207993510,
+"name": "call:synEventSynchronize",
+"ph": "B",
+"func": "synStatus synEventSynchronize(synEventHandle)",
+"args": {
+    "eventHandle": "0x5fd000000000006",
+    "streamHandle": "0x290509e0",
+    "streamName": "STREAM_TYPE_COPY_DEVICE_TO_HOST"
+}
+},
+{
+"tid": 36364,
+"pid": 34566,
+"ts": 1661619207993513,
+"name": "call:synEventSynchronize",
+"ph": "E",
+"args": {
+    "status": 0
+}
+},
+{
+"tid": 34566,
+"pid": 34566,
+"ts": 1661619207993515,
+"name": "copy_hpu_",
+"cat": "foo", "

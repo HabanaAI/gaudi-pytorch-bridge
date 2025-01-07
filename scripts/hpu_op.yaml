@@ -1,0 +1,7478 @@
+###############################################################################
+#
+#  Copyright (c) 2021-2024 Intel Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+###############################################################################
+
+# Manual
+# Fields descriptions:
+#  - guid - the name of kernel/cguid executing operation.
+#  - out_ids - indices of input tensors, based on which outputs are allocated.
+#              Not applicable for inplace/out ops. Overriden by output_meta.
+#  - inplace_ids - indices of inplace input tensors.
+#  - scalar_ids - these input Scalars will be converted to Tensors.
+#  - op_backend - custom OpBackend class overriding AddNode. Overrides most other fields.
+#  - op_frontend - custom frontend class overriding LazyOp/EagerOp, e.g. for op signature change.
+#  - schema_args - overriden signature of the op. Used with op_frontend.
+#  - dtypes - dtypes supported by the operator. Not needed if op_validator used.
+#  - output_meta - function for output tensors metadata calculation.
+#  - custom_fill_params - function filling params structure for kernel/cguid. Not needed if op_backend used.
+#  - promote_to_common_type - names of inputs to execute type promotion on.
+#  - promote_int_to_float - names of inputs casted automatically to float.
+#  - promote_int_to_long - names of inputs casted automatically to long.
+#  - synapse_layouts - inputs/outputs layouts for non-layout-agnostic ops.
+#  - custom_op_schema - signature of a custom op. Used for custom ops only.
+#  - op_validator:
+#      if not given, op support validated based on dtypes field,
+#      if set to check-node-with-shared-layer, automatic validation by shared layer will be executed,
+#             applicable only for ops mapped directly to one kernel/cguid, without op_backend and op_frontend,
+#      other value points to the function which performs manual validation, e.g. for multiple kernels.
+#  - only_shared_layer - mark ops registered and implemented manually in the backend just for shared layer validation.
+#  - override_fn - function for full override of the op frontend and backend.
+#  - lazy - separate flow for lazy mode.
+
+_assert_async:
+  guid: assert_async
+  out_ids: [0]
+  op_backend: AssertAsync
+  op_validator: AssertAsyncSharedMeta
+
+__ilshift__.Scalar:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__ilshift__.Tensor:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__irshift__.Scalar:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__irshift__.Tensor:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__lshift__.Scalar:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__lshift__.Scalar_out:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__lshift__.Tensor:
+  broadcast: true
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__lshift__.Tensor_out:
+  broadcast: true
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__rshift__.Scalar:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__rshift__.Scalar_out:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__rshift__.Tensor:
+  broadcast: true
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+__rshift__.Tensor_out:
+  broadcast: true
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+_copy_from:
+  override_fn: _copy_from
+
+_copy_from_and_resize:
+  override_fn: _copy_from_and_resize
+
+_efficientzerotensor:
+  output_meta: EfficientZeroMeta
+  op_backend: EfficientZeroTensor
+  out_ids: [0]
+  op_validator: EfficientZeroSharedMeta
+
+_foreach_abs:
+  guid: abs_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachAbsSharedMeta
+
+_foreach_abs_:
+  guid: abs_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachAbsSharedMeta
+
+_foreach_add.Scalar:
+  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
+  guid: add_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_add.List:
+  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
+  guid: add_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_add.Tensor:
+  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
+  guid: add_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_add.ScalarList:
+  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
+  guid: add_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_add_.Scalar:
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_add_.List:
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_add_.Tensor:
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_add_.ScalarList:
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
+
+_foreach_addcdiv.Scalar:
+
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
+
+_foreach_addcdiv.ScalarList:
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
+
+_foreach_addcdiv.Tensor:
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
+
+_foreach_addcdiv_.Scalar:
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
+
+_foreach_addcdiv_.ScalarList:
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
+
+_foreach_addcdiv_.Tensor:
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
+
+_foreach_addcmul.Scalar:
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
+
+_foreach_addcmul.ScalarList:
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
+
+_foreach_addcmul.Tensor:
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
+
+_foreach_addcmul_.Scalar:
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
+
+_foreach_addcmul_.ScalarList:
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
+
+_foreach_addcmul_.Tensor:
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
+
+_foreach_acos:
+  guid: acos_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachAcosSharedMeta
+
+_foreach_acos_:
+  guid: acos_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachAcosSharedMeta
+
+_foreach_asin:
+  guid: asin_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachAsinSharedMeta
+
+_foreach_asin_:
+  guid: asin_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachAsinSharedMeta
+
+_foreach_atan:
+  guid: atan_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachAtanSharedMeta
+
+_foreach_atan_:
+  guid: atan_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachAtanSharedMeta
+
+_foreach_ceil:
+  guid: ceil_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachCeilSharedMeta
+
+_foreach_ceil_:
+  guid: ceil_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachCeilSharedMeta
+
+_foreach_clamp_max.Scalar:
+  guid: foreach_clamp_max
+  output_meta: ForeachBinaryMeta
+  op_backend: ForeachClamp
+  out_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
+
+_foreach_clamp_max.List:
+  guid: foreach_clamp_max
+  output_meta: ForeachBinaryMeta
+  op_backend: ForeachClamp
+  out_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
+
+_foreach_clamp_max.ScalarList:
+  guid: foreach_clamp_max
+  output_meta: ForeachBinaryMeta
+  op_backend: ForeachClamp
+  out_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
+
+_foreach_clamp_max_.Scalar:
+  guid: foreach_clamp_max
+  op_backend: ForeachClamp
+  inplace_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
+
+_foreach_clamp_max_.List:
+  guid: foreach_clamp_max
+  op_backend: ForeachClamp
+  inplace_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
+
+_foreach_clamp_max_.ScalarList:
+  guid: foreach_clamp_max
+  op_backend: ForeachClamp
+  inplace_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
+
+_foreach_clamp_min.Scalar:
+  guid: foreach_clamp_min
+  output_meta: ForeachBinaryMeta
+  op_backend: ForeachClamp
+  out_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
+
+_foreach_clamp_min.List:
+  guid: foreach_clamp_min
+  output_meta: ForeachBinaryMeta
+  op_backend: ForeachClamp
+  out_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
+
+_foreach_clamp_min.ScalarList:
+  guid: foreach_clamp_min
+  output_meta: ForeachBinaryMeta
+  op_backend: ForeachClamp
+  out_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
+
+_foreach_clamp_min_.Scalar:
+  guid: foreach_clamp_min
+  op_backend: ForeachClamp
+  inplace_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
+
+_foreach_clamp_min_.List:
+  guid: foreach_clamp_min
+  op_backend: ForeachClamp
+  inplace_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
+
+_foreach_clamp_min_.ScalarList:
+  guid: foreach_clamp_min
+  op_backend: ForeachClamp
+  inplace_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
+
+_foreach_cos:
+  guid: cos_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachCosSharedMeta
+
+_foreach_cos_:
+  guid: cos_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachCosSharedMeta
+
+_foreach_cosh:
+  guid: cosh_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachCoshSharedMeta
+
+_foreach_cosh_:
+  guid: cosh_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachCoshSharedMeta
+
+_foreach_div.Scalar:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  output_meta: DivForeachBinaryMeta
+  out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_div.Tensor:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  output_meta: DivForeachBinaryMeta
+  out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_div.List:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  output_meta: DivForeachBinaryMeta
+  out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_div.ScalarList:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  output_meta: DivForeachBinaryMeta
+  out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_div_.Scalar:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_div_.Tensor:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_div_.List:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_div_.ScalarList:
+  guid: div_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
+
+_foreach_erf:
+  guid: erf_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachErfSharedMeta
+
+_foreach_erf_:
+  guid: erf_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachErfSharedMeta
+
+_foreach_erfc:
+  op_backend: ForeachErfc
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachErfcSharedMeta
+
+_foreach_erfc_:
+  inplace_ids: [0]
+  op_backend: ForeachErfc
+  op_validator: UnaryForeachErfcSharedMeta
+
+_foreach_exp:
+  guid: exp_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachExpSharedMeta
+
+_foreach_exp_:
+  guid: exp_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachExpSharedMeta
+
+_foreach_expm1:
+  guid: expm1_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachExpm1SharedMeta
+
+_foreach_expm1_:
+  guid: expm1_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachExpm1SharedMeta
+
+_foreach_floor:
+  guid: floor_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachFloorSharedMeta
+
+_foreach_floor_:
+  dtypes: [BFloat16, Float]
+  guid: floor_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
+_foreach_frac:
+  op_backend: ForeachFrac
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachFracSharedMeta
+
+_foreach_frac_:
+  inplace_ids: [0]
+  op_backend: ForeachFrac
+  op_validator: UnaryForeachFracSharedMeta
+
+_foreach_lerp.Scalar:
+  op_backend: ForeachLerp
+  output_meta: ForeachLerpMeta
+  out_ids: [0]
+  op_validator: ForeachLerpSharedMeta
+
+_foreach_lerp.List:
+  op_backend: ForeachLerp
+  output_meta: ForeachLerpMeta
+  out_ids: [0]
+  op_validator: ForeachLerpSharedMeta
+
+_foreach_lerp_.Scalar:
+  op_backend: ForeachLerp
+  inplace_ids: [0]
+  op_validator: ForeachLerpSharedMeta
+
+_foreach_lerp_.List:
+  op_backend: ForeachLerp
+  inplace_ids: [0]
+  op_validator: ForeachLerpSharedMeta
+
+_foreach_lgamma:
+  guid: gammaln_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachLgammaSharedMeta
+
+_foreach_lgamma_:
+  guid: gammaln_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachLgammaSharedMeta
+
+_foreach_log:
+  guid: log_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachLogSharedMeta
+
+_foreach_log_:
+  guid: log_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachLogSharedMeta
+
+_foreach_log10:
+  op_backend: ForeachLog10
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachLog10SharedMeta
+
+_foreach_log10_:
+  inplace_ids: [0]
+  op_backend: ForeachLog10
+  op_validator: UnaryForeachLog10SharedMeta
+
+_foreach_log1p:
+  guid: log1p_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachLog1pSharedMeta
+
+_foreach_log1p_:
+  guid: log1p_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachLog1pSharedMeta
+
+_foreach_log2:
+  guid: log2_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachLog2SharedMeta
+
+_foreach_log2_:
+  guid: log2_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachLog2SharedMeta
+
+_foreach_maximum.Scalar:
+  guid: max_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
+
+_foreach_maximum.List:
+  guid: max_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
+
+_foreach_maximum.ScalarList:
+  guid: max_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
+
+_foreach_maximum_.Scalar:
+  guid: max_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
+
+_foreach_maximum_.List:
+  guid: max_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
+
+_foreach_maximum_.ScalarList:
+  guid: max_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
+
+_foreach_minimum.Scalar:
+  guid: min_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
+
+_foreach_minimum.List:
+  guid: min_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
+
+_foreach_minimum.ScalarList:
+  guid: min_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
+
+_foreach_minimum_.Scalar:
+  guid: min_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
+
+_foreach_minimum_.List:
+  guid: min_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
+
+_foreach_minimum_.ScalarList:
+  guid: min_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
+
+_foreach_mul.Scalar:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_mul.List:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_mul.Tensor:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_mul.ScalarList:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_mul_.Scalar:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_mul_.Tensor:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_mul_.List:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_mul_.ScalarList:
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
+
+_foreach_neg:
+  guid: neg_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachNegSharedMeta
+
+_foreach_neg_:
+  guid: neg_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachNegSharedMeta
+
+_foreach_pow.Scalar:
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
+
+_foreach_pow.ScalarAndTensor:
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [1]
+  op_validator: PowForeachBinarySharedMeta
+
+_foreach_pow.List:
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
+
+_foreach_pow.ScalarList:
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
+
+_foreach_pow_.Scalar:
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  inplace_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
+
+_foreach_pow_.List:
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  inplace_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
+
+_foreach_pow_.ScalarList:
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  inplace_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
+
+_foreach_reciprocal:
+  guid: reciprocal_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachReciprocalSharedMeta
+
+_foreach_reciprocal_:
+  guid: reciprocal_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachReciprocalSharedMeta
+
+_foreach_round:
+  custom_fill_params: FillRoundParams
+  guid: round_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachRoundSharedMeta
+
+_foreach_round_:
+  custom_fill_params: FillRoundParams
+  guid: round_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachRoundSharedMeta
+
+_foreach_sign:
+  guid: sign_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachSignSharedMeta
+
+_foreach_sign_:
+  guid: sign_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachSignSharedMeta
+
+_foreach_sigmoid:
+  guid: sigmoid_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachSigmoidSharedMeta
+
+_foreach_sigmoid_:
+  guid: sigmoid_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachSigmoidSharedMeta
+
+_foreach_sin:
+  guid: sin_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachSinSharedMeta
+
+_foreach_sin_:
+  guid: sin_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachSinSharedMeta
+
+_foreach_sinh:
+  guid: sinh_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachSinhSharedMeta
+
+_foreach_sinh_:
+  guid: sinh_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachSinhSharedMeta
+
+_foreach_sqrt:
+  guid: sqrt_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachSqrtSharedMeta
+
+_foreach_sqrt_:
+  guid: sqrt_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachSqrtSharedMeta
+
+_foreach_sub.Scalar:
+  guid: sub_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
+
+_foreach_sub.List:
+  guid: sub_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
+
+_foreach_sub.ScalarList:
+  guid: sub_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
+
+_foreach_sub_.Scalar:
+  guid: sub_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
+
+_foreach_sub_.List:
+  guid: sub_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
+
+_foreach_sub_.ScalarList:
+  guid: sub_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
+
+_foreach_tan:
+  guid: tan_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachTanSharedMeta
+
+_foreach_tan_:
+  guid: tan_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachTanSharedMeta
+
+_foreach_tanh:
+  guid: tanh_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachTanhSharedMeta
+
+_foreach_tanh_:
+  guid: tanh_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachTanhSharedMeta
+
+_foreach_trunc:
+  guid: trunc_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+  op_validator: UnaryForeachTruncSharedMeta
+
+_foreach_trunc_:
+  guid: trunc_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+  op_validator: UnaryForeachTruncSharedMeta
+
+_foreach_zero_:
+  inplace_ids: [0]
+  op_backend: ForeachZero
+  op_validator: UnaryForeachZeroSharedMeta
+
+_fused_dropout:
+  output_meta: FusedNativeDropoutMeta
+  custom_fill_params: FillFusedNativeDropoutParams
+  op_frontend: GeneratorToSeed
+  op_backend: FusedNativeDropout
+  out_ids: [0, 0]
+  schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
+  op_validator: FusedNativeDropoutSharedMeta
+
+_cdist_forward:
+  output_meta: CdistFwdMeta
+  custom_fill_params: FillCdistFwdParams
+  guid: cdist_fwd
+  promote_to_common_type: [x1, x2]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+_pdist_forward:
+  output_meta: PdistFwdMeta
+  custom_fill_params: FillPdistFwdParams
+  guid: pdist_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+native_dropout:
+  output_meta: FusedNativeDropoutMeta
+  custom_fill_params: FillFusedNativeDropoutParams
+  early_exit: NativeDropoutEarlyExit
+  op_frontend: NativeDropoutFE
+  op_backend: FusedNativeDropout
+  out_ids: [0, 0]
+  schema_args: "(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)"
+  op_validator: FusedNativeDropoutSharedMeta
+
+pixel_shuffle:
+  output_meta: PixelShuffleMeta
+  custom_fill_params: FillPixelShuffleParams
+  out_ids: [0]
+  guid: pixel_shuffle
+  op_validator: check-node-with-shared-layer
+
+native_dropout_backward:
+  op_backend: NativeDropoutBackward
+  out_ids: [0]
+  op_validator: NativeDropoutBackwardSharedMeta
+
+as_strided:
+  override_fn: as_strided_hpu
+  acc_thread: true
+
+as_strided_:
+  override_fn: as_strided_hpu_lazy_
+  acc_thread: true
+
+set_:
+  override_fn: set_
+
+set_.source_Storage:
+  override_fn: set_source_Storage
+
+set_.source_Tensor:
+  override_fn: set_source_Tensor
+
+set_.source_Storage_storage_offset:
+  override_fn: set_source_Storage_storage_offset
+
+_local_scalar_dense:
+  override_fn: _local_scalar_dense_hpu
+
+abs:
+  guid: abs_fwd
+  out_ids: [0]
+  promote_to_common_type: [self]
+  op_validator: check-node-with-shared-layer
+
+abs_:
+  guid: abs_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self]
+  op_validator: check-node-with-shared-layer
+
+abs.out:
+  guid: abs_fwd
+  promote_to_common_type: [self, out]
+  op_validator: check-node-with-shared-layer
+
+acos:
+  promote_int_to_float: [self]
+  guid: acos_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+acos.out:
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  guid: acos_fwd
+  op_validator: check-node-with-shared-layer
+
+acos_:
+  promote_int_to_float: [self]
+  guid: acos_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+acosh:
+  promote_int_to_float: [self]
+  guid: acosh_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+acosh.out:
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  guid: acosh_fwd
+  op_validator: check-node-with-shared-layer
+
+acosh_:
+  promote_int_to_float: [self]
+  guid: acosh_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+add.Tensor:
+  broadcast: true
+  custom_fill_params: FillBinaryAddParams
+  guid: binary_with_alpha_fwd
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
+  lazy:
+    acc_thread: true
+    override_fn: add_tensor_hpu_lazy
+
+add.Scalar:
+  broadcast: true
+  custom_fill_params: FillBinaryAddParams
+  guid: binary_with_alpha_fwd
+  scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
+  lazy:
+    acc_thread: true
+    override_fn: add_scalar_hpu_lazy
+
+add_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Long, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
+  override_fn: add_scalar_hpu_lazy_
+  acc_thread: true
+  promote_to_common_type: [self, other]
+
+add_.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Long, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
+  override_fn: add_tensor_hpu_lazy_
+  acc_thread: true
+  promote_to_common_type: [self, other]
+
+add.out:
+  broadcast: true
+  custom_fill_params: FillBinaryAddParams
+  guid: binary_with_alpha_fwd
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
+
+add.Scalar_out:
+  custom_fill_params: FillBinaryAddParams
+  broadcast: true
+  guid: binary_with_alpha_fwd
+  scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
+
+addbmm:
+  guid: batch_gemm
+  op_backend: AddBMM
+  output_meta: AddBMMMeta
+  out_ids: [0]
+  op_validator: AddBMMSharedMeta
+
+addbmm_:
+  guid: batch_gemm
+  op_backend: AddBMM
+  inplace_ids: [0]
+  output_meta: AddBMMMeta
+  op_validator: AddBMMSharedMeta
+
+addbmm.out:
+  guid: batch_gemm
+  op_backend: AddBMM
+  output_meta: AddBMMMeta
+  op_validator: AddBMMSharedMeta
+
+addcdiv:
+  output_meta: AddCOpsMeta
+  op_frontend: AddCOpFE
+  custom_fill_params: FillAddcdivParams
+  guid: addcdiv_fwd
+  out_ids: [0]
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
+  op_validator: AddCDivSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
+
+addcdiv_:
+  output_meta: AddCOpsMeta
+  op_frontend: AddCOpFE
+  custom_fill_params: FillAddcdivParams
+  guid: addcdiv_fwd
+  inplace_ids: [0]
+  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
+  op_validator: AddCDivSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
+
+addcdiv.out:
+  output_meta: AddCOpsMeta
+  op_frontend: AddCOpFE
+  custom_fill_params: FillAddcdivParams
+  guid: addcdiv_fwd
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: AddCDivSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
+
+addcmul:
+  output_meta: AddCOpsMeta
+  op_frontend: AddCOpFE
+  custom_fill_params: FillAddcmulParams
+  guid: addcmul_fwd
+  out_ids: [0]
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
+  op_validator: AddCMulSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
+
+addcmul_:
+  output_meta: AddCOpsMeta
+  op_frontend: AddCOpFE
+  custom_fill_params: FillAddcmulParams
+  guid: addcmul_fwd
+  inplace_ids: [0]
+  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
+  op_validator: AddCMulSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
+
+addcmul.out:
+  output_meta: AddCOpsMeta
+  op_frontend: AddCOpFE
+  custom_fill_params: FillAddcmulParams
+  guid: addcmul_fwd
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: AddCMulSharedMeta
+  promote_to_common_type: [self, tensor1, tensor2]
+
+addmm:
+  output_meta: AddMMMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: addmm
+  op_backend: AddMM
+  out_ids: [0]
+
+addmm_:
+  output_meta: AddMMMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: addmm
+  op_backend: AddMM
+  inplace_ids: [0]
+
+addmm.out:
+  output_meta: AddMMMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: addmm
+  op_backend: AddMM
+
+_addmm_activation.out:
+  output_meta: AddMMMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: addmm
+  op_backend: AddMMActivation
+
+_addmm_activation:
+  output_meta: AddMMMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  out_ids: [0]
+  guid: addmm
+  op_backend: AddMMActivation
+
+addmv:
+  output_meta: AddMVMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  out_ids: [0]
+  guid: addmv
+  op_backend: AddMV
+
+addmv_:
+  output_meta: AddMVMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  inplace_ids: [0]
+  guid: addmv
+  op_backend: AddMV
+
+addmv.out:
+  output_meta: AddMVMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: addmv
+  op_backend: AddMV
+
+addr:
+  output_meta: AddRMeta
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+addr_:
+  output_meta: AddRMeta
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+addr.out:
+  output_meta: AddRMeta
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
+  op_validator: check-node-with-shared-layer
+
+alias:
+  override_fn: alias_hpu_lazy
+  acc_thread: true
+
+all:
+  output_meta: AllAnyMeta
+  op_validator: AllSharedMeta
+  out_ids: [0]
+  op_backend: All
+
+all.all_out:
+  output_meta: AllAnyMeta
+  op_validator: AllSharedMeta
+  op_backend: All
+
+all.dim:
+  output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
+  op_backend: AllDim
+  out_ids: [0]
+
+all.out:
+  output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
+  op_backend: AllDim
+
+all.dims:
+  output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
+  op_backend: AllDims
+  out_ids: [0]
+
+all.dims_out:
+  output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
+  op_backend: AllDims
+
+amax:
+  guid: reduce_max_multi_dim_fwd
+  output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
+  op_backend: AminAmax
+  out_ids: [0]
+  op_validator: AmaxSharedMeta
+
+amax.out:
+  guid: reduce_max_multi_dim_fwd
+  output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
+  op_backend: AminAmax
+  op_validator: AmaxSharedMeta
+
+amin:
+  guid: reduce_min_multi_dim_fwd
+  output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
+  op_backend: AminAmax
+  out_ids: [0]
+  op_validator: AminSharedMeta
+
+amin.out:
+  guid: reduce_min_multi_dim_fwd
+  output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
+  op_backend: AminAmax
+  op_validator: AminSharedMeta
+
+aminmax:
+  output_meta: AminmaxMeta
+  op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
+  out_ids: [0, 0]
+  op_validator: AminmaxSharedMeta
+
+aminmax.out:
+  output_meta: AminmaxMeta
+  op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
+  op_validator: AminmaxSharedMeta
+
+_aminmax:
+  output_meta: AminmaxMeta
+  op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
+  out_ids: [0, 0]
+  op_validator: AminmaxSharedMeta
+
+_aminmax.dim:
+  output_meta: AminmaxMeta
+  op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
+  out_ids: [0, 0]
+  op_validator: AminmaxSharedMeta
+
+any.all_out:
+  output_meta: AllAnyMeta
+  op_validator: AnySharedMeta
+  op_backend: Any
+
+any:
+  output_meta: AllAnyMeta
+  op_validator: AnySharedMeta
+  op_backend: Any
+  out_ids: [0]
+
+any.dim:
+  output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
+  op_backend: AnyDim
+  out_ids: [0]
+
+any.dims:
+  output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
+  op_backend: AnyDims
+  out_ids: [0]
+
+any.dims_out:
+  output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
+  op_backend: AnyDims
+
+any.out:
+  output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
+  op_backend: AnyDim
+
+arange:
+  output_meta: ArangeDefaultEndMeta
+  op_backend: ArangeDefaultEnd
+  guid: range
+  custom_fill_params: FillArangeDefaultEndParams
+  out_ids: [0]
+  op_validator: ArangeDefaultEndSharedMeta
+
+arange.start:
+  output_meta: ArangeDefaultStartEndMeta
+  op_backend: ArangeDefaultStartEnd
+  guid: range
+  custom_fill_params: FillArangeDefaultStartEndParams
+  out_ids: [0]
+  op_validator: ArangeDefaultStartEndSharedMeta
+
+arange.start_step:
+  output_meta: ArangeDefaultStartEndStepMeta
+  op_backend: ArangeDefaultStartEndStep
+  op_frontend: LazyArange
+  guid: range
+  custom_fill_params: FillArangeDefaultStartEndStepParams
+  out_ids: [0]
+  schema_args: "(Tensor h2d_tensor, Tensor shape_tensor,*, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> (Tensor)"
+  op_validator: ArangeDefaultStartStepSharedMeta
+
+arange.start_out:
+  op_backend: Arange
+  op_frontend: ArangeFE
+  guid: range
+  output_meta: ArangeStartOutMeta
+  custom_fill_params: FillArangeParams
+  schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: ArangeDefaultStartOutSharedMeta
+
+argmax:
+  output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
+  guid: argmax_multi_dim_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+argmax.out:
+  output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
+  guid: argmax_multi_dim_fwd
+  op_validator: check-node-with-shared-layer
+
+argmin:
+  output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
+  guid: argmin_multi_dim_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+argmin.out:
+  output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
+  guid: argmin_multi_dim_fwd
+  op_validator: check-node-with-shared-layer
+
+asin:
+  promote_int_to_float: [self]
+  guid: asin_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+asin.out:
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  guid: asin_fwd
+  op_validator: check-node-with-shared-layer
+
+asin_:
+  promote_int_to_float: [self]
+  guid: asin_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+asinh:
+  promote_int_to_float: [self]
+  guid: asinh_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+asinh.out:
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  guid: asinh_fwd
+  op_validator: check-node-with-shared-layer
+
+asinh_:
+  promote_int_to_float: [self]
+  guid: asinh_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+atan:
+  promote_int_to_float: [self]
+  guid: atan_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+atan.out:
+  promote_int_to_float: [self]
+  guid: atan_fwd
+  op_validator: check-node-with-shared-layer
+
+atan_:
+  promote_int_to_float: [self]
+  guid: atan_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+atan2:
+  broadcast: true
+  promote_int_to_float: [self, other]
+  guid: atan2_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+atan2_:
+  promote_int_to_float: [self, other]
+  guid: atan2_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+atan2.out:
+  broadcast: true
+  promote_int_to_float: [self, other]
+  guid: atan2_fwd
+  op_validator: check-node-with-shared-layer
+
+_adaptive_avg_pool2d:
+  custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
+  output_meta: AdaptiveAvgPool2dMeta
+  guid: adaptive_avg_pool_2d_fwd
+  op_backend: AdaptiveAvgPool2dFwd
+  out_ids: [0]
+  op_validator: AdaptiveAvgPool2dFwdSharedMeta
+
+adaptive_avg_pool2d.out:
+  custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
+  output_meta: AdaptiveAvgPool2dMeta
+  guid: adaptive_avg_pool_2d_fwd
+  op_backend: AdaptiveAvgPool2dFwd
+  op_validator: AdaptiveAvgPool2dFwdSharedMeta
+
+_adaptive_avg_pool2d_backward:
+  custom_fill_params: FillAdaptiveAvgPool2dParamsBwd
+  output_meta: AdaptiveAvgPool2dBwdMeta
+  guid: complex_adaptive_avg_pool_2d_bwd
+  op_backend: AdaptiveAvgPool2dBwd
+  out_ids: [1]
+  op_validator: AdaptiveAvgPool2dBwdSharedMeta
+
+avg_pool2d:
+  custom_fill_params: Fillavgpool2dParamsFwd
+  output_meta: Avgpool2dMeta
+  guid: avg_pool_2d_fwd
+  out_ids: [0]
+  op_backend: Avgpool2dFwd
+  op_validator: AvgPool2dFwdSharedMeta
+
+avg_pool2d.out:
+  custom_fill_params: Fillavgpool2dParamsFwd
+  output_meta: Avgpool2dMeta
+  guid: avg_pool_2d_fwd
+  op_backend: Avgpool2dFwd
+  op_validator: AvgPool2dFwdSharedMeta
+
+avg_pool2d_backward.grad_input:
+  custom_fill_params: Fillavgpool2dParamsBwd
+  output_meta: Avgpool2dBwdMeta
+  op_backend: Avgpool2dBwd
+  op_validator: AvgPool2dBwdSharedMeta
+
+avg_pool2d_backward:
+  custom_fill_params: Fillavgpool2dParamsBwd
+  output_meta: Avgpool2dBwdMeta
+  op_backend: Avgpool2dBwd
+  out_ids: [0]
+  op_validator: AvgPool2dBwdSharedMeta
+
+avg_pool3d:
+  custom_fill_params: FillAvgPool3dParamsFwd
+  output_meta: AvgPool3dMeta
+  guid: avg_pool_3d_fwd
+  out_ids: [0]
+  op_backend: Avgpool3dFwd
+  op_validator: AvgPool3dFwdSharedMeta
+
+avg_pool3d.out:
+  custom_fill_params: FillAvgPool3dParamsFwd
+  output_meta: AvgPool3dMeta
+  guid: avg_pool_3d_fwd
+  op_backend: Avgpool3dFwd
+  op_validator: AvgPool3dFwdSharedMeta
+
+avg_pool3d_backward:
+  custom_fill_params: FillAvgPool3dParamsBwd
+  output_meta: AvgPool3dBwdMeta
+  guid: avg_pool_3d_bwd
+  op_backend: AvgPool3dBwd
+  out_ids: [0]
+  op_validator: AvgPool3dBwdSharedMeta
+
+avg_pool3d_backward.grad_input:
+  custom_fill_params: FillAvgPool3dParamsBwd
+  output_meta: AvgPool3dBwdMeta
+  guid: avg_pool_3d_bwd
+  op_backend: AvgPool3dBwd
+  op_validator: AvgPool3dBwdSharedMeta
+
+_adaptive_avg_pool3d:
+  custom_fill_params: FillAdaptiveAvgPool3dParamsFwd
+  output_meta: AdaptiveAvgPool3dMeta
+  guid: adaptive_avg_pool_3d_fwd
+  op_backend: AdaptiveAvgPool3dFwd
+  out_ids: [0]
+  op_validator: AdaptiveAvgPool3dFwdSharedMeta
+
+adaptive_avg_pool3d.out:
+  custom_fill_params: FillAdaptiveAvgPool3dParamsFwd
+  output_meta: AdaptiveAvgPool3dMeta
+  guid: adaptive_avg_pool_3d_fwd
+  op_backend: AdaptiveAvgPool3dFwd
+  op_validator: AdaptiveAvgPool3dFwdSharedMeta
+
+_adaptive_avg_pool3d_backward:
+  output_meta: AdaptiveAvgPool3dBwdMeta
+  guid: complex_adaptive_avg_pool_3d_bwd
+  op_backend: AdaptiveAvgPool3dBwd
+  out_ids: [1]
+  op_validator: AdaptiveAvgPool3dBwdSharedMeta
+
+adaptive_avg_pool3d_backward.grad_input:
+  output_meta: AdaptiveAvgPool3dBwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: complex_adaptive_avg_pool_3d_bwd
+  op_backend: AdaptiveAvgPool3dBwd
+  op_validator: AdaptiveAvgPool3dBwdSharedMeta
+
+atanh:
+  guid: atanh_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+atanh.out:
+  guid: atanh_fwd
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  op_validator: check-node-with-shared-layer
+
+atanh_:
+  guid: atanh_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+baddbmm:
+  output_meta: BaddbmmMeta
+  guid: batch_gemm
+  op_backend: Baddbmm
+  out_ids: [0]
+  op_validator: BAddBMMSharedMeta
+
+baddbmm_:
+  output_meta: BaddbmmMeta
+  guid: batch_gemm
+  op_backend: Baddbmm
+  inplace_ids: [0]
+  op_validator: BAddBMMSharedMeta
+
+
+baddbmm.out:
+  output_meta: BaddbmmMeta
+  guid: batch_gemm
+  op_backend: Baddbmm
+  op_validator: BAddBMMSharedMeta
+
+bernoulli:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: random_bernoulli_fwd
+  op_frontend: GeneratorToSeed
+  op_backend: Bernoulli
+  out_ids: [0]
+  op_validator: BernoulliSharedMeta
+  schema_args: "(Tensor self, *, Tensor? seed=None) -> Tensor"
+
+bernoulli_.float:
+  custom_fill_params: FillBernoulliWithPParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: random_bernoulli_fwd
+  inplace_ids: [0]
+  op_frontend: BernoulliFE
+  op_backend: BernoulliWithP
+  op_validator: BernoulliWithPSharedMeta
+  schema_args: "(Tensor(a!) self, float p, *, Tensor? seed=None) -> Tensor(a!)"
+
+bernoulli_.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: random_bernoulli_fwd
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: BernoulliWithP
+  op_validator: BernoulliWithPSharedMeta
+  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor? seed=None) -> Tensor(a!)"
+
+bernoulli.out:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: random_bernoulli_fwd
+  op_frontend: GeneratorToSeedOut
+  op_backend: BernoulliOut
+  op_validator: BernoulliSharedMeta
+  schema_args: "(Tensor self, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
+
+bernoulli.float_out:
+  custom_fill_params: FillBernoulliWithPParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: random_bernoulli_fwd
+  op_frontend: BernoulliOutFE
+  op_backend: BernoulliWithP
+  op_validator: BernoulliWithPSharedMeta
+  schema_args: "(Tensor self, float p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
+
+binary_cross_entropy:
+  output_meta: BinaryCrossEntropyFwdMetaData
+  dtypes:
+    Gaudi: [Float, BFloat16]
+    Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
+  op_backend: BinaryCrossEntropyFwd
+  out_ids: [0]
+  #op_validator: BinaryCrossEntropyFwdSharedMeta SW-163929
+
+binary_cross_entropy_backward:
+  output_meta: BinaryCrossEntropyBwdMetaData
+  dtypes:
+    Gaudi: [Float, BFloat16]
+    Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
+  op_backend: BinaryCrossEntropyBwd
+  out_ids: [0]
+  #op_validator: BinaryCrossEntropyBwdSharedMeta SW-163929
+
+binary_cross_entropy.out:
+  output_meta: BinaryCrossEntropyFwdMetaData
+  dtypes:
+    Gaudi: [Float, BFloat16]
+    Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
+  op_backend: BinaryCrossEntropyFwd
+  #op_validator: BinaryCrossEntropyFwdSharedMeta SW-163929
+
+binary_cross_entropy_backward.grad_input:
+  output_meta: BinaryCrossEntropyBwdMetaData
+  dtypes:
+    Gaudi: [Float, BFloat16]
+    Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
+  op_backend: BinaryCrossEntropyBwd
+  #op_validator: BinaryCrossEntropyBwdSharedMeta SW-163929
+
+binary_cross_entropy_with_logits:
+  output_meta: BinaryCrossEntropyLogitsFwdMetaData
+  dtypes:
+    Gaudi: [Float, BFloat16]
+    Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
+  op_backend: BinaryCrossEntropyWithLogitsFwd
+  fallback_check: [BCELogitsFallbackCheck, self]
+  out_ids: [0]
+  #op_validator: BinaryCrossEntropyWithLogitsFwdSharedMeta SW-163929
+
+bitwise_and.Scalar:
+  output_meta: BitwiseLogicalMeta
+  op_frontend: LazyBitwiseScalar
+  guid: bitwise_and_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  op_validator: BitwiseAndSharedMeta
+
+bitwise_and.Tensor:
+  output_meta: BitwiseLogicalMeta
+  guid: bitwise_and_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_and.Tensor_out:
+  output_meta: BitwiseLogicalMeta
+  guid: bitwise_and_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_and_.Tensor:
+  broadcast: true
+  guid: bitwise_and_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_left_shift.Scalar_Tensor:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  op_frontend: ScalarTypeConversion
+  out_ids: [1]
+  scalar_ids: [0]
+  op_validator: BitwiseShiftSharedMeta
+
+bitwise_left_shift.Tensor:
+  broadcast: true
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_left_shift.Tensor_out:
+  broadcast: true
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_left_shift.Tensor_Scalar:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_left_shift.Tensor_Scalar_out:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_left_shift_.Tensor:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_left_shift_.Tensor_Scalar:
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_not:
+  guid: bitwise_not_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+bitwise_not.out:
+  guid: bitwise_not_fwd
+  op_validator: check-node-with-shared-layer
+
+bitwise_not_:
+  guid: bitwise_not_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+bitwise_or.Scalar:
+  output_meta: BitwiseLogicalMeta
+  op_frontend: LazyBitwiseScalar
+  guid: bitwise_or_fwd
+  promote_to_common_type: [self, other]
+  out_ids: [0]
+  scalar_ids: [1]
+  op_validator: BitwiseOrSharedMeta
+
+bitwise_or.Tensor:
+  output_meta: BitwiseLogicalMeta
+  guid: bitwise_or_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_or.Tensor_out:
+  output_meta: BitwiseLogicalMeta
+  guid: bitwise_or_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_or_.Tensor:
+  broadcast: true # WA to make DS test pass SW-155788
+  guid: bitwise_or_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_right_shift.Scalar_Tensor:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  op_frontend: ScalarTypeConversion
+  out_ids: [1]
+  scalar_ids: [0]
+  op_validator: BitwiseShiftSharedMeta
+
+bitwise_right_shift.Tensor:
+  broadcast: true
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_right_shift.Tensor_out:
+  broadcast: true
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_right_shift.Tensor_Scalar:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_right_shift.Tensor_Scalar_out:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_right_shift_.Tensor:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_right_shift_.Tensor_Scalar:
+  custom_fill_params: FillRightShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_xor.Scalar:
+  output_meta: BitwiseLogicalMeta
+  op_frontend: LazyBitwiseScalar
+  guid: bitwise_xor_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  op_validator: BitwiseXorSharedMeta
+
+bitwise_xor.Tensor:
+  output_meta: BitwiseLogicalMeta
+  guid: bitwise_xor_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_xor.Tensor_out:
+  output_meta: BitwiseLogicalMeta
+  guid: bitwise_xor_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bitwise_xor_.Tensor:
+  broadcast: true
+  guid: bitwise_xor_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+bmm:
+  output_meta: BmmMeta
+  guid: batch_gemm
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+bmm.out:
+  output_meta: BmmMeta
+  guid: batch_gemm
+  op_validator: check-node-with-shared-layer
+
+bucketize.Scalar:
+  custom_fill_params: FillBucketizeParams
+  output_meta: BucketizeMeta
+  guid: search_sorted_fwd
+  promote_to_common_type: [self, boundaries]
+  tpc_input_order: [1, 0]
+  scalar_ids: [0]
+  out_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+bucketize.Tensor:
+  custom_fill_params: FillBucketizeParams
+  output_meta: BucketizeMeta
+  guid: search_sorted_fwd
+  promote_to_common_type: [self, boundaries]
+  tpc_input_order: [1, 0]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+bucketize.Tensor_out:
+  custom_fill_params: FillBucketizeParams
+  output_meta: BucketizeMeta
+  guid: search_sorted_fwd
+  promote_to_common_type: [self, boundaries]
+  tpc_input_order: [1, 0]
+  op_validator: check-node-with-shared-layer
+
+cat:
+  promote_to_common_type: [tensors]
+  output_meta: CatMeta
+  st_meta: CatSTMeta
+  guid: concat
+  op_backend: CatHabanaOperator
+  out_ids: [0]
+  op_validator: CatSharedMeta
+
+cat.out:
+  promote_to_common_type: [tensors]
+  output_meta: CatMeta
+  st_meta: CatSTMeta
+  guid: concat
+  op_backend: CatHabanaOperator
+  op_validator: CatSharedMeta
+
+ceil:
+  guid: ceil_fwd
+  out_ids: [0]
+  op_backend: RoundingFunc
+  op_validator: RoundingCeilSharedMeta
+
+ceil.out:
+  guid: ceil_fwd
+  op_backend: RoundingFunc
+  op_validator: RoundingCeilSharedMeta
+
+ceil_:
+  guid: ceil_fwd
+  inplace_ids: [0]
+  op_backend: RoundingFunc
+  op_validator: RoundingCeilSharedMeta
+
+channel_shuffle:
+  output_meta: ChannelShuffleMeta
+  custom_fill_params: FillChannelShuffleParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+  guid: channel_shuffle
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+cholesky:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+  out_ids: [0]
+
+cholesky.out:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+
+clamp:
+  custom_fill_params: FillClampParams
+  promote_to_common_type: [self, min, max]
+  output_meta: ClampMeta
+  guid: clamp_pt_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+clamp.Tensor:
+  promote_to_common_type: [self, min, max]
+  output_meta: ClampMeta
+  op_backend: clampTensor
+  out_ids: [0]
+  op_validator: ClampSharedMeta
+
+clamp_:
+  custom_fill_params: FillClampParams
+  promote_to_common_type: [self, min, max]
+  guid: clamp_pt_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+clamp_.Tensor:
+  promote_to_common_type: [self, min, max]
+  op_backend: clampTensor
+  inplace_ids: [0]
+  op_validator: ClampSharedMeta
+
+clamp.out:
+  custom_fill_params: FillClampParams
+  promote_to_common_type: [self, min, max]
+  guid: clamp_pt_fwd
+  output_meta: ClampMeta
+  op_backend: clamp
+  op_validator: ClampSharedMeta
+
+clamp.Tensor_out:
+  promote_to_common_type: [self, min, max]
+  output_meta: ClampMeta
+  op_backend: clampTensor
+  op_validator: ClampSharedMeta
+
+clamp_max:
+  custom_fill_params: FillClampMaxParams
+  guid: clamp_pt_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, max]
+  op_validator: check-node-with-shared-layer
+
+clamp_max.Tensor:
+  promote_to_common_type: [self, max]
+  broadcast: true
+  guid: clamp_pt_fwd
+  op_backend: clampMaxTensor
+  out_ids: [0]
+  op_validator: ClampMaxSharedMeta
+
+clamp_max_:
+  custom_fill_params: FillClampMaxParams
+  promote_to_common_type: [self, max]
+  guid: clamp_pt_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+clamp_max_.Tensor:
+  promote_to_common_type: [self, max]
+  guid: clamp_pt_fwd
+  op_backend: clampMaxTensor
+  inplace_ids: [0]
+  op_validator: ClampMaxSharedMeta
+
+clamp_max.out:
+  custom_fill_params: FillClampMaxParams
+  promote_to_common_type: [self, max]
+  guid: clamp_pt_fwd
+  op_backend: clamp
+  op_validator: ClampMaxSharedMeta
+
+clamp_max.Tensor_out:
+  promote_to_common_type: [self, max]
+  broadcast: true
+  op_backend: clampMaxTensor
+  op_validator: ClampMaxSharedMeta
+
+clamp_min:
+  custom_fill_params: FillClampMinParams
+  promote_to_common_type: [self, min]
+  guid: clamp_pt_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+clamp_min.Tensor:
+  promote_to_common_type: [self, min]
+  broadcast: true
+  guid: clamp_pt_fwd
+  op_backend: clampMinTensor
+  out_ids: [0]
+  op_validator: ClampMinSharedMeta
+
+clamp_min_:
+  custom_fill_params: FillClampMinParams
+  promote_to_common_type: [self, min]
+  guid: clamp_pt_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+clamp_min_.Tensor:
+  promote_to_common_type: [self, min]
+  guid: clamp_pt_fwd
+  op_backend: clampMinTensor
+  inplace_ids: [0]
+  op_validator: ClampMinSharedMeta
+
+clamp_min.out:
+  custom_fill_params: FillClampMinParams
+  promote_to_common_type: [self, min]
+  guid: clamp_pt_fwd
+  op_backend: clamp
+  op_validator: ClampMinSharedMeta
+
+clamp_min.Tensor_out:
+  promote_to_common_type: [self, min]
+  broadcast: true
+  op_backend: clampMinTensor
+  op_validator: ClampMinSharedMeta
+
+clone:
+  guid: identity
+  output_meta: CloneMeta
+  out_ids: [0]
+  no_compute_flag: true
+  op_validator: check-node-with-shared-layer
+
+lift_fresh_copy:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: identity
+  out_ids: [0]
+  no_compute_flag: true
+
+complex:
+  override_fn: complex_hpu
+
+constant_pad_nd:
+  output_meta: ConstantPadMeta
+  op_backend: ConstantPad
+  custom_fill_params: FillConstantPadParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Short, Char, Byte, Float8_e5m2, Float8_e4m3fn]
+  guid: pad_fwd
+  out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: constant_pad_hpu_lazy
+  op_validator: ConstantPadSharedMeta
+
+convolution_overrideable:
+  output_meta: ConvolutionOverrideableMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: ConvolutionOverrideableFE
+  op_backend: ConvolutionOverrideable
+  out_ids: [0]
+  op_validator: ConvolutionSharedMeta
+
+convolution:
+  output_meta: ConvolutionOverrideableMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: ConvolutionOverrideableFE
+  op_backend: ConvolutionOverrideable
+  out_ids: [0]
+  op_validator: ConvolutionSharedMeta
+
+convolution_backward_overrideable:
+  output_meta: ConvolutionOverrideableMetaBwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: ConvolutionBackwardOverrideableFE
+  op_backend: ConvolutionBackwardOverrideable
+  out_ids: [0, 0, 0]
+  op_validator: ConvolutionBwdOverrideableSharedMeta
+
+convolution_backward:
+  output_meta: ConvolutionOverrideableMetaBwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: ConvolutionBackwardOverrideableFE
+  op_backend: ConvolutionBackwardOverrideable
+  # guid is specified here to distinguish between convolution_backward_overrideable
+  # and convolution_backward, which takes additional bias_sizes argument
+  guid: convolution_backward
+  out_ids: [0, 0, 0]
+  op_validator: ConvolutionBwdSharedMeta
+
+copysign.out:
+  broadcast: true
+  guid: copy_sign_fwd
+  promote_int_to_float: [self, other]
+  op_validator: check-node-with-shared-layer
+
+copysign.Scalar_out:
+  guid: copy_sign_fwd
+  promote_int_to_float: [self, other]
+  scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+copysign_.Scalar:
+  guid: copy_sign_fwd
+  inplace_ids: [0]
+  promote_int_to_float: [self, other]
+  scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+copysign_.Tensor:
+  guid: copy_sign_fwd
+  inplace_ids: [0]
+  promote_int_to_float: [self, other]
+  op_validator: check-node-with-shared-layer
+
+copysign.Scalar:
+  guid: copy_sign_fwd
+  scalar_ids: [1]
+  out_ids: [0]
+  promote_int_to_float: [self, other]
+  op_validator: check-node-with-shared-layer
+
+copysign.Tensor:
+  broadcast: true
+  guid: copy_sign_fwd
+  out_ids: [0]
+  promote_int_to_float: [self, other]
+  op_validator: check-node-with-shared-layer
+
+cos:
+  promote_int_to_float: [self]
+  guid: cos_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+cos.out:
+  promote_int_to_float: [self]
+  guid: cos_fwd
+  op_validator: check-node-with-shared-layer
+
+cos_:
+  promote_int_to_float: [self]
+  guid: cos_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+cosh:
+  promote_int_to_float: [self]
+  guid: cosh_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+cosh.out:
+  promote_int_to_float: [self]
+  guid: cosh_fwd
+  op_validator: check-node-with-shared-layer
+
+cosh_:
+  promote_int_to_float: [self]
+  guid: cosh_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+count_nonzero.dim_IntList:
+  custom_fill_params: FillCountNonzeroParams
+  output_meta: CountNonzeroMeta
+  guid: count_non_zero_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+count_nonzero:
+  custom_fill_params: FillCountNonzeroParams
+  output_meta: CountNonzeroMeta
+  guid: count_non_zero_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+
+cumprod:
+  custom_fill_params: FillCumsumParams
+  guid: cumprod_fwd
+  output_meta: CumsumMeta
+  op_backend: CumsumHabanaOperator
+  out_ids: [0]
+  op_validator: FillCumProdSharedMeta
+
+cumprod.out:
+  custom_fill_params: FillCumsumParams
+  guid: cumprod_fwd
+  output_meta: CumsumMeta
+  op_backend: CumsumHabanaOperator
+  op_validator: FillCumProdSharedMeta
+
+cumprod_:
+  custom_fill_params: FillCumsumParams
+  guid: cumprod_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+cumsum:
+  custom_fill_params: FillCumsumParams
+  guid: cumsum_fwd
+  output_meta: CumsumMeta
+  op_backend: CumsumHabanaOperator
+  out_ids: [0]
+  op_validator: FillCumSumSharedMeta
+
+cumsum.out:
+  custom_fill_params: FillCumsumParams
+  guid: cumsum_fwd
+  output_meta: CumsumMeta
+  op_backend: CumsumHabanaOperator
+  op_validator: FillCumSumSharedMeta
+
+cumsum_:
+  custom_fill_params: FillCumsumParams
+  guid: cumsum_fwd
+  output_meta: CumsumMeta
+  op_backend: CumsumHabanaOperator
+  inplace_ids: [0]
+  op_validator: FillCumSumSharedMeta
+
+diag.out:
+  output_meta: DiagMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+  custom_fill_params: FillDiagParams
+  op_backend: Diag
+
+div.out:
+  broadcast: true
+  guid: div
+  promote_int_to_float: [self, other]
+  op_backend: Divide
+  op_frontend: BinaryScalarFE
+  op_validator: DivideSharedMeta
+
+div.out_mode:
+  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
+  guid: div
+  op_backend: DivRoundModeOperator
+  output_meta: DivModeMeta
+  op_validator: DivModeSharedMeta
+
+div.Scalar:
+  guid: div
+  op_frontend: BinaryScalarToTensor_Int2Float
+  out_ids: [0]
+  scalar_ids: [1]
+  promote_int_to_float: [self, other]
+  op_backend: Divide
+  op_validator: DivideSharedMeta
+
+div_.Scalar:
+  guid: div
+  op_frontend: LazyDivScalarInplace
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_int_to_float: [self, other]
+  op_backend: Divide
+  op_validator: DivideSharedMeta
+
+div.Scalar_mode:
+  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
+  guid: div
+  op_frontend: DivMode
+  op_backend: DivRoundModeOperator
+  out_ids: [0]
+  scalar_ids: [1]
+  output_meta: DivModeMeta
+  op_validator: DivModeSharedMeta
+
+div_.Scalar_mode:
+  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
+  guid: div
+  op_frontend: DivMode
+  op_backend: DivRoundModeOperator
+  inplace_ids: [0]
+  scalar_ids: [1]
+  op_validator: DivModeSharedMeta
+
+div.Tensor:
+  broadcast: true
+  guid: div
+  out_ids: [0]
+  promote_int_to_float: [self, other]
+  op_backend: Divide
+  op_frontend: BinaryScalarFE
+  op_validator: DivideSharedMeta
+
+div.Tensor_mode:
+  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
+  guid: div
+  op_frontend: DivMode
+  op_backend: DivRoundModeOperator
+  output_meta: DivModeMeta
+  out_ids: [0]
+  op_validator: DivModeSharedMeta
+
+div_.Tensor:
+  guid: div
+  inplace_ids: [0]
+  promote_int_to_float: [self, other]
+  op_backend: Divide
+  op_frontend: BinaryScalarFE
+  op_validator: DivideSharedMeta
+
+div_.Tensor_mode:
+  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
+  guid: div
+  op_frontend: DivMode
+  op_backend: DivRoundModeOperator
+  inplace_ids: [0]
+  op_validator: DivModeSharedMeta
+
+div.Scalar_mode_out:
+  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
+  guid: div
+  op_frontend: DivMode
+  op_backend: DivRoundModeOperator
+  output_meta: DivModeMeta
+  scalar_ids: [1]
+  op_validator: DivModeSharedMeta
+
+div.Scalar_out:
+  guid: div
+  op_frontend: LazyDivScalarInplace
+  promote_int_to_float: [self, other]
+  scalar_ids: [1]
+  op_backend: Divide
+  op_validator: DivideSharedMeta
+
+dot:
+  output_meta: DotMeta
+  guid: dot_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+dot.out:
+  output_meta: DotMeta
+  guid: dot_fwd
+  op_validator: check-node-with-shared-layer
+
+elu:
+  custom_fill_params: FillEluParams
+  guid: elu_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+elu_:
+  custom_fill_params: FillEluParams
+  guid: elu_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+elu.out:
+  custom_fill_params: FillEluParams
+  guid: elu_fwd
+  op_validator: check-node-with-shared-layer
+
+elu_backward:
+  custom_fill_params: FillEluBackwardParams
+  guid: elu_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+elu_backward.grad_input:
+  custom_fill_params: FillEluBackwardParams
+  guid: elu_bwd
+  op_validator: check-node-with-shared-layer
+
+embedding:
+  dtypes:
+    Gaudi:
+      weight: [BFloat16, Float, Int, Char, Short, Byte]
+      indices: [Int, Long]
+    Gaudi2:
+      weight: [BFloat16, Float, Half, Int, Char, Short, Byte, Float8_e5m2, Float8_e4m3fn]
+      indices: [Int, Long]
+    Gaudi3:
+      weight: [BFloat16, Float, Half, Int, Char, Short, Byte, Float8_e5m2, Float8_e4m3fn]
+      indices: [Int, Long]
+  fallback_check: [EmbeddingFallbackCheck, scale_grad_by_freq, sparse]
+  output_meta: EmbeddingMeta
+  guid: embedding_pt_fwd
+  out_ids: [0]
+  #op_validator: check-node-with-shared-layer - disabled due to [SW-205212]
+
+embedding_dense_backward:
+  custom_fill_params: FillEmbeddingDenseBackwardParams
+  dtypes:
+    Gaudi:
+      grad_output: [BFloat16, Float]
+      indices: [Int, Long]
+    Gaudi2:
+      grad_output: [BFloat16, Float, Half]
+      indices: [Int, Long]
+    Gaudi3:
+      grad_output: [BFloat16, Float, Half]
+      indices: [Int, Long]
+  output_meta: EmbeddingDenseBwdMeta
+  guid: embedding_dense_pt_bwd
+  op_backend: EmbeddingDenseBwd
+  out_ids: [0]
+  #op_validator: EmbeddingDenseBwdSharedMeta - disabled due to [SW-205212]
+
+embedding_renorm_:
+  custom_fill_params: FillEmbeddingRenormFwdParams
+  guid: embedding_renorm_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+embedding_renorm:
+  custom_fill_params: FillEmbeddingRenormFwdParams
+  guid: embedding_renorm_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+equal:
+  guid: equal_pt_fwd
+  custom_fill_params: FillEqualParams
+  output_meta: EqualMeta
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+eq.Scalar_out:
+  guid: equal_fwd
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+eq.Tensor_out:
+  guid: equal_fwd
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+eq_.Scalar:
+  guid: equal_fwd
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+eq_.Tensor:
+  guid: equal_fwd
+  output_meta: CompareMeta
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+eq.Scalar:
+  guid: equal_fwd
+  op_frontend: CompareScalarToTensor
+  op_validator: CompareEqSharedMeta
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+
+eq.Tensor:
+  guid: equal_fwd
+  output_meta: CompareMeta
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+erf:
+  promote_int_to_float: [self]
+  guid: erf_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+erf_:
+  promote_int_to_float: [self]
+  guid: erf_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+erf.out:
+  promote_int_to_float: [self]
+  guid: erf_fwd
+  op_validator: check-node-with-shared-layer
+
+erfc:
+  promote_int_to_float: [self]
+  guid: erfc_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+erfc_:
+  promote_int_to_float: [self]
+  guid: erfc_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+erfc.out:
+  promote_int_to_float: [self]
+  guid: erfc_fwd
+  op_validator: check-node-with-shared-layer
+
+erfinv:
+  promote_int_to_float: [self]
+  guid: erfinv_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+erfinv_:
+  promote_int_to_float: [self]
+  guid: erfinv_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+erfinv.out:
+  promote_int_to_float: [self]
+  guid: erfinv_fwd
+  op_validator: check-node-with-shared-layer
+
+exp:
+  promote_int_to_float: [self]
+  guid: exp_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+exp_:
+  promote_int_to_float: [self]
+  guid: exp_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+exp.out:
+  promote_int_to_float: [self]
+  guid: exp_fwd
+  op_validator: check-node-with-shared-layer
+
+exp2:
+  promote_int_to_float: [self]
+  guid: pow2_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+exp2.out:
+  promote_int_to_float: [self]
+  guid: pow2_fwd
+  op_validator: check-node-with-shared-layer
+
+exp2_:
+  promote_int_to_float: [self]
+  guid: pow2_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+expm1:
+  promote_int_to_float: [self]
+  guid: expm1_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+expm1.out:
+  promote_int_to_float: [self]
+  guid: expm1_fwd
+  op_validator: check-node-with-shared-layer
+
+expand:
+  override_fn: expand_hpu_lazy
+  acc_thread: true
+
+expm1_:
+  promote_int_to_float: [self]
+  guid: expm1_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+exponential:
+  custom_fill_params: FillExponentialParams
+  op_frontend: GeneratorToSeed
+  op_backend: ExponentialSeedTensorInput
+  out_ids: [0]
+  output_meta: ExponentialMeta
+  schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
+  op_validator: ExponentialSharedMeta
+
+exponential_:
+  custom_fill_params: FillExponentialParams
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: ExponentialSeedTensorInput
+  schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
+  op_validator: ExponentialSharedMeta
+
+exponential.out:
+  custom_fill_params: FillExponentialParams
+  op_frontend: GeneratorToSeedOut
+  op_backend: ExponentialSeedTensorInput
+  output_meta: ExponentialMeta
+  schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: ExponentialSharedMeta
+
+eye.out:
+  output_meta: EyeMeta
+  op_backend: EyeOpOut
+  op_validator: EyeSharedMeta
+
+eye.m_out:
+  output_meta: EyeMeta
+  op_backend: EyeOpOut
+  op_validator: EyeSharedMeta
+
+fill.Scalar:
+  op_backend: FillScalar
+  op_frontend: FillFE
+  out_ids: [0]
+  op_validator: FillScalarSharedMeta
+
+fill.Scalar_out:
+  op_backend: FillScalar
+  op_frontend: FillFE
+  op_validator: FillScalarSharedMeta
+
+fill.Tensor_out:
+  guid: fill_fwd
+  op_validator: check-node-with-shared-layer
+
+fill_.Scalar:
+  op_backend: FillScalar
+  op_frontend: FillFE
+  inplace_ids: [0]
+  op_validator: FillScalarSharedMeta
+
+fill_.Tensor:
+  guid: fill_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+flip:
+  op_backend: Flip
+  out_ids: [0]
+  op_validator: FlipSharedMeta
+
+floor:
+  guid: floor_fwd
+  op_backend: RoundingFunc
+  out_ids: [0]
+  op_validator: RoundingFloorSharedMeta
+
+floor.out:
+  guid: floor_fwd
+  op_backend: RoundingFunc
+  op_validator: RoundingFloorSharedMeta
+
+floor_:
+  guid: floor_fwd
+  inplace_ids: [0]
+  op_backend: RoundingFunc
+  op_validator: RoundingFloorSharedMeta
+
+floor_divide.out:
+  custom_fill_params: FillFloorDivideParams
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
+  guid: floor_divide_fwd
+  promote_to_common_type: [self, other]
+  op_frontend: BinaryScalarFE
+  op_validator: FloorDivideSharedMeta
+
+floor_divide:
+  custom_fill_params: FillFloorDivideParams
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
+  guid: floor_divide_fwd
+  promote_to_common_type: [self, other]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+floor_divide_.Tensor:
+  custom_fill_params: FillFloorDivideParams
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
+  guid: floor_divide_fwd
+  promote_to_common_type: [self, other]
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+floor_divide.Scalar:
+  custom_fill_params: FillFloorDivideParams
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
+  guid: floor_divide_fwd
+  promote_to_common_type: [self, other]
+  scalar_ids: [1]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+floor_divide.Scalar_out:
+  custom_fill_params: FillFloorDivideParams
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
+  guid: floor_divide_fwd
+  promote_to_common_type: [self, other]
+  scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+frac:
+  op_backend: Frac
+  out_ids: [0]
+  op_validator: FracSharedMeta
+
+frac_:
+  op_backend: Frac
+  inplace_ids: [0]
+  op_validator: FracSharedMeta
+
+frac.out:
+  op_backend: Frac
+  op_validator: FracSharedMeta
+
+frexp.Tensor:
+  output_meta: FrexpMeta
+  op_backend: Frexp
+  guid: frexp
+  out_ids: [0, 0]
+  op_validator: FrexpSharedMeta
+
+frexp.Tensor_out:
+  output_meta: FrexpMeta
+  guid: frexp
+  op_backend: Frexp
+  op_validator: FrexpSharedMeta
+
+fmod.Scalar:
+  guid: mod_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmod.Scalar_out:
+  guid: mod_fwd
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmod.Tensor:
+  broadcast: true
+  guid: mod_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmod.Tensor_out:
+  broadcast: true
+  guid: mod_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmod_.Scalar:
+  guid: mod_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmod_.Tensor:
+  guid: mod_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+gather:
+  custom_fill_params: FillGatherParams
+  output_meta: GatherMeta
+  op_backend: GatherElementsOperator
+  guid: gather_elements_fwd
+  out_ids: [0]
+  op_validator: GatherSharedMeta
+
+gather.out:
+  custom_fill_params: FillGatherParams
+  output_meta: GatherMeta
+  op_backend: GatherElementsOperator
+  guid: gather_elements_fwd
+  op_validator: GatherSharedMeta
+
+ge.Scalar_out:
+  guid: greater_equal_fwd
+  scalar_ids: [1]
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+ge.Tensor_out:
+  guid: greater_equal_fwd
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+ge_.Scalar:
+  guid: greater_equal_fwd
+  scalar_ids: [1]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+ge_.Tensor:
+  guid: greater_equal_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+ge.Scalar:
+  guid: greater_equal_fwd
+  op_frontend: CompareScalarToTensor
+  scalar_ids: [1]
+  out_ids: [0]
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: CompareGeSharedMeta
+
+ge.Tensor:
+  guid: greater_equal_fwd
+  output_meta: CompareMeta
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+gelu:
+  op_backend: Gelu
+  output_meta: GeluMeta
+  out_ids: [0]
+  op_validator: GeluSharedMeta
+
+gelu_:
+  op_backend: Gelu
+  inplace_ids: [0]
+  op_validator: GeluSharedMeta
+
+gelu.out:
+  output_meta: GeluMeta
+  op_backend: Gelu
+  op_validator: GeluSharedMeta
+
+gelu_backward:
+  custom_fill_params: FillGeluBwdParams
+  guid: cgelu_bwd
+
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+gelu_backward.grad_input:
+  custom_fill_params: FillGeluBwdParams
+  guid: cgelu_bwd
+  op_validator: check-node-with-shared-layer
+
+geometric_:
+  custom_fill_params: FillRandomNegativeBinomialParams
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: Geometric
+  schema_args: "(Tensor(a!) self, float p, Tensor seed) -> Tensor(a!)"
+  op_validator: GeometricSharedMeta
+
+geometric.out:
+  custom_fill_params: FillRandomNegativeBinomialParams
+  op_frontend: GeneratorToSeedOut
+  op_backend: Geometric
+  schema_args: "(Tensor self, float p, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: GeometricSharedMeta
+
+glu:
+  guid: glu_fwd
+  custom_fill_params: FillGluFwdParams
+  output_meta: GluMeta
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+glu.out:
+  guid: glu_fwd
+  custom_fill_params: FillGluFwdParams
+  output_meta: GluMeta
+  op_validator: check-node-with-shared-layer
+
+glu_backward:
+  output_meta: GluBwdMeta
+  custom_fill_params: FillGluBwdParams
+  guid: glu_bwd
+  out_ids: [0]
+  safe_cast_check: false
+  op_validator: check-node-with-shared-layer
+
+glu_backward.grad_input:
+  output_meta: GluBwdMeta
+  custom_fill_params: FillGluBwdParams
+  guid: glu_bwd
+  op_validator: check-node-with-shared-layer
+
+grid_sampler_2d:
+  custom_fill_params: FillGridSamplerParams
+  output_meta: GridSampler2dMeta
+  guid: grid_sampler_fwd
+  synapse_layouts:
+  - [WHCN, AWHN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+grid_sampler_3d:
+  custom_fill_params: FillGridSamplerParams
+  output_meta: GridSampler3dMeta
+  guid: grid_sampler_fwd
+  synapse_layouts:
+  - [WHDCN, AWHDN]
+  - [WHDCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+native_group_norm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+  guid: native_group_norm_fwd
+  custom_fill_params: FillNativeGroupNormParams
+  op_backend: NativeGroupNormFwd
+  output_meta: GroupNormFwdMeta
+  out_ids: [0, 0, 0]
+  op_validator: NativeGroupNormFwdSharedMeta
+
+native_group_norm_backward:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+  output_meta: GroupNormBwdMeta
+  op_backend: NativeGroupNormBwdHabanaOperator
+  synapse_layouts:
+  - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
+  out_ids: [0, 0, 0]
+  op_validator: NativeGroupNormBwdSharedMeta
+  lazy:
+    acc_thread: true
+    override_fn: native_group_norm_backward_hpu_lazy
+
+gt.Scalar_out:
+  guid: greater_fwd
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+gt.Tensor_out:
+  guid: greater_fwd
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+gt_.Scalar:
+  guid: greater_fwd
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+gt_.Tensor:
+  guid: greater_fwd
+  output_meta: CompareMeta
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+gt.Scalar:
+  guid: greater_fwd
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: CompareGtSharedMeta
+
+gt.Tensor:
+  guid: greater_fwd
+  output_meta: CompareMeta
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+hardshrink:
+  guid: shrink_fwd
+  op_backend: HardShrinkFwd
+  out_ids: [0]
+  op_validator: HardShrinkFwdSharedMeta
+
+hardshrink.out:
+  guid: shrink_fwd
+  op_backend: HardShrinkFwd
+  op_validator: HardShrinkFwdSharedMeta
+
+hardshrink_backward:
+  guid: shrink_bwd
+  op_backend: HardShrinkBwd
+  out_ids: [0]
+  op_validator: HardShrinkBwdSharedMeta
+
+hardshrink_backward.grad_input:
+  guid: shrink_bwd
+  op_backend: HardShrinkBwd
+  op_validator: HardShrinkBwdSharedMeta
+
+hardsigmoid.out:
+  custom_fill_params: FillHardSigmoidParams
+  guid: hard_sigmoid_fwd
+  op_validator: check-node-with-shared-layer
+
+hardsigmoid_backward.grad_input:
+  custom_fill_params: FillHardSigmoidParams
+  guid: hard_sigmoid_bwd
+  op_validator: check-node-with-shared-layer
+
+hardsigmoid:
+  custom_fill_params: FillHardSigmoidParams
+  guid: hard_sigmoid_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardsigmoid_:
+  custom_fill_params: FillHardSigmoidParams
+  guid: hard_sigmoid_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardsigmoid_backward:
+  custom_fill_params: FillHardSigmoidParams
+  guid: hard_sigmoid_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardswish:
+  guid: hard_swish_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardswish.out:
+  guid: hard_swish_fwd
+  op_validator: check-node-with-shared-layer
+
+hardswish_:
+  guid: hard_swish_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardswish_backward:
+  guid: hard_swish_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardtanh:
+  custom_fill_params: FillClampParams
+  guid: clamp_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardtanh_:
+  custom_fill_params: FillClampParams
+  guid: clamp_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardtanh.out:
+  custom_fill_params: FillClampParams
+  guid: clamp_fwd
+  op_validator: check-node-with-shared-layer
+
+hardtanh_backward:
+  custom_fill_params: FillHardTanhBwdParams
+  guid: hardtanh_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hardtanh_backward.grad_input:
+  custom_fill_params: FillHardTanhBwdParams
+  guid: hardtanh_bwd
+  op_validator: check-node-with-shared-layer
+
+huber_loss:
+  custom_fill_params: FillHuberLossFwdParams
+  output_meta: HuberLossMeta
+  guid: huber_loss_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+huber_loss.out:
+  custom_fill_params: FillHuberLossFwdParams
+  output_meta: HuberLossMeta
+  guid: huber_loss_fwd
+  op_validator: check-node-with-shared-layer
+
+huber_loss_backward:
+  output_meta: HuberLossBackwardMeta
+  op_backend: HuberLossBwdOperator
+  out_ids: [0]
+  op_validator: HuberLossBackwardSharedMeta
+
+huber_loss_backward.out:
+  output_meta: HuberLossBackwardMeta
+  op_backend: HuberLossBwdOperator
+  op_validator: HuberLossBackwardSharedMeta
+
+heaviside:
+  broadcast: true
+  guid: heaviside_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+heaviside.out:
+  broadcast: true
+  guid: heaviside_fwd
+  op_validator: check-node-with-shared-layer
+
+heaviside_:
+  guid: heaviside_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hypot:
+  broadcast: true
+  guid: hypot_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+hypot.out:
+  broadcast: true
+  guid: hypot_fwd
+  op_validator: check-node-with-shared-layer
+
+hypot_:
+  guid: hypot_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+index.Tensor:
+  output_meta: IndexMeta
+  custom_fill_params: FillIndexParams
+  guid: index
+  fallback_check: [IndexFallbackCheck, indices]
+  op_backend: IndexHabanaOperator
+  op_validator: IndexSharedMeta
+  op_frontend: IndexFE
+  schema_args: "(Tensor self, Tensor[] indices, bool[] advanced_indexing_dims, int[] self_permute_dims, int num_index_tensors) -> Tensor"
+  out_ids: [0]
+
+index.Tensor_out:
+  output_meta: IndexMeta
+  custom_fill_params: FillIndexParams
+  guid: index
+  fallback_check: [IndexFallbackCheck, indices]
+  op_backend: IndexHabanaOperator
+  op_validator: IndexSharedMeta
+  op_frontend: IndexOutFE
+  schema_args: "(Tensor self, Tensor[] indices, bool[] advanced_indexing_dims, int[] self_permute_dims, int num_index_tensors, Tensor(a!) out) -> Tensor(a!)"
+
+isfinite:
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  guid: isfinite_fwd
+  out_ids: [0]
+  op_validator: IsFiniteSharedMeta
+
+isinf:
+  custom_fill_params: FillisinfParamsFwd
+  guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  out_ids: [0]
+  op_validator: IsInfSharedMeta
+
+isinf.out:
+  custom_fill_params: FillisinfParamsFwd
+  guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  op_validator: IsInfSharedMeta
+
+isnan:
+  guid: isnan_fwd
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  out_ids: [0]
+  op_validator: IsNanSharedMeta
+
+isneginf:
+  custom_fill_params: FillisneginfParamsFwd
+  guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  out_ids: [0]
+  op_validator: IsInfSharedMeta
+
+isneginf.out:
+  custom_fill_params: FillisneginfParamsFwd
+  guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  op_validator: IsInfSharedMeta
+
+isposinf:
+  custom_fill_params: FillisposinfParamsFwd
+  guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  out_ids: [0]
+  op_validator: IsInfSharedMeta
+
+isposinf.out:
+  custom_fill_params: FillisposinfParamsFwd
+  guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
+  op_backend: _IsFiniteInfNan
+  op_validator: IsInfSharedMeta
+
+kl_div:
+  dtypes: [BFloat16, Float]
+  override_fn: kl_div_hpu_lazy
+  acc_thread: true
+
+kthvalue:
+  custom_fill_params: FillKthvalueParams
+  guid: kthvalue_fwd
+  output_meta: KthvalueMeta
+  out_ids: [0, 0]
+  op_validator: check-node-with-shared-layer
+
+kthvalue.values:
+  custom_fill_params: FillKthvalueParams
+  guid: kthvalue_fwd
+  output_meta: KthvalueMeta
+  op_validator: check-node-with-shared-layer
+
+index_add_:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int]
+      index: [Int]
+      source: [BFloat16, Float, Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Half]
+      index: [Int]
+      source: [BFloat16, Float, Int, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Half]
+      index: [Int]
+      source: [BFloat16, Float, Int, Half]
+  override_fn: index_add_hpu_lazy_
+  acc_thread: true
+
+index_copy:
+  guid: index_copy_fwd
+  custom_fill_params: FillIndexCopyParams
+  # op_backend: IndexCopy
+  output_meta: IndexCopyMeta
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+index_copy_:
+  guid: index_copy_fwd
+  custom_fill_params: FillIndexCopyParams
+  output_meta: IndexCopyMeta
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+index_copy.out:
+  guid: index_copy_fwd
+  output_meta: IndexCopyMeta
+  custom_fill_params: FillIndexCopyParams
+  op_validator: check-node-with-shared-layer
+
+
+index_fill_.int_Scalar:
+  output_meta: IndexFillMeta
+  custom_fill_params: FillIndexCopyParams
+  op_backend: IndexFill
+  guid: index_copy_fwd
+  inplace_ids: [0]
+  op_validator: IndexFillSharedMeta
+
+index_fill_.int_Tensor:
+  output_meta: IndexFillMeta
+  custom_fill_params: FillIndexCopyParams
+  op_backend: IndexFill
+  guid: index_copy_fwd
+  inplace_ids: [0]
+  op_validator: IndexFillSharedMeta
+
+index_fill.int_Scalar:
+  output_meta: IndexFillMeta
+  custom_fill_params: FillIndexCopyParams
+  op_backend: IndexFill
+  guid: index_copy_fwd
+  out_ids: [0]
+  op_validator: IndexFillSharedMeta
+
+index_reduce.out:
+  custom_fill_params: IndexReduceFillParams
+  guid: index_reduce_fwd
+  op_validator: check-node-with-shared-layer
+  fallback_check: [IndexReduceFallbackCheck, dim, reduce, include_self]
+
+index_reduce:
+  custom_fill_params: IndexReduceFillParams
+  guid: index_reduce_fwd
+  op_validator: check-node-with-shared-layer
+  fallback_check: [IndexReduceFallbackCheck, dim, reduce, include_self]
+  out_ids: [0]
+
+index_select:
+  out_ids: [0]
+  output_meta: IndexSelectMeta
+  guid: gather_fwd
+  custom_fill_params: FillIndexSelectParams
+  fallback_check: [IndexSelectFallbackCheck, self]
+  op_validator: check-node-with-shared-layer
+
+index_select.out:
+  output_meta: IndexSelectMeta
+  guid: gather_fwd
+  custom_fill_params: FillIndexSelectParams
+  fallback_check: [IndexSelectFallbackCheck, self]
+  op_validator: check-node-with-shared-layer
+
+isin.Tensor_Tensor:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_elements]
+
+isin.Tensor_Scalar:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_element]
+  scalar_ids: [1]
+
+isin.Scalar_Tensor:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [1]
+  output_meta: ScalarIsinMeta
+  promote_to_common_type: [element, test_elements]
+  scalar_ids: [0]
+
+isin.Tensor_Tensor_out:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_elements]
+  safe_cast_check: false
+
+isin.Tensor_Scalar_out:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_element]
+  safe_cast_check: false
+  scalar_ids: [1]
+
+isin.Scalar_Tensor_out:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  output_meta: ScalarIsinMeta
+  promote_to_common_type: [element, test_elements]
+  safe_cast_check: false
+  scalar_ids: [0]
+
+le.Scalar_out:
+  guid: less_equal_fwd
+  scalar_ids: [1]
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+le.Tensor_out:
+  guid: less_equal_fwd
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+le_.Scalar:
+  guid: less_equal_fwd
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+le_.Tensor:
+  guid: less_equal_fwd
+  output_meta: CompareMeta
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+le.Scalar:
+  guid: less_equal_fwd
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: CompareLeSharedMeta
+
+le.Tensor:
+  guid: less_equal_fwd
+  output_meta: CompareMeta
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+leaky_relu_backward.grad_input:
+  custom_fill_params: FillLeakyReluBackwardParams
+  guid: leakyrelu_bwd
+  op_validator: check-node-with-shared-layer
+
+leaky_relu_backward:
+  custom_fill_params: FillLeakyReluBackwardParams
+  guid: leakyrelu_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+leaky_relu:
+  custom_fill_params: FillLeakyReluParams
+  guid: leakyrelu_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+leaky_relu_:
+  custom_fill_params: FillLeakyReluParams
+  guid: leakyrelu_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+leaky_relu.out:
+  custom_fill_params: FillLeakyReluParams
+  guid: leakyrelu_fwd
+  op_validator: check-node-with-shared-layer
+
+lerp.Scalar:
+  output_meta: LerpMeta
+  op_backend: Lerp
+  scalar_ids: [2]
+  out_ids: [0]
+  op_validator: LerpSharedMeta
+
+lerp.Tensor:
+  output_meta: LerpMeta
+  op_backend: Lerp
+  out_ids: [0]
+  op_validator: LerpSharedMeta
+
+lerp.Scalar_out:
+  output_meta: LerpMeta
+  op_backend: Lerp
+  scalar_ids: [2]
+  op_validator: LerpSharedMeta
+
+lerp.Tensor_out:
+  output_meta: LerpMeta
+  op_backend: Lerp
+  op_validator: LerpSharedMeta
+
+lerp_.Scalar:
+  output_meta: LerpMeta
+  op_backend: Lerp
+  scalar_ids: [2]
+  inplace_ids: [0]
+  op_validator: LerpSharedMeta
+
+lerp_.Tensor:
+  output_meta: LerpMeta
+  op_backend: Lerp
+  inplace_ids: [0]
+  op_validator: LerpSharedMeta
+
+lgamma.out:
+  promote_int_to_float: [self]
+  guid: gammaln_fwd
+  op_validator: check-node-with-shared-layer
+
+linalg_cross:
+  op_backend: LinAlgCross
+  op_validator: LinAlgCrossSharedMeta
+  out_ids: [0]
+
+linalg_cross.out:
+  op_backend: LinAlgCross
+  op_validator: LinAlgCrossSharedMeta
+
+linalg_vector_norm:
+  output_meta: VecNormMeta
+  op_backend: VecNormOp
+  op_validator: NormOpWithDtypeSharedMeta
+  out_ids: [0]
+
+linalg_vector_norm.out:
+  output_meta: VecNormMeta
+  op_backend: VecNormOp
+  op_validator: NormOpWithDtypeSharedMeta
+
+linalg_cholesky_ex:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+  out_ids: [0, 0]
+  output_meta: CholeskyMeta
+
+linalg_cholesky_ex.L:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+
+linear:
+  output_meta: LinearMeta
+  guid: linear_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+linear_backward:
+  output_meta: LinearBackwardMeta
+  custom_fill_params: FillLinearBwdParams
+  guid: linear_temp_bwd
+  out_ids: [0, 0, 0]
+  op_validator: check-node-with-shared-layer
+
+linspace.Tensor_Scalar:
+  op_backend: LinspaceOut
+  op_validator: LinspaceOutSharedMeta
+  output_meta: LinspaceMeta
+  out_ids: [0]
+
+linspace.Scalar_Tensor:
+  op_backend: LinspaceOut
+  op_validator: LinspaceOutSharedMeta
+  output_meta: LinspaceMeta
+  out_ids: [0]
+
+linspace.out:
+  op_backend: LinspaceOut
+  op_validator: LinspaceOutSharedMeta
+  output_meta: LinspaceMeta
+
+log.out:
+  promote_int_to_float: [self]
+  guid: log_fwd
+  op_validator: check-node-with-shared-layer
+
+log:
+  promote_int_to_float: [self]
+  guid: log_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log_:
+  promote_int_to_float: [self]
+  guid: log_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log1p:
+  promote_int_to_float: [self]
+  guid: log1p_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log1p_:
+  promote_int_to_float: [self]
+  guid: log1p_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log1p.out:
+  promote_int_to_float: [self]
+  guid: log1p_fwd
+  op_validator: check-node-with-shared-layer
+
+log10:
+  promote_int_to_float: [self]
+  guid: log10_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log10_:
+  promote_int_to_float: [self]
+  guid: log10_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log10.out:
+  promote_int_to_float: [self]
+  guid: log10_fwd
+  op_validator: check-node-with-shared-layer
+
+log2.out:
+  promote_int_to_float: [self]
+  guid: log2_fwd
+  op_validator: check-node-with-shared-layer
+
+log2:
+  promote_int_to_float: [self]
+  guid: log2_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log2_:
+  promote_int_to_float: [self]
+  guid: log2_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+logaddexp:
+  broadcast: true
+  guid: logaddexp_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+logaddexp.out:
+  broadcast: true
+  guid: logaddexp_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+logaddexp2:
+  broadcast: true
+  guid: logaddexp2_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+logaddexp2.out:
+  broadcast: true
+  guid: logaddexp2_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+logcumsumexp:
+  guid: log_cumsum_exp_fwd
+  custom_fill_params: FillCumsumParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+_logcumsumexp:
+  guid: log_cumsum_exp_fwd
+  custom_fill_params: FillCumsumParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+log_normal_:
+  custom_fill_params: FillLogNormalParams
+  guid: log_normal_fwd
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: RandomSeedTensorInput
+  op_validator: RandomLogNormalSharedMeta
+  schema_args: "(Tensor(a!) self, float mean=1, float std=2, *, Tensor seed) -> Tensor(a!)"
+
+log_sigmoid_backward:
+  op_backend: LogSigmoidBackward
+  op_validator: LogSigmoidBwdSharedMeta
+  out_ids: [0]
+
+log_sigmoid_backward.grad_input:
+  op_backend: LogSigmoidBackward
+  op_validator: LogSigmoidBwdSharedMeta
+
+log_sigmoid_forward:
+  output_meta: LogSigmoidFwdMeta
+  op_backend: LogSigmoidForward
+  op_validator: LogSigmoidFwdSharedMeta
+  out_ids: [0, 0]
+
+log_sigmoid_forward.output:
+  output_meta: LogSigmoidFwdMeta
+  op_backend: LogSigmoidForward
+  op_validator: LogSigmoidFwdSharedMeta
+
+_log_softmax:
+  guid: logsoftmax_fwd
+  custom_fill_params: FillLogSoftmaxParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+_log_softmax.out:
+  guid: logsoftmax_fwd
+  custom_fill_params: FillLogSoftmaxParams
+  op_validator: check-node-with-shared-layer
+
+_log_softmax_backward_data:
+  guid: logsoftmax_bwd_data
+  custom_fill_params: FillLogSoftmaxBackwardParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+_log_softmax_backward_data.out:
+  guid: logsoftmax_bwd_data
+  custom_fill_params: FillLogSoftmaxBackwardParams
+  op_validator: check-node-with-shared-layer
+
+logcumsumexp.out:
+  guid: log_cumsum_exp_fwd
+  custom_fill_params: FillCumsumParams
+  op_validator: check-node-with-shared-layer
+
+_logcumsumexp.out:
+  guid: log_cumsum_exp_fwd
+  custom_fill_params: FillCumsumParams
+  op_validator: check-node-with-shared-layer
+
+logical_and:
+  output_meta: LogicalMeta
+  guid: and
+  out_ids: [0]
+  op_validator: LogicalBinaryAndSharedMeta
+
+logical_and_:
+  output_meta: LogicalMeta
+  guid: and
+  inplace_ids: [0]
+  op_validator: LogicalBinaryAndSharedMeta
+
+logical_and.out:
+  output_meta: LogicalMeta
+  guid: and
+  op_validator: LogicalBinaryAndSharedMeta
+
+logical_not:
+  output_meta: LogicalNotMeta
+  op_backend: LogicalNotOut
+  guid: not
+  out_ids: [0]
+  op_validator: LogicalNotSharedMeta
+
+logical_not_:
+  output_meta: LogicalNotMeta
+  guid: not
+  inplace_ids: [0]
+  safe_cast_check: false
+  op_validator: check-node-with-shared-layer
+
+logical_not.out:
+  output_meta: LogicalNotMeta
+  op_backend: LogicalNotOut
+  guid: not
+  op_validator: LogicalNotSharedMeta
+
+logical_or:
+  output_meta: LogicalMeta
+  guid: or
+  out_ids: [0]
+  op_validator: LogicalBinaryOrSharedMeta
+
+logical_or_:
+  output_meta: LogicalMeta
+  guid: or
+  inplace_ids: [0]
+  op_validator: LogicalBinaryOrSharedMeta
+
+logical_or.out:
+  output_meta: LogicalMeta
+  guid: or
+  op_validator: LogicalBinaryOrSharedMeta
+
+logical_xor:
+  output_meta: LogicalMeta
+  guid: xor
+  out_ids: [0]
+  op_validator: LogicalBinaryXorSharedMeta
+
+logical_xor_:
+  output_meta: LogicalMeta
+  guid: xor
+  inplace_ids: [0]
+  op_validator: LogicalBinaryXorSharedMeta
+
+logical_xor.out:
+  output_meta: LogicalMeta
+  guid: xor
+  op_validator: LogicalBinaryXorSharedMeta
+
+logit:
+  custom_fill_params: FillLogitForwardParams
+  guid: logit_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+logit_:
+  custom_fill_params: FillLogitForwardParams
+  guid: logit_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+logit.out:
+  custom_fill_params: FillLogitForwardParams
+  guid: logit_fwd
+  op_validator: check-node-with-shared-layer
+
+logit_backward:
+  custom_fill_params: FillLogitBackwardParams
+  guid: logit_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+logit_backward.grad_input:
+  custom_fill_params: FillLogitBackwardParams
+  guid: logit_bwd
+  op_validator: check-node-with-shared-layer
+
+logspace:
+  op_backend: LogSpace
+  op_validator: LogspaceSharedMeta
+  output_meta: LogspaceMeta
+  out_ids: [0]
+
+logspace.out:
+  op_backend: LogSpace
+  op_validator: LogspaceSharedMeta
+  output_meta: LogspaceOutMeta
+
+lt.Scalar_out:
+  guid: less_fwd
+  scalar_ids: [1]
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+lt.Tensor_out:
+  guid: less_fwd
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+lt_.Tensor:
+  guid: less_fwd
+  output_meta: CompareMeta
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+lt_.Scalar:
+  guid: less_fwd
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+lt.Scalar:
+  guid: less_fwd
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: CompareLtSharedMeta
+
+lt.Tensor:
+  guid: less_fwd
+  output_meta: CompareMeta
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
+
+_masked_scale:
+  output_meta: MaskedScaleMeta
+  op_backend: MaskedScale
+  op_validator: MaskedScaleSharedMeta
+  out_ids: [0]
+
+masked_scatter:
+  guid: masked_scatter
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+
+masked_scatter_:
+  guid: masked_scatter
+  op_validator: check-node-with-shared-layer
+  inplace_ids: [0]
+
+masked_fill_.Scalar:
+  custom_fill_params: FillMaskedFillParams
+  guid: masked_fill_fwd
+  op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
+  inplace_ids: [0]
+  scalar_ids: [2]
+
+masked_fill_.Tensor:
+  custom_fill_params: FillMaskedFillParams
+  guid: masked_fill_fwd
+  op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
+  st_meta: MaskedFillSTMeta
+  inplace_ids: [0]
+
+masked_fill.Scalar:
+  custom_fill_params: FillMaskedFillParams
+  output_meta: MaskedFillMeta
+  guid: masked_fill_fwd
+  op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
+  st_meta: MaskedFillSTMeta
+  scalar_ids: [2]
+  out_ids: [0]
+
+masked_fill.Tensor:
+  custom_fill_params: FillMaskedFillParams
+  output_meta: MaskedFillMeta
+  guid: masked_fill_fwd
+  op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
+  st_meta: MaskedFillSTMeta
+  out_ids: [0]
+
+max.dim:
+  guid: reduce_max_multi_dim_fwd
+  output_meta: MinMaxMeta
+  op_backend: MinMaxOut
+  out_ids: [0, 0]
+  op_validator: MaxDimSharedMeta
+
+max.dim_max:
+  guid: reduce_max_multi_dim_fwd
+  output_meta: MinMaxMeta
+  op_backend: MinMaxOut
+  op_validator: MaxDimSharedMeta
+
+maximum:
+  broadcast: true
+  guid: max_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+maximum.out:
+  broadcast: true
+  guid: max_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmax:
+  broadcast: true
+  guid: max_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmax.out:
+  broadcast: true
+  guid: max_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+max_pool2d_with_indices:
+  custom_fill_params: FillSpatialReduction2DParamsFwd
+  output_meta: MaxPool2DMeta
+  guid: pt_maxpool_2d_fwd
+  op_backend: MaxPool2DWithIndices
+  op_validator: MaxPool2DWithIndicesFwdSharedMeta
+  op_frontend: LazyMaxPool
+  out_ids: [0, 0]
+
+max_pool2d_with_indices.out:
+  custom_fill_params: FillSpatialReduction2DParamsFwd
+  output_meta: MaxPool2DMeta
+  guid: pt_maxpool_2d_fwd
+  op_backend: MaxPool2DWithIndices
+  op_validator: MaxPool2DWithIndicesFwdSharedMeta
+
+max_pool2d_with_indices_backward:
+  custom_fill_params: FillSpatialReduction2DParamsBwd
+  output_meta: MaxPoolMetaBwd
+  op_backend: MaxPool2DWithIndicesBwd
+  op_validator: MaxPool2DWithIndicesBwdSharedMeta
+  guid: pt_maxpool_2d_bwd
+  out_ids: [0]
+
+max_pool2d_with_indices_backward.grad_input:
+  custom_fill_params: FillSpatialReduction2DParamsBwd
+  output_meta: MaxPoolMetaBwd
+  op_backend: MaxPool2DWithIndicesBwd
+  op_validator: MaxPool2DWithIndicesBwdSharedMeta
+  guid: pt_maxpool_2d_bwd
+
+max_pool3d_with_indices:
+  custom_fill_params: FillSpatialReduction3DParamsFwd
+  guid: maxpool_3d_fwd
+  op_backend: MaxPool3DWithIndicesOut
+  op_validator: MaxPool3DWithIndicesFwdSharedMeta
+  output_meta: Maxpool3dWithIndicesMeta
+  out_ids: [0, 0]
+
+# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
+# max_pool3d_with_indices.out:
+#   custom_fill_params: FillSpatialReduction3DParamsFwd
+#   custom_output_shape: MaxPool3DIndicesOutputShape
+#   dtypes:
+#     self: [BFloat16, Float]
+#     out: [BFloat16, Float]
+#     indices: [BFloat16, Float]
+#   op_backend: MaxPool3DWithIndicesOut
+#   synapse_layouts:
+#   - [WHDCN]
+#   - [WHDCN, WHDCN]
+
+max_pool3d_with_indices_backward:
+  custom_fill_params: FillSpatialReduction3DParamsBwd
+  output_meta: MaxPoolMetaBwd
+  guid: maxpool_3d_bwd
+  op_backend: MaxPool3DWithIndicesBwd
+  op_validator: MaxPool3DWithIndicesBwdSharedMeta
+  out_ids: [0]
+
+# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
+# max_pool3d_with_indices_backward.grad_input:
+#   custom_fill_params: FillSpatialReduction3DParamsBwd
+#   custom_output_shape: MaxPoolOutputShapeBwd
+#   dtypes:
+#     self: [BFloat16, Float]
+#     grad_output: [BFloat16, Float]
+#     indices: [Byte, Int]
+#   op_backend: MaxPool3DWithIndicesBwd
+#   synapse_layouts:
+#   - [WHDCN, WHDCN]
+#   - [WHDCN]
+
+mean:
+  output_meta: ReductionOpMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: reduce_mean_multi_dim_fwd
+  op_backend: ReductionOp
+  promote_to_common_type: [self]
+  out_ids: [0]
+  acc_thread: true
+
+mean.dim:
+  output_meta: ReductionOpListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: reduce_mean_multi_dim_fwd
+  op_backend: ReductionOpList
+  promote_to_common_type: [self]
+  out_ids: [0]
+
+mean.out:
+  output_meta: ReductionOpListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: reduce_mean_multi_dim_fwd
+  op_backend: ReductionOpList
+  promote_to_common_type: [self]
+
+median:
+  output_meta: MedianOutputMeta
+  guid: median
+  out_ids: [0]
+  op_validator: MedianSharedMeta
+
+median.dim:
+  output_meta: MedianDimOutputMeta
+  op_backend: Mediandim
+  op_validator: MedianDimSharedMeta
+  guid: mediandim
+  out_ids: [0, 0]
+
+median.dim_values:
+  output_meta: MedianDimOutputMeta
+  op_backend: Mediandim
+  op_validator: MedianDimSharedMeta
+  guid: mediandim
+
+max:
+  output_meta: ReduceMinMaxMeta
+  custom_fill_params: FillMinMaxParams
+  guid: reduce_max_multi_dim_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+min:
+  output_meta: ReduceMinMaxMeta
+  custom_fill_params: FillMinMaxParams
+  guid: reduce_min_multi_dim_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+min.dim:
+  guid: reduce_min_multi_dim_fwd
+  output_meta: MinMaxMeta
+  op_backend: MinMaxOut
+  out_ids: [0, 0]
+  op_validator: MinDimSharedMeta
+
+min.dim_min:
+  guid: reduce_min_multi_dim_fwd
+  output_meta: MinMaxMeta
+  op_backend: MinMaxOut
+  op_validator: MinDimSharedMeta
+
+fmin:
+  broadcast: true
+  guid: min_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+fmin.out:
+  broadcast: true
+  guid: min_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+minimum:
+  broadcast: true
+  guid: min_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+minimum.out:
+  broadcast: true
+  guid: min_fwd
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+mish:
+  guid: mish_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+mish_:
+  guid: mish_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+mish.out:
+  guid: mish_fwd
+  op_validator: check-node-with-shared-layer
+
+mish_backward:
+  dtypes: [BFloat16, Float]
+  op_backend: Mishbackward
+  out_ids: [0]
+
+mm:
+  output_meta: MmMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: gemm
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+mm.out:
+  output_meta: MmMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: gemm
+  op_validator: check-node-with-shared-layer
+
+mse_loss:
+  custom_fill_params: FillMseLossParams
+  output_meta: MseLossFwdMeta
+  guid: mse_loss_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+mse_loss_backward:
+  custom_fill_params: FillMseLossParams
+  output_meta: MseLossBwdMeta
+  guid: mse_loss_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+mse_loss.out:
+  custom_fill_params: FillMseLossParams
+  output_meta: MseLossFwdMeta
+  guid: mse_loss_fwd
+  op_validator: check-node-with-shared-layer
+
+mse_loss_backward.grad_input:
+  custom_fill_params: FillMseLossParams
+  output_meta: MseLossBwdMeta
+  guid: mse_loss_bwd
+  op_validator: check-node-with-shared-layer
+
+mul.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Short, Int]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: mult_fwd
+  st_meta: BinarySTMeta
+  output_meta: MulMeta
+  out_ids: [0]
+  broadcast: true
+  promote_to_common_type: [self, other]
+  op_frontend: BinaryScalarFE
+
+mul.Scalar:
+  guid: mult_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  st_meta: BinarySTMeta
+  output_meta: MulMeta
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+mul.Scalar_out:
+  broadcast: true
+  guid: mult_fwd
+  st_meta: BinarySTMeta
+  output_meta: MulMeta
+  promote_to_common_type: [self, other]
+  scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+mul_.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: mult_fwd
+  output_meta: MulMeta
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  op_frontend: BinaryScalarFE
+
+mul_.Scalar:
+  guid: mult_fwd
+  output_meta: MulMeta
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+mul.out:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short, Long]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+  guid: mult_fwd
+  output_meta: MulMeta
+  st_meta: BinarySTMeta
+  op_frontend: BinaryScalarFE
+  promote_to_common_type: [self, other]
+
+multilabel_margin_loss_forward.output:
+  custom_fill_params: FillMultilabelMarginLossParams
+  guid: multilabel_margin_loss_fwd
+  op_validator: check-node-with-shared-layer
+
+multilabel_margin_loss_forward:
+  custom_fill_params: FillMultilabelMarginLossParams
+  guid: multilabel_margin_loss_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0, 0]
+  output_meta: MultilabelMarginLossMeta
+
+multilabel_margin_loss_backward.grad_input:
+  custom_fill_params: FillMultilabelMarginLossBackwardParams
+  guid: multilabel_margin_loss_bwd
+  op_validator: check-node-with-shared-layer
+
+multilabel_margin_loss_backward:
+  custom_fill_params: FillMultilabelMarginLossBackwardParams
+  guid: multilabel_margin_loss_bwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [1]
+  output_meta: MultilabelMarginLossBackwardMeta
+
+multi_margin_loss.out:
+  custom_fill_params: FillMultiMarginLossParams
+  guid: multi_margin_loss_fwd
+  op_validator: check-node-with-shared-layer
+
+multi_margin_loss:
+  custom_fill_params: FillMultiMarginLossParams
+  guid: multi_margin_loss_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+  output_meta: MultiMarginLossMeta
+
+multi_margin_loss_backward:
+  custom_fill_params: FillMultiMarginLossBackwardParams
+  guid: multi_margin_loss_bwd
+  out_ids: [1]
+  op_validator: check-node-with-shared-layer
+  output_meta: MultiMarginLossBackwardMeta
+
+multi_margin_loss_backward.grad_input:
+  custom_fill_params: FillMultiMarginLossBackwardParams
+  guid: multi_margin_loss_bwd
+  op_validator: check-node-with-shared-layer
+
+multinomial:
+  custom_fill_params: FillMultinomialParams
+  guid: random_multinomial_pt_fwd
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_validator: MultinomialSharedMeta
+  output_meta: MultinomialMeta
+  schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed) -> Tensor"
+
+multinomial.out:
+  custom_fill_params: FillMultinomialParams
+  guid: random_multinomial_pt_fwd
+  op_frontend: GeneratorToSeedOut
+  op_validator: MultinomialSharedMeta
+  output_meta: MultinomialMeta
+  schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"
+
+mv:
+  output_meta: MvOpsMeta
+  guid: mv_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+mv.out:
+  output_meta: MvOpsMeta
+  guid: mv_fwd
+  op_validator: check-node-with-shared-layer
+
+nan_to_num:
+  dtypes: [Float, Int, BFloat16]
+  op_backend: NantoNum
+  out_ids: [0]
+
+nan_to_num_:
+  dtypes: [Float, Int, BFloat16]
+  op_backend: NantoNum
+  inplace_ids: [0]
+
+nan_to_num.out:
+  dtypes: [Float, Int, BFloat16]
+  op_backend: NantoNum
+
+nansum:
+  output_meta: NanSumIntListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
+  op_backend: NansumList
+  out_ids: [0]
+
+nansum.out:
+  output_meta: NanSumIntListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
+  op_backend: NansumList
+
+_native_batch_norm_legit:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+  op_backend: BatchNormOpBackend
+  out_ids: [0, 0, 0]
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+
+_native_batch_norm_legit_no_training:
+  custom_fill_params: FillBatchNormNoTrainingFwdParams
+  output_meta: BatchNormFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+  guid: batch_norm_inf_reshape
+  op_backend: BatchNormNoTrainingOpBackend
+  out_ids: [0, 0, 0]
+
+_native_batch_norm_legit.no_stats:
+  custom_fill_params: FillBatchNormNoStatsFwdParams
+  output_meta: BatchNormFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+  guid: _native_batch_norm_legit.no_stats
+  op_backend: BatchNormNoStatsOpBackend
+  out_ids: [0, 0, 0]
+
+_native_batch_norm_legit_functional:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFunctionalFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+  guid: _native_batch_norm_legit_functional
+  op_backend: BatchNormOpBackend
+  out_ids: [0, 0, 0, 0, 0]
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+
+native_batch_norm:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+  op_backend: BatchNormOpBackend
+  out_ids: [0, 0, 0]
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  lazy:
+    acc_thread: true
+    override_fn: batch_norm_hpu_lazy
+
+native_batch_norm.out:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+      out: [BFloat16, Float]
+      save_mean: [Float]
+      save_invstd: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+      out: [BFloat16, Float, Half]
+      save_mean: [Float]
+      save_invstd: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+      out: [BFloat16, Float, Half]
+      save_mean: [Float]
+      save_invstd: [Float]
+  op_backend: BatchNormOpBackend
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+
+native_batch_norm_backward:
+  custom_fill_params: FillBatchNormBwdParams
+  output_meta: BatchNormBwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_backend: BatchNormBwdOpBackend
+  out_ids: [0, 1, 1]
+  synapse_layouts:
+  - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE]
+  lazy:
+    acc_thread: true
+    override_fn: batch_norm_bwd_hpu_lazy
+
+native_layer_norm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: layer_norm_fwd_pt
+  custom_fill_params: FillNativeLayerNormParams
+  op_backend: LayerNormHabanaOperator
+  output_meta: LayerNormHabanaMeta
+  out_ids: [0, 0, 0]
+
+native_layer_norm_backward:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: layer_norm_bwd_pt
+  custom_fill_params: FillNativeLayerNormBwdParams
+  op_backend: LayerNormBwdHabanaOperator
+  output_meta: LayerNormBwdMeta
+  out_ids: [0, 0, 0]
+
+ne.Tensor_out:
+  op_backend: NE
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  op_validator: CompareNeSharedMeta
+
+ne.Scalar_out:
+  scalar_ids: [1]
+  op_backend: NE
+  output_meta: CompareMeta
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  op_validator: CompareNeSharedMeta
+
+ne_.Scalar:
+  op_backend: NE
+  scalar_ids: [1]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  op_validator: CompareNeSharedMeta
+
+ne_.Tensor:
+  op_backend: NE
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  op_validator: CompareNeSharedMeta
+
+ne.Scalar:
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
+  op_backend: NE
+  scalar_ids: [1]
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: CompareNeSharedMeta
+
+ne.Tensor:
+  op_backend: NE
+  output_meta: CompareMeta
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: CompareNeSharedMeta
+
+neg.out:
+  guid: neg_fwd
+  op_validator: check-node-with-shared-layer
+
+neg_:
+  guid: neg_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+neg:
+  guid: neg_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+new_zeros:
+  output_meta: NewZerosMeta
+  op_backend: NewZerosOperator
+  out_ids: [0]
+  op_validator: NewZerosSharedMeta
+
+nextafter:
+  guid: nextafter
+  broadcast: true
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+nextafter_:
+  guid: nextafter
+  broadcast: true
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+nextafter.out:
+  guid: nextafter
+  broadcast: true
+  op_validator: check-node-with-shared-layer
+
+nll_loss_backward:
+  custom_fill_params: FillNllLossBwdParams
+  output_meta: NllLossBwdMeta
+  guid: nll_loss_bwd
+  op_backend: NllLossBwd
+  op_validator: NllLossBwdSharedMeta
+  out_ids: [0]
+
+nll_loss_forward:
+  custom_fill_params: FillNllLossFwdParams
+  output_meta: NllLossFwdMeta
+  guid: cnll_loss_fwd
+  out_ids: [0, 0]
+  op_validator: check-node-with-shared-layer
+
+nll_loss2d_backward:
+  custom_fill_params: FillNllLossBwdParams
+  output_meta: NllLossBwdMeta
+  guid: nll_loss_bwd
+  op_backend: NllLoss2DBwd
+  op_validator: NllLoss2DBwdSharedMeta
+  out_ids: [0]
+  synapse_layouts:
+  - [DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN]
+
+nll_loss2d_forward:
+  custom_fill_params: FillNllLossFwdParams
+  output_meta: NllLossFwdMeta
+  guid: nll_loss_fwd
+  op_backend: NllLoss2DFwd
+  op_validator: NllLoss2DFwdSharedMeta
+  out_ids: [0, 0]
+  synapse_layouts:
+  - [WHCN, WHN, DONT_CARE, DONT_CARE]
+  - [WHN]
+
+nll_loss_backward.grad_input:
+  custom_fill_params: FillNllLossBwdParams
+  output_meta: NllLossBwdMeta
+  guid: nll_loss_bwd
+  op_backend: NllLossBwd
+  op_validator: NllLossBwdSharedMeta
+
+nll_loss_forward.output:
+  custom_fill_params: FillNllLossFwdParams
+  output_meta: NllLossFwdMeta
+  guid: cnll_loss_fwd
+  op_validator: check-node-with-shared-layer
+
+nll_loss2d_backward.grad_input:
+  custom_fill_params: FillNllLossBwdParams
+  output_meta: NllLossBwdMeta
+  guid: nll_loss_bwd
+  op_backend: NllLoss2DBwd
+  op_validator: NllLoss2DBwdSharedMeta
+  synapse_layouts:
+  - [DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN]
+
+nll_loss2d_forward.output:
+  custom_fill_params: FillNllLossFwdParams
+  output_meta: NllLossFwdMeta
+  guid: nll_loss_fwd
+  op_backend: NllLoss2DFwd
+  op_validator: NllLoss2DFwdSharedMeta
+  synapse_layouts:
+  - [WHCN, WHN, DONT_CARE, DONT_CARE]
+  - [WHN]
+
+normal_:
+  custom_fill_params: FillNormalParams
+  guid: random_normal_fwd
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: RandomSeedTensorInput
+  op_validator: RandomNormalSharedMeta
+  schema_args: "(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)"
+
+normal.float_float:
+  output_meta: NormalMeta
+  guid: normal_float_float
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: NormalBE
+  op_validator: NormalSharedMeta
+  schema_args: "(float mean, float std, SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
+
+normal.Tensor_float:
+  output_meta: NormalMeta
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: NormalBE
+  op_validator: NormalSharedMeta
+  schema_args: "(Tensor mean, float stddev, *, Tensor seed) -> Tensor"
+
+normal.Tensor_float_out:
+  output_meta: NormalMeta
+  op_frontend: GeneratorToSeedOut
+  op_backend: NormalBE
+  op_validator: NormalSharedMeta
+  schema_args: "(Tensor mean, float std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+
+normal.float_Tensor:
+  output_meta: NormalMeta
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: NormalBE
+  op_validator: NormalSharedMeta
+  schema_args: "(float mean, Tensor stddev, *, Tensor seed) -> Tensor"
+
+normal.float_Tensor_out:
+  output_meta: NormalMeta
+  op_frontend: GeneratorToSeedOut
+  op_backend: NormalBE
+  op_validator: NormalSharedMeta
+  schema_args: "(float mean, Tensor std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+
+normal.Tensor_Tensor:
+  output_meta: NormalMeta
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: NormalBE
+  op_validator: NormalSharedMeta
+  schema_args: "(Tensor mean, Tensor stddev, *, Tensor seed) -> Tensor"
+
+normal.Tensor_Tensor_out:
+  output_meta: NormalMeta
+  op_frontend: GeneratorToSeedOut
+  op_backend: NormalBE
+  op_validator: NormalSharedMeta
+  schema_args: "(Tensor mean, Tensor std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+
+norm.out:
+  output_meta: NormOpMeta
+  op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
+
+norm.dtype_out:
+  output_meta: NormOpMeta
+  op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
+
+norm.Scalar:
+  output_meta: NormMeta
+  op_backend: NormOpScalar
+  op_validator: NormOpScalarSharedMeta
+  out_ids: [0]
+
+norm.ScalarOpt_dim_dtype:
+  output_meta: NormOpMeta
+  op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
+  out_ids: [0]
+
+norm.ScalarOpt_dim:
+  output_meta: NormOpMeta
+  op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
+  out_ids: [0]
+
+norm.ScalarOpt_dtype:
+  output_meta: NormMeta
+  op_backend: NormOpScalarWithDtype
+  op_validator: NormOpScalarSharedMeta
+  out_ids: [0]
+
+_weight_norm_interface:
+  output_meta: WeightNormMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_backend: WeightNormOp
+  out_ids: [0, 0]
+
+_weight_norm_interface_backward:
+  output_meta: WeightNormBwdMeta
+  custom_fill_params: FillWeightNormBwdParams
+  guid: weight_norm_bwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  out_ids: [0, 0]
+
+one_hot:
+  output_meta: OneHotMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Half, Long]
+  op_backend: OneHot
+  out_ids: [0]
+
+permute:
+  override_fn: permute_hpu_lazy
+  acc_thread: true
+  no_compute_flag: true
+  op_validator: TransposeSharedMeta
+
+poisson:
+  custom_fill_params: FillPoissonParams
+  guid: random_poisson_fwd
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  schema_args: "(Tensor self, Tensor seed) -> Tensor"
+  op_validator: PoissonSharedMeta
+
+pow_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+  guid: pow_fwd
+  inplace_ids: [0]
+  op_backend: PowOp
+  scalar_ids: [1]
+  promote_to_common_type: [self, exponent]
+
+pow_.Tensor:
+  guid: pow_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, exponent]
+  op_validator: check-node-with-shared-layer
+
+pow.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+  op_frontend: PowScalar
+  guid: pow_fwd
+  out_ids: [1]
+  scalar_ids: [0]
+  promote_to_common_type: [self, exponent]
+
+pow.Scalar_out:
+  broadcast: true
+  guid: pow_fwd
+  scalar_ids: [0]
+  promote_to_common_type: [self, exponent]
+  op_validator: check-node-with-shared-layer
+
+pow.Tensor_Scalar:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+  guid: pow_fwd
+  out_ids: [0]
+  op_backend: PowOp
+  scalar_ids: [1]
+  promote_to_common_type: [self, exponent]
+
+pow.Tensor_Scalar_out:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
+  guid: pow_fwd
+  op_backend: PowOp
+  scalar_ids: [1]
+  promote_to_common_type: [self, exponent]
+
+pow.Tensor_Tensor:
+  broadcast: true
+  guid: pow_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, exponent]
+  op_validator: check-node-with-shared-layer
+
+pow.Tensor_Tensor_out:
+  broadcast: true
+  guid: pow_fwd
+  promote_to_common_type: [self, exponent]
+  op_validator: check-node-with-shared-layer
+
+_prelu_kernel:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  out_ids: [0]
+  output_meta: PreluFwdMeta
+  guid: prelu_fwd
+
+_prelu_kernel_backward:
+  out_ids: [1, 2]
+  guid: prelu_bwd
+  output_meta: PreluBwdMeta
+  op_validator: check-node-with-shared-layer
+
+prod:
+  output_meta: ReductionOpMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+  guid: reduce_prod_multi_dim_fwd
+  out_ids: [0]
+  op_backend: ReductionOp
+  promote_to_common_type: [self]
+
+prod.dim_int:
+  output_meta: ReductionOpListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+  guid: reduce_prod_multi_dim_fwd
+  out_ids: [0]
+  op_backend: ReductionOpList
+  promote_to_common_type: [self]
+
+prod.int_out:
+  output_meta: ReductionOpListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+  guid: reduce_prod_multi_dim_fwd
+  op_backend: ReductionOpList
+  promote_to_common_type: [self]
+  safe_cast_check: false
+
+put_:
+  inplace_ids: [0]
+  custom_fill_params: FillPutParams
+  guid: put_fwd
+  op_validator: check-node-with-shared-layer
+
+put:
+  out_ids: [0]
+  custom_fill_params: FillPutParams
+  guid: put_fwd
+  op_validator: check-node-with-shared-layer
+
+random_:
+  custom_fill_params: FillRandomParams
+  guid: random_uniform_fwd
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: RandomSeedTensorInputIntegers
+  op_validator: RandomSeedTensorInputIntegersSharedMeta
+  schema_args: "(Tensor(a!) self, Tensor seed) -> Tensor(a!)"
+
+random_.from:
+  custom_fill_params: FillRandomFromParams
+  guid: random_uniform_fwd
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: RandomSeedTensorInputIntegers
+  op_validator: RandomSeedTensorInputIntegersSharedMeta
+  schema_args: "(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)"
+
+random_.to:
+  custom_fill_params: FillRandomToParams
+  guid: random_uniform_fwd
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: RandomSeedTensorInputIntegers
+  op_validator: RandomSeedTensorInputIntegersSharedMeta
+  schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
+
+randperm:
+  output_meta: RandPermMeta
+  guid: randperm
+  op_backend: RandPermOp
+  op_validator: RandPermSharedMeta
+  out_ids: [0]
+  lazy:
+    override_fn: randperm_nogen_hpu_lazy
+    acc_thread: true
+  schema_args: "(Tensor seed, Tensor h2d_tensor, Tensor shape_tensor, *, ScalarType? dtype, Layout? layout, Device? device, bool? pin_memory) -> Tensor"
+
+randperm.generator:
+  output_meta: RandPermMeta
+  guid: randperm
+  op_frontend: GeneratorToSeed
+  op_backend: RandPermOp
+  out_ids: [0]
+  op_validator: RandPermSharedMeta
+  schema_args: "(SymInt n, Tensor seed, ScalarType? dtype, Layout? layout, Device? device, bool? pin_memory) -> Tensor"
+
+randperm.generator_out:
+  output_meta: RandPermMeta
+  guid: randperm
+  op_frontend: GeneratorToSeedOut
+  op_backend: RandPermOp
+  op_validator: RandPermSharedMeta
+  lazy:
+    override_fn: randperm_hpu_lazy
+    acc_thread: true
+  schema_args: "(SymInt n, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+
+reciprocal:
+  promote_int_to_float: [self]
+  guid: reciprocal_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+reciprocal_:
+  promote_int_to_float: [self]
+  guid: reciprocal_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+reciprocal.out:
+  promote_int_to_float: [self]
+  guid: reciprocal_fwd
+  op_validator: check-node-with-shared-layer
+
+relu:
+  guid: relu_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+relu_:
+  guid: relu_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+relu.out:
+  guid: relu_fwd
+  op_validator: check-node-with-shared-layer
+
+reflection_pad1d:
+  output_meta: ReflectionPad1DMeta
+  custom_fill_params: FillReflectionPadForwardParams
+  guid: pad_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+reflection_pad1d.out:
+  output_meta: ReflectionPad1DMeta
+  custom_fill_params: FillReflectionPadForwardParams
+  guid: pad_fwd
+  op_validator: check-node-with-shared-layer
+
+reflection_pad1d_backward:
+  output_meta: ReflectionPadBackwardMeta
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPadBwd
+  dtypes: [BFloat16, Float, Int, Short]
+  guid: pad_bwd
+  out_ids: [0]
+
+reflection_pad1d_backward.grad_input:
+  output_meta: ReflectionPadBackwardMeta
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPadBwd
+  dtypes: [BFloat16, Float, Int, Short]
+  guid: pad_bwd
+
+reflection_pad2d:
+  output_meta: ReflectionPad2DMeta
+  custom_fill_params: FillReflectionPadForwardParams
+  guid: pad_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+reflection_pad2d.out:
+  output_meta: ReflectionPad2DMeta
+  custom_fill_params: FillReflectionPadForwardParams
+  guid: pad_fwd
+  op_validator: check-node-with-shared-layer
+
+reflection_pad2d_backward:
+  output_meta: ReflectionPadBackwardMeta
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPadBwd
+  dtypes: [BFloat16, Float, Int, Short]
+  guid: pad_bwd
+  out_ids: [0]
+
+reflection_pad2d_backward.grad_input:
+  output_meta: ReflectionPadBackwardMeta
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPadBwd
+  dtypes: [BFloat16, Float, Int, Short]
+  guid: pad_bwd
+
+reflection_pad3d:
+  output_meta: ReflectionPad3DMeta
+  custom_fill_params: FillReflectionPadForwardParams
+  guid: pad_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+reflection_pad3d.out:
+  output_meta: ReflectionPad3DMeta
+  custom_fill_params: FillReflectionPadForwardParams
+  guid: pad_fwd
+  op_validator: check-node-with-shared-layer
+
+reflection_pad3d_backward:
+  output_meta: ReflectionPadBackwardMeta
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPadBwd
+  dtypes: [BFloat16, Float, Int, Short]
+  guid: pad_bwd
+  out_ids: [0]
+
+reflection_pad3d_backward.grad_input:
+  output_meta: ReflectionPadBackwardMeta
+  custom_fill_params: FillReflectionPadBackwardParams
+  op_backend: ReflectionPadBwd
+  dtypes: [BFloat16, Float, Int, Short]
+  guid: pad_bwd
+
+remainder.Tensor:
+  guid: rem_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  broadcast: true
+  op_validator: check-node-with-shared-layer
+
+remainder.Scalar:
+  guid: rem_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+remainder_.Tensor:
+  guid: rem_fwd
+  inplace_ids: [0]
+  promote_to_common_type: [self, other]
+  broadcast: true
+  op_validator: check-node-with-shared-layer
+
+remainder_.Scalar:
+  guid: rem_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+remainder.Scalar_Tensor:
+  guid: rem_fwd
+  out_ids: [1]
+  scalar_ids: [0]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+remainder.Tensor_out:
+  guid: rem_fwd
+  promote_to_common_type: [self, other]
+  broadcast: true
+  op_validator: check-node-with-shared-layer
+
+remainder.Scalar_out:
+  guid: rem_fwd
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
+
+repeat:
+  custom_fill_params: FillRepeatFwdParams
+  output_meta: RepeatMeta
+  guid: repeat_pt_fwd
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
+  lazy:
+    override_fn: repeat_hpu
+  acc_thread: true
+  out_ids: [0]
+
+replication_pad1d:
+  output_meta: ReplicationPad1DMeta
+  custom_fill_params: FillReplicationPad1dFwdParams
+  guid: pad_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+replication_pad1d.out:
+  output_meta: ReplicationPad1DMeta
+  custom_fill_params: FillReplicationPad1dFwdParams
+  guid: pad_fwd
+  op_validator: check-node-with-shared-layer
+
+replication_pad2d:
+  output_meta: ReplicationPad2DMeta
+  custom_fill_params: FillReplicationPad2dFwdParams
+  guid: pad_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+replication_pad2d.out:
+  output_meta: ReplicationPad2DMeta
+  custom_fill_params: FillReplicationPad2dFwdParams
+  guid: pad_fwd
+  op_validator: check-node-with-shared-layer
+
+replication_pad3d:
+  output_meta: ReplicationPad3DMeta
+  custom_fill_params: FillReplicationPad3dFwdParams
+  guid: pad_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+replication_pad3d.out:
+  output_meta: ReplicationPad3DMeta
+  custom_fill_params: FillReplicationPad3dFwdParams
+  guid: pad_fwd
+  op_validator: check-node-with-shared-layer
+
+replication_pad1d_backward:
+  output_meta: ReplicationPadBwdMeta
+  custom_fill_params: FillReplicationPad1dBwdParams
+  dtypes: [BFloat16, Float, Int]
+  out_ids: [0]
+  op_backend: ReplicationPad1dBwdOp
+
+replication_pad1d_backward.grad_input:
+  output_meta: ReplicationPadBwdMeta
+  custom_fill_params: FillReplicationPad1dBwdParams
+  dtypes: [BFloat16, Float, Int]
+  op_backend: ReplicationPad1dBwdOp
+
+replication_pad2d_backward:
+  output_meta: ReplicationPadBwdMeta
+  custom_fill_params: FillReplicationPad2dBwdParams
+  dtypes: [BFloat16, Float, Int]
+  out_ids: [0]
+  op_backend: ReplicationPad2dBwdOp
+
+replication_pad2d_backward.grad_input:
+  output_meta: ReplicationPadBwdMeta
+  custom_fill_params: FillReplicationPad2dBwdParams
+  dtypes: [BFloat16, Float, Int]
+  op_backend: ReplicationPad2dBwdOp
+
+replication_pad3d_backward:
+  output_meta: ReplicationPadBwdMeta
+  custom_fill_params: FillReplicationPad3dBwdParams
+  dtypes: [BFloat16, Float, Int]
+  out_ids: [0]
+  op_backend: ReplicationPad3dBwdOp
+
+replication_pad3d_backward.grad_input:
+  output_meta: ReplicationPadBwdMeta
+  custom_fill_params: FillReplicationPad3dBwdParams
+  dtypes: [BFloat16, Float, Int]
+  op_backend: ReplicationPad3dBwdOp
+
+resize_:
+  output_meta: ResizeOutputMeta
+  guid: memcpy
+  inplace_ids: [0]
+  op_backend: ResizeOpBackend
+
+_resize_output_:
+  output_meta: ResizeOutputMeta
+  guid: memcpy
+  inplace_ids: [0]
+  op_backend: ResizeOutputOpBackend
+
+roll:
+  dtypes:
+    Gaudi: [BFloat16, Byte, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
+  out_ids: [0]
+  op_backend: RollHabanaOperator
+  custom_fill_params: FillRollParams
+  guid: roll
+
+round:
+  custom_fill_params: FillRoundParams
+  guid: round_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+round_:
+  custom_fill_params: FillRoundParams
+  guid: round_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+round.out:
+  custom_fill_params: FillRoundParams
+  guid: round_fwd
+  op_validator: check-node-with-shared-layer
+
+round.decimals:
+  guid: round_fwd
+  custom_fill_params: FillRoundDecimalParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+round_.decimals:
+  guid: round_fwd
+  custom_fill_params: FillRoundDecimalParams
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+round.decimals_out:
+  guid: round_fwd
+  custom_fill_params: FillRoundDecimalParams
+  op_validator: check-node-with-shared-layer
+
+rrelu_with_noise:
+  op_frontend: GeneratorToSeed
+  op_backend: Rrelu_with_noise
+  out_ids: [0]
+  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
+  op_validator: RreluWithNoiseSharedMeta
+
+rrelu_with_noise_:
+  op_frontend: GeneratorToSeed
+  op_backend: Rrelu_with_noise
+  inplace_ids: [0]
+  schema_args: "(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
+  op_validator: RreluWithNoiseSharedMeta
+
+rrelu_with_noise.out:
+  op_frontend: GeneratorToSeedOut
+  op_backend: Rrelu_with_noise
+  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: RreluWithNoiseSharedMeta
+
+rrelu_with_noise_backward:
+  op_backend: Rrelu_with_noise_bwd
+  out_ids: [0]
+  op_validator: RreluWithNoiseBwdSharedMeta
+
+rsqrt:
+  promote_int_to_float: [self]
+  guid: rsqrt_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+rsqrt_:
+  promote_int_to_float: [self]
+  guid: rsqrt_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+rsqrt.out:
+  promote_int_to_float: [self]
+  guid: rsqrt_fwd
+  op_validator: check-node-with-shared-layer
+
+rsub.Tensor:
+  broadcast: true
+  promote_to_common_type: [self, other]
+  guid: binary_with_alpha_fwd
+  custom_fill_params: FillBinaryRSubParams
+  out_ids: [0]
+  scalar_ids: [2]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  op_validator: BinaryWithAlphaRSubSharedMeta
+
+rsub.Scalar:
+  custom_fill_params: FillBinaryRSubParams
+  promote_to_common_type: [self, other]
+  guid: binary_with_alpha_fwd
+  out_ids: [0]
+  scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  op_validator: BinaryWithAlphaRSubSharedMeta
+
+scalar_tensor:
+  guid: scalar_tensor_fwd
+  output_meta: ScalarTensorMeta
+  op_backend: ScalarTensor
+  op_validator: ScalarTensorSharedMeta
+  out_ids: [0]
+
+_scaled_mm:
+  guid: fp8_gemm
+  output_meta: ScaledMmMeta
+  op_validator: ScaledMmSharedMeta
+  op_backend: ScaledMm
+  out_ids: [0, 0]
+
+_scaled_mm.out:
+  guid: fp8_gemm
+  output_meta: ScaledMmMeta
+  op_validator: ScaledMmSharedMeta
+  op_backend: ScaledMm
+
+scatter.src:
+  op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
+  out_ids: [0]
+
+scatter_.src:
+  op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
+  inplace_ids: [0]
+
+scatter.src_out:
+  op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
+
+scatter.value:
+  op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
+  out_ids: [0]
+
+scatter_.value:
+  op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
+  inplace_ids: [0]
+
+scatter.value_out:
+  op_backend: ScatterOperator
+  op_validator: ScatterSharedMeta
+
+scatter.reduce:
+  custom_fill_params: ScatterReduceParams
+  output_meta: ScatterReduceMeta
+  guid: scatter_reduce_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+scatter.reduce_out:
+  custom_fill_params: ScatterReduceParams
+  output_meta: ScatterReduceMeta
+  guid: scatter_reduce_fwd
+  op_validator: check-node-with-shared-layer
+
+scatter.value_reduce:
+  guid: scatter_reduce_fwd
+  op_backend: ScatterWithReduceOperator
+  op_validator: ScatterReduceSharedMeta
+  out_ids: [0]
+
+scatter.value_reduce_out:
+  guid: scatter_reduce_fwd
+  op_backend: ScatterWithReduceOperator
+  op_validator: ScatterReduceSharedMeta
+
+scatter_add:
+  custom_fill_params: ScatterAddParams
+  output_meta: ScatterAddMeta
+  guid: complex_scatter_add
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+scatter_add.out:
+  custom_fill_params: ScatterAddParams
+  output_meta: ScatterAddMeta
+  guid: complex_scatter_add
+  op_validator: check-node-with-shared-layer
+
+scatter_reduce.two:
+  custom_fill_params: ScatterReduceParams
+  output_meta: ScatterReduceMeta
+  guid: scatter_reduce_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+scatter_reduce_.two:
+  custom_fill_params: ScatterReduceParams
+  output_meta: ScatterReduceMeta
+  guid: scatter_reduce_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+scatter_reduce.two_out:
+  custom_fill_params: ScatterReduceParams
+  output_meta: ScatterReduceMeta
+  guid: scatter_reduce_fwd
+  op_validator: check-node-with-shared-layer
+
+searchsorted.Tensor:
+  custom_fill_params: FillSearchSortedParams
+  guid: search_sorted_fwd
+  output_meta: SearchSortedMeta
+  promote_to_common_type: [sorted_sequence, self]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+searchsorted.Tensor_out:
+  custom_fill_params: FillSearchSortedParams
+  guid: search_sorted_fwd
+  output_meta: SearchSortedMeta
+  promote_to_common_type: [sorted_sequence, self]
+  safe_cast_check: false
+  op_validator: check-node-with-shared-layer
+
+searchsorted.Scalar:
+  custom_fill_params: FillSearchSortedParams
+  guid: search_sorted_fwd
+  output_meta: SearchSortedMeta
+  promote_to_common_type: [sorted_sequence, self]
+  out_ids: [0]
+  scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+searchsorted.Scalar_out:
+  custom_fill_params: FillSearchSortedParams
+  guid: search_sorted_fwd
+  output_meta: SearchSortedMeta
+  promote_to_common_type: [sorted_sequence, self]
+  safe_cast_check: false
+  scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+select.int:
+  output_meta: SelectHpuMeta
+  override_fn: select_hpu_lazy
+  acc_thread: true
+  guid: select
+  out_ids: [0]
+  op_validator: EmptySharedMeta
+
+select_backward:
+  output_meta: SelectBackwardMeta
+  op_backend: SelectBackward
+  op_validator: SelectBwdSharedMeta
+  out_ids: [0]
+
+sgn.out:
+  guid: sign_fwd
+  op_validator: check-node-with-shared-layer
+
+sgn:
+  guid: sign_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sgn_:
+  guid: sign_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sigmoid.out:
+  custom_fill_params: FillSigmoidParams
+  promote_int_to_float: [self]
+  guid: sigmoid_fwd
+  op_validator: check-node-with-shared-layer
+
+sigmoid:
+  custom_fill_params: FillSigmoidParams
+  promote_int_to_float: [self]
+  guid: sigmoid_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sigmoid_:
+  custom_fill_params: FillSigmoidParams
+  promote_int_to_float: [self]
+  guid: sigmoid_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sigmoid_backward:
+  guid: sigmoid_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sigmoid_backward.grad_input:
+  guid: sigmoid_bwd
+  op_validator: check-node-with-shared-layer
+
+sign.out:
+  guid: sign_fwd
+  op_validator: check-node-with-shared-layer
+
+sign:
+  guid: sign_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sign_:
+  guid: sign_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+signbit:
+  output_meta: SignbitMeta
+  guid: signbit_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+signbit.out:
+  output_meta: SignbitMeta
+  guid: signbit_fwd
+  op_validator: check-node-with-shared-layer
+
+silu:
+  guid: silu_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+silu_:
+  guid: silu_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+silu.out:
+  guid: silu_fwd
+  op_validator: check-node-with-shared-layer
+
+silu_backward.grad_input:
+  guid: silu_bwd
+  op_validator: check-node-with-shared-layer
+
+sin:
+  promote_int_to_float: [self]
+  guid: sin_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sin.out:
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  guid: sin_fwd
+  op_validator: check-node-with-shared-layer
+
+sin_:
+  promote_int_to_float: [self]
+  guid: sin_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sinc:
+  promote_int_to_float: [self]
+  guid: sinc_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sinc.out:
+  promote_int_to_float: [self]
+  guid: sinc_fwd
+  op_validator: check-node-with-shared-layer
+
+sinc_:
+  promote_int_to_float: [self]
+  guid: sinc_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sinh.out:
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  guid: sinh_fwd
+  op_validator: check-node-with-shared-layer
+
+sinh:
+  promote_int_to_float: [self]
+  guid: sinh_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sinh_:
+  guid: sinh_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+smooth_l1_loss:
+  output_meta: SmoothL1LossMeta
+  guid: smooth_l1_loss_fwd
+  custom_fill_params: FillSmoothL1LossFwdParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+smooth_l1_loss.out:
+  output_meta: SmoothL1LossMeta
+  guid: smooth_l1_loss_fwd
+  custom_fill_params: FillSmoothL1LossFwdParams
+  op_validator: check-node-with-shared-layer
+
+smooth_l1_loss_backward:
+  output_meta: SmoothL1LossBackwardMeta
+  op_backend: SmoothL1LossBwdOperator
+  op_validator: SmoothL1LossBwdSharedMeta
+  out_ids: [0]
+
+smooth_l1_loss_backward.grad_input:
+  output_meta: SmoothL1LossBackwardMeta
+  op_backend: SmoothL1LossBwdOperator
+  op_validator: SmoothL1LossBwdSharedMeta
+
+_softmax:
+  custom_fill_params: FillSoftmaxForwardParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: softmax_fwd
+  out_ids: [0]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-196893
+
+_softmax.out:
+  custom_fill_params: FillSoftmaxForwardParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: softmax_fwd
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-196893
+
+_softmax_backward_data:
+  custom_fill_params: FillSoftmaxBackwardParams
+  guid: softmax_bwd
+  op_backend: SoftmaxBackward
+  op_validator: SoftmaxBackwardSharedMeta
+  out_ids: [0]
+
+_softmax_backward_data.out:
+  custom_fill_params: FillSoftmaxBackwardParams
+  guid: softmax_bwd
+  op_backend: SoftmaxBackward
+  op_validator: SoftmaxBackwardSharedMeta
+
+softshrink:
+  custom_fill_params: FillsoftshrinkfwdParams
+  guid: shrink_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+softshrink.out:
+  custom_fill_params: FillsoftshrinkfwdParams
+  guid: shrink_fwd
+  op_validator: check-node-with-shared-layer
+
+softshrink_backward:
+  custom_fill_params: FillsoftshrinkbwdParams
+  guid: shrink_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+softshrink_backward.grad_input:
+  custom_fill_params: FillsoftshrinkbwdParams
+  guid: shrink_bwd
+  op_validator: check-node-with-shared-layer
+
+softplus:
+  custom_fill_params: FillSoftplusParamsFwd
+  guid: softplus_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+softplus.out:
+  custom_fill_params: FillSoftplusParamsFwd
+  guid: softplus_fwd
+  op_validator: check-node-with-shared-layer
+
+softplus_backward:
+  custom_fill_params: FillSoftplusParamsBwd
+  guid: softplus_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+softplus_backward.grad_input:
+  custom_fill_params: FillSoftplusParamsBwd
+  guid: softplus_bwd
+  op_validator: check-node-with-shared-layer
+
+special_erfcx:
+  promote_int_to_float: [self]
+  guid: erfcx_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+special_erfcx.out:
+  promote_int_to_float: [self]
+  guid: erfcx_fwd
+  op_validator: check-node-with-shared-layer
+
+special_xlog1py:
+  output_meta: XlogYMeta
+  op_backend: Xlog1PyOperator
+  out_ids: [0]
+  op_validator: XlogYSharedMeta
+
+special_xlog1py.other_scalar:
+  output_meta: XlogYMeta
+  op_frontend: LazyXlogY
+  op_backend: Xlog1PyOperator
+  out_ids: [0]
+  op_validator: XlogYSharedMeta
+
+special_xlog1py.other_scalar_out:
+  output_meta: XlogYMeta
+  op_frontend: LazyXlogY
+  op_backend: Xlog1PyOperator
+  op_validator: XlogYSharedMeta
+
+special_xlog1py.out:
+  output_meta: XlogYMeta
+  op_backend: Xlog1PyOperator
+  op_validator: XlogYSharedMeta
+
+special_xlog1py.self_scalar:
+  output_meta: XlogYMeta
+  op_frontend: LazyXlogY
+  op_backend: Xlog1PyOperator
+  out_ids: [1]
+  op_validator: XlogYSharedMeta
+
+special_xlog1py.self_scalar_out:
+  output_meta: XlogYMeta
+  op_frontend: LazyXlogY
+  op_backend: Xlog1PyOperator
+  op_validator: XlogYSharedMeta
+
+special_entr:
+  promote_int_to_float: [self]
+  guid: entr_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+special_entr.out:
+  promote_int_to_float: [self]
+  guid: entr_fwd
+  op_validator: check-node-with-shared-layer
+
+sqrt:
+  promote_int_to_float: [self]
+  guid: sqrt_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sqrt.out:
+  promote_int_to_float: [self]
+  guid: sqrt_fwd
+  op_validator: check-node-with-shared-layer
+
+sqrt_:
+  promote_int_to_float: [self]
+  guid: sqrt_fwd
+  op_validator: check-node-with-shared-layer
+  inplace_ids: [0]
+
+squeeze:
+  override_fn: squeeze_self_hpu_lazy
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+squeeze.dim:
+  override_fn: squeeze_dim_hpu_lazy
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+squeeze.dims:
+  output_meta: SqueezeDimsMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+  guid: squeeze
+  op_backend: SqueezeDims
+  out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: squeeze_dims_hpu_lazy
+
+squeeze_:
+  override_fn: squeeze_hpu_lazy_
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+squeeze_.dim:
+  override_fn: squeeze_dim_hpu_lazy_
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+std.correction:
+  output_meta: StdVarMeta
+  op_backend: Std
+  out_ids: [0]
+  op_validator: StdSharedMeta
+
+std.correction_out:
+  output_meta: StdVarMeta
+  op_backend: Std
+  op_validator: StdSharedMeta
+
+std_mean.correction:
+  output_meta: StdVarMeanMeta
+  dtypes: [BFloat16, Float]
+  op_backend: StdMean
+  op_validator: StdMeanSharedMeta
+  out_ids: [0, 0]
+
+sub.Tensor:
+  broadcast: true
+  custom_fill_params: FillBinarySubParams
+  guid: binary_with_alpha_fwd
+  out_ids: [0]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  scalar_ids: [2]
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
+
+sub.Scalar:
+  broadcast: true
+  custom_fill_params: FillBinarySubParams
+  guid: binary_with_alpha_fwd
+  scalar_ids: [1, 2]
+  out_ids: [0]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
+
+sub_.Tensor:
+  custom_fill_params: FillBinarySubParams
+  guid: binary_with_alpha_fwd
+  inplace_ids: [0]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  scalar_ids: [2]
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
+
+sub_.Scalar:
+  custom_fill_params: FillBinarySubParams
+  guid: binary_with_alpha_fwd
+  scalar_ids: [1, 2]
+  inplace_ids: [0]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
+
+sub.Scalar_out:
+  broadcast: true
+  custom_fill_params: FillBinarySubParams
+  guid: binary_with_alpha_fwd
+  scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
+
+sub.out:
+  broadcast: true
+  custom_fill_params: FillBinarySubParams
+  guid: binary_with_alpha_fwd
+  st_meta: BinarySTMeta
+  op_backend: BinaryWithAlpha
+  promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
+
+sum:
+  output_meta: ReductionOpMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char]
+    Gaudi2: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Half, Float8_e5m2, Float8_e4m3fn]
+  op_backend: ReductionOp
+  promote_to_common_type: [self]
+  guid: reduce_sum_multi_dim_fwd
+  out_ids: [0]
+
+sum.dim_IntList:
+  output_meta: ReductionOpListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Char, Int]
+    Gaudi2: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
+  op_backend: ReductionOpList
+  promote_to_common_type: [self]
+  guid: reduce_sum_multi_dim_fwd
+  out_ids: [0]
+
+sum.IntList_out:
+  output_meta: ReductionOpListMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Long, Half, Float8_e5m2, Float8_e4m3fn]
+  op_backend: ReductionOpList
+  promote_to_common_type: [self]
+  guid: reduce_sum_multi_dim_fwd
+
+t:
+  override_fn: t_hpu_lazy
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+take:
+  output_meta: TakeMeta
+  guid: take_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+take.out:
+  output_meta: TakeMeta
+  guid: take_fwd
+  op_validator: check-node-with-shared-layer
+
+tan.out:
+  promote_int_to_float: [self]
+  guid: tan_fwd
+  op_validator: check-node-with-shared-layer
+
+tan:
+  promote_int_to_float: [self]
+  guid: tan_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+tan_:
+  promote_int_to_float: [self]
+  guid: tan_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+tanh:
+  promote_int_to_float: [self]
+  guid: tanh_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+tanh.out:
+  promote_int_to_float: [self]
+  safe_cast_check: false
+  guid: tanh_fwd
+  op_validator: check-node-with-shared-layer
+
+tanh_:
+  promote_int_to_float: [self]
+  guid: tanh_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+tanh_backward.grad_input:
+  guid: tanh_bwd
+  op_validator: check-node-with-shared-layer
+
+tanh_backward:
+  guid: tanh_bwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+threshold:
+  custom_fill_params: FillThresholdParams
+  guid: threshold_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+threshold_:
+  custom_fill_params: FillThresholdParams
+  guid: threshold_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+threshold.out:
+  custom_fill_params: FillThresholdParams
+  guid: threshold_fwd
+  op_validator: check-node-with-shared-layer
+
+threshold_backward:
+  output_meta: ThresholdBwdMeta
+  custom_fill_params: FillThresholdBwdParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: relu_bwd
+  op_backend: ThresholdBackward
+  out_ids: [0]
+
+threshold_backward.grad_input:
+  output_meta: ThresholdBwdMeta
+  custom_fill_params: FillThresholdBwdParams
+  guid: relu_bwd
+  op_validator: check-node-with-shared-layer
+
+topk:
+  output_meta: TopkMeta
+  op_backend: Topk
+  op_frontend: LazyTopk
+  out_ids: [0, 0]
+  schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)"
+  op_validator: TopkSharedMeta
+
+topk.values:
+  output_meta: TopkMeta
+  op_frontend: TopKFE
+  op_backend: Topk
+  schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+  op_validator: TopkSharedMeta
+
+sort.values_stable:
+  output_meta: SortStableMeta
+  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
+  op_backend: SortStable
+  op_validator: TopkSharedMeta
+
+sort.stable:
+  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
+  op_backend: SortStable
+  output_meta: SortStableMeta
+  out_ids: [0, 0]
+  op_validator: TopkSharedMeta
+
+trace:
+  output_meta: TraceMeta
+  guid: trace_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+transpose.int:
+  override_fn: transpose_hpu_lazy
+  acc_thread: true
+  no_compute_flag: true
+  op_validator: TransposeSharedMeta
+
+tril:
+  custom_fill_params: FillTrilParams
+  guid: matrix_band_part_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+tril.out:
+  custom_fill_params: FillTrilParams
+  guid: matrix_band_part_fwd
+  op_validator: check-node-with-shared-layer
+
+tril_:
+  custom_fill_params: FillTrilParams
+  guid: matrix_band_part_fwd
+  inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+triu:
+  custom_fill_params: FillTriuParams
+  guid: matrix_band_part_fwd
+  out_ids: [0]
+  op_validator: TriluSharedMeta
+
+triu.out:
+  custom_fill_params: FillTriuParams
+  guid: matrix_band_part_fwd
+  op_validator: TriluSharedMeta
+
+triu_:
+  custom_fill_params: FillTriuParams
+  guid: matrix_band_part_fwd
+  inplace_ids: [0]
+  op_validator: TriluSharedMeta
+
+tril_indices:
+  custom_fill_params: FillTrilIndicesParams
+  output_meta: TrilIndicesMeta
+  guid: trilu_indices
+  out_ids: [0]
+  op_backend: TriluIndices
+
+triu_indices:
+  custom_fill_params: FillTriuIndicesParams
+  output_meta: TriuIndicesMeta
+  guid: trilu_indices
+  out_ids: [0]
+  op_backend: TriluIndices
+
+trunc:
+  guid: trunc_fwd
+  out_ids: [0]
+  op_backend: RoundingFunc
+  op_validator: RoundingTruncSharedMeta
+
+trunc.out:
+  guid: trunc_fwd
+  op_backend: RoundingFunc
+  op_validator: RoundingTruncSharedMeta
+
+trunc_:
+  guid: trunc_fwd
+  inplace_ids: [0]
+  op_backend: RoundingFunc
+  op_validator: RoundingTruncSharedMeta
+
+unbind.int:
+  override_fn: unbind_hpu_lazy_
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+uniform_:
+  custom_fill_params: FillPhiloxUniformParams
+  guid: philox_random_uniform
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: RandomSeedTensorInput
+  op_validator: RandomUniformSharedMeta
+  schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
+
+unique_dim:
+  override_fn: unique_dim_hpu_lazy
+  fallback_check: [UniqueFallbackCheck, sorted]
+  dtypes: [BFloat16, Float, Int]
+
+unsqueeze_:
+  override_fn: unsqueeze_hpu_lazy_
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+unsqueeze:
+  override_fn: unsqueeze_hpu_lazy
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+upsample_bicubic2d:
+  custom_fill_params: FillBicubicFwdParams
+  output_meta: UpsampleBicubic2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+upsample_bicubic2d.out:
+  custom_fill_params: FillBicubicFwdParams
+  output_meta: UpsampleBicubic2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
+upsample_bicubic2d.vec:
+  only_shared_layer: true
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+
+upsample_bicubic2d_backward:
+  custom_fill_params: FillBicubicBwdParams
+  output_meta: UpsampleBicubic2DBwdMeta
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+upsample_bicubic2d_backward.grad_input:
+  custom_fill_params: FillBicubicBwdParams
+  output_meta: UpsampleBicubic2DBwdMeta
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
+upsample_bilinear2d:
+  custom_fill_params: FillBilinearFwdParams
+  output_meta: UpsampleBilinear2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+upsample_bilinear2d.out:
+  custom_fill_params: FillBilinearFwdParams
+  output_meta: UpsampleBilinear2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
+upsample_trilinear3d:
+  output_meta: UpsampleTrilinear3DFwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: resize_fwd
+  op_backend: UpSampleTrilinear3DFwdOperator
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [0]
+
+upsample_trilinear3d.out:
+  output_meta: UpsampleTrilinear3DFwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: resize_fwd
+  op_backend: UpSampleTrilinear3DFwdOperator
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
+upsample_bilinear2d.vec:
+  only_shared_layer: true
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+
+upsample_bilinear2d_backward:
+  custom_fill_params: FillBilinearBwdParams
+  output_meta: UpsampleBilinear2DBwdMeta
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+upsample_bilinear2d_backward.grad_input:
+  custom_fill_params: FillBilinearBwdParams
+  output_meta: UpsampleBilinear2DBwdMeta
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
+upsample_linear1d:
+  output_meta: UpsampleLinear1DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleLinear1DFwdOperator
+  op_validator: UpsampleLinear1DFwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+  out_ids: [0]
+
+upsample_linear1d.out:
+  output_meta: UpsampleLinear1DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleLinear1DFwdOperator
+  op_validator: UpsampleLinear1DFwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+
+upsample_linear1d.vec:
+  only_shared_layer: true
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+
+upsample_linear1d_backward:
+  output_meta: UpsampleLinear1DBwdMeta
+  guid: resize_bwd
+  op_backend: UpsampleLinear1DBwdOperator
+  op_validator: UpsampleLinear1DBwdSharedMeta
+  out_ids: [0]
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+
+upsample_linear1d_backward.grad_input:
+  output_meta: UpsampleLinear1DBwdMeta
+  guid: resize_bwd
+  op_backend: UpsampleLinear1DBwdOperator
+  op_validator: UpsampleLinear1DBwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+
+upsample_nearest1d:
+  output_meta: UpsampleNearest1DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleNearest1DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+  out_ids: [0]
+
+upsample_nearest1d.out:
+  output_meta: UpsampleNearest1DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleNearest1DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+
+upsample_nearest1d.vec:
+  only_shared_layer: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
+
+upsample_nearest1d_backward:
+  output_meta: UpsampleNearest1DBwdMeta
+  guid: resize_bwd
+  op_backend: UpsampleNearest1DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+  out_ids: [0]
+
+upsample_nearest1d_backward.grad_input:
+  output_meta: UpsampleNearest1DBwdMeta
+  guid: resize_bwd
+  op_backend: UpsampleNearest1DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+
+_upsample_nearest_exact1d.out:
+  output_meta: UpsampleNearest1DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleNearestExact1DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+
+_upsample_nearest_exact1d_backward.grad_input:
+  output_meta: UpsampleNearest1DBwdMeta
+  guid: resize_bwd
+  op_backend: UpsampleNearestExact1DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
+  synapse_layouts:
+  - [WHC, WHC]
+  - [WHC]
+
+upsample_nearest2d:
+  custom_fill_params: FillNearestFwdParams
+  output_meta: UpsampleNearest2DFwdMeta
+  op_backend: UpSampleNearest2DOperator
+  op_validator: UpsampleNearest2DFwdSharedMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+
+upsample_nearest2d.out:
+  custom_fill_params: FillNearestFwdParams
+  output_meta: UpsampleNearest2DFwdMeta
+  op_backend: UpSampleNearest2DOperator
+  op_validator: UpsampleNearest2DFwdSharedMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+
+upsample_nearest2d_backward:
+  custom_fill_params: FillNearestBwdParams
+  output_meta: UpsampleNearest2DBwdMeta
+  op_backend: UpSampleNearest2DOperator
+  op_validator: UpsampleNearest2DBwdSharedMeta
+  op_frontend: LazyUpsample
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  schema_args: "(Tensor grad_output, int[]? output_size, Tensor input_size, float? scale_h=None, float? scale_w=None) -> Tensor"
+
+upsample_nearest2d_backward.grad_input:
+  custom_fill_params: FillNearestBwdParams
+  output_meta: UpsampleNearest2DBwdMeta
+  op_backend: UpSampleNearest2DOperator
+  op_validator: UpsampleNearest2DBwdSharedMeta
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+
+upsample_nearest3d:
+  output_meta: UpsampleNearest3DFwdMeta
+  guid: resize_fwd
+  op_backend: UpSampleNearest3DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [0]
+
+upsample_nearest3d.out:
+  output_meta: UpsampleNearest3DFwdMeta
+  guid: resize_fwd
+  op_backend: UpSampleNearest3DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
+upsample_nearest3d_backward:
+  output_meta: UpsampleNearest3DBwdMeta
+  guid: resize_bwd
+  op_backend: UpSampleNearest3DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
+  out_ids: [0]
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
+upsample_nearest3d_backward.grad_input:
+  output_meta: UpsampleNearest3DBwdMeta
+  guid: resize_bwd
+  op_backend: UpSampleNearest3DBwdOperator
+  op_validator: UpsampleNearest1D3DBwdSharedMeta
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
+upsample_nearest2d.vec:
+  only_shared_layer: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
+
+upsample_nearest3d.vec:
+  only_shared_layer: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Byte]
+    Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
+
+var.correction:
+  output_meta: StdVarMeta
+  op_backend: Var
+  out_ids: [0]
+  op_validator: VarSharedMeta
+
+var.correction_out:
+  output_meta: StdVarMeta
+  op_backend: Var
+  op_validator: VarSharedMeta
+
+var_mean:
+  output_meta: StdVarMeanMeta
+  op_backend: VarMean
+  out_ids: [0, 0]
+  op_validator: VarMeanSharedMeta
+
+var_mean.correction:
+  output_meta: StdVarMeanMeta
+  op_backend: VarMean
+  out_ids: [0, 0]
+  op_validator: VarMeanSharedMeta
+
+vdot:
+  output_meta: VdotMeta
+  guid: dot_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+vdot.out:
+  output_meta: VdotMeta
+  guid: dot_fwd
+  op_validator: check-node-with-shared-layer
+
+view:
+  override_fn: view_hpu
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+view.dtype:
+  override_fn: view_dtype_hpu
+  acc_thread: true
+  op_validator: EmptySharedMeta
+
+where.self:
+  guid: where_fwd
+  out_ids: [1]
+  output_meta: WhereMeta
+  op_backend: WhereBackend
+  fallback_check: [WhereFallbackCheck, condition, self, other]
+  op_validator: WhereSharedMeta
+
+where.self_out:
+  guid: where_fwd
+  output_meta: WhereMeta
+  op_backend: WhereBackend
+  fallback_check: [WhereFallbackCheck, condition, self, other]
+  op_validator: WhereSharedMeta
+
+xlogy.OutTensor:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  op_validator: XlogYSharedMeta
+
+xlogy.OutScalar_Self:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  op_frontend: LazyXlogY
+  op_validator: XlogYSharedMeta
+
+xlogy.OutScalar_Other:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  op_frontend: LazyXlogY
+  op_validator: XlogYSharedMeta
+
+xlogy.Scalar_Self:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  op_frontend: LazyXlogY
+  out_ids: [1]
+  op_validator: XlogYSharedMeta
+
+xlogy.Scalar_Other:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  op_frontend: LazyXlogY
+  out_ids: [0]
+  op_validator: XlogYSharedMeta
+
+xlogy_.Scalar_Other:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  op_frontend: LazyXlogY
+  inplace_ids: [0]
+  op_validator: XlogYSharedMeta
+
+xlogy.Tensor:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  out_ids: [0]
+  op_validator: XlogYSharedMeta
+
+xlogy_.Tensor:
+  promote_int_to_float: [self, other]
+  output_meta: XlogYMeta
+  guid: xlogy_fwd
+  inplace_ids: [0]
+  op_validator: XlogYSharedMeta
+
+zero_:
+  op_backend: ZeroHpuLazyOperator
+  inplace_ids: [0]
+  op_validator: ZeroSharedMeta
+
+slice_backward:
+  output_meta: SliceBackwardMeta
+  op_backend: SliceBackward
+  op_validator: SliceBwdSharedMeta
+  out_ids: [0]
+  lazy:
+    override_fn: slice_backward_hpu_lazy
+
+_add_relu.Scalar:
+  guid: add_relu_fwd
+  scalar_ids: [1, 2]
+  out_ids: [0]
+  promote_to_common_type: [self, other, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu_.Scalar:
+  guid: add_relu_fwd
+  scalar_ids: [1, 2]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu.Tensor:
+  output_meta: AddReluTensorMeta
+  guid: add_relu_fwd
+  scalar_ids: [2]
+  out_ids: [0]
+  promote_to_common_type: [self, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu_.Tensor:
+  output_meta: AddReluTensorMeta
+  guid: add_relu_fwd
+  scalar_ids: [2]
+  inplace_ids: [0]
+  promote_to_common_type: [self, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu.out:
+  output_meta: AddReluTensorMeta
+  guid: add_relu_fwd
+  scalar_ids: [2]
+  promote_to_common_type: [self, alpha]
+  op_validator: check-node-with-shared-layer
+
+_ctc_loss:
+  output_meta: CtcLossMeta
+  guid: ctc_loss_fwd
+  op_backend: CtcLoss
+  op_validator: CtcLossSharedMeta
+  synapse_layouts:
+  - [CNT, SN, DONT_CARE, DONT_CARE]
+  - [DONT_CARE, SNT]
+  out_ids: [2, 0]
+
+_ctc_loss.Tensor:
+  output_meta: CtcLossMeta
+  guid: ctc_loss_fwd
+  op_backend: CtcLoss
+  op_validator: CtcLossSharedMeta
+  synapse_layouts:
+  - [CNT, SN, DONT_CARE, DONT_CARE]
+  - [DONT_CARE, SNT]
+  out_ids: [2, 0]
+
+_ctc_loss_backward:
+  output_meta: CtcLossBackwardMeta
+  guid: ctc_loss_bwd
+  op_backend: CtcLossBackward
+  op_validator: CtcLossBackwardSharedMeta
+  synapse_layouts:
+  - [DONT_CARE, CNT, SN, DONT_CARE, DONT_CARE, DONT_CARE, SNT]
+  - [CNT]
+  out_ids: [1]
+
+_ctc_loss_backward.Tensor:
+  output_meta: CtcLossBackwardMeta
+  guid: ctc_loss_bwd
+  op_backend: CtcLossBackward
+  op_validator: CtcLossBackwardSharedMeta
+  synapse_layouts:
+  - [DONT_CARE, CNT, SN, DONT_CARE, DONT_CARE, DONT_CARE, SNT]
+  - [CNT]
+  out_ids: [1]
+
+# non-aten native ops
+# These are not present in RegistrationDeclarations.h, so both namespace and op schema must be provided.
+# To add HPU support for such ops, please include the "custom_op_schema" field.
+# Currently, only quantized_decomposed and torchvision namespaces are supported.
+quantize_per_tensor:
+  custom_op_schema: "quantized_decomposed::quantize_per_tensor(Tensor input, float scale, int zero_point, int quant_min, int quant_max, ScalarType type) -> Tensor"
+  output_meta: QuantizePerTensorMeta
+  op_backend: QuantizePerTensor
+  out_ids: [0]
+
+quantize_per_tensor.tensor:
+  custom_op_schema: "quantized_decomposed::quantize_per_tensor.tensor(Tensor input, Tensor scale, Tensor zero_point, int quant_min, int quant_max, ScalarType type) -> Tensor"
+  output_meta: QuantizePerTensorMeta
+  op_backend: QuantizePerTensor
+  out_ids: [0]
+
+quantize_per_tensor.tensor2:
+  custom_op_schema: "quantized_decomposed::quantize_per_tensor.tensor2(Tensor input, Tensor scale, Tensor zero_point, Tensor quant_min, Tensor quant_max, ScalarType type) -> Tensor"
+  output_meta: QuantizePerTensorMeta
+  op_backend: QuantizePerTensor
+  out_ids: [0]
+
+quantize_per_channel:
+  custom_fill_params: FillQuantizePerChannelParams
+  custom_op_schema: "quantized_decomposed::quantize_per_channel(Tensor input, Tensor scales, Tensor zero_points, int axis, int quant_min, int quant_max, ScalarType type) -> Tensor"
+  guid: quantize_per_channel
+  output_meta: QuantizePerChannelMeta
+  out_ids: [0]
+
+dequantize_per_channel:
+  custom_op_schema: "quantized_decomposed::dequantize_per_channel(Tensor input, Tensor scales, Tensor? zero_points, int axis, int quant_min, int quant_max, ScalarType type, ScalarType? out_type) -> Tensor"
+  guid: dequantize_per_channel
+  output_meta: DequantizePerChannelMeta
+  op_backend: DequantizePerChannel
+  out_ids: [0]
+
+dequantize_per_tensor:
+  custom_op_schema: "quantized_decomposed::dequantize_per_tensor(Tensor input, float scale, int zero_point, int quant_min, int quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
+  output_meta: DequantizePerTensorMeta
+  op_backend: DequantizePerTensor
+  out_ids: [0]
+
+dequantize_per_tensor.tensor:
+  custom_op_schema: "quantized_decomposed::dequantize_per_tensor.tensor(Tensor input, Tensor scale, Tensor zero_point, int quant_min, int quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
+  output_meta: DequantizePerTensorMeta
+  op_backend: DequantizePerTensor
+  out_ids: [0]
+
+dequantize_per_tensor.tensor2:
+  custom_op_schema: "quantized_decomposed::dequantize_per_tensor.tensor2(Tensor input, Tensor scale, Tensor zero_point, Tensor quant_min, Tensor quant_max, ScalarType type, ScalarType? out_dtype) -> Tensor"
+  output_meta: DequantizePerTensorMeta
+  op_backend: DequantizePerTensor
+  out_ids: [0]
+
+deform_conv2d:
+  custom_op_schema: "torchvision::deform_conv2d(Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> Tensor"
+  output_meta: DeformConv2dOutputMeta
+  synapse_layouts:
+  - [WHCN, WHCN, SRCK, WHCN, DONT_CARE]
+  - [WHCN]
+  op_backend: DeformConv2d
+  out_ids: [0]
+
+_deform_conv2d_backward:
+  custom_op_schema: "torchvision::_deform_conv2d_backward(Tensor grad, Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> (Tensor, Tensor, Tensor, Tensor, Tensor)"
+  output_meta: DeformConv2dBackwardOutputMeta
+  synapse_layouts:
+  - [WHCN, WHCN, SRCK, WHCN, WHCN]
+  - [WHCN, SRCK, WHCN, WHCN, DONT_CARE]
+  op_backend: DeformConv2dBackward
+  out_ids: [0]
+
+# Below ops override PyTorch implementation. They were previously
+# declared via wrap_kernels_declarations.h file in habana_kernels and pt_ver
+# directories. Now it's enough to add such op with one of fields:
+#  hpu_wrap_all_versions: true
+#  hpu_wrap_version_list: ["2.0", "2.2", "2.4"]
+#      - for a list of PT versions
+#  hpu_wrap_version_range: ["2.0", 0]
+#      - for a closed range of PT versions, 0 represents no upper/lower limit
+
+copy_:
+  hpu_wrap_all_versions: true
+
+sort:
+  hpu_wrap_all_versions: true
+
+masked_select:
+  hpu_wrap_all_versions: true
+
+masked_select.out:
+  hpu_wrap_all_versions: true
+
+scatter_add_:
+  hpu_wrap_all_versions: true
+
+index_add.out:
+  hpu_wrap_all_versions: true
+
+nonzero.out:
+  hpu_wrap_all_versions: true
+
+batch_norm_stats:
+  hpu_wrap_all_versions: true
+
+dropout:
+  hpu_wrap_all_versions: true
+
+matmul:
+  hpu_wrap_all_versions: true
+
+_reshape_alias:
+  hpu_wrap_all_versions: true
+
+_unsafe_view:
+  hpu_wrap_all_versions: true
+
+empty.memory_format:
+  hpu_wrap_all_versions: true
+
+empty_strided:
+  hpu_wrap_all_versions: true
+
+slice.Tensor:
+  hpu_wrap_all_versions: true
+
+split.Tensor:
+  hpu_wrap_all_versions: true
+
+split_with_sizes:
+  hpu_wrap_all_versions: true
+
+_index_put_impl_:
+  hpu_wrap_all_versions: true
+
+bincount:
+  hpu_wrap_all_versions: true
+
+nonzero:
+  hpu_wrap_all_versions: true
+
+_unique:
+  hpu_wrap_all_versions: true
+
+_unique2:
+  hpu_wrap_all_versions: true
+
+repeat_interleave.Tensor:
+  hpu_wrap_all_versions: true
+
+batch_norm_elemt:
+  hpu_wrap_all_versions: true
+
+batch_norm_backward_elemt:
+  hpu_wrap_all_versions: true
+
+batch_norm_backward_reduce:
+  hpu_wrap_all_versions: true
+
+batch_norm_gather_stats_with_counts:
+  hpu_wrap_all_versions: true
+
+instance_norm:
+  hpu_wrap_all_versions: true
+
+softmax.int:
+  hpu_wrap_all_versions: true
+
+pin_memory:
+  hpu_wrap_all_versions: true
+
+_pin_memory:
+  hpu_wrap_all_versions: true
+
+is_pinned:
+  hpu_wrap_all_versions: true
+
+# Custom ops
+
+cast_to_fp8_hybrid:
+  custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
+  guid: convert_to_fp8_hybrid
+  op_backend: CastToFp8Hybrid
+  out_ids: [0, 0, 0]
+  output_meta: CastToFp8HybridMeta
+  custom_fill_params: CastToFp8HybridParams
+
+conv2d_fp8:
+  custom_op_schema: "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, SymInt[2] padding=0, SymInt[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor"
+  guid: conv2d_fp8
+  out_ids: [0]
+  op_backend: Conv2dFp8
+  output_meta: Conv2dFp8Meta
+  synapse_layouts:
+  - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN]
+
+conv2d_fp8.scalar:
+  custom_op_schema: "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, SymInt[2] padding=0, SymInt[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor"
+  guid: conv2d_fp8
+  out_ids: [0]
+  op_backend: Conv2dFp8
+  output_meta: Conv2dFp8Meta
+  synapse_layouts:
+  - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN]
+
+fake_quant_fp4:
+  custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
+  custom_fill_params: FillFakeQuantFp4Params
+  guid: fake_quantize_fp4
+  out_ids: [0]
+
+softmax_fp8:
+  custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
+  guid: softmax_fwd
+  op_backend: SoftmaxFp8
+  out_ids: [0]
+  output_meta: SoftmaxFp8Meta
+
+softmax_fp8.Scalar_scales:
+  custom_op_schema: "hpu::softmax_fp8.Scalar_scales(Tensor input, int dim, float input_scale, float output_scale, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
+  guid: softmax_fwd
+  op_backend: SoftmaxFp8
+  out_ids: [0]
+  output_meta: SoftmaxFp8Meta
+
+softmax_fp8.Scalar:
+  custom_op_schema: "hpu::softmax_fp8.Scalar(Tensor input, int dim, float input_scale, float output_scale, float inv_attn_heads, Tensor? fused_add=None) -> Tensor"
+  guid: softmax_fwd
+  op_backend: SoftmaxFp8
+  out_ids: [0]
+  output_meta: SoftmaxFp8Meta
+
+rms_norm:
+  custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
+  guid: rms_norm_ex_fwd
+  out_ids: [0, 0]
+  output_meta: RMSNormMeta
+  custom_fill_params: RMSNormParams
+
+rms_norm_fast:
+  custom_op_schema: "hpu::rms_norm_fast(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
+  guid: rms_norm_fast_fwd
+  out_ids: [0, 0]
+  output_meta: RMSNormMeta
+  custom_fill_params: RMSNormFastParams
+
+rms_norm_backward:
+  custom_op_schema: "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)"
+  guid: rms_norm_ex_bwd
+  out_ids: [0, 0]
+  output_meta: RMSNormBwdMeta
+  custom_fill_params: RMSNormBwdParams
+
+rms_norm_fast_backward:
+  custom_op_schema: "hpu::rms_norm_fast_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)"
+  guid: rms_norm_fast_bwd
+  out_ids: [0, 0]
+  output_meta: RMSNormBwdMeta
+  custom_fill_params: RMSNormBwdParams
+
+sum_fp8:
+  custom_op_schema: "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor"
+  custom_fill_params: FillSumFp8Params
+  output_meta: SumFp8Meta
+  guid: reduce_sum_multi_dim_fwd
+  out_ids: [0]
+
+plain_index:
+  custom_op_schema: "hpu::plain_index(Tensor self, Tensor[] indices) -> Tensor"
+  output_meta: PlainIndexMeta
+  guid: plain_index
+  op_backend: PlainIndexHabanaOperator
+  out_ids: [0]
+
+exp_fast_math:
+  custom_op_schema: "hpu::exp_fast_math(Tensor self) -> Tensor"
+  guid: exp_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+sqrt_fast_math:
+  custom_op_schema: "hpu::sqrt_fast_math(Tensor self) -> Tensor"
+  guid: sqrt_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+rsqrt_fast_math:
+  custom_op_schema: "hpu::rsqrt_fast_math(Tensor self) -> Tensor"
+  guid: rsqrt_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer

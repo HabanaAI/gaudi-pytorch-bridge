@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/test_definition.json
+common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+      githubOrg: habana-internal
+    - repository: habanalabs
+      githubOrg: habana-internal
+    - repository: nic_kmd
+      isHybrid: true
+      githubOrg: habana-internal
+    - repository: pytorch-training-tests
+      githubOrg: habana-internal
+    - repository: event_tests_plugin
+      githubOrg: habana-internal
+    - repository: model_garden
+      githubOrg: habana-internal
+    - repository: optimum-habana-fork
+      githubOrg: HabanaAI
+  dependencies:
+    - COMPLEX_GUID
+    - HCL
+    - HL_THUNK
+    - PT_FORK
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_KERNELS
+    - RDMA_CORE
+  config:
+    testCommand: run_pytorch_qa_tests
+    loadLKD: true
+    testXMLOutputKey: --xml
+    releaseFlag: false
+    saveToFileBeatMount: true
+  envVars:
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);'):${RDMA_CORE_ROOT}/build/lib"
+    CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+    LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+    JOB_SCENARIO: pt_smoke_gaudi2
+  preTestStages:
+    Install Python test dependencies and artifacts:
+      command: 'set_up_pytorch_artifacts_for_testing current'
+testsMap:
+  Test_pytorch_modules_gaudi2_asic_sbs:
+    stages:
+      Run sbs tests gaudi2 asic:
+        filter: -a pt_sbs_gaudi2
+  Test_pytorch_modules_gaudi_asic_sbs:
+    stages:
+      Run sbs tests gaudi2 asic:
+        filter: -a pt_dependency_sbs

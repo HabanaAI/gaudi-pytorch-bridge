@@ -1,0 +1,90 @@
+def stableBranch = env.GERRIT_BRANCH ? env.GERRIT_BRANCH - '_next' : env.GIT_TARGET_BRANCH - '_next'
+def isPromote = env.IS_PROMOTE.toBoolean() || env.TRIGGER_BUILD.startsWith("Promote")
+def libraryBranch = stableBranch - "${env.product}."
+src = library("pipeline-library@${libraryBranch}")
+
+// Enabling git environment variables
+gitVars()
+
+def isPrimaryOS = env.IS_PRIMARY_OS ? Boolean.valueOf(env.IS_PRIMARY_OS) : true
+
+def user_install = env.runInDocker == 'true' ? '' : '--user'
+def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL', 'PT_FORK']
+
+String releaseVersion = extractReleaseVersion()
+def testBuildOsMap = [
+    "rh86" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:rhel8.6-${releaseVersion}",
+    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}",
+    "a2" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:amzn2-${releaseVersion}"
+]
+
+if (testBuildOsMap.keySet().contains(env.OS_SHORT_NAME)) {
+    env.dockerImage = testBuildOsMap[env.OS_SHORT_NAME]
+}
+def preBuildStages = [
+    'Install Python build dependencies': { util ->
+        util.runShellCommandWrapper("""
+            set -xe
+            install_pytorch_build_requirements
+        """)
+    }
+]
+def preCommitValidation = [
+    'Running pre-commit hooks': { util ->
+        if (isPrimaryOS) {
+            Integer precommitResult = util.runShellCommandWrapper("""
+                set -xe
+                pushd \${PYTORCH_MODULES_ROOT_PATH}
+                pre-commit run --color never --show-diff-on-failure --from \$(git remote)/${GIT_TARGET_BRANCH} --to HEAD
+                popd
+            """, null, false, true)
+            if (precommitResult == 0) { return }
+            else if (precommitResult == 1) {
+                error("precommit hook failed - aborting build")
+            }
+            error("exception during precommit hook - aborting build")
+        } else {
+            println('no need to run precommit hooks on non-main os')
+        }
+    }
+]
+def ccacheStats = [
+    'Print CCache statistics': { util ->
+        util.runShellCommandWrapper("ccache --show-stats")
+    }
+]
+def lightningHabanaFork = [
+    'Build Lightning Habana fork': { util ->
+        util.runBuildShell('build_lightning_habana_fork -c')
+    }
+]
+def pytorchFork = [
+    'Install Pytorchfork modules': { util ->
+        util.runShellCommandWrapper("""
+            set -xe
+            uninstall_pytorch_artifacts
+            pip install -U \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl ${user_install}
+            rm \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl
+        """)
+    }
+]
+if(env.GIT_PROJECT == 'pytorch-integration' && !isPromote) {
+    preBuildStages = preBuildStages + preCommitValidation
+}
+preBuildStages = preBuildStages + ccacheStats + pytorchFork + ccacheStats
+if((env.GIT_PROJECT == 'lightning-habana-fork' ) && !isPromote) {
+    preBuildStages =  preBuildStages + lightningHabanaFork
+}
+preBuildStages =  preBuildStages + lightningHabanaFork + ccacheStats
+def buildCommands = [
+    'Pytorch vision': 'build_pytorch_vision -c',
+    'Pytorch modules': 'build_pytorch_modules -c'
+]
+
+genericBuilder(
+    src: src,
+    preBuildStages: preBuildStages,
+    buildDependencies: buildDependencies,
+    buildCommands: buildCommands,
+    manifest: manifest
+)

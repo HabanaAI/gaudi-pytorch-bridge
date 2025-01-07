@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/component_config.json
+config:
+  jobTimeout: '180'
+  sharedCCacheEnabled: true
+  osBuild:
+    ubuntu18.04: "off"
+    amzn2: "off"
+  dependantComponents:
+    - component: deepspeed_fork
+    - component: pt_next

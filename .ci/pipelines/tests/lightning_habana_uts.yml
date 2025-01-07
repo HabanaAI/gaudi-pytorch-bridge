@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/test_definition.json
+common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+      githubOrg: habana-internal
+    - repository: coral-sim
+      githubOrg: habana-internal
+    - repository: tpcsim
+      githubOrg: habana-internal
+    - repository: habanalabs
+      githubOrg: habana-internal
+    - repository: nic_kmd
+      isHybrid: true
+      githubOrg: habana-internal
+    - repository: deepspeed-fork
+      githubOrg: habana-internal
+  dependencies:
+    - CODEC
+    - HCL
+    - HL_THUNK
+    - MEDIA
+    - PT_FORK
+    - RDMA_CORE
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_FUSER
+    - TPC_KERNELS
+  config:
+    testCommand: run_lightning_habana_fw_tests
+    loadLKD: true
+    testXMLOutputKey: --xml
+    releaseFlag: false
+  envVars:
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${RDMA_CORE_ROOT}/build/lib:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+    CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+    LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+  preTestStages:
+    Install Python test dependencies and artifacts:
+      command: 'set_up_pytorch_artifacts_for_testing current; pip install -U scikit-learn; build_deepspeed_fork; pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl --force-reinstall --no-deps'
+    Install media loader wheel:
+      command: 'pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl'
+testsMap:
+  Test_pytorch_modules_gaudi2_asic_lightning_habana_uts:
+    stages:
+      Run Lightning habana unit tests:
+        filter: -t all1
+  Test_pytorch_modules_gaudi_asic_lightning_habana_uts:
+    stages:
+      Run Lightning habana unit tests:
+        filter: -t all1
+  Test_pytorch_modules_gaudi2_sim_lightning_habana_uts:
+    dependencies:
+      - CORAL_SIM
+      - TPCSIM
+    config:
+      lkdSimHealtcheckParams:
+        lkdParam: 'timeout_locked=1000'
+        startNetworkIfs: false
+        checkDmesg: false
+        numOfSimInstances: 8
+        simParams: '-spdlog 4'
+        DRAMAllocation: 4
+    stages:
+      Run Lightning habana unit tests:
+        filter: -t all1 --dut sim
+  Test_pytorch_modules_gaudi_sim_lightning_habana_uts:
+    dependencies:
+      - CORAL_SIM
+      - TPCSIM
+    config:
+      lkdSimHealtcheckParams:
+        lkdParam: 'timeout_locked=1000'
+        startNetworkIfs: false
+        checkDmesg: false
+        numOfSimInstances: 8
+        simParams: '-spdlog 4'
+        DRAMAllocation: 4
+    stages:
+      Run Lightning habana unit tests:
+        filter: -t all1 --dut sim

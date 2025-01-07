@@ -1,0 +1,239 @@
+# yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/presubmit_config.json
+orchestratorConfig:
+  testConfig:
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_lazy
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_compile
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_eager
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_eager
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_functionality
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: lightning-habana-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: lightning-habana-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: lightning-habana-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_group_2
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: lightning-habana-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_small_models_test
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_small_models_test
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed_ci
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_ci
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_compile
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_compile
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_compile
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_eager
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_eager
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype
+    silentMode: false
+    triggerMap:
+    - repository: pytorch-vision-fork
+      gitHubOrg: habana-internal
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_lightning_habana_uts
+    silentMode: false
+    triggerMap:
+    - repository: lightning-habana-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_lightning_habana_uts
+    silentMode: false
+    triggerMap:
+    - repository: lightning-habana-fork
+      gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pt_next/Test_dependent_Build_pt_next_u22
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
+  triggerMap:
+  - repository: pytorch-integration
+    gitHubOrg: habana-internal
+  - repository: pytorch-fork
+    gitHubOrg: habana-internal
+  - repository: pytorch-vision-fork
+    gitHubOrg: habana-internal
+  - repository: lightning-habana-fork
+    gitHubOrg: habana-internal

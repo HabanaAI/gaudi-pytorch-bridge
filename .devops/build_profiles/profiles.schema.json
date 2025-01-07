@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Profile configuration object",
+  "type": "object",
+  "properties": {
+    "profiles": {
+      "description": "Object for managing build profiles",
+      "type": "object",
+      "additionalProperties": {
+        "description": "Single profile object describing build options",
+        "type": "object",
+        "properties": {
+          "additional_build_flags": {
+            "description": "Array of additional build flags that should be passed to build.py. --pt-versions and --build-whl are not allowed - they are automatically added based on other arguments",
+            "type": "array",
+            "items": {
+              "description": "Single flag such as -c",
+              "type": "string"
+            }
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "wheels": {
+                "description": "Array of wheels to build, must reference one of wheels defined in wheels object",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["wheels"]
+          },
+          {
+            "properties": {
+              "pt_versions": {
+                "description": "Array of PT versions to build, must reference one of PT version defined in wheels pt_versions",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["pt_versions"]
+          }
+        ]
+      }
+    },
+    "pt_versions": {
+      "description": "Object defining supported PT versions",
+      "type": "object",
+      "additionalProperties": {
+        "description": "Single PT version object",
+        "type": "object",
+        "properties": {
+          "version": {
+            "oneOf": [
+              {
+                "description": "PT version literal or \"nightly\"",
+                "type": "string"
+              },
+              {
+                "description": "Used to define a placeholder version (main use is for rc). Will be ignored if used",
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "version"
+        ]
+      }
+    },
+    "flavors": {
+      "description": "Object defining supported PT flavors",
+      "type": "object",
+      "additionalProperties": {
+        "description": "Single PT flavor object",
+        "type": "object",
+        "properties": {
+          "required_pt": {
+            "description": "Package name definition per version provided",
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "description": "Package name used for both building and wheel requirements",
+                  "type": "string"
+                },
+                {
+                  "description": "Package name definition if different one is needed for building and wheel requirements",
+                  "type": "object",
+                  "properties": {
+                    "build": {
+                      "description": "Package name used for building",
+                      "type": "string"
+                    },
+                    "runtime": {
+                      "description": "Package name used for wheel requirements",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "build",
+                    "runtime"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "default",
+              "nightly"
+            ]
+          },
+          "suffix": {
+            "description": "Suffix added to wheel name for the flavor, can be null",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "required_pt",
+          "suffix"
+        ]
+      }
+    },
+    "wheels": {
+      "description": "Object defining wheels used in profiles",
+      "type": "object",
+      "additionalProperties": {
+        "description": "Single wheel object",
+        "type": "object",
+        "properties": {
+          "wheel_name": {
+            "description": "Wheel name",
+            "type": "string"
+          },
+          "pt_versions": {
+            "description": "PT versions that should be packaged into wheel, must reference one of PT version defined in wheels pt_versions",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "continue_on_error": {
+            "description": "Should build continue if this wheel fails to build",
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "wheel_name",
+          "pt_versions"
+        ]
+      }
+    }
+  },
+  "required": [
+    "profiles",
+    "pt_versions",
+    "wheels"
+  ]
+}

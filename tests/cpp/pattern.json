@@ -1,0 +1,30 @@
+{
+    "MmReluPattern" :
+    {
+        "Pattern" : [
+                    "graph(%a, %b):",
+                    "  %c = aten::mm(%a, %b)",
+                    "  %r = aten::relu(%c)",
+                    "  return (%r)"
+                    ],
+        "ReplacePattern" : [
+                    "graph(%a, %b):",
+                    "  %r = aten::mmrelu(%a, %b)",
+                    "  return (%r)"
+                    ]
+    },
+    "ConvReluPattern" :
+    {
+        "Pattern" : [
+                    "graph(%a, %b, %c):",
+                    "  %c = aten::conv(%a, %b, %c)",
+                    "  %r = aten::relu(%c)",
+                    "  return (%r)"
+                    ],
+        "ReplacePattern" : [
+                    "graph(%a, %b, %c):",
+                    "  %r = aten::convrelu(%a, %b, %c)",
+                    "  return (%r)"
+                    ]
+    }
+}

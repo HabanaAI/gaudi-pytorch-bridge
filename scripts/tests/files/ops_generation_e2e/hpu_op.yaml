@@ -1,0 +1,272 @@
+###############################################################################
+#
+#  Copyright (c) 2021-2024 Intel Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+###############################################################################
+__ilshift__.Scalar:
+  dtypes: [Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  inplace_ids: [0]
+  scalar_ids: [1]
+
+_foreach_add_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_fused_dropout:
+  output_meta: FusedNativeDropoutMeta
+  custom_fill_params: FillFusedNativeDropoutParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: GeneratorToSeed
+  op_backend: FusedNativeDropout
+  out_ids: [0, 0]
+  schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
+
+native_dropout:
+  output_meta: FusedNativeDropoutMeta
+  custom_fill_params: FillFusedNativeDropoutParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  early_exit: NativeDropoutEarlyExit
+  op_frontend: NativeDropoutFE
+  op_backend: FusedNativeDropout
+  out_ids: [0, 0]
+  schema_args: "(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)"
+
+as_strided:
+  override_fn: as_strided_hpu
+  acc_thread: true
+
+addbmm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: batch_gemm
+  op_backend: AddBMM
+  output_meta: AddBMMMeta
+  out_ids: [0]
+  op_validator: AddBMMSharedMeta
+
+bucketize.Scalar:
+  custom_fill_params: FillBucketizeParams
+  output_meta: BucketizeMeta
+  guid: search_sorted_fwd
+  promote_to_common_type: [self, boundaries]
+  tpc_input_order: [1, 0]
+  scalar_ids: [0]
+  out_ids: [1]
+  op_validator: check-node-with-shared-layer
+
+elu:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: elu_fwd
+  custom_fill_params: FillEluParams
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+prod.int_out:
+  dtypes:
+    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
+  guid: reduce_prod_multi_dim_fwd
+  safe_cast_check: false
+
+clone:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: identity
+  output_meta: CloneMeta
+  out_ids: [0]
+  no_compute_flag: true
+
+mul.Scalar_out:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: mult_fwd
+  promote_to_common_type: [self, other]
+  scalar_ids: [1]
+
+sort.values_stable:
+  dtypes:
+    Gaudi: [Float, Int, BFloat16, Short]
+    Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
+  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
+  op_backend: SortStable
+
+squeeze.dims:
+  output_meta: SqueezeDimsMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+  guid: squeeze
+  op_backend: SqueezeDims
+  out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: squeeze_dims_hpu_lazy
+
+eq.Scalar_out:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+  guid: equal_fwd
+  output_meta: CompareMeta
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  handle_bool_inputs: true
+
+isfinite:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+  op_backend: _IsFiniteInfNan
+  guid: isfinite_fwd
+  out_ids: [0]
+
+upsample_bicubic2d.vec:
+  only_shared_layer: true
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+
+softmax_fp8:
+  custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
+  guid: softmax_fwd
+  op_backend: SoftmaxFp8
+  out_ids: [0]
+  output_meta: SoftmaxFp8Meta
+
+matmul:
+  hpu_wrap_all_versions: true
+
+_reshape_alias:
+  hpu_wrap_version_list: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+dropout:
+  hpu_wrap_version_range: ["2.0", 0]
+
+
+bitwise_left_shift.Tensor_Scalar:
+  dtypes: [Int, Char, Byte, Short]
+  custom_fill_params: FillLeftShiftParams
+  guid: bitshift_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+
+_native_batch_norm_legit:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+  op_backend: BatchNormOpBackend
+  out_ids: [0, 0, 0]
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+
+convolution_backward_overrideable:
+  output_meta: ConvolutionOverrideableMetaBwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: ConvolutionBackwardOverrideableFE
+  op_backend: ConvolutionBackwardOverrideable
+  out_ids: [0, 0, 0]
+
+native_group_norm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+  guid: native_group_norm_fwd
+  custom_fill_params: FillNativeGroupNormParams
+  output_meta: GroupNormFwdMeta
+  out_ids: [0, 0, 0]
+
+linear_backward:
+  output_meta: LinearBackwardMeta
+  custom_fill_params: FillLinearBwdParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: linear_temp_bwd
+  out_ids: [0, 0, 0]
+
+exp_fast_math:
+  custom_op_schema: "hpu::exp_fast_math(Tensor self) -> Tensor"
+  guid: exp_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+quantize_per_channel:
+  custom_fill_params: FillQuantizePerChannelParams
+  custom_op_schema: "quantized_decomposed::quantize_per_channel(Tensor input, Tensor scales, Tensor zero_points, int axis, int quant_min, int quant_max, ScalarType type) -> Tensor"
+  guid: quantize_per_channel
+  output_meta: QuantizePerChannelMeta
+  out_ids: [0]
+
+_deform_conv2d_backward:
+  custom_op_schema: "torchvision::_deform_conv2d_backward(Tensor grad, Tensor input, Tensor weight, Tensor offset, Tensor mask, Tensor bias, int stride_h, int stride_w, int pad_h, int pad_w, int dilation_h, int dilation_w, int groups, int offset_groups, bool use_mask) -> (Tensor, Tensor, Tensor, Tensor, Tensor)"
+  output_meta: DeformConv2dBackwardOutputMeta
+  synapse_layouts:
+  - [WHCN, WHCN, SRCK, WHCN, WHCN]
+  - [WHCN, SRCK, WHCN, WHCN, DONT_CARE]
+  op_backend: DeformConv2dBackward
+  out_ids: [0]
