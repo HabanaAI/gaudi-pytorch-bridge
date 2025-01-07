@@ -221,7 +221,19 @@
             "pytest_working/compile/test_compile_conv_bn.py::test_hpu_const_marking",
             "pytest_working/compile/test_hpu_convolution.py::test_hpu_convolution_grad_with_view",
             "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[float32-[4x3x8]]",
-            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]"
+            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]",
+            "pytest_working/compile/dynamic/test_hpu_native_batch_norm_dynamic.py::test_hpu_native_batch_norm_legit_functional_3d_dynamic[{'training': True, 'momentum': 0.1, 'eps': 1e-05}-[2x2x3x3x4]-float32]",
+            "pytest_working/compile/dynamic/test_hpu_native_batch_norm_dynamic.py::test_hpu_native_batch_norm_legit_functional_3d_dynamic[{'training': True, 'momentum': 0.1, 'eps': 1e-05}-[2x2x3x3x4]-bfloat16]",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_graph_BatchNorm_pipelining",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_backend_st_test7",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_user_test",
+            "pytest_working/compile/test_pt2e_quant_flow.py::test_pt2e_quant_int[False-False-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_flow.py::test_pt2e_quant_int[False-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_flow.py::test_pt2e_quant_int[True-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[save-True-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[save-False-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[load-True-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[load-False-True-quant_dtype0-linear_relu]"
         ]
     },
     "gaudi3": {
@@ -495,7 +507,19 @@
             "pytest_working/compile/test_compile_conv_bn.py::test_hpu_const_marking",
             "pytest_working/compile/test_hpu_convolution.py::test_hpu_convolution_grad_with_view",
             "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[float32-[4x3x8]]",
-            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]"
+            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]",
+            "pytest_working/compile/dynamic/test_hpu_native_batch_norm_dynamic.py::test_hpu_native_batch_norm_legit_functional_3d_dynamic[{'training': True, 'momentum': 0.1, 'eps': 1e-05}-[2x2x3x3x4]-float32]",
+            "pytest_working/compile/dynamic/test_hpu_native_batch_norm_dynamic.py::test_hpu_native_batch_norm_legit_functional_3d_dynamic[{'training': True, 'momentum': 0.1, 'eps': 1e-05}-[2x2x3x3x4]-bfloat16]",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_graph_BatchNorm_pipelining",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_backend_st_test7",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_user_test",
+            "pytest_working/compile/test_pt2e_quant_flow.py::test_pt2e_quant_int[False-False-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_flow.py::test_pt2e_quant_int[False-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_flow.py::test_pt2e_quant_int[True-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[save-True-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[save-False-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[load-True-True-quant_dtype0-linear_relu]",
+            "pytest_working/compile/test_pt2e_quant_with_separate_calibration.py::test_pt2e_quant_int[load-False-True-quant_dtype0-linear_relu]"
         ],
         "lazy": [
             "pytest_working/lazy/test_hpu_adaptive_avg_pool.py::test_hpu_pool_fwd_bwd[True-dtype0-0.001-64-7-7-50-1-1]",
