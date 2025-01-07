@@ -1565,7 +1565,7 @@ install_requirements_pytorch()
 
 install_requirements_event_plugin()
 {
-    cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements-prod.txt)
+    cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
