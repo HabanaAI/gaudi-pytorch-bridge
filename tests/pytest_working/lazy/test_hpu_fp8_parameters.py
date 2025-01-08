@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch
+from test_utils import inference_env_fixture
 
 
 @pytest.fixture
@@ -54,7 +55,7 @@ from test_utils import hpu, is_gaudi2
 pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports fp8")
 
 
-def test_fp8_quant_model(set_env_variable):
+def test_fp8_quant_model(set_env_variable, inference_env_fixture):
     scaling_param = "act_maxabs_pts_weight_maxabs_pts_pow2_hw"
     quant_mod = "linear"
     fp8_dtype = torch.float8_e4m3fn
@@ -65,7 +66,6 @@ def test_fp8_quant_model(set_env_variable):
     shapeA = (8, 4096)
     shapeB = (4096, 4096)
 
-    htcore.hpu_set_inference_env()
     from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
 
     class TestModel(torch.nn.Module):
@@ -157,5 +157,3 @@ def test_fp8_quant_model(set_env_variable):
     result = result_model.cpu()
     result_model = model.forward(A_hpu, B_hpu)
     result = result_model.cpu()
-
-    htcore.hpu_teardown_inference_env()

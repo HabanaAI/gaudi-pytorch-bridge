@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 ###############################################################################
 
 import os
+
+import pytest
 
 DBG_FLAG_verbose_print = False
 
@@ -34,3 +36,16 @@ def vb_print(*args, **kwargs):
 
 def get_dbg_env_var_num(v):
     return int(os.getenv(v, 0))
+
+
+@pytest.fixture(scope="function")
+def inference(request):
+    if request.param:
+        import habana_frameworks.torch.core as htcore
+
+        htcore.hpu_set_inference_env()
+        os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "1"
+    yield request.param
+    if request.param:
+        htcore.hpu_teardown_inference_env()
+        os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "0"

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,6 +22,20 @@ import habana_frameworks.torch as htorch
 import numpy as np
 import pytest
 import torch
+from test_utils import inference_env_fixture
+
+serial_path = "/tmp/const_section_test/"
+
+
+@pytest.fixture(scope="function")
+def const_section_fixture():
+    import habana_frameworks.torch.core as htorch
+
+    htorch.hpu.enable_const_section_serialization(serial_path, True, True)
+    yield
+    htorch.hpu.disable_const_section_serialization()
+    # clear config
+    shutil.rmtree(serial_path)
 
 
 class Net(torch.nn.Module):
@@ -37,12 +51,8 @@ class Net(torch.nn.Module):
         return x
 
 
-def test_const_serialization_cache():
+def test_const_serialization_cache(inference_env_fixture, const_section_fixture):
     torch.manual_seed(123456)
-    htorch.core.hpu_set_inference_env()
-
-    serial_path = "/tmp/const_section_test/"
-    htorch.hpu.enable_const_section_serialization(serial_path, True, True)
 
     model = Net()
     model = model.to("hpu")
@@ -67,9 +77,3 @@ def test_const_serialization_cache():
         out_deserialize = out.to("cpu")
 
     np.array_equal(out_serialize.detach().numpy(), out_deserialize.detach().numpy(), equal_nan=True)
-
-    # clear config
-    shutil.rmtree(serial_path)
-    htorch.core.hpu_teardown_inference_env()
-    htorch.hpu.disable_inference_mode()
-    htorch.hpu.disable_const_section_serialization()

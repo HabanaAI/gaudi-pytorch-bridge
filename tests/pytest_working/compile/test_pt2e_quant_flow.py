@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper, is_gaudi1
+from test_utils import fga_assert_helper, inference_env_fixture, is_gaudi1
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer
@@ -116,10 +116,6 @@ def verify_nodes(ops_summary, expected_op_count):
 def use_pt2e_quant_flow(
     test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
 ):
-    import habana_frameworks.torch.core as htcore
-
-    htcore.hpu_set_env()
-
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
     random.seed(0xDEADDEAD)
@@ -196,15 +192,15 @@ def use_pt2e_quant_flow(
         else:
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
 
-    htcore.hpu_reset_env()
-
 
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export):
+def test_pt2e_quant_float(
+    set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture
+):
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(quant_dtype)
@@ -237,7 +233,7 @@ def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_br
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export):
+def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
 
     class custom_quantizer(Quantizer):
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -695,3 +695,12 @@ def force_op_eager_fallback(op):
     finally:
         if revert:
             hpu_fallback_op_list.remove(op)
+
+
+@pytest.fixture(scope="function")
+def inference_env_fixture():
+    import habana_frameworks.torch.core as htcore
+
+    htcore.hpu_set_inference_env()
+    yield
+    htcore.hpu_teardown_inference_env()

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import fp8_fused_sdpa
-from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, vb_print
+from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, inference, vb_print
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
@@ -1007,6 +1007,7 @@ tc_list = tc_list_copy_tensor
 @pytest.mark.parametrize(
     "batch_size,q_heads,kv_heads,seq_len_N_t,seq_len_N_s,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,is_amax_s,is_amax_o,is_amax_ds,fp8_run_out_type, scalar_run",
     tc_list,
+    indirect=["inference"],
 )
 def test_sdpa(
     batch_size,
@@ -1023,7 +1024,7 @@ def test_sdpa(
     is_causal,
     recompute,
     rhslice,
-    inference,
+    inference,  # wrapped into a fixture
     softmax_mode,
     is_amax_s,
     is_amax_o,
@@ -1060,7 +1061,7 @@ def test_sdpa(
         + str(recompute)
         + " rhSlice = "
         + str(rhslice)
-        + " infrecence = "
+        + " inference = "
         + str(inference)
         + " softmax_mode = "
         + str(softmax_mode)
@@ -1112,10 +1113,6 @@ def test_sdpa(
     # print("test_case_valid = ", test_case_valid)
     if not test_case_valid:
         pytest.skip("This testcase is not valid for fp8 measurement or run")
-
-    if inference:
-        os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "1"
-        htcore.hpu_set_inference_env()
 
     torch.manual_seed(1234567)
 
@@ -1432,8 +1429,6 @@ def test_sdpa(
     process_results(inference_results)
 
     if inference:
-        htcore.hpu_teardown_inference_env()
-        os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "0"
         return
 
     # BWD is not supported in recomp mode
