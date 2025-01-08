@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -1099,8 +1099,6 @@ def test_op_square_inplace_output():
     # This test is to validate the dynamic shape arguments which
     # used to create as_strided node when graph output is an inplace
     # op output.
-    is_eager_fallback = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
 
     sizes = [(3, 32, 32), (1303, 32, 48), (2440, 32, 51)]
 
@@ -1119,7 +1117,6 @@ def test_op_square_inplace_output():
         t_h = t.to("hpu")
         h_result1 = compiled_fn(t_h)
         assert torch.allclose(h_result1.to("cpu"), result1, atol=0.001, rtol=0.001)
-    configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 
 @pytest.mark.parametrize("split_dim", [0, 1, 2, -1, -2, -3])
@@ -1692,8 +1689,6 @@ def test_complex_symbolic_input():
 
 def test_dynamic_strided():
     from habana_frameworks.torch.hpex.kernels import RotaryPosEmbeddingHelperV2 as FusedRoPE
-
-    configuration_flags["use_eager_fallback"] = True
 
     torch.manual_seed(12345)
 

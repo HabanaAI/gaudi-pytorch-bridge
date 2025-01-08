@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -78,8 +78,6 @@ def get_tolerance(op, dtype, is_op_compound=False):
 @pytest.mark.parametrize("k,", k_list)
 @pytest.mark.parametrize("other_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
 def test_foreach_binary_tensor(op, k, other_dtype):
-    is_eager_fallback = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
 
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
@@ -100,7 +98,6 @@ def test_foreach_binary_tensor(op, k, other_dtype):
     for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, results_cpu[i].dtype)
         torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
-    configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 
 @pytest.mark.parametrize("op", ops_list)

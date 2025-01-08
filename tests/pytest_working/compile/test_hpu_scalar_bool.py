@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,32 +18,19 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 
 
-class TestHpuScalarBool:
-    @classmethod
-    def setup_class(self):
-        # For mul op there is expected fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
+def test_scalar_bool():
+    def fn(input, scalar):
+        return torch.mul(input, scalar)
 
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
+    cpu_input = torch.randint(low=0, high=2, size=(2, 2), dtype=torch.bool)
+    hpu_input = cpu_input.to("hpu")
+    torch._dynamo.reset()
 
-    @staticmethod
-    def test_scalar_bool():
-        def fn(input, scalar):
-            return torch.mul(input, scalar)
+    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
 
-        cpu_input = torch.randint(low=0, high=2, size=(2, 2), dtype=torch.bool)
-        hpu_input = cpu_input.to("hpu")
-        torch._dynamo.reset()
+    cpu_output = fn(cpu_input, True)
+    hpu_output = hpu_wrapped_fn(hpu_input, True).cpu()
 
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
-
-        cpu_output = fn(cpu_input, True)
-        hpu_output = hpu_wrapped_fn(hpu_input, True).cpu()
-
-        assert torch.equal(cpu_output, hpu_output)
+    assert torch.equal(cpu_output, hpu_output)

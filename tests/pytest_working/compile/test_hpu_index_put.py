@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -37,16 +37,6 @@ all_dtypes = [
 
 @pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
 class TestHpuIndexPutSelect:
-
-    @classmethod
-    def setup_class(self):
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
-
     @staticmethod
     def test_index_put_torch_compile(dtype):
         if is_gaudi1() and dtype == torch.half:

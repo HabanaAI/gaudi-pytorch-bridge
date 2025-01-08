@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -28,4 +28,18 @@ def test_smoke_jit_forked_lowering():
 
     t = torch.tensor([1.0], device="hpu")
     _ = smoke(t, t)
+    bc.set_pt_hpu_use_jit_fork(prev)
+
+
+def test_smoke_jit_forked_lowering_eager_fallback():
+    prev = bc.get_pt_hpu_use_jit_fork()
+    bc.set_pt_hpu_use_jit_fork(True)
+    t = torch.tensor([1.0], device="hpu")
+
+    @torch.compile(backend="hpu_backend")
+    def smoke(x):
+        y = torch.tensor([2.0]).to(device="hpu")
+        return y + x
+
+    _ = smoke(t)
     bc.set_pt_hpu_use_jit_fork(prev)

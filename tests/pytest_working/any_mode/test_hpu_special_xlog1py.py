@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -26,15 +26,6 @@ from test_utils import format_tc, is_pytest_mode_compile
 @pytest.mark.parametrize("in_place_out", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 class TestHpuSpecialXlog1py:
-    @classmethod
-    def setup_class(self):
-        # For scalar_tensor (coming from decomposition) there is expected fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
 
     @staticmethod
     def test_hpu_special_xlog1py(shapes, in_place_out, dtype):

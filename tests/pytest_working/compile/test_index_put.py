@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@ import numpy as np
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-
-is_use_eager_fallback = configuration_flags["use_eager_fallback"]
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
@@ -107,7 +105,6 @@ def test_index_put_bwd(inputs_shape):
         return out
 
     # index falls back to eager in fwd
-    configuration_flags["use_eager_fallback"] = True
     torch._dynamo.reset()
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
 
@@ -124,7 +121,6 @@ def test_index_put_bwd(inputs_shape):
     t1h.retain_grad()
     hpu_res.sum().backward()
 
-    configuration_flags["use_eager_fallback"] = is_use_eager_fallback
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
     assert torch.allclose(t1.grad, t1h.grad.to("cpu"), rtol=1e-3, atol=1e-3)
 
@@ -137,7 +133,6 @@ def test_index_put_ellipsis(inputs_shape):
         out = t + 2
         return out
 
-    configuration_flags["use_eager_fallback"] = True
     torch._dynamo.reset()
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
 
@@ -149,7 +144,6 @@ def test_index_put_ellipsis(inputs_shape):
 
     cpu_res = fn(t, [i1, i2], [v1, v2])
     hpu_res = compiled_hpu(t.to("hpu"), [i1.to("hpu"), i2.to("hpu")], [v1.to("hpu"), v2.to("hpu")])
-    configuration_flags["use_eager_fallback"] = is_use_eager_fallback
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
 
@@ -184,7 +178,6 @@ def test_index_put_basic_bool(inputs_shape, ind_shape, accumulate):
     def fn(tensor, index_list, value, accumulate):
         return tensor.index_put(index_list, value, accumulate)
 
-    configuration_flags["use_eager_fallback"] = False
     self_numel = reduce(lambda x, y: x * y, list(inputs_shape))
     indices_numel = reduce(lambda x, y: x * y, list(inputs_shape))
     tensor = torch.arange(self_numel).view(inputs_shape)
@@ -200,7 +193,6 @@ def test_index_put_basic_bool(inputs_shape, ind_shape, accumulate):
     torch._dynamo.reset()
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(tensor.to("hpu"), index_list_hpu, values.to("hpu"), accumulate)
-    configuration_flags["use_eager_fallback"] = is_use_eager_fallback
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
 
@@ -238,7 +230,6 @@ def test_index_put_cpu_index(inputs_shape):
         out = torch.mul(p, 2)
         return out
 
-    configuration_flags["use_eager_fallback"] = True
     torch._dynamo.reset()
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
     t1 = torch.zeros(inputs_shape)
@@ -248,5 +239,4 @@ def test_index_put_cpu_index(inputs_shape):
     cpu_res = fn(t1, t2, t3)
     hpu_res = compiled_hpu(t1.to("hpu"), t2, t3.to("hpu"))
 
-    configuration_flags["use_eager_fallback"] = is_use_eager_fallback
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)

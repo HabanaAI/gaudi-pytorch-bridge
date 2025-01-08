@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -30,15 +30,6 @@ if not is_gaudi1():
 @pytest.mark.parametrize("input_dtype", dtypes, ids=format_tc)
 @pytest.mark.parametrize("other_dtype", dtypes, ids=format_tc)
 class TestHpuXlogY:
-    @classmethod
-    def setup_class(self):
-        # For scalar_tensor (coming from decomposition) there is expected fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
 
     @staticmethod
     def test_hpu_xlogy(input_shape, other_shape, input_dtype, other_dtype):

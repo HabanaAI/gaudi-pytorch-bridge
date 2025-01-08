@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -254,15 +254,6 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
 @pytest.mark.parametrize("squeeze_dims", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 class TestHpuApplyRotaryPosEmbV2FwdBwd:
-    @classmethod
-    def setup_class(self):
-        # Index requires fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
 
     @staticmethod
     def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dtype):
@@ -364,15 +355,6 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 @pytest.mark.parametrize("cos_dtype", [torch.float16, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("sin_dtype", [torch.float16, torch.float32, torch.bfloat16])
 class TestHpuApplyRotaryPosEmbDiffDTypes:
-    @classmethod
-    def setup_class(self):
-        # Index requires fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
 
     @staticmethod
     def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):

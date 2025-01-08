@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -42,16 +42,6 @@ from test_utils import (
     indirect=True,
 )
 class TestHpuMaskedMixedDevices:
-    @classmethod
-    def setup_class(self):
-        # For scalar tensor there is a fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
-
     @staticmethod
     def test_hpu_masked_mixed_devices(shape, value, scalar_value, dynamic, dtype, setup_teardown_env_fixture):
         if dynamic and (is_gaudi3() or not pytest.mode == "compile"):

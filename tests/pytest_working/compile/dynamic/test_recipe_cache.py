@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -29,13 +29,10 @@ from habana_frameworks.torch.dynamo.compile_backend.config import configuration_
 def set_env(request, arg=False):
     os.environ["PT_HPU_RECIPE_CACHE_CONFIG"] = "/tmp/cache,false,8192"
     print("Enabled serialization of recipe on disk")
-    is_eager_fallback = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
     # Yield to provide the value for the test
     yield "1"
 
     os.environ["PT_HPU_RECIPE_CACHE_CONFIG"] = ""
-    configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 
 def test_recipe_cache1(set_env):
