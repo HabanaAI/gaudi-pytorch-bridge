@@ -164,6 +164,41 @@ ProcessGroupHCCL::ProcessGroupHCCL(
       rank);
 }
 
+// Abort all communicators on this rank
+bool ProcessGroupHCCL::abort(std::optional<std::string> abortReason) {
+  PT_DISTRIBUTED_DEBUG(
+      "Launching ProcessGroupHCCL abort asynchrounously. Abort Reason: ",
+      abortReason.value_or(""));
+  if (!this->emulate_distributed_) {
+    for (auto& it : hccl_communicator_) {
+      PT_DISTRIBUTED_DEBUG(
+          "hcclCommAbort initiated deviceId: ",
+          it.first,
+          " commId:",
+          it.second.get());
+      // Note: HCCL doesnt support abort operation. Once Hccl Supports, This can
+      // be enabled
+      //  it.second->hcclCommAbort(abortReason);
+    }
+  }
+
+  return true;
+}
+
+void ProcessGroupHCCL::shutdown(std::optional<std::string> reason) {
+  // Don't join threads here since the purpose of this method is to abort all
+  // communicators and signal the threads to exit. Joining on the threads could
+  // potentially block and hence avoid it in this method.
+
+  // lauch abort asynchrounously and wait for it to complete or timeout
+  PT_DISTRIBUTED_DEBUG("Launching ProcessGroupHCCL abort asynchrounously.");
+
+  std::future<bool> fut = std::async(
+      std::launch::async, [this, &reason]() { return this->abort(reason); });
+
+  PT_DISTRIBUTED_DEBUG("ProcessGroupHCCL aborts successfully.");
+}
+
 ProcessGroupHCCL::~ProcessGroupHCCL() {
   PT_DISTRIBUTED_DEBUG(
       "~ProcessGroupHCCL name:",
@@ -726,4 +761,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupHCCL>::create));
+
+  processGroupHccl.def(
+      "_shutdown",
+      [](const c10::intrusive_ptr<::c10d::ProcessGroupHCCL>& self) {
+        return self->shutdown(std::nullopt);
+      });
 };

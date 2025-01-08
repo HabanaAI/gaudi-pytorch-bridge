@@ -241,6 +241,35 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
   return work;
 }
 
+// Abort all communicators on this rank
+bool ProcessGroupLazyHCCL::abort(std::optional<std::string> abortReason) {
+  PT_DISTRIBUTED_DEBUG(
+      "Launching ProcessGroupLazyHCCL abort asynchrounously. Abort Reason: ",
+      abortReason.value_or(""));
+  if (comm_) {
+    PT_DISTRIBUTED_DEBUG("hcclCommAbort initiated commId:", comm_.get());
+    // Note: HCCL doesnt support abort operation. Once Hccl Supports, This can
+    // be enabled
+    //  it.second->hcclCommAbort(abortReason);
+  }
+
+  return true;
+}
+
+void ProcessGroupLazyHCCL::shutdown(std::optional<std::string> reason) {
+  // Don't join threads here since the purpose of this method is to abort all
+  // communicators and signal the threads to exit. Joining on the threads could
+  // potentially block and hence avoid it in this method.
+
+  // lauch abort asynchrounously and wait for it to complete or timeout
+  PT_DISTRIBUTED_DEBUG("Launching ProcessGroupLazyHCCL abort asynchrounously.");
+
+  std::future<bool> fut = std::async(
+      std::launch::async, [this, &reason]() { return this->abort(reason); });
+
+  PT_DISTRIBUTED_DEBUG("ProcessGroupLazyHCCL aborts successfully.");
+}
+
 ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
   PT_DISTRIBUTED_DEBUG(
       "~ProcessGroupLazyHCCL name:",
@@ -1022,4 +1051,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupLazyHCCL>::create));
+
+  processGroupHccl.def(
+      "_shutdown",
+      [](const c10::intrusive_ptr<::c10d::ProcessGroupLazyHCCL>& self) {
+        return self->shutdown(std::nullopt);
+      });
 };
