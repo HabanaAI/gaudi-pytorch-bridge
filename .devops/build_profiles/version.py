@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -136,12 +136,8 @@ class Version(packaging.version.Version):
 
 
 def is_official_stable_cpu_version(pt_ver: Version) -> bool:
-    return not pt_ver.is_prerelease and pt_ver.local == "cpu" and not pt_ver.is_devrelease
-
-
-def is_official_nightly_cpu_version(pt_ver: Version) -> bool:
-    return not pt_ver.is_prerelease and pt_ver.local == "cpu" and len(str(pt_ver.dev)) == len("20190731")
+    return not pt_ver.is_prerelease and pt_ver.local is not None and "cpu" in pt_ver.local and not pt_ver.is_devrelease
 
 
 def is_wheel_version(pt_ver: Version) -> bool:
-    return pt_ver.wheel_path
+    return pt_ver.wheel_path is not None and pt_ver.wheel_path != ""

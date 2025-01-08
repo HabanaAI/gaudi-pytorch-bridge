@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 import sys
 
-from build_profiles.version import Version
+from build_profiles.version import Version, is_official_stable_cpu_version
 
 
 def test_version_lt():
@@ -88,3 +88,11 @@ def test_significant_matches():
 def test_version_from_sys_version_info():
     ver = Version(sys.version_info)
     assert ver.major > 2
+
+
+def test_is_official_stable_cpu_version():
+    assert is_official_stable_cpu_version(Version("1.0.0+cpu"))
+    assert is_official_stable_cpu_version(Version("1.0.0+cpu.cxx11.abi"))
+    assert not is_official_stable_cpu_version(Version("1.0.0+gpu"))
+    assert not is_official_stable_cpu_version(Version("1.0.0a0+cpu"))
+    assert not is_official_stable_cpu_version(Version("1.0.0"))
