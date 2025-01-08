@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -909,7 +909,9 @@ def generate_header_decls(fgens):
         shared_layer_meta_decls += build(
             fgen.ctxop.get_shared_layer_meta(), shared_layer_meta_fns, "SHARED_LAYER_META_DECL"
         )
-        stmeta_decls += build(fgen.ctxop.get_st_meta(), stmeta_fns, "STMETA_DECL")
+        if fgen.ctxop.get_st_meta() is not None and not fgen.ctxop.get_st_meta().startswith("Default"):
+            stmeta_decls += build(fgen.ctxop.get_st_meta(), stmeta_fns, "STMETA_DECL")
+
         fill_params_decls += build(fgen.ctxop.get_custom_fill_params(), fill_params, "FILL_PARAMS_DECL")
 
         fc = fgen.ctxop.get_fallback_check()
@@ -1463,8 +1465,6 @@ def lazy_frontend(
     code += handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, type_promo_variant)
 
     st_meta = ctxop.get_st_meta()
-    if st_meta:
-        code += f"  hpu_op.SetSTMetaFn({st_meta});\n"
 
     code += handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars)
     return code + "\n}"
