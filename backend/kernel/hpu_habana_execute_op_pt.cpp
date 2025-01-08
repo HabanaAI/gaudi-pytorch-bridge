@@ -51,7 +51,7 @@ void SynapseGraphDestroyTask(synGraphHandle graphHandle) {
 void HabanaLaunchOpPT::ExecuteSynapse() {
   PT_BRIDGE_BEGIN;
   if (execution_control_.graph_key_with_perm_.has_value()) {
-    ExecuteSynapseCache(execution_control_.graph_key_with_perm_.value());
+    ExecuteSynapseCache();
     return;
   }
 

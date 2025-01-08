@@ -29,6 +29,7 @@
 #include <vector>
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/event_dispatcher.h"
+#include "backend/kernel/hpu_habana_cache.h"
 #include "backend/kernel/refinement_engine.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/session.h"
@@ -598,6 +599,10 @@ void device::cleanup() {
   // it might be in the process of compiling a new recipe.
   // The compilation is allowed to complete for graceful termination.
   habana::RefinementEngine::GetEngine().Shutdown();
+
+  // Cleaning up the DynamicBucketInfoMap so that the events gets cleared
+  // before destroying the cached event handle
+  habana::DynamicBucketInfoMap::get_instance().clear();
 
   // Wait for all futures to finish.
   // NOTE: If GIL is acquired by any other thread, there is a good chance that

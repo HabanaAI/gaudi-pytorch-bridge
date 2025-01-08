@@ -632,10 +632,6 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   }
 
   size_t curr_mfu_id = mfu_bucket_id;
-  if (curr_mfu_id == 0) {
-    PT_DYNAMIC_SHAPE_DEBUG("Can not refine static bucket");
-    return {};
-  }
 
   statistics_->SetCurrentParentBucketID(curr_mfu_id);
   statistics_->SetCurrentParentLastStep(
@@ -649,7 +645,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   bool isRuntimeImproved{buckets_[curr_mfu_id].IsRuntimeImproved()};
 
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Current mfu bucket %d is eligible for refinement", curr_mfu_id);
+      "Current mfu bucket is eligible for refinement ", curr_mfu_id);
   auto rvpsh = buckets_[curr_mfu_id].GetSynapseRecipePtr();
   if (nullptr == rvpsh) {
     PT_DYNAMIC_SHAPE_DEBUG("Recipe for mfu bucket is null");

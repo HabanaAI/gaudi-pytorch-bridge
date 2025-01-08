@@ -35,8 +35,7 @@ at::Tensor habana::CreateEmptyTensor(
     habana::ShapeTensorStruct& tensor_data,
     const std::vector<int64_t>& tshape) {
   if (ti.tensor_type() == SHAPE_TENSOR) {
-    auto pt_tensor = habana_lazy::empty_hpu_lazy(
-        tshape, ti.get_topts(), ti.get_mf(), false, SHAPE_TENSOR);
+    auto pt_tensor = habana::createDynamicTensor(tshape, SHAPE_TENSOR);
     if (tensor_data.has_shape_tensor_data()) {
       auto new_tmeta{get_tensor_extra_meta(pt_tensor)};
       HABANA_ASSERT(new_tmeta);

@@ -4597,7 +4597,7 @@ void HabanaLaunchOpPT::update_syn_launch_info(
 }
 
 // call this function for recipe caching (graph/eager)
-void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
+void HabanaLaunchOpPT::ExecuteSynapseCache() {
   PT_BRIDGE_BEGIN;
 
   if (habana_helpers::IsInferenceMode()) {
@@ -4669,10 +4669,6 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
         syn_launch_info_,
         external_tensor_info_indexes_,
         dma_inputs_);
-  }
-
-  if (habana_helpers::GetRefineDynamicShapeStatus() || refine_ds_enabled_) {
-    CreateStaticCompilationDBI(graph_key_with_perm);
   }
 
   if (!get_enable_2stage_pipeline()) {
@@ -4929,15 +4925,18 @@ void HabanaLaunchOpPT::run(
 
       UpdatePatchingInformation(rvs, !recipe_launcher_->recipe_);
 
+      if (habana_helpers::GetRefineDynamicShapeStatus() || refine_ds_enabled_) {
+        CreateStaticCompilationDBI(graph_key_with_perm_);
+      }
       // currently only eager backend supports pipelining
       // can be merged once non-eager backends support pipelining
       if (enable_graph_caching_ && !compile_mode) {
-        ExecuteSynapseCache(graph_key_with_perm_);
+        ExecuteSynapseCache();
       } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
         if (!is_enable_4stage_pipeline) {
-          ExecuteSynapseCache(graph_key_with_perm_);
+          ExecuteSynapseCache();
         } else {
           execution_control_.cached_task(graph_key_with_perm_);
           pipeline_execution();
@@ -5923,8 +5922,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       graph_input_info.min_policy,
       graph_input_info.max_policy,
       ranges,
-      current_dbipsh_->GetRecipeKeyForBucket(
-          graph_input_info.current_bucket_id),
+      cur_rargpsh_->hashCode(),
       result,
       last_compilation_pass);
   current_dbipsh_->get_statistics()->LogSymbols(in_symbol_value_map_);
@@ -5941,9 +5939,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       ranges,
       refine_candidate);
   current_dbipsh_->get_statistics()->LogSelectedRecipe(
-      current_dbipsh_->GetRecipeKeyForBucket(
-          graph_input_info.current_bucket_id),
-      0);
+      cur_rargpsh_->hashCode(), 0);
   if (!syn_graph_ptr_->is_empty()) {
     current_dbipsh_->get_statistics()->LogRecipeMemory(
         *recipe_launcher_->recipe_);

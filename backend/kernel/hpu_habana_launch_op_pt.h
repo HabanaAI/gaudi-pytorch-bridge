@@ -232,7 +232,7 @@ class HabanaLaunchOpPT {
   void StoreCompiledInformation(std::shared_ptr<RecipeValueSpec>& rvs);
   void ExecuteSynapse();
   void ExecuteSynapseGraph();
-  void ExecuteSynapseCache(size_t graph_key_with_perm);
+  void ExecuteSynapseCache();
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 
