@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
+from ._passes.reorder_custom_ops import pass_reorder_custom_ops
 from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
 from .cluster_compiler import pass_compile_clusters_jit_fork_version
 from .partitioner import HabanaPartitioner
@@ -71,6 +72,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_annotate_nodes_and_inline_submodule,
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
+            pass_reorder_custom_ops,
             pass_propose_collective_blocks,
             pass_fuse_collectives,
             pass_allreduce_parents,

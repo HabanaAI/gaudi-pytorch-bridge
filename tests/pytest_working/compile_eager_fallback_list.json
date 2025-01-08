@@ -441,6 +441,7 @@
                 "test_prelu_fwd_bwd[float32-0.4-[4x4]-4]",
                 "test_propose_partitions",
                 "test_relu_cpuinput",
+                "test_reorder_custom_ops",
                 "test_save_load_module[E5M2-1-False]",
                 "test_save_load_module[E5M2-1-True]",
                 "test_save_load_module[E5M2-4-False]",
