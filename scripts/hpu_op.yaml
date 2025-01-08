@@ -3322,6 +3322,36 @@ gt.Tensor:
   handle_bool_inputs: true
   op_validator: check-node-with-shared-layer
 
+histogram.bin_ct:
+  output_meta: HistogramBinCtMeta
+  dtypes: [Float]
+  guid: histogram
+  custom_fill_params: FillHistogramBinCtParams
+  out_ids: [0, 0]
+  op_validator: HistogramBinCtSharedMeta
+
+histogram.bin_ct_out:
+  output_meta: HistogramBinCtMeta
+  dtypes: [Float]
+  guid: histogram
+  custom_fill_params: FillHistogramBinCtParams
+  op_validator: HistogramBinCtSharedMeta
+
+histogram.bins_tensor:
+  output_meta: HistogramBinsMeta
+  dtypes: [Float]
+  guid: histogram
+  custom_fill_params: FillHistogramBinsParams
+  out_ids: [0, 0]
+  op_validator: HistogramBinsSharedMeta
+
+histogram.bins_tensor_out:
+  output_meta: HistogramBinsMeta
+  dtypes: [Float]
+  guid: histogram
+  custom_fill_params: FillHistogramBinsParams
+  op_validator: HistogramBinsSharedMeta
+
 hardshrink:
   guid: shrink_fwd
   op_backend: HardShrinkFwd
