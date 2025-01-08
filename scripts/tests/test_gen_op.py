@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ def test_ops_generation_e2e(monkeypatch):
     output_dir = os.path.join(test_path, "output")
     reference_dir = os.path.join(test_path, "files/ops_generation_e2e/reference_output", ref_output_dir)
     yaml_path = os.path.join(test_path, "files/ops_generation_e2e/hpu_op.yaml")
-    pt_signatures = os.path.join(test_path, "files/ops_generation_e2e/RegistrationDeclarations.h")
+    pt_signatures = os.path.join(test_path, "files/ops_generation_e2e/FakeRegistrationDeclarations.h")
 
     shutil.rmtree(output_dir, ignore_errors=True)
 

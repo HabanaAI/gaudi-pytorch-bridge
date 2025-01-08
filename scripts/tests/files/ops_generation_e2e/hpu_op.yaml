@@ -183,7 +183,6 @@ _reshape_alias:
 dropout:
   hpu_wrap_version_range: ["2.0", 0]
 
-
 bitwise_left_shift.Tensor_Scalar:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
