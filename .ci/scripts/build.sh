@@ -582,6 +582,7 @@ build_pytorch_fork()
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __set_py_vers="false"
     local __pytorch_next="false"
+    local __use_cxx11_abi="false"
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -630,6 +631,9 @@ build_pytorch_fork()
             ;;
         --pytorch-next )
             __pytorch_next="true"
+            ;;
+        --use-cxx11-abi )
+            __use_cxx11_abi="true"
             ;;
         -h  | --help )
             usage $__scriptname
@@ -691,6 +695,12 @@ build_pytorch_fork()
        echo "Building torch in Debug mode"
     else
        echo "Building torch in Release mode"
+    fi
+
+    if [[ $__use_cxx11_abi == "true" ]]; then
+      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=1"
+    else
+      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=0"
     fi
 
     echo "Build parameters ${__whl_params}"
