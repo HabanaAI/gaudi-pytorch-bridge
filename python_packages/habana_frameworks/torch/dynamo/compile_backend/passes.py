@@ -2325,7 +2325,7 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
                 continue
 
             graph_changed = True
-            new_op = torch.ops.aten.linear.default
+            new_op = torch.ops.aten.linear
             with ctx.graph_module.graph.inserting_after(u):
                 new_node = ctx.graph_module.graph.create_node(
                     "call_function",

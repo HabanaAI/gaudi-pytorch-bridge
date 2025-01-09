@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -265,6 +265,9 @@ class FxToJitLowering(torch.fx.Interpreter):
         # corresponding operation in the JIT graph.
         if isinstance(target, TorchOpOverload):
             schema = target._schema
+            jit_op_name, jit_args = self._handle_schema(schema, args, kwargs)
+        elif hasattr(target, "default") and isinstance(target.default, TorchOpOverload):
+            schema = target.default._schema
             jit_op_name, jit_args = self._handle_schema(schema, args, kwargs)
         # Python-only operators that are unrepresentable in TorchScript.
         # Examples: cond, while loop, triton wrapper, etc.

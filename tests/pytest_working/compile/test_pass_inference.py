@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ def test_linear():
         out_hpu = func(x=x, m=m, device="hpu")
 
     ops_summary = fga.get_ops_summary()
-    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear.default", count_list=[(1, 0)])
+    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)
@@ -170,7 +170,7 @@ def test_pass_inference_fuse_linear(fuse_linear):
         out_hpu = func(x=x, m=m, device="hpu")
 
     ops_summary = fga.get_ops_summary()
-    op_name = "torch.ops.aten.linear.default" if fuse_linear is True else "torch.ops.aten.mm.default"
+    op_name = "torch.ops.aten.linear" if fuse_linear is True else "torch.ops.aten.mm.default"
     fga_assert_helper(ops_summary=ops_summary, op=op_name, count_list=[(1, 0)])
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
