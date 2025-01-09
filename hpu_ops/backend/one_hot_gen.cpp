@@ -49,6 +49,26 @@ OutputMetaDataVector OneHotMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector OneHotSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  auto dtype = self.scalar_type();
+  const auto rank = self.dim();
+  auto outputDtype = c10::ScalarType::Float;
+  if (!isIntegralType(dtype, true)) {
+    outputDtype = dtype;
+    dtype = (dtype == c10::ScalarType::Half || dtype == c10::ScalarType::Float)
+        ? c10::ScalarType::Int
+        : c10::ScalarType::Short;
+  }
+
+  SharedMetaData oneHotSharedMeta{"one_hot_fwd"};
+  oneHotSharedMeta.inputs_data.emplace_back(rank, dtype);
+  oneHotSharedMeta.outputs_data.emplace_back(rank + 1, outputDtype);
+  return {oneHotSharedMeta};
+}
+
 struct OneHot : OpBackend {
   OneHot(int device_id, c10::ScalarType scalar_type)
       : OpBackend(device_id, "one_hot_fwd", scalar_type, {0}, {}, {}, false) {

@@ -44,6 +44,21 @@ OutputMetaDataVector ThresholdBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector ThresholdBackwardSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& grad = stack_tensor(stack, 0);
+  const auto& self = stack_tensor(stack, 1);
+  const auto dtype = grad.scalar_type();
+  const auto rank = grad.dim();
+
+  SharedMetaData reluSharedMeta{"relu_bwd"};
+  reluSharedMeta.inputs_data = {{rank, dtype}, {self.dim(), dtype}};
+  reluSharedMeta.outputs_data.emplace_back(rank, dtype);
+
+  return {reluSharedMeta};
+}
+
 void ThresholdBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

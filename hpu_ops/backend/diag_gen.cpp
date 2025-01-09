@@ -66,6 +66,22 @@ OutputMetaDataVector DiagMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector DiagSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+  const auto outputRank = rank == 1 ? 2 : 1;
+  const std::string guid =
+      rank == 1 ? "matrix_diagonal_fwd" : "matrix_diag_part_fwd";
+
+  SharedMetaData matrixSharedMeta{guid};
+  matrixSharedMeta.inputs_data.emplace_back(rank, dtype);
+  matrixSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+  return {matrixSharedMeta};
+}
+
 void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
 

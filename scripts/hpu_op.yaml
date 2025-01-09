@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -2341,13 +2341,10 @@ clone:
   op_validator: check-node-with-shared-layer
 
 lift_fresh_copy:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: identity
   out_ids: [0]
   no_compute_flag: true
+  op_validator: check-node-with-shared-layer
 
 complex:
   override_fn: complex_hpu
@@ -2516,12 +2513,9 @@ cumsum_:
 
 diag.out:
   output_meta: DiagMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   custom_fill_params: FillDiagParams
   op_backend: Diag
+  op_validator: DiagSharedMeta
 
 div.out:
   broadcast: true
@@ -4537,8 +4531,8 @@ mish.out:
   op_validator: check-node-with-shared-layer
 
 mish_backward:
-  dtypes: [BFloat16, Float]
   op_backend: Mishbackward
+  op_validator: MishBackwardSharedMeta
   out_ids: [0]
 
 mm:
@@ -5222,8 +5216,8 @@ one_hot:
   custom_fill_params: FillOneHotParams
   output_meta: OneHotMeta
   guid: one_hot_fwd
+  op_validator: OneHotSharedMeta
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
 
 permute:
   override_fn: permute_hpu_lazy
@@ -6471,12 +6465,9 @@ threshold.out:
 threshold_backward:
   output_meta: ThresholdBwdMeta
   custom_fill_params: FillThresholdBwdParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: relu_bwd
   op_backend: ThresholdBackward
+  op_validator: ThresholdBackwardSharedMeta
   out_ids: [0]
 
 threshold_backward.grad_input:
