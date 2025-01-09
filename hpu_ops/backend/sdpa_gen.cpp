@@ -1052,6 +1052,9 @@ void SDPARecompBwd::AddNode(
     syn_inputs.push_back(nullptr);
   }
 
+  // Same CGUID is used for fp8 and non-fp8. So fill null ptr
+  // for all the fp8 scales
+  syn_inputs.insert(syn_inputs.end(), 8, nullptr);
   if (use_fwd_out) {
     syn_inputs.push_back(fwd_out.syn_t);
   }
