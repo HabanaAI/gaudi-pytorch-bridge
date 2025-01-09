@@ -162,10 +162,13 @@ def _disallow_collectives_in_graph():
         "scatter",
         "send",
     ]
+    deprecated_list = ["reduce_op"]
 
     try:
         for dist_func in [
-            getattr(dist, dist_member) for dist_member in dir(dist) if inspect.isfunction(getattr(dist, dist_member))
+            getattr(dist, dist_member)
+            for dist_member in dir(dist)
+            if dist_member not in deprecated_list and inspect.isfunction(getattr(dist, dist_member))
         ]:
             for coll_name in COLLECTIVE_BASE_NAMES:
                 if coll_name in dist_func.__name__:
