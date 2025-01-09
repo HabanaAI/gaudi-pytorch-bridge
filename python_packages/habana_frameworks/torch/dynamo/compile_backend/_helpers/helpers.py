@@ -481,3 +481,69 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
                     selector.args = (node, idx + 1)
 
     input_module.recompile()
+
+
+def jit_node_annotation_propagation(jit_ir, fx_module):
+    """
+    This pass aims to directly manipulate JIT IR to set hints to node's
+    attribute.
+    """
+
+    # Filter inputs/output and getitem nodes from fx graph, as they are not
+    # present in jit
+    fx_nodes = list(
+        filter(
+            lambda x: ((x.op == "call_function") and ("getitem" not in x.target.__name__)),
+            fx_module.graph.nodes,
+        )
+    )
+
+    if bc.get_pt_hpu_use_jit_fork():
+        jit_graph = jit_ir
+    else:
+        jit_graph = jit_ir.graph
+    # Filter prim nodes, as they are not present in fx
+    jit_graph_nodes = list(
+        filter(
+            lambda x: ("prim::" not in x.kind()),
+            jit_graph.nodes(),
+        )
+    )
+
+    if len(fx_nodes) != len(jit_graph_nodes):
+        logger.debug("Jit graph and FX graph should have same number of nodes: ")
+        logger.debug("FX nodes: ", fx_nodes)
+        logger.debug("JIT graph nodes: ", jit_graph_nodes)
+        return
+
+    is_annotated_graph = False
+    for jit_node, fx_node in zip(jit_graph_nodes, fx_nodes):
+        fx_node_name = fx_node.target.__name__.split(".")[0]
+        if fx_node_name not in jit_node.kind():
+            logger.debug("FX node {} doesn't match with Jit node {}".format(fx_node_name, jit_node.kind()))
+            break
+
+        # extract hints from FX node metadata
+        context_hints = fx_node.meta.get("context_hints", None)
+        if context_hints:
+            logger.debug("node {} has context hints {}".format(fx_node_name, context_hints))
+            # combine hints into a single string in format "name1:value1;[name2:value2;]"
+            hints_str = ""
+            for k, v in context_hints.items():
+                hints_str += "".join([k, ":", str(v), ";"])
+            jit_node.s_("hints", hints_str)
+            logger.debug("set hints for jit node", jit_node)
+            is_annotated_graph = True
+
+        if "sfg" in fx_node.meta:
+            jit_node.s_("sfg", "true")
+            logger.debug("sfg marked for jit node", jit_node)
+            is_annotated_graph = True
+
+    if is_annotated_graph:
+        logger.debug(
+            "####Annotated JIT IR graph for this HPU graph:####\n%s",
+            jit_graph,
+        )
+
+    return

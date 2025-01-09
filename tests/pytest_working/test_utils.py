@@ -481,9 +481,11 @@ def is_pytest_mode_lazy():
 
 
 def clear_t_compile_logs():
+    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import logger as helpers_logger
     from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
     from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
 
+    helpers_logger.set_store_data(True)
     graph_logger.set_store_data(True)
     fallback_logger.set_store_data(True)
 

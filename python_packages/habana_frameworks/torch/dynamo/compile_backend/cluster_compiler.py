@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from habana_frameworks.torch.dynamo.compile_backend._passes.utils import Optimiz
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes import run_jit_fork_passes
 
-from ._helpers import remove_duplicated_outputs, remove_no_effect_inplace_add
+from ._helpers import jit_node_annotation_propagation, remove_duplicated_outputs, remove_no_effect_inplace_add
 from .recipe_compiler import get_callable_recipe
 
 logger = get_compile_backend_logger()
@@ -112,6 +112,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
         #     )
 
         jit_ir = self.fx_to_jit_ir(submod, args)
+        jit_node_annotation_propagation(jit_ir, submod)
 
         is_submod_dynamic = is_module_dynamic(submod)
         syngraph_module = get_callable_recipe(
