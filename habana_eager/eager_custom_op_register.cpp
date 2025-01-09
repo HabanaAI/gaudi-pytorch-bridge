@@ -26,10 +26,13 @@
 #include "habana_eager/ops/mixture_of_experts.h"
 #include "habana_helpers/logging.h"
 #include "hpu_ops/fp8_ops.h"
+#include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "hpu_ops/sdpa_gen.h"
 #include "ops/batch_as_strided.h"
+
+using namespace habana;
 
 namespace {
 using habana::to_string; // For DUMP_*ARGS
@@ -1233,6 +1236,56 @@ at::Tensor dropout(const at::Tensor& input, double p, bool train) {
   return std::get<0>(at::native_dropout(input, p, train));
 }
 
+struct DropoutFunction : public torch::autograd::Function<DropoutFunction> {
+  static constexpr bool is_traceable = true;
+
+  static at::Tensor forward(
+      torch::autograd::AutogradContext* ctx,
+      at::Tensor input,
+      double p,
+      bool train) {
+    ctx->saved_data["p"] = train ? p : 0.0;
+    if ((p == 0) || !train)
+      return input.clone();
+
+    at::Tensor result1, result2;
+    std::tie(result1, result2) = at::native_dropout(input, p, train);
+    ctx->save_for_backward({result2});
+
+    return result1;
+  }
+
+  static torch::autograd::variable_list backward(
+      torch::autograd::AutogradContext* ctx,
+      torch::autograd::variable_list grad_output) {
+    auto p = ctx->saved_data["p"].toDouble();
+    if (p == 0) {
+      return {grad_output[0], torch::Tensor(), torch::Tensor()};
+    } else if (p == 1) {
+      return {grad_output[0] * 0.0, torch::Tensor(), torch::Tensor()};
+    }
+
+    torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
+    auto mask = saved_vars[0];
+    auto scale = 1.0 / (1.0 - p);
+    at::Tensor result = grad_output[0] * mask * scale;
+
+    return {result, torch::Tensor(), torch::Tensor()};
+  }
+};
+
+at::Tensor dropout_wrap(const at::Tensor& input, double p, bool train) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("dropout :", DUMP_3ARGS(input, p, train));
+
+  FALLBACK_IF_UNSUPPORTED_OP(dropout, PARAMS1(input), PARAMS2(input, p, train))
+  if (input.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(dropout)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(input, p, train));
+  }
+  return DropoutFunction::apply(input, p, train);
+}
+
 // pytorch decomposes this op to at::_euclidean_dist in some cases
 // For hpu we prefer to call _cdist_forward in all cases
 at::Tensor cdist(
@@ -1485,6 +1538,10 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("cdist", cdist);
   m.impl("dropout", dropout);
   m.impl("one_hot", one_hot_forward);
+}
+
+TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
+  m.impl("dropout", dropout_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
