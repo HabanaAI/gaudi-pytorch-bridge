@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -27,6 +27,13 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
 )
 from torch.func import functionalize
 from torch.fx.experimental.proxy_tensor import make_fx
+
+
+def hpu_partition_breaker(x):
+    x = x.to("cpu")
+    x = torch.sigmoid(x)
+    x = x.to("hpu")
+    return x
 
 
 def reinplace_test_helper(ctx):
@@ -359,3 +366,46 @@ def test_reinplace_functionalized_allreduce():
         return mm_1
     """
     assert sub_str in ctx.graph_module.print_readable(False)
+
+
+def test_partition_in_out_duplicates_caused_by_index_copy_():
+    class TestModule(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.q_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
+            self.k_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
+            self.v_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
+
+        def forward(self, k_cache, v_cache, x, token_idx):
+            k_cache = hpu_partition_breaker(k_cache)
+            v_cache = hpu_partition_breaker(v_cache)
+            q = self.q_proj(x)  # [2, 1, 4]
+            k = self.k_proj(x)  # [2, 1, 4]
+            v = self.v_proj(x)  # [2, 1, 4]
+            k_cache.index_copy_(1, token_idx - 1, k)
+            v_cache.index_copy_(1, token_idx - 1, v)
+            return q, k_cache, v_cache
+
+    model = TestModule().to("hpu")
+    compiled_model = torch.compile(model, backend="hpu_backend")
+
+    x = torch.randn((2, 1, 4), dtype=torch.bfloat16, requires_grad=False)
+    cache_idx: int = 5
+    token_idx = torch.tensor(cache_idx, dtype=torch.long)
+    k_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False)
+    v_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False)
+
+    x_, token_idx_, k_cache_, v_cache_ = x.to("hpu"), token_idx.to("hpu"), k_cache.to("hpu"), v_cache.to("hpu")
+    with use_eager_fallback():
+        res = compiled_model(k_cache_, v_cache_, x_, token_idx_)
+
+    x_ref, token_idx_ref, k_cache_ref, v_cache_ref = (
+        x.to("hpu"),
+        token_idx.to("hpu"),
+        k_cache.to("hpu"),
+        v_cache.to("hpu"),
+    )
+    ref = model(k_cache_ref, v_cache_ref, x_ref, token_idx_ref)
+    assert torch.allclose(ref[0].to("cpu"), res[0].to("cpu")), "compile and eager results not match"
+    assert torch.allclose(ref[1].to("cpu"), res[1].to("cpu")), "compile and eager results not match"
+    assert torch.allclose(ref[2].to("cpu"), res[2].to("cpu")), "compile and eager results not match"

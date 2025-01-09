@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -368,7 +368,8 @@ def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
 
     # remove the duplicated outputs
     outs = list(output_node.args[0]) if type(output_node.args[0]) is tuple else [output_node.args[0]]
-    for idx in duplicated_out_indexes:
+    duplicated_out_indexes.sort()
+    for idx in reversed(duplicated_out_indexes):
         outs.remove(outs[idx])
 
     # create a new output node

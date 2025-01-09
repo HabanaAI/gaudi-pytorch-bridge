@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -209,7 +209,9 @@ class HabanaGraphModule(torch.nn.Module):
         # We won't allocate tensors for outputs who duplicate inputs
         if self._in_to_out_dups is not None:
             self._out_to_in_dups = {v: k for k, v in self._in_to_out_dups.items()}
-            for idx in self._out_to_in_dups.keys():
+            duplicated_out_indexes = list(self._out_to_in_dups.keys())
+            duplicated_out_indexes.sort()
+            for idx in reversed(duplicated_out_indexes):
                 self._outputs_batch_data.remove(self._outputs_batch_data[idx])
                 self._outputs_metadata.remove(self._outputs_metadata[idx])
 

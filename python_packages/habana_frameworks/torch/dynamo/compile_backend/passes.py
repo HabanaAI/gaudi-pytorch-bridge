@@ -2157,26 +2157,8 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
     This pass will detect the duplicated inputs outputs caused by inplace ops
     inside partition.
 
-    Note: Currently, we only detect the duplicates caused by inplace add_ ops
-    (the WA 1), because some ops whose name ends with "_" are actually not
-    inplaced, such as __rshift__.
-
-    Take the following graph as an example, if the output of __rshift__ is not
-    returned from the fx graph, then the converted jit graph will not contain
-    rshift op:
-
-    def forward(self, arg1_1, arg0_1):
-        rshift = torch.ops.aten.__rshift__.Tensor(arg1_1, arg0_1)
-        return
-
-    The generated JIT graph:
-
-    graph(%self : __torch__.torch.fx.graph_module.GraphModule,
-            %arg1_1.1 : Tensor,
-            %arg0_1.1 : Tensor):
-        %20 : () = prim::Constant[value=()]()
-        return (%20)
-
+    Note: Some ops whose name ends with "__" (double underscore), like
+    __rshift__, __lshift__,  are not inplaced, we filter them out
     """
 
     # currently, we only consider the duplications caused by inplace op.
@@ -2199,7 +2181,7 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
                     elif (
                         user_node.op == "call_function"
                         and user_node.target.__name__.split(".")[0].endswith("_")
-                        and user_node.target == torch.ops.aten.add_.Tensor  # WA 1
+                        and not user_node.target.__name__.split(".")[0].endswith("__")
                         and user_node.args[0] == current
                     ):
                         # inplace op, and current op is the mutable arg (we
