@@ -275,6 +275,82 @@ def test_pt2e_quant_float(
     )
 
 
+class custom_quantizer(Quantizer):
+
+    def __init__(self, quantization_config):
+        super().__init__()
+        self.global_config: QuantizationConfig = quantization_config
+
+    def validate(self, model: torch.fx.GraphModule) -> None:
+        pass
+
+    def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
+
+        def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+            module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
+            if len(module_partitions) == 0:
+                return
+
+            act_qspec = get_input_act_qspec(quantization_config)
+            weight_qspec = get_weight_qspec(quantization_config)
+            for module_or_fn_type, partitions in module_partitions.items():
+                if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
+                    for p in partitions:
+                        act_node = p.input_nodes[0]
+                        weight_node = None
+                        for node in p.params:
+                            weight_or_bias = getattr(gm, node.target)
+                            if weight_or_bias.ndim == 2:
+                                weight_node = node
+
+                        if weight_node is None:
+                            continue
+
+                        _update_input_qspec_map(p, act_node, act_qspec)
+                        _update_input_qspec_map(p, weight_node, weight_qspec)
+
+                        nodes_to_mark_annotated = list(p.nodes)
+                        _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
+        _annotate_linear(model, self.global_config)
+        return model
+
+
+def custom_quant_config_symmetric(quant_dtype):
+    quant_min = int(torch.iinfo(quant_dtype).min)
+    quant_max = int(torch.iinfo(quant_dtype).max)
+
+    act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+    act_quantization_spec = QuantizationSpec(
+        dtype=quant_dtype,
+        quant_min=quant_min,
+        quant_max=quant_max,
+        qscheme=torch.per_tensor_symmetric,
+        is_dynamic=False,
+        observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
+    )
+
+    weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+    weight_quantization_spec = QuantizationSpec(
+        dtype=quant_dtype,
+        quant_min=quant_min,
+        quant_max=quant_max,
+        qscheme=torch.per_tensor_symmetric,
+        ch_axis=0,
+        is_dynamic=False,
+        observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
+    )
+
+    quantization_config = QuantizationConfig(
+        act_quantization_spec,
+        None,
+        weight_quantization_spec,
+        None,
+    )
+
+    return quantization_config
+
+
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [True])
@@ -283,81 +359,6 @@ def test_pt2e_quant_float(
 def test_pt2e_quant_int(
     test_case, quant_dtype, use_graph_break, pass_input_during_export, save_or_load, inference_env_fixture
 ):
-
-    class custom_quantizer(Quantizer):
-
-        def __init__(self, quantization_config):
-            super().__init__()
-            self.global_config: QuantizationConfig = quantization_config
-
-        def validate(self, model: torch.fx.GraphModule) -> None:
-            pass
-
-        def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
-
-            def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
-                module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
-                if len(module_partitions) == 0:
-                    return
-
-                act_qspec = get_input_act_qspec(quantization_config)
-                weight_qspec = get_weight_qspec(quantization_config)
-                for module_or_fn_type, partitions in module_partitions.items():
-                    if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
-                        for p in partitions:
-                            act_node = p.input_nodes[0]
-                            weight_node = None
-                            for node in p.params:
-                                weight_or_bias = getattr(gm, node.target)
-                                if weight_or_bias.ndim == 2:
-                                    weight_node = node
-
-                            if weight_node is None:
-                                continue
-
-                            _update_input_qspec_map(p, act_node, act_qspec)
-                            _update_input_qspec_map(p, weight_node, weight_qspec)
-
-                            nodes_to_mark_annotated = list(p.nodes)
-                            _mark_nodes_as_annotated(nodes_to_mark_annotated)
-
-            _annotate_linear(model, self.global_config)
-            return model
-
-    def custom_quant_config_symmetric(quant_dtype):
-        quant_min = int(torch.iinfo(quant_dtype).min)
-        quant_max = int(torch.iinfo(quant_dtype).max)
-
-        act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-        act_quantization_spec = QuantizationSpec(
-            dtype=quant_dtype,
-            quant_min=quant_min,
-            quant_max=quant_max,
-            qscheme=torch.per_tensor_symmetric,
-            is_dynamic=False,
-            observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
-        )
-
-        weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-        weight_quantization_spec = QuantizationSpec(
-            dtype=quant_dtype,
-            quant_min=quant_min,
-            quant_max=quant_max,
-            qscheme=torch.per_tensor_symmetric,
-            ch_axis=0,
-            is_dynamic=False,
-            observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
-        )
-
-        quantization_config = QuantizationConfig(
-            act_quantization_spec,
-            None,
-            weight_quantization_spec,
-            None,
-        )
-
-        return quantization_config
-
     quant_config = custom_quant_config_symmetric(quant_dtype)
     quantizer = custom_quantizer(quant_config)
 
