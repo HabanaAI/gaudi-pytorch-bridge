@@ -2264,6 +2264,9 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
 }
 
 TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-215469";
+  }
   int kH = 3;
   int kW = 3;
   const int C = 16;
