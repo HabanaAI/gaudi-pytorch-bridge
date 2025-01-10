@@ -1045,9 +1045,6 @@ def generate_autocast_ops(op_metas, args):
         "_efficient_attention_forward",
         "_batch_norm_with_update",
         "_scaled_dot_product_fused_attention_overrideable",
-        "rrelu_with_noise",
-        "rrelu_with_noise_",
-        "rrelu_with_noise_out",
     ]
 
     def op_to_skip(function_name, op_name):

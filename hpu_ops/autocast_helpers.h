@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
+* Copyright (c) 2021-2025 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -136,21 +136,59 @@ static const std::unordered_set<std::string> promote_list{
     "truediv",
     "stack"};
 
-Tensor cast(at::ScalarType to_type, const Tensor& arg, DeviceType device_type);
+// HPU in lazy mode doesn't benefit from cached casts. Potential
+// optimization
+// are done in GC level. Moreover, it leaves persistent tensors from cast
+// operations, when HPU Graphs are used or .cpu() is called in the scope of
+// autocast. Since torch.autocast has caching enabled by default, to avoid
+// the risk of bad performance, cached casts are permanently disabled from
+// autocast on HPU.
 
-// Overload to process optional<Tensor>
+template <class T, std::enable_if_t<std::is_same_v<T, Tensor&>, bool> = true>
+inline Tensor& cast(
+    at::ScalarType to_type,
+    Tensor& arg,
+    DeviceType device_type) {
+  if (is_eligible(arg, device_type) && (arg.scalar_type() != to_type)) {
+    arg = arg.to(to_type);
+    return arg;
+  } else {
+    return arg;
+  }
+}
+
+template <
+    class T,
+    std::enable_if_t<std::is_same_v<T, const Tensor&>, bool> = true>
+inline Tensor cast(
+    at::ScalarType to_type,
+    const Tensor& arg,
+    DeviceType device_type) {
+  if (is_eligible(arg, device_type) && (arg.scalar_type() != to_type)) {
+    return arg.to(to_type);
+  } else {
+    return arg;
+  }
+}
+
+template <
+    class T,
+    std::enable_if_t<std::is_same_v<T, const c10::optional<Tensor>&>, bool> =
+        true>
 inline c10::optional<Tensor> cast(
     at::ScalarType to_type,
     const c10::optional<Tensor>& arg,
     DeviceType device_type = DeviceType::HPU) {
   if (arg.has_value()) {
-    return cast(to_type, *arg, device_type);
+    return cast<decltype(*arg)>(to_type, *arg, device_type);
   } else {
     return c10::nullopt;
   }
 }
 
-// Overload to process TensorLists
+template <
+    class T,
+    std::enable_if_t<std::is_same_v<T, const TensorList&>, bool> = true>
 inline std::vector<Tensor> cast(
     at::ScalarType to_type,
     const TensorList& arg,
@@ -158,7 +196,7 @@ inline std::vector<Tensor> cast(
   std::vector<Tensor> vec;
   vec.reserve(arg.size());
   for (const auto& t : arg) {
-    vec.push_back(cast(to_type, t, device_type));
+    vec.push_back(cast<decltype(t)>(to_type, t, device_type));
   }
   return vec;
 }
@@ -201,7 +239,8 @@ struct Hpu_WrapFunction_<
     guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
-    return (*F)(cast(get_autocast_dtype(at::kHPU), args, DeviceType::HPU)...);
+    return (*F)(cast<decltype(args)>(
+        get_autocast_dtype(at::kHPU), args, DeviceType::HPU)...);
   }
 };
 
@@ -215,7 +254,7 @@ struct Hpu_WrapFunction_<
     guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
-    return (*F)(cast(at::kFloat, args, DeviceType::HPU)...);
+    return (*F)(cast<decltype(args)>(at::kFloat, args, DeviceType::HPU)...);
   }
 };
 
@@ -231,14 +270,16 @@ struct Hpu_WrapFunction_<
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
     auto to_type =
         promote_type(get_autocast_dtype(at::kHPU), DeviceType::HPU, args...);
-    return (*F)(cast(to_type, args, DeviceType::HPU)...);
+    return (*F)(cast<decltype(args)>(to_type, args, DeviceType::HPU)...);
   }
 };
 
 template <class Ret, class Signature, class T, class... Args>
 inline Ret cast_firstarg(Signature* F, const T& first, Args... args) {
   return (*F)(
-      cast(get_autocast_dtype(at::kHPU), first, DeviceType::HPU), args...);
+      cast<decltype(first)>(
+          get_autocast_dtype(at::kHPU), first, DeviceType::HPU),
+      args...);
 }
 
 // Hpu_CastPolicy::lower_first_arg
