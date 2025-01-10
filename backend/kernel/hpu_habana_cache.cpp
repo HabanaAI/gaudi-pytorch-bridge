@@ -1698,9 +1698,10 @@ void RecipeLauncher::Launch(
       auto cleanup_callback = [resource_holder]() mutable {
         resource_holder.reset();
       };
-
-      device.register_producer_on_stream(
-          std::move(outDevPtr), stream_handle, cleanup_callback);
+      if (recipe_) {
+        device.register_producer_on_stream(
+            std::move(outDevPtr), stream_handle, cleanup_callback);
+      }
       // Launch collective ops
       collective_kernels_info_->Launch(true, cleanup_callback);
     } else {
@@ -1746,9 +1747,10 @@ void RecipeLauncher::Launch(
       auto cleanup_callback = [resource_holder]() mutable {
         resource_holder.reset();
       };
-
-      device.register_producer_on_stream(
-          std::move(outDevPtr), stream_handle, cleanup_callback);
+      if (recipe_) {
+        device.register_producer_on_stream(
+            std::move(outDevPtr), stream_handle, cleanup_callback);
+      }
       for (auto data_ptr : inDevPtr) {
         device.get_device_memory().recordStream(
             // NOLINTNEXTLINE(performance-no-int-to-ptr)
