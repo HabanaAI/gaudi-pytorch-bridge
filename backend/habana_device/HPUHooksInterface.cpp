@@ -44,10 +44,14 @@ at::Device HPUHooks::getDeviceFromPtr(void*) const {
 }
 
 bool HPUHooks::isPinnedPtr(const void* data) const {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
   return PinnedMemoryAllocator_is_pinned(data);
 }
 
 at::Allocator* HPUHooks::getPinnedMemoryAllocator() const {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
   return PinnedMemoryAllocator_get();
 }
 
