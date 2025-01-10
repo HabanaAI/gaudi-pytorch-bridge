@@ -203,7 +203,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/hardtanh_gen.cpp
   backend/hpu_op_helper.cpp
   backend/huber_loss_gen.cpp
-  backend/histogram_gen.cpp
   backend/index_copy_gen.cpp
   backend/index_reduce_gen.cpp
   backend/index_fill_gen.cpp
