@@ -211,7 +211,16 @@ def use_pt2e_quant_flow_with_separate_calibration(
             # Since PT2.6, torch.load (called in a torch.export.load function) has a 'weights_only' parameter set to True by default.
             # Therefore, to load the model with custom functions/classes, they must be added to the list of safe_globals beforehand.
             with torch.serialization.safe_globals(
-                [SimpleModelWithMultipleGraphs, SimpleModel, torch.nn.Linear, torch.nn.ReLU]
+                [
+                    SimpleModelWithMultipleGraphs,
+                    SimpleModel,
+                    custom_quantizer,
+                    QuantizationConfig,
+                    QuantizationSpec,
+                    MinMaxObserver,
+                    torch.nn.Linear,
+                    torch.nn.ReLU,
+                ]
             ):
                 model = torch.export.load("./mymodel.pt2")
             model = model.module()
