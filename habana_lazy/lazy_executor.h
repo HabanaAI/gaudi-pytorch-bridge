@@ -447,9 +447,9 @@ class HbExecutionContext {
 
 class HbExecutionContextArena {
  public:
-  static HbExecutionContextArena& Get() {
+  static HbExecutionContextArena* Get() {
     std::call_once(initialize_once_flag_, CreateInstance);
-    return *instance_;
+    return instance_.get();
   }
 
   HbExecutionContext* getDeviceExecutionContext();
@@ -489,12 +489,12 @@ class HbExecutionContextArena {
 // contexts We will keep them aslive as long as program lives and manage
 // device contexts across iterations
 inline HbExecutionContextArena& get_habana_lazy_executor() {
-  return HbExecutionContextArena::Get();
+  return *HbExecutionContextArena::Get();
 }
 
 inline HbExecutionContext* get_device_lazy_execution_context() {
-  auto& arena = get_habana_lazy_executor();
-  return &arena == nullptr ? nullptr : arena.getDeviceExecutionContext();
+  auto arena = HbExecutionContextArena::Get();
+  return arena == nullptr ? nullptr : arena->getDeviceExecutionContext();
 }
 
 /*
