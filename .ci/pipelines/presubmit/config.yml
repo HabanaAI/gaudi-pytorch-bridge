@@ -93,7 +93,7 @@ orchestratorConfig:
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
-    silentMode: true
+    silentMode: false
     triggerMap:
     - repository: pytorch-vision-fork
       gitHubOrg: habana-internal
