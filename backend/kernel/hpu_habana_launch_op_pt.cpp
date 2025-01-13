@@ -517,57 +517,72 @@ void HabanaLaunchOpPT::HandleMappedandUnmappedTensor(
 void HabanaLaunchOpPT::GetSynapseInputs(
     const HabanaOperatorPtr& habana_op,
     torch::jit::Node* node) {
-  auto node_ins = node->inputs();
-  int input_idx = 0;
+  std::string scope_string_common;
+  if (habana_helpers::IsInferenceMode()) {
+    scope_string_common = std::string(node->scope()->name().toUnqualString());
+    scope_string_common = !scope_string_common.empty()
+        ? scope_string_common.substr(1, scope_string_common.length() - 1)
+        : scope_string_common;
+    std::replace(
+        scope_string_common.begin(), scope_string_common.end(), '/', '.');
+  }
 
-  for (const auto value_in : node_ins) {
+  auto node_ins = node->inputs();
+  for (size_t input_idx = 0; input_idx < node_ins.size(); ++input_idx) {
+    const auto value_in = node_ins[input_idx];
     auto value_exists = value_to_ivalue_.find(value_in);
     HABANA_ASSERT(value_exists != std::end(value_to_ivalue_));
     auto ivalue = value_exists->second;
-    std::string scope_string;
-    if (habana_helpers::IsInferenceMode()) {
-      scope_string = std::string(node->scope()->name().toUnqualString());
-      scope_string = !scope_string.empty()
-          ? scope_string.substr(1, scope_string.length() - 1)
-          : scope_string;
-      std::replace(scope_string.begin(), scope_string.end(), '/', '.');
+
+    std::string scope_string =
+        scope_string_common + ".placeholder." + std::to_string(input_idx);
+
+    bool isTensor = ivalue->isTensor();
+    if ((isTensor || ivalue->isTensorList())) {
+      GetSynapseInputsForTensors(habana_op, value_in, isTensor, scope_string);
     }
-    if ((ivalue->isTensor() || ivalue->isTensorList())) {
-      // Find if an input tensor is already mapped
-      // NB: It seems Habana doesn't support shared input to
-      // different nodes in graph
-      // note: else path is only of listcontruct is fused with another op like
-      // cat. This case occurs in lazy eval but not in torch trace mode
-      if (ivalue->isTensor() ||
-          (value_in->node()->kind() != torch::jit::prim::ListConstruct)) {
+  }
+
+  GetSynapseInputsPopulateSeed(habana_op, node);
+}
+
+void HabanaLaunchOpPT::GetSynapseInputsForTensors(
+    const HabanaOperatorPtr& habana_op,
+    CValPtr value_in,
+    bool isTensor,
+    const std::string& scope_string) {
+  // Find if an input tensor is already mapped
+  // NB: It seems Habana doesn't support shared input to
+  // different nodes in graph
+  // note: else path is only of listcontruct is fused with another op like
+  // cat. This case occurs in lazy eval but not in torch trace mode
+  auto HandleSingleTensor =
+      [this, &habana_op, &scope_string](CValPtr value_in) {
         SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
             std::make_shared<SynTensorOrRefList>();
         HandleMappedandUnmappedTensor(
-            value_in,
-            habana_op,
-            tensor_ref_list_ptr_sh,
-            scope_string + ".placeholder." + std::to_string(input_idx));
-      } else {
-        // tensorlist
-        auto prev_node = value_in->node();
-        if (prev_node->kind() == torch::jit::prim::ListConstruct) {
-          for (auto& value_in : prev_node->inputs()) {
-            if (value_to_ivalue_[value_in]->isTensor()) {
-              SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
-                  std::make_shared<SynTensorOrRefList>();
-              HandleMappedandUnmappedTensor(
-                  value_in,
-                  habana_op,
-                  tensor_ref_list_ptr_sh,
-                  scope_string + ".placeholder." + std::to_string(input_idx));
-            }
-          }
-        }
-      } // else
-      input_idx++;
-    } // if (value_to_ivalue_[value_in] && ..
-  } // for (const auto value_in : node_ins)
+            value_in, habana_op, tensor_ref_list_ptr_sh, scope_string);
+      };
 
+  if (isTensor ||
+      (value_in->node()->kind() != torch::jit::prim::ListConstruct)) {
+    HandleSingleTensor(value_in);
+  } else {
+    // tensorlist
+    auto prev_node = value_in->node();
+    if (prev_node->kind() == torch::jit::prim::ListConstruct) {
+      for (auto& value_in : prev_node->inputs()) {
+        if (value_to_ivalue_[value_in]->isTensor()) {
+          HandleSingleTensor(value_in);
+        }
+      }
+    }
+  }
+}
+
+void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
+    const HabanaOperatorPtr& habana_op,
+    torch::jit::Node* node) {
   bool populate_seed = false;
   switch (node->kind()) {
     case torch::jit::aten::bernoulli:
@@ -3006,6 +3021,106 @@ void HabanaLaunchOpPT::BuildSynapseGraphInternal(
   syn_build_cache.complete();
 }
 
+bool HabanaLaunchOpPT::MainLoopHandledSpecialCase(
+    SynBuildCache& syn_build_cache,
+    torch::jit::Node* node,
+    const std::string& opname) {
+  // TODO: SW-68593 if node is collective add validation that outputs or
+  // output duplicates are not used in the graph
+
+  // If its a meta op we need to call the CPU impl and capture changes
+  // Only valid for single tensor ops
+  // Can we avoid the string match here?
+  if (HabanaMetaOpList::isHabanaMetaOp(opname)) {
+    handleMetaOps(node);
+    return true;
+  }
+
+  // Prim nodes require special handling and are a special case
+  if (node->kind().is_prim()) {
+    handlePrimNodes(node, syn_build_cache);
+    return true;
+  }
+
+  bool is_restride_cl = (opname == "hpu::restride_cl"sv);
+  if (is_restride_cl || (opname == "hpu::restride"sv)) {
+    handleRestrideNode(node, syn_build_cache, is_restride_cl);
+    return true;
+  }
+
+  return false;
+}
+
+HabanaOperatorPtr HabanaLaunchOpPT::GetConfiguredHabanaKernel(
+    synDeviceId device_id,
+    torch::jit::Node* node,
+    const c10::OperatorName& op,
+    const std::string& opname) {
+  HabanaOperatorPtr HabanaKernelPtr =
+      KernelRegistry().get(device_id, op, getNodeScalarType(node));
+
+  TORCH_CHECK(HabanaKernelPtr, op, " isn't registered in KernelRegistry!");
+
+  auto& HabanaKernel = *HabanaKernelPtr;
+
+  if (enable_optim_output_sif_) {
+    bool is_node_dynamic = habana_helpers::isNodeDynamic(
+        node, org_stack_index_map, value_to_ivalue_);
+    HabanaKernel.SetOpDynamicity(is_node_dynamic);
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "For op = ", opname, ", is current node dynamic = ", is_node_dynamic);
+  }
+
+  // Set the deterministic val
+  HabanaKernel.setDeterministic(node->i(torch::jit::attr::deterministic));
+
+  // Set kernel execution mode
+  HabanaKernel.SetExecutionMode(execution_mode_);
+
+  // Set node hints
+  // firstly extract hints from node
+  if (node->hasAttribute(c10::Symbol::attr("hints")))
+    HabanaKernel.setContextHints(node->s(c10::Symbol::attr("hints")));
+
+  return HabanaKernelPtr;
+}
+
+void HabanaLaunchOpPT::DebugCountOps(
+    HabanaOperatorPtr& HabanaKernelPtr,
+    const std::string& opname) {
+  static std::unordered_set<std::string> jit_ir_ops_;
+  if (jit_ir_ops_.insert(opname).second)
+    PT_DYNAMIC_SHAPE_DEBUG("Invoked_JIT_IR_OP: ", opname);
+
+  if (std::dynamic_pointer_cast<OpBackend>(HabanaKernelPtr)) {
+    static std::unordered_set<std::string> auto_gen_jit_ir_ops_;
+    if (auto_gen_jit_ir_ops_.insert(opname).second)
+      PT_DYNAMIC_SHAPE_DEBUG("Auto_gen_JIT_IR_OP: ", opname);
+  } else {
+    static std::unordered_set<std::string> manual_jit_ir_ops_;
+    if (manual_jit_ir_ops_.insert(opname).second)
+      PT_DYNAMIC_SHAPE_DEBUG("Manual_JIT_IR_OP: ", opname);
+  }
+}
+
+void HabanaLaunchOpPT::HandleMetaAttr(
+    torch::jit::Stack& input_stack,
+    torch::jit::Node* node,
+    const std::string& opname) {
+  // If there is a "meta attribute" marked with attr::arg1, add the meta attr
+  // value to stack for the ops to work with. At this point, only StridedView
+  // ops in eager mode uses it.
+  auto meta = torch::jit::attr::arg1;
+  if (node->hasAttribute(meta)) {
+    HABANA_ASSERT(
+        opname == "aten::as_strided"sv,
+        "Meta op can only be marked for aten::as_strided, not supported in op ",
+        opname);
+    input_stack.insert(input_stack.end(), IValue(node->i(meta)));
+    meta_attribute_nodes_count_++;
+  }
+}
+
 HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
     BuildSynapseGraphNodesMainLoop(
         sh::graph& syn_graph,
@@ -3037,30 +3152,8 @@ HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
 
     PT_BRIDGE_DEBUG("Working on ", node_qual_str);
 
-    // TODO: SW-68593 if node is collective add validation that outputs or
-    // output duplicates are not used in the graph
-
-    // If its a meta op we need to call the CPU impl and capture changes
-    // Only valid for single tensor ops
-    // Can we avoid the string match here?
-    if (HabanaMetaOpList::isHabanaMetaOp(opname)) {
-      handleMetaOps(node);
+    if (MainLoopHandledSpecialCase(syn_build_cache, node, opname))
       continue;
-    }
-
-    // Prim nodes require special handling and are a special case
-    if (node->kind().is_prim()) {
-      handlePrimNodes(node, syn_build_cache);
-      continue;
-    }
-
-    if ((strcmp(node_qual_str, "hpu::restride_cl") == 0) ||
-        (strcmp(node_qual_str, "hpu::restride") == 0)) {
-      bool is_restride_cl =
-          (strcmp(node_qual_str, "hpu::restride_cl") == 0) ? true : false;
-      handleRestrideNode(node, syn_build_cache, is_restride_cl);
-      continue;
-    }
 
     auto& device = HPUDeviceContext::get_device();
     synDeviceId device_id = device.id();
@@ -3068,60 +3161,20 @@ HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
     // Get kernel context
     const auto& op = node->schema().operator_name();
     HabanaOperatorPtr HabanaKernel =
-        KernelRegistry().get(device_id, op, getNodeScalarType(node));
-
-    TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
-
-    if (enable_optim_output_sif_) {
-      bool is_node_dynamic = habana_helpers::isNodeDynamic(
-          node, org_stack_index_map, value_to_ivalue_);
-      HabanaKernel->SetOpDynamicity(is_node_dynamic);
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "For op = ", opname, ", is current node dynamic = ", is_node_dynamic);
-    }
-
-    // Set the deterministic val
-    HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
-
-    // Set kernel execution mode
-    HabanaKernel->SetExecutionMode(execution_mode_);
-
-    // Set node hints
-    // firstly extract hints from node
-    if (node->hasAttribute(c10::Symbol::attr("hints")))
-      HabanaKernel->setContextHints(node->s(c10::Symbol::attr("hints")));
+        GetConfiguredHabanaKernel(device_id, node, op, opname);
 
     PT_BRIDGE_DEBUG("Going to add ", *node);
 
-    static std::unordered_set<std::string> jit_ir_ops_;
-    if (jit_ir_ops_.count(opname) == 0) {
-      PT_DYNAMIC_SHAPE_DEBUG("Invoked_JIT_IR_OP: ", opname);
-      jit_ir_ops_.insert(opname);
-    }
-
-    static std::unordered_set<std::string> auto_gen_jit_ir_ops_;
-    static std::unordered_set<std::string> manual_jit_ir_ops_;
-    if (std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
-      if (auto_gen_jit_ir_ops_.count(opname) == 0) {
-        PT_DYNAMIC_SHAPE_DEBUG("Auto_gen_JIT_IR_OP: ", opname);
-        auto_gen_jit_ir_ops_.insert(opname);
-      }
-    } else {
-      if (manual_jit_ir_ops_.count(opname) == 0) {
-        PT_DYNAMIC_SHAPE_DEBUG("Manual_JIT_IR_OP: ", opname);
-        manual_jit_ir_ops_.insert(opname);
-      }
-    }
+    DebugCountOps(HabanaKernel, opname);
 
     // clear the accumulated synapse node indices corresponding to permute.
     // Otherwise this results in spurious control edges
     syn_graph_ptr_->clear_node_indices();
     // set op name in synapse graph
-    std::unique_ptr<sh::graph::OpNameContext> op_name_context;
+    std::optional<sh::graph::OpNameContext> op_name_context;
     const auto scope = node->scope();
     if (!scope->isBlank()) {
-      op_name_context = std::make_unique<sh::graph::OpNameContext>(
-          syn_graph, scope->name().toUnqualString());
+      op_name_context.emplace(syn_graph, scope->name().toUnqualString());
     }
 
     torch::jit::Stack input_stack = getStackForNode(node);
@@ -3132,18 +3185,7 @@ HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
         OpInfo::DumpPassInfo(syn_graph, map_shape_.m_pass),
         OpInfo::DumpOpInfo(op, input_stack));
 
-    // If there is a "meta attribute" marked with attr::arg1, add the meta
-    // attr value to stack for the ops to work with. At this point, only
-    // StridedView ops in eager mode uses it.
-    auto meta = torch::jit::attr::arg1;
-    if (node->hasAttribute(meta)) {
-      HABANA_ASSERT(
-          !strcmp("aten::as_strided", node_qual_str),
-          "Meta op can only be marked for aten::as_strided, not supported in op ",
-          node_qual_str);
-      input_stack.insert(input_stack.end(), IValue(node->i(meta)));
-      meta_attribute_nodes_count_++;
-    }
+    HandleMetaAttr(input_stack, node, opname);
 
     // Create/attach the synapse inputs from aten tensors
     GetSynapseInputs(HabanaKernel, node);

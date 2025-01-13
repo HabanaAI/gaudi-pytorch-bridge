@@ -588,12 +588,12 @@ class HabanaLaunchOpPT {
       SynBuildCache& syn_build_cache,
       bool is_shape_inference = false);
 
-  void BuildSynapseGraphReset(SynBuildCache& syn_build_cache);
+  void BuildSynapseGraphReset(SynBuildCache&);
 
   void BuildSynapseGraphInternal(
-      synapse_helpers::graph& syn_graph,
-      SynBuildCache& syn_build_cache,
-      bool is_shape_inference = false);
+      synapse_helpers::graph&,
+      SynBuildCache&,
+      bool is_shape_inference);
 
   struct BuildSynapseGraphNodesMainLoopRT {
     std::vector<size_t> inputs_shape_tensors_vec;
@@ -608,6 +608,24 @@ class HabanaLaunchOpPT {
       bool is_shape_inference,
       torch::jit::graph_node_list&,
       torch::jit::graph_node_list::iterator);
+
+  bool MainLoopHandledSpecialCase(
+      SynBuildCache&,
+      torch::jit::Node*,
+      const std::string& opname);
+
+  HabanaOperatorPtr GetConfiguredHabanaKernel(
+      synDeviceId,
+      torch::jit::Node*,
+      const c10::OperatorName&,
+      const std::string& opname);
+
+  void DebugCountOps(HabanaOperatorPtr&, const std::string& opname);
+
+  void HandleMetaAttr(
+      torch::jit::Stack&,
+      torch::jit::Node*,
+      const std::string& opname);
 
   void GeneratePatchingInfoForGraphInputsDuringFastSif();
 
@@ -690,6 +708,14 @@ class HabanaLaunchOpPT {
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
+  void GetSynapseInputsForTensors(
+      const HabanaOperatorPtr& habana_op,
+      CValPtr value_in,
+      bool isTensor,
+      const std::string& scope_string);
+  void GetSynapseInputsPopulateSeed(
+      const HabanaOperatorPtr&,
+      torch::jit::Node*);
   const std::string& GetSynapseGraphName() {
     return SetAndGetSynapseGraphName(name_, graph_index_);
   }
