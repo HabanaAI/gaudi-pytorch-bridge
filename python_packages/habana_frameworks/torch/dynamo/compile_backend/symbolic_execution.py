@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from symengine import sympify as sympify_engine
 from sympy import Function, sympify
+from sympy.printing.precedence import PRECEDENCE
 from sympy.printing.printer import Printer
 
 if is_pytorch_older_than("2.6.0"):
@@ -160,35 +161,41 @@ class PythonPrinter(ExprPrinter):
 
 
 class HPUExprPrinter(ExprPrinterPT):
+
+    def _paren(self, expr, precedence=None):
+        if is_pytorch_older_than("2.6.0"):
+            return self.paren(expr)
+        return self.parenthesize(expr, precedence)
+
     def _print_ToFloat(self, expr):
         assert len(expr.args) == 1
         return f"({self._print(expr.args[0])})"
 
     def _print_ModularIndexing(self, expr):
         x, div, mod = expr.args
-        x = self.paren(self.doprint(x))
-        div = self.paren(self.doprint(div))
-        mod = self.paren(self.doprint(mod))
+        x = self._paren(self.doprint(x), PRECEDENCE["Atom"] - 0.5)
+        div = self._paren(self.doprint(div), PRECEDENCE["Atom"] - 0.5)
+        mod = self._paren(self.doprint(mod), PRECEDENCE["Atom"] - 0.5)
         if div != "1":
             x = f"({x} // {div})"
         return f"{x} % {mod}"
 
     # WARNING: this is dangerous for Triton, which has C-style modulus
     def _print_PythonMod(self, expr):
-        return " % ".join(map(self.paren, map(self._print, expr.args)))
+        return " % ".join(map(lambda e: self._paren(e, PRECEDENCE["Atom"] - 0.5), map(self._print, expr.args)))
 
     # WARNING: this is dangerous for Triton, which has C-style modulus
     def _print_FloorDiv(self, expr):
         x, div = expr.args
-        x = self.paren(self.doprint(x))
-        div = self.paren(self.doprint(div))
+        x = self._paren(self.doprint(x), PRECEDENCE["Atom"] - 0.5)
+        div = self._paren(self.doprint(div), PRECEDENCE["Atom"] - 0.5)
         return f"({x} // {div})"
 
     # WARNING: this is dangerous for Triton, when lhs, rhs > 2**53, Python
     # does a special algorithm
     def _print_IntTrueDiv(self, expr):
         lhs, rhs = expr.args
-        return f"{self.paren(self._print(lhs))} / {self.paren(self._print(rhs))}"
+        return f"{self._paren(self._print(lhs), PRECEDENCE['Atom'] - 0.5)} / {self._paren(self._print(rhs), PRECEDENCE['Atom'] - 0.5)}"
 
     def _helper_sqrt(self, expr):
         return f"sqrt({self._print(expr)})"
@@ -198,12 +205,16 @@ class HPUExprPrinter(ExprPrinterPT):
 
     def _print_FloatPow(self, expr):
         base, exp = expr.args
-        return f"{self.paren(self._print(base))} ** {self.paren(self._print(exp))}"
+        return (
+            f"{self._paren(self._print(base), PRECEDENCE['Pow'])} ** {self._paren(self._print(exp), PRECEDENCE['Pow'])}"
+        )
 
     # TODO: Not sure this works with Triton, even when base/exp are integral
     def _print_PowByNatural(self, expr):
         base, exp = expr.args
-        return f"{self.paren(self._print(base))} ** {self.paren(self._print(exp))}"
+        return (
+            f"{self._paren(self._print(base), PRECEDENCE['Pow'])} ** {self._paren(self._print(exp), PRECEDENCE['Pow'])}"
+        )
 
     def _print_floor(self, expr):
         assert len(expr.args) == 1
@@ -236,9 +247,9 @@ class HPUExprPrinter(ExprPrinterPT):
         assert exp.is_integer
         exp = int(exp)
         if exp > 0:
-            return "*".join([self.paren(base)] * exp)
+            return "*".join([self._paren(base, PRECEDENCE["Mul"])] * exp)
         elif exp < 0:
-            return "1/" + self.paren("*".join([self.paren(base)] * abs(exp)))
+            return "1/" + self._paren("*".join([self._paren(base, PRECEDENCE["Mul"])] * abs(exp)), PRECEDENCE["Mul"])
         else:  # exp == 0
             return "1"
 
