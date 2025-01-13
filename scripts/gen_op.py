@@ -576,6 +576,11 @@ class YamlContext:
     def __init__(self, yamlfile):
         with open(yamlfile, "r") as ff:
             self.op_data = yaml.load(ff.read(), Loader=Loader)
+            # Sometimes disabling ops for an upcoming pytorch version is necessary.
+            # All ops added to skip_list won't be processed, same way if they were not present in hpu_op.yaml
+            if is_pytorch_at_least("2.6.0"):
+                skip_ops = []
+                self.op_data = {op: self.op_data[op] for op in self.op_data if op not in skip_ops}
 
     def get_op_names(self):
         return self.op_data.keys()
@@ -945,6 +950,10 @@ def gen_h_output_file(args, opgroup):
 
 def gen_cpp_output_file(args, opgroup):
     return gen_output_file(args, "{}.cpp".format(opgroup))
+
+
+def is_pytorch_at_least(version: str) -> bool:
+    return Version(Version(torch.__version__).base_version) >= Version(version)
 
 
 # Generate file with all potential ops for autocast. The actual ops registered
