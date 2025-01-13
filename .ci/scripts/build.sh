@@ -1525,12 +1525,12 @@ run_pytorch_qa_tests()
             return ${__test_status}
        elif [ "$__suite_type" == "rn50_eager_1c" ]; then
             install_requirements_event_plugin
-            (set -x; python3 -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         elif  [ "$__suite_type" == "rn50_graph_1c" ]; then
             install_requirements_event_plugin
-            (set -x; python3 -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         fi
