@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     find_in_hier_list,
     format_tc,
     hpu,
@@ -56,8 +56,7 @@ def test_kv_reorder(shape, dtype):
     def fn(input, start, end, beam_idx):
         return torch.ops.hpu.kv_reorder_(input, start, end, beam_idx)
 
-    if is_pytest_mode_compile():
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     fn(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
 
@@ -163,10 +162,7 @@ def test_kv_reorder_bug_sw_172158(shape, start, end, beam_idx, dtype, op):
     def fn(input, start, end, beam_idx):
         return getattr(torch.ops.hpu, op)(input, start, end, beam_idx)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result_hpu = fn(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
 

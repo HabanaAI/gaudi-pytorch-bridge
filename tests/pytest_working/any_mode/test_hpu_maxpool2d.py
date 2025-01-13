@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compile_function_if_compile_mode,
     format_tc,
     is_pytest_mode_compile,
@@ -64,6 +63,7 @@ def test_hpu_maxpool2d_bwd(
         results_wrap.backward(grad)
 
     maxpool2d = torch.nn.MaxPool2d(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
+
     hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     for shape in shapes:

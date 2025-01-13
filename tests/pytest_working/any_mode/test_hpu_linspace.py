@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,12 @@
 
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("start", [0.1664, 0.6964, 4.124])
@@ -29,12 +34,7 @@ def test_hpu_linspace(start, end, steps):
 
     expected_result = fn(start, end, steps)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="hpu_backend")
-    else:
-        hpu_fn = fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     real_result = hpu_fn(start, end, steps, device="hpu")
 
@@ -65,11 +65,7 @@ def test_hpu_linspace_tensor_input(start, end, steps, dtype, variant):
 
     args = [start, end, steps]
     fn = linspace
-    hpu_fn = linspace
-
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     expected_result = fn(*args)
     real_result = hpu_fn(*args, device="hpu")

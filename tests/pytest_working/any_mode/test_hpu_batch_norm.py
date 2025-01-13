@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ from test_utils import (
     check_op_in_fuser_fused_ops,
     check_ops_executed_in_jit_ir,
     clear_fuser_debug_logs,
-    clear_t_compile_logs,
+    compile_function_if_compile_mode,
     get_fuser_debug_logs_path,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
@@ -71,10 +71,7 @@ def test_batch_norm_deterministic(input_shape):
             training=training,
         )
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     assert len(input_shape) >= 2
     input = torch.rand(input_shape)

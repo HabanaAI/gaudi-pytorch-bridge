@@ -31,6 +31,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.testing
+from test_utils import compile_function_if_compile_mode
 
 device = torch.device("hpu")
 WORLD_SIZE = habana_frameworks.torch.hpu.device_count()
@@ -174,7 +175,7 @@ def dynamo_coalescing_manager_test(rank, world_size, kwargs):
         return t
 
     counter = CompileCounter()
-    compiled = torch.compile(func, backend=counter)
+    compiled = compile_function_if_compile_mode(func, backend=counter)
     out = compiled(inputs, **get_world_trs())
     for t in out:
         torch.testing.assert_close(t.to("cpu"), torch.ones(1) * world_size)
@@ -191,7 +192,7 @@ def dynamo_trace_allgather_coalesced_test(rank, world_size, kwargs):
 
     inputs = [torch.ones(4, 4, device="hpu"), torch.ones(6, 6, device="hpu")]
     counter = CompileCounter()
-    compiled = torch.compile(func, backend=counter)
+    compiled = compile_function_if_compile_mode(func, backend=counter)
     out = compiled(inputs, **get_world_trs())
     assert counter.frame_count == 1
     assert counter.op_count == 3  # It generates 2 getattr to unpack the array

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, is_gaudi1
 
 zero_size_shapes = [[0], [0, 1], [0, 1, 2]]
 
@@ -66,9 +66,7 @@ def check(cpu_input, use_out, op, dim):
     hpu_input = cpu_input.to("hpu")
     hpu_fn = fn
     cpu_output = fn(cpu_input, use_out, "cpu", op, dim)
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_fn = compile_function_if_compile_mode(fn)
     hpu_output = hpu_fn(hpu_input, use_out, "hpu", op, dim).cpu()
     compare_tensors([hpu_output], [cpu_output], atol=0, rtol=0)
 

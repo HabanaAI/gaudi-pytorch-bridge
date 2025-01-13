@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,13 @@
 
 import pytest
 import torch
-from test_utils import clear_t_compile_logs, format_tc, is_dtype_floating_point, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    compile_function_if_compile_mode,
+    format_tc,
+    is_dtype_floating_point,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 Verbose = False
 
@@ -52,12 +58,7 @@ def test_hpu_equal(shape, dtype, shape_2nd):
     def fn(src1, src2):
         return torch.equal(src1, src2)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn_h = torch.compile(fn, backend="hpu_backend")
-    else:
-        fn_h = fn
+    fn_h = compile_function_if_compile_mode(fn)
 
     dst = fn(src, src2)
     dst_h = fn_h(src_h, src2_h)

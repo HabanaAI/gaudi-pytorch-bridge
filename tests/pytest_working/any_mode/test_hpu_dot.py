@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, hpu
+from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, hpu
 
 tols = {torch.float: 1e-4, torch.bfloat16: 1e-2, torch.int: 0}
 
@@ -34,10 +34,7 @@ def test_index(shape, dtype):
     def wrapper_fn(input, other):
         return torch.dot(input, other)
 
-    if pytest.mode == "compile":
-        f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
-    else:
-        f_hpu = wrapper_fn
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     if dtype == torch.int:
         input_tensor = torch.randint(low=-100, high=100, size=shape, dtype=dtype)

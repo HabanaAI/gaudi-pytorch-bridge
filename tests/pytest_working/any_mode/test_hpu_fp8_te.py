@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import F
 from test_utils import (
     _is_simulator,
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_gaudi2,
     is_gaudi3,
@@ -129,10 +129,7 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
 
         return casted, upcasted
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, dynamic=False, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     with use_eager_fallback():
         casted, upcasted = fn(input_data, meta, format)
@@ -241,9 +238,7 @@ def wrap_in_compile_if_needed(fn, eager_fallbacks=None):
     if not is_pytest_mode_compile():
         return fn
 
-    clear_t_compile_logs()
-    torch._dynamo.reset()
-    fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     # #### TODO remove this after solving index_put eager fallback issue SW-188040 and SW-169434
     if eager_fallbacks is not None:

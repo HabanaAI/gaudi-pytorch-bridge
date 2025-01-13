@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_pytest_mode_compile,
 )
@@ -48,9 +48,7 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
     if is_pytest_mode_compile():
         orig_flag = hpu_backend_config.reinplace_add
         hpu_backend_config.reinplace_add = False
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+        fn = compile_function_if_compile_mode(fn)
 
     input = generate_tensor(shape_a, dtype)
     other = generate_tensor(shape_b, dtype)
@@ -87,10 +85,7 @@ def test_mul_trunc(shape_a, shape_b, dtype):
     def fn(input, other):
         return torch.mul(input, other)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     input = torch.randint(low=torch.iinfo(dtype).min, high=torch.iinfo(dtype).max, size=shape_a, dtype=dtype)
     other = torch.randint(low=torch.iinfo(dtype).min, high=torch.iinfo(dtype).max, size=shape_b, dtype=dtype)

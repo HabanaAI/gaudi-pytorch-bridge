@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import pathlib
 
 import pytest
 import torch
-from test_utils import is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode
 
 # Tests must be executed in separate pytest runs, because habana modules
 # have to be reloaded before setting custom list of ops
@@ -59,9 +59,7 @@ def test_autocast():
         add_float = torch.add(a_f32, b_f32)
         return mm, ls, ls2, add, add_float
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     with torch.autocast(device_type=device, dtype=dtype):
         mm, ls, ls2, add, add_float = fn(ah, bh, ah, bh)
@@ -105,9 +103,7 @@ def test_sdpa(is_mask):
         attn_output = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask, dropout_p, is_causal)
         return attn_output
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     with torch.no_grad(), torch.autocast(device_type=device):
         attn_output = fn(query, proj, key, value, attn_mask)

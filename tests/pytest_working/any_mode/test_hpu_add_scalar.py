@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import random
 
 import pytest
 import torch
-from test_utils import is_gaudi1
+from test_utils import compile_function_if_compile_mode, is_gaudi1
 
 supported_dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short]
 if not is_gaudi1():
@@ -44,8 +44,7 @@ def test_hpu_add_scalar(dtype):
     def op(a, b):
         return torch.add(a, b)
 
-    if pytest.mode == "compile":
-        op = torch.compile(op, backend="hpu_backend")
+    op = compile_function_if_compile_mode(op)
 
     result = op(input, other)
     result_hpu = op(input_hpu, other)
@@ -61,8 +60,7 @@ def test_hpu_add_scalar_inplace(dtype):
     def op(a, b):
         return a.add_(b)
 
-    if pytest.mode == "compile":
-        op = torch.compile(op, backend="hpu_backend")
+    op = compile_function_if_compile_mode(op)
 
     op(input, other)
     op(input_hpu, other)
@@ -80,8 +78,7 @@ def test_hpu_add_scalar_out(dtype):
     def op(a, b, out):
         return torch.add(a, b, out=out)
 
-    if pytest.mode == "compile":
-        op = torch.compile(op, backend="hpu_backend")
+    op = compile_function_if_compile_mode(op)
 
     op(input, other, out)
     op(input_hpu, other, out_hpu)

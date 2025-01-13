@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import torch
 from fp8_utils import FP8_MAX, fp8_dtypes, simulateFp8Precision
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
@@ -105,10 +104,7 @@ def cast_to_fp8_v2_common(shape, dtype, stochastic, is_amax, scale_mode, axis, o
         uncasted = torch.ops.hpu.cast_from_fp8(casted, scale_inv, dtype, scale_shape)
         return casted, amax, uncasted
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     casted, amax, uncasted = fn(
         input.to(hpu),
@@ -163,10 +159,7 @@ def test_cast_to_fp8_v2_from_fp8(dtype, stochastic, scale):
 
         return casted_hpu
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     casted_hpu = fn(input_hpu, scale, stochastic, dtype)
     casted_cpu = casted_hpu.to("cpu")
@@ -308,10 +301,7 @@ def cast_to_fp8_hybrid_common(shape, dtype, stochastic, is_amax, is_scale_152, i
 
         return casted_152, casted_143, amax, uncasted_152, uncasted_143
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     casted_152, casted_143, amax, uncasted_152, uncasted_143 = fn(
         input.to(hpu),
@@ -451,10 +441,7 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
         )
         return result
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend", dynamic=len(out) > 1)
+    fn = compile_function_if_compile_mode(fn, dynamic=len(out) > 1)
 
     result = [
         fn(
@@ -583,10 +570,7 @@ def test_fp8_gemm_v2_1d(shape_a, shape_b, transpose_a, transpose_b):
 
     fn = torch.ops.hpu.fp8_gemm_v2
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result = fn(
         A_hpu,
@@ -642,10 +626,7 @@ def test_fp8_gemm_v2_scale_shape(axis):
 
     fn = torch.ops.hpu.fp8_gemm_v2
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result = fn(
         A_hpu,
@@ -688,10 +669,7 @@ def test_fp8_gemm_v2_scalar_optimization(scaleA, scaleB, dtype):
 
     fn = torch.ops.hpu.fp8_gemm_v2
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result = fn(
         A_hpu,
@@ -740,10 +718,7 @@ def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out):
 
     res_fp8_tensor, _ = fn(a, b, scale_a_t, scale_b_t, scale_out_t)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     res_fp8_scalar, _ = fn(a, b, scale_a, scale_b, scale_out)
     res_scalar_cpu = res_fp8_scalar.cpu().float()
@@ -821,10 +796,7 @@ def test_in_place_interleave(dtype):
     def fn(input):
         torch.ops.hpu.in_place_interleave_(input)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     fn(input_hpu)
 
@@ -882,11 +854,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
         print(f"{scaleB_hpu = }")
 
     fn = torch.ops.hpu.conv2d_fp8
-
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend", dynamic=dynamic)
+    fn = compile_function_if_compile_mode(fn, dynamic=dynamic)
 
     conv_args = [input_hpu, weight_hpu, bias_hpu, stride, padding, dilation, 1, out_dtype]
     if scaleA_hpu is not None or scaleB_hpu is not None:
@@ -934,10 +902,7 @@ def test_conv2d_fp8_scalar_optimization(scaleA, scaleB):
 
     fn = torch.ops.hpu.conv2d_fp8
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     conv = fn(input_hpu, weight_hpu, None, stride, padding, dilation, 1, out_dtype, scaleA, scaleB)
     conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, None, stride, padding, dilation, 1) * (scaleA * scaleB)
@@ -986,10 +951,7 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
             + 1.0
         )
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     res_fp8_scalar = fn(input_hpu, weight_hpu, scale_a, scale_b, scale_out).cpu().float()
     res_fp8_tensor = fn(input_hpu, weight_hpu, scale_a_t, scale_b_t, scale_out_t).float()

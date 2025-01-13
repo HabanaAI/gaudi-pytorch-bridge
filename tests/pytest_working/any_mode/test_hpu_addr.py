@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
-from test_utils import compare_tensors, format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, is_gaudi1
 
 dtypes = [torch.float, torch.bfloat16]
 if not is_gaudi1():
@@ -45,7 +45,7 @@ def test_hpu_addr(shapes, alpha, beta, dtype):
     cpu_vec2 = torch.rand(vec_shape, dtype=dtype)
     hpu_vec2 = cpu_vec2.to("hpu")
 
-    hpu_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_vec1, cpu_vec2)
     hpu_output = hpu_fn(hpu_input, hpu_vec1, hpu_vec2)
@@ -68,7 +68,7 @@ def test_hpu_addr_st_meta(alpha=0, beta=2.2, dtype=torch.float):
     def fn(input, vec1, vec2):
         return torch.addr(input, vec1, vec2, alpha=alpha, beta=beta)
 
-    hpu_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     with use_eager_fallback():  # to allow floordiv (//) to fallback to eager
         for input_shape, mat_shape, vec_shape in shapes:

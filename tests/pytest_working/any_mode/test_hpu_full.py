@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -70,10 +70,7 @@ def test_full(size, dtype, fill_value):
     def fn(size, fill_value, device, dtype):
         return torch.full(size, fill_value, device=device, dtype=dtype)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result = fn(size, fill_value=fill_value, dtype=dtype, device="hpu")
     resultType = result.dtype

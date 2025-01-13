@@ -19,7 +19,6 @@ import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
@@ -78,10 +77,7 @@ def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype, setup_t
     def fn(self, mask, value):
         return self.masked_fill(mask, value)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     self = torch.randint(low=-50, high=50, size=self_shape).to(dtype)
     mask = torch.randint(low=0, high=2, size=mask_shape, dtype=torch.bool)
@@ -118,10 +114,7 @@ def test_masked_fill_float8(dtype, setup_teardown_env_fixture):
     mask = torch.randint(0, 2, (1000, 1000)).to(torch.bool)
     result = fn(input_c, mask, mask_val).to(dtype).to(torch.bfloat16)
 
-    if pytest.mode == "compile":
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     # HPU
     input_hpu = input_c.to("hpu").to(dtype)

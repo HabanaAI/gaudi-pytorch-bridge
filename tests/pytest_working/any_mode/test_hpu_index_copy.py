@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import compare_tensors, is_gaudi1
+from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
@@ -55,12 +55,7 @@ def test_hpu_index_copy(shape, dim, is_full_shape, dtype):
     def fn(self_tensor, dim, index_tensor, updates_tensor):
         self_tensor.index_copy_(dim, index_tensor, updates_tensor)
 
-    if pytest.mode == "compile":
-        # there is an open discussion if torch._dynamo.reset() should be called
-        # before each test: https://github.com/pytorch/pytorch/issues/107444
-        # Sometimes our tests fail without reset, probably due to some cache leftovers.
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     fn(self_tensor_h, dim, index_tensor_h, updates_tensor_h)
 

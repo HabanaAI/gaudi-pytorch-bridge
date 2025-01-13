@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -59,12 +59,7 @@ def common_hpu_cdist(shapes, dtype, p, compute_mode, torch_op_label):
     def fn(x1, x2, p, compute_mode):
         return torch_op(x1, x2, p, compute_mode)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn_h = torch.compile(fn, backend="hpu_backend")
-    else:
-        fn_h = fn
+    fn_h = compile_function_if_compile_mode(fn)
 
     dst = fn(x1.to(torch.float32), x2.to(torch.float32), p, compute_mode).to(dtype)
     dst_h = fn_h(x1_h, x2_h, p, compute_mode)

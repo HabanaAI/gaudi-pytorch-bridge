@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
@@ -88,10 +88,7 @@ def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_poi
     if packed_zero_point:
         sub_dtype = torch.int8 if variant == "int4" else torch.uint8
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     # packed_shape relates to input tensor of int4 numbers packed into int32 elements
     real_shape = list(packed_shape)
@@ -458,10 +455,7 @@ def test_convert_from_int4_AutoGPTQ(
     zeros_hpu, qweight_hpu = prepare_data_for_hpu(bits, group_size, cuda_qweight, cuda_qzeros, cuda_scales)
 
     fn = getattr(torch.ops.hpu, "convert_from_" + variant)
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
     if not is_zero_point:
         result_hpu = fn(qweight_hpu, scale_hpu, None, out_dtype)
     else:

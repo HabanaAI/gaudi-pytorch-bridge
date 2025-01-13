@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ import torch._dynamo as dynamo
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn.parallel import DistributedDataParallel as DDP
+
+from tests.pytest_working.test_utils import compile_function_if_compile_mode
 
 try:
     import os
@@ -286,9 +288,8 @@ def run_single_node(rank, *arguments):
     model.to(device)
 
     os.environ["TORCH_COMPILE_DEBUG"] = "0"
-    dynamo.reset()
 
-    model = torch.compile(model, backend="hpu_backend")
+    model = compile_function_if_compile_mode(model)
 
     x = 0
     start = time.time()

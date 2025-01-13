@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_pytest_mode_compile,
 )
@@ -37,12 +37,7 @@ def test_hpu_logspace_float(start, end, steps, base, dtype):
         return torch.logspace(start, end, steps, base=float(base), dtype=dtype, device=device)
 
     cpu_output = fn(start, end, steps, base, dtype)
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="hpu_backend")
-    else:
-        hpu_fn = fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     hpu_output = hpu_fn(start, end, steps, base, dtype, device="hpu")
 
@@ -67,12 +62,7 @@ def test_hpu_logspace_int(start, end, steps, base, dtype):
         return torch.logspace(start, end, steps, base=base, dtype=dtype, device=device)
 
     cpu_output = fn(start, end, steps, base, dtype)
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="hpu_backend")
-    else:
-        hpu_fn = fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     hpu_output = hpu_fn(start, end, steps, base, dtype, device="hpu")
 
