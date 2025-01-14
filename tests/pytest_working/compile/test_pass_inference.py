@@ -82,6 +82,30 @@ def test_linear():
 
 
 """
+check that the view/_unsafe_view around was removed.
+"""
+
+
+def test_remove_view_for_linear():
+    def fn(A, B):
+        return F.linear(A, B)
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    A = torch.randn(3, 4, 5)
+    B = torch.randn(10, 5)
+
+    with FxGraphAnalyzer(reset_dynamo=False) as fga:
+        C_h = compiled_fn(A.to("hpu"), B.to("hpu"))
+
+    assert torch.allclose(C_h.cpu(), fn(A, B), rtol=1e-3, atol=1e-3)
+    ops_summary = fga.get_ops_summary()
+    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
+    for op in ops_summary:
+        assert op not in ["torch.ops.aten.view.default", "torch.ops.aten._unsafe_view.default"]
+
+
+"""
 graph freezing when enabled with torch.compile will try to constant fold all
 operations done on constant parameters in the FX graph
 the following test checks if the freezing pass is eliminating the cast and transpose
