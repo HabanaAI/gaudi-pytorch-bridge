@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2024 Intel Corporation
+#  Copyright (c) 2024-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -147,8 +147,6 @@ def test_mixture_of_experts(
     dtype,
     measurement_mode,
 ):
-    if measurement_mode and pytest.mode != "eager":
-        pytest.skip("Currently measurement mode is supported only in eager mode")
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
