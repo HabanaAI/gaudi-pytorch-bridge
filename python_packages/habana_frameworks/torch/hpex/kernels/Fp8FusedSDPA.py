@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -114,9 +114,14 @@ def fp8_sdpa_fwd_wrapper(
     if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
-    # Check if recompute variant is enabled
-    if recompute is None:
-        recompute = ht.recompute_sdp_enabled()
+    # In case of inference, override the mode set by user and set the mode internally
+    # and go via recmpute mode.
+    if requires_backward is False:  # Inference :  Do not consider mode set by user.
+        recompute = True
+    else:  # Training :  Consider mode set by user
+        # Check if recompute variant is enabled
+        if recompute is None:
+            recompute = ht.recompute_sdp_enabled()
 
     if requires_backward:
         assert is_causal, "Fp8 FusedSDPA in trining only supports Triangular mask"
