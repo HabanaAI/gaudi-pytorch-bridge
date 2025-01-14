@@ -14,8 +14,6 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
-import numpy as np
 import pytest
 import torch
 from test_utils import compare_tensors, compile_function_if_compile_mode, hpu, is_gaudi1

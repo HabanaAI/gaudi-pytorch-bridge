@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,10 +19,7 @@
 import copy
 import inspect
 import itertools
-import json
 import os
-from enum import Enum
-from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
 
 import habana_frameworks.torch.utils.experimental as htexp
@@ -30,8 +27,6 @@ import torch.distributed as dist
 import torch.utils.data
 import torchvision.datasets
 
-from .aeon_config import get_aeon_config
-from .aeon_manifest import generate_aeon_manifest
 from .aeon_ssd_configurator import AeonSSDConfigurator
 
 
@@ -526,7 +521,7 @@ def _is_coco_dataset(dataset):
 
 def _is_hpumediapipe_available():
     try:
-        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
+        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe  # noqa
 
         return True
     except ImportError as e:

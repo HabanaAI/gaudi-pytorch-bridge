@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
-import habana_frameworks.torch.utils.experimental as htexp
 import pytest
 import torch
 from test_utils import format_tc, is_gaudi1

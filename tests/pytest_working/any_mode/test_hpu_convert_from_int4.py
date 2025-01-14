@@ -287,9 +287,6 @@ def gen_quant4(k, n, groupsize=-1):
     return original_w, linear, s
 
 
-import os
-
-
 def prepare_data(
     infeatures,
     outfeatures,

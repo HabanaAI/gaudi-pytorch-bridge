@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-import os
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest

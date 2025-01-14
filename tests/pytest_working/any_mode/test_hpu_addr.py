@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback

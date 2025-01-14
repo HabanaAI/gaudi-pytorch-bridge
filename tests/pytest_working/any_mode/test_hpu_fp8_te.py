@@ -696,8 +696,6 @@ def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torc
     if fp8_format == Format.HYBRID and is_gaudi3():
         pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
-    import habana_frameworks.torch as ht
-
     # Prepare te linear module
     torch.manual_seed(12345)
 
@@ -834,8 +832,6 @@ def test_linear_weight_caching_in_microbatches_case(fp8_format):
         pytest.skip(reason="FP8 not supported on Gaudi1")
     if fp8_format == Format.HYBRID and is_gaudi3():
         pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
-
-    import habana_frameworks.torch as ht
 
     torch.manual_seed(12345)
     device = torch.device("hpu:0")
@@ -1000,7 +996,6 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
         pytest.skip(reason="No need to run this long-running test on simulator")
     if amax_history_len > interval:
         pytest.skip(reason="amax_history_len must be <= interval")
-    import habana_frameworks.torch as ht
 
     torch.manual_seed(12345)
     device = torch.device("hpu:0")

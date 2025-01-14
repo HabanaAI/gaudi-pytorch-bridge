@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,18 +18,13 @@
 
 
 import argparse
-import json
 import logging
 import os
-import sys
-from collections import OrderedDict, defaultdict
-from collections.abc import Mapping
+from collections import defaultdict
 from enum import Enum
 from io import StringIO
-from shutil import copy2
 
-from browse_log import is_call
-from gson_parsing import func_def_from_pretty_function, gson_iterator, hcl_collective_ops, hcl_ops, syn_types
+from gson_parsing import gson_iterator, hcl_collective_ops, hcl_ops, syn_types
 
 log = logging.getLogger("synapse_logger.gson2test")
 

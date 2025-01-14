@@ -16,8 +16,6 @@
 ###############################################################################
 from collections.abc import Iterable
 
-import habana_frameworks.torch.core as htcore
-import numpy as np
 import pytest
 import torch
 from test_utils import (

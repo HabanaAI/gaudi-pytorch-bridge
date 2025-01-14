@@ -14,9 +14,7 @@
 #  limitations under the License.
 #
 ###############################################################################
-import os
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from test_utils import (

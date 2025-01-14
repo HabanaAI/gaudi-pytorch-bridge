@@ -19,13 +19,7 @@ import random
 
 import pytest
 import torch
-from test_utils import (
-    check_ops_executed_in_jit_ir,
-    compile_function_if_compile_mode,
-    format_tc,
-    is_gaudi1,
-    is_pytest_mode_compile,
-)
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, format_tc, is_pytest_mode_compile
 
 
 def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):

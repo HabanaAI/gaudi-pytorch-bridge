@@ -16,7 +16,6 @@
 ###############################################################################
 from enum import Enum
 
-import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch

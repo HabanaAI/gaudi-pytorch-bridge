@@ -65,6 +65,10 @@ repos:
           # - flake8-pyi==24.9.0
           # - mccabe==0.7.0
         exclude: ^topologies/
+      - id: flake8
+        name: flake8-tests
+        args: ["--select=F401"]
+        files: pytorch_helpers/
   - repo: https://github.com/PyCQA/isort
     rev: 5.13.2
     hooks:
