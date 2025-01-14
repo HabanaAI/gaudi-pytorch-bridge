@@ -104,19 +104,15 @@ def sdpa_fwd_wrapper(
     if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
-    # In case of inference, override the mode set by user and set the mode internally
-    # and go via recmpute mode unless returing attn prob is requested (since attn prob
-    # is returned only in non-recomp mode)
-    if requires_backward is False:  # Inference :  Do not consider mode set by user.
-        recompute = True
-        if return_attn_probs:
-            recompute = False
-    else:  # Training: Consider the mode set by user
-        assert return_attn_probs is False, "return_attn_probs is supported only for inference mode"
-        # Check if recompute variant is enabled
-        recompute = recompute_mode
-        if recompute is None:
-            recompute = ht.recompute_sdp_enabled()
+    # Check if recompute variant is enabled
+    recompute = recompute_mode
+
+    if recompute is None:
+        recompute = ht.recompute_sdp_enabled()
+
+    if return_attn_probs:
+        assert requires_backward is False, "return_attn_probs is supported only for inference mode"
+        recompute = False
 
     if recompute and requires_backward and softmax_mode == "fast":
         assert (
