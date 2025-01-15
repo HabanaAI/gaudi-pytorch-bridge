@@ -452,7 +452,7 @@ class HabanaLaunchOpPT {
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
   std::string compile_stats_path_ = "";
-  std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
+  std::unordered_set<unsigned> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;
 
@@ -578,6 +578,7 @@ class HabanaLaunchOpPT {
   bool require_st_ = false;
 
   size_t jit_graph_cache_hit_count_ = 0;
+  unsigned set_module_name_in_outputs_metadata_count_ = 0;
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
@@ -621,6 +622,75 @@ class HabanaLaunchOpPT {
       torch::jit::Stack&,
       torch::jit::Node*,
       const std::string& opname);
+
+  OutputMetaDataVector& GetOutputsMetadata(
+      torch::jit::Node*,
+      size_t& outputs_metadata_index,
+      SynBuildCache&);
+
+  void HandleAllocatedOutputs(
+      std::vector<at::Tensor>::iterator&,
+      torch::jit::Node*,
+      OutputMetaDataVector&);
+
+  void SetModuleNameInOutputsMetadata(torch::jit::Node*, OutputMetaDataVector&);
+
+  void HandleSlicesAndStrides(
+      HabanaOperatorPtr&,
+      torch::jit::Stack&,
+      bool is_shape_inference,
+      std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+          memory_reuse_pairs,
+      torch::jit::Node*,
+      unsigned node_idx,
+      const std::string_view opname,
+      OutputMetaDataVector&,
+      synapse_helpers::graph&);
+
+  struct ComputeShapeRT {
+    habana::InferOutputMetaRetType kernel_output_cs;
+    std::vector<IdxTensorTuple> intermediate_shape_tensor_cs;
+  };
+
+  ComputeShapeRT ComputeShape(
+      synDeviceId,
+      HabanaOperatorPtr&,
+      torch::jit::Stack&,
+      bool is_shape_inference,
+      torch::jit::Node*,
+      const std::string& node_qual_str,
+      const c10::OperatorName&,
+      const std::string& opname,
+      OutputMetaDataVector&,
+      synapse_helpers::graph&);
+
+  void ProcessSynapseInputsAndIntermediateShapeTensors(
+      HabanaOperatorPtr&,
+      const std::vector<IdxTensorTuple>& intermediate_shape_tensor_cs,
+      std::vector<size_t>& intermediate_shape_tensors_vec,
+      std::vector<size_t>& inputs_shape_tensors_vec,
+      const habana::InferOutputMetaRetType&,
+      synapse_helpers::graph&);
+
+  void HandleOptimOutputSif(
+      torch::jit::Stack&,
+      torch::jit::graph_node_list::iterator,
+      torch::jit::Node*,
+      OutputMetaDataVector&);
+
+  void HandleHybridSif(
+      int64_t cur_sif_tidx,
+      HabanaOperatorPtr&,
+      bool is_shape_inference,
+      const habana::InferOutputMetaRetType&,
+      synapse_helpers::graph&);
+
+  void HandlePatchInfo(
+      std::string_view opname,
+      const std::vector<std::tuple<std::string, at::Tensor, uint64_t>>&
+          patch_info);
+
+  void HandleCollectives(HabanaOperatorPtr&, torch::jit::Node*);
 
   void GeneratePatchingInfoForGraphInputsDuringFastSif();
 
