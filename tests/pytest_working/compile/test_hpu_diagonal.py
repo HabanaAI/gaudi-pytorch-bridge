@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from itertools import combinations
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
-from test_utils import is_gaudi1
+from test_utils import compile_function_if_compile_mode, is_gaudi1
 
 
 def set_precision(dtype):
@@ -62,8 +62,7 @@ def diagonal_test_generic(shape, dims, offset, dtype):
         # (e.g. torch.mul) to work in non-leaf mode.
         return torch.mul(x, 1)
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     expected = fn(input, offset, dim1, dim2)
     result_hpu = hpu_compiled_fn(input_hpu, offset, dim1, dim2)

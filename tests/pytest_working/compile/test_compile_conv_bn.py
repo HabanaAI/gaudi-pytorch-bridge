@@ -22,7 +22,7 @@ import numpy
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import env_var_in_scope, inference_env_fixture
+from test_utils import compile_function_if_compile_mode, env_var_in_scope, inference_env_fixture
 from torch.fx import symbolic_trace
 
 torch.manual_seed(0)
@@ -91,7 +91,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C, inference_env_f
     def raw_function(tensor):
         return model_hpu(tensor)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     with torch.no_grad():
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
@@ -159,7 +159,7 @@ def test_hpu_const_marking(inference_env_fixture):
     def raw_function(tensor):
         return model_hpu(tensor)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
     with env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}):
         with torch.no_grad():
             with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):

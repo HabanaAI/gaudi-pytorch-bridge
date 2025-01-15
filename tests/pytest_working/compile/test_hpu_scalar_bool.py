@@ -18,6 +18,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 def test_scalar_bool():
@@ -26,9 +27,7 @@ def test_scalar_bool():
 
     cpu_input = torch.randint(low=0, high=2, size=(2, 2), dtype=torch.bool)
     hpu_input = cpu_input.to("hpu")
-    torch._dynamo.reset()
-
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, True)
     hpu_output = hpu_wrapped_fn(hpu_input, True).cpu()

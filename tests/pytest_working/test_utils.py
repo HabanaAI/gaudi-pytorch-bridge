@@ -491,13 +491,23 @@ def clear_t_compile_logs():
 
 
 def compile_function_if_compile_mode(
-    function, backend="hpu_backend", dynamic=None, options=None, mode=None, fullgraph=False
+    function,
+    backend="hpu_backend",
+    dynamic=None,
+    options=None,
+    mode=None,
+    fullgraph=False,
 ):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
         return torch.compile(
-            function, backend=backend, dynamic=dynamic, options=options, mode=mode, fullgraph=fullgraph
+            function,
+            backend=backend,
+            dynamic=dynamic,
+            options=options,
+            mode=mode,
+            fullgraph=fullgraph,
         )
     else:
         return function

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]
@@ -28,9 +29,8 @@ def test_hpu_squeeze(shape):
     def fn(shape):
         return torch.squeeze(shape).relu()
 
-    torch._dynamo.reset()
     shape = torch.zeros(shape).to("hpu")
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     expected = fn(shape).to("cpu")
     result = compiled_fn(shape).to("hpu").to("cpu")
     assert torch.equal(result, expected)
@@ -42,9 +42,8 @@ def test_hpu_squeeze_dim(shape, dim):
     def fn(shape, dim):
         return torch.squeeze(shape, dim).relu()
 
-    torch._dynamo.reset()
     shape = torch.zeros(shape).to("hpu")
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     expected = fn(shape, dim).to("cpu")
     result = compiled_fn(shape, dim).to("hpu").to("cpu")
     assert torch.equal(result, expected)
@@ -56,9 +55,8 @@ def test_hpu_squeeze_dims(shape, dims):
     def fn(shape, dims):
         return torch.squeeze(shape, dims).relu()
 
-    torch._dynamo.reset()
     shape = torch.zeros(shape).to("hpu")
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     expected = fn(shape, dims).to("cpu")
     result = compiled_fn(shape, dims).to("hpu").to("cpu")
     assert torch.equal(result, expected)
@@ -70,11 +68,10 @@ def test_hpu_squeeze_dim0(shape, dim):
     def fn(input, dims):
         return torch.squeeze(input, dims).relu()
 
-    torch._dynamo.reset()
     input = torch.randn(shape) * 5.0
     input_hpu = input.to("hpu")
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     result_cpu = fn(input, dim)
     result_hpu = compiled_fn(input_hpu, dim)
 

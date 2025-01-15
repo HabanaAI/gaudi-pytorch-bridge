@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 all_dtypes = [
     torch.bfloat16,
@@ -51,8 +51,7 @@ class TestHpuIndexPutSelect:
         cpu_values = torch.ones(2, dtype=dtype, device="cpu")
         hpu_values = torch.ones(2, dtype=dtype, device="hpu")
 
-        torch._dynamo.reset()
-        hpu_torch_compile_func = torch.compile(fn, backend="hpu_backend")
+        hpu_torch_compile_func = compile_function_if_compile_mode(fn)
         cpu_result = fn(cpu_input, index, cpu_values)
         hpu_result = hpu_torch_compile_func(hpu_input, index, hpu_values)
 

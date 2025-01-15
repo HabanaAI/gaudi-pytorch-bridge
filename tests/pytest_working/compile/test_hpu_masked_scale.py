@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 dtypes = [torch.bfloat16, torch.float, torch.int, torch.short, torch.int8]
 if not is_gaudi1():
@@ -49,7 +49,7 @@ def test_hpu_masked_scale(dtype, scale, shape):
     cpu_output = cpu_input * cpu_mask * factor
     cpu_output = torch.tensor(cpu_output, dtype=dtype)
 
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mask, scale).cpu()
 
     atol = 1e-08

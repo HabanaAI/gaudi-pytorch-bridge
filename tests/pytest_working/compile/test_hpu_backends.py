@@ -18,6 +18,7 @@
 from unittest.mock import patch
 
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @torch.compile(backend="hpu_backend")
@@ -31,7 +32,7 @@ def test_compile_mode_nothrow():
     def fn(x):
         return x + x
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend", mode="anything")
+    compiled_fn = compile_function_if_compile_mode(fn, mode="anything")
     compiled_fn(torch.tensor(2.0).to("hpu"))
 
 
@@ -76,7 +77,7 @@ class TestInnerCompiler:
         def fn(x):
             return x + x
 
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
         res = compiled_fn(x)
 
         with patch(

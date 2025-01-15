@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 dtypes = [torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long]
 
@@ -33,7 +33,7 @@ def test_addmm(dtype, n, m, p):
     def fn(input, mat1, mat2):
         return torch.addmm(input, mat1, mat2)
 
-    compiled_fn_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_fn_hpu = compile_function_if_compile_mode(fn)
 
     if dtype.is_floating_point:
         input = torch.randn(input_shape, dtype=dtype)
@@ -62,8 +62,7 @@ def test_inplace_addmm_with_view_input(dtype, n, m, p):
         input = torch.permute(input, [1, 0])
         return input.addmm_(mat1, mat2)
 
-    torch._dynamo.reset()
-    compiled_fn_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_fn_hpu = compile_function_if_compile_mode(fn)
 
     if dtype.is_floating_point:
         input = torch.randn(input_shape, dtype=dtype)

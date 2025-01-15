@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("op_code", [torch.cumsum])
@@ -33,7 +34,7 @@ def test_cumsum_dim(op_code, dim):
     result = fn(x, dim)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, dim)
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)

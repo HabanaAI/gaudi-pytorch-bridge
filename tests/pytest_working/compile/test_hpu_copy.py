@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 
 import torch
-from test_utils import env_var_in_scope
+from test_utils import compile_function_if_compile_mode, env_var_in_scope
 
 
 def test_inplace_without_return():
@@ -29,7 +29,7 @@ def test_inplace_without_return():
     def fn(a):
         a.copy_(a)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     x = torch.randn([5, 10], dtype=torch.bfloat16)
     hx = x.to("hpu")
     fn(x)
@@ -49,7 +49,7 @@ def test_hpu_view_copy():
             a.copy_(b.view(a.shape))
             return a
 
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
 
         x = torch.randn([5, 10])
         hx = x.to("hpu")
@@ -74,7 +74,7 @@ def test_hpu_copy_expand():
             a.copy_(b)
             return a
 
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
 
         x = torch.randn([5, 10])
         y = torch.randn([5, 1])
@@ -102,7 +102,7 @@ def test_hpu_copy_keepmutation():
             a.copy_(b)
             return a
 
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
 
         x = torch.randn([5, 10])
         hx = x.to("hpu")
@@ -136,7 +136,7 @@ def test_hpu_inplace_copies():
         x = fn(x)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
         hx = compiled_fn(hx)
 
         assert torch.allclose(hx.cpu(), x, atol=0.001, rtol=0.001)
@@ -162,7 +162,7 @@ def test_hpu_expand():
         res = fn(x)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
         hres = compiled_fn(hx)
 
         assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)

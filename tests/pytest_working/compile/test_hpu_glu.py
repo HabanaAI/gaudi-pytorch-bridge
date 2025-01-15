@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shape", [[2, 2, 4], [4, 6, 4, 2, 6]], ids=format_tc)
@@ -48,7 +48,7 @@ def test_hpu_glu(shape, dim, backward):
     else:
         fn = fn_fwd
 
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, dim)
     hpu_output = hpu_compiled_fn(hpu_input, dim).cpu()

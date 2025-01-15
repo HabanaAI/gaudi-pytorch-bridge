@@ -18,6 +18,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
+from test_utils import compile_function_if_compile_mode
 
 
 def test_parallel_graphs():
@@ -39,7 +40,7 @@ def test_parallel_graphs():
 
         return tensor_one + tensor_two
 
-    compiled_fnc = torch.compile(raw_fnc, backend="hpu_backend")
+    compiled_fnc = compile_function_if_compile_mode(raw_fnc)
 
     tensor_one = torch.randn(2, 2, 2, 2).to(device="hpu")
     tensor_two = torch.randn(2, 2, 2, 2).to(device="hpu")
@@ -66,8 +67,8 @@ def test_device_partition_cpuinput():
 
         return tmp5 + tmp15
 
-    compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
-    compiled_function_inference = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function_training = compile_function_if_compile_mode(raw_function)
+    compiled_function_inference = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
 
@@ -95,8 +96,8 @@ def test_device_partition_hpuinput():
 
         return tmp5 + tmp15
 
-    compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
-    compiled_function_inference = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function_training = compile_function_if_compile_mode(raw_function)
+    compiled_function_inference = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -124,7 +125,7 @@ def test_leaf_views_1():
 
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
     input_tensor2 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -153,7 +154,7 @@ def test_leaf_views_1_dynamic():
 
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+    compiled_function = compile_function_if_compile_mode(raw_function, dynamic=True)
 
     input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
     input_tensor2 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -182,7 +183,7 @@ def test_leaf_views_1_really_dynamic():
 
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+    compiled_function = compile_function_if_compile_mode(raw_function, dynamic=True)
 
     input_tensor1 = torch.rand(8, 1, 16, 16).to("hpu")
     input_tensor2 = torch.rand(8, 1, 16, 16).to("hpu")
@@ -213,7 +214,7 @@ def test_leaf_views_2():
         x = x[:, :]
         return x.t()
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
 
@@ -230,7 +231,7 @@ def test_leaf_views_3():
         d = b[:]
         return c, d
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
 

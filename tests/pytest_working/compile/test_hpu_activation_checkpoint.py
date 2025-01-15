@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import torch
 from habana_frameworks.torch.dynamo.compile_backend.random_utils import HABANA_CHECKPOINT_OPS
 from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from test_dynamo_utils import use_eager_fallback
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compile_function_if_compile_mode
 
 
 def bernoulli(x):
@@ -120,7 +120,7 @@ class ModelDropout(torch.nn.Module):
 def run_model(model, shape=(12, 16)):
     torch.manual_seed(2137)
     input = torch.rand(shape).to("hpu").requires_grad_(True)
-    model = torch.compile(model, backend="hpu_backend")
+    model = compile_function_if_compile_mode(model)
     out = model(input)
     out.sum().backward()
     return out.cpu(), input.grad.cpu()

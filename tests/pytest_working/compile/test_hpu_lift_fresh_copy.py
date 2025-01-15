@@ -16,6 +16,7 @@
 ###############################################################################
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("value", [[2, 3], [2.1, 3.2, 4.98]])
@@ -25,8 +26,7 @@ def test_lift_fresh_copy(value):
         t = torch.tensor(value, device=device)
         return t + input
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
     cpu_compiled_fn = torch.compile(fn)
 
     cpu_input = torch.rand([1])
@@ -46,8 +46,7 @@ def test_lift_fresh_copy_tensor_on_cpu(value):
         t = torch.tensor(value).to(device)
         return t + input
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
     cpu_compiled_fn = torch.compile(fn)
 
     cpu_input = torch.rand([1])

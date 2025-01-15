@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import random
 
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -29,7 +30,7 @@ def test_scalar_tensor(dtype):
     def fn(val, device):
         return torch.scalar_tensor(val, device=device)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     val = random.random()
     result = compiled_fn(val, "hpu")

@@ -16,6 +16,7 @@
 ###############################################################################
 
 import torch
+from test_utils import compile_function_if_compile_mode
 from torch.export import export
 
 
@@ -34,11 +35,11 @@ def test_hpu_cond_simple():
 
     x = torch.randn(3, 4)
     ref_res = cond_fn(x)
-    aot_eager_res = torch.compile(cond_fn, backend="aot_eager")(x)
+    aot_eager_res = compile_function_if_compile_mode(cond_fn, backend="aot_eager")(x)
     torch.allclose(ref_res, aot_eager_res)
 
     x_hpu = x.to("hpu")
-    hpu_res = torch.compile(cond_fn, backend="hpu_backend")(x_hpu)
+    hpu_res = compile_function_if_compile_mode(cond_fn)(x_hpu)
     torch.allclose(hpu_res.cpu(), ref_res)
 
 
@@ -62,11 +63,11 @@ def test_hpu_cond_nested():
 
     x = torch.randn(4, 2)
     ref_res = cond_fn(x)
-    aot_eager_res = torch.compile(cond_fn, backend="aot_eager")(x)
+    aot_eager_res = compile_function_if_compile_mode(cond_fn, backend="aot_eager")(x)
     torch.allclose(ref_res, aot_eager_res)
 
     x_hpu = x.to("hpu")
-    hpu_res = torch.compile(cond_fn, backend="hpu_backend")(x_hpu)
+    hpu_res = compile_function_if_compile_mode(cond_fn)(x_hpu)
     torch.allclose(hpu_res.cpu(), ref_res)
 
 

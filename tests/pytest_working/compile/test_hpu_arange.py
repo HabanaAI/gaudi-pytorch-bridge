@@ -16,6 +16,7 @@
 ###############################################################################
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long])
@@ -35,8 +36,7 @@ def test_arange(dtype, layout, start, step, end):
         else:
             return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
 
-    torch._dynamo.reset()
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     expected = fn(start, layout, step, end, "cpu")
     result = compiled_fn(start, layout, step, end, "hpu").cpu()
@@ -62,7 +62,7 @@ def test_arange_rounding_issue(dtype, layout, start, step, end):
         else:
             return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     expected = fn(start, layout, step, end, "cpu")
     result = compiled_fn(start, layout, step, end, "hpu").cpu()

@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shape", [(3,), (3, 3), (3, 3, 3)], ids=format_tc)
@@ -32,7 +32,7 @@ def test_split_cat(shape, split_dim):
         # output node of the graph
         return torch.cat(torch.split(in_tensor, split_size_or_sections, dim), dim)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_in = torch.rand(size=shape, device="cpu")
     hpu_in = cpu_in.to("hpu")
@@ -51,7 +51,7 @@ def test_split(shape, split_dim):
     def fn(in_tensor, split_size_or_sections, dim):
         return torch.split(in_tensor, split_size_or_sections, dim)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_in = torch.rand(size=shape, device="cpu")
     hpu_in = cpu_in.to("hpu")
