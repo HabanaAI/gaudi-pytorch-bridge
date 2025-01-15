@@ -2892,26 +2892,6 @@ void HabanaLaunchOpPT::BuildSynapseGraphLite(
   }
 }
 
-void HabanaLaunchOpPT::BuildSynapseGraph(
-    std::shared_ptr<sh::graph>& syn_graph,
-    SynBuildCache& syn_build_cache,
-    bool is_shape_inference) {
-  PT_BRIDGE_BEGIN;
-  syn_graph_ptr_ = syn_graph;
-
-  try {
-    BuildSynapseGraphInternal(*syn_graph, syn_build_cache, is_shape_inference);
-  } catch (...) {
-    syn_build_cache.clear_cached_graph_info();
-    throw;
-  }
-
-  if (!syn_build_cache.is_complete())
-    syn_build_cache.clear_cached_graph_info();
-
-  PT_BRIDGE_END;
-}
-
 void HabanaLaunchOpPT::BuildSynapseGraphReset(SynBuildCache& syn_build_cache) {
   sh::detail::tensor_name_generator::reset();
 
@@ -2958,10 +2938,21 @@ torch::jit::graph_node_list::iterator HabanaLaunchOpPT::BuildSgGetItrRvNode(
   return itr_rv_node;
 }
 
-void HabanaLaunchOpPT::BuildSynapseGraphInternal(
-    sh::graph& syn_graph,
+void HabanaLaunchOpPT::BuildSynapseGraph(
+    std::shared_ptr<sh::graph>& syn_graph_sp,
     SynBuildCache& syn_build_cache,
     bool is_shape_inference) {
+  PT_BRIDGE_BEGIN;
+
+  // Clear cache if build graph failed
+  CallFinally clear_cache_if_incomplete([&syn_build_cache] {
+    if (!syn_build_cache.is_complete())
+      syn_build_cache.clear_cached_graph_info();
+  });
+
+  syn_graph_ptr_ = syn_graph_sp;
+  sh::graph& syn_graph = *syn_graph_sp;
+
   BuildSynapseGraphReset(syn_build_cache);
 
   auto itr_rv_node = BuildSgGetItrRvNode(syn_graph);
@@ -3019,6 +3010,8 @@ void HabanaLaunchOpPT::BuildSynapseGraphInternal(
       syn_build_cache.set_is_control_edge_processing_required();
   }
   syn_build_cache.complete();
+
+  PT_BRIDGE_END;
 }
 
 bool HabanaLaunchOpPT::MainLoopHandledSpecialCase(

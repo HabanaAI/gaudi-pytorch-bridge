@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -584,16 +584,11 @@ class HabanaLaunchOpPT {
   // 2. Input Stack
   // Currently this funciton is used for shape inference as well
   void BuildSynapseGraph(
-      std::shared_ptr<synapse_helpers::graph>& syn_graph,
-      SynBuildCache& syn_build_cache,
+      std::shared_ptr<synapse_helpers::graph>&,
+      SynBuildCache&,
       bool is_shape_inference = false);
 
   void BuildSynapseGraphReset(SynBuildCache&);
-
-  void BuildSynapseGraphInternal(
-      synapse_helpers::graph&,
-      SynBuildCache&,
-      bool is_shape_inference);
 
   struct BuildSynapseGraphNodesMainLoopRT {
     std::vector<size_t> inputs_shape_tensors_vec;
