@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
+* Copyright (c) 2021-2025 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@ namespace sh = synapse_helpers;
 namespace habana {
 OutputMetaDataVector CatMeta(const at::Stack& stack) {
   auto tensors_ = stack[0].toTensorVector();
+  for (auto& input : tensors_)
+    CONVERT_0D_TO_1D(input);
+
   auto dim = stack[1].toInt();
 
   TORCH_CHECK(tensors_.size() > 0, "Empty tensors list!");
@@ -105,7 +108,10 @@ SharedMetaDataVector CatSharedMeta(
 void CatHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto in_tensors = stack[0].toTensorList().vec();
+  auto in_tensors = stack[0].toTensorList().vec();
+  for (auto& input : in_tensors)
+    CONVERT_0D_TO_1D(input);
+
   TORCH_CHECK(in_tensors.size() > 0, "Empty tensors list!");
   auto dim = stack[1].toInt();
 

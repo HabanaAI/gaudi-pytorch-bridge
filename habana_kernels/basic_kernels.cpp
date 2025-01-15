@@ -180,6 +180,7 @@ void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
     cast_supported = true;
 
   if (cast_supported) { // if supported src->dst mapping
+    CONVERT_0D_TO_1D(src);
     dst = habana_helpers::hpu_cast_tensor(
         src, at::scalarTypeToTypeMeta(dst_scalar_type));
 
@@ -334,9 +335,6 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
 InferOutputMetaRetType IdentityOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
   auto output = inputs[(inputs.size() == 2) ? 1 : 0].toTensor();
   InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
@@ -353,9 +351,6 @@ void IdentityOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
   at::Tensor output;
 
   if (inputs.size() == 2) {
