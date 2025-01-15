@@ -31,12 +31,8 @@ TensorExtraMeta::~TensorExtraMeta() {
   if (!HPUDeviceContext::is_device_acquired())
     return;
 
-  auto& device = HPUDeviceContext::get_device();
-  if (get_alloc_ptr()) {
-    if (get_alloc_ptr() == get_host_ptr()) {
-      device.get_host_memory().free(get_alloc_ptr());
-    }
-  } else if (get_host_ptr()) {
+  if (get_host_ptr()) {
+    auto& device = HPUDeviceContext::get_device();
     device.get_host_memory().free(get_host_ptr());
     device.get_host_memory().free(get_compile_host_ptr());
   }

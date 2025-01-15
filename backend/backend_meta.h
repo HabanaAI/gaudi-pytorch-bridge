@@ -347,10 +347,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     size_ = size;
   }
 
-  size_t set_host_total_elem(size_t total_elem) {
-    return total_elem_ = total_elem;
-  }
-
   size_t get_host_total_elem() const {
     return total_elem_;
   }
@@ -371,14 +367,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     compile_host_ptr_ = compile_host_ptr;
   }
 
-  void set_alloc_ptr(void* alloc_ptr) {
-    alloc_ptr_ = alloc_ptr;
-  }
-
-  void* get_alloc_ptr() {
-    return alloc_ptr_;
-  }
-
   HostDataType get_host_dt_type() const {
     return dt_type_;
   }
@@ -387,11 +375,11 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   void set_h2d_data(std::vector<T> data) {
     h2d_host_data_.clear();
     for (auto d : data) {
-      h2d_host_data_.push_back(static_cast<uint64_t>(d));
+      h2d_host_data_.push_back(static_cast<int32_t>(d));
     }
   }
 
-  std::vector<uint64_t> get_h2d_data() {
+  std::vector<int32_t> get_h2d_data() {
     return h2d_host_data_;
   }
 
@@ -521,7 +509,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   bool is_h2d_fe_shape_tensor_{false};
   bool is_h2d_bucketing_{false};
 
-  void* alloc_ptr_{nullptr};
   void* host_ptr_{nullptr};
   void* compile_host_ptr_{nullptr};
   std::shared_ptr<serialization::ConstSectionDataSerialize> const_section_data_;
@@ -541,7 +528,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
 
   bool is_tensor_pipelined_{false};
   std::shared_ptr<SendTensorMeta> send_tensor_meta_{nullptr};
-  std::vector<uint64_t> h2d_host_data_;
+  std::vector<int32_t> h2d_host_data_;
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(
