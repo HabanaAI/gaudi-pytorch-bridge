@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import pytest
 import torch
-import torch.nn as nn
 from test_utils import format_tc, generic_setup_teardown_env, is_gaudi1
 from torch.testing._internal.common_methods_invocations import op_db
 

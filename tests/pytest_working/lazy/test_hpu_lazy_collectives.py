@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@
 
 
 import os
-from typing import Any, Callable, Dict
 
-import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.distributed.hccl
 import habana_frameworks.torch.hpu
 import pytest
@@ -77,7 +75,6 @@ def no_start_coalese_test(rank, world_size, coalescing):
         cs.wait()
         assert 0, "Check _start_coalescing is done before _end_coalescing"
     except Exception as e:
-        pass
         dist.barrier()
         cleanup()
 

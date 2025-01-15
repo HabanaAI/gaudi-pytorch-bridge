@@ -15,11 +15,8 @@
 #
 ###############################################################################
 
-import os
-
 import habana_frameworks.torch.core as htcore
 import numpy
-import pytest
 import torch
 import torch.nn as nn
 from test_utils import inference_env_fixture

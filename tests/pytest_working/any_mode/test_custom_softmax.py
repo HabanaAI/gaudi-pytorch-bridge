@@ -16,7 +16,6 @@
 ###############################################################################
 
 import numpy as np
-import pytest
 import torch
 from habana_frameworks.torch.hpex.kernels import CustomSoftmax
 from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, hpu, is_pytest_mode_compile

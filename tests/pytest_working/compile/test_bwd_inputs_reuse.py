@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@
 
 import os
 
-import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as hthpu
-import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than

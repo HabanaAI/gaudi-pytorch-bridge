@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 import os
 from pathlib import Path
 
-import habana_frameworks.torch.core
+import habana_frameworks.torch.core  # noqa F401
 import torch
 
 is_lazy = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
