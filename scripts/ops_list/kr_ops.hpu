@@ -1088,6 +1088,7 @@ RegisterKernel::add op = hpu::_unique_eager
 RegisterKernel::add op = hpu::_unique2
 RegisterKernel::add op = hpu::_unique2_eager
 RegisterKernel::add op = hpu::unique_dim
+RegisterKernel::add op = hpu::unique_dim_eager
 RegisterKernel::add op = hpu::upsample_nearest2d_backward
 RegisterKernel::add op = hpu::view
 RegisterKernel::add op = hpu::view_neg

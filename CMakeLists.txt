@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -302,7 +302,6 @@ add_habana_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/index_select_gen.cpp
   hpu_ops/lazy/maxpool_gen.cpp
   hpu_ops/lazy/pow_gen.cpp
-  hpu_ops/lazy/unique_gen.cpp
   hpu_ops/lazy/upsample_gen.cpp
   hpu_ops/lazy/xlogy_gen.cpp
   ${habana_pytorch2_plugin_glob_files}

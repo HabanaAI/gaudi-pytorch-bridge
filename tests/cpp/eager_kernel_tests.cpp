@@ -36,6 +36,17 @@ class EagerKernelTest : public habana_lazy_test::LazyTest {
   }
 };
 
+class UniqueDimEagerTest
+    : public ::testing::TestWithParam<std::tuple<torch::Tensor, bool, bool>>,
+      public habana_lazy_test::EnvHelper {
+  void SetUp() override {
+    SetEagerMode();
+  }
+  void TearDown() override {
+    RestoreMode();
+  }
+};
+
 class EagerKernelCacheTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     SetLazyMode(2);
@@ -609,4 +620,30 @@ TEST_F(EagerKernelTest, DISABLED_SumDimIntOut) {
   torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, c10::nullopt, hOut);
 
   EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu), true);
+}
+
+INSTANTIATE_TEST_CASE_P(
+    UniqueDim,
+    UniqueDimEagerTest,
+    ::testing::Values(
+        std::make_tuple(torch::empty({0, 4}), false, false),
+        std::make_tuple(torch::empty({0, 4}), true, false),
+        std::make_tuple(torch::empty({0, 4}), false, true),
+        std::make_tuple(torch::empty({0, 4}), true, true)));
+
+TEST_P(UniqueDimEagerTest, test) {
+  torch::Tensor input = std::get<0>(GetParam());
+  bool return_inverse = std::get<1>(GetParam());
+  bool return_counts = std::get<2>(GetParam());
+  torch::Tensor input_hpu = input.to(torch::kHPU);
+  auto output =
+      torch::unique_dim(input, 0, false, return_inverse, return_counts);
+  auto output_hpu =
+      torch::unique_dim(input_hpu, 0, false, return_inverse, return_counts);
+
+  bool equal =
+      allclose(std::get<0>(output_hpu).to(torch::kCPU), std::get<0>(output)) &&
+      allclose(std::get<1>(output_hpu).to(torch::kCPU), std::get<1>(output)) &&
+      allclose(std::get<2>(output_hpu).to(torch::kCPU), std::get<2>(output));
+  EXPECT_TRUE(equal);
 }

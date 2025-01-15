@@ -322,6 +322,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/trace_gen.cpp
   backend/triangular_gen.cpp
   backend/unique2_gen.cpp
+  backend/unique_dim_gen.cpp
   backend/unique_gen.cpp
   backend/upsample_gen.cpp
   backend/upsample_ops.cpp
@@ -404,9 +405,8 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/optimizer_lamb_gen.cpp
           lazy/pow_gen.cpp
           lazy/random_gen.cpp
-          lazy/topk_gen.cpp
-          lazy/unique_gen.cpp
           lazy/upsample_gen.cpp
+          lazy/topk_gen.cpp
           lazy/xlogy_gen.cpp
           op_logger.cpp
           op_validator.cpp
