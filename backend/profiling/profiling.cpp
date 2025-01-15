@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
+* Copyright (c) 2021-2025 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,6 +23,20 @@
 
 namespace habana {
 namespace profile {
+
+int64_t getOffset(TraceSourceVariant variant) {
+  switch (variant) {
+    case TraceSourceVariant::SYNAPSE_PROFILER:
+      return 0;
+    case TraceSourceVariant::SYNAPSE_LOGGER:
+      return 10000;
+    case TraceSourceVariant::BRIDGE_LOGS:
+      return 0;
+    case TraceSourceVariant::MEMORY_LOGS:
+      return 30000;
+  }
+  return 0;
+}
 
 Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {}
 
@@ -50,8 +64,7 @@ void Profiler::init_sources(
   }
   // simple trace grouping by log category
   for (auto& trace_source : trace_sources_) {
-    trace_source->set_offset(
-        static_cast<unsigned>(trace_source->get_variant()));
+    trace_source->set_offset(getOffset(trace_source->get_variant()));
   }
 }
 
