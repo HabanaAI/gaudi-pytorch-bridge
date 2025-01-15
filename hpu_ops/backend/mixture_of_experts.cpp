@@ -173,16 +173,9 @@ void MixtureOfExpertsFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto numExperts = stack.at(3).toTensorList().size();
 
   std::vector<synTensor> inputs;
-  for (size_t i = 0; i < 3 + numExperts * weights_and_scales_per_expert; i++) {
+  for (size_t i = 0; i < 4 + numExperts * weights_and_scales_per_expert; i++) {
     inputs.push_back(syn_in(i));
   }
-
-  std::vector<sh::tensor> scale_wrapper;
-  auto d_scale_hidden_states =
-      stack.at(fused_weights ? 5 : 6).toScalar().toFloat();
-  auto insert_index = fused_weights ? 19 : 27;
-  HandleScaleScalar(
-      this, graph, d_scale_hidden_states, scale_wrapper, inputs, insert_index);
 
   size_t size = 0;
   auto params = FillMixtureOfExpertsParams(

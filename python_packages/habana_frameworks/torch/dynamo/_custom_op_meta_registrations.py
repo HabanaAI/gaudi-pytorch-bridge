@@ -911,7 +911,7 @@ def meta_mixture_of_experts_fp8_measurement_fused_weights(
     return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w12))
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.fp8])
+@register_meta([torch.ops.hpu.mixture_of_experts.fp8, torch.ops.hpu.mixture_of_experts.fp8_scalars])
 def meta_mixture_of_experts(
     hidden_states,
     expert_routing_table,
@@ -932,7 +932,9 @@ def meta_mixture_of_experts(
     return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.fp8_fused_weights])
+@register_meta(
+    [torch.ops.hpu.mixture_of_experts.fp8_fused_weights, torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars]
+)
 def meta_mixture_of_experts_fused_weights(
     hidden_states,
     expert_routing_table,

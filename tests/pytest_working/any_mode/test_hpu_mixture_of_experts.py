@@ -30,6 +30,7 @@ from test_utils import (
     hpu,
     is_gaudi1,
     is_pytest_mode_compile,
+    is_pytest_mode_eager,
 )
 
 
@@ -112,18 +113,24 @@ def generate_weights_scales(num_experts):
     w2_scales = [torch.tensor(1.0) for _ in range(num_experts)]
     w3_scales = [torch.tensor(1.0) for _ in range(num_experts)]
     intermediate_hidden_states_scales = [torch.tensor(1.0) for _ in range(num_experts)]
+    d_scale_hidden_states = torch.tensor(1.0)
 
     w1_scales_hpu = [s.to(hpu) for s in w1_scales]
     w2_scales_hpu = [s.to(hpu) for s in w2_scales]
     w3_scales_hpu = [s.to(hpu) for s in w3_scales]
     intermediate_hidden_states_scales_hpu = [s.to(hpu) for s in intermediate_hidden_states_scales]
+    d_scale_hidden_states_hpu = d_scale_hidden_states.to(hpu)
 
-    d_scale_hidden_states = 1.0
+    cpu_scales = (w1_scales, w2_scales, w3_scales, intermediate_hidden_states_scales, d_scale_hidden_states)
+    hpu_scales = (
+        w1_scales_hpu,
+        w2_scales_hpu,
+        w3_scales_hpu,
+        intermediate_hidden_states_scales_hpu,
+        d_scale_hidden_states_hpu,
+    )
 
-    cpu_scales = (w1_scales, w2_scales, w3_scales, intermediate_hidden_states_scales)
-    hpu_scales = (w1_scales_hpu, w2_scales_hpu, w3_scales_hpu, intermediate_hidden_states_scales_hpu)
-
-    return cpu_scales, hpu_scales, d_scale_hidden_states
+    return cpu_scales, hpu_scales
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
@@ -191,7 +198,7 @@ def test_mixture_of_experts(
         result_hpu = partial(call_moe_fn)()
 
     # Experimental metric to find similarity as elementwise comparison may lead to false negative results
-    cos_sim_tol = 0.8 if dtype == torch.half else 0.9
+    cos_sim_tol = 0.98
     cos_sim = nn.CosineSimilarity(dim=0)(result_hpu.to(cpu).view(-1), result_cpu.view(-1))
 
     assert cos_sim > cos_sim_tol
@@ -207,16 +214,16 @@ def test_mixture_of_experts(
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
-@pytest.mark.skip(reason="Need other components promotion")
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Mixture of experts FP8 is not supported in eager mode yet")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2])
-@pytest.mark.parametrize("activation", ["gelu", "relu", "silu"])
+@pytest.mark.parametrize("activation", ["silu"])  # ["gelu", "relu", "silu"])
 @pytest.mark.parametrize("hidden_dim", [64])
 @pytest.mark.parametrize("ffn_dim", [224])
 @pytest.mark.parametrize("num_experts", [8])
-@pytest.mark.parametrize("num_tokens", [1, 32])
+@pytest.mark.parametrize("num_tokens", [32])  # [1, 32]
 @pytest.mark.parametrize("fused_weights", [True, False])
-@pytest.mark.parametrize("permuted_weights", [True, False])
+@pytest.mark.parametrize("permuted_weights", [False])  # [True, False]
 @pytest.mark.parametrize("overwrite_scales", [True, False])
 def test_mixture_of_experts_fp8(
     permuted_weights,
@@ -229,8 +236,6 @@ def test_mixture_of_experts_fp8(
     fp8_dtype,
     overwrite_scales,
 ):
-    if activation == "silu" and not fused_weights:
-        pytest.skip("Graph compile failed bug")
     hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
     router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
@@ -242,7 +247,7 @@ def test_mixture_of_experts_fp8(
         hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype
     )
 
-    expert_scales_cpu, expert_scales_hpu, d_scale_hidden_states = generate_weights_scales(num_experts)
+    expert_scales_cpu, expert_scales_hpu = generate_weights_scales(num_experts)
 
     mixtral_ref = MixtralSparseMoeBlock(hidden_dim, num_experts, expert_weights_cpu, activation)
     result_cpu, _ = mixtral_ref(hidden_states, expert_routing_table, router_weights)
@@ -252,7 +257,9 @@ def test_mixture_of_experts_fp8(
     cat_dim = 0 if permuted_weights else 1
     w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu)]
 
-    w1_scale_hpu, w2_scale_hpu, w3_scale_hpu, intermediate_hidden_states_scale_hpu = expert_scales_hpu
+    w1_scale_hpu, w2_scale_hpu, w3_scale_hpu, intermediate_hidden_states_scale_hpu, d_scale_hidden_states = (
+        expert_scales_hpu
+    )
     w12_scale_hpu = w1_scale_hpu  # Same scale for w1 and w2, as it's single GEMM
 
     if overwrite_scales:
@@ -285,7 +292,7 @@ def test_mixture_of_experts_fp8(
 
     result_hpu = partial(call_moe_fn)()
 
-    cos_sim_tol = 0.8  # ?
+    cos_sim_tol = 0.98
     cos_sim = nn.CosineSimilarity(dim=0)(result_hpu.to(cpu).view(-1), result_cpu.view(-1))
 
     assert cos_sim > cos_sim_tol

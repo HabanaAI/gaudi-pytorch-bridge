@@ -6570,7 +6570,7 @@ at::Tensor mixture_of_experts_fp8_lazy(
     const at::TensorList w1,
     const at::TensorList w2,
     const at::TensorList w3,
-    const double d_scale_hidden_states,
+    const at::Tensor& d_scale_hidden_states,
     const at::TensorList d_scale_intermediate_hidden_states,
     const at::TensorList d_scale_w1,
     const at::TensorList d_scale_w2,
@@ -6630,7 +6630,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
     const at::Tensor& router_weights,
     const at::TensorList w12,
     const at::TensorList w3,
-    const double d_scale_hidden_states,
+    const at::Tensor& d_scale_hidden_states,
     const at::TensorList d_scale_intermediate_hidden_states,
     const at::TensorList d_scale_w12,
     const at::TensorList d_scale_w3,
@@ -7475,6 +7475,5 @@ fp8_sdpa_recomp_bwd_lazy(
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_bwd, hpu_op)
 }
-
 
 } // namespace habana_lazy
