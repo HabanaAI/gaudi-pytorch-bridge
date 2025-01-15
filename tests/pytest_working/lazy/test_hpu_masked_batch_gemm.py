@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,10 +20,8 @@ import pytest
 import torch
 from test_utils import hpu, is_gaudi2
 
-pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports masked_batch_gemm op")
 
-
-@pytest.mark.skip
+@pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports masked_batch_gemm op")
 @pytest.mark.parametrize("shape_A, shape_B", [([2, 3, 2, 4], [2, 3, 4, 8])])
 @pytest.mark.parametrize("transA", [False, True])
 @pytest.mark.parametrize("transB", [False, True])
