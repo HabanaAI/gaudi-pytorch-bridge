@@ -99,6 +99,15 @@ def sdpa_fwd_wrapper(
     return_attn_probs=False,
 ):
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
+
+    # Handle zero sized tensors(for now only in inference) by returning a dummy output.
+    if requires_backward is False:
+        if q.numel() == 0 or k.numel() == 0 or v.numel() == 0:
+            out_shape = list(q.shape)
+            out_shape[-1] = v.shape[-1]
+            dummy_out = q.new_empty(out_shape, requires_grad=requires_backward, layout=q.layout)
+            return dummy_out
+
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()
     if scale is None:
