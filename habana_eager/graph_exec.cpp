@@ -54,33 +54,46 @@ void PrintRangeInfos(std::vector<habana_helpers::RangeInfo>& range_infos) {
 void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
   size_t num_tensors = launch_shapes.ds_tensors.size();
   PT_DYNAMIC_SHAPE_DEBUG("Num DS tensors to be patched = ", num_tensors);
+
+  // Figure out the total H2D size required bu this graph
+  size_t h2d_memory_required = 0;
+  for (size_t i = 0; i < num_tensors; i++) {
+    auto tensor = launch_shapes.ds_tensors[i];
+    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+      h2d_memory_required += 2 * tmeta->get_host_total_elem();
+    }
+  }
+
+  // Allocate the total H2D required in single chunk
+  auto& device = HPUDeviceContext::get_device();
+  void* alloc_pointer{nullptr};
+  device.get_host_memory().malloc(&alloc_pointer, h2d_memory_required);
+  void* h2d_pointer{alloc_pointer};
+
   for (size_t i = 0; i < num_tensors; i++) {
     auto tensor = launch_shapes.ds_tensors[i];
     std::vector<int64_t> patch_data = launch_shapes.patch_values[i];
     auto tmeta{habana::get_tensor_extra_meta(tensor)};
     if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+      // Set the host and compile pointer from allocated chunk and
+      // increment the h2d_pointer to point to end of current H2D
+      tmeta->set_alloc_ptr(alloc_pointer);
+      tmeta->set_host_ptr(h2d_pointer);
+      char* ptr =
+          static_cast<char*>(h2d_pointer) + tmeta->get_host_total_elem();
+      tmeta->set_compile_host_ptr(ptr);
+      h2d_pointer = static_cast<char*>(ptr + tmeta->get_host_total_elem());
       habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
       if (h2d_dt_type == habana::HostDataType::INT32_T) {
         std::vector<int32_t> h2d_data(patch_data.begin(), patch_data.end());
-        tmeta->set_host_data(
-            h2d_data.data(),
-            tmeta->get_host_size(),
-            tmeta->get_host_el_size(),
-            h2d_dt_type);
+        UpdateH2DTensorData<int32_t>(tensor, h2d_data);
       } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
         std::vector<uint32_t> h2d_data(patch_data.begin(), patch_data.end());
-        tmeta->set_host_data(
-            h2d_data.data(),
-            tmeta->get_host_size(),
-            tmeta->get_host_el_size(),
-            h2d_dt_type);
+        UpdateH2DTensorData<uint32_t>(tensor, h2d_data);
       } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
         std::vector<uint64_t> h2d_data(patch_data.begin(), patch_data.end());
-        tmeta->set_host_data(
-            h2d_data.data(),
-            tmeta->get_host_size(),
-            tmeta->get_host_el_size(),
-            h2d_dt_type);
+        UpdateH2DTensorData<uint64_t>(tensor, h2d_data);
       }
     } else if (tmeta->get_tensor_type() == SHAPE_TENSOR) {
       tensor.unsafeGetTensorImpl()->set_sizes_contiguous(patch_data);
