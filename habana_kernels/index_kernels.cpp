@@ -833,7 +833,15 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
 
   // Expand 1D index tensor to same number of dimensions as value tensor
   auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
-  expanded_sizes[dim] = index.sizes()[0];
+  // Check if index is a scalar value to avoid invalid output shapes
+  int temp_size = index.sizes()[0];
+  if (temp_size == 0) {
+    if (index.numel() == 1) {
+      temp_size = 1;
+    }
+  }
+  expanded_sizes[dim] = temp_size;
+
   ////auto index_expanded = index.view(expanded_sizes)
   auto reshapeOp = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, index.scalar_type());

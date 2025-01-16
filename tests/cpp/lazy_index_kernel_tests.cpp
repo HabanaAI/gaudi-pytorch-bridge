@@ -333,6 +333,53 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
   EXPECT_EQ(allclose(h_cout, a), true);
 }
 
+TEST_F(LazyIndexKernelTest, IndexAddInplaceTest2) {
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+    GTEST_SKIP();
+  }
+  torch::Tensor a = torch::randn({8, 2, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 1;
+  // size of index tensor is greater than the self tensor size along the dim
+  auto index = torch::tensor({0, 0, 1}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHPU);
+  auto source = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  auto h_source = source.to(torch::kHPU);
+
+  h_a.index_add_(dim, h_index, h_source);
+  auto h_temp = torch::zeros({8, 2, 28, 28}).to(torch::kHPU);
+  auto out = torch::add(h_a, h_temp);
+
+  auto h_cout = out.to(torch::kCPU);
+
+  a.index_add_(dim, index, source);
+
+  EXPECT_EQ(allclose(h_cout, a, 0.001, 0.001), true);
+}
+
+TEST_F(LazyIndexKernelTest, IndexAddRepeatedIndicesInplaceTest) {
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+    GTEST_SKIP();
+  }
+  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 1;
+  auto index = torch::tensor({0, 0, 1}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHPU);
+  auto source = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  auto h_source = source.to(torch::kHPU);
+
+  h_a.index_add_(dim, h_index, h_source);
+  auto h_temp = torch::zeros({8, 3, 28, 28}).to(torch::kHPU);
+  auto out = torch::add(h_a, h_temp);
+
+  auto h_cout = out.to(torch::kCPU);
+
+  a.index_add_(dim, index, source);
+
+  EXPECT_EQ(allclose(h_cout, a, 0.001, 0.001), true);
+}
+
 TEST_F(LazyIndexKernelTest, IndexAddOutTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
