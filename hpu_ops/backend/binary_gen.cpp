@@ -273,7 +273,7 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
   SharedMetaDataVector metaVec;
   if (other.isTensor()) {
     const auto& otherTensor = other.toTensor();
-    if (stack.size() > 2 && stack.at(ALPHA_INDEX).isScalar()) {
+    if (stack.size() > ALPHA_INDEX && stack.at(ALPHA_INDEX).isScalar()) {
       alpha = stack.at(ALPHA_INDEX).toScalar();
     }
 
@@ -404,6 +404,20 @@ SharedMetaDataVector SubForeachBinarySharedMeta(
       };
 
   return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
+}
+
+SharedMetaDataVector MulBinarySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const bool castIntToFloat = false;
+  const bool supportI8 = true;
+  const bool supportI16 = true;
+  const bool mulOrDiv = true;
+  // In the out tensor variant, the function below treats it as "alpha" tensor.
+  // For this reason, a new stack without the out tensor should be created.
+  const at::Stack multStack{stack.at(0), stack.at(1)};
+  return ForeachBinaryOneIterationSharedMeta(
+      multStack, "mult_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
 }
 
 void ForeachBinary::AddNode(

@@ -4586,10 +4586,6 @@ mse_loss_backward.grad_input:
   op_validator: check-node-with-shared-layer
 
 mul.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Short, Int]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   output_meta: MulMeta
   st_meta: DefaultSTMetaFn
@@ -4597,6 +4593,7 @@ mul.Tensor:
   broadcast: true
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
+  op_validator: MulBinarySharedMeta
 
 mul.Scalar:
   guid: mult_fwd
@@ -4617,15 +4614,12 @@ mul.Scalar_out:
   op_validator: check-node-with-shared-layer
 
 mul_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   output_meta: MulMeta
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
+  op_validator: MulBinarySharedMeta
 
 mul_.Scalar:
   guid: mult_fwd
@@ -4637,15 +4631,12 @@ mul_.Scalar:
 
 mul.out:
   broadcast: true
-  dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Int, Short, Long]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   output_meta: MulMeta
   st_meta: DefaultSTMetaFn
   op_frontend: BinaryScalarFE
   promote_to_common_type: [self, other]
+  op_validator: MulBinarySharedMeta
 
 multilabel_margin_loss_forward.output:
   custom_fill_params: FillMultilabelMarginLossParams
