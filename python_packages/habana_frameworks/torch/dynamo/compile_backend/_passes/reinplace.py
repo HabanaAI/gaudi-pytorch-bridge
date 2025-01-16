@@ -1,4 +1,21 @@
 ###############################################################################
+#
+#  Copyright (c) 2021-2025 Intel Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+###############################################################################
+
+###############################################################################
 # From PyTorch:
 
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
@@ -78,23 +95,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 ###############################################################################
 
-###############################################################################
-#
-#  Copyright (c) 2021-2024 Intel Corporation
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-###############################################################################
-
 # This reinplacer implementation is based on the one in PyTorch
 # torch/_inductor/fx_passes/reinplace.py. We does some modification to make it
 # work well on HPU
@@ -135,7 +135,7 @@ def reinplace_add_extra_check(node) -> bool:
     src0, src1 = node.args[0], node.args[1]
 
     # condition 1: src0 and src1 are both tensors
-    if not (type(src0) == torch.fx.Node and type(src1) == torch.fx.Node):
+    if not (isinstance(src0, torch.fx.Node) and isinstance(src1, torch.fx.Node)):
         return False
 
     # condition 2: src0 and src1 have same dtype and are float types
@@ -296,6 +296,14 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
                 # There is no copy_ back to the candidate mutated_arg (which is a graph input).
                 # Therefore the semantics of the program are that it does not mutate
                 # mutated_arg, so we cannot re-inplace it.
+                return False
+            if list(copy_node.args)[1] != node:
+                # non-trival patterns, like:
+                #   add = torch.ops.aten.add.Tensor(arg1_1, mul)
+                #   copy = torch.ops.aten.copy.default(add, pow_1)
+                #   copy_ = torch.ops.aten.copy_.default(arg1_1, copy)
+                # reinplace this add op will cause two inplace op share same
+                # input, this may introduce cycle in synapse graph.
                 return False
             if any_use_of_views_after_node(node, shared_view_nodes, copy_node=copy_node, mutated_arg=mutated_arg):
                 return False

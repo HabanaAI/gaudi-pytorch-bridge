@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -87,12 +87,27 @@ class replace_rewrite_floor_divide:
         return x
 
 
+class replace_rewrite_copy_copy_:
+    def pattern(self_tensor, src_tensor):
+        x = torch.ops.aten.copy.default(self_tensor, src_tensor)
+        y = torch.ops.aten.copy_.default(self_tensor, x)
+        return y
+
+    def replace(self_tensor, src_tensor):
+        x = torch.ops.aten.copy_.default(self_tensor, src_tensor)
+        return x
+
+    def filter(match, *args, **kwargs):
+        return isinstance(match.placeholder_nodes[0], torch.fx.node.Node)
+
+
 # Register pattern rewriters
 pattern_rewriters = []
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_floor))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_trunc))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_floor_divide))
+pattern_rewriters.append(PatternRewriter(replace_rewrite_copy_copy_))
 
 
 def pass_pattern_rewriter(ctx: OptimizerContext):

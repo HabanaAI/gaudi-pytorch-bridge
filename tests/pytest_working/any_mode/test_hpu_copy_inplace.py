@@ -134,7 +134,8 @@ def test_hpu_view_copy_(dtype, view_mode, op):
             compare_tensors(hpu_tensors[key], cpu_tensors[key], atol=0.0, rtol=0.0)
 
     if is_pytest_mode_compile():
-        expected_ops = {op}
+        # because copy+copy_ will be rewriten to copy_
+        expected_ops = {op} if op != "copy" else {"copy_"}
         if os.getenv("PT_HPU_KEEP_INPUT_MUTATIONS", "0") != "0":
             expected_ops.add("copy_")
 

@@ -409,3 +409,81 @@ def test_partition_in_out_duplicates_caused_by_index_copy_():
     assert torch.allclose(ref[0].to("cpu"), res[0].to("cpu")), "compile and eager results not match"
     assert torch.allclose(ref[1].to("cpu"), res[1].to("cpu")), "compile and eager results not match"
     assert torch.allclose(ref[2].to("cpu"), res[2].to("cpu")), "compile and eager results not match"
+
+
+def get_model_with_observer(model):
+    from habana_frameworks.torch.core.quantizer import habana_quant_config_symmetric, habana_quantizer
+    from torch._export import capture_pre_autograd_graph
+    from torch.ao.quantization.quantize_pt2e import prepare_pt2e
+
+    quantizer = habana_quantizer()
+    quant_config = habana_quant_config_symmetric(torch.float8_e4m3fn)
+    quantizer.set_global(quant_config)
+
+    exported_model = capture_pre_autograd_graph(model)
+    prepared_model = prepare_pt2e(exported_model, quantizer)
+
+    return prepared_model
+
+
+def test_reinplace_index_copy_pt2e():
+    import os
+
+    os.environ.setdefault("USE_FX_GRAPH_PATTERN_MATCHING", "1")
+    os.environ.setdefault("USE_FX_GRAPH_FREEZING", "1")
+
+    class TestModule(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.q_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
+            self.k_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
+            self.v_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
+            self.o_proj = torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)
+
+        def forward(self, x, k_cache, v_cache, token_idx, cache_idx):
+            q = self.q_proj(x)  # [2, 1, 4]
+            k = self.k_proj(x)  # [2, 1, 4]
+            v = self.v_proj(x)  # [2, 1, 4]
+            k_cache.index_copy_(1, token_idx - 1, k)
+            v_cache.index_copy_(1, token_idx - 1, v)
+            cached_k = k_cache[:, :cache_idx, :]  # [2, 5, 4]
+            cached_v = v_cache[:, :cache_idx, :]  # [2, 5, 4]
+            s = torch.bmm(q, cached_k.transpose(1, 2))  # [2, 1, 5]
+            o = torch.bmm(s, cached_v)  # [2, 1, 4]
+            return self.o_proj(o)
+
+    model = TestModule().to("hpu")
+
+    x = torch.randn((2, 1, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
+    cache_idx: int = 5
+    token_idx = torch.tensor(cache_idx, dtype=torch.long).to("hpu")
+    k_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
+    v_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
+
+    with use_eager_fallback():
+        with torch.no_grad():
+            model = get_model_with_observer(model)
+            calibrate_result = model(x, k_cache, v_cache, token_idx, cache_idx)
+
+
+def test_avoid_cycle():
+    class TestModule(torch.nn.Module):
+        def __init__(self, sel_device):
+            torch.manual_seed(777)
+            super(TestModule, self).__init__()
+            self.sel_device = sel_device
+            self.state1 = torch.empty(size=[], dtype=torch.float32, device="cpu").uniform_(-1, 1).to(device=sel_device)
+            self.state2 = torch.empty(size=[], dtype=torch.float32, device="cpu").uniform_(-1, 1).to(device=sel_device)
+
+        def forward(self):
+            x = torch.pow(self.state1, 2.0)
+            self.state2 = self.state2.add_(x, alpha=1)
+            y = self.state2 * 2.0
+            self.state2 = self.state2.copy_(y, False)
+            return self.state2
+
+    model = TestModule("hpu")
+    model.eval()
+    compiled_model = torch.compile(model, backend="hpu_backend", dynamic=False)
+    with use_eager_fallback():
+        results = compiled_model()

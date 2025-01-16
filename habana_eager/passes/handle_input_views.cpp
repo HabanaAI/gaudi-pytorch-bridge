@@ -87,7 +87,8 @@ struct HandleInputViewsPass {
         view_params.setParam(input_tensor);
 
         bool needs_strided_insert = false;
-        if ((uses.size() > 1) && (last_use.offset == 0)) {
+        // copy+copy_ will be rewriten to copy_, so uses.size() can be only 1
+        if ((uses.size() >= 1) && (last_use.offset == 0)) {
           std::string_view node_name = last_user->kind().toQualString();
           if (node_name.back() == '_') {
             needs_strided_insert = true;
