@@ -44,7 +44,7 @@ elu                                      Yes      Yes      Yes     No        No 
 elu\_                                    Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 gelu                                     Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 glu                                      Yes      No       No      No        No       No        No        No       No     torch.nn.functional
-glu_jvp                                  Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
+glu_jvp                                  Yes      Yes      Yes     No        No       No        No        No       No     torch.ops.aten
 grid_sample                              Yes      No       No      No        No       No        No        No       No     torch.nn.functional
 hardshrink                               Yes      Yes      No      No        No       No        No        No       No     torch.nn.functional
 hardsigmoid                              Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
