@@ -45,16 +45,16 @@ testsMap:
   Test_pytorch_modules_gaudi_sim_py_suite_lazy:
     stages:
       Run PY lazy tests gaudi sim:
-        filter: -t py_tests --pytest-mode lazy
+        filter: -t py_tests --pytest-mode lazy -r
   Test_pytorch_modules_gaudi2_sim_py_suite_lazy:
     dependencies:
       - TPC_LLVM
     stages:
       Run PY lazy tests gaudi2 sim:
-        filter: -t py_tests --dut gaudi2  --pytest-mode lazy
+        filter: -t py_tests --dut gaudi2  --pytest-mode lazy -r
   Test_pytorch_modules_gaudi3_sim_py_suite_lazy:
     dependencies:
       - TPC_LLVM
     stages:
       Run PY lazy tests gaudi3 sim:
-        filter: -t py_tests --dut gaudi3 --pytest-mode lazy
+        filter: -t py_tests --dut gaudi3 --pytest-mode lazy -r
