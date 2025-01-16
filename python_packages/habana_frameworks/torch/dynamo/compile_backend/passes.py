@@ -472,12 +472,16 @@ def optimize_graph(
         for submodule_name in _get_subgraph_names(ctx.graph_module):
             submodule = getattr(ctx.graph_module, submodule_name)
 
+            submodule_inputs = [node.meta.get("val") for node in submodule.graph.nodes if node.op == "placeholder"]
+
+            assert None not in submodule_inputs, "Metadata for one of subgraph inputs is not set"
+
             # create new ctx for submodule
             # outer-most graph module is dynamic while sub module is static?
             sub_ctx = OptimizerContext(
                 submodule,
                 submodule_name,
-                ctx.example_inputs,
+                submodule_inputs,
                 ctx.is_training,
                 ctx.is_backward,
                 ctx.is_dynamic,

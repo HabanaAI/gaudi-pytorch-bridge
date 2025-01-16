@@ -182,6 +182,7 @@
                 "test_hpu_convolution_grad_with_view",
                 "test_hpu_cond_nested",
                 "test_hpu_cond_simple",
+                "test_hpu_use_only_one_outer_input",
                 "test_hpu_div_scalar_tensor_mode[bfloat16-floor-other_shape0-1.3]",
                 "test_hpu_div_scalar_tensor_mode[bfloat16-floor-other_shape0-13.13541]",
                 "test_hpu_div_scalar_tensor_mode[bfloat16-floor-other_shape0-2.123]",
