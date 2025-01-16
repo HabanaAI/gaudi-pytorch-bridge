@@ -115,6 +115,9 @@ void HPUDeviceContextImpl::Init() {
 }
 
 void HPUDeviceContextImpl::ThreadsRelease() {
+  // Make sure all pipeline tasks finished before the reset
+  JoinPipelineThreads();
+
   habana_helpers::AutoNoGIL gil_release;
   device_context.lowering_thread_.reset();
   device_context.compile_thread_.reset();
