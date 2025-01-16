@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -1041,7 +1041,8 @@ run_pytorch_modules_tests()
     local __hllog=3
     local __test_case=""
     local __pytest_mode="all"
-    local __rerun_fail=""
+    local __py_rerun_fail=""
+    local __cpp_rerun_fail=""
 
     source ${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/disabled_tests.sh
     local __disable_failing_eager_tests="--gtest_filter=-"`echo ${FAILING_EAGER_TESTS[@]} | tr ' ' ':'`
@@ -1110,7 +1111,8 @@ run_pytorch_modules_tests()
             fi
             ;;
         -r  | --rerun-failures )
-            __rerun_fail="--reruns 1"
+            __py_rerun_fail="--reruns 1"
+            __cpp_rerun_fail="--rerun-fail"
             ;;
         -h  | --help )
             usage $__scriptname
@@ -1214,42 +1216,42 @@ run_pytorch_modules_tests()
         if [ "$__dut" == "gaudi" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
                 if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
-                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter $__cpp_rerun_fail)
                     __test_status=$((__test_status | $?))
                 fi
             fi
         elif [ "$__dut" == "gaudi2" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi2"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
                 if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
-                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter $__cpp_rerun_fail)
                     __test_status=$((__test_status | $?))
                 fi
             fi
         elif [ "$__dut" == "gaudi3" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi3"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
                 if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
-                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter $__cpp_rerun_fail)
                     __test_status=$((__test_status | $?))
                 fi
             fi
         elif [ "$__dut" == "greco" ]; then
             echo "Running greco tests"
-            (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
+            (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter  $__cpp_rerun_fail)
                 __test_status=$?
         fi
     fi
@@ -1303,21 +1305,21 @@ run_pytorch_modules_tests()
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
         if [[ "$__pytest_mode" = "lazy" || "$__pytest_mode" = "all" ]] ; then
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
             __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest_autoload.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
+            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest_autoload.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
             __test_status=$((__test_status | $?))
         fi
         if [[ "$__pytest_mode" = "compile" || "$__pytest_mode" = "all" ]] ; then
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
             __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest_autoload.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
+            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest_autoload.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
             __test_status=$((__test_status | $?))
         fi
         if [[ "$__pytest_mode" = "eager" || "$__pytest_mode" = "all" ]] ; then
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
             __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_eager_pytest_autoload.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
+            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_eager_pytest_autoload.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
             __test_status=$((__test_status | $?))
         fi
         popd
@@ -1325,21 +1327,21 @@ run_pytorch_modules_tests()
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" || "$__suite_type" = "infra" ]]; then
       pushd $PYTORCH_MODULES_ROOT_PATH/.devops/
-      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_infra_pytest.xml" --junit-prefix="Infra." ${__marker})
+      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_pytest.xml" --junit-prefix="Infra." ${__marker})
       __test_status=$((__test_status | $?))
       popd
       pushd $PYTORCH_MODULES_ROOT_PATH/scripts/
-      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_infra_scripts_pytest.xml" --junit-prefix="InfraScripts." ${__marker})
+      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_scripts_pytest.xml" --junit-prefix="InfraScripts." ${__marker})
       __test_status=$((__test_status | $?))
       popd
       if [[ "$__pytest_mode" = "eager" ]] ; then
         pushd $PYTORCH_MODULES_ROOT_PATH/tests/user_custom_op/
         $__python_cmd setup.py install
-        (set -x; eval PT_HPU_LAZY_MODE=0 ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        (set -x; eval PT_HPU_LAZY_MODE=0 ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
-        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
-        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_legacy_custom_op.py -v $__failures $__rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_legacy_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
         popd
       fi

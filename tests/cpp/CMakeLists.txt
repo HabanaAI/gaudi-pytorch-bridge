@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -269,6 +269,7 @@ list(APPEND misc_tests_src
   utils/device_type_util.cpp
   utils/dtype_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
+  utils/rerun_failures.cpp
   view_utils_tests.cpp
   common_tests.cpp
 )
