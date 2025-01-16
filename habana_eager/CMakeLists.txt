@@ -49,7 +49,6 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ops/nonzero.cpp
           ops/unique.cpp
           ops/unique2.cpp
-          ops/unique_dim.cpp
           ops/set.cpp
           ops/view.cpp
           ops/pin_memory.cpp

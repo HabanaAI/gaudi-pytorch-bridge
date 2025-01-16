@@ -6591,6 +6591,11 @@ uniform_:
   op_validator: RandomUniformSharedMeta
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 
+unique_dim:
+  override_fn: unique_dim_hpu_lazy
+  fallback_check: [UniqueFallbackCheck, sorted]
+  op_validator: UniqueDimSharedMeta
+
 unsqueeze_:
   override_fn: unsqueeze_hpu_lazy_
   acc_thread: true
@@ -7272,9 +7277,6 @@ _unique:
   hpu_wrap_all_versions: true
 
 _unique2:
-  hpu_wrap_all_versions: true
-
-unique_dim:
   hpu_wrap_all_versions: true
 
 repeat_interleave.Tensor:
