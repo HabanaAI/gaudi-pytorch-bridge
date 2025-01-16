@@ -43,8 +43,10 @@ def pass_reorder_custom_ops(ctx: OptimizerContext) -> bool:
 
     graph_changed = False
     graph_input = None
+    from torch._subclasses.fake_tensor import FakeTensor
+
     for node in ctx.graph_module.graph.nodes:
-        if node.op == "placeholder" and len(node.users) > 0:
+        if node.op == "placeholder" and isinstance(node.meta["val"], FakeTensor) and len(node.users) > 0:
             graph_input = node
             break
     for node in ctx.graph_module.graph.nodes:
