@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -50,11 +50,12 @@ def test_hpu_lazy_dynamic_shape(output_mask_v, setup_teardown_env_fixture):
             print(f"{input.size() = }")
             print(f"{weight.size() = }")
 
-        result = torch.ops.aten.convolution_backward(
+        # convolution_backward_overrideable is not implemented on CPU
+        # just check if it works without validating the results
+        result = torch.ops.aten.convolution_backward_overrideable(
             grad_output,
             input,
             weight,
-            None,
             stride=[1, 1],
             padding=[0, 0],
             dilation=[1, 1],

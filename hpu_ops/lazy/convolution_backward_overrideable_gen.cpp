@@ -1,6 +1,5 @@
-
 /**
- * Copyright (c) 2024 Intel Corporation
+ * Copyright (c) 2021-2024 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "generated/lazy/convolution_backward.h"
-#include "hpu_ops/common/convolution_gen.h"
+#include "generated/lazy/convolution_backward_overrideable.h"
 
 namespace habana {
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     habana_lazy::LazyOp,
-    ConvolutionBackwardFE,
-    ::std::tuple<at::Tensor, at::Tensor, at::Tensor>) {
-  FRONTEND_CONVOLUTION_COMMON(1)
-}
+    ConvolutionBackwardOverrideableFE,
+    ::std::tuple<at::Tensor, at::Tensor, at::Tensor>) {}
 
 } // namespace habana

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Intel Corporation
+ * Copyright (c) 2021-2024 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,28 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "hpu_ops/common/convolution_gen.h"
-#include "generated/lazy/convolution.h"
-#include "habana_lazy/permute_tensors.h"
-#include "habana_lazy/view_utils.h"
+#include "generated/eager/convolution_backward_overrideable.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
-    habana_lazy::LazyOp,
-    ConvolutionFE,
-    at::Tensor) {
-  FRONTEND_CONVOLUTION_COMMON(0)
-
-  const auto hl_t = habana_lazy::GetHbLazyTensor(weight);
-  const bool is_view_tensor = hl_t.getDataPtr()->stride_params.has_value();
-
-  if (!is_view_tensor and weight.dim() != 3) {
-    at::Tensor weight_hpu =
-        habana_lazy::HbLazyTensorViews::HandleViewsD2H(weight);
-
-    habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
-  }
-}
+    eager::EagerOp,
+    ConvolutionBackwardOverrideableFE,
+    ::std::tuple<at::Tensor, at::Tensor, at::Tensor>) {}
 
 } // namespace habana

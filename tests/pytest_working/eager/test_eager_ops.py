@@ -1269,11 +1269,12 @@ def test_sag_conv_bwd_view():
         input_strided = input.as_strided((N, C, H, W), (N * C * H, C * H, 1, W))
         weight = torch.rand([C2, C, 1, 1]).to("hpu")
 
-        result = torch.ops.aten.convolution_backward(
+        # convolution_backward_overrideable is not implemented on CPU
+        # just check if it works without validating the results
+        result = torch.ops.aten.convolution_backward_overrideable(
             grad_output,
             input_strided,
             weight,
-            None,
             stride=[1, 1],
             padding=[0, 0],
             dilation=[1, 1],

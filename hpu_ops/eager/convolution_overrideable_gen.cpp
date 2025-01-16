@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Intel Corporation
+ * Copyright (c) 2021-2024 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,13 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "hpu_ops/common/convolution_gen.h"
-#include "generated/eager/convolution.h"
+#include "generated/eager/convolution_overrideable.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, ConvolutionFE, at::Tensor) {
-  FRONTEND_CONVOLUTION_COMMON(0)
-}
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    eager::EagerOp,
+    ConvolutionOverrideableFE,
+    at::Tensor) {}
 
 } // namespace habana
