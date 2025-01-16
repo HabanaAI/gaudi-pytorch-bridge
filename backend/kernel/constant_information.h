@@ -36,9 +36,11 @@ struct ConstantInformation {
   ConstantInformation& operator=(ConstantInformation&&) = delete;
   ~ConstantInformation() = default;
 
+  using scaleIndex_t = common::StrongType<size_t, struct ValueTag>;
   using id_t = common::StrongType<int, struct IdTag>;
   using checksum_t = common::StrongType<size_t, struct ChecksumTag>;
   using key_t = common::StrongType<size_t, struct KeyTag>;
+  using InnerMap = std::unordered_map<scaleIndex_t, std::unordered_set<id_t>>;
 
   /**
    * Stores checksum for specific constant id.
@@ -95,12 +97,12 @@ struct ConstantInformation {
     /**
      * Global stored checksum for the constant
      */
-    checksum_t const_checksum_;
+    checksum_t device_checksum_;
 
     /**
      * Constant checksum stored specifically for given recipe
      */
-    checksum_t const_checksum_for_recipe_;
+    checksum_t recipe_checksum_;
   };
 
   /**
@@ -110,18 +112,18 @@ struct ConstantInformation {
    * @param id Constant id
    * @param key Recipe key
    */
-  ConstantChecksums GetConstCheckSumForRecipe(id_t id, key_t key) const;
+  ConstantChecksums GetDeviceAndRecipeChecksums(id_t id, key_t key) const;
 
   /**
    * Checks if given constant id is stored, and has stored specific checksum.
    */
-  bool DoesCheckSumExist(id_t id, checksum_t checksum) const;
+  bool IsCheckSumExistInAnyConstInfo(id_t id, checksum_t checksum) const;
 
   /**
    * Checks if given constant id is stored, and has stored specific recipe
    * details.
    */
-  bool DoesConstInfoExist(id_t id, key_t key) const;
+  bool DoesConstInfoExistForRecipe(id_t id, key_t key) const;
 
   /**
    * Recovers checksum for specific constant id.
@@ -131,12 +133,42 @@ struct ConstantInformation {
    * @return Recovered checksum or nullopt in case constant with given id is not
    * stored.
    */
-  std::optional<checksum_t> GetChecksumForId(id_t id) const;
+  std::optional<checksum_t> GetDeviceChecksum(id_t id) const;
 
   /**
    * Removes stored constant section informations.
    */
   void ClearChecksumInformation();
+
+  /**
+   * Record all the scale constant inputs of the recipe.
+   */
+  void StoreRecipeScaleConstInput(
+      key_t recipe_key,
+      scaleIndex_t scale_idx,
+      id_t const_id);
+
+  /**
+   * Copy DataPtr from the matched constant id and create constant info.
+   */
+  void CopyMatchedDataPtrForRecipe(
+      id_t from_const_id,
+      id_t to_const_id,
+      key_t recipe_key,
+      at::Tensor& pt_tensor);
+
+  /**
+   * Return the matched constant id used at recipe compile time.
+   */
+  id_t GetMatchedConstIdForRecipe(
+      key_t recipe_key,
+      id_t const_id,
+      scaleIndex_t scale_index);
+
+  /**
+   * Check if the constant id is new from recipe compile time.
+   */
+  bool IsNewConstIdForRecipe(key_t recipe_key, id_t const_id);
 
  private:
   /**
@@ -172,7 +204,7 @@ struct ConstantInformation {
     /**
      * Specific constant checksum.
      */
-    checksum_t checksum_;
+    checksum_t device_checksum_;
 
     /**
      * List of information about const section for different checksums.
@@ -183,6 +215,8 @@ struct ConstantInformation {
   mutable std::shared_mutex checksum_map_mtx_;
 
   absl::flat_hash_map<id_t, checksum_and_const_infos> const_checksum_map_
+      ABSL_GUARDED_BY(checksum_map_mtx_);
+  absl::flat_hash_map<key_t, InnerMap> recipe_scale_constant_map_
       ABSL_GUARDED_BY(checksum_map_mtx_);
 
   /**
@@ -207,4 +241,7 @@ std::shared_ptr<struct ConstantInformation>& ConstantInformationPtr();
  * served with ConstantInformationPtr.
  */
 ConstantInformation& ConstantInformationValue();
+
+bool IsConstantScaleTensor(at::Tensor& tensor);
+
 } // namespace habana

@@ -42,7 +42,9 @@ void ComputeGraphHashCode(
     uint64_t unique_graph_cntr = 0,
     std::vector<bool> node_bcast_details = {},
     bool dynamic_graph = false,
-    const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {});
+    const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
+    habana_helpers::HabanaFrontendTypes frontend_type =
+        habana_helpers::HabanaFrontendTypes::INVALID);
 
 size_t GetDataChecksum(void* data, size_t dataSize);
 
@@ -195,8 +197,9 @@ struct OptimizedJITGraphAndMetaData {
       std::vector<bool> node_bcast_details = {},
       const std::string& id = "",
       const bool dynamic = false,
-      const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes =
-          {});
+      const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
+      habana_helpers::HabanaFrontendTypes frontend_type =
+          habana_helpers::HabanaFrontendTypes::INVALID);
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,

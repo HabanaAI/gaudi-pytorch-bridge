@@ -94,7 +94,7 @@ std::shared_ptr<serialization::ConstSectionDataSerialize> TensorExtraMeta::
   return const_section_data_;
 }
 
-void TensorExtraMeta::set_const_tensor(
+void TensorExtraMeta::prepare_const_tensor(
     const at::Tensor& tensor,
     bool is_const_tensor,
     bool relax) {
@@ -109,7 +109,9 @@ void TensorExtraMeta::set_const_tensor(
       " size: ",
       tensor.numel() * tensor.itemsize(),
       " is_const_tensor_ : ",
-      is_const_tensor);
+      is_const_tensor,
+      " const id:",
+      tmeta->get_const_id());
   if (is_const_tensor && (tmeta->get_host_ptr() == nullptr)) {
     auto& device = HPUDeviceContext::get_device();
     void* host_ptr{};

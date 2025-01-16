@@ -108,6 +108,11 @@ void habana_helpers::copy_scalar_to_host(
     c10::hpu::HPUStream hpu_stream) {
   std::atomic<bool> copyDone{false};
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
+  auto tmeta{habana::get_tensor_extra_meta(src)};
+  if (tmeta->has_valid_const_id() && (tmeta->get_host_ptr() != nullptr)) {
+    std::memcpy(dst_ptr, tmeta->get_host_ptr(), size);
+    return;
+  }
 
   habana::HPUDeviceContext::copy_data_to_host(
       reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),

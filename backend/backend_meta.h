@@ -212,7 +212,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
 
   caffe2::TypeMeta get_type_meta(const at::Tensor& t);
 
-  static void set_const_tensor(
+  static void prepare_const_tensor(
       const at::Tensor& tensor,
       bool is_const_tensor,
       bool relax = false);

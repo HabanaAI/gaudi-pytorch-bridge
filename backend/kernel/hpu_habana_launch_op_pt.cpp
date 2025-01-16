@@ -2179,7 +2179,7 @@ void ProcessGraphForConstantTensors(
     }
     auto tensor = ivalue->second->toTensor();
     if (habana::is_tensor_const(tensor)) {
-      TensorExtraMeta::set_const_tensor(tensor, true);
+      TensorExtraMeta::prepare_const_tensor(tensor, true);
     }
   }
   PT_BRIDGE_END;
@@ -4758,18 +4758,47 @@ void HabanaLaunchOpPT::update_syn_launch_info(
 // call this function for recipe caching (graph/eager)
 void HabanaLaunchOpPT::ExecuteSynapseCache() {
   PT_BRIDGE_BEGIN;
-
   if (habana_helpers::IsInferenceMode()) {
     ConstantInformation::checksum_t zero_checksum{0};
-    for (size_t j = 0; j < pt_stack_sh_.size(); j++) {
-      auto ivpsh = pt_stack_sh_[j];
+    for (size_t input_index = 0; input_index < pt_stack_sh_.size();
+         input_index++) {
+      auto ivpsh = pt_stack_sh_[input_index];
       if (ivpsh.get()->isTensor()) {
-        auto pt_tensor = ivpsh.get()->toTensor();
+        auto& pt_tensor = ivpsh.get()->toTensor();
         if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
           ConstantInformation::id_t const_id{
               habana::get_tensor_const_id(pt_tensor)};
           auto& constant_information = ConstantInformationValue();
-          auto info_exists = constant_information.DoesConstInfoExist(
+          auto is_scale_const = habana::IsConstantScaleTensor(pt_tensor);
+          if (is_scale_const) {
+            bool is_new_const_id = constant_information.IsNewConstIdForRecipe(
+                ConstantInformation::key_t{cur_rargpsh_->hashCode()}, const_id);
+            if (is_new_const_id) {
+              auto scale_index = ConstantInformation::scaleIndex_t{input_index};
+              auto recipe_key =
+                  ConstantInformation::key_t{cur_rargpsh_->hashCode()};
+              auto matched_const_id =
+                  constant_information.GetMatchedConstIdForRecipe(
+                      recipe_key, const_id, scale_index);
+              uint64_t oldAddress = reinterpret_cast<uint64_t>(
+                  pt_tensor.storage().data_ptr().get());
+              auto smeta{habana::get_storage_extra_meta(pt_tensor)};
+              permuteInfo perm_info;
+              if (smeta) {
+                perm_info = GetPermuteInfo(smeta);
+              }
+              constant_information.CopyMatchedDataPtrForRecipe(
+                  matched_const_id, const_id, recipe_key, pt_tensor);
+              auto new_extra_smeta{habana::get_storage_extra_meta(pt_tensor)};
+              if (new_extra_smeta && smeta) {
+                SetPermuteInfo(new_extra_smeta, smeta, perm_info);
+              }
+              uint64_t newAddress = reinterpret_cast<uint64_t>(
+                  pt_tensor.storage().data_ptr().get());
+              update_syn_launch_info(oldAddress, newAddress);
+            }
+          }
+          auto info_exists = constant_information.DoesConstInfoExistForRecipe(
               const_id, ConstantInformation::key_t{cur_rargpsh_->hashCode()});
           if (!info_exists) {
             uint64_t oldAddress = reinterpret_cast<uint64_t>(
@@ -4780,7 +4809,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
             update_syn_launch_info(oldAddress, newAddress);
           }
           auto checksum_and_recipe_checksum =
-              constant_information.GetConstCheckSumForRecipe(
+              constant_information.GetDeviceAndRecipeChecksums(
                   const_id,
                   ConstantInformation::key_t{cur_rargpsh_->hashCode()});
           PT_BRIDGE_DEBUG(
@@ -4789,18 +4818,17 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
               " const_id: ",
               const_id,
               " checksum on device: ",
-              checksum_and_recipe_checksum.const_checksum_,
+              checksum_and_recipe_checksum.device_checksum_,
               " checksum for recipe: ",
-              checksum_and_recipe_checksum.const_checksum_for_recipe_);
-          // If constant checksum for recipe is 0, then there will be no
-          // pointer assosciated with the constant info the constant has been
-          // folded in the recipe and we can leave how it is on the device
-          if (checksum_and_recipe_checksum.const_checksum_for_recipe_ ==
-              zero_checksum) {
+              checksum_and_recipe_checksum.recipe_checksum_);
+          // If constant checksum for recipe is 0, then there will be no pointer
+          // assosciated with the constant info the constant has been folded in
+          // the recipe and we can leave how it is on the device
+          if (checksum_and_recipe_checksum.recipe_checksum_ == zero_checksum) {
             continue;
           }
-          if (checksum_and_recipe_checksum.const_checksum_ !=
-              checksum_and_recipe_checksum.const_checksum_for_recipe_) {
+          if (checksum_and_recipe_checksum.device_checksum_ !=
+              checksum_and_recipe_checksum.recipe_checksum_) {
             uint64_t oldAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             constant_information.GetConstPtrForRecipe(
@@ -4808,8 +4836,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
                 ConstantInformation::key_t{cur_rargpsh_->hashCode()},
                 pt_tensor);
             constant_information.Insert(
-                const_id,
-                checksum_and_recipe_checksum.const_checksum_for_recipe_);
+                const_id, checksum_and_recipe_checksum.recipe_checksum_);
             uint64_t newAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             update_syn_launch_info(oldAddress, newAddress);

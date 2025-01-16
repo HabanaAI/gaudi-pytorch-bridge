@@ -779,6 +779,65 @@ def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
     ht.disable_inference_mode()
 
 
+@pytest.mark.skipif(not is_pytest_mode_lazy(), reason="Currently supported only in lazy mode.")
+def test_fp8_gemm_v2_diff_scales_const_at_cache_hit():
+    import habana_frameworks.torch.core as htcore
+
+    ht.enable_inference_mode()
+    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+
+    scale_a = [16.0, 1.0, 7.5]
+    scale_b = [16.0, 1.0, 7.5]
+    scale_out = [0.0625, 256.0, 7.5]
+    dtype = torch.bfloat16
+
+    def fn(a, b, scale_a, scale_b, scale_out):
+        return torch.ops.hpu.cast_to_fp8_v2(
+            torch.ops.hpu.fp8_gemm_v2(a, False, b, False, None, dtype, scale_a, scale_b, None, False),
+            scale_out,
+            False,
+            False,
+            torch.float8_e4m3fn,
+        )
+
+    class TestModel(torch.nn.Module):
+        def __init__(self, input_scale, other_scale, out_scale):
+            super(TestModel, self).__init__()
+            self.input_scale = torch.nn.Parameter(input_scale)
+            self.other_scale = torch.nn.Parameter(other_scale)
+            self.out_scale = torch.nn.Parameter(out_scale)
+            self.toggle = True
+
+        def forward(self, input, other):
+            if self.toggle:
+                self.toggle = False
+                return fn(input, other, self.input_scale, self.other_scale, self.out_scale)
+            else:
+                self.toggle = True
+                return fn(input, other, self.other_scale, self.input_scale, self.out_scale)
+
+    a = (torch.rand(4, 8) * 5).to(torch.float8_e4m3fn).to("hpu")
+    b = (torch.rand(8, 12) * 5).to(torch.float8_e4m3fn).to("hpu")
+
+    for idx in range(3):
+        scale_a_t = torch.tensor(scale_a[idx], dtype=dtype).to("hpu")
+        scale_b_t = torch.tensor(scale_b[idx], dtype=dtype).to("hpu")
+        scale_out_t = torch.tensor(scale_out[idx]).to("hpu")
+        model = TestModel(scale_a_t, scale_b_t, scale_out_t)
+        _mark_params_as_const(model)
+        _check_params_as_const(model)
+
+        res_fp8_1, _ = model(a, b)
+        htcore.mark_step()
+        res_fp8_2, _ = model(a, b)
+
+        res_fp8_cpu_1 = res_fp8_1.cpu().float()
+        res_fp8_cpu_2 = res_fp8_2.cpu().float()
+
+        compare_tensors(res_fp8_cpu_2, res_fp8_cpu_1, atol=1e-2, rtol=1e-2)
+    ht.disable_inference_mode()
+
+
 @pytest.mark.parametrize("dtype", [torch.bfloat16] + fp8_dtypes)
 def test_in_place_interleave(dtype):
     shape = (8, 2, 2, 5)

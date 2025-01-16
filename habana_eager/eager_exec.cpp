@@ -417,7 +417,11 @@ void EagerExec::launch() {
         graph,
         input_refs,
         0ull /*unique_cntr*/,
-        std::vector<bool>{} /*node_bcast_map_*/);
+        std::vector<bool>{} /*node_bcast_map_*/,
+        "" /*id*/,
+        false /*dynamic*/,
+        std::map<int64_t, std::vector<int64_t>>{},
+        habana_helpers::HabanaFrontendTypes::EAGER);
     /*  auto graphIndex =
           GetGraphIndex(m_g_hash_, torch::jit::last(stack,
        mp_g_->inputs().size()));*/

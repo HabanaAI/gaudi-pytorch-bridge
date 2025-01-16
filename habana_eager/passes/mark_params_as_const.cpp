@@ -52,7 +52,7 @@ struct MarkParamsAsConstPass {
           } else {
             habana::set_tensor_const(tensor, true, set_const_id);
           }
-          TensorExtraMeta::set_const_tensor(tensor, true);
+          TensorExtraMeta::prepare_const_tensor(tensor, true);
           changed = true;
         }
       }
