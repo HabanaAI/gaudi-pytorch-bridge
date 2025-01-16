@@ -16,7 +16,6 @@
 ###############################################################################
 
 import os
-from contextlib import contextmanager
 
 import numpy
 import pytest

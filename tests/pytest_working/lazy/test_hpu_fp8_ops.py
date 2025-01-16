@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
 
 # Disable dynamic shapes
 import habana_frameworks.torch.hpu as ht
@@ -22,7 +21,7 @@ import numpy as np
 import pytest
 import torch
 from fp8_utils import FP8_MAX, fp8_dtypes, simulateFp8Precision
-from test_utils import compare_tensors, hpu, is_gaudi1
+from test_utils import hpu, is_gaudi1
 
 ht.disable_dynamic_shape()
 

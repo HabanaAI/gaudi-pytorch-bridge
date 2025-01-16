@@ -16,12 +16,9 @@
 ###############################################################################
 
 
-import habana_frameworks.torch.dynamo.compile_backend
-import numpy as np
 import pytest
 import torch
 from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
-from torch.testing._internal.common_dtype import integral_types_and
 
 all_dtypes = [
     torch.bfloat16,

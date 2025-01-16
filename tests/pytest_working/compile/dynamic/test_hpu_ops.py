@@ -17,7 +17,6 @@
 
 import os
 
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
@@ -1038,7 +1037,6 @@ def test_conv_ds_default():
         output = model(x)
 
     # hpu
-    import habana_frameworks.torch.core as htcore
     import numpy
 
     model_hpu = model.to("hpu")

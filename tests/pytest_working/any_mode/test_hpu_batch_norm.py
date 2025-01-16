@@ -17,6 +17,7 @@
 
 import pytest
 import torch
+from test_utils import setup_teardown_env_fixture  # noqa F401
 from test_utils import (
     check_op_in_fuser_fused_ops,
     check_ops_executed_in_jit_ir,
@@ -25,7 +26,6 @@ from test_utils import (
     get_fuser_debug_logs_path,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
-    setup_teardown_env_fixture,
 )
 
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,16 +17,15 @@
 
 import copy
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import setup_teardown_env_fixture  # noqa F401
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compile_function_if_compile_mode,
     format_tc,
     is_gaudi3,
-    setup_teardown_env_fixture,
 )
 
 

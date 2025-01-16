@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,21 +15,15 @@
 #
 ###############################################################################
 
-import os
 import unittest
 
 import habana_frameworks.torch as htorch
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 import torch._dynamo.test_case
 import torch._dynamo.testing
 import torch.onnx.operators
-from packaging.version import Version, parse
-from torch._dynamo.testing import EagerAndRecordGraphs, normalize_gm, same
-from torch._streambase import _StreamBase
-from torch.nn import functional as F
+from torch._dynamo.testing import same
 
 # def setup_distributed(rank, world_size):
 #     os.environ['MASTER_ADDR'] = 'localhost'
@@ -328,9 +322,8 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
 skip_if_no_hpu = pytest.mark.skipif(not torch.hpu.is_available(), reason="hpu required")
 
 
-import time
 from contextlib import contextmanager
-from typing import Generator, List, Union, cast
+from typing import Generator
 
 import habana_frameworks.torch as htorch
 

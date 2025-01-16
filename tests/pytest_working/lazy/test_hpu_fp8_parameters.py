@@ -17,7 +17,6 @@
 import os
 
 import habana_frameworks.torch.core as htcore
-import numpy as np
 import pytest
 import torch
 from test_utils import inference_env_fixture
@@ -50,7 +49,7 @@ def variant_from_dtype(dtype):
     return "152" if (dtype is None or dtype is torch.float8_e5m2) else "143"
 
 
-from test_utils import hpu, is_gaudi2
+from test_utils import is_gaudi2
 
 pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports fp8")
 

@@ -14,8 +14,7 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.hpu as ht
-import numpy as np
+
 import pytest
 import torch
 from test_utils import hpu, is_gaudi2

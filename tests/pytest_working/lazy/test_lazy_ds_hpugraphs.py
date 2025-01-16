@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ input_shapes = [
     (3, 10, 8),
 ]
 
-from test_utils import setup_teardown_env_fixture
+from test_utils import setup_teardown_env_fixture  # noqa F401
 
 
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")

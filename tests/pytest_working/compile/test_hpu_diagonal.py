@@ -15,9 +15,7 @@
 #
 ###############################################################################
 
-from itertools import combinations
 
-import habana_frameworks.torch.core as htcore
 import pytest
 import torch
 from test_utils import compile_function_if_compile_mode, is_gaudi1

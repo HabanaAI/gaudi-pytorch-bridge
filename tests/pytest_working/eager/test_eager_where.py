@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,12 +15,9 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
-import numpy as np
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
-from torch.testing._internal.common_dtype import integral_types_and
+from test_utils import format_tc, is_gaudi1
 
 all_dtypes = [
     torch.bfloat16,  # commented due to missing support for aten::masked_select,

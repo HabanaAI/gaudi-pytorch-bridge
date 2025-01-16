@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@
 
 import copy
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1, setup_teardown_env_fixture
+from test_utils import format_tc, is_gaudi1, setup_teardown_env_fixture  # noqa F401
 
 params = [
     ([8, 2, 3], [0, 2]),
