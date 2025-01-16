@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
+* Copyright (c) 2021-2025 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -177,6 +177,8 @@ struct SharedLayerGuidValidator {
         m_is_dynamic(is_dynamic) {}
 
   SharedLayer::Return_t ValidateGuid();
+  // please check SharedLayer::Queries_t for bit definition.
+  SharedLayer::Return_t QueryGuid(unsigned* resultBitMap);
 
   bool m_valid_shape_tensor;
   bool m_valid_h2d_tensor;
@@ -193,6 +195,9 @@ struct SharedLayerGuidValidator {
   bool fillGuidParamInfo(
       SharedLayer::Tensor& tensor,
       const detail::TensorDescr& tensor_descr);
+  template<typename T>
+  bool fillParam(T& params);
+
 };
 
 } // namespace habana
