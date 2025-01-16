@@ -5464,9 +5464,10 @@ void HabanaLaunchOpPT::run(
     bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
     if (is_permute_data_cached) {
       ApplyOutputPermutationsFromCache();
+      permutation_saver_ = std::make_unique<PermutationIgnore>();
     } else {
-      permutation_info_saver_ =
-          std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
+      permutation_saver_ =
+          std::make_unique<PermutationSetAndSave>(jit_graph_and_meta_data_);
     }
 
     if (!is_permute_data_cached || enable_caching_) {
@@ -6089,9 +6090,10 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
         jit_graph_and_meta_data_->is_permute_set(is_dynamic_recipe);
     if (is_permute_data_cached) {
       ApplyOutputPermutationsFromCache(is_dynamic_recipe);
+      permutation_saver_ = std::make_unique<PermutationIgnore>();
     } else {
-      permutation_info_saver_ = std::make_unique<PermutationInfoSaver>(
-          jit_graph_and_meta_data_, is_dynamic_recipe);
+      permutation_saver_ =
+          std::make_unique<PermutationSetAndSave>(jit_graph_and_meta_data_, is_dynamic_recipe);
     }
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
     pipeline_execution.compile_sync();

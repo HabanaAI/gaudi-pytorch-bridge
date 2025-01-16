@@ -90,16 +90,25 @@ class PassException : public std::exception {
 
 class PermutationInfoSaver {
  public:
-  PermutationInfoSaver(
-      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
-      bool is_dynamic_recipe = false)
+  virtual void add_permutation(
+      const at::Tensor& tensor,
+      uint64_t index,
+      synapse_helpers::layouts::MemoryPermutation permutation) = 0;
+  virtual ~PermutationInfoSaver() = default;
+};
+class PermutationSetAndSave final : public PermutationInfoSaver {
+ public:
+  PermutationSetAndSave(
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph, bool is_dynamic_recipe = false)
       : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe){};
   void add_permutation(
+      const at::Tensor& tensor,
       uint64_t index,
-      synapse_helpers::layouts::MemoryPermutation permutation) {
+      synapse_helpers::layouts::MemoryPermutation permutation) override {
+    habana_helpers::set_tensor_memory_permutations(tensor, permutation);
     permutation_info_.push_back({index, permutation});
   }
-  ~PermutationInfoSaver() {
+  ~PermutationSetAndSave() {
     jit_graph_->store_permutation_info(
         std::move(permutation_info_), is_dynamic_recipe_);
   }
@@ -108,6 +117,16 @@ class PermutationInfoSaver {
   OptimizedJITGraphAndMetaData::PermutationInfo permutation_info_;
   std::shared_ptr<OptimizedJITGraphAndMetaData> jit_graph_;
   bool is_dynamic_recipe_ = false;
+};
+
+class PermutationIgnore final : public PermutationInfoSaver {
+ public:
+  void add_permutation(
+      const at::Tensor&,
+      uint64_t,
+      synapse_helpers::layouts::MemoryPermutation) override {
+    PT_BRIDGE_DEBUG("Permutation setting is ignored");
+  }
 };
 
 struct ExecutionControl {
@@ -386,7 +405,7 @@ class HabanaLaunchOpPT {
   // dma_inputs_-------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // syn_launch_info_--------------------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
   // external_tensor_info_indexes_-------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
-  // permutation_info_saver_-------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
+  // permutation_saver_-------------------///----------------------------------------///---------------Write---------------///----------------Write--------------///------------NA
   // hpu_op_recipe_----------------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   // is_shape_agnostic_supported_--------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // jit_graph_cache_hit_count_----------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
@@ -570,7 +589,7 @@ class HabanaLaunchOpPT {
   // We only use it in normal flow, because we need to set output permutation
   // in lowering thread in order to have ability execute compile and execution
   // in another threads
-  std::unique_ptr<PermutationInfoSaver> permutation_info_saver_;
+  std::unique_ptr<PermutationInfoSaver> permutation_saver_;
   std::shared_ptr<synapse_helpers::graph::recipe_handle> hpu_op_recipe_{
       nullptr};
   bool is_shape_agnostic_supported_ = false;

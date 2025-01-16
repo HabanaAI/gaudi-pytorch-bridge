@@ -139,8 +139,6 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     return;
   }
 
-  auto permutation_info_saver = std::move(permutation_info_saver_);
-
   std::function<void(
       const at::Tensor&, synapse_helpers::layouts::MemoryPermutation, uint64_t)>
       set_memory_permutations =
@@ -150,19 +148,13 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
             habana_helpers::set_tensor_memory_permutations(tensor, permutation);
           };
 
-  if (jit_graph_and_meta_data_->is_permute_set()) {
-    set_memory_permutations = [](const at::Tensor&,
-                                 synapse_helpers::layouts::MemoryPermutation,
-                                 uint64_t) {};
-  }
-
-  if (permutation_info_saver) {
+  auto permutation_saver = std::move(permutation_saver_);
+  if (permutation_saver) {
     set_memory_permutations =
         [&](const at::Tensor& tensor,
             synapse_helpers::layouts::MemoryPermutation permutation,
             uint64_t output_index) {
-          permutation_info_saver->add_permutation(output_index, permutation);
-          habana_helpers::set_tensor_memory_permutations(tensor, permutation);
+          permutation_saver->add_permutation(tensor, output_index, permutation);
         };
   }
 
