@@ -5457,7 +5457,7 @@ reflection_pad1d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
   out_ids: [0]
 
@@ -5465,7 +5465,7 @@ reflection_pad1d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
 
 reflection_pad2d:
@@ -5485,7 +5485,7 @@ reflection_pad2d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
   out_ids: [0]
 
@@ -5493,7 +5493,7 @@ reflection_pad2d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
 
 reflection_pad3d:
@@ -5513,7 +5513,7 @@ reflection_pad3d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
   out_ids: [0]
 
@@ -5521,7 +5521,7 @@ reflection_pad3d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
 
 remainder.Tensor:
@@ -5576,10 +5576,7 @@ repeat:
   output_meta: RepeatMeta
   st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: repeat_pt_fwd
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
+  op_validator: RepeatSharedMeta
   lazy:
     override_fn: repeat_hpu
   acc_thread: true
@@ -5627,53 +5624,55 @@ replication_pad3d.out:
 replication_pad1d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
-  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad1dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad1d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
-  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad1dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad2d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
-  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad2dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad2d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
-  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad2dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad3d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
-  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad3dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad3d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
-  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad3dBwdOp
+  op_validator: PadBwdSharedMeta
 
 resize_:
   output_meta: ResizeOutputMeta
   guid: memcpy
   inplace_ids: [0]
   op_backend: ResizeOpBackend
+  op_validator: ResizeSharedMeta
 
 _resize_output_:
   output_meta: ResizeOutputMeta
   guid: memcpy
   inplace_ids: [0]
   op_backend: ResizeOutputOpBackend
+  op_validator: ResizeSharedMeta
 
 roll:
   dtypes:
@@ -5682,6 +5681,7 @@ roll:
     Gaudi3: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
   op_backend: RollHabanaOperator
+  #op_validator: RollSharedMeta -temporarily disabled due to [SW-168611]
   custom_fill_params: FillRollParams
   guid: roll
 

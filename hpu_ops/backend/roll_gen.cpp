@@ -39,6 +39,33 @@ std::shared_ptr<void> FillRollParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
+SharedMetaDataVector RollSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto rank = self.dim();
+  auto dtype = self.scalar_type();
+  if (dtype == c10::ScalarType::Short)
+    dtype = c10::ScalarType::Int;
+
+  if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
+    SharedMetaData rollSharedMeta{"roll"};
+    rollSharedMeta.inputs_data.emplace_back(rank, dtype);
+    rollSharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {rollSharedMeta};
+  }
+
+  const auto splitRank = stack.at(2).toIntVector().empty() ? 1 : rank;
+  SharedMetaTensor commonTensor = {splitRank, dtype};
+  SharedMetaData splitSharedMeta{"split"};
+  splitSharedMeta.inputs_data.push_back(commonTensor);
+  splitSharedMeta.outputs_data = {commonTensor, commonTensor};
+
+  SharedMetaData concatSharedMeta{"concat"};
+  concatSharedMeta.inputs_data = {commonTensor, commonTensor};
+  concatSharedMeta.outputs_data.push_back(commonTensor);
+
+  return {splitSharedMeta, concatSharedMeta};
+}
+
 void RollHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
