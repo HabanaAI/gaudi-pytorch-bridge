@@ -197,6 +197,7 @@ class HabanaGraphModule(torch.nn.Module):
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
         self._outputs_batch_data = []
         self._symval_recipe_id_map = {}
+        self._symval_output_size_map = {}
         if self._ds_output_prealloc:
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData((), md[1], md[2]))
@@ -241,20 +242,30 @@ class HabanaGraphModule(torch.nn.Module):
 
         from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_symval_hashcode, graph_compile, graph_launch
 
+        curr_symval_hash = (
+            calculate_symval_hashcode(inputs, self._pholder_symbolic_dict) if self._pholder_symbolic_dict else None
+        )
+
         if self._ds_output_prealloc:
-            self._symbol_evaluator.clear_symbolic_value_dict()
-            for output, metadata in zip(self._outputs_batch_data, self._outputs_metadata):
-                size = self._symbol_evaluator.calculate_shape(metadata[0], inputs)
-                output.size = size
+            if curr_symval_hash not in self._symval_output_size_map:
+                self._symbol_evaluator.clear_symbolic_value_dict()
+                output_sizes = [
+                    self._symbol_evaluator.calculate_shape(metadata[0], inputs) for metadata in self._outputs_metadata
+                ]
+                for output, size in zip(self._outputs_batch_data, output_sizes):
+                    output.size = size
+                if curr_symval_hash is not None:
+                    self._symval_output_size_map[curr_symval_hash] = output_sizes
+            else:
+                for output, size in zip(self._outputs_batch_data, self._symval_output_size_map[curr_symval_hash]):
+                    output.size = size
 
         outputs = batch_empty(self._outputs_batch_data)
 
         # If force_static_compile enabled, recipe will
         # compile in static flow, even if fx-graph is dynamic
-        curr_symval_hash = sys.maxsize
         if self._force_static_compile:
             if self._pholder_symbolic_dict:
-                curr_symval_hash = calculate_symval_hashcode(inputs, self._pholder_symbolic_dict)
                 if curr_symval_hash in self._symval_recipe_id_map:
                     self._recipe_id = self._symval_recipe_id_map[curr_symval_hash]
                 else:
@@ -301,7 +312,7 @@ class HabanaGraphModule(torch.nn.Module):
                 mark_dynamic=self._mark_dynamic,
             )
 
-            if curr_symval_hash != sys.maxsize:
+            if curr_symval_hash is not None:
                 self._symval_recipe_id_map[curr_symval_hash] = self._recipe_id
 
             dump_fx_graph(self._fx_module, graph, self._recipe_id)
