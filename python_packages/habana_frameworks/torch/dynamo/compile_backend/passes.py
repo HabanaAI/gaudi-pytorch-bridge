@@ -113,7 +113,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
             pass_add_fused_op_metadata,
-            pass_reorder_allreduce,
+            pass_reorder_collectives,
             pass_make_symints_available,
             pass_fuse_view_chains,
             pass_batch_as_strided,
@@ -191,7 +191,7 @@ def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
     return len(waittensors) > 0
 
 
-def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
+def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
     """
     This pass aims to move all_reduce nodes as early in graph as possible,
     and wait_tensor nodes as late as possible.
@@ -204,27 +204,31 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
     if not hpu_backend_config.enable_allreduce_graph_split:
         return False
 
+    # Sometimes (example MLM LLama 3.1 with CAG), incoming graph doesn't have output node at the end.
+    # This function requires output node to be present at the end of the graph to work correctly.
+    pass_wa_fix_output(ctx)
+
     graph = ctx.graph_module.graph
-    allreduces = list()
-    waittensors = list()
+    collective_nodes = list()
+    wait_tensor_nodes = list()
     traversed_nodes = list()
-    ar_move_target = None
+    col_move_target = None
     wt_move_target = None
     graph_changed = False
     for n in graph.nodes:
         if n.op == "placeholder":
             traversed_nodes.append(n)
-            ar_move_target = n  # Finding last placeholder node
+            col_move_target = n  # Finding last placeholder node
         if n.op == "output":
             wt_move_target = n
-        if n.name.startswith("all_reduce"):
-            allreduces.append(n)  # Collecting all all_reduce nodes
         if n.name.startswith("wait_tensor"):
-            waittensors.append(n)  # Collecting all all_reduce nodes
+            wait_tensor_nodes.append(n)
+            for arg in n.all_input_nodes:
+                collective_nodes.append(arg)
 
-    for allreduce in allreduces:
-        upstream_nodes = allreduce.all_input_nodes
-        nodes_to_move = [allreduce]
+    for col_node in collective_nodes:
+        upstream_nodes = col_node.all_input_nodes
+        nodes_to_move = [col_node]
         while len(upstream_nodes) > 0:
             new_upstream_nodes = []
             for upstream_node in upstream_nodes:
@@ -236,28 +240,28 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
 
         traversed_nodes.extend(nodes_to_move)
 
-        if ar_move_target is not None:
+        if col_move_target is not None:
             for node in nodes_to_move:
-                ar_move_target.append(node)
+                col_move_target.append(node)
 
             if len(nodes_to_move) > 0:
                 graph_changed = True
 
-        ar_move_target = allreduce
+        col_move_target = col_node
 
     traversed_nodes = []
-    for waittensor in reversed(waittensors):
-        downstream_nodes = list(waittensor.users.keys())
+    for wt_node in reversed(wait_tensor_nodes):
+        downstream_nodes = list(wt_node.users.keys())
 
         # if the wait_tensor has no users. move it to after the
         # corresponding collective node
         if len(downstream_nodes) == 0:
-            producer = waittensor.all_input_nodes[0]
-            producer.append(waittensor)
+            producer = wt_node.all_input_nodes[0]
+            producer.append(wt_node)
             graph_changed = True
             continue
 
-        nodes_to_move = [waittensor]
+        nodes_to_move = [wt_node]
         while len(downstream_nodes) > 0:
             new_downstream_nodes = []
             for downstream_node in downstream_nodes:
@@ -276,7 +280,7 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
             if len(nodes_to_move) > 0:
                 graph_changed = True
 
-        wt_move_target = waittensor
+        wt_move_target = wt_node
 
     if graph_changed:
         ctx.graph_module.recompile()
@@ -876,14 +880,15 @@ def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
     # sort and execution when they are not functionalized. This code fixes that by
     # moving global output node to the end of graph.
     output_node = None
-    last_node_after_output = None
-    for n in ctx.graph_module.graph.nodes:
-        if output_node:
-            last_node_after_output = n
-
+    is_output_last = True
+    for n in reversed(ctx.graph_module.graph.nodes):
         if n.op == "output":
             output_node = n
-    if last_node_after_output is not None:
+            break
+
+        is_output_last = False
+
+    if not is_output_last and output_node is not None:
         logger.warn("It seems graph wasn't functionalized, fixing empty output node.")
         ctx.graph_module.graph.node_copy(output_node)
         ctx.graph_module.graph.erase_node(output_node)

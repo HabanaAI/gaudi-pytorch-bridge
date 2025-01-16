@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_allreduce_parents,
     pass_fuse_partitions,
     pass_propose_partitions,
-    pass_reorder_allreduce,
+    pass_reorder_collectives,
 )
 from torch.fx.experimental.proxy_tensor import make_fx
 
@@ -131,7 +131,7 @@ def test_reorder_allreduce_with_no_users():
     assert changed, "pass_allreduce_parents doesn't take effect"
     pass_propose_partitions(ctx)
     pass_fuse_partitions(ctx)
-    pass_reorder_allreduce(ctx)
+    pass_reorder_collectives(ctx)
 
     partition_num = len(list(ctx.graph_module.children()))
     assert partition_num == 9, "partitions are not properly splited"
