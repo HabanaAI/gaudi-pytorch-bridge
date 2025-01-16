@@ -137,6 +137,7 @@ class HbLazyTensorViews {
   static size_t updateViewHash(
       const habana_lazy::HbLazyTensor& hl_t,
       size_t hash);
+  static void HandleViewsPermutedSend(const at::Tensor& t);
 };
 
 at::Tensor add_strided_insert_node(

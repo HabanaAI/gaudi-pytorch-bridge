@@ -1259,4 +1259,61 @@ size_t HbLazyTensorViews::updateViewHash(
   return hash;
 }
 
+void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
+  auto is_src_const = habana::is_tensor_const(src);
+  auto src_const_id = habana::get_tensor_const_id(src);
+  auto hl_t = GetHbLazyTensor(src);
+
+  bool is_view = hl_t.getDataPtr()->stride_params.has_value();
+
+  if (is_view) {
+    bool reuse_base_storage = false;
+    Tensor base;
+    Tensor base_internal_tensor;
+    if (src.is_contiguous()) {
+      base =
+          get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
+      TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+      base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
+      auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);
+      auto synapse_permute = hb_impl->GetMemoryPermutation();
+
+      // optimization cannot be performed for permuted tensors
+      if (synapse_permute.size() == 0) {
+        reuse_base_storage = true;
+      }
+    }
+
+    if (reuse_base_storage) {
+      // set backend tensor data for src
+      auto storage_impl = base.unsafeGetTensorImpl();
+
+      // internal dtype can be different from src dtype. ex: long
+      // will be represented as int
+
+      auto at_internal_tensor = AtenInternalHbTensor(
+          c10::Storage(storage_impl->storage()),
+          c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
+              base_internal_tensor.scalar_type())),
+          c10::nullopt,
+          src.sizes(),
+          src.strides(),
+          c10::MemoryFormat::Contiguous);
+      at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
+          src.unsafeGetTensorImpl()->storage_offset());
+
+      habana::set_tensor_const(at_internal_tensor, is_src_const, src_const_id);
+      hl_t.SetTensorData(at_internal_tensor);
+      hl_t.SetIsConstTensor(is_src_const, src_const_id);
+    } else {
+      HandleViews(src, hl_t);
+      hl_t = GetHbLazyTensor(src, true, false);
+
+      hl_t.SetIsConstTensor(is_src_const, src_const_id);
+      std::vector<HbLazyTensor> tensors = {hl_t};
+      HbLazyTensor::SyncTensorsGraph(&tensors);
+    }
+  }
+}
+
 } // namespace habana_lazy

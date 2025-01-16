@@ -26,6 +26,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
+#include "habana_lazy/view_utils.h"
 #include "process_group_registry.hpp"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
@@ -892,6 +893,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_reduce_scatter_base(
 };
 
 void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
+  habana_lazy::HbLazyTensorViews::HandleViewsPermutedSend(tensor);
   auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
   auto self_internal_tesor = self_hb_tensor.EvaluateTensorData();
   std::vector<uint8_t> permutation;
