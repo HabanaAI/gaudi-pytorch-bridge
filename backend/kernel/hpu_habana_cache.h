@@ -16,6 +16,7 @@
 #pragma once
 
 #include <torch/csrc/jit/runtime/argument_spec.h>
+#include <torch/jit.h>
 #include <atomic>
 #include <functional>
 #include <iostream>
@@ -525,7 +526,7 @@ class DynamicBucketInfoMap {
   std::shared_ptr<habana_helpers::DynamicBucketInfo> get(
       std::shared_ptr<RecipeArgumentSpec>& key);
 
-  void refine_graph(size_t graph_key);
+  void refine_graph(size_t graph_key, torch::jit::Stack& stack);
   size_t Size() const;
   size_t HistSize() const;
   static void DumpBucketMemoryStat();

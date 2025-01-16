@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <torch/jit.h>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -33,6 +34,7 @@ class RefinementEngine {
   std::atomic_bool m_refineFlag;
   std::mutex m_mutex;
   std::deque<absl::optional<size_t>> m_readyQueue;
+  std::deque<torch::jit::Stack> m_stackQueue;
   std::condition_variable m_refineCV;
   std::vector<std::thread> m_threads;
 
@@ -42,7 +44,7 @@ class RefinementEngine {
   void Initialize();
   void Refine();
   void Shutdown();
-  void AddGraphKey(size_t key);
+  void AddGraphKey(size_t key, torch::jit::Stack& stack);
 };
 
 } // namespace habana

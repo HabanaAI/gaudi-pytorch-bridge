@@ -4380,7 +4380,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
           InitiateSynlaunchTimeCapture(*recipe_launcher_);
         }
       }
-      RefinementEngine::GetEngine().AddGraphKey(rargpsh_graph->graphHashCode());
+      RefinementEngine::GetEngine().AddGraphKey(
+          rargpsh_graph->graphHashCode(), *pt_stack_);
 
       auto t_ns_base{current_dbipsh_->GetTimeBase(current_bucket_id_)};
       auto t_ns{current_dbipsh_->GetTime(current_bucket_id_)};

@@ -603,7 +603,8 @@ size_t DynamicBucketInfo::GetBucketId(
 }
 
 absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
-    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh) {
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh,
+    torch::jit::Stack& stack) {
   PT_DYNAMIC_SHAPE_DEBUG("Checking buckets for refinement");
   if (refine_enabled_ == false) {
     PT_DYNAMIC_SHAPE_DEBUG("Refinement is not enabled");
@@ -691,7 +692,8 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
         new_bucket_candidate,
         new_recipe_key,
         statistics_,
-        dbipsh);
+        dbipsh,
+        stack);
   } catch (std::exception& e) {
     PT_DYNAMIC_SHAPE_WARN(
         "Recipe compilation failed with exception '", e.what(), "'");

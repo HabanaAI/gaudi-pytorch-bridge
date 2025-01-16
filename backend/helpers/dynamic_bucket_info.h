@@ -14,6 +14,7 @@
 */
 #pragma once
 
+#include <torch/jit.h>
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -499,7 +500,8 @@ class DynamicBucketInfo {
       std::vector<habana_helpers::RangeInfo>& range_infos);
 
   absl::optional<uint64_t> CheckForSplitBucket(
-      std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
+      std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh,
+      torch::jit::Stack& stack);
   Bucket ConstructNewBucket(
       ResultShapes& result_computed,
       const Bucket& mfu_bucket,
