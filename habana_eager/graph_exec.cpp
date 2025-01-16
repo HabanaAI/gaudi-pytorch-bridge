@@ -214,6 +214,11 @@ GraphExec::GraphExec(
   m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 
   UpdateSeedTensors(example_inputs);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+    // we need sync because graph pass HandleInputViews uses permutation info
+    HPUDeviceContext::join_lowering_thread();
+  }
   RunGraphPasses(example_inputs);
 
   LogRecipeInfo(example_inputs);

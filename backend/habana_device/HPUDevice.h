@@ -59,6 +59,7 @@ int get_total_device_count();
 
 void join_all_threads();
 void join_pipeline_threads();
+void join_lowering_thread();
 
 c10::Device get_or_create_aten_device();
 c10::Device aten_device();

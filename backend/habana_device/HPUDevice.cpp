@@ -48,6 +48,7 @@ struct HPUDeviceContextImpl {
   void Init();
   void JoinAllThreads();
   void JoinPipelineThreads();
+  void JoinLoweringThread();
   void CreateDevice();
   void Finish();
   void ThreadsRelease();
@@ -71,6 +72,17 @@ void HPUDeviceContextImpl::JoinPipelineThreads() {
 
   compile_thread_->waitWorkComplete();
   execute_thread_->waitWorkComplete();
+}
+
+void HPUDeviceContextImpl::JoinLoweringThread() {
+  if (!lowering_thread_)
+    return;
+  try {
+    lowering_thread_->waitWorkComplete();
+  } catch (...) {
+    exception_occurred_ = true;
+    throw;
+  }
 }
 
 synapse_helpers::device& HPUDeviceContext::get_device(int) {
@@ -159,6 +171,10 @@ void join_all_threads() {
 }
 void join_pipeline_threads() {
   device_context.JoinPipelineThreads();
+}
+
+void join_lowering_thread() {
+  device_context.JoinLoweringThread();
 }
 
 bool get_exception_occurred() {
