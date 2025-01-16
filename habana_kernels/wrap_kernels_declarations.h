@@ -130,25 +130,6 @@ at::Tensor torchvision_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,
     double iou_threshold);
-
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& amax);
-at::Tensor& fp8_gemm_wrap(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const at::Tensor& D,
-    at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    at::Tensor& out);
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,

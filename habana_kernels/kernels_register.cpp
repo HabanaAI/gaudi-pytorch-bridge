@@ -1315,75 +1315,6 @@ Tensor batched_nms_hpu_wrap(
   return batched_nms_hpu_lazy(boxes, scores, indices, iou_threshold);
 }
 
-std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cast_to_fp8:",
-      " input=",
-      to_string(input),
-      " scale=",
-      to_string(scale),
-      " stochastic_rounding=",
-      to_string(stochastic_rounding));
-  FP8_CHECK
-  return cast_to_fp8_lazy(input, scale, stochastic_rounding, out, amax);
-}
-
-Tensor& fp8_gemm_wrap(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const at::Tensor& D,
-    at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    at::Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_gemm:",
-      " A=",
-      to_string(A),
-      " A_scale_inv=",
-      to_string(A_scale_inv),
-      " trans_A=",
-      to_string(trans_A),
-      " B=",
-      to_string(B),
-      " B_scale_inv=",
-      to_string(B_scale_inv),
-      " trans_B=",
-      to_string(trans_B),
-      " out_dtype=",
-      to_string(out_dtype),
-      " bias=",
-      to_string(bias),
-      " accumulate=",
-      to_string(accumulate));
-  FP8_CHECK
-  return fp8_gemm_lazy(
-      A,
-      trans_A,
-      B,
-      trans_B,
-      D,
-      out_dtype,
-      A_scale_inv,
-      B_scale_inv,
-      bias,
-      accumulate,
-      out);
-}
-
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,
@@ -2042,13 +1973,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
   m.def(
-      "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
-  m.def(
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def(
-      "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
@@ -2157,10 +2084,8 @@ TORCH_LIBRARY(hpu, m) {
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
-  m.impl("hpu::cast_to_fp8", cast_to_fp8_wrap);
   m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
   m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
-  m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
   m.impl("hpu::mixture_of_experts", mixture_of_experts_lazy);
   m.impl(
       "hpu::mixture_of_experts.fused_weights",

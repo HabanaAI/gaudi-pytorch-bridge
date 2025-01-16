@@ -122,6 +122,7 @@ _AVAILABLE_FIELDS = {
     "hpu_wrap_version_list",
     "hpu_wrap_version_range",
     "inplace_ids",
+    "is_custom_op_out_variant",
     "lazy",
     "no_compute_flag",
     "only_shared_layer",
@@ -516,6 +517,9 @@ class Op:
     def get_custom_op_schema(self):
         return self.op.get("custom_op_schema", None)
 
+    def get_is_custom_op_out_variant(self):
+        return self.op.get("is_custom_op_out_variant", False)
+
     def get_hpu_wrap_all_versions(self):
         return self.op.get("hpu_wrap_all_versions", False)
 
@@ -589,7 +593,9 @@ class YamlContext:
         return self.op_data.items()
 
 
-def is_out_fn(fname):
+def is_out_fn(is_custom_op_out_variant, fname):
+    if is_custom_op_out_variant:
+        return True
     return fname.endswith("_out")
 
 
@@ -697,10 +703,11 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
     handle_bool_inputs = ctxop.handle_bool_inputs()
+    is_custom_op_out_variant = ctxop.get_is_custom_op_out_variant()
 
-    assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(fname), (
+    assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(is_custom_op_out_variant, fname), (
         "`out_ids` or `inplace_ids` should not be defined for {}".format(fname)
-        if is_out_fn(fname)
+        if is_out_fn(is_custom_op_out_variant, fname)
         else "Either `out_ids` or `inplace_ids` should be defined for {}".format(fname)
     )
 
@@ -730,7 +737,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         out_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[1]])
         ctor_extra_calls.append("SetSynapseLayouts({{{}}}, {{{}}});".format(in_layouts, out_layouts))
 
-    if is_out_fn(fname) and num_out_tensors > 1:
+    if is_out_fn(is_custom_op_out_variant, fname) and num_out_tensors > 1:
         ctor_extra_calls.append("SetNumOutTensors({});".format(num_out_tensors))
 
     if output_meta_fn:
@@ -782,7 +789,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         out_ids=out_ids,
         inplace_ids=inplace_ids,
         scalar_ids=scalar_ids,
-        is_out_fn=str(is_out_fn(fname)).lower(),
+        is_out_fn=str(is_out_fn(is_custom_op_out_variant, fname)).lower(),
         ctor_extra_calls="".join(["\n" + " " * 8 + c for c in ctor_extra_calls]),
         custom_handler=custom_handler,
     )
@@ -795,7 +802,9 @@ def generate_impl(op_variant, overload, override_fn):
 def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
     op_validator_generator = fgen.ctxop.get_op_validator_generator(execution_mode_for_shared_layer)
     if op_validator_generator is not None:
-        return op_validator_generator.get_validator_data_def(is_out_fn(fgen.func), fgen.cppsig)
+        return op_validator_generator.get_validator_data_def(
+            is_out_fn(fgen.ctxop.get_is_custom_op_out_variant(), fgen.func), fgen.cppsig
+        )
     return ""
 
 
@@ -1176,8 +1185,8 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
     return param_vars, call_args, out_indices, fc_params, tfetcher
 
 
-def is_inplace_or_out_op(opname):
-    if opname.endswith("_out"):
+def is_inplace_or_out_op(is_custom_op_out_variant, opname):
+    if is_custom_op_out_variant or opname.endswith("_out"):
         return True
     if opname.startswith("__"):  # shift specific ops
         return opname.startswith("__i")  # inplace shift ops start with 'i' in name
@@ -1209,7 +1218,8 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
             dtype_helper_inputs = ["self"]
             type_promo_variant = "Reduction"
 
-        safe_cast = is_inplace_or_out_op(fname)
+        safe_cast = is_inplace_or_out_op(ctxop.get_is_custom_op_out_variant(), fname)
+
         if safe_cast_check is not None:
             assert safe_cast, f"safe_cast_check cannot check for non inplace/non out variant, op={fname}"
             assert safe_cast_check is False, f"safe_cast_check is true by default for inplace/out variant, op={fname}"
@@ -1272,7 +1282,7 @@ def handle_validator_generator(
         )
     else:
         tinputs = tfetcher.get_tensors()
-        if is_out_fn(fname) and len(tinputs) > 1:
+        if is_out_fn(ctxop.get_is_custom_op_out_variant(), fname) and len(tinputs) > 1:
             tinputs = tinputs[:-1]
 
         check_per_tensor = False
@@ -1368,7 +1378,7 @@ def handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars):
         return "  {}hpu_op.call({});".format("" if rtype == "void" else "return ", fe_call_args)
 
     code = ""
-    if is_inplace_or_out_op(fname):
+    if is_inplace_or_out_op(ctxop.get_is_custom_op_out_variant(), fname):
         if rtype.startswith("::std::tuple<at::Tensor"):
             code += "  auto tuple = {};\n".format(fe_call_args)
             code += "  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op, tuple)".format(fname)
@@ -1488,10 +1498,12 @@ def handle_eager_not_supported(param_vars, overload, opname):
     return code + "  // MOVE TO EAGER: "
 
 
-def handle_return_eager(rtype, fname, fe_call_args, is_eager_op_supported, call_args, inplace_op_info):
+def handle_return_eager(
+    rtype, fname, fe_call_args, is_eager_op_supported, call_args, inplace_op_info, is_custom_op_out_variant
+):
     eager_op_info_args = (
         len(call_args)
-        if is_out_fn(fname)
+        if is_out_fn(is_custom_op_out_variant, fname)
         else f"decltype(eager::EagerOpMetaData::out_indices_){{{', '.join(map(str, inplace_op_info[2]))}}}"
     )
     code = (
@@ -1664,7 +1676,15 @@ def eager_frontend(
     op_type, op_name = get_eager_op_info(fname, ns)
     inplace_op_info = (op_type, op_name, out_indices)
 
-    code += handle_return_eager(rtype, fname, fe_call_args, is_eager_op_supported, call_args, inplace_op_info)
+    code += handle_return_eager(
+        rtype,
+        fname,
+        fe_call_args,
+        is_eager_op_supported,
+        call_args,
+        inplace_op_info,
+        ctxop.get_is_custom_op_out_variant(),
+    )
     return code + ";\n}"
 
 
@@ -2229,7 +2249,9 @@ def generate_check_kernel_support_sigs(fgen):
 
     op_validator_generator = fgen.ctxop.get_op_validator_generator(HabanaExecutionMode.COMPILE)
     if op_validator_generator is not None:
-        dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func), fgen.cppsig)
+        dtype_defs += op_validator_generator.get_validator_data_def(
+            is_out_fn(fgen.ctxop.get_is_custom_op_out_variant(), fgen.func), fgen.cppsig
+        )
 
     if fgen.op_frontend_lazy:
         # Lazy functions

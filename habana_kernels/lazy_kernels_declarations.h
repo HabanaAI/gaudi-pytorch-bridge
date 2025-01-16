@@ -535,24 +535,6 @@ at::Tensor& recv_hpu_lazy_(
     int64_t src_rank,
     int64_t tag,
     int64_t comm_id);
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& amax);
-std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    at::ScalarType dtype,
-    OptionalIntArrayRef scale_shape);
-at::Tensor cast_from_fp8_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    at::ScalarType out_dtype,
-    OptionalIntArrayRef scale_shape);
 at::Tensor convert_from_int4_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
@@ -563,18 +545,6 @@ at::Tensor convert_from_uint4_lazy(
     const at::Tensor& scale,
     const c10::optional<at::Tensor>& zero_point,
     at::ScalarType out_dtype);
-at::Tensor& fp8_gemm_lazy(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const at::Tensor& D,
-    at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    at::Tensor& out);
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,

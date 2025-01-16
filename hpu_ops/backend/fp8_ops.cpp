@@ -15,8 +15,10 @@
 
 #include "hpu_ops/fp8_ops.h"
 #include "generated/backend/cast_from_fp8.h"
+#include "generated/backend/cast_to_fp8.h"
 #include "generated/backend/cast_to_fp8_v2.h"
 #include "generated/backend/conv2d_fp8.h"
+#include "generated/backend/fp8_gemm.h"
 #include "generated/backend/fp8_gemm_v2.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -173,11 +175,6 @@ ns_CastKernel::Params GetCastParams(
 
 /********** CastToFp8 **********/
 
-CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "cast_to_fp8", scalar_type, {}, {}, {}, true) {
-  SetNumOutTensors(2);
-}
-
 void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
@@ -219,16 +216,6 @@ void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 }
 
 /********** CastToFp8V2 **********/
-
-sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
-  auto input_sv = stack[0].toTensor().sizes().vec();
-  bool is_amax = stack[3].toBool();
-  std::vector<int64_t> amax_shape{};
-  if (not is_amax) {
-    amax_shape.push_back(0);
-  }
-  return {input_sv, amax_shape};
-}
 
 OutputMetaDataVector CastToFp8V2Meta(const at::Stack& stack) {
   bool is_amax = stack[3].toBool();
@@ -369,9 +356,6 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** Fp8Gemm **********/
 
-Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_gemm", scalar_type, {}, {}, {}, true) {}
-
 void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
   auto A = stackGetter.getNextInput<TensorsPair>();
@@ -456,20 +440,6 @@ OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
   }
   meta.dtype = stack[5].toScalarType();
   return {meta};
-}
-
-sizes_vec Fp8GemmOutputShape(const at::Stack& stack) {
-  auto A = stack_tensor(stack, 0);
-  bool trans_A = stack[1].toBool();
-  auto B = stack_tensor(stack, 2);
-  bool trans_B = stack[3].toBool();
-
-  try {
-    return {getBatchMatmulOutShape(A.sizes(), B.sizes(), trans_A, trans_B)};
-  } catch (const std::invalid_argument& e) {
-    TORCH_CHECK(false, e.what());
-    return {};
-  }
 }
 
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -752,8 +722,6 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
-        .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
         .add(
             "hpu::in_place_interleave",
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave));

@@ -37,69 +37,6 @@ using habana::to_string; // For DUMP_*ARGS
 /***********************************************************************************
  * Custom ops
  **********************************************************************************/
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& amax) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "cast_to_fp8 :",
-      DUMP_5ARGS(input, scale, stochastic_rounding, out, amax));
-
-  habana::eager::EagerOp<std::tuple<at::Tensor&, at::Tensor&>> hpu_op{
-      "hpu::cast_to_fp8",
-      {input, scale, stochastic_rounding, out, amax},
-      {input.sizes().vec(), amax.sizes().vec()}};
-  auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
-  return hpu_op.call(result);
-}
-
-at::Tensor& fp8_gemm(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const at::Tensor& D,
-    at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    at::Tensor& out) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "fp8_gemm :",
-      DUMP_11ARGS(
-          A,
-          trans_A,
-          B,
-          trans_B,
-          D,
-          out_dtype,
-          A_scale_inv,
-          B_scale_inv,
-          bias,
-          accumulate,
-          out));
-
-  habana::eager::EagerOp<at::Tensor&> hpu_op{
-      "hpu::fp8_gemm",
-      {A,
-       trans_A,
-       B,
-       trans_B,
-       D,
-       out_dtype,
-       A_scale_inv,
-       B_scale_inv,
-       bias,
-       accumulate,
-       out},
-      habana::Fp8GemmOutputShape};
-  return hpu_op.call(out);
-}
 
 at::Tensor optimizer_lamb_norm(
     const std::vector<at::Tensor>& grad,
@@ -1264,13 +1201,9 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::batch_as_strided(Tensor[] inputs, int[][] sizes, int[][] strides, int[]? storage_offsets=None) -> Tensor[]");
   m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
   m.def(
-      "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
-  m.def(
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def(
-      "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
@@ -1432,8 +1365,6 @@ TORCH_LIBRARY(hpu, m) {
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::accumulate_grads_", accumulate_grads_);
-  m.impl("hpu::cast_to_fp8", cast_to_fp8);
-  m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::in_place_interleave", in_place_interleave);
   m.impl("hpu::kv_reorder", kv_reorder);
   m.impl("hpu::optimizer_adamw", optimizer_adamw);

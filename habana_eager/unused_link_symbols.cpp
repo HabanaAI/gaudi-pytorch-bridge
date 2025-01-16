@@ -298,22 +298,6 @@ at::Tensor& recv_hpu_lazy_(
   EAGER_NOT_SUPPORTED;
 }
 
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
-    [[maybe_unused]] bool stochastic_rounding,
-    [[maybe_unused]] at::Tensor& out,
-    [[maybe_unused]] at::Tensor& amax) {
-  EAGER_NOT_SUPPORTED;
-}
-
-at::Tensor cast_from_fp8_lazy(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
-    [[maybe_unused]] at::ScalarType out_dtype) {
-  EAGER_NOT_SUPPORTED;
-}
-
 } // namespace habana_lazy
 
 void optimizer_adagrad_hpu_wrap(
@@ -425,13 +409,6 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     [[maybe_unused]] const Tensor& offsets,
     [[maybe_unused]] const Tensor& valid_count,
     [[maybe_unused]] int64_t kernel_mode) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor habana_cast_to_fp8_wrap(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] bool stochastic_rounding,
-    [[maybe_unused]] int seed) {
   EAGER_NOT_SUPPORTED;
 }
 

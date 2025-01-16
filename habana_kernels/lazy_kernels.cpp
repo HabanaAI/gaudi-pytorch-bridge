@@ -6005,64 +6005,6 @@ at::Tensor& recv_hpu_lazy_(
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(recv_, k, tensor)
 }
 
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor&, at::Tensor&>> hpu_op{
-      "hpu::cast_to_fp8",
-      {input, scale, stochastic_rounding, out, amax},
-      {input.sizes().vec(), amax.sizes().vec()}};
-  auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
-
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8, hpu_op, result)
-}
-
-std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    at::ScalarType dtype,
-    OptionalIntArrayRef scale_shape) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cast_to_fp8_v2:",
-      DUMP_6ARGS(
-          input, scale, stochastic_rounding, is_amax, dtype, scale_shape));
-  FP8_CHECK
-  LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::cast_to_fp8_v2",
-      {input, scale, stochastic_rounding, is_amax, dtype, scale_shape},
-      CastToFp8V2OutputShape};
-  hpu_op.set_scalar_types({dtype, at::ScalarType::Float});
-
-  RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op)
-}
-
-at::Tensor cast_from_fp8_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    at::ScalarType out_dtype,
-    OptionalIntArrayRef scale_shape) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cast_from_fp8:", DUMP_4ARGS(input, scale, out_dtype, scale_shape));
-  FP8_CHECK
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::cast_from_fp8",
-      {input, scale, out_dtype, scale_shape},
-      {input.sizes().vec()}};
-  hpu_op.set_scalar_types({out_dtype});
-  RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, hpu_op)
-}
-
 at::Tensor convert_from_int4_common(
     const std::string& op_name,
     const at::Tensor& input,
@@ -6100,46 +6042,6 @@ at::Tensor convert_from_uint4_lazy(
       "convert_from_uint4", input, scale, zero_point, out_dtype);
 }
 
-at::Tensor& fp8_gemm_lazy(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const at::Tensor& D,
-    at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    at::Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  int64_t rank = A.dim();
-  std::vector<int64_t> A_shape = A.sizes().vec();
-  std::vector<int64_t> B_shape = B.sizes().vec();
-  std::vector<int64_t> out_shape{A_shape.begin(), A_shape.begin() + rank - 2};
-  int A_dim = rank - 2 + (trans_A ? 1 : 0);
-  int B_dim = rank - 2 + (trans_B ? 0 : 1);
-  out_shape.push_back(A_shape[A_dim]);
-  out_shape.push_back(B_shape[B_dim]);
-
-  LazyOp<at::Tensor&> hpu_op{
-      "hpu::fp8_gemm",
-      {A,
-       trans_A,
-       B,
-       trans_B,
-       D,
-       out_dtype,
-       A_scale_inv,
-       B_scale_inv,
-       bias,
-       accumulate,
-       out},
-      {out_shape}};
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_gemm, hpu_op, out)
-}
 inline bool is_main_thread_and_lazy_collectives_enabled() {
   return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) &&
       not(habana_lazy::AccThread::IsAccThreadEnabled() &&
