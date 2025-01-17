@@ -21,6 +21,7 @@ import habana_frameworks.torch.hpu as hthpu
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
+from test_utils import compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 
 device = "hpu"
@@ -82,7 +83,7 @@ def test_reuse_bwd_input_tensors():
     orig_eager_fallback = hpu_backend_config.use_eager_fallback
     hpu_backend_config.use_eager_fallback = True
 
-    model_to_train = torch.compile(model, backend=backend_compiler)
+    model_to_train = compile_function_if_compile_mode(model, backend=backend_compiler)
 
     # compile without reuse
     hthpu.reset_peak_memory_stats()

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
-from test_utils import _is_simulator
+from test_utils import _is_simulator, compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 from torch.fx import symbolic_trace
 from torch.fx.experimental.proxy_tensor import make_fx
@@ -87,7 +87,7 @@ def test_propose_partitions():
 
         hpu_backend_config.use_cpp_partitioner = True
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model = torch.compile(model, backend="hpu_backend", options={"keep_input_mutations": True}).to(
+            model = compile_function_if_compile_mode(model, options={"keep_input_mutations": True}).to(
                 torch.device("hpu")
             )
             optim = Adam(model.parameters())
@@ -98,7 +98,7 @@ def test_propose_partitions():
 
         hpu_backend_config.use_cpp_partitioner = False
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model_c = torch.compile(model_c, backend="hpu_backend", options={"keep_input_mutations": True}).to(
+            model_c = compile_function_if_compile_mode(model_c, options={"keep_input_mutations": True}).to(
                 torch.device("hpu")
             )
             optim = Adam(model_c.parameters())

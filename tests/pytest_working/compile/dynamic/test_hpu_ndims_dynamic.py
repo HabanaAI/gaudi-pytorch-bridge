@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import is_gaudi3, setup_teardown_env_fixture  # noqa F401
+from test_utils import compile_function_if_compile_mode, is_gaudi3, setup_teardown_env_fixture  # noqa F401
 
 
 @pytest.mark.parametrize(
@@ -41,9 +41,7 @@ class TestHpuNdimsDynamic:
         cpu_input = [torch.rand(shape, dtype=torch.float32) for shape in shapes]
         hpu_input = [input.to("hpu") for input in cpu_input]
 
-        torch._dynamo.reset()
-
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
+        hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
         cpu_output = []
         hpu_output = []

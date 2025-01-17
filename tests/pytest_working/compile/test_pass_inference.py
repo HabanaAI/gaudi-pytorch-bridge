@@ -21,7 +21,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper
+from test_utils import compile_function_if_compile_mode, fga_assert_helper
 
 
 class MyModule(torch.nn.Module):
@@ -46,7 +46,7 @@ def func(x: torch.Tensor, m: torch.nn.Module, device: str, freeze: bool = False)
         m = torch.compile(m.to(torch.device(device)), backend="hpu_backend")
         x = x.to(device=torch.device(device))
     else:
-        m = torch.compile(m, backend="eager")
+        m = compile_function_if_compile_mode(m, backend="eager")
 
     with torch.no_grad(), torch.autocast(device_type=device, dtype=torch.bfloat16, enabled=True):
         if freeze:

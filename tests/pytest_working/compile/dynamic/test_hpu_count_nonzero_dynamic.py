@@ -20,7 +20,7 @@ import copy
 
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1, setup_teardown_env_fixture  # noqa F401
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1, setup_teardown_env_fixture  # noqa F401
 
 params = [
     ([8, 2, 3], [0, 2]),
@@ -65,7 +65,7 @@ def test_hpu_count_nonzero_dynamic(shape, dim, dtype, setup_teardown_env_fixture
 
     inputs_hpu = [input_cpu.to("hpu") for input_cpu in inputs_cpu]
 
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     outputs_cpu = []
     outputs_hpu = []

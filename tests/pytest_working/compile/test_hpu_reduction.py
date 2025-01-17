@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import format_tc, setup_teardown_env_fixture
+from test_utils import compile_function_if_compile_mode, format_tc, setup_teardown_env_fixture
 
 
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])
@@ -34,7 +34,7 @@ def test_reduction(op_code):
     result = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx)
 
@@ -60,7 +60,7 @@ def test_reduction_dim(op_code, dim, keepdim):
 
     # HPU
     torch._dynamo.reset()
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, dim, keepdim)
 

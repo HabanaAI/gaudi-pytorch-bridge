@@ -21,6 +21,7 @@ import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
@@ -40,8 +41,7 @@ def test_index_put_bool_mask_only(inputs_shape, accumulate):
     torch._dynamo.reset()
     cpu_res = fn(tensor, bool_mask, values, accumulate)
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
     hpu_res = compiled_hpu(tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
@@ -67,8 +67,7 @@ def test_index_put_bool_adv_indexing(inputs_shape, ind_shape, accumulate):
     torch._dynamo.reset()
     cpu_res = fn(tensor, bool_mask, values, accumulate)
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
     hpu_res = compiled_hpu(tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
@@ -82,8 +81,7 @@ def test_index_put_long_index(inputs_shape):
         out = torch.mul(p, 2)
         return out
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
     t1 = torch.zeros(inputs_shape)
     t3 = torch.tensor(1.0)
     cur_dev = "cpu"
@@ -104,8 +102,7 @@ def test_index_put_bwd(inputs_shape):
         return out
 
     # index falls back to eager in fwd
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
 
     t1 = torch.arange(32, dtype=torch.float, requires_grad=True).view(8, 4)
     t2 = torch.tensor([4, 5]).flatten()
@@ -132,9 +129,7 @@ def test_index_put_ellipsis(inputs_shape):
         out = t + 2
         return out
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
-
+    compiled_hpu = compile_function_if_compile_mode(fn)
     t = torch.zeros(inputs_shape)
     v1 = torch.tensor(100.0)
     v2 = torch.tensor(200.0)
@@ -163,8 +158,7 @@ def test_index_put_basic_int(inputs_shape, accumulate):
     torch._dynamo.reset()
     cpu_res = fn(tensor, index_list_cpu, values, accumulate)
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
     hpu_res = compiled_hpu(tensor.to("hpu"), index_list_hpu, values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
@@ -189,8 +183,7 @@ def test_index_put_basic_bool(inputs_shape, ind_shape, accumulate):
     torch._dynamo.reset()
     cpu_res = fn(tensor, index_list_cpu, values, accumulate)
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
     hpu_res = compiled_hpu(tensor.to("hpu"), index_list_hpu, values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
@@ -214,8 +207,7 @@ def test_index_put_basic_mixed(inputs_shape, accumulate):
     torch._dynamo.reset()
     cpu_res = fn(tensor, index_list_cpu, values, accumulate)
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
     hpu_res = compiled_hpu(tensor.to("hpu"), index_list_hpu, values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
@@ -229,8 +221,7 @@ def test_index_put_cpu_index(inputs_shape):
         out = torch.mul(p, 2)
         return out
 
-    torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="hpu_backend")
+    compiled_hpu = compile_function_if_compile_mode(fn)
     t1 = torch.zeros(inputs_shape)
     t2 = torch.tensor(1)
     t3 = torch.tensor(1.0)

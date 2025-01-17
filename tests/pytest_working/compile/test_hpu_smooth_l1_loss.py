@@ -16,6 +16,7 @@
 ###############################################################################
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shape", [(3, 4, 5)])
@@ -30,7 +31,7 @@ def test_hpu_smooth_l1_loss(shape, beta, reduction, dtype):
     hpu_input = cpu_input.to("hpu")
     cpu_target = torch.rand(shape, dtype=dtype)
     hpu_target = cpu_target.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_target).cpu()
@@ -54,7 +55,7 @@ def test_hpu_smooth_l1_loss_bwd(shape, beta, reduction, dtype):
     hpu_input.requires_grad = True
     cpu_target = torch.rand(shape, dtype=dtype)
     hpu_target = cpu_target.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_target).cpu()

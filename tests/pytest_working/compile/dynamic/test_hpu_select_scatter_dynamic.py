@@ -19,7 +19,7 @@
 # Set environment variable PT_HPU_LAZY_MODE to 0
 
 import torch
-from test_utils import cpu, hpu
+from test_utils import compile_function_if_compile_mode, cpu, hpu
 
 torch._dynamo.config.specialize_int = False
 
@@ -43,7 +43,7 @@ def test_select_scatter():
         t3 = t2.mul(5)
         return t3
 
-    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)

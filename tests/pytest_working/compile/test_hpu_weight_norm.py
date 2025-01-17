@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, format_tc
 from torch import nn
 
 
@@ -52,9 +52,7 @@ def test_weight_norm_fwd_bwd(dtype):
         return output, input.grad
 
     with use_eager_fallback():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        model_compile_hpu = torch.compile(fn, backend="hpu_backend")
+        model_compile_hpu = compile_function_if_compile_mode(fn)
         model_cpu = fn
 
         output_hpu, x_grad_hpu = model_compile_hpu(x_hpu, g_hpu, w_cpu, "hpu")

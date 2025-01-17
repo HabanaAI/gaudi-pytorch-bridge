@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from habana_frameworks.torch.hpu.metrics import (
     metrics_dump,
 )
 from habana_frameworks.torch.utils.event_dispatcher import *
+from test_utils import compile_function_if_compile_mode
 
 
 def compute_single_step(shape, device, sum_loops=1):
@@ -50,8 +51,7 @@ def compute_single_step(shape, device, sum_loops=1):
         out = summed * multiplied
         return out
 
-    torch._dynamo.reset()
-    fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
     t1 = t1_cpu.to(device=device)
     t2 = t2_cpu.to(device=device)
     out = fn(t1, t2)

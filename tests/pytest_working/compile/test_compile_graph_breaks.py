@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 import habana_frameworks.torch as htorch
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 # Test pass if there is no graph break (fullgraph=True casue an exception when there is graph break) and
@@ -31,7 +32,7 @@ def test_no_graph_break_is_lazy():
 
     htorch.utils.internal.is_lazy()
     t = torch.tensor([-1], device="hpu")
-    mycompiledmodel = torch.compile(mymodel, backend="hpu_backend", fullgraph=True)
+    mycompiledmodel = compile_function_if_compile_mode(mymodel, fullgraph=True)
     computed_result = mycompiledmodel(t).to("cpu")
     expected_result = torch.tensor([1])
     assert torch.equal(computed_result, expected_result)
@@ -50,7 +51,7 @@ def test_no_graph_break_lazy_only():
 
     t = torch.tensor([-1], device="hpu")
     htorch.utils.internal.is_lazy()
-    mycompiledmodel = torch.compile(mymodel, backend="hpu_backend", fullgraph=True)
+    mycompiledmodel = compile_function_if_compile_mode(mymodel, fullgraph=True)
     computed_result = mycompiledmodel(t).to("cpu")
     expected_result = torch.tensor([1])
     assert torch.equal(computed_result, expected_result)
@@ -68,7 +69,7 @@ def test_no_graph_break_device_count():
 
     htorch.hpu.device_count()
     t = torch.tensor([-1], device="hpu")
-    mycompiledmodel = torch.compile(mymodel, backend="hpu_backend", fullgraph=True)
+    mycompiledmodel = compile_function_if_compile_mode(mymodel, fullgraph=True)
     computed_result = mycompiledmodel(t).to("cpu")
     expected_result = torch.tensor([1])
     assert torch.equal(computed_result, expected_result)

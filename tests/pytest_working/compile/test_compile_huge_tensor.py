@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import _is_simulator
+from test_utils import _is_simulator, compile_function_if_compile_mode
 
 
 def detach_fn(inp_tensor):
@@ -34,6 +34,6 @@ def test_detach():
     G = 1024 * 1024 * 1024
     shape = [2 * G]
     t1 = torch.randn(shape, dtype=torch.float32, device="hpu")
-    detach = torch.compile(detach_fn, backend="hpu_backend")
+    detach = compile_function_if_compile_mode(detach_fn)
     t2 = detach(t1)
     assert torch.equal(t1, t2)

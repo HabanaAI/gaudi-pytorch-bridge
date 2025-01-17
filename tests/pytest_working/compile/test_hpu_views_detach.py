@@ -15,6 +15,7 @@
 #
 ###############################################################################
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 class MyModule(torch.nn.Module):
@@ -30,7 +31,7 @@ class MyModule(torch.nn.Module):
 def test_hpu_views_expand_as():
     mod_cpu = MyModule()
     mod_hpu = MyModule().to("hpu")
-    mod_hpu = torch.compile(mod_hpu, backend="hpu_backend")
+    mod_hpu = compile_function_if_compile_mode(mod_hpu)
     cpu_out = mod_cpu(torch.ones(32, 128, device="cpu", dtype=torch.long))
     hpu_out = mod_hpu(torch.ones(32, 128, device="hpu", dtype=torch.long))
     assert torch.allclose(cpu_out, hpu_out.to("cpu"))

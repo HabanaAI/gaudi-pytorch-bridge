@@ -25,6 +25,7 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_fake_propagation,
     pass_reinplace_inplaceable_ops_v2,
 )
+from test_utils import compile_function_if_compile_mode
 from torch.func import functionalize
 from torch.fx.experimental.proxy_tensor import make_fx
 
@@ -244,7 +245,7 @@ def test_reinpalce_add_e2e():
         ref = fn(*example_inputs)
 
         # run compile mode and check results
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
         res = compiled_fn(*example_inputs)
         assert torch.allclose(ref.to("cpu"), res.to("cpu")), "results not match"
 

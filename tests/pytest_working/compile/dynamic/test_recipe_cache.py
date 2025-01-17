@@ -20,6 +20,7 @@ import os
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from test_utils import compile_function_if_compile_mode
 
 
 # Fixture to set the environment variable
@@ -50,7 +51,7 @@ def test_recipe_cache1(set_env):
         t3 = torch.add(t2, x2)
         return t3
 
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+    compiled_fn = compile_function_if_compile_mode(raw_function, dynamic=True)
 
     def execute_model(input_shapes):
         for s in input_shapes:

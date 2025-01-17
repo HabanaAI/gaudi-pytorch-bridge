@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import cpu, hpu
+from test_utils import compile_function_if_compile_mode, cpu, hpu
 
 torch._dynamo.config.specialize_int = False
 
@@ -49,7 +49,7 @@ def test_slice_scatter_negative_end():
         return t3
 
     f_cpu = torch.compile(wrapper_fn, dynamic=True)
-    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
@@ -84,7 +84,7 @@ def test_slice_scatter_compatible_with_select_scatter():
         return t3
 
     f_cpu = torch.compile(wrapper_fn)
-    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
@@ -115,7 +115,7 @@ def test_slice_scatter():
         return t3
 
     f_cpu = torch.compile(wrapper_fn)
-    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
@@ -142,7 +142,7 @@ def test_slice_scatter_st_meta():
         return t2
 
     f_cpu = torch.compile(wrapper_fn)
-    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)

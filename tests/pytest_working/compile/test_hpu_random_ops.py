@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shape", [(3, 4), (2, 5, 6)], ids=format_tc)
@@ -32,7 +32,7 @@ def test_bernoulli(shape, dtype):
         c = torch.mul(a, b)
         return c
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     input_a = torch.empty(shape, dtype=dtype).uniform_(0, 1).to("hpu")
     input_b = torch.empty(shape, dtype=dtype).uniform_(0, 1).to("hpu")
@@ -52,7 +52,7 @@ def test_bernoulli_determinism_one_graph():
     def fn(input):
         return torch.bernoulli(input)
 
-    fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     input = torch.empty((3, 4, 5), dtype=torch.float).uniform_(0, 1).to("hpu")
 
@@ -82,8 +82,8 @@ def test_bernoulli_determinism_two_graphs():
         a = torch.bernoulli(input)
         return a * 2
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
-    compiled_fn2 = torch.compile(fn2, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
+    compiled_fn2 = compile_function_if_compile_mode(fn2)
 
     input = torch.empty((3, 4, 5), dtype=torch.float).uniform_(0, 1).to("hpu")
 
@@ -108,7 +108,7 @@ def test_poisson(shape, dtype):
     def fn(input):
         return torch.poisson(input)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     input = torch.empty(shape, dtype=dtype).uniform_(0).to("hpu")
 
     result_1 = compiled_fn(input).cpu()
@@ -128,7 +128,7 @@ def test_poisson_determinism():
     def fn(input):
         return torch.poisson(input)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     input = torch.empty((3, 4, 5), dtype=torch.float32).uniform_(0).to("hpu")
 
@@ -169,7 +169,7 @@ def test_rand(shape, dtype, is_like):
     def fn(input):
         return op(input, dtype=dtype, device="hpu")
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     result_1 = compiled_fn(input).cpu()
     result_2 = compiled_fn(input).cpu()
@@ -198,7 +198,7 @@ def test_randn(shape, dtype, is_like):
     def fn(shape):
         return op(shape, dtype=dtype, device="hpu")
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     result_1 = compiled_fn(input).cpu()
     result_2 = compiled_fn(input).cpu()
@@ -257,7 +257,7 @@ def test_randint(shape, low, high, is_like, dtype):
             def fn(high, size, dtype, device):
                 return torch.randint(high, size, dtype=dtype, device=device)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     result_1 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
     result_2 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
@@ -278,7 +278,7 @@ def test_multinomial(shape, dtype, replacement):
     torch._dynamo.reset()
     clear_t_compile_logs()
 
-    compiled_fn = torch.compile(torch.multinomial, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(torch.multinomial)
 
     input = torch.rand(shape, dtype=dtype).to("hpu")
     num_samples = 100 if replacement else 5
@@ -331,7 +331,7 @@ def test_various_ops(dtype):
         result = torch.addmm(ab, cd, efghi)
         return result
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     shape_a = (4, 12)
     shape_b = (4, 8)
@@ -378,7 +378,7 @@ def test_randperm(n, dtype):
     def fn(shape):
         return torch.randperm(shape, dtype=dtype, device="hpu")
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     torch.manual_seed(1234)
     result_1 = compiled_fn(n).cpu()

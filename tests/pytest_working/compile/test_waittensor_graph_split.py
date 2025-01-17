@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import pytest
 import torch
 import torch.distributed._functional_collectives as fcol
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.fixture(autouse=True)
@@ -94,9 +95,8 @@ def test_waittensor_graph_split(set_env):
     example_inputs = [torch.randn([64, 64]).to("hpu") for i in range(7)]
     example_inputs = [torch.randn([]).to("hpu")] + example_inputs
     with FxGraphAnalyzer(reset_dynamo=False) as fga:
-        c_fn = torch.compile(
+        c_fn = compile_function_if_compile_mode(
             fn,
-            backend="hpu_backend",
             options={
                 "enable_waittensor_graph_split": True,
                 "enable_allreduce_graph_split": True,
@@ -108,9 +108,8 @@ def test_waittensor_graph_split(set_env):
         assert part_num == 4, "partitions are not properly splited"
 
     with FxGraphAnalyzer(reset_dynamo=False) as fga:
-        c_fn = torch.compile(
+        c_fn = compile_function_if_compile_mode(
             fn,
-            backend="hpu_backend",
             options={
                 "enable_waittensor_graph_split": False,
                 "enable_allreduce_graph_split": True,

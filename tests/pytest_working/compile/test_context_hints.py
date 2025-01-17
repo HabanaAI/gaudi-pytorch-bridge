@@ -21,7 +21,7 @@ from typing import Union
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import clear_t_compile_logs
+from test_utils import clear_t_compile_logs, compile_function_if_compile_mode
 from torch.testing._internal.common_utils import TestCase
 
 skip_test = False
@@ -607,7 +607,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -637,7 +637,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -670,7 +670,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -705,7 +705,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -727,7 +727,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -756,7 +756,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -783,7 +783,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -811,7 +811,7 @@ class ContextHintsTests(TestCase):
         model = ToyModelFunctionalLinearWithHints().to("hpu")
         criterion = torch.nn.CrossEntropyLoss()
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.rand(5, 10).to("hpu")
@@ -834,7 +834,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -867,7 +867,7 @@ class ContextHintsTests(TestCase):
         x = torch.randn(2, 5, dtype=torch.float).to("hpu")
         y = 1
 
-        compiled_fn = torch.compile(hinted_func, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(hinted_func)
         res = compiled_fn(x, y)
 
         check_hints_in_jit_ir("topk", ["preserve_order", "exec_order", "group_id"])
@@ -888,7 +888,7 @@ class ContextHintsTests(TestCase):
 
             return hints_wrapper(func, (), {}, hints={"preserve_order": "True", "group_id": 99})
 
-        compiled_fn = torch.compile(hinted_func, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(hinted_func)
         res = compiled_fn()
 
         check_hints_in_jit_ir("arange", ["preserve_order", "exec_order", "group_id"])
