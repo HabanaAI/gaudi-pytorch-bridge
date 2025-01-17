@@ -111,9 +111,6 @@ hpu_backend_decompositions_list = [
     aten.im2col,
     aten.im2col.default,
     aten.im2col.out,
-    aten.index_add.out,
-    aten.index_add.dimname,
-    aten.index_add_.default,
     aten.index_select.out,
     aten.index_select.dimname,
     aten.index_select.dimname_out,
@@ -772,3 +769,79 @@ def get_hpu_decompositions():
         return {**core_aten_decompositions()}
     else:
         return None
+
+
+@register_custom_decomposition(aten.index_add, hpu_backend_decompositions_common)
+def index_add(
+    x_in: utils.Tensor,
+    dim: int,
+    index_in: utils.Tensor,
+    tensor_in: utils.Tensor,
+    *,
+    alpha: int = 1,
+):
+    x = x_in
+    tensor = tensor_in
+    index = index_in
+    if (
+        index_in.dtype == torch.int32
+        or index_in.dtype == torch.short
+        or index_in.dtype == torch.uint8
+        or index_in.dtype == torch.int8
+    ):
+        index = index_in.to(torch.long)
+    dim = utils.canonicalize_dims(x.ndim, dim)
+    torch._check(
+        index.ndim <= 1,
+        lambda: f"Index should have dimension 1 or 0 (got {index.ndim})",
+    )
+    index_size = index.size(0) if index.ndim == 1 else 1
+    tensor_size = tensor.size(dim) if tensor.ndim > 0 else 1
+    torch._check(
+        tensor_size == index_size,
+        lambda: f"Number of indices ({index_size}) should be equal to tensor.size(dim) ({tensor_size}), for {dim=}",
+    )
+    if alpha != 1:
+        python_type = utils.dtype_to_type(x.dtype)
+        torch._check(
+            python_type == bool or utils.is_weakly_lesser_type(type(alpha), python_type),
+            lambda: f"alpha argument of type {type(alpha)} cannot be safely cast to type {python_type}!",
+        )
+        tensor = tensor_in * alpha
+
+    if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
+        x = x_in.to(torch.float)
+    if (
+        tensor_in.dtype == torch.int32
+        or tensor_in.dtype == torch.uint8
+        or tensor_in.dtype == torch.int8
+        or tensor_in.dtype == torch.bool
+    ):
+        tensor = tensor.to(torch.float)
+    zero_dim = x.ndim == 0
+    x1 = x.unsqueeze(0) if zero_dim else x
+    # Follow the implementation used in HPU Lazy mode
+    dim_size = x.numel()
+    if dim_size:
+        # for non-scalar tensor case
+        dim_size = x1.shape[dim]
+    # Implementation to take care of duplicate entries in index tensor and
+    # also the case where index tensor size can be greater than the self
+    # tensor size at the relevant dim.
+    sorted_index = torch.ops.aten.sort(index, stable=True)
+    # Note: sorted_index[0] = actual indices sorted. sorted_index_pos = orted_index[1] = original positions of the sorted indices in index
+    sorted_index_pos = sorted_index[1]
+    sorted_index_pos_reshape_shape = [1] * tensor.dim()
+    sorted_index_pos_reshape_shape[dim] = sorted_index_pos.shape[0]
+    sorted_index_pos_reshaped = torch.ops.aten.reshape(sorted_index[1], sorted_index_pos_reshape_shape).expand(
+        tensor.shape
+    )
+    gathered_values = torch.ops.aten.gather(tensor, dim, sorted_index_pos_reshaped)
+    index_expand_shape = [1] * gathered_values.dim()
+    index_expand_shape[dim] = sorted_index[0].shape[0]
+    index_expanded = torch.ops.aten.reshape(sorted_index[0], index_expand_shape).expand(gathered_values.shape)
+    ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, gathered_values)
+    if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
+        return ret.to(x_in.dtype)
+    else:
+        return ret
