@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Intel Corporation
+ * Copyright (c) 2024-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -240,11 +240,32 @@ void MixtureOfExpertsFp8Scalars::AddNode(
   syn_out(0) = std::move(moe_result[0]);
 }
 
+MixtureOfExpertsBwd::MixtureOfExpertsBwd(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(device_id, "moe_bwd", scalar_type, {1}, {}, {}, false) {}
+
+void MixtureOfExpertsBwd::AddNode(sh::graph&, const at::Stack&) {
+  throw std::runtime_error("mixture_of_experts_backward is not implemented");
+}
+
 } // namespace habana
 
 static const auto& MixtureOfExpertsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::mixture_of_experts", KERNEL_FN_ARG(MixtureOfExperts, false))
+        .add(
+            "hpu::mixture_of_experts_fwd",
+            KERNEL_FN_ARG(MixtureOfExperts, false))
+        .add(
+            "hpu::mixture_of_experts_fwd.fused_weights",
+            KERNEL_FN_ARG(MixtureOfExperts, false))
+        .add(
+            "hpu::mixture_of_experts_bwd.",
+            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsBwd))
+        .add(
+            "hpu::mixture_of_experts_bwd.fused_weights",
+            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsBwd))
         .add(
             "hpu::mixture_of_experts.fused_weights",
             KERNEL_FN_ARG(MixtureOfExperts, false))

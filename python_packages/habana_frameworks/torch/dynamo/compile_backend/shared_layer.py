@@ -56,6 +56,8 @@ hpu_supported_op_list = {
     "in_place_interleave",
     "kv_reorder",
     "mixture_of_experts",
+    "mixture_of_experts_fwd",
+    "mixture_of_experts_bwd",
     "one_hot",
     "rms_norm",
     "rms_norm_fast",

@@ -146,6 +146,7 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_kernels/hccl_kernels.cpp
   habana_kernels/index_kernels.cpp
   habana_kernels/instance_norm_utils.cpp
+  habana_kernels/mixture_of_experts.cpp
   habana_kernels/nonzero_kernel.cpp
   habana_kernels/kernel_input_checks.cpp
   habana_kernels/kernels_register.cpp

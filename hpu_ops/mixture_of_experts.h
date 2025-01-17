@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Intel Corporation
+ * Copyright (c) 2024-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,11 @@ struct MixtureOfExpertsFp8 : OpBackend {
 
 struct MixtureOfExpertsFp8Scalars : OpBackend {
   MixtureOfExpertsFp8Scalars(int device_id, c10::ScalarType scalar_type);
+  void AddNode(sh::graph&, const at::Stack&) override;
+};
+
+struct MixtureOfExpertsBwd : OpBackend {
+  MixtureOfExpertsBwd(int device_id, c10::ScalarType scalar_type);
   void AddNode(sh::graph&, const at::Stack&) override;
 };
 

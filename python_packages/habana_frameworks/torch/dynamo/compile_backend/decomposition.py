@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -461,6 +461,16 @@ def randngen(
         pin_memory=pin_memory,
     ).expand(size)
     return torch.normal(mean, stddev, generator=generator)
+
+
+@torch.ops.hpu.mixture_of_experts.default.py_impl(DispatchKey.Autograd)
+def mixture_of_experts(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_fwd(*args, **kwargs)
+
+
+@torch.ops.hpu.mixture_of_experts.fused_weights.py_impl(DispatchKey.Autograd)
+def mixture_of_experts(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_fwd(*args, **kwargs)
 
 
 @register_custom_decomposition(aten.sort.default, hpu_backend_decompositions_common)

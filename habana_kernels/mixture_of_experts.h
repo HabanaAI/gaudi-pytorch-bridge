@@ -12,27 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <ATen/core/Tensor.h>
 
-#pragma once
-#include <ATen/ATen.h>
+namespace habana_lazy {
 
-namespace habana {
-namespace eager {
-
-std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const bool measurement_mode);
-
-at::Tensor mixture_of_experts(
+at::Tensor mixture_of_experts_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -44,7 +28,7 @@ at::Tensor mixture_of_experts(
     const int64_t experts_min,
     const int64_t experts_max);
 
-at::Tensor mixture_of_experts_fused_weights(
+at::Tensor mixture_of_experts_fused_weights_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -55,7 +39,7 @@ at::Tensor mixture_of_experts_fused_weights(
     const int64_t experts_min,
     const int64_t experts_max);
 
-std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement(
+std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -69,7 +53,7 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement(
     const bool measurement_mode);
 
 std::tuple<at::Tensor, at::Tensor>
-mixture_of_experts_fp8_measurement_fused_weights(
+mixture_of_experts_fp8_measurement_fused_weights_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -81,7 +65,71 @@ mixture_of_experts_fp8_measurement_fused_weights(
     const int64_t experts_max,
     const bool measurement_mode);
 
-at::Tensor mixture_of_experts_fwd_autograd(
+at::Tensor mixture_of_experts_fp8_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w1,
+    const at::TensorList d_scale_w2,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max);
+
+at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_intermediate_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max);
+
+at::Tensor mixture_of_experts_fp8_scalars_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const double d_scale_hidden_states,
+    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
+    const c10::ArrayRef<double>& d_scale_w1,
+    const c10::ArrayRef<double>& d_scale_w2,
+    const c10::ArrayRef<double>& d_scale_w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max);
+
+at::Tensor mixture_of_experts_fp8_fused_weights_scalars_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const double d_scale_hidden_states,
+    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
+    const c10::ArrayRef<double>& d_scale_w12,
+    const c10::ArrayRef<double>& d_scale_w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max);
+
+at::Tensor mixture_of_experts_fwd_autograd_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -93,7 +141,7 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const int64_t experts_min,
     const int64_t experts_max);
 
-at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
+at::Tensor mixture_of_experts_fwd_fused_weights_autograd_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -104,5 +152,4 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const int64_t experts_min,
     const int64_t experts_max);
 
-} // namespace eager
-} // namespace habana
+} // namespace habana_lazy

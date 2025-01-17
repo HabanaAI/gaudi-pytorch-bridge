@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -573,111 +573,6 @@ at::Tensor habana_expand_into_jagged_permute_lazy(
     const at::Tensor& input_offsets,
     const at::Tensor& output_offsets,
     int64_t output_size);
-at::Tensor mixture_of_experts_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
-at::Tensor mixture_of_experts_fused_weights_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
-std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const bool measurement_mode);
-std::tuple<at::Tensor, at::Tensor>
-mixture_of_experts_fp8_measurement_fused_weights_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const bool measurement_mode);
-at::Tensor mixture_of_experts_fp8_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const at::Tensor& d_scale_hidden_states,
-    const at::TensorList d_scale_intermediate_hidden_states,
-    const at::TensorList d_scale_w1,
-    const at::TensorList d_scale_w2,
-    const at::TensorList d_scale_w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
-at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const at::Tensor& d_scale_hidden_states,
-    const at::TensorList d_scale_intermediate_hidden_states,
-    const at::TensorList d_scale_w12,
-    const at::TensorList d_scale_w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
-at::Tensor mixture_of_experts_fp8_scalars_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const double d_scale_hidden_states,
-    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
-    const c10::ArrayRef<double>& d_scale_w1,
-    const c10::ArrayRef<double>& d_scale_w2,
-    const c10::ArrayRef<double>& d_scale_w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
-at::Tensor mixture_of_experts_fp8_fused_weights_scalars_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const double d_scale_hidden_states,
-    const c10::ArrayRef<double>& d_scale_intermediate_hidden_states,
-    const c10::ArrayRef<double>& d_scale_w12,
-    const c10::ArrayRef<double>& d_scale_w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
 at::Tensor habana_split_permute_cat_lazy(
     const at::Tensor& input,
     const at::Tensor& indices,
