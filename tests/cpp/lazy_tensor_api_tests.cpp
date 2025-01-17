@@ -1,32 +1,27 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
-#include <stdexcept>
 #include "backend/habana_device/HPUGuardImpl.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
+#include "backend/synapse_helpers/graph.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/debug_utils.h"
-#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/ir_utils.h"
 #include "habana_lazy/lazy_executor.h"
 
 using namespace habana_lazy;
@@ -85,8 +80,8 @@ TEST_F(LazyTensorAPITest, ShapeTensorTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPUDeviceContext::get_device();
-  auto syn_graph =
-      habana_helpers::create_graph(device.id(), "Test_graph", false);
+  auto syn_graph = habana_helpers::create_graph(
+      device.id(), "Test_graph", synapse_helpers::graph::DryRun::Disabled);
   torch::Tensor input = torch::randn({10, 20}).to(torch::kHPU);
   auto syn_shape_input = habana_helpers::create_shape_tensor_backend(
       input, syn_graph, false, SHAPE_TENSOR, true);

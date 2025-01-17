@@ -27,7 +27,7 @@
 #include <sstream>
 #include <unordered_map>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/compilation_statistics.h"
 #include "backend/helpers/create_tensor.h"
@@ -65,6 +65,7 @@ namespace HabanaLaunchOpPipeline {
 
 class PipelineCallBase {
  public:
+  virtual ~PipelineCallBase() = default;
   virtual void operator()() {
     PT_BRIDGE_FATAL("HabanaLaunchOpPT has been used without pipeline wrapper");
   }
@@ -73,7 +74,8 @@ class PipelineCallBase {
   }
 };
 
-PipelineCallBase NoPipeline;
+PipelineCallBase
+    NoPipeline; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 class PipelineCall : public PipelineCallBase {
  public:
@@ -172,22 +174,22 @@ std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
 HabanaLaunchOpPT::HabanaLaunchOpPT(
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
         optimized_jit_graph_and_meta_data)
-    : name_(optimized_jit_graph_and_meta_data->GetOpName()),
+    : hpu_stream_(optimized_jit_graph_and_meta_data->GetHPUStream()),
+      jit_graph_and_meta_data_(optimized_jit_graph_and_meta_data),
+      enable_user_dynamic_ranges_(
+          optimized_jit_graph_and_meta_data->IsUserMarkDynamic()),
+      refine_ds_enabled_(optimized_jit_graph_and_meta_data->GetDynamicGraph()),
+      name_(optimized_jit_graph_and_meta_data->GetOpName()),
       graph_index_(optimized_jit_graph_and_meta_data->GetGraphIndex()),
       jit_ir_graph_(optimized_jit_graph_and_meta_data->get_cached_graph()),
-      use_persistent_tensors_{GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR)} {
-  refine_ds_enabled_ = optimized_jit_graph_and_meta_data->GetDynamicGraph();
+      graph_key_(optimized_jit_graph_and_meta_data->get_cached_graph_key()),
+      use_persistent_tensors_{GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR)},
+      jit_graph_cache_hit_count_(
+          optimized_jit_graph_and_meta_data->get_jit_cache_hit_count()) {
   enable_fast_shape_inf_ =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE) &&
       refine_ds_enabled_;
   op_strs_ = optimized_jit_graph_and_meta_data->get_cached_opstrs();
-  graph_key_ = optimized_jit_graph_and_meta_data->get_cached_graph_key();
-  jit_graph_cache_hit_count_ =
-      optimized_jit_graph_and_meta_data->get_jit_cache_hit_count();
-  hpu_stream_ = optimized_jit_graph_and_meta_data->GetHPUStream();
-  jit_graph_and_meta_data_ = optimized_jit_graph_and_meta_data;
-  enable_user_dynamic_ranges_ =
-      optimized_jit_graph_and_meta_data->IsUserMarkDynamic();
   optimized_jit_graph_and_meta_data->SetUserMarkDynamic(false);
   range_infos_ = optimized_jit_graph_and_meta_data->GetUserRangesDynamic();
 
@@ -593,6 +595,8 @@ void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
     case torch::jit::aten::randperm:
     case torch::jit::aten::rrelu_with_noise:
       populate_seed = true;
+      break;
+    default:
       break;
   }
 
@@ -2291,8 +2295,6 @@ void HabanaLaunchOpPT::UpdateValueIShapeMapForListUnpack(
     torch::jit::Node* node,
     RecipeValueSpec& rv) {
   auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
-  auto node_input = node->inputs()[0];
-  auto input_name = node_input->debugName();
   for (auto& output_val : node->outputs()) {
     auto output_name = output_val->debugName();
     HABANA_ASSERT(
@@ -2643,14 +2645,11 @@ void HabanaLaunchOpPT::ProcessIntermediateSymbolicShapes(
 
   for (auto* node : graph_nodes) {
     auto node_qual_str = node->kind().toQualString();
-    std::string opname(node_qual_str);
     PT_BRIDGE_DEBUG("Symbolic Working on ", node_qual_str);
 
     if ((node->kind() != torch::jit::prim::Constant) &&
         (node->kind() != torch::jit::prim::ListConstruct) &&
         (node->kind() != torch::jit::prim::ListUnpack)) {
-      auto node_val = node->output(0);
-      auto value_name = node_val->debugName();
       auto outputshapes_attr = c10::Symbol::attr("output_shapes");
       std::string outputshape_str;
       if (node->hasAttribute(outputshapes_attr)) {
@@ -2821,7 +2820,6 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
     }
 
     auto node_qual_str = node->kind().toQualString();
-    std::string opname(node_qual_str);
 
     PT_DYNAMIC_SHAPE_DEBUG("Working on ", node_qual_str);
     if ((node->kind() == torch::jit::prim::Constant) ||
@@ -4094,7 +4092,7 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
   // Keep evicting recipes until the memory usage goes below threshold
   if (habana::IsHostMemoryThresholdReached()) {
     // Remove in chunks of 512MB
-    int64_t eviction_threshold_left = 512 * 1024 * 1024;
+    int64_t eviction_threshold_left = 512ll * 1024 * 1024;
     while (dropped && eviction_threshold_left > 0) {
       dropped = dropCachedRecipe_LRU(num_recipes);
       if (dropped) {
@@ -5164,9 +5162,11 @@ void HabanaLaunchOpPT::run(
           eager_mode == true,
           "eager_mode is expected true for supporting shape agnostic graph");
       is_shape_agnostic_supported_ = true;
-      constexpr bool dry_run__ = false;
       auto syn_graph = std::make_shared<sh::graph>(habana_helpers::create_graph(
-          device.id(), GetSynapseGraphName(), dry_run__, eager_mode));
+          device.id(),
+          GetSynapseGraphName(),
+          synapse_helpers::graph::DryRun::Disabled,
+          eager_mode));
 
       constexpr bool is_shape_agnostic_graph = true;
       syn_graph->set_shape_agnostic_graph(is_shape_agnostic_graph);
@@ -5449,11 +5449,13 @@ void HabanaLaunchOpPT::run(
     CreateStaticCompilationDBI(graph_key_with_perm_);
   }
 
-  constexpr bool dry_run__ = false;
   const auto use_eager_compiler =
       eager_mode && jit_graph_and_meta_data_->get_is_eager_compiler_supported();
   auto syn_graph = std::make_shared<sh::graph>(habana_helpers::create_graph(
-      device.id(), GetSynapseGraphName(), dry_run__, use_eager_compiler));
+      device.id(),
+      GetSynapseGraphName(),
+      synapse_helpers::graph::DryRun::Disabled,
+      use_eager_compiler));
   map_shape_.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
 
@@ -5663,7 +5665,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   }
 
   auto& device = HPUDeviceContext::get_device();
-  std::string graphName{GetSynapseGraphName()};
+  GetSynapseGraphName();
 
   auto syn_graph = std::make_shared<sh::graph>(
       sh::graph::create_for_refinement(device, name_));
@@ -5740,8 +5742,10 @@ void HabanaLaunchOpPT::run_pass() {
   auto& device = HPUDeviceContext::get_device();
 
   // Run the compile and execute method to infer the shapes
-  auto syn_graph = std::make_shared<sh::graph>(
-      habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true));
+  auto syn_graph = std::make_shared<sh::graph>(habana_helpers::create_graph(
+      device.id(),
+      GetSynapseGraphName(),
+      synapse_helpers::graph::DryRun::Enabled));
   syn_graph->set_dynamic_graph(true);
   syn_graph->set_optim_output_sif_enabled(enable_optim_output_sif_);
   SynBuildCache cache;

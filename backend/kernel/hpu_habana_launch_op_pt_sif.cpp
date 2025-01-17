@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <torch/csrc/jit/ir/constants.h>
 #include <unordered_map>
@@ -23,10 +23,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt_sif_utils.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/kernel/hpu_shape_inference.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-#include "habana_lazy/hlexec.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
 #include "hpu_ops/op_backend.h"
 
 using namespace torch::jit;
@@ -454,8 +451,8 @@ void HabanaLaunchOpPT::RunHybridSif(
 
   const auto& device = HPUDeviceContext::get_device();
 
-  auto syn_graph =
-      habana_helpers::create_graph(device.id(), "syn_sif_graph", true);
+  auto syn_graph = habana_helpers::create_graph(
+      device.id(), "syn_sif_graph", synapse_helpers::graph::DryRun::Enabled);
 
   mapGraphInputsToInputsOnStack(graph, inputs, val_to_ival_map);
 
@@ -575,8 +572,10 @@ bool HabanaLaunchOpPT::RunHybridSif(
   auto& device = HPUDeviceContext::get_device();
   synDeviceId device_id = device.id();
 
-  auto syn_graph =
-      habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
+  auto syn_graph = habana_helpers::create_graph(
+      device.id(),
+      GetSynapseGraphName(),
+      synapse_helpers::graph::DryRun::Enabled);
   if constexpr (DynamicShapes) {
     syn_graph.set_dynamic_graph(true);
   }

@@ -1,31 +1,29 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
 #include <c10/core/TensorImpl.h>
 #include <synapse_common_types.h>
 #include <memory>
-#include <string>
 #include <tuple>
 
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/const_section.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana_lazy {
 class HbInternalTensorImpl;
@@ -44,8 +42,8 @@ struct ShapeTensorStruct {
   void set_strides_tensor_shape(std::vector<int64_t> input_strides) {
     contains_data = true;
     strides.clear();
-    int len = input_strides.size();
-    for (int i = 0; i < len; i++) {
+    size_t len = input_strides.size();
+    for (size_t i = 0; i < len; i++) {
       strides.push_back(input_strides[i]);
     }
   }
@@ -57,8 +55,8 @@ struct ShapeTensorStruct {
 
   void set_stride_ratio(std::vector<int64_t> ratios) {
     contains_data = true;
-    int len = ratios.size();
-    for (int i = 0; i < len; i++) {
+    size_t len = ratios.size();
+    for (size_t i = 0; i < len; i++) {
       stride_ratio.push_back(ratios[i]);
     }
   }
@@ -196,8 +194,10 @@ struct SendTensorMeta {
   }
 
  private:
-  const bool isPermuted_;
-  const at::Tensor tensor_;
+  const bool
+      isPermuted_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+  const at::Tensor
+      tensor_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
 };
 
 static constexpr int INVALID_CONST_ID = -1;
@@ -521,7 +521,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   size_t host_checksum_{INVALID_CHECKSUM};
   int id_{-1};
   int const_id_{INVALID_CONST_ID};
-  int total_elem_{0};
+  size_t total_elem_{0};
   // view meta
   bool is_view_{false};
   bool is_maybe_grad_view_{false};
@@ -648,16 +648,17 @@ inline void set_tensor_const(
 }
 
 inline void get_and_set_tensor_const(
-    const at::Tensor& tensor_src,
+    const at::Tensor& source_tensor,
     const at::Tensor& tensor,
     bool relax = false) {
   if (!habana_helpers::IsInferenceMode()) {
     return;
   }
-  auto tmeta_src = get_tensor_extra_meta(tensor_src, relax);
-  auto is_src_const = tmeta_src->is_const_tensor();
-  auto src_const_id = tmeta_src->get_const_id();
-  habana::set_tensor_const(tensor, is_src_const, src_const_id);
+  auto source_tensor_meta = get_tensor_extra_meta(source_tensor, relax);
+  auto is_source_tensor_const = source_tensor_meta->is_const_tensor();
+  auto source_tensor_const_id = source_tensor_meta->get_const_id();
+  habana::set_tensor_const(
+      tensor, is_source_tensor_const, source_tensor_const_id);
 }
 
 inline void get_and_set_tensor_const(

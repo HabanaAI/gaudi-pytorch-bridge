@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <synapse_api.h>
 #include <torch/csrc/jit/ir/ir.h>
@@ -62,7 +62,7 @@ class SynBuildCache {
 
     if (!is_complete_) {
       HABANA_ASSERT(index == (this->*member).size())
-      (this->*member).emplace_back(comp_func());
+      (this->*member).emplace_back(std::forward<Func>(comp_func)());
     }
     return (this->*member).at(index);
   }
@@ -75,7 +75,7 @@ class SynBuildCache {
 
     if (!is_complete_) {
       HABANA_ASSERT(index == (this->*member).size())
-      (this->*member).emplace_back(comp_func());
+      (this->*member).emplace_back(std::forward<Func>(comp_func)());
     }
     return (this->*member).at(index);
   }
@@ -634,7 +634,7 @@ class OptimizedJitGraphCache {
  private:
   explicit OptimizedJitGraphCache();
 
-  void swap(OptimizedJitGraphCache& cache) {
+  void swap(OptimizedJitGraphCache& cache) noexcept {
     std::swap(m_cache_map, cache.m_cache_map);
   }
 

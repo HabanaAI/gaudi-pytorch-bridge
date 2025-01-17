@@ -1,34 +1,31 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_eager/eager_exec.h"
 #include <absl/strings/str_join.h>
 #include <c10/util/hash.h>
 #include <torch/csrc/jit/ir/ir.h>
-#include <limits>
 #include <memory>
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/scalar_cache.h"
-#include "backend/synapse_helpers/device_context.h"
+#include "habana_eager/eager_tensor.h"
 #include "habana_eager/eager_view.h"
-#include "habana_eager/ops/eager_op.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
 namespace habana {
@@ -58,15 +55,15 @@ void traversing_ivalues(const std::vector<at::IValue>& ivalues, T&& visitor) {
   for (size_t i = 0; i < ivalues.size(); ++i) {
     const at::IValue& ivalue = ivalues[i];
     if (is_metadata_candidate(ivalue)) {
-      visitor(ivalue);
+      std::forward<T>(visitor)(ivalue);
     } else if (ivalue.isScalar()) {
-      visitor(ivalue.toScalar());
+      std::forward<T>(visitor)(ivalue.toScalar());
     } else if (ivalue.isTensor()) {
       const at::Tensor& t = ivalue.toTensor();
       if (t.defined()) {
-        visitor(t);
+        std::forward<T>(visitor)(t);
       } else {
-        visitor(torch::jit::IValue());
+        std::forward<T>(visitor)(torch::jit::IValue());
       }
     } else if (ivalue.isList()) {
       const auto& list = ivalue.toListRef();
@@ -79,16 +76,16 @@ void traversing_ivalues(const std::vector<at::IValue>& ivalues, T&& visitor) {
             i,
             ".");
         if constexpr (process_list == ProcessList::asTensor)
-          visitor(li.toTensor());
+          std::forward<T>(visitor)(li.toTensor());
       }
       if constexpr (process_list == ProcessList::asList)
-        visitor(list);
+        std::forward<T>(visitor)(list);
     } else if (ivalue.isTuple()) {
       const auto& tuple = ivalue.toTupleRef();
       if (tuple.size() == 0) {
         continue;
       }
-      PT_BRIDGE_FATAL("Tuple not supportd at index ", i);
+      PT_BRIDGE_FATAL("Tuple not supported at index ", i);
       HABANA_ASSERT(0);
     } else {
       PT_BRIDGE_FATAL(
@@ -940,7 +937,7 @@ std::string UniqueIdxVec::to_string() const {
 void EagerExec::set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
   PT_EAGER_TRACE;
 
-  m_eager_op_meta_data = eager_op_meta_data;
+  m_eager_op_meta_data = std::move(eager_op_meta_data);
 }
 
 void EagerExec::post_process_eager_graph(

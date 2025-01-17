@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,12 @@
 #include "hpu_ops/op_backend.h"
 #include <c10/core/ScalarType.h>
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/cast_sequence.h"
 #include "backend/helpers/create_tensor.h"
-#include "backend/helpers/runtime_config.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
-#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/common/scalar_dtype_range.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -590,7 +588,8 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
   m_output_inf_mode = true;
   auto& device = habana::HPUDeviceContext::get_device(0);
-  auto graph = sh::graph::create(device, {}, true);
+  auto graph =
+      sh::graph::create(device, {}, synapse_helpers::graph::DryRun::Enabled);
 
   PopulateMetadata(stack, GetOutputMetaData());
 

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <absl/strings/str_format.h>
 #include <absl/strings/str_join.h>
 #include <absl/types/optional.h>
@@ -34,11 +34,9 @@
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/stream.h"
 #include "backend/synapse_helpers/tensor_builder_base.h"
-#include "backend/synapse_helpers/util.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/stat_collection.h"
 #include "habana_helpers/towl.h"
@@ -136,14 +134,14 @@ graph::graph(device& device, std::string name)
 graph graph::create(
     device& device,
     std::string name,
-    bool dry_run,
+    graph::DryRun dry_run,
     bool eager_mode) {
   PT_SYNHELPER_BEGIN;
   graph syn_graph(device, std::move(name));
 
   syn_graph.dry_run_ = dry_run;
   syn_graph.eager_mode_ = eager_mode;
-  if (syn_graph.dry_run_ == false) {
+  if (not syn_graph.is_dry_run()) {
     synStatus status = synSuccess;
     const auto device_type = syn_graph.device_.type();
     if (syn_graph.eager_mode_ && device_type != synDeviceGaudi &&
@@ -188,7 +186,7 @@ graph graph::create_for_refinement(device& device, std::string name) {
       "Graph creation failed. synStatus=",
       Logger::formatStatusMsg(status));
   syn_graph.is_valid_ = true;
-  syn_graph.dry_run_ = false;
+  syn_graph.dry_run_ = DryRun::Disabled;
   PT_SYNHELPER_END;
   return syn_graph;
 }
@@ -451,7 +449,7 @@ void graph::add_node(
     const char** output_layouts,
     bool deterministic,
     const std::string& hints_str) {
-  if (dry_run_) {
+  if (is_dry_run()) {
     // Lazy mode shape inference call, early return without execution
     return;
   }
@@ -545,7 +543,8 @@ void graph::add_node(
     synUserProgrammability user_programmability;
     for (const auto& h : hints_map) {
       if (h.first == "exec_order") {
-        user_exec_order.executionOrderedIndex = static_cast<unsigned>(std::stoi(h.second));
+        user_exec_order.executionOrderedIndex =
+            static_cast<unsigned>(std::stoi(h.second));
         is_exec_order_provided = true;
       } else if (h.first == "group_id") {
         user_exec_order.groupId = static_cast<unsigned>(std::stoi(h.second));
@@ -764,8 +763,9 @@ void graph::launch(
       least_workspace_size =
           device.get_least_workspace_size(tensor_mem, workspace_size);
       // Set minimal size of workspace to 4MB to prevent it from being 0
-      if (least_workspace_size < 4 * 1024 * 1024) {
-        least_workspace_size = 4 * 1024 * 1024;
+      constexpr size_t min_required_workspace_size = 4ull * 1024 * 1024;
+      if (least_workspace_size < min_required_workspace_size) {
+        least_workspace_size = min_required_workspace_size;
       }
       device.cleanup_workspace_buffer();
     }
@@ -879,7 +879,6 @@ void graph::launch(
 std::string_view graph::name_suffix_from_type(
     const synDataType type,
     bool use_int64) {
-  std::string kernel_suffix{};
   using namespace std::literals;
   switch (type) {
     case synDataType::syn_type_float: {

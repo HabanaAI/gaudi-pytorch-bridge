@@ -150,7 +150,8 @@ class HabanaLaunchOpPT;
 namespace HabanaLaunchOpPipeline {
 
 class PipelineCallBase;
-extern PipelineCallBase NoPipeline;
+extern PipelineCallBase
+    NoPipeline; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 void LoweringTask(
     std::unique_ptr<HabanaLaunchOpPT>&& launch_op,

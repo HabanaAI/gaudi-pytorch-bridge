@@ -1,22 +1,22 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_eager/eager_view.h"
 #include <cstddef>
-#include <cstdint>
 #include <string_view>
+#include "backend/habana_device/hpu_cached_devices.h"
 
 namespace habana {
 namespace eager {
@@ -29,22 +29,23 @@ using namespace std::literals;
 tensor.
 The below list of ops ignore the values in the input tensor and overwrite the
 contents*/
-std::unordered_set<std::string_view> underscored_ops_reported_as_non_inplace = {
-    "aten::zero_"sv,
-    "aten::_foreach_zero_"sv,
-    "aten::fill_"sv,
-    "hpu::bernoulli_"sv,
-    "hpu::uniform_"sv,
-    "hpu::random_"sv,
-    "hpu::normal_"sv,
-    "hpu::geometric_"sv,
-    "hpu::log_normal_"sv,
-    "hpu::exponential_"sv};
+const std::unordered_set<std::string_view>
+    underscored_ops_reported_as_non_inplace = {
+        "aten::zero_"sv,
+        "aten::_foreach_zero_"sv,
+        "aten::fill_"sv,
+        "hpu::bernoulli_"sv,
+        "hpu::uniform_"sv,
+        "hpu::random_"sv,
+        "hpu::normal_"sv,
+        "hpu::geometric_"sv,
+        "hpu::log_normal_"sv,
+        "hpu::exponential_"sv};
 
 /* below ops modify the o/p dtype in their out of place variant or
  * convert out variant to regular one that may result in dtype promotion
  * thereby requiring cast node*/
-std::unordered_set<std::string_view> ops_needing_cast = {
+const std::unordered_set<std::string_view> ops_needing_cast = {
     "aten::eq"sv,          "aten::ne"sv,
     "aten::ge"sv,          "aten::le"sv,
     "aten::gt"sv,          "aten::lt"sv,
@@ -317,11 +318,11 @@ void HandleInputOutputView(
   bool idx_is_out = input_idx_in_node_po >= first_out_id;
 
   std::optional<size_t> node_output_idx;
-  bool inplace_input = false;
-  if (idx_is_out ||
-      (inplace_input =
-           (is_inplace_op &&
-            eager_op_meta_data.out_indices_.count(input_idx_in_node_po)))) {
+  bool inplace_input = idx_is_out
+      ? false
+      : (is_inplace_op &&
+         eager_op_meta_data.out_indices_.count(input_idx_in_node_po));
+  if (idx_is_out || inplace_input) {
     node_output_idx = state.cumulative_output_idx++;
   }
 
@@ -340,7 +341,12 @@ void HandleInputOutputView(
 
   if (!idx_is_out || (eager_op_meta_data.num_out_tensors_ > 1)) {
     auto sv_node = insert_strided_view_node(
-        graph, node_consuming_input, t, input_jitval, op_doesnt_use_input, input_idx_in_node_po);
+        graph,
+        node_consuming_input,
+        t,
+        input_jitval,
+        op_doesnt_use_input,
+        input_idx_in_node_po);
     ++state.strided_view_nodes_count;
 
     // update node params jit value map

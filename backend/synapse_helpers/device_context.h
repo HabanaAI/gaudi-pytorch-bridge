@@ -1,29 +1,27 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
 #include <synapse_api_types.h> // for HCL_Rank
-#include <atomic> // for atomic
 #include <cstddef> // for size_t
 #include <cstdint> // for uint8_t, uintptr_t
 #include <functional> // for function
 #include <map> // for vector
 #include <memory> // for shared_ptr, enable_share...
 #include <mutex> // for mutex
-#include <unordered_map> // for unordered_map
 #include <vector> // for vector
 #include "hccl_types.h"
 
@@ -31,7 +29,6 @@
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/event.h" // for synapse_error_o
 #include "backend/synapse_helpers/stream.h" // for synapse_error_o
-#include "backend/synapse_helpers/synapse_error.h" // for synapse_error_o
 
 namespace hccl_integration {
 
