@@ -156,6 +156,14 @@ install-fork: validate init ## install the PT fork whl
 	$(DOCKER_IMAGE) \
 	'pip3 install -U $${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl'
 
+collect-pt-versions: validate init ## extract versions from build_profiles.json and save them in .env file
+	@echo Collect versions from build_profiles.json into .env file
+	echo "TORCH_VERSION=$(shell jq -rj '.pt_versions.current.version' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHVISION_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchvision' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHAUDIO_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchaudio' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHTEXT_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchtext' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+	echo "TORCHDATA_VERSION=$(shell jq -rj '.pt_versions.current.extras.torchdata' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)" >> $(SRC_DIR)/pytorch-integration/.devops/cd/scripts/.env
+
 build-%: validate init
 	@echo building $* for $(BUILD_OS)
 	$(HIDE)docker run -t --rm \

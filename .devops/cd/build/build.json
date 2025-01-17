@@ -6,7 +6,6 @@
             "pytorch-fork",
             "pytorch-integration",
             "pytorch-training-tests",
-            "pytorch-vision-fork",
             "specs_external",
             "synapse",
             "synapse_profiler",
@@ -29,7 +28,7 @@
         "env": {
             "DATA_LOADER_AEON_LIB_PATH": "${AEON_RELEASE_BUILD}/lib/libaeon.so"
         },
-        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j 8"
+        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --upstream-compile --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j 8"
     },
     "modules_next": {
         "env": {
