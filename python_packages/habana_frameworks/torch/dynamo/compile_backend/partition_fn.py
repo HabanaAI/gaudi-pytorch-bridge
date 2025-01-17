@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from typing import Deque, List, Tuple
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from torch._dynamo.utils import count_calls
-from torch._functorch.partitioners import default_partition
+from torch._functorch.partitioners import default_partition, min_cut_rematerialization_partition
 
 from .passes import is_view_node
 
@@ -103,4 +103,7 @@ def hpu_partition(
     if hpu_backend_config.remove_unnecessary_clones:
         joint_module = remove_unnecessary_clone(joint_module)
 
-    return default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
+    try:
+        return default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
+    except AssertionError as e:
+        return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
