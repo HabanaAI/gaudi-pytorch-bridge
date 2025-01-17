@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/compilation_statistics.h"
 #include "backend/helpers/create_tensor.h"
@@ -6096,8 +6097,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       ApplyOutputPermutationsFromCache(is_dynamic_recipe);
       permutation_saver_ = std::make_unique<PermutationIgnore>();
     } else {
-      permutation_saver_ =
-          std::make_unique<PermutationSetAndSave>(jit_graph_and_meta_data_, is_dynamic_recipe);
+      permutation_saver_ = std::make_unique<PermutationSetAndSave>(
+          jit_graph_and_meta_data_, is_dynamic_recipe);
     }
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
     pipeline_execution.compile_sync();
