@@ -134,12 +134,17 @@ def get_node_storage(node: torch.fx.Node) -> Optional[int]:
 def reinplace_add_extra_check(node) -> bool:
     src0, src1 = node.args[0], node.args[1]
 
-    # condition 1: src0 and src1 are both tensors
+    # condition 1: src0 and src1 are both Node
     if not (isinstance(src0, torch.fx.Node) and isinstance(src1, torch.fx.Node)):
         return False
 
-    # condition 2: src0 and src1 have same dtype and are float types
     src0_val, src1_val = src0.meta["val"], src1.meta["val"]
+
+    # condition 1.5: src0_val and src1_val are both tensors
+    if not (isinstance(src0_val, torch.Tensor) and isinstance(src1_val, torch.Tensor)):
+        return False
+
+    # condition 2: src0 and src1 have same dtype and are float types
     if not (src0_val.dtype == src1_val.dtype and src0_val.dtype in {torch.float32, torch.bfloat16, torch.float16}):
         return False
 
