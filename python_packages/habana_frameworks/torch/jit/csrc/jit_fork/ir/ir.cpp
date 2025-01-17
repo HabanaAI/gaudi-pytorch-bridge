@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ static std::ostream& operator<<(
     printValueRef(out, n);
     if (c10::type_verbosity() >= c10::TypeVerbosity::Type) {
       out << " : ";
-      out << n->typeWrapper();
+      out << *n->type();
     }
   }
   return out;
@@ -221,13 +221,13 @@ static void printAttribute(std::ostream& out, const IValue& ival) {
 
 static void printTypeList(
     std::ostream& out,
-    const std::vector<TypeWrapper>& items) {
+    const std::vector<TypePtr>& items) {
   out << "[";
   int i = 0;
   for (auto& item : items) {
     if (i++ > 0)
       out << ", ";
-    out << item;
+    out << *item;
   }
   out << "]";
 }
@@ -241,13 +241,12 @@ void Node::printAttrValue(std::ostream& out, const Symbol& name) const {
       // TODO(@anjali411): fix this
       HABANA_ASSERT(false);
       break;
-    // todo SW-199903
-    // case AttributeKind::b:
-    //   printAttribute(out, b(name));
-    //   break;
-    // case AttributeKind::bs:
-    //   printAttribute(out, bs(name));
-    //   break;
+    case AttributeKind::b:
+      printAttribute(out, b(name));
+      break;
+    case AttributeKind::bs:
+      printAttribute(out, bs(name));
+      break;
     case AttributeKind::f:
       printAttribute(out, f(name));
       break;
@@ -282,7 +281,7 @@ void Node::printAttrValue(std::ostream& out, const Symbol& name) const {
       out << "[<Graphs>]";
       break;
     case AttributeKind::ty:
-      out << ty(name);
+      out << *ty(name);
       break;
     case AttributeKind::tys:
       printTypeList(out, tys(name));
@@ -807,14 +806,13 @@ std::unique_ptr<Graph> Graph::copyUnique() {
   return new_g;
 }
 
-void Block::remapTypes(
-    const std::function<TypeWrapper(TypeWrapper)>& type_map) {
+void Block::remapTypes(const std::function<TypePtr(TypePtr)>& type_map) {
   for (Value* input : inputs()) {
-    input->setType(type_map(input->typeWrapper()));
+    input->setType(type_map(input->type()));
   }
   for (Node* node : nodes()) {
     for (Value* output : node->outputs()) {
-      output->setType(type_map(output->typeWrapper()));
+      output->setType(type_map(output->type()));
     }
     for (Block* sub_block : node->blocks()) {
       sub_block->remapTypes(type_map);
@@ -831,8 +829,7 @@ void Block::remapTypes(
   }
 }
 
-void Graph::remapTypes(
-    const std::function<TypeWrapper(TypeWrapper)>& type_map) {
+void Graph::remapTypes(const std::function<TypePtr(TypePtr)>& type_map) {
   block()->remapTypes(type_map);
 }
 
@@ -947,7 +944,7 @@ Value* Value::setDebugName(const std::string& name, bool allow_numbers) {
 }
 
 Value* Value::copyMetadata(Value* from) {
-  setType(from->typeWrapper());
+  setType(from->type());
   if (from->hasDebugName()) {
     setDebugName(from->debugName());
   }
@@ -1074,7 +1071,7 @@ bool Node::matches(const FunctionSchema& schema) const {
     // Optional[T] we will not succeed at matching T. However None <:
     // Optional[T] so this check can still succeed.
 
-    if (!matchTypes(actuals[i]->type(), formal)) {
+    if (!actuals[i]->type()->isSubtypeOf(*formal)) {
       return false;
     }
   }
@@ -1118,18 +1115,17 @@ void Node::dump() const {
   std::cout << *this << "\n";
 }
 
-// todo SW-199903
-// void Node::setOperatorName(const c10::OperatorName& operator_name) {
-//   operator_name_ = operator_name;
-// }
+void Node::setOperatorName(const c10::OperatorName& operator_name) {
+  operator_name_ = operator_name;
+}
 
-// const c10::OperatorName& Node::getOperatorName() const {
-//   if (!operator_name_) {
-//     return schema().operator_name();
-//   }
+const c10::OperatorName& Node::getOperatorName() const {
+  if (!operator_name_) {
+    return schema().operator_name();
+  }
 
-//   return *operator_name_;
-// }
+  return *operator_name_;
+}
 
 const FunctionSchema& Node::schema() const {
   if (op_) {
@@ -1414,7 +1410,7 @@ void Node::replaceAllUsesWith(Node* n) {
 
 Node* Node::replaceWithNewSymbol(Symbol new_symbol) {
   WithInsertPoint insert_guard{this};
-  // bool had_operator = maybeOperator() != nullptr;
+  bool had_operator = maybeOperator() != nullptr;
   auto graph = owningGraph();
   auto replace_node = graph->insertNode(graph->create(new_symbol, 0));
   for (Value* v : inputs()) {
@@ -1426,11 +1422,11 @@ Node* Node::replaceWithNewSymbol(Symbol new_symbol) {
   }
   replace_node->copyMetadata(this);
   replace_node->copyAttributes(*this);
-  // HABANA_ASSERT(
-  //     (replace_node->maybeOperator() != nullptr) == had_operator,
-  //     "invalid symbol replacement:",
-  //     new_symbol,
-  //     kind());
+  HABANA_ASSERT(
+      (replace_node->maybeOperator() != nullptr) == had_operator,
+      "invalid symbol replacement:",
+      new_symbol,
+      kind());
 
   return replace_node;
 }
@@ -1849,7 +1845,7 @@ Node* Graph::createList(
   auto n = create(prim::ListConstruct, values);
   for (const auto& v : values) {
     TORCH_CHECK(
-        matchTypes(v->type(), contained_type),
+        v->type()->isSubtypeOf(*contained_type),
         "Expected a list element that subtypes '",
         contained_type->repr_str(),
         "' but got an element of type '",
@@ -1895,8 +1891,8 @@ Node* Graph::createDict(
   HABANA_ASSERT(keys.size() == values.size());
   auto n = create(prim::DictConstruct, 1);
   for (const auto i : c10::irange(keys.size())) {
-    HABANA_ASSERT(matchTypes(keys[i]->type(), key_type));
-    HABANA_ASSERT(matchTypes(values[i]->type(), value_type));
+    AT_ASSERT(keys[i]->type()->isSubtypeOf(*key_type));
+    AT_ASSERT(values[i]->type()->isSubtypeOf(*value_type));
 
     n->addInput(keys[i]);
     n->addInput(values[i]);
@@ -1944,22 +1940,22 @@ Node* Graph::createStore(const std::string& name, Value* v) {
   return n;
 }
 
-Node* Graph::createLoad(const std::string& name, const TypeWrapper& type) {
+Node* Graph::createLoad(const std::string& name, const TypePtr& type) {
   auto n = create(prim::Load, {}, /*num_outputs*/ 1);
   n->s_(attr::name, name);
   n->output()->setType(type);
   return n;
 }
 
-Node* Graph::createIsInstance(Value* v, at::ArrayRef<TypeWrapper> types) {
+Node* Graph::createIsInstance(Value* v, at::ArrayRef<TypePtr> types) {
   auto n = create(prim::isinstance, {v}, /*num_outputs*/ 1);
   n->tys_(attr::types, types.vec());
   n->output()->setType(BoolType::get());
   return n;
 }
-Value* Graph::insertUncheckedCast(Value* v, const TypeWrapper& type) {
+Value* Graph::insertUncheckedCast(Value* v, TypePtr type) {
   Node* n = insertNode(create(prim::unchecked_cast, {v}));
-  n->output()->setType(type);
+  n->output()->setType(std::move(type));
   return n->output();
 }
 
@@ -2109,6 +2105,22 @@ void Node::copyAttributesIntoUpstreamNode(::torch::jit::Node* dst_node) {
     auto type = src_attr->kind();
 
     switch (type) {
+      case AttributeKind ::b: {
+        auto gotAttr = this->getAttr<BoolAttr>(src_attr_name);
+        // gotAttr = bool need to static_cast into int
+        dst_node->i_(src_attr_name, static_cast<int64_t>(gotAttr));
+        break;
+      }
+      case AttributeKind ::bs: {
+        auto gotAttr = this->getAttr<BoolsAttr>(src_attr_name);
+        // gotAttr = std::vector<bool> need to static_cast into std::vector<int>
+        std::vector<int64_t> vecInt(gotAttr.size());
+        for (size_t i = 0; i < gotAttr.size(); i++) {
+          vecInt[i] = static_cast<int64_t>(gotAttr[i]);
+        }
+        dst_node->is_(src_attr_name, vecInt);
+        break;
+      }
       case AttributeKind::f: {
         auto gotAttr = this->getAttr<FloatAttr>(src_attr_name);
         dst_node->f_(src_attr_name, gotAttr);
@@ -2154,18 +2166,18 @@ void Node::copyAttributesIntoUpstreamNode(::torch::jit::Node* dst_node) {
         break;
       }
       case AttributeKind ::t: {
-        LOG(WARNING) << "Tensor? requires support";
-
+        auto gotAttr = this->getAttr<TensorAttr>(src_attr_name);
+        dst_node->t_(src_attr_name, gotAttr);
         break;
       }
       case AttributeKind ::ts: {
-        // auto gotAttr = this->getAttr<>(src_attr_name);
-        // dst_node->_(src_attr_name, gotAttr);
-        LOG(WARNING) << "AKind ts (Tensors?) needs support";
-
+        auto gotAttr = this->getAttr<TensorsAttr>(src_attr_name);
+        dst_node->ts_(src_attr_name, gotAttr);
         break;
       }
       case AttributeKind ::g: {
+        // cannot convert 'shared_ptr<habana_torch::jit::Graph>'
+        // to 'shared_ptr<torch::jit::Graph>'
         // auto gotAttr = this->getAttr<GraphAttr>(src_attr_name);
         // dst_node->g_(src_attr_name, gotAttr);
         LOG(WARNING) << "GraphAttr needs support";
@@ -2178,16 +2190,13 @@ void Node::copyAttributesIntoUpstreamNode(::torch::jit::Node* dst_node) {
         break;
       }
       case AttributeKind ::ty: {
-        // auto gotAttr = this->getAttr<TypeAttr>(src_attr_name);
-        // dst_node->ty_(src_attr_name, gotAttr);
-        LOG(WARNING) << "TypeAttr needs support";
-
+        auto gotAttr = this->getAttr<TypeAttr>(src_attr_name);
+        dst_node->ty_(src_attr_name, gotAttr);
         break;
       }
       case AttributeKind ::tys: {
-        // auto gotAttr = this->getAttr<TypesAttr>(src_attr_name);
-        // dst_node->tys_(src_attr_name, gotAttr);
-        LOG(WARNING) << "TypesAttr needs support";
+        auto gotAttr = this->getAttr<TypesAttr>(src_attr_name);
+        dst_node->tys_(src_attr_name, gotAttr);
         break;
       }
       case AttributeKind ::ival: {

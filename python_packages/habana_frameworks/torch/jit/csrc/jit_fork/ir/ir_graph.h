@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -234,10 +234,10 @@ struct Graph : std::enable_shared_from_this<Graph> {
     return insertNode(createGetAttr(obj, field))->output();
   }
   TORCH_API Node* createStore(const std::string& name, Value* v);
-  TORCH_API Node* createLoad(const std::string& name, const TypeWrapper& type);
-  TORCH_API Node* createIsInstance(Value* v, at::ArrayRef<TypeWrapper> types);
+  TORCH_API Node* createLoad(const std::string& name, const TypePtr& type);
+  TORCH_API Node* createIsInstance(Value* v, at::ArrayRef<TypePtr> types);
 
-  TORCH_API Value* insertUncheckedCast(Value* v, const TypeWrapper& type);
+  TORCH_API Value* insertUncheckedCast(Value* v, TypePtr type);
 
   // Insert a ToList operator with argument \p v and output type \p type.
   // \returns the output of the operation.
@@ -343,8 +343,7 @@ struct Graph : std::enable_shared_from_this<Graph> {
 
   TORCH_API std::shared_ptr<Graph> copy();
   TORCH_API std::unique_ptr<Graph> copyUnique();
-  TORCH_API void remapTypes(
-      const std::function<TypeWrapper(TypeWrapper)>& type_map);
+  TORCH_API void remapTypes(const std::function<TypePtr(TypePtr)>& type_map);
 
  private:
   friend TORCH_API void Lint(const AliasDb* db);

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -71,7 +71,7 @@ using c10::UnionType;
 using c10::VarType;
 
 namespace habana_torch::jit {
-TypeWrapper SchemaTypeParser::parseBaseType() {
+TypePtr SchemaTypeParser::parseBaseType() {
   static std::unordered_map<std::string, TypePtr> type_map = {
       {"Generator", c10::TypeFactory::get<GeneratorType>()},
       {"Dimname", c10::TypeFactory::get<StringType>()},
@@ -120,41 +120,7 @@ TypeWrapper SchemaTypeParser::parseBaseType() {
     }
     throw ErrorReport(tok.range) << "unknown type specifier";
   }
-
-  const c10::TypeKind type_kind = it->second->kind();
-  const bool is_symbolic = type_kind == c10::TypeKind::SymIntType ||
-      type_kind == c10::TypeKind::SymFloatType ||
-      type_kind == c10::TypeKind::SymBoolType;
-  const bool has_symbolic_info = L.cur().kind == '(';
-  if (is_symbolic && has_symbolic_info) {
-    // Three scenarios:
-    // 1. ',' - Value as an argument and it is not last argument.
-    // 2. '=' - Assignment operator
-    // 3. '):' - Value as an argument and it is last argument.
-    const auto simple_patterns = std::vector<int>({',', '='});
-    const auto advanced_patterns =
-        std::vector<std::pair<int, int>>{std::pair<int, int>(')', ':')};
-    std::string symbol_or_expr = parseUntil(simple_patterns, advanced_patterns);
-    if (symbol_or_expr[0] != '(' ||
-        symbol_or_expr[symbol_or_expr.length() - 1] != ')') {
-      throw ErrorReport(tok.range)
-          << "Symbol or expression was not enclosed correctly by parenthesis";
-    }
-
-    const auto left_par_num =
-        std::count(symbol_or_expr.begin(), symbol_or_expr.end(), '(');
-    const auto right_par_num =
-        std::count(symbol_or_expr.begin(), symbol_or_expr.end(), ')');
-    if (left_par_num == right_par_num) {
-      symbol_or_expr = symbol_or_expr.substr(1, symbol_or_expr.length() - 2);
-    } else {
-      throw ErrorReport(tok.range)
-          << "Symbol or expression has mismatch in number of parenthesis";
-    }
-    return TypeWrapper(it->second, symbol_or_expr);
-  }
-
-  return TypeWrapper(it->second);
+  return it->second;
 }
 
 // Examples:
@@ -273,7 +239,15 @@ c10::optional<bool> SchemaTypeParser::tryToParseRequiresGrad() {
   }
 }
 
-TypeWrapper SchemaTypeParser::parseRefinedTensor() {
+TypePtr SchemaTypeParser::parseRefinedTensor() {
+  auto maybe_dtype = parseTensorDType(L.expect(TK_IDENT).text());
+  AT_ASSERT(maybe_dtype);
+  at::ScalarType dtype = *maybe_dtype;
+  TypePtr ptr;
+  L.expect('(');
+  TypePtr tensor_type;
+  c10::optional<c10::Device> device;
+  c10::optional<bool> requires_grad;
   // Parse a type with either no ranks, known ranks with sizes, ranks with
   // unknown sizes, a mix of ranks with known and unknown sizes, or ranks with
   // known sizes and strides. The type might also have requires_grad and/or
@@ -281,50 +255,43 @@ TypeWrapper SchemaTypeParser::parseRefinedTensor() {
   //   Long(10, 8, 6, strides=[48, 6, 1], requires_grad=0, device=cuda:1)
   //   Float(10, *, 20, device=cuda:1)
   //   Float(requires_grad=1)
-  TypePtr ptr;
-  c10::optional<c10::Device> device;
-  c10::optional<bool> requires_grad;
-  SymbolicShape shape;
-  SymbolicStrides strides;
-
-  auto maybe_dtype = parseTensorDType(L.expect(TK_IDENT).text());
-  HABANA_ASSERT(maybe_dtype);
-  at::ScalarType dtype = *maybe_dtype;
-  parseList('(', ',', ')', [&] {
-    const std::string& field = L.expect(TK_IDENT).text();
-    if (field == "device") {
-      auto parsed_device = tryToParseDeviceType();
-      if (parsed_device.has_value()) {
-        if (device.has_value()) {
-          throw ErrorReport(L.cur().range) << "'device' is specified twice";
+  std::vector<c10::optional<int64_t>> dims;
+  bool seen_strides = false;
+  std::vector<int64_t> strides;
+  parseList(TK_NOTHING, ',', ')', [&] {
+    // Extra handling for options like 'device' and 'requires_grad'
+    if (L.cur().kind == TK_IDENT && L.cur().text() != "SS") {
+      const std::string& field = L.expect(TK_IDENT).text();
+      if (field == "device") {
+        auto parsed_device = tryToParseDeviceType();
+        if (parsed_device.has_value()) {
+          if (device.has_value()) {
+            throw ErrorReport(L.cur().range) << "'device' is specified twice";
+          }
+          device = parsed_device;
         }
-        device = parsed_device;
+        return;
       }
-      return;
-    }
-    if (field == "requires_grad") {
-      auto parsed_requires_grad = tryToParseRequiresGrad();
-      if (parsed_requires_grad.has_value()) {
-        if (requires_grad.has_value()) {
-          throw ErrorReport(L.cur().range)
-              << "'requires_grad' is specified twice";
+      if (field == "requires_grad") {
+        auto parsed_requires_grad = tryToParseRequiresGrad();
+        if (parsed_requires_grad.has_value()) {
+          if (requires_grad.has_value()) {
+            throw ErrorReport(L.cur().range)
+                << "'requires_grad' is specified twice";
+          }
+          requires_grad = parsed_requires_grad;
         }
-        requires_grad = parsed_requires_grad;
+        return;
       }
-      return;
-    }
-    if (field == "strides") {
-      L.expect('=');
-      parseList('[', ',', ']', [&] {
-        if (L.cur().kind == '*') {
-          throw ErrorReport(L.cur().range)
-              << "Strides with unknown values are not supported";
-        } else if (L.cur().kind == TK_NUMBER) {
+      if (field == "strides") {
+        seen_strides = true;
+        L.expect('=');
+        parseList('[', ',', ']', [&] {
           const std::string& num = L.expect(TK_NUMBER).text();
           // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
           std::string::size_type num_len;
           try {
-            auto stride = std::stoll(num, &num_len);
+            auto stride = c10::stoll(num, &num_len);
             strides.push_back(stride);
           } catch (const std::invalid_argument& e) {
             throw ErrorReport(L.cur().range)
@@ -332,71 +299,94 @@ TypeWrapper SchemaTypeParser::parseRefinedTensor() {
           } catch (const std::out_of_range& e) {
             throw ErrorReport(L.cur().range) << "The stride is too big";
           }
-        } else {
-          const std::string symbol_or_expr =
-              parseUntil(std::vector<int>{',', ']'});
-          strides.push_back(symbol_or_expr);
-        }
-      });
-      return;
+        });
+        return;
+      }
+      throw ErrorReport(L.cur().range)
+          << "Unexpected specifier '" << field << "'";
     }
-    if (field == "shape") {
-      L.expect('=');
-      parseList('[', ',', ']', [&] {
-        if (L.cur().kind == '*') {
-          throw ErrorReport(L.cur().range)
-              << "Shape with unknown values is not supported";
-        } else if (L.cur().kind == TK_IDENT && L.cur().text() == "SS") {
-          throw ErrorReport(L.cur().range)
-              << "Shape with old fashioned symbolic values is not supported";
-        } else if (L.cur().kind == TK_NUMBER) {
-          const std::string& num = L.expect(TK_NUMBER).text();
-          // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
-          std::string::size_type num_len;
-          int64_t dim = 0;
-          try {
-            dim = std::stoll(num, &num_len);
-          } catch (const std::invalid_argument& e) {
-            throw ErrorReport(L.cur().range)
-                << "The number can't be converted to int";
-          } catch (const std::out_of_range& e) {
-            throw ErrorReport(L.cur().range) << "Number is too big";
-          }
-          shape.push_back(dim);
-        } else {
-          std::string symbol_or_expr = parseUntil(std::vector<int>{',', ']'});
-          shape.push_back(symbol_or_expr);
-        }
-      });
-      return;
+    if (device.has_value() || requires_grad.has_value()) {
+      throw ErrorReport(L.cur().range)
+          << "'device' and 'requires_grad' should come after dimensions in the type specification";
     }
-    throw ErrorReport(L.cur().range)
-        << "Unexpected specifier '" << field << "'";
-  });
 
-  return TypeWrapper::createTensorTypeWrapper(
-      dtype, shape, strides, device, requires_grad);
+    // Parsing ranks, supports mix of sized and unsized ranks, or, just strided
+    // ranks
+    if (L.cur().kind == '*') {
+      dims.emplace_back(c10::nullopt);
+      L.next();
+      if (L.cur().kind == ':') {
+        throw ErrorReport(L.cur().range)
+            << "Strides for unsized ranks not supported";
+      }
+      return;
+    }
+    bool shape_symbol = false;
+    if (L.cur().kind == TK_IDENT && L.cur().text() == "SS") {
+      L.next();
+      L.expect('(');
+      L.expect('-');
+      shape_symbol = true;
+    }
+    const std::string& num = L.expect(TK_NUMBER).text();
+    // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
+    std::string::size_type num_len;
+    int64_t dim = 0;
+    try {
+      dim = c10::stoll(num, &num_len);
+    } catch (const std::invalid_argument& e) {
+      throw ErrorReport(L.cur().range)
+          << "The number can't be converted to int";
+    } catch (const std::out_of_range& e) {
+      throw ErrorReport(L.cur().range) << "Number is too big";
+    }
+    if (shape_symbol) {
+      L.expect(')');
+      dim = -dim;
+    }
+    dims.emplace_back(dim);
+  });
+  if (seen_strides) {
+    at::IntArrayRef strides_ref(strides);
+    if (strides.size() != dims.size()) {
+      // note: mixing unsized ranks and ranks with strides will always trigger
+      // this
+      throw ErrorReport(L.cur().range)
+          << "Strides info is specified for some but not for all dimensions";
+    }
+    ptr = at::TensorType::create(
+        dtype,
+        device,
+        c10::VaryingShape<int64_t>(dims),
+        c10::VaryingShape<int64_t>(strides),
+        requires_grad);
+  } else {
+    ptr = at::TensorType::create(
+        dtype,
+        device,
+        c10::VaryingShape<int64_t>(dims),
+        c10::VaryingShape<int64_t>(dims.size()),
+        requires_grad);
+  }
+  return ptr;
 }
 
-std::pair<TypeWrapper, c10::optional<AliasInfo>> SchemaTypeParser::parseType() {
+std::pair<TypePtr, c10::optional<AliasInfo>> SchemaTypeParser::parseType() {
   auto r = parseFakeAndRealType();
   return std::make_pair(std::move(std::get<0>(r)), std::move(std::get<2>(r)));
 }
 
-std::tuple<
-    /*fake*/ TypeWrapper,
-    /*real*/ TypeWrapper,
-    c10::optional<AliasInfo>>
+std::tuple</*fake*/ TypePtr, /*real*/ TypePtr, c10::optional<AliasInfo>>
 SchemaTypeParser::parseFakeAndRealType() {
-  TypeWrapper fake_value;
-  TypeWrapper real_value;
+  TypePtr fake_value;
+  TypePtr real_value;
   c10::optional<AliasInfo> alias_info;
   // Tuple type
   if (L.cur().kind == '(') {
     std::vector<TypePtr> types;
     parseList('(', ',', ')', [&] {
       auto r = parseType();
-      types.push_back(std::move(r.first.getType()));
+      types.push_back(std::move(r.first));
       if (alias_info && r.second) {
         alias_info->addContainedType(std::move(*r.second));
       }
@@ -407,7 +397,7 @@ SchemaTypeParser::parseFakeAndRealType() {
     L.next(); // Future
     L.expect('(');
     auto p = parseType();
-    auto subtype = std::move(p.first.getType());
+    auto subtype = std::move(p.first);
     auto subalias = std::move(p.second);
     L.expect(')');
     fake_value = real_value = c10::TypeFactory::create<FutureType>(subtype);
@@ -415,7 +405,7 @@ SchemaTypeParser::parseFakeAndRealType() {
     L.next(); // Await
     L.expect('(');
     auto p = parseType();
-    auto subtype = std::move(p.first.getType());
+    auto subtype = std::move(p.first);
     auto subalias = std::move(p.second);
     L.expect(')');
     fake_value = real_value = c10::TypeFactory::create<AwaitType>(subtype);
@@ -423,7 +413,7 @@ SchemaTypeParser::parseFakeAndRealType() {
     L.next(); // RRef
     L.expect('(');
     auto p = parseType();
-    auto subtype = std::move(p.first.getType());
+    auto subtype = std::move(p.first);
     auto subalias = std::move(p.second);
     L.expect(')');
     fake_value = real_value = c10::TypeFactory::create<RRefType>(subtype);
@@ -434,9 +424,9 @@ SchemaTypeParser::parseFakeAndRealType() {
   } else if (L.cur().kind == TK_IDENT && L.cur().text() == "Dict") {
     L.next();
     L.expect('(');
-    auto key_type = parseType().first.getType();
+    auto key_type = parseType().first;
     L.expect(',');
-    auto value_type = parseType().first.getType();
+    auto value_type = parseType().first;
     L.expect(')');
     alias_info = parseAliasAnnotation();
     fake_value = real_value =
@@ -445,10 +435,10 @@ SchemaTypeParser::parseFakeAndRealType() {
     L.next();
     L.expect('(');
     std::vector<TypePtr> types;
-    types.emplace_back(parseType().first.getType());
+    types.emplace_back(parseType().first);
     while (L.cur().kind != ')') {
       L.expect(',');
-      types.emplace_back(parseType().first.getType());
+      types.emplace_back(parseType().first);
     }
     L.expect(')');
     alias_info = parseAliasAnnotation();
@@ -490,7 +480,8 @@ SchemaTypeParser::parseFakeAndRealType() {
     real_value = parseBaseType();
     if (real_value->kind() == ScalarTypeType::Kind ||
         real_value->kind() == MemoryFormatType::Kind ||
-        real_value->kind() == LayoutType::Kind) {
+        real_value->kind() == LayoutType::Kind ||
+        real_value->kind() == SymIntType::Kind) {
       fake_value = c10::TypeFactory::get<IntType>();
     } else {
       fake_value = real_value;
@@ -501,8 +492,8 @@ SchemaTypeParser::parseFakeAndRealType() {
     if (L.cur().kind == '[' && L.lookahead().kind == ']') {
       L.next(); // [
       L.next(); // ]
-      fake_value = c10::TypeFactory::create<ListType>(fake_value.getType());
-      real_value = c10::TypeFactory::create<ListType>(real_value.getType());
+      fake_value = c10::TypeFactory::create<ListType>(fake_value);
+      real_value = c10::TypeFactory::create<ListType>(real_value);
       auto container = parseAliasAnnotation();
       if (alias_info) {
         if (!container) {
@@ -513,8 +504,8 @@ SchemaTypeParser::parseFakeAndRealType() {
       }
       alias_info = std::move(container);
     } else if (L.nextIf('?')) {
-      fake_value = c10::OptionalType::get(fake_value.getType());
-      real_value = c10::OptionalType::get(real_value.getType());
+      fake_value = c10::OptionalType::get(fake_value);
+      real_value = c10::OptionalType::get(real_value);
     } else {
       break;
     }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,23 +117,25 @@ struct ParsedLiteral {
   ParsedLiteral() = default;
 
   AttributeKind k = AttributeKind::t;
+  bool b = false;
 
   int64_t i = 0;
   std::string s = "";
   double f = 0.0;
   c10::complex<double> c = c10::complex<double>(0, 0);
-  TypeWrapper ty;
+  TypePtr ty;
+  std::vector<bool> bs;
   std::vector<int64_t> is;
   std::vector<std::string> ss;
   std::vector<double> fs;
   std::vector<c10::complex<double>> cs;
-  std::vector<TypeWrapper> tys;
+  std::vector<TypePtr> tys;
 };
 
 struct VarWithType {
   VarWithType() = default;
   std::string name;
-  TypeWrapper type;
+  TypePtr type;
 };
 
 void parseIR(
@@ -204,7 +206,7 @@ void IRParser::parseOperatorOutputs(std::vector<VarWithType>* outs) {
 ParsedLiteral IRParser::parseScalarLiteral(Node* n, std::string starting_str) {
   auto token = L.cur();
   std::string& str = starting_str;
-  std::pair<TypeWrapper, c10::optional<c10::AliasInfo>> type_alias;
+  std::pair<TypePtr, c10::optional<c10::AliasInfo>> type_alias;
   ParsedLiteral r;
   switch (token.kind) {
     case TK_STRINGLITERAL:
@@ -231,9 +233,9 @@ ParsedLiteral IRParser::parseScalarLiteral(Node* n, std::string starting_str) {
       return r;
     case TK_IDENT: {
       // Type literal
-      const std::string curr_content = L.cur().text();
+      const std::string curr_content = toLower(L.cur().text());
       const bool is_special_value =
-          toLower(curr_content) == "inf" || toLower(curr_content) == "nan";
+          curr_content == "inf" || curr_content == "nan";
       if (is_special_value) {
         str += curr_content;
         r = convertStrToNumericAttr(token, str, is_special_value);
@@ -249,12 +251,22 @@ ParsedLiteral IRParser::parseScalarLiteral(Node* n, std::string starting_str) {
         return r;
       }
     }
+    case TK_TRUE:
+      L.next();
+      r.k = AttributeKind::b;
+      r.b = true;
+      return r;
+    case TK_FALSE:
+      L.next();
+      r.k = AttributeKind::b;
+      r.b = false;
+      return r;
     case '<': {
       L.next();
       auto text = L.expect(TK_IDENT);
       if (text.text() != "Tensor") {
         throw ErrorReport(token.range)
-            << "Could not parse literal" << token.text();
+            << "Could not parse literal '" << token.text() << "'";
       }
       if (!parse_tensor_constants_) {
         throw ErrorReport(token.range)
@@ -286,7 +298,7 @@ ParsedLiteral IRParser::parseScalarLiteral(Node* n, std::string starting_str) {
     }
     default:
       throw ErrorReport(token.range)
-          << "Could not parse literal" << token.text();
+          << "Could not parse literal '" << token.text() << "'";
   }
 }
 
@@ -363,11 +375,12 @@ void IRParser::parseAttr(Node* n) {
   if (L.cur().kind == '[') {
     // list
     AttributeKind k = AttributeKind::ts;
+    c10::List<bool> bs;
     c10::List<int64_t> is;
     c10::List<std::string> ss;
     c10::List<double> fs;
     c10::List<c10::complex<double>> cs;
-    std::vector<TypeWrapper> tys;
+    std::vector<TypePtr> tys;
     int elem_num = 0;
     parseList('[', ',', ']', [&] {
       ParsedLiteral r = parseScalarLiteral(n);
@@ -376,6 +389,11 @@ void IRParser::parseAttr(Node* n) {
           ss.push_back(r.s);
           HABANA_ASSERT(!elem_num++ || k == AttributeKind::ss);
           k = AttributeKind::ss;
+          break;
+        case AttributeKind::b:
+          bs.push_back(r.b);
+          HABANA_ASSERT(!elem_num++ || k == AttributeKind::bs);
+          k = AttributeKind::bs;
           break;
         case AttributeKind::i:
           is.push_back(r.i);
@@ -407,6 +425,9 @@ void IRParser::parseAttr(Node* n) {
         break;
       case AttributeKind::ss:
         n->ival_(Symbol::attr(attrname), IValue(ss));
+        break;
+      case AttributeKind::bs:
+        n->ival_(Symbol::attr(attrname), IValue(bs));
         break;
       case AttributeKind::fs:
         n->ival_(Symbol::attr(attrname), IValue(fs));
@@ -456,6 +477,9 @@ void IRParser::parseAttr(Node* n) {
         break;
       case AttributeKind::i:
         n->i_(Symbol::attr(attrname), r.i);
+        break;
+      case AttributeKind::b:
+        n->b_(Symbol::attr(attrname), r.b);
         break;
       case AttributeKind::f:
         n->f_(Symbol::attr(attrname), r.f);
@@ -601,15 +625,16 @@ void IRParser::parseOperator(Block* b) {
         // Don't currently support checking against type variables
         // TODO: support?
         if (!schema_return_type->hasFreeVariables() &&
-            !matchTypes(*v.type, schema_return_type)) {
+            !v.type->isSubtypeOf(*schema_return_type)) {
           throw ErrorReport(source_range)
-              << "Annotated type " << v.type << " does not match schema type "
-              << *schema_return_type << " for operator " << *schema;
+              << "Annotated type " << v.type->repr_str()
+              << " does not match schema type "
+              << schema_return_type->repr_str() << " for operator " << *schema;
         }
         vmap[v.name]->setType(v.type);
       }
     } else {
-      vmap[v.name]->setType(v.type ? v.type : TypeWrapper(TensorType::get()));
+      vmap[v.name]->setType(v.type ? v.type : TensorType::get());
     }
     idx++;
   }

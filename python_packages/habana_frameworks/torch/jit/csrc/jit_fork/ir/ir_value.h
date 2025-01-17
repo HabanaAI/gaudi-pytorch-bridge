@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -54,22 +54,18 @@ struct Value {
   size_t unique_ = 0; // unique id
   use_list uses_;
   std::string unique_name_;
-  TypeWrapper type_wrapper_;
+  TypePtr type_;
   // a managing wrapper for Python to allow invalidation
   std::shared_ptr<Wrap<Value>> wrap_;
 
  public:
-  // ::torch::jit::Value* getUpstreamValue(::torch::jit::Value*);
   Value* setType(TypePtr type);
-  Value* setType(const TypeWrapper& type_wrapper);
   TORCH_API void inferTypeFrom(const at::Tensor& output);
   TORCH_API void inferTypeFrom(
       const c10::intrusive_ptr<c10::ivalue::Object>& output);
   const TypePtr& type() const {
-    return type_wrapper_.getType();
-  }
-  const TypeWrapper& typeWrapper() const {
-    return type_wrapper_;
+    AT_ASSERT(type_ != nullptr);
+    return type_;
   }
   bool requires_grad() const {
     return type()->requires_grad();

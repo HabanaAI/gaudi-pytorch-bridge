@@ -102,8 +102,6 @@ bool matchTypes(
 
 std::ostream& operator<<(std::ostream& out, const TypeWrapper& t);
 
-// todo: make sure below is needed/used
-
 // This is a wrapper to allow invalidating the Python object
 // safely when the C++ object for a Node/Value/Block is deleted
 // like much of graph, it isn't safe for different threads to

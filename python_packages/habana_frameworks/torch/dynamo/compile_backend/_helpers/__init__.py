@@ -19,6 +19,7 @@
 from .helpers import (
     calculate_default_strides,
     fill_propagated_tensor_metadata_to_node,
+    get_dynamic_config_value,
     get_node_args,
     get_node_users,
     handle_noncontiguous_output,
@@ -28,6 +29,7 @@ from .helpers import (
     is_node_supported,
     is_view_node,
     jit_node_annotation_propagation,
+    jit_node_shape_propagation,
     post_pass_finalize,
     remove_duplicated_outputs,
     remove_no_effect_inplace_add,
@@ -37,6 +39,7 @@ from .helpers import (
 __all__ = [
     "calculate_default_strides",
     "fill_propagated_tensor_metadata_to_node",
+    "get_dynamic_config_value",
     "get_node_args",
     "get_node_users",
     "handle_noncontiguous_output",
@@ -46,6 +49,7 @@ __all__ = [
     "is_node_supported",
     "is_view_node",
     "jit_node_annotation_propagation",
+    "jit_node_shape_propagation",
     "post_pass_finalize",
     "remove_duplicated_outputs",
     "remove_no_effect_inplace_add",

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -185,18 +185,18 @@ c10::optional<IValue> toIValue(const Value* v) {
   const TypePtr& type = v->type();
   if (type->isSubtypeOf(*TensorType::get())) {
     return node->t(attr::value);
-  } else if (matchTypes(type, BoolType::get())) {
+  } else if (type->isSubtypeOf(*BoolType::get())) {
     return (bool)node->i(attr::value);
   } else if (
-      matchTypes(type, NumberType::get()) &&
+      type->isSubtypeOf(*NumberType::get()) &&
       node->kindOf(attr::value) == AttributeKind::i) {
     return node->i(attr::value);
   } else if (
-      matchTypes(type, NumberType::get()) &&
+      type->isSubtypeOf(*NumberType::get()) &&
       node->kindOf(attr::value) == AttributeKind::f) {
     return node->f(attr::value);
   } else if (
-      matchTypes(type, NumberType::get()) &&
+      type->isSubtypeOf(*NumberType::get()) &&
       node->kindOf(attr::value) == AttributeKind::c) {
     return node->c(attr::value);
   } else if (

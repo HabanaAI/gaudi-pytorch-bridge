@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -264,26 +264,35 @@ bool matchTypes(const TypePtr& lhs, const TypePtr& rhs, std::ostream* why_not) {
     return lhs->isSubtypeOfExt(*rhs, why_not);
   };
 
-  if (!is_match(get_fake_type(lhs), get_fake_type(rhs), why_not)) {
-    ListTypePtr rhs_list = lhs->cast<ListType>();
-    ListTypePtr lhs_list = rhs->cast<ListType>();
-    if (rhs_list && lhs_list) {
-      return is_match(
-          get_fake_type(rhs_list->getElementType()),
-          get_fake_type(lhs_list->getElementType()));
+  const TypePtr lhs_fake = get_fake_type(lhs);
+  const TypePtr rhs_fake = get_fake_type(rhs);
+  if (!is_match(lhs_fake, rhs_fake, why_not)) {
+    BoolTypePtr lhs_bool = lhs_fake->cast<BoolType>();
+    NumberTypePtr rhs_number = rhs_fake->cast<NumberType>();
+    if (lhs_bool && rhs_number) {
+      // Bool is a scalar from IValue perspective.
+      return true;
     }
 
-    OptionalTypePtr rhs_optional = lhs->cast<OptionalType>();
-    OptionalTypePtr lhs_optional = rhs->cast<OptionalType>();
-    if (rhs_optional && lhs_optional) {
+    ListTypePtr lhs_list = lhs_fake->cast<ListType>();
+    ListTypePtr rhs_list = rhs_fake->cast<ListType>();
+    if (lhs_list && rhs_list) {
       return is_match(
-          get_fake_type(rhs_list->getElementType()),
-          get_fake_type(lhs_list->getElementType()));
+          get_fake_type(lhs_list->getElementType()),
+          get_fake_type(rhs_list->getElementType()));
     }
 
-    TupleTypePtr rhs_tuple = lhs->cast<TupleType>();
-    TupleTypePtr lhs_tuple = rhs->cast<TupleType>();
-    if (rhs_tuple && lhs_tuple) {
+    OptionalTypePtr lhs_optional = lhs_fake->cast<OptionalType>();
+    OptionalTypePtr rhs_optional = rhs_fake->cast<OptionalType>();
+    if (lhs_optional && rhs_optional) {
+      return is_match(
+          get_fake_type(lhs_list->getElementType()),
+          get_fake_type(rhs_list->getElementType()));
+    }
+
+    TupleTypePtr lhs_tuple = lhs_fake->cast<TupleType>();
+    TupleTypePtr rhs_tuple = rhs_fake->cast<TupleType>();
+    if (lhs_tuple && rhs_tuple) {
       const auto& lhs_types = lhs_tuple->containedTypes();
       const auto& rhs_types = rhs_tuple->containedTypes();
       if (lhs_types.size() == rhs_types.size()) {

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -59,12 +59,12 @@ bool tensorEqual(const at::Tensor& lhs, const at::Tensor& rhs) {
 }
 
 bool typeListEqual(
-    const std::vector<TypeWrapper>& lhs,
-    const std::vector<TypeWrapper>& rhs) {
+    const std::vector<TypePtr>& lhs,
+    const std::vector<TypePtr>& rhs) {
   if (lhs.size() != rhs.size())
     return false;
   for (const auto i : c10::irange(lhs.size())) {
-    if (*lhs[i].getType() != *rhs[i].getType()) {
+    if (*lhs[i] != *rhs[i]) {
       return false;
     }
   }
@@ -216,8 +216,10 @@ bool attributesEqualCSE(const Node* lhs, const Node* rhs) {
   } break;
 
     switch (lhs->kindOf(name)) {
+      COMPARE_ATTRIBUTEVALUE(b)
       COMPARE_ATTRIBUTEVALUE(f)
       COMPARE_ATTRIBUTEVALUE(c)
+      COMPARE_ATTRIBUTEVALUE(bs)
       COMPARE_ATTRIBUTEVALUE(fs)
       COMPARE_ATTRIBUTEVALUE(cs)
       COMPARE_ATTRIBUTEVALUE(i)
@@ -269,7 +271,7 @@ size_t HashNode::operator()(const Node* k) const {
         k->kindOf(attr::value) == AttributeKind::c) {
       constant_hash = c10::hash<c10::complex<double>>{}(k->c(attr::value));
     } else if (type->isSubtypeOf(*BoolType::get())) {
-      constant_hash = std::hash<bool>{}(k->i(attr::value));
+      constant_hash = std::hash<bool>{}(k->b(attr::value));
     }
   }
   return get_hash(

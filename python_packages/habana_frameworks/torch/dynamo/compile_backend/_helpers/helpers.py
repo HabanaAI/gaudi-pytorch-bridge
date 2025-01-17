@@ -28,6 +28,7 @@ from ..random_utils import (
     is_random_op,
     random_op_inputs,
 )
+from ..symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
 
 logger = get_compile_backend_logger()
 
@@ -327,20 +328,19 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     node.meta["output_contiguous"] = output_contiguous  # list expected
     node.meta["output_offset"] = output_offset  # list expected
 
-    if bc.get_pt_hpu_use_jit_fork():
-        logger.debug('Filling metadata "valX" for Lowering pass')
-        with torch._subclasses.fake_tensor.FakeTensorMode():
-            meta_output_vals = []
-            for i in range(len(dtypes)):
-                meta_output_vals.append(  # output_strides consists of storage_offset, strides, acccess only strides
-                    torch.empty_strided(
-                        output_shapes[i],
-                        output_strides[i],
-                        dtype=dtypes[i],
-                        device=device,
-                    )
+    if bc.get_pt_hpu_use_jit_fork() and (type(result) not in [torch.SymInt, torch.SymBool, torch.SymFloat]):
+        logger.debug('Filling metadata "val" for Lowering pass')
+        meta_output_vals = []
+        for i in range(len(dtypes)):
+            meta_output_vals.append(  # output_strides consists of storage_offset, strides, acccess only strides
+                torch.empty_strided(
+                    output_shapes[i],
+                    output_strides[i],
+                    dtype=dtypes[i],
+                    device=device,
                 )
-        node.meta["valX"] = meta_output_vals[0] if len(meta_output_vals) == 1 else tuple(meta_output_vals)
+            )
+        node.meta["val"] = meta_output_vals[0] if len(meta_output_vals) == 1 else tuple(meta_output_vals)
 
 
 def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
@@ -547,3 +547,128 @@ def jit_node_annotation_propagation(jit_ir, fx_module):
         )
 
     return
+
+
+def get_dynamic_config_value():
+    """
+    This function return the is_dynamic=True if user configured
+    the same while calling torch.compile. Otherwise return is_dynamic=False
+    """
+
+    is_dynamic = False
+    from torch._dynamo import config
+
+    # TODO: It is a W/A for discovering dynamic models. In final implementation
+    # is should read this info from tensors.
+    is_dynamic = not config.assume_static_by_default
+
+    return is_dynamic
+
+
+# It seems that this pass assumes that the fx graph and the jit graph must
+# have same ops order. Otherwise, the shape propagation may fail. However,
+# the _jit_pass_remove_mutation pass has possiblity to change the jit graph
+# ops order, and may break the assumption.
+def jit_node_shape_propagation(jit_ir, fx_module):
+    if bc.get_pt_hpu_use_jit_fork():
+        Jit_graph = jit_ir
+    else:
+        Jit_graph = jit_ir.graph
+    logger.debug("JIT processing shape propagation JIT graph:", Jit_graph)
+    logger.debug("JIT processing shape propagation FX graph:", fx_module.print_readable(False))
+    fx_nodes = list(fx_module.graph.nodes)
+    jit_node_skip_list = ["prim::Constant", "prim::ListConstruct"]
+
+    fx_count = 0
+    for node in fx_module.graph.nodes:
+        if node.op == "placeholder":
+            fx_count += 1
+        else:
+            break
+
+    def get_fx_subname(jit_node_name):
+        changed_name = jit_node_name.replace("::", ".")
+        return changed_name.split(".")[1]
+
+    def get_matched_fx_node(fx_nodes, fx_idx, jit_node_name):
+        size = len(fx_nodes)
+        next_fx_idx = None
+        curr_fx_node = None
+        logger.debug("Matching Jit node:", jit_node_name, "from FX node index:", fx_idx)
+        while fx_idx < size:
+            fx_node = fx_nodes[fx_idx]
+            if fx_node.op == "placeholder" or fx_node.op == "output":
+                fx_idx += 1
+                continue
+            if fx_node.target.__name__.count(jit_node_name) > 0:
+                fx_idx += 1
+                next_fx_idx = fx_idx
+                curr_fx_node = fx_node
+                break
+            else:
+                fx_idx += 1
+        return next_fx_idx, curr_fx_node
+
+    def create_output_size(tensor_size):
+        from ..symbolic_execution import PythonPrinter
+
+        pexpr = PythonPrinter().doprint
+        pexpr_output_shape = HPUExprPrinter().doprint
+
+        def convert_tsize_to_str(tsize):
+            shape = tsize
+            dims = len(shape)
+            tsize_str = "["
+            for dim, sz in enumerate(shape):
+                sz_str = pexpr(sz)
+                sz_str_sympy = sympify_expression(sz_str)
+                sz_str_sympy = substitute_sympyfn(sz_str_sympy)
+                logger.debug("pexpr_output_shape input sz_str_sympy:", sz_str_sympy)
+                sz_str = pexpr_output_shape(sz_str_sympy)
+                tsize_str = tsize_str + str(sz_str)
+                if dim < dims - 1:
+                    tsize_str += ","
+            tsize_str += "]"
+            return tsize_str
+
+        output_len = len(tensor_size)
+        output_size_str = "["
+        for idx, tsize in enumerate(tensor_size):
+            tsize_str = convert_tsize_to_str(tsize)
+            logger.debug("create_output_size tsize_str:", tsize_str)
+            output_size_str = output_size_str + tsize_str
+            if idx < output_len - 1:
+                output_size_str += ";"
+
+        output_size_str += "]"
+        logger.debug("create_output_size output_size_str:", output_size_str)
+        return output_size_str
+
+    for node in Jit_graph.nodes():
+        if node.kind() in jit_node_skip_list:
+            continue
+
+        fx_subname = get_fx_subname(node.kind())
+        backup_fx_count = fx_count
+        next_fx_idx, fx_node = get_matched_fx_node(fx_nodes, fx_count, fx_subname)
+        fx_count = next_fx_idx
+        # If a Jit node didnot find in the FX, then the move to next
+        # Jit node and start from next FX node index.
+        if fx_count is None:
+            fx_count = backup_fx_count + 1
+
+        if fx_node is None:
+            logger.debug("Not found a matching FX node for node name: %s !!!", fx_subname)
+            continue
+
+        output_size_str = "[[]]"
+        if "output_shapes" in fx_node.meta:
+            logger.debug(
+                "Matched nodes, Jit node name formated: %s FX node: %s fx_count: %d, output_shapes:%s",
+                fx_subname,
+                fx_node,
+                fx_count,
+                fx_node.meta["output_shapes"],
+            )
+            output_size_str = create_output_size(fx_node.meta["output_shapes"])
+        node.s_("output_shapes", output_size_str)

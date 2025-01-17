@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ def py_tuple_to_jit_tuple(py_tuple: Tuple[Any]):
 TYPE_TO_JIT_TYPE.add(bool, lambda arg: jit.BoolType.get())
 TYPE_TO_JIT_TYPE.add(float, lambda arg: jit.FloatType.get())
 TYPE_TO_JIT_TYPE.add(int, lambda arg: jit.IntType.get())
-TYPE_TO_JIT_TYPE.add(list, py_list_to_jit_list)
+# TYPE_TO_JIT_TYPE.add(list, py_list_to_jit_list)
 TYPE_TO_JIT_TYPE.add(NoneType, lambda arg: jit.NoneType.get())
 TYPE_TO_JIT_TYPE.add(str, lambda arg: jit.StringType.get())
 TYPE_TO_JIT_TYPE.add(torch._subclasses.fake_tensor.FakeTensor, lambda arg: jit.TensorType.get())
@@ -94,9 +94,9 @@ TYPE_TO_JIT_TYPE.add(torch.device, lambda arg: jit.DeviceObjType.get())
 TYPE_TO_JIT_TYPE.add(torch.dtype, lambda arg: jit.IntType.get())
 TYPE_TO_JIT_TYPE.add(torch.layout, lambda arg: jit.LayoutType.get())
 TYPE_TO_JIT_TYPE.add(torch.memory_format, lambda arg: jit.MemoryFormatType.get())
-TYPE_TO_JIT_TYPE.add(torch.SymBool, lambda arg: jit.SymBoolType.get())
-TYPE_TO_JIT_TYPE.add(torch.SymFloat, lambda arg: jit.SymFloatType.get())
-TYPE_TO_JIT_TYPE.add(torch.SymInt, lambda arg: jit.SymIntType.get())
+TYPE_TO_JIT_TYPE.add(torch.SymBool, lambda arg: jit.BoolType.get())
+TYPE_TO_JIT_TYPE.add(torch.SymFloat, lambda arg: jit.FloatType.get())
+TYPE_TO_JIT_TYPE.add(torch.SymInt, lambda arg: jit.IntType.get())
 TYPE_TO_JIT_TYPE.add(torch.Tensor, lambda arg: jit.TensorType.get())
 TYPE_TO_JIT_TYPE.add(tuple, py_tuple_to_jit_tuple)
 

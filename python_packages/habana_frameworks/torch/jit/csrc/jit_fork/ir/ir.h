@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -198,17 +198,16 @@ inline Value::Value(Node* node_, size_t offset_)
     : node_(node_),
       offset_(offset_),
       unique_(node_->graph_->next_unique_++),
-      type_wrapper_(TensorType::get()) {
+      type_(TensorType::get()) {
   node_->graph_->all_values.emplace(this);
 }
 
 inline Value* Value::setType(TypePtr type) {
-  TypeWrapper wrapper = type;
-  return setType(wrapper);
-}
-
-inline Value* Value::setType(const TypeWrapper& type) {
-  type_wrapper_ = type;
+  AT_ASSERT(type);
+  if (auto dyn = type->castRaw<c10::DynamicType>()) {
+    type = dyn->fallback();
+  }
+  type_ = std::move(type);
   for (Use& use : uses_) {
     use.user->op_ = nullptr;
   }

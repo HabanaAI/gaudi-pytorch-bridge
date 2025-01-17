@@ -16,13 +16,21 @@
 ###############################################################################
 
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 from habana_frameworks.torch.dynamo._fx_to_jit_lowering import FxToJitLowering
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizerContext
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes import run_jit_fork_passes
 
-from ._helpers import jit_node_annotation_propagation, remove_duplicated_outputs, remove_no_effect_inplace_add
+from ._helpers import (
+    get_dynamic_config_value,
+    jit_node_annotation_propagation,
+    jit_node_shape_propagation,
+    remove_duplicated_outputs,
+    remove_no_effect_inplace_add,
+)
 from .recipe_compiler import get_callable_recipe
 
 logger = get_compile_backend_logger()
@@ -80,9 +88,21 @@ class _ClusterCompiler(torch.fx.Interpreter):
 
         # todo verify run_jit_passes https://jira.habana-labs.com/browse/SW-199897
         run_jit_fork_passes(fx_to_jit_lowering.jit_ir)
+        logger.debug(
+            "####PyTorch-generated JIT IR graph after jit passes:####\n%s",
+            fx_to_jit_lowering.jit_ir,
+        )
 
         converted_jit_ir = fx_to_jit_lowering.jit_ir.copyToUpstreamGraph()
+        logger.debug(
+            "####PyTorch-generated JIT IR graph after copyToUpstreamGraph():####\n%s",
+            converted_jit_ir,
+        )
         torch._C._jit_pass_remove_mutation(converted_jit_ir)
+        logger.debug(
+            "####PyTorch-generated JIT IR graph after jit_pass_remove_mutation:####\n%s",
+            converted_jit_ir,
+        )
 
         # todo cleanup [199903] - temporarily working on reconverted
         return converted_jit_ir
@@ -92,13 +112,13 @@ class _ClusterCompiler(torch.fx.Interpreter):
         # access to FX nodes, not node.target as done in the base
         # run_node function.
         with self._set_current_node(n):
-            assert "valX" in n.meta.keys(), f"{n=} {n.target=} {n.meta.keys()=}"
+            assert "val" in n.meta.keys(), f"{n=} {n.target=} {n.meta.keys()=}"
             if n.op == "call_module":
                 args, kwargs = self.fetch_args_kwargs_from_env(n)
                 assert isinstance(args, tuple)
                 assert isinstance(kwargs, dict)
                 return getattr(self, n.op)(n, args, kwargs)
-            return n.meta["valX"]
+            return n.meta["val"]
 
     def call_module(self, node: torch.fx.Node, args, kwargs):
         target = node.target
@@ -115,6 +135,15 @@ class _ClusterCompiler(torch.fx.Interpreter):
         jit_node_annotation_propagation(jit_ir, submod)
 
         is_submod_dynamic = is_module_dynamic(submod)
+        refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
+        optim_output_sif_ds = bc.get_pt_hpu_optim_dynamic_output_sif()
+        if not hpu_backend_config.force_static_compile:
+            if refine_dynamic:
+                is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
+
+            if is_submod_dynamic and optim_output_sif_ds:
+                jit_node_shape_propagation(jit_ir, submod)
+
         syngraph_module = get_callable_recipe(
             jit_ir, submod, self.ctx.graph_name, is_training=self.ctx.is_training, is_dynamic=is_submod_dynamic
         )
@@ -138,7 +167,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
 
         self.subgraph_cnt += 1
 
-        return node.meta["valX"]
+        return node.meta["val"]
 
     @property
     def graph_changed(self):

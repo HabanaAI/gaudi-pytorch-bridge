@@ -51,24 +51,21 @@ namespace habana_torch::jit {
 
 struct Block;
 
+class Node;
+class Value;
+class Use;
 // the list types are intentionally simple, but we type-def
 // them here so if we need to change them, refactoring will be easier
+using node_list = std::vector<Node*>;
+using value_list = std::vector<Value*>;
+using use_list = std::vector<Use>;
 template <typename T>
 using ArrayRef = at::ArrayRef<T>;
-using ::c10::Argument;
-using ::c10::FunctionSchema;
-// using ::c10::Symbol;
-// using ::c10::Type;
-// using ::c10::TypeEnv;
-// using ::c10::TypePtr;
 using NodeKind = Symbol;
 using topo_position_t = int64_t;
-
-// using ::c10::getTypePtr;
-// using ::c10::MatchTypeReturn;
-// using ::c10::TypeKind;
-
-// using ::c10::fmap;
+using ::c10::Argument;
+using ::c10::FunctionSchema;
+using ValueSet = std::unordered_set<const Value*>;
 
 namespace prim {
 using namespace ::c10::prim;
@@ -107,6 +104,7 @@ struct TORCH_API Node {
   // invalidated every time we perform an operation that could potentially
   // change the schema. note: mutable because schema_ is effectively a cache
   mutable const torch::jit::Operator* op_;
+  c10::optional<c10::OperatorName> operator_name_ = c10::nullopt;
   topo_position_t topo_position_ = 0;
   // a managing wrapper for Python to allow invalidation
   std::shared_ptr<Wrap<Node>> wrap_;
@@ -567,6 +565,9 @@ struct TORCH_API Node {
     return false;
   }
 
+  void setOperatorName(const c10::OperatorName& operator_name);
+  const c10::OperatorName& getOperatorName() const;
+
   const FunctionSchema& schema() const;
   const FunctionSchema* maybeSchema() const;
   const torch::jit::Operator& getOperator() const;
@@ -660,6 +661,8 @@ struct TORCH_API Node {
   CREATE_ACCESSOR(String, s)
   CREATE_ACCESSOR(Strings, ss)
   CREATE_ACCESSOR(Int, i)
+  CREATE_ACCESSOR(Bool, b)
+  CREATE_ACCESSOR(Bools, bs)
   CREATE_ACCESSOR(Ints, is)
   CREATE_ACCESSOR(Graph, g)
   CREATE_ACCESSOR(Graphs, gs)

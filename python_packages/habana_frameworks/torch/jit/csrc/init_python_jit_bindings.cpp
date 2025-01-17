@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 
 #include <pybind11/stl.h>
 
+#include <ATen/core/jit_type.h>
 #include <ATen/core/symbol.h>
 #include <c10/core/MemoryFormat.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
@@ -705,7 +706,7 @@ void defineNodeClass(pybind11::module& m) {
           [](Node& n, const char* name) { return n.t(Symbol::attr(name)); })
       .def(
           "ty_",
-          [](Node& n, const char* name, const TypeWrapper& type) {
+          [](Node& n, const char* name, const TypePtr& type) {
             return n.ty_(Symbol::attr(name), type);
           })
       .def(
@@ -713,7 +714,7 @@ void defineNodeClass(pybind11::module& m) {
           [](Node& n, const char* name) { return n.ty(Symbol::attr(name)); })
       .def(
           "tys_",
-          [](Node& n, const char* name, const std::vector<TypeWrapper>& types) {
+          [](Node& n, const char* name, const std::vector<TypePtr>& types) {
             return n.tys_(Symbol::attr(name), types);
           })
       .def(
@@ -746,8 +747,7 @@ void defineValueClass(pybind11::module& m) {
             return ss.str();
           })
       .VS(type)
-      .def("setType", py::overload_cast<TypePtr>(&Value::setType))
-      .def("setType", py::overload_cast<const TypeWrapper&>(&Value::setType))
+      .VS(setType)
       .def(
           "inferTypeFrom",
           py::overload_cast<const at::Tensor&>(&Value::inferTypeFrom))

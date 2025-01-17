@@ -1135,11 +1135,11 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             assert all(
                 map(lambda x: isinstance(x, torch.fx.Node), args)
             ), "Currently we are assuming that all args of output should be Nodes"
-            meta_val = tuple([a.meta.get("valX", None) for a in args])
+            meta_val = tuple([a.meta.get("val", None) for a in args])
 
         assert meta_val, f"Target has 0 outputs: {target}"
 
-        graph_node.meta["valX"] = meta_val if len(meta_val) > 1 else meta_val[0]
+        graph_node.meta["val"] = meta_val if len(meta_val) > 1 else meta_val[0]
         graph_changed = True
 
     return graph_changed
@@ -1694,111 +1694,6 @@ def pass_compile_clusters(ctx: OptimizerContext):
     """
     if ctx.use_jit_fork:
         return pass_compile_clusters_jit_fork_version(ctx)
-
-    # It seems that this pass assumes that the fx graph and the jit graph must
-    # have same ops order. Otherwise, the shape propagation may fail. However,
-    # the _jit_pass_remove_mutation pass has possiblity to change the jit graph
-    # ops order, and may break the assumption.
-    def jit_node_shape_propagation(jit_ir, fx_module):
-        Jit_graph = jit_ir.graph
-        logger.debug("JIT processing shape propagation JIT graph:", Jit_graph)
-        logger.debug("JIT processing shape propagation FX graph:", fx_module.print_readable(False))
-        fx_nodes = list(fx_module.graph.nodes)
-        jit_node_skip_list = ["prim::Constant", "prim::ListConstruct"]
-
-        fx_count = 0
-        for node in fx_module.graph.nodes:
-            if node.op == "placeholder":
-                fx_count += 1
-            else:
-                break
-
-        def get_fx_subname(jit_node_name):
-            changed_name = jit_node_name.replace("::", ".")
-            return changed_name.split(".")[1]
-
-        def get_matched_fx_node(fx_nodes, fx_idx, jit_node_name):
-            size = len(fx_nodes)
-            next_fx_idx = None
-            curr_fx_node = None
-            logger.debug("Matching Jit node:", jit_node_name, "from FX node index:", fx_idx)
-            while fx_idx < size:
-                fx_node = fx_nodes[fx_idx]
-                if fx_node.op == "placeholder" or fx_node.op == "output":
-                    fx_idx += 1
-                    continue
-                if fx_node.target.__name__.count(jit_node_name) > 0:
-                    fx_idx += 1
-                    next_fx_idx = fx_idx
-                    curr_fx_node = fx_node
-                    break
-                else:
-                    fx_idx += 1
-            return next_fx_idx, curr_fx_node
-
-        def create_output_size(tensor_size):
-            from .symbolic_execution import PythonPrinter
-
-            pexpr = PythonPrinter().doprint
-            pexpr_output_shape = HPUExprPrinter().doprint
-
-            def convert_tsize_to_str(tsize):
-                shape = tsize
-                dims = len(shape)
-                tsize_str = "["
-                for dim, sz in enumerate(shape):
-                    sz_str = pexpr(sz)
-                    sz_str_sympy = sympify_expression(sz_str)
-                    sz_str_sympy = substitute_sympyfn(sz_str_sympy)
-                    logger.debug("pexpr_output_shape input sz_str_sympy:", sz_str_sympy)
-                    sz_str = pexpr_output_shape(sz_str_sympy)
-                    tsize_str = tsize_str + str(sz_str)
-                    if dim < dims - 1:
-                        tsize_str += ","
-                tsize_str += "]"
-                return tsize_str
-
-            output_len = len(tensor_size)
-            output_size_str = "["
-            for idx, tsize in enumerate(tensor_size):
-                tsize_str = convert_tsize_to_str(tsize)
-                logger.debug("create_output_size tsize_str:", tsize_str)
-                output_size_str = output_size_str + tsize_str
-                if idx < output_len - 1:
-                    output_size_str += ";"
-
-            output_size_str += "]"
-            logger.debug("create_output_size output_size_str:", output_size_str)
-            return output_size_str
-
-        for node in Jit_graph.nodes():
-            if node.kind() in jit_node_skip_list:
-                continue
-
-            fx_subname = get_fx_subname(node.kind())
-            backup_fx_count = fx_count
-            next_fx_idx, fx_node = get_matched_fx_node(fx_nodes, fx_count, fx_subname)
-            fx_count = next_fx_idx
-            # If a Jit node didnot find in the FX, then the move to next
-            # Jit node and start from next FX node index.
-            if fx_count is None:
-                fx_count = backup_fx_count + 1
-
-            if fx_node is None:
-                logger.debug("Not found a matching FX node for node name: %s !!!", fx_subname)
-                continue
-
-            output_size_str = "[[]]"
-            if "output_shapes" in fx_node.meta:
-                logger.debug(
-                    "Matched nodes, Jit node name formated: %s FX node: %s fx_count: %d, output_shapes:%s",
-                    fx_subname,
-                    fx_node,
-                    fx_count,
-                    fx_node.meta["output_shapes"],
-                )
-                output_size_str = create_output_size(fx_node.meta["output_shapes"])
-            node.s_("output_shapes", output_size_str)
 
     def generate_jit_ir_from_module(input_module: torch.fx.GraphModule):
         """

@@ -39,7 +39,8 @@ class ProcessGetItemNodes {
               "Replacing: ",
               getitem_value->debugName(),
               " with ",
-              dest_value->debugName());
+              dest_value->debugName(),
+              ".");
           getitem_value->replaceAllUsesWith(dest_value);
           graph_changed = true;
           // Collect debug names
@@ -107,7 +108,7 @@ class ProcessGetItemNodes {
       //)
       // Here we obtain value from the container at given 'index'
       // and inputs are elements of the container.
-      dest_value = container_node->inputs()[index.value()];
+      dest_value = container_node->input(index.value());
       removal_container_construct.insert(container_node);
     } else {
       // Find nodes such as:
@@ -138,8 +139,8 @@ class ProcessGetItemNodes {
       //      )
       // Input here will be argument to ListUnpack function ->
       // "%split_with_sizes"
-      const auto inputs = n->inputs();
-      unpack_map[inputs[CONTAINER_ARG]] = n;
+      const auto container = n->input(CONTAINER_ARG);
+      unpack_map[container] = n;
     }
   }
 
@@ -185,8 +186,9 @@ class ProcessGetItemNodes {
         removal_container_construct.end(),
         ProcessGetItemNodes::destroyNodeIfHasNoUses);
     for_each(unpack_map.begin(), unpack_map.end(), [&](auto& value) {
-      Node* container_node = value.second->inputs()[CONTAINER_ARG]->node();
-      ProcessGetItemNodes::destroyNodeIfHasNoUses(value.second);
+      Node* container_node = value.first->node();
+      Node* unpack = value.second;
+      ProcessGetItemNodes::destroyNodeIfHasNoUses(unpack);
       ProcessGetItemNodes::destroyNodeIfHasNoUses(container_node);
     });
     // Rename the nodes

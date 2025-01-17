@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -70,7 +70,7 @@ bool convertibleToList(const TypePtr& type, const TypePtr& list_type_) {
   if (!list_type) {
     return false;
   }
-  if (matchTypes(type, list_type_)) {
+  if (type->isSubtypeOf(*list_type_)) {
     return true;
   }
   if (auto tuple = type->castRaw<TupleType>()) {
@@ -79,7 +79,7 @@ bool convertibleToList(const TypePtr& type, const TypePtr& list_type_) {
         tuple->elements().end(),
         [&](const TypePtr& t) {
           // TODO: resolve VarType if necessary
-          return matchTypes(t, list_type->getElementType());
+          return t->isSubtypeOf(*list_type->getElementType());
         });
   }
   return false;
@@ -124,7 +124,7 @@ Value* tryConvertToType(
 
     // inductively apply implicit conversions to tuples
     if (auto concrete_tuple = concrete_type->cast<TupleType>()) {
-      if (!matchTypes(value_tuple, concrete_tuple) &&
+      if (!value_tuple->isSubtypeOf(*concrete_tuple) &&
           concrete_tuple->elements().size() == value_tuple->elements().size()) {
         auto unpacked = createTupleUnpack(value);
         std::vector<Value*> converted;
@@ -188,6 +188,21 @@ Value* tryConvertToType(
   return value;
 }
 
+bool checkIfListsAreMatching(const TypePtr& lhs, const TypePtr& rhs) {
+  ListTypePtr rhs_list = lhs->cast<ListType>();
+  ListTypePtr lhs_list = rhs->cast<ListType>();
+
+  if (rhs_list && lhs_list) {
+    TensorTypePtr rhs_tensor = rhs_list->getElementType()->cast<TensorType>();
+    TensorTypePtr lhs_tensor = lhs_list->getElementType()->cast<TensorType>();
+    if (rhs_tensor && lhs_tensor) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Checks if `named_value` can be used as a value for `arg`. If `arg` is a
 // VarType, it will be added to the type_env through `matchTypeVariables` as
 // the corresponding actual type. If `allow_conversions` is true, implicit
@@ -237,10 +252,9 @@ static Value* tryMatchArgument(
   // conversions
   value = tryConvertToType(loc, graph, concrete_type, value, allow_conversions);
   std::stringstream ss;
-  if (!matchTypes(
-          value->type(),
-          concrete_type,
-          /*why_not=*/(failure_messages) ? &ss : nullptr)) {
+  if (!checkIfListsAreMatching(value->type(), concrete_type) &&
+      !value->type()->isSubtypeOfExt(
+          *concrete_type, /*why_not=*/(failure_messages) ? &ss : nullptr)) {
     if (failure_messages) {
       auto& ostream = err()
           << arg.formatTypeMismatchMsg(value->type()->repr_str());
