@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.hpu as ht
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, is_pytest_mode_compile
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_pytest_mode_compile
 
 
 @pytest.mark.parametrize("shape", [(4, 10, 10), (4, 8, 8), (6, 128, 128)])

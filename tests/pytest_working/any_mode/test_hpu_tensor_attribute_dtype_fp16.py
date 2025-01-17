@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 ###############################################################################
 
 
-import habana_frameworks.torch.hpu
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import is_gaudi1
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")

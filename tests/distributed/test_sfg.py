@@ -16,20 +16,14 @@
 ###############################################################################
 
 
-import functools
-import logging
 import os
 import time
-from importlib import reload
 
 import habana_frameworks.torch as ht
-import multiprocess
 import torch
 import torch._dynamo
 import torch._dynamo as dynamo
 import torch.nn as nn
-from torch.autograd import Variable
-from torch.nn.parallel import DistributedDataParallel as DDP
 
 from tests.pytest_working.test_utils import compile_function_if_compile_mode
 
@@ -264,9 +258,6 @@ def run_single_node(rank, *arguments):
         if not enable_lazy_collective:
             print("Set PT_HPU_ENABLE_LAZY_COLLECTIVES=1 before running. Exiting...")
             return
-
-    import habana_frameworks.torch.core as htcore
-    import habana_frameworks.torch.distributed.hccl
 
     torch._inductor.config._fuse_ddp_communication = False
 

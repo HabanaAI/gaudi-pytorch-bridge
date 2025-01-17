@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags

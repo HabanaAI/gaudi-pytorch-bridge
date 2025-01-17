@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,27 +16,17 @@
 ###############################################################################
 
 import csv
-import math  # for ceil etc
 import os
 import sys
 
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
-import numpy as np
-import pandas as pd
 import pytest
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
 from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, vb_print
-from test_utils import (
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-    compare_tensors,
-    is_gaudi1,
-    is_pytest_mode_compile,
-)
+from test_utils import clear_t_compile_logs, compare_tensors, is_gaudi1, is_pytest_mode_compile
 
 DBG_FLAG_use_func_drpout = False
 print_max_diff = False

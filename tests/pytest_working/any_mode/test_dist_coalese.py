@@ -16,20 +16,13 @@
 ###############################################################################
 
 
-import argparse
-import numbers
 import os
-from typing import Any, Callable, Dict
+from typing import Callable
 
 import habana_frameworks.torch
-import habana_frameworks.torch as ht
-import pytest
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import torch.testing
 from test_utils import compile_function_if_compile_mode
 
@@ -49,8 +42,6 @@ def setup(rank, world_size=1):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
     os.environ["RANK"] = str(rank)
-
-    import habana_frameworks.torch.distributed.hccl
 
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
 

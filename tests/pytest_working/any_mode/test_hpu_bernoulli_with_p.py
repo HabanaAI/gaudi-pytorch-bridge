@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import format_tc, is_pytest_mode_compile, is_pytest_mode_eager, setup_teardown_env_fixture
+from test_utils import format_tc, is_pytest_mode_compile, is_pytest_mode_eager, setup_teardown_env_fixture  # noqa F401
 
 
 @pytest.mark.skipif(

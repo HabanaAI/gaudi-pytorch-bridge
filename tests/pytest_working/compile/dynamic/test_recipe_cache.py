@@ -16,11 +16,9 @@
 ###############################################################################
 
 import os
-from contextlib import contextmanager
 
 import pytest
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 
 
@@ -36,7 +34,7 @@ def set_env(request, arg=False):
 
 
 def test_recipe_cache1(set_env):
-    import habana_frameworks.torch.core as htcore
+    import habana_frameworks.torch.core as htcore  # noqa
 
     input_shapes = [
         [(3, 6, 4), (3, 24)],

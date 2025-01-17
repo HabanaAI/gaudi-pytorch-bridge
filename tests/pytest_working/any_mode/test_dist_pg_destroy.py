@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import torch
 
 
 def worker_fn(_, filestore_file, cache_pg=True):
-    import habana_frameworks.torch.distributed.hccl
     import torch.distributed as dist
 
     store = dist.FileStore(filestore_file, -1)
