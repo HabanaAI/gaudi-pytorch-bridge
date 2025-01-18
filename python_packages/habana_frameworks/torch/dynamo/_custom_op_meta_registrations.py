@@ -696,7 +696,7 @@ def meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_b
     return out_tensors
 
 
-@register_meta([torch.ops.hpu.fp8_sdpa_recomp_fwd.default])
+@register_meta([torch.ops.hpu.fp8_sdpa_recomp_fwd.default, torch.ops.hpu.fp8_sdpa_recomp_fwd.scalar])
 def meta_fp8_sdpa_recomp_fwd(
     q,
     k,
