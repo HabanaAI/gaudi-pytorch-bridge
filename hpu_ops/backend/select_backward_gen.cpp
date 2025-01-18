@@ -102,8 +102,7 @@ void SelectBackward::AddNode(
   // strided_slice_grad requires sliced tensor (grad) to have the same
   // dimensions as unsliced tensor (defined by input_sizes)
   bool is_reshape_required =
-      grad.pt_t.dim() > 0 && !(grad.pt_t.dim() == 1 && grad_shape.at(0) == 1);
-
+      grad.pt_t.dim() > 0 && (grad_shape.size() != input_sizes.size());
   std::optional<synapse_helpers::tensor> reshaped_grad;
 
   if (is_reshape_required) {
