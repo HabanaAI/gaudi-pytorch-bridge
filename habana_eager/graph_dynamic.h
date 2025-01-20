@@ -63,6 +63,7 @@ struct DynamicGraphMetaData {
   std::vector<size_t> remove_input_indexes;
   std::vector<torch::jit::Node*> negative_size_nodes;
   bool static_fallback;
+  size_t h2d_data_size;
 };
 
 int64_t GetSymintValue(torch::jit::Stack&, uint64_t);

@@ -3883,72 +3883,52 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
         tensor_type = tmeta->get_tensor_type();
         // to empty_hpu_lazy
       }
-
-      at::Tensor new_tensor;
-      if (tensor_type == HOST_TO_DEVICE_TENSOR &&
-          tmeta->peek_H2D_data_for_bucketing()) {
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-          new_tensor = createDynamicTensor(tensor.sizes().vec(), tensor_type);
-        } else {
-          new_tensor = habana_lazy::empty_hpu_lazy(
-              tensor.sizes(),
-              tensor.options(),
-              tensor.suggest_memory_format(),
-              true,
-              tensor_type);
-        }
-      } else if (tensor_type == SHAPE_TENSOR) {
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-          new_tensor =
-              createDynamicTensor(dynamic_shapes.at(i).get_dims(), tensor_type);
-        } else {
-          new_tensor = habana_lazy::empty_hpu_lazy(
-              dynamic_shapes.at(i).get_dims(),
-              tensor.options(),
-              tensor.suggest_memory_format(),
-              true,
-              tensor_type);
-        }
+      if (tensor_type == HOST_TO_DEVICE_TENSOR) {
+        new_stack.push_back(stack[i]);
       } else {
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-          auto original_dtype =
-              c10::typeMetaToScalarType(tensor.options().dtype());
-          new_tensor = createDynamicTensor(
-              dynamic_shapes.at(i).get_dims(), tensor_type, original_dtype);
+        at::Tensor new_tensor;
+        if (tensor_type == SHAPE_TENSOR) {
+          if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+            new_tensor = createDynamicTensor(
+                dynamic_shapes.at(i).get_dims(), tensor_type);
+          } else {
+            new_tensor = habana_lazy::empty_hpu_lazy(
+                dynamic_shapes.at(i).get_dims(),
+                tensor.options(),
+                tensor.suggest_memory_format(),
+                true,
+                tensor_type);
+          }
         } else {
-          new_tensor = habana_lazy::empty_hpu_lazy(
-              dynamic_shapes.at(i).get_dims(),
-              tensor.options(),
-              tensor.suggest_memory_format(),
-              true,
-              tensor_type);
+          if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+            auto original_dtype =
+                c10::typeMetaToScalarType(tensor.options().dtype());
+            new_tensor = createDynamicTensor(
+                dynamic_shapes.at(i).get_dims(), tensor_type, original_dtype);
+          } else {
+            new_tensor = habana_lazy::empty_hpu_lazy(
+                dynamic_shapes.at(i).get_dims(),
+                tensor.options(),
+                tensor.suggest_memory_format(),
+                true,
+                tensor_type);
+          }
         }
-      }
-      /*
-       * Every new tensor is created using Habana Tensor Implementer.
-       * Ensure propogation of shape tensor information for the new
-       * tensor created for the stack.
-       */
-      auto new_tmeta = get_tensor_extra_meta(new_tensor);
-      if (tmeta->get_shape_struct().has_shape_tensor_data()) {
-        new_tmeta->get_shape_struct() = tmeta->get_shape_struct();
-      }
-      new_tmeta->set_compile_host_ptr(tmeta);
+        /*
+         * Every new tensor is created using Habana Tensor Implementer.
+         * Ensure propogation of shape tensor information for the new
+         * tensor created for the stack.
+         */
+        auto new_tmeta = get_tensor_extra_meta(new_tensor);
+        if (tmeta->get_shape_struct().has_shape_tensor_data()) {
+          new_tmeta->get_shape_struct() = tmeta->get_shape_struct();
+        }
 
-      if (tmeta) {
-        new_tmeta->set_tensor_type(tmeta->get_tensor_type());
+        if (tmeta) {
+          new_tmeta->set_tensor_type(tmeta->get_tensor_type());
+        }
+        new_stack.push_back(torch::jit::IValue(new_tensor));
       }
-      if (tensor_type == HOST_TO_DEVICE_TENSOR &&
-          tmeta->peek_H2D_data_for_bucketing()) {
-        new_tmeta->set_H2D_data_for_bucketing();
-        new_tmeta->set_host_data(
-            tmeta->get_host_ptr(),
-            tmeta->get_host_size(),
-            tmeta->get_host_el_size(),
-            tmeta->get_host_dt_type());
-      }
-
-      new_stack.push_back(torch::jit::IValue(new_tensor));
     } else {
       new_stack.push_back(stack[i]);
     }
