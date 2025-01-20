@@ -81,7 +81,7 @@ def buildCommands = [
         'command': 'build_pytorch_vision -c'
     ],
     'Pytorch modules': [
-        'command': 'build_pytorch_modules -c'
+        'command': 'build_pytorch_modules -c --upstream-compile'
     ]
 ]
 
