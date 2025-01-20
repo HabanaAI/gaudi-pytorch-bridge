@@ -23,7 +23,20 @@
 namespace habana {
 namespace eager {
 
-std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
+static std::pair<std::vector<at::Tensor>, std::vector<at::Tensor>>
+split_weights_tensor(const at::TensorList& w12, bool permuted_weights) {
+  std::vector<at::Tensor> w1, w2;
+  const auto split_dim = permuted_weights ? 0 : 1;
+  const auto split_index = w12[0].size(split_dim) / 2;
+  for (const auto& tensor : w12) {
+    auto w12_split = tensor.split(split_index, split_dim);
+    w1.push_back(w12_split[0]);
+    w2.push_back(w12_split[1]);
+  }
+  return {w1, w2};
+}
+
+static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
@@ -32,27 +45,7 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
     const at::TensorList w3,
     const bool permuted_weights,
     const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
     const bool measurement_mode) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts_common :",
-      DUMP_11ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w1,
-          w2,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max,
-          measurement_mode));
-  // experts_min/max are used by CGuid path only,
-  // so they don't affect eager execution
-
   std::function<at::Tensor(const at::Tensor& x)> activation_fn;
   if (activation == "gelu") {
     activation_fn = [](const at::Tensor& x) {
@@ -160,8 +153,6 @@ at::Tensor mixture_of_experts(
       w3,
       permuted_weights,
       activation,
-      experts_min,
-      experts_max,
       false);
 
   return std::get<0>(moe_common);
@@ -191,14 +182,7 @@ at::Tensor mixture_of_experts_fused_weights(
           experts_min,
           experts_max));
 
-  std::vector<at::Tensor> w1, w2;
-  const auto splitDim = permuted_weights ? 0 : 1;
-  const auto splitIndex = w12[0].size(splitDim) / 2;
-  for (const auto& tensor : w12) {
-    auto w12_split = tensor.split(splitIndex, splitDim);
-    w1.push_back(w12_split[0]);
-    w2.push_back(w12_split[1]);
-  }
+  auto [w1, w2] = split_weights_tensor(w12, permuted_weights);
 
   auto moe_common = mixture_of_experts_common(
       hidden_states,
@@ -209,8 +193,6 @@ at::Tensor mixture_of_experts_fused_weights(
       w3,
       permuted_weights,
       activation,
-      experts_min,
-      experts_max,
       false);
   return std::get<0>(moe_common);
 }
@@ -251,8 +233,6 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement(
       w3,
       permuted_weights,
       activation,
-      experts_min,
-      experts_max,
       measurement_mode);
 }
 
@@ -283,14 +263,7 @@ mixture_of_experts_fp8_measurement_fused_weights(
           experts_max,
           measurement_mode));
 
-  std::vector<at::Tensor> w1, w2;
-  const auto splitDim = permuted_weights ? 0 : 1;
-  const auto splitIndex = w12[0].size(splitDim) / 2;
-  for (const auto& tensor : w12) {
-    auto w12_split = tensor.split(splitIndex, splitDim);
-    w1.push_back(w12_split[0]);
-    w2.push_back(w12_split[1]);
-  }
+  auto [w1, w2] = split_weights_tensor(w12, permuted_weights);
 
   return mixture_of_experts_common(
       hidden_states,
@@ -301,8 +274,6 @@ mixture_of_experts_fp8_measurement_fused_weights(
       w3,
       permuted_weights,
       activation,
-      experts_min,
-      experts_max,
       measurement_mode);
 }
 

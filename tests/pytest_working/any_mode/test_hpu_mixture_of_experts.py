@@ -66,7 +66,7 @@ class MixtralBlockSparseMLP(nn.Module):
         return torch.matmul(hidden_states_w1 * hidden_states_w2, self.w3)
 
 
-class MixtralSparseMoeBlock(torch.nn.Module):
+class MixtralSparseMoeBlock(nn.Module):
     def __init__(self, hidden_dim, num_experts, expert_weights, activation):
         super().__init__()
         self.hidden_dim = hidden_dim
@@ -245,7 +245,19 @@ def test_mixture_of_experts(
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("fused_weights", FUSED_WEIGHTS)
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
-@pytest.mark.parametrize("overwrite_scales", [True, False])
+@pytest.mark.parametrize("scales_as_tensors", [True, False])
+@pytest.mark.parametrize(
+    "fp8_scales",
+    [
+        {
+            "d_scale_w1": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            "d_scale_w2": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            "d_scale_w3": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            "d_scale_intermediate_hidden_states": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            "d_scale_hidden_states": 1.0,
+        }
+    ],
+)
 def test_mixture_of_experts_fp8(
     permuted_weights,
     fused_weights,
@@ -255,7 +267,8 @@ def test_mixture_of_experts_fp8(
     hidden_dim,
     ffn_dim,
     fp8_dtype,
-    overwrite_scales,
+    scales_as_tensors,
+    fp8_scales,
 ):
     hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
@@ -268,7 +281,18 @@ def test_mixture_of_experts_fp8(
         hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype
     )
 
-    expert_scales_cpu, expert_scales_hpu = generate_weights_scales(num_experts)
+    d_scale_w1 = fp8_scales["d_scale_w1"]
+    d_scale_w2 = fp8_scales["d_scale_w2"]
+    d_scale_w3 = fp8_scales["d_scale_w3"]
+    d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
+    d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
+
+    if scales_as_tensors:
+        d_scale_w1 = [torch.tensor(s).to(hpu) for s in d_scale_w1]
+        d_scale_w2 = [torch.tensor(s).to(hpu) for s in d_scale_w2]
+        d_scale_w3 = [torch.tensor(s).to(hpu) for s in d_scale_w3]
+        d_scale_intermediate_hidden_states = [torch.tensor(s).to(hpu) for s in d_scale_intermediate_hidden_states]
+        d_scale_hidden_states = torch.tensor(d_scale_hidden_states).to(hpu)
 
     mixtral_ref = MixtralSparseMoeBlock(hidden_dim, num_experts, expert_weights_cpu, activation)
     result_cpu, _ = mixtral_ref(hidden_states, expert_routing_table, router_weights)
@@ -277,19 +301,6 @@ def test_mixture_of_experts_fp8(
     w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
     cat_dim = 0 if permuted_weights else 1
     w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu)]
-
-    w1_scale_hpu, w2_scale_hpu, w3_scale_hpu, intermediate_hidden_states_scale_hpu, d_scale_hidden_states = (
-        expert_scales_hpu
-    )
-    w12_scale_hpu = w1_scale_hpu  # Same scale for w1 and w2, as it's single GEMM
-
-    if overwrite_scales:
-        w1_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        w2_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        w12_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        w3_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        intermediate_hidden_states_scale_hpu = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        d_scale_hidden_states = 1.0
 
     def call_moe_fn():
         common_inputs = (
@@ -300,10 +311,9 @@ def test_mixture_of_experts_fp8(
         weights = (w12_hpu, w3_hpu) if fused_weights else (w1_hpu, w2_hpu, w3_hpu)
         hidden_state_scales = (
             d_scale_hidden_states,
-            intermediate_hidden_states_scale_hpu,
+            d_scale_intermediate_hidden_states,
         )
-        weights_scales = (w12_scale_hpu, w3_scale_hpu) if fused_weights else (w1_scale_hpu, w2_scale_hpu, w3_scale_hpu)
-
+        weights_scales = (d_scale_w1, d_scale_w3) if fused_weights else (d_scale_w1, d_scale_w2, d_scale_w3)
         common_params = (
             permuted_weights,
             activation,
