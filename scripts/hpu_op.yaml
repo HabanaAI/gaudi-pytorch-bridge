@@ -6711,6 +6711,34 @@ upsample_bilinear2d.vec:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
 
+_upsample_bilinear2d_aa:
+  custom_fill_params: FillBilinearFwdParamsAA
+  output_meta: UpsampleBilinear2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+_upsample_bilinear2d_aa.out:
+  custom_fill_params: FillBilinearFwdParamsAA
+  output_meta: UpsampleBilinear2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
+_upsample_bilinear2d_aa_backward.grad_input:
+  custom_fill_params: FillBilinearBwdParamsAA
+  output_meta: UpsampleBilinear2DBwdMeta
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
 upsample_bilinear2d_backward:
   custom_fill_params: FillBilinearBwdParams
   output_meta: UpsampleBilinear2DBwdMeta

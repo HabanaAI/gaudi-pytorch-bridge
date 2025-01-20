@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import format_tc, is_gaudi3
 
 
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
@@ -79,14 +79,9 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("align_corners", [True, False])
     @pytest.mark.parametrize("antialias", [True, False])
     def test_upsample_bilinear2d(self, shape, size, scale_factor, align_corners, antialias, variant, dtype):
-        if antialias and (
-            (shape == (2, 2, 3, 3) and size == (6, 6) and scale_factor is None)
-            or (shape == (2, 2, 3, 3) and size is None and scale_factor == [1, 2])
-        ):
-            pytest.skip(
-                "Unsupported test configuration (aten::_upsample_bilinear2d_aa.out is not yet supported on HPU)"
-            )
-        if pytest.mode == "compile" and antialias is False:
+        if is_gaudi3() and antialias:
+            pytest.skip(reason="SW-215817 Antialiasing is not fully supported on Gaudi3")
+        if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, antialias, "bilinear", dtype)
 

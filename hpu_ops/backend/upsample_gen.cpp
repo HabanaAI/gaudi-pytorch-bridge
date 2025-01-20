@@ -556,9 +556,11 @@ std::shared_ptr<void> FillResizeParams(
     double scale_w,
     double scale_h,
     double scale_d,
-    bool align_corner) {
-  PARAMS_STUB(ns_ResizeKernel::Params);
+    bool align_corner,
+    bool antialias) {
+  PARAMS_STUB(ns_ResizeKernel::ParamsAA);
   params->excludeOutside = false;
+  params->useAntialiasing = antialias;
   switch (upsample_mode) {
     case nearest:
       params->mode = ResizeInterpolationMode_t::RESIZE_INTER_NEAREST;
@@ -639,7 +641,8 @@ std::shared_ptr<void> FillBicubicFwdParams(
       scale_w,
       scale_h,
       scale_d,
-      align_corners);
+      align_corners,
+      false /*antialias*/);
 }
 
 std::shared_ptr<void> FillBicubicBwdParams(
@@ -666,7 +669,8 @@ std::shared_ptr<void> FillBicubicBwdParams(
       scale_w,
       scale_h,
       scale_d,
-      align_corners);
+      align_corners,
+      false /*antialias*/);
 }
 
 std::shared_ptr<void> FillBilinearFwdParams(
@@ -693,7 +697,58 @@ std::shared_ptr<void> FillBilinearFwdParams(
       scale_w,
       scale_h,
       scale_d,
-      align_corners);
+      align_corners,
+      false /*antialias*/);
+}
+
+std::tuple<double, double, double> ExtractScales(
+    const at::IValue& scales,
+    const at::Stack& stack,
+    size_t scale_h_idx,
+    size_t scale_w_idx) {
+  double scale_w = 1.0, scale_h = 1.0, scale_d = 1.0;
+  if (!scales.isNone()) {
+    scale_h = !scales.isScalar() ? scales.toDoubleVector().at(0)
+                                 : stack.at(scale_h_idx).toDouble();
+    scale_w = !scales.isScalar() ? scales.toDoubleVector().at(1)
+                                 : stack.at(scale_w_idx).toDouble();
+  }
+  return {scale_w, scale_h, scale_d};
+}
+
+std::shared_ptr<void> FillBilinearParamsAAHelper(
+    const at::Tensor& input_tensor,
+    const at::Stack& stack,
+    const at::IValue& out_size,
+    const at::IValue& scales,
+    bool align_corners,
+    size_t& size,
+    size_t scale_h_idx,
+    size_t scale_w_idx) {
+  auto [scale_w, scale_h, scale_d] =
+      ExtractScales(scales, stack, scale_h_idx, scale_w_idx);
+  return FillResizeParams(
+      input_tensor.dim(),
+      size,
+      linear,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      true /*antialias*/);
+}
+
+std::shared_ptr<void> FillBilinearFwdParamsAA(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(2).toBool();
+  auto scales = stack.at(3);
+  return FillBilinearParamsAAHelper(
+      self, stack, out_size, scales, align_corners, size, 3, 4);
 }
 
 std::shared_ptr<void> FillBilinearBwdParams(
@@ -720,7 +775,19 @@ std::shared_ptr<void> FillBilinearBwdParams(
       scale_w,
       scale_h,
       scale_d,
-      align_corners);
+      align_corners,
+      false /*antialias*/);
+}
+
+std::shared_ptr<void> FillBilinearBwdParamsAA(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(3).toBool();
+  auto scales = stack.at(4);
+  return FillBilinearParamsAAHelper(
+      grad_in, stack, out_size, scales, align_corners, size, 4, 5);
 }
 
 std::shared_ptr<void> FillNearestFwdParams(
@@ -746,7 +813,8 @@ std::shared_ptr<void> FillNearestFwdParams(
       scale_w,
       scale_h,
       scale_d,
-      false /*align_corners*/);
+      false /*align_corners*/,
+      false /*antialias*/);
 }
 
 std::shared_ptr<void> FillNearestBwdParams(
@@ -772,7 +840,8 @@ std::shared_ptr<void> FillNearestBwdParams(
       scale_w,
       scale_h,
       scale_d,
-      false /*align_corners*/);
+      false /*align_corners*/,
+      false /*antialias*/);
 }
 
 // Resize TPC kernel
@@ -886,7 +955,8 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
       scale_dhw[2],
       scale_dhw[1],
       scale_dhw[0],
-      align_corners);
+      align_corners,
+      false /*antialias*/);
   auto final_index_for_resize =
       modifyInputWithOutputWidth || meta.dtype == c10::ScalarType::Byte
       ? c10::optional<int>()

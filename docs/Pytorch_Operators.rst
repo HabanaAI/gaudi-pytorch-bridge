@@ -84,6 +84,7 @@ softshrink                               Yes      Yes      No      No        No 
 tanh                                     Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 threshold                                Yes      Yes      No      No        No       No        No        No       No     torch.nn.functional
 upsample                                 Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
+upsample_bilinear                        Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 upsample_nearest                         Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 vector_norm                              Yes      Yes      No      No        No       No        No        No       No     torch.linalg
 abs                                      Yes      Yes      Yes     No        No       No        Yes       No       No     torch
