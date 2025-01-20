@@ -138,7 +138,7 @@ function pytorch_usage()
         echo -e "  -c,  --test-case JUNITID            Run specific test based on JUnit ID"
         echo -e "       --pytest-mode                  Run specific pytest suite mode: [all, lazy, compile, eager]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
-        echo -e "  -r, --rerun-failures               Rerun tests on failure"
+        echo -e "  -r, --rerun-failures                Rerun tests on failure"
         echo -e "  -h,  --help                         Prints this help"
     fi
 
