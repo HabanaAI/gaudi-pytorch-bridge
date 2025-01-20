@@ -226,6 +226,7 @@ hpu_backend_decompositions_list = [
     aten.stack.default,
     aten.stack.out,
     aten.std_mean,
+    aten.std.correction,  # needed due to strip_overload in passes
     aten.t,
     aten.tanh_backward.default,
     aten.tanh_backward.grad_input,
