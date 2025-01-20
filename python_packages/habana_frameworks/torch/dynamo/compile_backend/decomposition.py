@@ -188,7 +188,6 @@ hpu_backend_decompositions_list = [
     aten.rot90.default,
     aten.rot90.out,
     aten.rsub.Tensor,
-    aten._safe_softmax.default,
     aten.select_backward.default,
     aten.select_backward.out,
     aten.sgn.default,

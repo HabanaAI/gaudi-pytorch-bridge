@@ -36,6 +36,23 @@ std::shared_ptr<void> FillSoftmaxForwardParams(
   return params;
 }
 
+std::shared_ptr<void> FillSafeSoftmaxForwardParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_Softmax::ParamsV9);
+
+  // index positions for input args
+  constexpr size_t selfPositionInArgList = 0;
+  constexpr size_t dimPositionInArgList = 1;
+
+  auto self = stack.at(selfPositionInArgList).toTensor();
+  int dim = stack.at(dimPositionInArgList).toInt();
+
+  params->dim = get_dim_in_tpc_order(dim, self.dim());
+  params->safeSoftmax = true;
+  return params;
+}
+
 std::shared_ptr<void> FillSoftmaxBackwardParams(
     const at::Stack& stack,
     size_t& size) {

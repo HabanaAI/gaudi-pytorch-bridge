@@ -688,4 +688,5 @@ xlogy                                    Yes      Yes      Yes     No        No 
 batched_nms                              Yes      Yes      No      No        No       No        No        No       No     torchvision.ops
 nms                                      Yes      Yes      No      No        No       No        No        No       No     torchvision.ops
 roi_align                                Yes      No       No      No        No       No        No        No       No     torchvision.ops
+_safe_softmax                            Yes      Yes      Yes     No        No       No        No        No       No     torch.ops
 ====================================  ======== ======== ======== ======= ========= ========= ========= ======== ========  ======================
