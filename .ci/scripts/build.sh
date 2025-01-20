@@ -20,7 +20,6 @@ function pytorch_functions_help()
 {
     echo -e "\n- The following is a list of available functions for PyTorch"
     echo -e "build_pytorch_fork             -   Build the habana pytorch fork"
-    echo -e "build_pytorch_vision_fork      -   Build the habana pytorch vision fork"
     echo -e "build_pytorch_modules          -   Build habana pytorch intergation modules"
     echo -e "build_pytorch_dist             -   Build habana pytorch distrubuted modules"
     echo -e "build_pytorch_tb_plugin        -   Build habana pytorch tensorboard plugin"
@@ -57,21 +56,6 @@ function pytorch_usage()
     fi
 
     if [ $1 == "build_lightning_habana_fork" ]; then
-        echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
-        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
-        echo -e "  -a,  --build-all            Python only code, option ignored"
-        echo -e "  -r,  --release              Python only code, option ignored"
-        echo -e "  -d,  --debug                Python only code, option ignored"
-        echo -e "       --install              will install the package"
-        echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
-        echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_vision_fork" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -934,89 +918,6 @@ build_lightning_habana_fork()
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
     restore_python_version
     return $__result
-}
-
-build_pytorch_vision_fork()
-{
-    SECONDS=0
-    local __scriptname=$(__get_func_name)
-    local __env_vars=""
-    local __configure=""
-    local __whl_params=" bdist_wheel"
-    local __result
-    local __build_manylinux_whl="false"
-    local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
-    local __set_py_vers="false"
-    # parameter while-loop
-    while [ -n "$1" ];
-    do
-        case $1 in
-        -j  | --jobs )
-            __env_vars+=" MAX_JOBS=$2"
-            ;;
-        -c  | --configure )
-             __configure="yes"
-            ;;
-        -r  | --release )
-            ;;
-        -d  | --debug )
-            ;;
-        --dist )
-            __whl_params=" bdist_wheel"
-            ;;
-        --install )
-            __whl_params=" install"
-            ;;
-        --manylinux )
-            __build_manylinux_whl="true"
-            ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            ;;
-        -h  | --help )
-            usage $__scriptname
-            restore_python_version
-            return 0
-            ;;
-        esac
-        shift
-    done
-
-    pushd $PYTORCH_VISION_FORK_ROOT
-
-    __provide_mkl || exit $?
-
-    if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
-        rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl
-    fi
-
-    echo "Build parameters ${__whl_params}"
-
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "Pytorch torchvision build failed!"
-    fi
-    if [ "z${__build_manylinux_whl}" == "ztrue" ]; then
-        bash -c "$__python_cmd $__auditwheel repair $PYTORCH_VISION_FORK_ROOT/dist/*.whl"
-        PTV_WHL_PATH="$PYTORCH_VISION_FORK_ROOT/wheelhouse/"
-    else
-        PTV_WHL_PATH="$PYTORCH_VISION_FORK_ROOT/dist/"
-    fi
-
-    popd
-    if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        rm -rf $PYTORCH_VISION_FORK_BUILD/pkgs
-        mkdir -p $PYTORCH_VISION_FORK_BUILD/pkgs
-        cp -f ${PTV_WHL_PATH}/*.whl $PYTORCH_VISION_FORK_BUILD/pkgs
-    fi
-
-    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
-    return $__result
-
 }
 
 run_pytorch_modules_tests()
@@ -2145,7 +2046,6 @@ __move_future_pytorch_version_artifacts_to_current_dirs() {
 
         rm -fv "$PYTORCH_FORK_RELEASE_BUILD"/pkgs/torch-*.whl
         rm -fv "$PYTORCH_MODULES_RELEASE_BUILD"/pkgs/*.whl
-        rm -fv "$PYTORCH_VISION_FORK_BUILD"/pkgs/*.whl
         rm -fv "$PYTORCH_VISION_BUILD"/pkgs/*.whl
 
         if [ -d "/dependencies" ]; then
@@ -2748,7 +2648,6 @@ install_pytorch_whls() {
 install_pytorch_whls_future() {
     rm -fv $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
     rm -fv $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-    rm -fv $PYTORCH_VISION_FORK_BUILD/pkgs/*.whl
     rm -fv $PYTORCH_VISION_BUILD/pkgs/*.whl
     if [ -d "/dependencies" ]; then
         find_root="/dependencies"
