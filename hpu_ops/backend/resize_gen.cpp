@@ -91,7 +91,8 @@ void ResizeOutputOpBackend::AddNode(
   const auto device = stack.at(2).toDevice();
 
   TORCH_CHECK(
-      self.device() == device, "Tensor doesn't have the correct device set");
+      self.device().type() == device.type(),
+      "Tensor doesn't have the correct device set");
 
   resizeTensor(this, graph, stack, self, self.suggest_memory_format());
   if (isOutputInfMode()) {
