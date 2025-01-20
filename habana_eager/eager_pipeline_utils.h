@@ -45,7 +45,8 @@ class PipeliningTaskAllThreads {
         func_execute_(std::forward<F3>(func_execute)) {}
 
   void LoweringCall() {
-    func_lowering_(data);
+    if (func_lowering_)
+      func_lowering_(data);
   }
 
   void CompileCall() {
@@ -156,6 +157,15 @@ void PipelineTaskAllThreads(
 
   HPUDeviceContext::lowering_thread().enqueue(
       PipeliningExecutor<PipeliningTaskAllThreads<C>>::LoweringStage,
+      std::move(task));
+}
+
+template <typename F1, typename F2, typename C>
+void PipelineTaskLowering(C&& c, F1&& func_compile, F2&& func_execute) {
+  PipeliningTaskAllThreads task(
+      std::move(c), nullptr, std::move(func_compile), std::move(func_execute));
+
+  PipeliningExecutor<PipeliningTaskAllThreads<C>>::LoweringStage(
       std::move(task));
 }
 

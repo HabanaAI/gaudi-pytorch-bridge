@@ -129,22 +129,6 @@ class PermutationIgnore final : public PermutationInfoSaver {
   }
 };
 
-struct ExecutionControl {
-  std::optional<size_t> graph_key_with_perm_{};
-  bool is_shape_agnostic_cache_hit_ = false;
-  bool no_compile_ = false;
-  void cached_task(size_t graph_key_with_perm) {
-    graph_key_with_perm_ = graph_key_with_perm;
-    no_compile_ = true;
-  }
-  void sag_cache_hit() {
-    is_shape_agnostic_cache_hit_ = true;
-  }
-  void no_compile() {
-    no_compile_ = true;
-  }
-};
-
 class HabanaLaunchOpPT;
 
 namespace HabanaLaunchOpPipeline {
@@ -255,6 +239,7 @@ class HabanaLaunchOpPT {
   void ExecuteSynapseCache();
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
+  void RemoveDuplicateGraph();
 
   bool get_enable_shape_agnostic_caching_() {
     return enable_shape_agnostic_caching_;
@@ -997,7 +982,5 @@ class HabanaLaunchOpPT {
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map,
       std::shared_ptr<std::vector<InferNodeParams>> node_params_ptr = nullptr);
   // --------------------
-
-  ExecutionControl execution_control_;
 };
 } // namespace habana

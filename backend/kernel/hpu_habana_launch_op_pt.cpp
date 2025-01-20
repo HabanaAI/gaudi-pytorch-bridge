@@ -18,6 +18,7 @@
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <absl/container/inlined_vector.h>
+#include <absl/functional/any_invocable.h>
 #include <absl/hash/hash.h>
 #include <absl/memory/memory.h>
 #include <absl/types/optional.h>
@@ -40,6 +41,7 @@
 #include "backend/kernel/constant_information.h"
 #include "backend/kernel/control_edges_processing.h"
 #include "backend/kernel/hpu_habana_compile_op_pt.h"
+#include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel/refinement_engine.h"
@@ -47,6 +49,7 @@
 #include "backend/random.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep // NOLINT
 #include "backend/synapse_helpers/tcmalloc_helper.h"
+#include "habana_eager/eager_pipeline_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_kernels/hccl_kernels.h"
@@ -67,10 +70,13 @@ namespace HabanaLaunchOpPipeline {
 class PipelineCallBase {
  public:
   virtual ~PipelineCallBase() = default;
-  virtual void operator()() {
+  virtual void compile_sync() {
     PT_BRIDGE_FATAL("HabanaLaunchOpPT has been used without pipeline wrapper");
   }
-  virtual void compile_sync() {
+
+  virtual void execute(
+      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&&,
+      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&&) {
     PT_BRIDGE_FATAL("HabanaLaunchOpPT has been used without pipeline wrapper");
   }
 };
@@ -80,10 +86,6 @@ PipelineCallBase
 
 class PipelineCall : public PipelineCallBase {
  public:
-  virtual void operator()() override {
-    HABANA_ASSERT(!is_called_);
-    is_called_ = true;
-  }
   bool is_called() {
     return is_called_;
   }
@@ -91,8 +93,28 @@ class PipelineCall : public PipelineCallBase {
     HPUDeviceContext::compile_thread().waitWorkComplete();
   }
 
+  virtual void execute(
+      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& compile_task,
+      absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& execute_task)
+      override {
+    compile_task_ = std::move(compile_task);
+    execute_task_ = std::move(execute_task);
+    HABANA_ASSERT(!is_called_);
+    is_called_ = true;
+  }
+
+  absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>& get_compile_task() {
+    return compile_task_;
+  }
+
+  absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>& get_execute_task() {
+    return execute_task_;
+  }
+
  private:
   bool is_called_ = false;
+  absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)> compile_task_;
+  absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)> execute_task_;
 };
 
 void LoweringTask(
@@ -115,8 +137,16 @@ void LoweringTask(
     return;
   }
 
-  HPUDeviceContext::compile_thread().enqueue(
-      HabanaLaunchOpPipeline::CompileSynapseTask, std::move(launch_op));
+  eager::PipelineTaskLowering(
+      std::move(launch_op),
+      [compile_task = std::move(pipeline_call.get_compile_task())](
+          std::unique_ptr<habana::HabanaLaunchOpPT>& launch_op) mutable {
+        CompileSynapseTaskWrapper(*launch_op, std::move(compile_task));
+      },
+      [execute_task = std::move(pipeline_call.get_execute_task())](
+          std::unique_ptr<habana::HabanaLaunchOpPT>& launch_op) mutable {
+        ExecuteSynapseTaskWrapper(*launch_op, std::move(execute_task));
+      });
 
   if (sync_with_compile_stage)
     HPUDeviceContext::compile_thread().waitWorkComplete();
@@ -4298,8 +4328,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
         ClearStatics();
       } else {
         PT_DYNAMIC_SHAPE_DEBUG("Cache hit pipeline flow");
-        execution_control_.cached_task(graph_key_with_perm_);
-        pipeline_execution();
+        pipeline_execution.execute(
+            nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
+              launch_op.ExecuteSynapseCache();
+            });
       }
       PT_BRIDGE_END;
       return;
@@ -4985,8 +5017,10 @@ void HabanaLaunchOpPT::run(
         if (!is_enable_4stage_pipeline) {
           ExecuteSynapseCache();
         } else {
-          execution_control_.cached_task(graph_key_with_perm_);
-          pipeline_execution();
+          pipeline_execution.execute(
+              nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
+                launch_op.ExecuteSynapseCache();
+              });
         }
       }
       PT_BRIDGE_END;
@@ -5172,11 +5206,15 @@ void HabanaLaunchOpPT::run(
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      execution_control_.no_compile();
       // In case of SAG cache miss we have to wait till a compile thread sets
       // permutation for outputs (In case of SAG cache hit, that info is taken
       // from SAG recipe (from dtensorinfos))
-      pipeline_execution();
+      pipeline_execution.execute(
+          nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
+            launch_op.ExecuteSynapseGraph();
+            launch_op.ClearStatics();
+            launch_op.RemoveDuplicateGraph();
+          });
       return;
     } else {
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
@@ -5279,8 +5317,16 @@ void HabanaLaunchOpPT::run(
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      execution_control_.sag_cache_hit();
-      pipeline_execution();
+      pipeline_execution.execute(
+          [](habana::HabanaLaunchOpPT& launch_op) {
+            launch_op.recipe_launcher_->SetRecipe(
+                launch_op.CompileSynapseGraph());
+          },
+          [](habana::HabanaLaunchOpPT& launch_op) {
+            launch_op.ExecuteSynapseGraph();
+            launch_op.ClearStatics();
+            launch_op.RemoveDuplicateGraph();
+          });
     }
     PT_BRIDGE_END;
     return;
@@ -5338,10 +5384,22 @@ void HabanaLaunchOpPT::run(
     if (!is_permute_data_cached || enable_caching_) {
       // TODO may be we don't need sync with compile thread
       pipeline_execution.compile_sync();
-      execution_control_.no_compile();
       CompileSynapseGraphAndPatchTable();
+      pipeline_execution.execute(
+          nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
+            launch_op.ExecuteSynapseGraph();
+            launch_op.ClearStatics();
+          });
+    } else {
+      pipeline_execution.execute(
+          [](habana::HabanaLaunchOpPT& launch_op) mutable {
+            launch_op.CompileSynapseGraphAndPatchTable();
+          },
+          [](habana::HabanaLaunchOpPT& launch_op) {
+            launch_op.ExecuteSynapseGraph();
+            launch_op.ClearStatics();
+          });
     }
-    pipeline_execution();
   } else {
     if (GET_ENV_FLAG_NEW(PT_COMPILE_ONLY_MODE) &&
         !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
@@ -5964,9 +6022,12 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     }
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
     pipeline_execution.compile_sync();
-    execution_control_.no_compile();
     CompileSynapseGraphAndPatchTable();
-    pipeline_execution();
+    pipeline_execution.execute(
+        nullptr, [](habana::HabanaLaunchOpPT& launch_op) {
+          launch_op.ExecuteSynapseGraph();
+          launch_op.ClearStatics();
+        });
   } else {
     CompileSynapseGraphAndPatchTable();
     ExecuteSynapseGraph();

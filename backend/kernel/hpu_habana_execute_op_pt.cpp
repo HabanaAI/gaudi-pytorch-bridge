@@ -20,22 +20,22 @@
 namespace habana {
 
 namespace HabanaLaunchOpPipeline {
-void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
-  auto execute_queue_length =
-      HPUDeviceContext::execute_thread().get_active_task_count();
-  const auto& op_name = launch_op->get_jit_graph_and_meta_data()->GetOpName();
+void ExecuteSynapseTaskWrapper(
+    habana::HabanaLaunchOpPT& launch_op,
+    absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& func) {
   auto& device = habana::HPUDeviceContext::get_device();
   uint64_t device_queue_length = device.get_active_recipe_counter().get_count();
   LOP::ScopeEvent scope_event(
       "EagerExecuteTask()",
-      op_name,
+      launch_op.get_jit_graph_and_meta_data()->GetOpName(),
       (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID,
-      launch_op->get_graph_key(),
-      launch_op->get_jit_graph_cache_hit_count(),
-      execute_queue_length,
+      launch_op.get_graph_key(),
+      launch_op.get_jit_graph_cache_hit_count(),
+      HPUDeviceContext::execute_thread().get_active_task_count(),
       device_queue_length);
 
-  launch_op->ExecuteSynapse();
+  if (func)
+    func(launch_op);
 }
 } // namespace HabanaLaunchOpPipeline
 
@@ -48,26 +48,12 @@ void SynapseGraphDestroyTask(synGraphHandle graphHandle) {
 }
 } // namespace
 
-void HabanaLaunchOpPT::ExecuteSynapse() {
-  PT_BRIDGE_BEGIN;
-  if (execution_control_.graph_key_with_perm_.has_value()) {
-    ExecuteSynapseCache();
-    return;
+void HabanaLaunchOpPT::RemoveDuplicateGraph() {
+  auto graphHandle = syn_graph_ptr_->get_graph_handle();
+  if (graphHandle != nullptr) {
+    syn_graph_ptr_->set_is_valid(false);
+    HPUDeviceContext::garbage_collection_thread().enqueue(
+        SynapseGraphDestroyTask, std::move(graphHandle));
   }
-
-  ExecuteSynapseGraph();
-
-  if (get_enable_shape_agnostic_caching_() &&
-      get_is_shape_agnostic_supported()) {
-    auto graphHandle = syn_graph_ptr_->get_graph_handle();
-    if (graphHandle != nullptr) {
-      syn_graph_ptr_->set_is_valid(false);
-      HPUDeviceContext::garbage_collection_thread().enqueue(
-          SynapseGraphDestroyTask, std::move(graphHandle));
-    }
-  }
-
-  ClearStatics();
-  PT_BRIDGE_END;
 }
 } // namespace habana
