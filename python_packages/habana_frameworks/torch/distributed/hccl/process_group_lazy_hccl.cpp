@@ -281,10 +281,12 @@ ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
       rank_);
   habana_helpers::AutoNoGIL gil_release;
   destroy();
-  destroyHandshake();
 };
 
 void ProcessGroupLazyHCCL::destroy() {
+  if (is_destroyed_)
+    return;
+
   PT_DISTRIBUTED_DEBUG(
       "Destroy ProcessGroupLazyHCCL name:",
       group_name_,
@@ -300,6 +302,8 @@ void ProcessGroupLazyHCCL::destroy() {
     comm_->flush_stream();
     comm_.reset();
   }
+  destroyHandshake();
+  is_destroyed_ = true;
 }
 
 ProcessGroupLazyHCCL::WorkLazy::WorkLazy(const std::vector<at::Tensor>& outputs)

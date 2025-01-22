@@ -195,6 +195,7 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   size_t barrier_cnt_;
   std::string group_name_;
   bool emulate_distributed_;
+  bool is_destroyed_ = false;
 
  protected:
   std::shared_ptr<habana::HcclCommunicator> comm_;
