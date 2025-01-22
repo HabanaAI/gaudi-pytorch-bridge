@@ -1,0 +1,24 @@
+diff --git a/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp b/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp
+index 1bf41d0..e6f9da4 100644
+--- a/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp
++++ b/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp
+@@ -32,6 +32,9 @@ namespace SharedLayer
+         SHARED_LAYER_UNSUPPORTED_BROADCAST_MODE      = 11,
+         SHARED_LAYER_KERNEL_INVALID_SCALAR_ARGUMENT  = 12,
+         SHARED_LAYER_MISSING_PRIVATE_STRUCTURE       = 13,
++        SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT    = 14,
++        SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT  = 15,
++        SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT    = 16,
+         SHARED_LAYER_FAILED                          = -1,
+     } Return_t;
+
+@@ -46,6 +49,11 @@ namespace SharedLayer
+         unsigned                      outputTensorNr;
+     }Params_t;
+
++    typedef struct _ParamsV2_t : public Params_t{
++        unsigned                      supportsDynamicShapes = 0;
++        unsigned                      requiresShapeTensor = 0;
++        unsigned                      requiresH2DTensor = 0;
++    }ParamsV2_t;
+ }; // namespace SharedLayer

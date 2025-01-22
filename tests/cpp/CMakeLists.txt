@@ -251,7 +251,7 @@ list(APPEND misc_tests_src
   habana_lazy_test_infra.cpp
   inference_pass_tests.cpp
   linear_test.cpp
-  mem_hlml_tests.cpp
+  $<$<TARGET_EXISTS:npu::specs_embedded>:mem_hlml_tests.cpp>
   main.cpp
   matmul_bwd.cpp
   misc_utils_tests.cpp

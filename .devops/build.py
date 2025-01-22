@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -477,15 +477,6 @@ def install_requirements(
     )
 
     install_pt(pt_ver, venv_python, venv_dir, user)
-
-    # TODO: support parallel builds with different kinetos/pybinds
-
-    kineto_root = os.environ["KINETO_ROOT"]
-    if kineto_root:
-        log.info("git submodule update for Kineto")
-        run(f"cd {kineto_root} && git submodule update --init --recursive")
-
-    # TODO: where to get Kineto from for non-PT-fork builds?
 
     log.info("git submodule update for pybind11")
     run(
@@ -1120,6 +1111,12 @@ def prepare_single_build_directory(
 ):
     cmake_flags = append_cmake_flags(cmake_flags, build_env)
 
+    log.debug(
+        f"Preparing single build directory for {build_env.pt_ver_and_src.version}, "
+        f"is_official_stable_cpu_version=={is_official_stable_cpu_version(build_env.pt_ver_and_src.version)}"
+    )
+    if is_official_stable_cpu_version(build_env.pt_ver_and_src.version):
+        cmake_flags.insert("UPSTREAM_COMPILE", "ON")
     if clean or not os.path.exists(os.path.join(current_ver_build_dir, "Makefile")):
         run_cmake_build_generation(pt_modules_root, cmake_config, build_env, cmake_flags)
         # emit implicit rule to pass target to a recursive make
@@ -1938,15 +1935,16 @@ def add_upstream_versions(wheel_specs: List[WheelSpec]):
     for ws in wheel_specs:
         new_pt_versions: Set[VersionAndSource] = set()
         for pt_ver in ws.pt_versions:
+            new_pt_versions.add(pt_ver)
+
             version, _ = pt_ver
-            if str(version).endswith("+cpu"):
+
+            if is_official_stable_cpu_version(version):
                 continue
 
-            new_version = Version(f"{version.major}.{version.minor}.{version.micro}+cpu")
-
+            new_version = Version(str(version) + "+cpu")
             new_source = "https://download.pytorch.org/whl/"
             new_pt_versions.add(VersionAndSource(new_version, new_source))
-            new_pt_versions.add(pt_ver)
         ws.pt_versions = new_pt_versions
 
     return wheel_specs

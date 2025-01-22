@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ class Utils:
         lines = [
             "SRCS=" + " ".join(files),
             "CXX=g++",
-            "CXXFLAGS=-I${HOME}/trees/npu-stack/pytorch-integration/pytorch_helpers/synapse_logger/logger_test/gtest_stub -I${HOME}/trees/npu-stack/synapse/include -I${HOME}/trees/npu-stack/tpc_kernels/include",
+            "CXXFLAGS=-I${HOME}/trees/npu-stack/pytorch-integration/pytorch_helpers/synapse_logger/logger_test/gtest_stub -I${HOME}/trees/npu-stack/synapse/include",
             "LIBS=${HOME}/builds/synapse_release_build/lib/libSynapse.so",
             ".PHONY: compile clean run help" "",
             "all: help",

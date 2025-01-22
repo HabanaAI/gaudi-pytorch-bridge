@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -33,17 +33,20 @@ from build_profiles.profiles import (
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Script for retrieving information from json file describing build profiles"
+        description="Script for retrieving information from JSON file describing build profiles"
     )
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument(
         "--get-pt-requirement",
-        action="store",
-        nargs=1,
         metavar=("pt_version_id",),
-        help="Prints required PyTorch pip package for pt_version_id.",
+        help="Prints required PyTorch pip package for given pt_version_id (e.g. current). Skips the patch version.",
     )
-    actions.add_argument("--get-version-literal", action="store", help="Prints version literal for version id provided")
+    actions.add_argument(
+        "--get-strict-pt-requirement",
+        metavar=("pt_version_id",),
+        help="Prints required PyTorch pip package for given pt_version_id (e.g. current), including the patch version.",
+    )
+    actions.add_argument("--get-version-literal", action="store", help="Prints version literal for provided version ID")
     actions.add_argument(
         "--get-cmakelists-supported-vers",
         action="store_true",
@@ -68,6 +71,13 @@ if __name__ == "__main__":
     if args.get_pt_requirement:
         print(
             get_required_pt(get_version_literal_and_source(args.get_pt_requirement).version, RequirementPurpose.RUNTIME)
+        )
+    if args.get_strict_pt_requirement:
+        print(
+            get_required_pt(
+                get_version_literal_and_source(args.get_strict_pt_requirement, strict=True).version,
+                RequirementPurpose.RUNTIME,
+            )
         )
     if args.get_version_literal:
         found = get_version_literal_and_source(args.get_version_literal)

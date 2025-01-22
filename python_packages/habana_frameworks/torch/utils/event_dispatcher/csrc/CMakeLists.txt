@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,4 +19,6 @@ add_habana_library(_event_dispatcher_C SHARED bindings.cpp)
 target_compile_definitions(_event_dispatcher_C PRIVATE TORCH_EXTENSION_NAME=_event_dispatcher_C)
 set_target_properties(_event_dispatcher_C PROPERTIES PREFIX "")
 target_link_libraries(_event_dispatcher_C PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
+add_dependencies(_event_dispatcher_C pytorch_generate_env)
+
 install(TARGETS _event_dispatcher_C LIBRARY DESTINATION habana_torch_plugin/${PYBIND_INSTALL_DIRNAME})

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ add_habana_library(
   logger_stub.cpp
   lightweight_memory_usage_logger.cpp
   mem_handle.cpp
-  mem_hlml.cpp
+  $<$<TARGET_EXISTS:npu::specs_embedded>:mem_hlml.cpp>
   memory_defragmentation.cpp
   memory_mapping.cpp
   pool_allocator/utils.cpp
@@ -59,9 +59,7 @@ target_include_directories(
 target_include_directories(
   pytorch_synapse_helpers SYSTEM
   PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:npu::specs_embedded,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
 add_dependencies(pytorch_synapse_helpers pytorch_generate_env)
@@ -78,7 +76,8 @@ target_link_libraries(
   absl::raw_hash_set
   npu::hllogger
   npu::fmt
-  npu::specs_embedded
+  $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
+  npu::specs_external
   PRIVATE
   Python::Python
   torch
@@ -92,9 +91,9 @@ set_target_properties(
 target_compile_definitions(pytorch_synapse_helpers PUBLIC GENERIC_HELPERS)
 
 if(MANYLINUX)
-  target_link_libraries(pytorch_synapse_helpers PUBLIC pytorch_synapse_shim npu::specs_embedded)
+  target_link_libraries(pytorch_synapse_helpers PUBLIC pytorch_synapse_shim)
 else()
-  target_link_libraries(pytorch_synapse_helpers PUBLIC Synapse npu::specs_embedded)
+  target_link_libraries(pytorch_synapse_helpers PUBLIC Synapse)
 endif()
 
 separate_debug_symbols(pytorch_synapse_helpers)

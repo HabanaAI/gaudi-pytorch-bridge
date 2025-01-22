@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,9 +16,6 @@
 ###############################################################################
 
 add_habana_library(pytorch_synapse_utils_shim STATIC synapse_utils_shim.cpp)
-
-target_include_directories(pytorch_synapse_utils_shim SYSTEM
-                           PUBLIC $<TARGET_PROPERTY:SynapseUtils,INTERFACE_INCLUDE_DIRECTORIES>)
 
 target_link_libraries(pytorch_synapse_utils_shim PUBLIC ${CMAKE_DL_LIBS} SynapseUtils pytorch_synapse_shim)
 

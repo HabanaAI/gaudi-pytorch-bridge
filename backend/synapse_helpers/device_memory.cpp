@@ -34,6 +34,7 @@ std::deque<std::chrono::high_resolution_clock::time_point> device_memory::defrag
 std::mutex device_memory::defrag_mutex;
 
 void device_memory::init_hlml_memory() {
+#ifdef PT_HLML_ENABLED
   try {
     m_hlml_memory_reporter =
         std::make_shared<HlMlMemoryReporter>(synDeviceId(device_.id()));
@@ -50,6 +51,7 @@ void device_memory::init_hlml_memory() {
   } catch (const HlMlMemoryReporter::Error& e) {
     PT_SYNHELPER_WARN("Cannot initialize HLML memory reporter: ", e.what());
   }
+#endif
 }
 
 device_memory::device_memory(device& device) : device_{device} {
@@ -102,8 +104,10 @@ device_memory::device_memory(device& device) : device_{device} {
 }
 
 device_memory::~device_memory() {
+#ifdef PT_HLML_ENABLED
   m_hlml_memory_updater.reset();
   m_hlml_memory_reporter.reset();
+#endif
 
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     if (!threads_in_defragmenter_critical_section_->empty())

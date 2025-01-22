@@ -34,7 +34,9 @@
 #include "backend/synapse_helpers/stream.h"
 #include "backend/synapse_helpers/synapse_error.h"
 #include "backend/synapse_helpers/synchronous_counter.h"
+#ifdef PT_HLML_ENABLED
 #include "mem_hlml.h"
+#endif
 #include "pool_allocator/PoolAllocator.h"
 
 namespace synapse_helpers {
@@ -86,9 +88,11 @@ class device_memory {
   synapse_helpers::MemoryReporter* get_memory_reporter();
   void recordStream(void* ptr, synapse_helpers::hpuStream_t stream);
 
+#ifdef PT_HLML_ENABLED
   std::shared_ptr<HlMlMemoryReporter> get_hlml_memory_reporter() const {
     return m_hlml_memory_reporter;
   }
+#endif
 
  private:
   device& device_;
@@ -121,8 +125,10 @@ class device_memory {
 
   MemoryReporter mem_reporter;
   void init_hlml_memory();
+#ifdef PT_HLML_ENABLED
   std::shared_ptr<HlMlMemoryReporter> m_hlml_memory_reporter;
   std::shared_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
+#endif
   size_t alignment_;
 
   static std::deque<std::chrono::high_resolution_clock::time_point> defragmentation_timestamps;

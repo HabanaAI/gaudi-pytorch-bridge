@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-# define fmt target, so kineto will not compile it from sources. Otherwise we have conflicts
+# define fmt target, so other deps will not compile it from sources. Otherwise we have conflicts
 add_library(fmt INTERFACE IMPORTED)
 set_target_properties(fmt PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include/")
 target_compile_definitions(fmt INTERFACE FMT_HEADER_ONLY)
@@ -53,18 +53,17 @@ add_library(specs_external INTERFACE IMPORTED)
 set_target_properties(specs_external PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
 add_library(npu::specs_external ALIAS specs_external)
 
-add_library(specs_embedded INTERFACE IMPORTED)
-set_target_properties(specs_embedded PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EMBEDDED_ROOT}")
-add_library(npu::specs_embedded ALIAS specs_embedded)
-
-add_library(tpc_kernels INTERFACE IMPORTED)
-set_target_properties(tpc_kernels PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                             "$ENV{TPC_KERNELS_ROOT}/shared_layer/include")
-target_link_libraries(tpc_kernels INTERFACE npu::specs_external npu::specs_embedded)
-add_library(npu::tpc_kernels ALIAS tpc_kernels)
+if (EXISTS "$ENV{SPECS_EMBEDDED_ROOT}/hlml_shm.h")
+  add_library(specs_embedded INTERFACE IMPORTED)
+  set_target_properties(specs_embedded PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EMBEDDED_ROOT}")
+  target_compile_definitions(specs_embedded INTERFACE PT_HLML_ENABLED)
+  add_library(npu::specs_embedded ALIAS specs_embedded)
+else()
+  message(STATUS "Embedded specs repo not found. Will build without HLML support")
+endif()
 
 set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_ROOT}/include")
-target_link_libraries(SynapseUtils INTERFACE npu::tpc_kernels npu::Synapse)
+target_link_libraries(SynapseUtils INTERFACE npu::Synapse npu::specs_external)
 add_library(npu::SynapseUtils ALIAS SynapseUtils)
 
 add_library(Media INTERFACE IMPORTED)

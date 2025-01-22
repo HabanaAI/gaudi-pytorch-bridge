@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -67,7 +67,6 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   helpers/event_dispatcher.cpp
   profiling/json_activity_profiler.cpp
   profiling/json_file_parser.cpp
-  profiling/kineto_activity_profiler.cpp
   profiling/profiling.cpp
   profiling/trace_sources/synapse_logger_source.cpp
   profiling/trace_sources/synapse_profiler_source.cpp
@@ -82,12 +81,6 @@ add_custom_command(TARGET habana_pytorch_backend POST_BUILD
   "$<TARGET_FILE:habana_pytorch_backend>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_backend>")
 
 target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
-
-if(DEFINED ENV{KINETO_ROOT})
-  target_include_directories(habana_pytorch_backend PRIVATE $ENV{KINETO_ROOT}/libkineto/include)
-else()
-  message(FATAL_ERROR "KINETO_ROOT is not defined, please update automation repository")
-endif()
 
 target_link_libraries(habana_pytorch_backend
   PUBLIC
@@ -112,7 +105,6 @@ target_include_directories(habana_pytorch_backend PUBLIC ${PROJECT_SOURCE_DIR})
 target_include_directories(
   habana_pytorch_backend SYSTEM
   PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
 )
 

@@ -68,7 +68,8 @@ const synapse_helpers::MemoryStats get_mem_stat(
   return stats;
 }
 
-const std::string get_hlml_shared_object_name([[maybe_unused]] int device_id) {
+std::string get_hlml_shared_object_name([[maybe_unused]] int device_id) {
+#ifdef PT_HLML_ENABLED
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
@@ -78,6 +79,7 @@ const std::string get_hlml_shared_object_name([[maybe_unused]] int device_id) {
   if (hlml_reporter) {
     return hlml_reporter->GetPath();
   }
+#endif
   return "";
 }
 

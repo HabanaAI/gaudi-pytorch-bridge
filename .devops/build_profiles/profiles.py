@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -57,16 +57,21 @@ def get_profiles_json():
     return get_profiles_json.PROFILES_JSON
 
 
-def get_version_literal_and_source(version_name: str) -> Optional[VersionLiteralAndSource]:
+def get_version_literal_and_source(version_name: str, strict: bool = False) -> Optional[VersionLiteralAndSource]:
     profiles_json = get_profiles_json()
     available_pt_versions = profiles_json["pt_versions"]
     try:
         node = available_pt_versions[version_name]
-        return (
-            None
-            if node["version"] is None
-            else VersionLiteralAndSource(".".join(node["version"].split(".", 2)[:2]), node["default_source"])
-        )
+        if node["version"] is None:
+            return None
+
+        if strict:
+            version = node["version"]
+        else:
+            # just the major.minor version
+            version = ".".join(node["version"].split(".", 2)[:2])
+
+        return VersionLiteralAndSource(version, node["default_source"])
     except KeyError as exc:
         raise KeyError(f'pt_version "{version_name}" is not defined') from exc
 
@@ -195,7 +200,10 @@ def check_profile_file_integrity():
 
 def get_cmakelists_supported_vers():
     return ";".join(
-        {f"{version[0]}\\.{version[1]}\\..*" for version in map(lambda ver: ver.split("."), get_available_versions())}
+        {
+            f"{version[0]}\\.{version[1]}\\..*"
+            for version in map(lambda ver_source: ver_source.version.split("."), get_available_versions())
+        }
     )
 
 

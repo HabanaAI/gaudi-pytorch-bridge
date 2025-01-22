@@ -312,18 +312,6 @@ build_pytorch_modules()
     fi
     "${install_pkg[@]}"
 
-    if [ -n "$KINETO_ROOT" ]; then
-        echo "git submodule update for kineto"
-        pushd $KINETO_ROOT
-        __result=$?
-        if [ $__result -ne 0 ]; then
-            echo "Unable to cd into Kineto's root ($KINETO_ROOT)"
-            return $__result
-        fi
-        git submodule update --init
-        popd
-    fi
-
     pushd $PYTORCH_MODULES_ROOT_PATH
 
     echo "git submodule update for pybind11"
