@@ -34,7 +34,7 @@
         "env": {
             "DATA_LOADER_AEON_LIB_PATH": "${AEON_RELEASE_BUILD}/lib/libaeon.so"
         },
-        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --pt-version next --op-stats ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "plugin": {
         "cmd": "build_pytorch_tb_plugin --dist ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
