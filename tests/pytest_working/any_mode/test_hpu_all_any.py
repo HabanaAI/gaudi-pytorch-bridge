@@ -49,7 +49,8 @@ if not is_gaudi1():
 
 def fn(input_tensor, use_out, output_device, op, dim):
     if use_out:
-        output_tensor = torch.tensor(True).to(output_device)
+        # output_tensor with Shape (0,) could be resized to needed shape
+        output_tensor = torch.empty((0,), dtype=torch.bool, device=output_device)
         if dim is None:
             op(input_tensor, out=output_tensor)
         else:
