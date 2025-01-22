@@ -161,7 +161,8 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::resize_"),
         c10::Symbol::fromQualString("aten::masked_fill"),
         c10::Symbol::fromQualString("aten::masked_fill_"),
-        c10::Symbol::fromQualString("aten::_efficientzerotensor")};
+        c10::Symbol::fromQualString("aten::_efficientzerotensor"),
+        c10::Symbol::fromQualString("aten::scatter")};
     return ops_list;
   }
 
