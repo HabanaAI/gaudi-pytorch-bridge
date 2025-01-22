@@ -62,7 +62,6 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest4D) {
 }
 
 TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
-  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-216437";
   torch::Tensor input_tensor =
       torch::rand({16, 32, 12, 10}, torch::requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);

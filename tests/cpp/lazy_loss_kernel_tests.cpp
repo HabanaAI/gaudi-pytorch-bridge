@@ -199,7 +199,6 @@ TEST_F(LazyLossKernelTest, NllLossFwdTest) {
 }
 
 TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
-  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-216437";
   torch::Tensor input =
       torch::randn({3, 5, 24, 18}, torch::requires_grad(true)); // nchw
   torch::Tensor hinput = input.to(
@@ -222,7 +221,6 @@ TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
 }
 
 TEST_F(LazyLossKernelTest, NllLoss2dFwdTest) {
-  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-216437";
   torch::Tensor input =
       torch::randn({6, 4, 18, 24}, torch::requires_grad(true));
   torch::Tensor hinput = input.to(torch::kHPU);
