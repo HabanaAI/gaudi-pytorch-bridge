@@ -2190,18 +2190,13 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
     by aot autograd as part of lowering linear to t + mm/addmm as the above rewriter
     has replaced the pattern with linear
     """
-
-    def is_view_node(node):
-        view_ops = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
-        return node.target in view_ops
-
     for node in ctx.graph_module.graph.nodes:
         if node.op != "call_function" or node.target != torch.ops.aten.linear or not is_node_supported(node=node):
             continue
         before = node.args[0]
         after = next(iter(node.users))
         cond_after = False
-        if len(node.users) == 1 and is_view_node(after):
+        if len(node.users) == 1 and after.target == torch.ops.aten.view.default and is_node_supported(after):
             cond_after = True
         cond_before = False
         if len(before.users) == 1 and before.target == torch.ops.aten.view.default and is_node_supported(before):
@@ -2224,11 +2219,12 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
             if (len(before.args[0].meta["output_shapes"][0]) == len(after.meta["output_shapes"][0])) and (
                 before.args[0].meta["output_shapes"][0][:-1] == after.meta["output_shapes"][0][:-1]
             ):
-                node.replace_input_with(before, before.args[0])
+                real_input = before.args[0]
+                new_args = list(node.args)
+                new_args[0] = real_input
+                node.args = tuple(new_args)
                 after.replace_all_uses_with(node)
-                # use the 'out_shapes' from 'after' node, but recover its original 'placement'
                 node.meta.update(after.meta)
-                node.meta["placement"] = "hpu_cluster"
 
     ctx.graph_module = post_pass_finalize(input_module=ctx.graph_module)
 
