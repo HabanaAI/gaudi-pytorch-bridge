@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,12 @@ import numpy as np
 import pytest
 import torch
 import torchvision
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 
 def get_rois(input_shape, num_rois):
@@ -49,10 +54,7 @@ def test_hpu_roi_align(input_shape, rois_shape, spatial_scale, output_size, samp
     def fn(input, boxes, output_size, spatial_scale, sampling_ratio, aligned):
         return torchvision.ops.roi_align(input, boxes, output_size, spatial_scale, sampling_ratio, aligned)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result_cpu = torchvision.ops.roi_align(input, boxes, output_size, spatial_scale, sampling_ratio, aligned)
     result_hpu = fn(input_hpu, boxes_hpu, output_size, spatial_scale, sampling_ratio, aligned)
@@ -85,9 +87,7 @@ def test_hpu_roi_align_bwd(input_shape, rois_shape, spatial_scale, output_size, 
         loss.backward()
         return input.grad
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result_cpu = torchvision.ops.roi_align(input, boxes, output_size, spatial_scale, sampling_ratio, aligned)
     loss = result_cpu.sum()

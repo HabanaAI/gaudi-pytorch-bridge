@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 import pytest
 import torch
-from test_utils import clear_t_compile_logs, compare_tensors, hpu, is_lazy, is_pytest_mode_compile
+from test_utils import compare_tensors, compile_function_if_compile_mode, hpu, is_lazy
 
 
 @pytest.mark.skipif(is_lazy(), reason="aten::unfold is not implemented for lazy mode")
@@ -40,10 +40,7 @@ def test_unfold_view(shape, dimension, size, step, modify_view):
     unfold_fn = tensor_unfold_modified if modify_view else tensor_unfold
     result_cpu = unfold_fn(input_cpu, dimension, size, step)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        unfold_fn = torch.compile(unfold_fn, backend="hpu_backend", dynamic=False)
+    unfold_fn = compile_function_if_compile_mode(unfold_fn)
 
     result_hpu = unfold_fn(input_hpu, dimension, size, step)
     compare_tensors(result_hpu, result_cpu, rtol=0, atol=0)

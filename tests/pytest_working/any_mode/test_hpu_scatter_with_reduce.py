@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -103,10 +103,7 @@ class TestHpuScatterWithReduce:
 
         result_cpu = scatter_with_reduce(input_cpu, dim, index_cpu, source_cpu)
 
-        if is_pytest_mode_compile():
-            torch._dynamo.reset()
-            clear_t_compile_logs()
-            scatter_with_reduce = torch.compile(scatter_with_reduce, backend="hpu_backend", dynamic=False)
+        scatter_with_reduce = compile_function_if_compile_mode(scatter_with_reduce, dynamic=False)
 
         result_hpu = scatter_with_reduce(input_hpu, dim, index_hpu, source_hpu)
 

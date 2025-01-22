@@ -43,7 +43,6 @@ def test_hpu_max_pool2d(shape, kernel_size_and_padding, stride, dilation, dtype)
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
-
     hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)

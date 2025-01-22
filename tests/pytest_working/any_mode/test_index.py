@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import cpu, hpu
+from test_utils import compile_function_if_compile_mode, cpu, hpu
 
 
 # optional on list cause fail
@@ -97,10 +97,7 @@ def test_index(shape, indices):
     def wrapper_fn(src, indices):
         return torch.ops.aten.index(src, indices)
 
-    if pytest.mode == "compile":
-        f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
-    else:
-        f_hpu = wrapper_fn
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     input_tensor = torch.rand(shape, device=hpu)
     indices = [torch.tensor(x, device=hpu) if x is not None else x for x in indices]

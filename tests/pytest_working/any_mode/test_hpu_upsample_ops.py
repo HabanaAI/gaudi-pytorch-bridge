@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi3
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi3
 
 
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
@@ -53,8 +53,7 @@ class TestHpuUpsample:
         else:
             upsample_fn = upsample_fwd_fn
 
-        torch._dynamo.reset()
-        hpu_wrapped_fn = torch.compile(upsample_fn, backend="hpu_backend") if pytest.mode == "compile" else upsample_fn
+        hpu_wrapped_fn = compile_function_if_compile_mode(upsample_fn)
 
         cpu_output = upsample_fn(cpu_input)
         hpu_output = hpu_wrapped_fn(hpu_input).cpu()

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,12 @@
 
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("scale", [0.75])
@@ -38,14 +43,7 @@ def test_scaled_masked_softmax(scale, shape, dtype):
     # Normalize the attention scores to probabilities.
     result_ref = torch.nn.functional.softmax(attention_scores, dim=-1)
 
-    hpu_op = torch.ops.hpu.scaled_masked_softmax
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_op = torch.compile(
-            torch.ops.hpu.scaled_masked_softmax,
-            backend="hpu_backend",
-        )
+    hpu_op = compile_function_if_compile_mode(torch.ops.hpu.scaled_masked_softmax)
     result = hpu_op(input.to("hpu"), mask.to("hpu"), scale_softmax)
 
     atol = 1e-3 if dtype == torch.float else 1e-1

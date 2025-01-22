@@ -16,6 +16,7 @@
 ###############################################################################
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shapes", [([2, 3], [3])])
@@ -37,7 +38,7 @@ def test_hpu_mv_ops(shapes, dtype):
 
     hpu_mat = cpu_mat.to("hpu")
     hpu_vec = cpu_vec.to("hpu")
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if (pytest.mode == "compile") else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_mat, cpu_vec)
     hpu_output = hpu_wrapped_fn(hpu_mat, hpu_vec).cpu()

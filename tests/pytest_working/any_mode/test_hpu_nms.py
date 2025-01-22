@@ -18,7 +18,7 @@
 import pytest
 import torch
 import torchvision
-from test_utils import compare_tensors, format_tc, is_pytest_mode_compile
+from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("num_boxes, iou_threshold", [(80, 0.05), (16, 0.25), (0, 0.1)])
@@ -56,8 +56,7 @@ def nms_generic(fn, is_batched, num_boxes, iou_threshold, dtype):
     if is_batched:
         idx_hpu = idx_cpu.to("hpu")
 
-    torch._dynamo.reset()
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     nms_hpu = (
         hpu_wrapped_fn(boxes_hpu, scores_hpu, idx_hpu, iou_threshold)

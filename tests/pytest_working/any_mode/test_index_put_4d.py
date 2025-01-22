@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import format_tc, is_pytest_mode_compile, is_pytest_mode_lazy
+from test_utils import compile_function_if_compile_mode, format_tc, is_pytest_mode_compile, is_pytest_mode_lazy
 
 
 @pytest.mark.parametrize(
@@ -171,8 +171,7 @@ class TestHpuIndexPut:
         hpu_value = cpu_value.to("hpu")
         accumulate = accumulate
 
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
-        torch._dynamo.reset()
+        hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
         fn(cpu_input, cpu_indices, cpu_value, accumulate)
         hpu_wrapped_fn(hpu_input, hpu_indices, hpu_value, accumulate)

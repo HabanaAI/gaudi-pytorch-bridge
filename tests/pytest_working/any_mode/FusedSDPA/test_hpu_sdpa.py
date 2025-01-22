@@ -26,7 +26,7 @@ import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
 from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, vb_print
-from test_utils import clear_t_compile_logs, compare_tensors, is_gaudi1, is_pytest_mode_compile
+from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
 
 DBG_FLAG_use_func_drpout = False
 print_max_diff = False
@@ -1397,10 +1397,7 @@ def test_sdpa(
             return_attn_probs,
         )
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        sdpa_fn = torch.compile(sdpa_fn, backend="hpu_backend")
+    sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
 
     with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
         # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter

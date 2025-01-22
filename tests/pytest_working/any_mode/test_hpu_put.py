@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -44,12 +44,7 @@ def test_put(shape_input, shape_index, dtype, accumulate):
         self.put_(index, source, accumulate)
         return self
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        hpu_fn = torch.compile(fn, backend="hpu_backend")
-    else:
-        hpu_fn = fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
     input = torch.randn(shape_input, dtype=dtype)
     index = torch.randint(high=input.numel(), size=shape_index)

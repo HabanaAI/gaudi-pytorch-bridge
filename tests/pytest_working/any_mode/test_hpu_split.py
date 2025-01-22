@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_pytest_mode_compile,
 )
@@ -42,10 +42,7 @@ def test_split(shape, size, dim, dtype):
             result.append(r * 1)
         return result
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     input = torch.randn(shape).to(dtype)
     input_hpu = input.to("hpu")

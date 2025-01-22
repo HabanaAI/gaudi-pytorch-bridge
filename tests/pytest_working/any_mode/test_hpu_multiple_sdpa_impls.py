@@ -29,6 +29,7 @@ import habana_frameworks.torch.hpu as ht
 import pytest
 import torch
 from habana_frameworks.torch.hpex.kernels import FusedSDPA, PySDPA, PySDPAHinted
+from test_utils import compile_function_if_compile_mode
 
 
 # below are utility functions #
@@ -216,8 +217,8 @@ def test_multiple_sdpa_impls(
         assert pytest.mode == "lazy", "CGUID SDPA kernel is expected to be used with lazy mode"
         run_hpu_sdpa = run_sdpa_cguid_once
 
-    if pytest.mode == "compile" and "compile" in kernel_type:
-        run_hpu_sdpa = torch.compile(run_hpu_sdpa, backend="hpu_backend", dynamic=False)
+    if "compile" in kernel_type:
+        run_hpu_sdpa = compile_function_if_compile_mode(run_hpu_sdpa, dynamic=False)
 
     dtype = torch.float32
     grad_dtype = torch.float32

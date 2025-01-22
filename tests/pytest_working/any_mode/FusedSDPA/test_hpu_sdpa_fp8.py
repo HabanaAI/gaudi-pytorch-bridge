@@ -32,11 +32,10 @@ from habana_frameworks.torch.hpex.kernels import fp8_fused_sdpa
 from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, inference, vb_print
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_gaudi3,
-    is_pytest_mode_compile,
 )
 
 print_max_diff = False
@@ -1350,10 +1349,7 @@ def test_sdpa(
                 _mark_params_as_const(model)
                 _check_params_as_const(model)
 
-            if is_pytest_mode_compile():
-                clear_t_compile_logs()
-                torch._dynamo.reset()
-                sdpa_fn = torch.compile(sdpa_fn, backend="hpu_backend")
+            sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
 
             # O_hpu, amax_s, amax_o = sdpa_fn(
             fwd_pass_outputs = sdpa_fn(
@@ -1601,13 +1597,10 @@ def test_sdpa(
             O_hpu,
         )
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        if not recompute:
-            sdpa_bwd_fn = torch.compile(sdpa_bwd_fn, backend="hpu_backend")
-        else:
-            sdpa_recomp_bwd_fn = torch.compile(sdpa_recomp_bwd_fn, backend="hpu_backend")
+    if recompute:
+        sdpa_recomp_bwd_fn = compile_function_if_compile_mode(sdpa_recomp_bwd_fn)
+    else:
+        sdpa_bwd_fn = compile_function_if_compile_mode(sdpa_bwd_fn)
 
     if not recompute:
         dq, dk, dv, amax_ds = sdpa_bwd_fn(

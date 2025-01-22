@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -48,10 +48,7 @@ def test_prelu_fwd_bwd(shape_in, num_parameters, init, dtype):
     hpu_tensor.requires_grad_(True)
     hpu_fn = torch.nn.PReLU(num_parameters=num_parameters, init=init, dtype=dtype, device="hpu")
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(hpu_fn, backend="hpu_backend")
+    hpu_fn = compile_function_if_compile_mode(hpu_fn)
 
     result_fwd_hpu = hpu_fn(hpu_tensor)
     compare_tensors(result_fwd_hpu, result_fwd_cpu, atol=tol, rtol=tol)

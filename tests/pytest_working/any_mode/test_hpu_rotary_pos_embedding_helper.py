@@ -25,7 +25,14 @@ from habana_frameworks.torch.hpex.kernels import (
     RotaryPosEmbeddingMode,
     apply_rotary_pos_emb,
 )
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, cpu, hpu, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    cpu,
+    hpu,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 apply_rotary_pos_emb_v1_test_case_list = [
     # p_size, cos_sin_size, offset
@@ -224,11 +231,7 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     cos_hpu = cos.to(dtype).to(hpu)
     sin_hpu = sin.to(dtype).to(hpu)
 
-    output_fwd = RotaryPosEmbeddingHelperV1.apply
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        output_fwd = torch.compile(RotaryPosEmbeddingHelperV1.apply, backend="hpu_backend")
+    output_fwd = compile_function_if_compile_mode(RotaryPosEmbeddingHelperV1.apply)
 
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, offset)
     loss = p_embed.sum()
@@ -282,11 +285,7 @@ class TestHpuApplyRotaryPosEmbV2FwdBwd:
         sin_hpu = sin.to(dtype).to(hpu)
         position_ids_hpu = position_ids.to(hpu)
 
-        output_fwd = RotaryPosEmbeddingHelperV2.apply
-        if is_pytest_mode_compile():
-            clear_t_compile_logs()
-            torch._dynamo.reset()
-            output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
+        output_fwd = compile_function_if_compile_mode(RotaryPosEmbeddingHelperV2.apply)
 
         p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
         loss = p_embed.sum()
@@ -328,11 +327,7 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
     cos_hpu = cos.to(dtype).to(hpu)
     sin_hpu = sin.to(dtype).to(hpu)
 
-    output_fwd = apply_rotary_pos_emb
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        output_fwd = torch.compile(apply_rotary_pos_emb, backend="hpu_backend")
+    output_fwd = compile_function_if_compile_mode(apply_rotary_pos_emb)
 
     output_hpu = output_fwd(p_hpu, cos_hpu, sin_hpu, None, 0, RotaryPosEmbeddingMode.PAIRWISE)
 
@@ -379,11 +374,7 @@ class TestHpuApplyRotaryPosEmbDiffDTypes:
         sin_hpu = sin.to(sin_dtype).to(hpu)
         position_ids_hpu = position_ids.to(hpu)
 
-        output_fwd = RotaryPosEmbeddingHelperV2.apply
-        if is_pytest_mode_compile():
-            clear_t_compile_logs()
-            torch._dynamo.reset()
-            output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
+        output_fwd = compile_function_if_compile_mode(RotaryPosEmbeddingHelperV2.apply)
 
         p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
         loss = p_embed.sum()
@@ -428,11 +419,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
     p_hpu = p.to(dtype).to(hpu)
     rope_cache_hpu = rope_cache.to(hpu)
 
-    output_fwd = apply_rotary_pos_emb
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        output_fwd = torch.compile(apply_rotary_pos_emb, backend="hpu_backend")
+    output_fwd = compile_function_if_compile_mode(apply_rotary_pos_emb)
 
     output_hpu = output_fwd(p_hpu, rope_cache_hpu)
 
@@ -476,11 +463,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
     p_hpu.retain_grad()
     rope_cache_hpu = rope_cache.to(dtype).to(hpu)
 
-    output_fwd = RotaryPosEmbeddingHelperV3.apply
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        output_fwd = torch.compile(RotaryPosEmbeddingHelperV3.apply, backend="hpu_backend")
+    output_fwd = compile_function_if_compile_mode(RotaryPosEmbeddingHelperV3.apply)
 
     p_embed = output_fwd(p_hpu, rope_cache_hpu)
     loss = p_embed.sum()

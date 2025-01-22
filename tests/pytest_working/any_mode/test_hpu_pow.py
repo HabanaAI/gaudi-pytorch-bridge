@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_lazy,
@@ -58,10 +59,7 @@ def test_hpu_pow_tensor(shape, dtype):
     cpu_other = torch.ones(size=shape, dtype=dtype) * 2
     hpu_other = cpu_other.to("hpu")
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     cpu_output = torch.pow(cpu_input, cpu_other)
     hpu_output = fn(hpu_input, hpu_other)
@@ -91,10 +89,7 @@ def test_hpu_square(shape, dtype):
 
     cpu_input, hpu_input = generate_inputs(shape, dtype)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     cpu_output = torch.square(cpu_input)
     hpu_output = fn(hpu_input)

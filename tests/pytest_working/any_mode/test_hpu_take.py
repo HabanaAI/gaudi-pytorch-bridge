@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 dtypes_inputs = [torch.float32, torch.bfloat16, torch.int32]
 dtypes_indicies = [torch.int32, torch.long]
@@ -50,10 +50,7 @@ def test_hpu_take(shape, repeats, dtypes_inputs, dtypes_indicies):
     def fn(input_tensor, indicies):
         return torch.take(input_tensor, indicies)
 
-    if pytest.mode == "compile":
-        f_hpu = torch.compile(fn, backend="hpu_backend")
-    else:
-        f_hpu = fn
+    f_hpu = compile_function_if_compile_mode(fn)
 
     result_c = fn(input_tensor=input_tensor, indicies=indicies)
     result_h = f_hpu(input_tensor=input_tensor_h, indicies=indicies_h)

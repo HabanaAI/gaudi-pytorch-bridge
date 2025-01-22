@@ -24,6 +24,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -48,12 +49,7 @@ def common_hpu_pdist(shape, dtype, p, torch_op_label):
     def fn(src, p):
         return torch_op(src, p)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn_h = torch.compile(fn, backend="hpu_backend")
-    else:
-        fn_h = fn
+    fn_h = compile_function_if_compile_mode(fn)
 
     dst = fn(src.to(torch.float32), p).to(dtype)
     dst_h = fn_h(src_h, p)

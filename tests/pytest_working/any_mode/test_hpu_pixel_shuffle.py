@@ -18,7 +18,13 @@
 import pytest
 import torch
 from test_utils import setup_teardown_env_fixture  # noqa F401
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi3, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi3,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize(
@@ -43,11 +49,7 @@ def test_hpu_pixel_shuffle(shape_and_scale_factor, dynamic, dtype, setup_teardow
     shape, scale_factor = shape_and_scale_factor
     cpu_model = torch.nn.PixelShuffle(scale_factor)
     hpu_model = cpu_model.to("hpu")
-    hpu_wrapped_fn = fn
-    if is_pytest_mode_compile():
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
-        clear_t_compile_logs()
-        torch._dynamo.reset()
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     iters = 3 if dynamic else 1
     for i in range(iters):

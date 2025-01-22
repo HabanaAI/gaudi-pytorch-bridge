@@ -18,7 +18,7 @@
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from test_utils import format_tc, is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shapes", [([2, 2], []), ([], [2, 2]), ([2, 2], [2, 2])], ids=format_tc)
@@ -56,8 +56,7 @@ class TestHpuSpecialXlog1py:
             else:
                 cpu_out = torch.empty_like(cpu_input)
                 hpu_out = torch.empty_like(hpu_input)
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
-        torch._dynamo.reset()
+        hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
         cpu_output = fn(cpu_input, cpu_other, cpu_out)
         hpu_output = hpu_wrapped_fn(hpu_input, hpu_other, hpu_out)

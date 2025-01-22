@@ -84,7 +84,6 @@ def test_hpu_avg_pool3d_bwd_dynamic(shape_stride_kernel_size, dtype, setup_teard
     shapes = [copy.copy(shape), copy.copy(shape), copy.copy(shape)]
     shapes[1][-2] = shape[-2] * 2
     shapes[2][-2] = shape[-2] * 3
-
     hpu_compiled_fn = compile_function_if_compile_mode(fn)
     inputs_cpu = [torch.rand(inputShape, dtype=dtype) for inputShape in shapes]
     inputs_hpu = [input_cpu.to("hpu") for input_cpu in inputs_cpu]

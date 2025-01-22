@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 dtypes = [torch.float32, torch.bfloat16]
 integer_dtypes = [torch.int, torch.int16, torch.uint8, torch.int8]
@@ -39,8 +39,7 @@ def test_hpu_rounding_func(shape, op, dtype):
 
     hpu_input = cpu_input.to("hpu")
 
-    if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     cpu_output = op(cpu_input)
     hpu_output = fn(hpu_input).cpu()

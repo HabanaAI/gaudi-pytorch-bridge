@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_gaudi1, is_pytest_mode_compile
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, is_gaudi1, is_pytest_mode_compile
 
 multinomial_dtypes = [torch.float, torch.bfloat16]
 if not is_gaudi1():
@@ -29,11 +29,7 @@ if not is_gaudi1():
 @pytest.mark.parametrize("dtype", multinomial_dtypes)
 @pytest.mark.parametrize("replacement", [True, False])
 def test_multinomial(size, dtype, replacement):
-    op = torch.multinomial
-    if pytest.mode == "compile":
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        op = torch.compile(torch.multinomial, backend="hpu_backend")
+    op = compile_function_if_compile_mode(torch.multinomial)
 
     input = torch.rand(size, dtype=dtype).to("hpu")
     result = op(input, 3, replacement=replacement).cpu()
@@ -47,11 +43,7 @@ def test_multinomial(size, dtype, replacement):
 
 @pytest.mark.parametrize("dtype", multinomial_dtypes)
 def test_multinomial_output(dtype):
-    op = torch.multinomial
-    if pytest.mode == "compile":
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        op = torch.compile(torch.multinomial, backend="hpu_backend")
+    op = compile_function_if_compile_mode(torch.multinomial)
 
     N = 1000
     input = torch.rand((10,), dtype=dtype).to("hpu")
@@ -74,11 +66,7 @@ def test_multinomial_output(dtype):
 @pytest.mark.parametrize("dtype", multinomial_dtypes)
 @pytest.mark.parametrize("replacement", [True, False])
 def test_multinomial_multiple_calls(size, dtype, replacement):
-    op = torch.multinomial
-    if pytest.mode == "compile":
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        op = torch.compile(torch.multinomial, backend="hpu_backend")
+    op = compile_function_if_compile_mode(torch.multinomial)
 
     input = torch.rand(size, dtype=dtype).to("hpu")
     result = op(input, 4, replacement=replacement).cpu()

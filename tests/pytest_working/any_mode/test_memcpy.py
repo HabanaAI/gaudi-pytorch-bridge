@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import cpu, hpu
+from test_utils import compile_function_if_compile_mode, cpu, hpu
 
 
 @pytest.mark.parametrize("src_dtype", [torch.int8, torch.bfloat16, torch.float32])
@@ -34,7 +34,7 @@ def test_memcpy_with_cast(src_dtype, dst_dtype, devices):
     if pytest.mode == "lazy":
         func = memcpy_with_cast
     elif pytest.mode == "compile":
-        func = torch.compile(memcpy_with_cast, backend="hpu_backend")
+        func = compile_function_if_compile_mode(memcpy_with_cast)
     elif pytest.mode == "eager":
         func = memcpy_with_cast
 
