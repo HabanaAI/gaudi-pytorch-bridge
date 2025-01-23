@@ -597,7 +597,7 @@ PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT:
 
 PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT:
   type: bool
-  default: true
+  default: false
   doc: "Allow permutations on all reduce gradient bucket view outputs for PT2.0. This\n
 is to improve multinode performance"
 
