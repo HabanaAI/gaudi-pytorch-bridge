@@ -15,6 +15,7 @@
 
 #pragma once
 #include <c10/core/Device.h>
+#include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "ir.h"
@@ -419,7 +420,8 @@ class HbLazyTensor {
       std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
       const std::unordered_map<int64_t, c10::optional<at::Generator>>&
           seed_tensors_generator_map,
-      uint64_t launch_jobid);
+      uint64_t launch_jobid,
+      c10::hpu::HPUStream capture_stream);
 
   static void* lazyTensorDataPtr(const at::Tensor& t);
 

@@ -1499,7 +1499,8 @@ void HbLazyTensor::ExecuteCachedGraph(
     std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
     const std::unordered_map<int64_t, c10::optional<at::Generator>>&
         seed_tensors_generator_map,
-    uint64_t launch_jobid) {
+    uint64_t launch_jobid,
+    c10::hpu::HPUStream capture_stream [[maybe_unused]]) {
   PT_LAZY_TRACE;
   get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLOWERING);
   bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
@@ -1554,7 +1555,7 @@ void HbLazyTensor::ExecuteCachedGraph(
   hlexec.set_opstrs(opStrs);
 
   // Launch the execution
-  hlexec.Launch(stack, c10::hpu::getCurrentHPUStream(), cached_rarg_psh, false);
+  hlexec.Launch(stack, capture_stream, cached_rarg_psh, false);
 
   HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
   for (const auto& in : hblazy_tensors_in) {
