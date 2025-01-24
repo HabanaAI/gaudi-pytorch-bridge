@@ -58,8 +58,7 @@ class CollectiveKernelInfos {
   void Deserialize(
       std::istream& is,
       const std::vector<PtTensorInfoShared>& dtensorinfos);
-  void Launch(bool async, synapse_helpers::event_done_callback cleanup_callback)
-      const;
+  void Launch(bool async) const;
   void ClearAllPtAndSynTensors();
 
   void AddKernel(Info&& info) {

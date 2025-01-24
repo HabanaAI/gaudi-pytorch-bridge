@@ -1703,7 +1703,7 @@ void RecipeLauncher::Launch(
             std::move(outDevPtr), stream_handle, cleanup_callback);
       }
       // Launch collective ops
-      collective_kernels_info_->Launch(true, cleanup_callback);
+      collective_kernels_info_->Launch(true);
     } else {
       // Use wrapper for resources that must survive async part of the compute.
       struct ResourceHolder {
@@ -1764,7 +1764,7 @@ void RecipeLauncher::Launch(
             hpu_stream);
       }
       // Launch collective ops
-      collective_kernels_info_->Launch(true, cleanup_callback);
+      collective_kernels_info_->Launch(true);
     }
 
   } else {
@@ -1804,7 +1804,7 @@ void RecipeLauncher::Launch(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 
     // Launch collective ops
-    collective_kernels_info_->Launch(false, [] {});
+    collective_kernels_info_->Launch(false);
 
     if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
       auto& device = HPUDeviceContext::get_device();

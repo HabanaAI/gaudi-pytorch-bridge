@@ -33,8 +33,7 @@ class CollectiveOperator : public habana::HabanaOperator {
         scalar_type_(scalar_type){};
   virtual void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const = 0;
+      bool async) const = 0;
 
   int GetDeviceId() const {
     return device_id_;
@@ -65,10 +64,8 @@ class HcclBroadcastOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   int64_t comm_id_;
@@ -89,10 +86,8 @@ class HcclAllreduceOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   uint8_t reduce_op_;
@@ -113,10 +108,8 @@ class HcclReduceOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   int64_t dst_rank_;
@@ -138,10 +131,8 @@ class HcclAllToAllOutOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   int64_t comm_id_;
@@ -164,10 +155,8 @@ class HcclAllgatherOutOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   int64_t comm_id_;
@@ -187,10 +176,8 @@ class HcclReduceScatterOutOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   uint8_t reduce_op_;
@@ -210,10 +197,8 @@ class HcclSendOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   int64_t dst_rank_;
@@ -234,10 +219,8 @@ class HcclRecvOperator : public CollectiveOperator {
   void Serialize(std::ostream& os) const override;
   void Deserialize(std::istream& is) override;
 
-  void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
-      bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+  void RunCollective(const std::vector<PtTensorInfoShared>& inputs, bool async)
+      const override;
 
  private:
   int64_t src_rank_;
