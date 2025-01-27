@@ -38,6 +38,11 @@
       "version": "1.0.0",
       "default_source": "pypi"
     },
+    "next" : {
+      "version": "1.4.0",
+      "default_source": "pypi",
+      "cpu_index_url" : "none"
+    },
     "rc": {
       "version": null,
       "default_source": "pypi"

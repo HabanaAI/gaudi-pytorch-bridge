@@ -54,6 +54,7 @@
     "next": {
       "version": "2.6.0",
       "default_source": "build",
+      "cpu_index_url" : "none",
       "extras": {
         "torchvision": "v0.21.0-rc3",
         "torchaudio": "v2.6.0-rc2",

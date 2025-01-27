@@ -35,7 +35,7 @@ from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Se
 
 import op_stats_generator
 from build_profiles import profiles
-from build_profiles.profiles import VersionLiteralAndSource
+from build_profiles.profiles import VersionLiteralAndSource, get_cpu_index_url, get_pt_version_id
 from build_profiles.version import Version, is_official_stable_cpu_version, is_wheel_version
 
 log = logging.getLogger(__file__)
@@ -1931,7 +1931,7 @@ def install_wheels_in_venvs(selected_wheel_configs):
         # else: checked in log_produced_wheels_and_dump_manifest
 
 
-def add_upstream_versions(wheel_specs: List[WheelSpec]):
+def add_upstream_versions(wheel_specs: List[WheelSpec], cpu_index_url: Optional[str]) -> List[WheelSpec]:
     for ws in wheel_specs:
         new_pt_versions: Set[VersionAndSource] = set()
         for pt_ver in ws.pt_versions:
@@ -1943,7 +1943,7 @@ def add_upstream_versions(wheel_specs: List[WheelSpec]):
                 continue
 
             new_version = Version(str(version) + "+cpu")
-            new_source = "https://download.pytorch.org/whl/"
+            new_source = cpu_index_url if cpu_index_url != "default" else "https://download.pytorch.org/whl/"
             new_pt_versions.add(VersionAndSource(new_version, new_source))
         ws.pt_versions = new_pt_versions
 
@@ -1978,8 +1978,10 @@ def main():
 
         current_pt_version, wheel_specs = prepare_wheel_specs(args.wheel_spec, args.pt_versions, current_pt_version)
 
-        if args.upstream_compile:
-            wheel_specs = add_upstream_versions(wheel_specs)
+        pt_version_id = get_pt_version_id(str(current_pt_version))
+        cpu_index_url = get_cpu_index_url(pt_version_id)
+        if cpu_index_url != "none":
+            wheel_specs = add_upstream_versions(wheel_specs, cpu_index_url)
 
         selected_pt_versions = set([item for sublist in wheel_specs for item in sublist.pt_versions])
         log.debug(f"Selected PyTorch versions: {selected_pt_versions}")

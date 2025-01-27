@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -82,3 +82,38 @@ def test_patch_version_compatibility_in_prepare_wheel_specs(monkeypatch):
     assert len(spec.pt_versions) == 1
     assert build.VersionAndSource(version=Version("2.3.1"), source="preinstalled") == list(spec.pt_versions)[0]
     assert build.log.warn.called or build.log.warning.called
+
+
+def test_add_upstream_versions(monkeypatch):
+
+    cpu_indexes_list = ["https://download.pytorch.org/whl/", "default"]
+
+    wheel_specs = [
+        build.WheelSpec(
+            wheel_name="habana_torch_plugin",
+            pt_versions=[
+                build.VersionAndSource(version=Version("2.2.0"), source="build"),
+                build.VersionAndSource(version=Version("2.3.0"), source="build"),
+            ],
+            wheel_src_dir="python_packages",
+        )
+    ]
+
+    for cpu_index in cpu_indexes_list:
+        monkeypatch.setattr(build, "get_cpu_index_url", cpu_index)
+
+        result = build.add_upstream_versions(wheel_specs, cpu_index)
+
+    expected_wheel_specs = [
+        build.WheelSpec(
+            wheel_name="habana_torch_plugin",
+            pt_versions={
+                build.VersionAndSource(version=Version("2.2.0"), source="build"),
+                build.VersionAndSource(version=Version("2.3.0"), source="build"),
+                build.VersionAndSource(version=Version("2.3.0+cpu"), source="https://download.pytorch.org/whl/"),
+            },
+            wheel_src_dir="python_packages",
+        )
+    ]
+
+    assert result == expected_wheel_specs
