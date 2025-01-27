@@ -1,4 +1,21 @@
 #!/usr/bin/env bash
+###############################################################################
+#
+#  Copyright (c) 2023-2025 Intel Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+###############################################################################
+
 : ${1?"Usage: $0 major.minor.patch revision"}
 : ${2?"Usage: $0 major.minor.patch revision"}
 
@@ -35,10 +52,10 @@ source .env
 # 'upstream' - install extras AND torch from the internet, everything else from internal pytorch_modules.tgz package
 if [[ -n $TORCH_TYPE && $TORCH_TYPE == "upstream" ]]; then
   rm -f torch-*.whl
-  python${MIN_PYTHON_VER} -m pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/cpu
+  python${MIN_PYTHON_VER} -m pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu
   python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
 else
-  python${MIN_PYTHON_VER} -m pip install torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/cpu --dry-run --report pip_report
+  python${MIN_PYTHON_VER} -m pip install torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --dry-run --report pip_report
   jq -r '.install[].download_info.url' pip_report | grep -v '/torch-' > extras_req.txt
   python${MIN_PYTHON_VER} -m pip install -r extras_req.txt --no-dependencies
   python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
