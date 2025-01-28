@@ -462,12 +462,24 @@ def randngen(
 
 @torch.ops.hpu.mixture_of_experts.default.py_impl(DispatchKey.Autograd)
 def mixture_of_experts(*args, **kwargs):
-    return torch.ops.hpu.mixture_of_experts_fwd(*args, **kwargs)
+    return torch.ops.hpu.mixture_of_experts_compile(*args, **kwargs)
 
 
 @torch.ops.hpu.mixture_of_experts.fused_weights.py_impl(DispatchKey.Autograd)
 def mixture_of_experts(*args, **kwargs):
-    return torch.ops.hpu.mixture_of_experts_fwd(*args, **kwargs)
+    return torch.ops.hpu.mixture_of_experts_compile(*args, **kwargs)
+
+
+@register_custom_decomposition(
+    torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights, hpu_backend_decompositions_common
+)
+def mixture_of_experts_fp8_measurement_fused_weights(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_fp8_measurement(*args, **kwargs)
+
+
+@register_custom_decomposition(torch.ops.hpu.mixture_of_experts.fp8_measurement, hpu_backend_decompositions_common)
+def mixture_of_experts_fp8_measurement(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_fp8_measurement(*args, **kwargs)
 
 
 @register_custom_decomposition(aten.sort.default, hpu_backend_decompositions_common)

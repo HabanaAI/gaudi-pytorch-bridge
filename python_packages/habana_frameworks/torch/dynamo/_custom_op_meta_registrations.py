@@ -847,7 +847,7 @@ def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
     return input.new_empty(input.shape)
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.default, torch.ops.hpu.mixture_of_experts_fwd.default])
+@register_meta([torch.ops.hpu.mixture_of_experts.default, torch.ops.hpu.mixture_of_experts_recomp_fwd.default])
 def meta_mixture_of_experts(
     hidden_states,
     expert_routing_table,
@@ -863,7 +863,9 @@ def meta_mixture_of_experts(
     return hidden_states.new_empty(hidden_states.shape)
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.fused_weights, torch.ops.hpu.mixture_of_experts_fwd.fused_weights])
+@register_meta(
+    [torch.ops.hpu.mixture_of_experts.fused_weights, torch.ops.hpu.mixture_of_experts_recomp_fwd.fused_weights]
+)
 def meta_mixture_of_experts_fused_weights(
     hidden_states,
     expert_routing_table,
@@ -878,9 +880,8 @@ def meta_mixture_of_experts_fused_weights(
     return hidden_states.new_empty(hidden_states.shape)
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts_bwd.default])
-def meta_mixture_of_experts_bwd(
-    x,
+@register_meta([torch.ops.hpu.mixture_of_experts_fwd.default])
+def meta_mixture_of_experts_fwd(
     hidden_states,
     expert_routing_table,
     router_weights,
@@ -892,12 +893,25 @@ def meta_mixture_of_experts_bwd(
     experts_min,
     experts_max,
 ):
-    return hidden_states.new_empty(hidden_states.shape)
+    h2 = w1[0].shape[0 if permuted_weights else 1]
+    out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
+        "mixture_of_experts_fwd", [hidden_states, expert_routing_table], [len(w1), h2, False]
+    )
+    return [
+        hidden_states.new_empty(out_shapes[0]),
+        hidden_states.new_empty(out_shapes[1]),
+        hidden_states.new_empty(out_shapes[2], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[3], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[4], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[5]),
+        hidden_states.new_empty(out_shapes[6]),
+        hidden_states.new_empty(out_shapes[7]),
+        hidden_states.new_empty(out_shapes[8]),
+    ]
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts_bwd.fused_weights])
-def meta_mixture_of_experts_bwd_fused_weights(
-    x,
+@register_meta([torch.ops.hpu.mixture_of_experts_fwd.fused_weights])
+def meta_mixture_of_experts_fwd_fused_weights(
     hidden_states,
     expert_routing_table,
     router_weights,
@@ -908,10 +922,110 @@ def meta_mixture_of_experts_bwd_fused_weights(
     experts_min,
     experts_max,
 ):
-    return hidden_states.new_empty(hidden_states.shape)
+    h2 = w12[0].shape[0 if permuted_weights else 1]
+    out_shapes = _hpu_C.custom_op_calc_out_shape_params_int(
+        "mixture_of_experts_fwd", [hidden_states, expert_routing_table], [len(w12), h2, True]
+    )
+    return [
+        hidden_states.new_empty(out_shapes[0]),
+        hidden_states.new_empty(out_shapes[1]),
+        hidden_states.new_empty(out_shapes[2], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[3], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[4], dtype=torch.int),
+        hidden_states.new_empty(out_shapes[5]),
+        hidden_states.new_empty(out_shapes[6]),
+        hidden_states.new_empty(out_shapes[7]),
+    ]
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.fp8_measurement])
+def common_mixture_of_experts_bwd_meta(grad_tokens_in, weights_lists):
+    outputs = [torch.empty_like(grad_tokens_in)]
+    for weight_list in weights_lists:
+        for w in weight_list:
+            outputs.append(torch.empty_like(w))
+    return outputs
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_bwd.default])
+def meta_mixture_of_experts_bwd(
+    grad_tokens_in,
+    router_weights,
+    chunks_input,
+    token_to_chunk,
+    token_in_chunk,
+    chunks_routing_table,
+    gemm1_out,
+    gemm2_out,
+    activation_out,
+    mult_out,
+    w1,
+    w2,
+    w3,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w1, w2, w3])
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_bwd.fused_weights])
+def meta_mixture_of_experts_bwd_fused_weights(
+    grad_tokens_in,
+    router_weights,
+    chunks_input,
+    token_to_chunk,
+    token_in_chunk,
+    chunks_routing_table,
+    gemm12_out,
+    activation_out,
+    mult_out,
+    w12,
+    w3,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w12, w3])
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_bwd.default])
+def meta_mixture_of_experts_recomp_bwd(
+    grad_tokens_in,
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w1,
+    w2,
+    w3,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w1, w2, w3])
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts_recomp_bwd.fused_weights])
+def meta_mixture_of_experts_recomp_bwd_fused_weights(
+    grad_tokens_in,
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w12, w3])
+
+
+@register_meta(
+    [torch.ops.hpu.mixture_of_experts.fp8_measurement, torch.ops.hpu.mixture_of_experts_fp8_measurement.default]
+)
 def meta_mixture_of_experts_fp8_measurement(
     hidden_states,
     expert_routing_table,
@@ -928,7 +1042,12 @@ def meta_mixture_of_experts_fp8_measurement(
     return hidden_states.new_empty(hidden_states.shape), hidden_states.new_empty(len(w1))
 
 
-@register_meta([torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights])
+@register_meta(
+    [
+        torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights,
+        torch.ops.hpu.mixture_of_experts_fp8_measurement.fused_weights,
+    ]
+)
 def meta_mixture_of_experts_fp8_measurement_fused_weights(
     hidden_states,
     expert_routing_table,

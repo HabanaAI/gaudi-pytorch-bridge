@@ -26,7 +26,8 @@ at::Tensor mixture_of_experts_lazy(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const c10::optional<bool> recomp = false);
 
 at::Tensor mixture_of_experts_fused_weights_lazy(
     const at::Tensor& hidden_states,
@@ -37,7 +38,8 @@ at::Tensor mixture_of_experts_fused_weights_lazy(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const c10::optional<bool> recomp = false);
 
 std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
     const at::Tensor& hidden_states,
@@ -139,7 +141,8 @@ at::Tensor mixture_of_experts_fwd_autograd_lazy(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const std::optional<bool> recomp);
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd_lazy(
     const at::Tensor& hidden_states,
@@ -150,6 +153,7 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd_lazy(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const std::optional<bool> recomp);
 
 } // namespace habana_lazy

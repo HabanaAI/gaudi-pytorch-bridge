@@ -39,6 +39,8 @@
 #include "passes/transform_graph.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
+using namespace std::literals;
+
 namespace habana_lazy {
 namespace exec {
 
@@ -853,8 +855,27 @@ void HlExec::Create(
     mp_g_->registerOutput(ir_map.at(out));
   }
 
+  // Because we dont support tensorlist in lowering that matches kernel schema
+  // need to disable optimization in case mixture_of_experts_bwd is used in the
+  // graph. More details: SW-68937
+  static const std::array<std::string_view, 2> nodes_to_disable_optimization = {
+      "hpu::mixture_of_experts_bwd"sv, "hpu::mixture_of_experts_recomp_bwd"sv};
+
+  const bool call_optimize = std::all_of(
+      nodes.cbegin(),
+      nodes.cend(),
+      [](const std::shared_ptr<habana_lazy::ir::Node> node) {
+        return std::find(
+                   nodes_to_disable_optimization.cbegin(),
+                   nodes_to_disable_optimization.cend(),
+                   node->op().toQualString()) ==
+            nodes_to_disable_optimization.cend();
+      });
+
   // Optimize the graph based on the passes enabled
-  Optimize(stack, redundant_inputs);
+  if (call_optimize) {
+    Optimize(stack, redundant_inputs);
+  }
 }
 
 void HlExec::Optimize(

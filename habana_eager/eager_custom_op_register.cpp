@@ -1231,21 +1231,17 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def(
-      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
   m.def(
       "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
       "hpu::mixture_of_experts.fp8_measurement_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
-      "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+      "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
-      "hpu::mixture_of_experts_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts_bwd(Tensor grad, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+      "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
       "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
   m.def(
@@ -1254,6 +1250,27 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
   m.def(
       "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
+      "hpu::mixture_of_experts_compile(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
+  m.def(
+      "hpu::mixture_of_experts_compile.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
+  m.def(
+      "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+  m.def(
+      "hpu::mixture_of_experts_recomp_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
+      "hpu::mixture_of_experts_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+  m.def(
+      "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
+      "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor router_weights, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+  m.def(
+      "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+  m.def(
+      "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor router_weights, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+  m.def(
+      "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
   m.def("hpu::view_neg(Tensor input, Tensor shape, int[] shape) -> Tensor");
   m.def("hpu::slice_ht(Tensor input, Tensor shape, Tensor shape) -> Tensor");
@@ -1433,9 +1450,9 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
 }
 
 TORCH_LIBRARY_IMPL(hpu, Autograd, m) {
-  m.impl("hpu::mixture_of_experts_fwd", mixture_of_experts_fwd_autograd);
+  m.impl("hpu::mixture_of_experts_compile", mixture_of_experts_fwd_autograd);
   m.impl(
-      "hpu::mixture_of_experts_fwd.fused_weights",
+      "hpu::mixture_of_experts_compile.fused_weights",
       mixture_of_experts_fwd_fused_weights_autograd);
 }
 

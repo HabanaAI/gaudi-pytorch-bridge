@@ -16,11 +16,397 @@
 #include "habana_eager/ops/mixture_of_experts.h"
 #include <torch/autograd.h>
 #include "common/dump_args.h"
+#include "common/mixture_of_experts.hpp"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
 #include "hpu_ops/op_logger.h"
 
 namespace habana {
+using namespace habana::eager;
+
+std::vector<at::Tensor> mixture_of_experts_fwd(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_fwd :",
+      DUMP_10ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op = torch::Dispatcher::singleton()
+                       .findSchemaOrThrow("hpu::mixture_of_experts_fwd", "")
+                       .typed<decltype(mixture_of_experts_fwd)>();
+
+  return op.call(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
+
+at::Tensor mixture_of_experts_recomp_fwd(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_recomp_fwd :",
+      DUMP_10ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op =
+      torch::Dispatcher::singleton()
+          .findSchemaOrThrow("hpu::mixture_of_experts_recomp_fwd", "")
+          .typed<decltype(mixture_of_experts_recomp_fwd)>();
+
+  return op.call(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
+
+std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_fwd_fused_weights :",
+      DUMP_9ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op =
+      torch::Dispatcher::singleton()
+          .findSchemaOrThrow("hpu::mixture_of_experts_fwd", "fused_weights")
+          .typed<decltype(mixture_of_experts_fwd_fused_weights)>();
+
+  return op.call(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
+
+at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_recomp_fwd.fused_weights :",
+      DUMP_9ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op =
+      torch::Dispatcher::singleton()
+          .findSchemaOrThrow(
+              "hpu::mixture_of_experts_recomp_fwd", "fused_weights")
+          .typed<decltype(mixture_of_experts_recomp_fwd_fused_weights)>();
+
+  return op.call(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
+
+std::vector<at::Tensor> mixture_of_experts_bwd(
+    const at::Tensor& grad_tokens_in,
+    const at::Tensor& router_weights,
+    const at::Tensor& chunks_input,
+    const at::Tensor& token_to_chunk,
+    const at::Tensor& token_in_chunk,
+    const at::Tensor& chunks_routing_table,
+    const at::Tensor& gemm1_out,
+    const at::Tensor& gemm2_out,
+    const at::Tensor& activation_out,
+    const at::Tensor& mult_out,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_bwd :",
+      DUMP_17ARGS(
+          grad_tokens_in,
+          router_weights,
+          chunks_input,
+          token_to_chunk,
+          token_in_chunk,
+          chunks_routing_table,
+          gemm1_out,
+          gemm2_out,
+          activation_out,
+          mult_out,
+          w1,
+          w2,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op = torch::Dispatcher::singleton()
+                       .findSchemaOrThrow("hpu::mixture_of_experts_bwd", "")
+                       .typed<decltype(mixture_of_experts_bwd)>();
+  return op.call(
+      grad_tokens_in,
+      router_weights,
+      chunks_input,
+      token_to_chunk,
+      token_in_chunk,
+      chunks_routing_table,
+      gemm1_out,
+      gemm2_out,
+      activation_out,
+      mult_out,
+      w1,
+      w2,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
+
+std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
+    const at::Tensor& grad_tokens_in,
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_recomp_bwd :",
+      DUMP_11ARGS(
+          grad_tokens_in,
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op =
+      torch::Dispatcher::singleton()
+          .findSchemaOrThrow("hpu::mixture_of_experts_recomp_bwd", "")
+          .typed<decltype(mixture_of_experts_recomp_bwd)>();
+
+  return op.call(
+      grad_tokens_in,
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
+
+std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
+    const at::Tensor& grad_tokens_in,
+    const at::Tensor& router_weights,
+    const at::Tensor& chunks_input,
+    const at::Tensor& token_to_chunk,
+    const at::Tensor& token_in_chunk,
+    const at::Tensor& chunks_routing_table,
+    const at::Tensor& gemm12_out,
+    const at::Tensor& activation_out,
+    const at::Tensor& mult_out,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_bwd.fused_weights :",
+      DUMP_15ARGS(
+          grad_tokens_in,
+          router_weights,
+          chunks_input,
+          token_to_chunk,
+          token_in_chunk,
+          chunks_routing_table,
+          gemm12_out,
+          activation_out,
+          mult_out,
+          w12,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op =
+      torch::Dispatcher::singleton()
+          .findSchemaOrThrow("hpu::mixture_of_experts_bwd", "fused_weights")
+          .typed<decltype(mixture_of_experts_bwd_fused_weights)>();
+
+  return op.call(
+      grad_tokens_in,
+      router_weights,
+      chunks_input,
+      token_to_chunk,
+      token_in_chunk,
+      chunks_routing_table,
+      gemm12_out,
+      activation_out,
+      mult_out,
+      w12,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
+
+std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
+    const at::Tensor& grad,
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts_recomp_bwd.fused_weights :",
+      DUMP_10ARGS(
+          grad,
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  static auto op =
+      torch::Dispatcher::singleton()
+          .findSchemaOrThrow(
+              "hpu::mixture_of_experts_recomp_bwd", "fused_weights")
+          .typed<decltype(mixture_of_experts_recomp_bwd_fused_weights)>();
+
+  return op.call(
+      grad,
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w12,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
+}
 namespace eager {
 
 static std::pair<std::vector<at::Tensor>, std::vector<at::Tensor>>
@@ -128,11 +514,12 @@ at::Tensor mixture_of_experts(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const c10::optional<bool> recomp) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts :",
-      DUMP_10ARGS(
+      DUMP_11ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -142,7 +529,8 @@ at::Tensor mixture_of_experts(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          recomp));
 
   auto moe_common = mixture_of_experts_common(
       hidden_states,
@@ -167,11 +555,12 @@ at::Tensor mixture_of_experts_fused_weights(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const c10::optional<bool> recomp) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts.fused_weights :",
-      DUMP_9ARGS(
+      DUMP_10ARGS(
           hidden_states,
           expert_routing_table,
           router_weights,
@@ -180,7 +569,8 @@ at::Tensor mixture_of_experts_fused_weights(
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          recomp));
 
   auto [w1, w2] = split_weights_tensor(w12, permuted_weights);
 
@@ -277,362 +667,6 @@ mixture_of_experts_fp8_measurement_fused_weights(
       measurement_mode);
 }
 
-at::Tensor mixture_of_experts_fwd_dispatch(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts_fwd_dispatch :",
-      DUMP_10ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w1,
-          w2,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
-  static auto op = torch::Dispatcher::singleton()
-                       .findSchemaOrThrow("hpu::mixture_of_experts_fwd", "")
-                       .typed<decltype(mixture_of_experts_fwd_dispatch)>();
-  return op.call(
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w1,
-      w2,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max);
-}
-
-at::Tensor mixture_of_experts_fwd_fused_weights_dispatch(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts_fwd_fused_weights_dispatch :",
-      DUMP_9ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w12,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
-
-  static auto op =
-      torch::Dispatcher::singleton()
-          .findSchemaOrThrow("hpu::mixture_of_experts_fwd", "fused_weights")
-          .typed<decltype(mixture_of_experts_fwd_fused_weights_dispatch)>();
-  return op.call(
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w12,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max);
-}
-
-at::Tensor mixture_of_experts_bwd_dispatch(
-    const at::Tensor& grad,
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts_bwd_dispatch :",
-      DUMP_11ARGS(
-          grad,
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w1,
-          w2,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
-
-  static auto op = torch::Dispatcher::singleton()
-                       .findSchemaOrThrow("hpu::mixture_of_experts_bwd", "")
-                       .typed<decltype(mixture_of_experts_bwd_dispatch)>();
-  return op.call(
-      grad,
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w1,
-      w2,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max);
-}
-
-at::Tensor mixture_of_experts_bwd_fused_weights_dispatch(
-    const at::Tensor& grad,
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts_bwd_fused_weights_dispatch :",
-      DUMP_10ARGS(
-          grad,
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w12,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max));
-
-  static auto op =
-      torch::Dispatcher::singleton()
-          .findSchemaOrThrow("hpu::mixture_of_experts_bwd", "fused_weights")
-          .typed<decltype(mixture_of_experts_bwd_fused_weights_dispatch)>();
-  return op.call(
-      grad,
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w12,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max);
-}
-
-class MixtureOfExpertsFunction
-    : public torch::autograd::Function<MixtureOfExpertsFunction> {
- public:
-  static torch::autograd::variable_list forward(
-      torch::autograd::AutogradContext* ctx,
-      const torch::autograd::Variable& hidden_states,
-      const torch::autograd::Variable& expert_routing_table,
-      const torch::autograd::Variable& router_weights,
-      const c10::ArrayRef<torch::autograd::Variable>& w1,
-      const c10::ArrayRef<torch::autograd::Variable>& w2,
-      const c10::ArrayRef<torch::autograd::Variable>& w3,
-      const bool permuted_weights,
-      const c10::string_view activation,
-      const int64_t experts_min,
-      const int64_t experts_max) {
-    at::AutoDispatchBelowADInplaceOrView g;
-
-    int64_t num_experts = w1.size();
-    torch::autograd::variable_list to_save;
-    to_save.reserve(non_list_tensors + weights_list_amount * num_experts);
-    to_save.push_back(hidden_states);
-    to_save.push_back(expert_routing_table);
-    to_save.push_back(router_weights);
-    to_save.insert(to_save.begin() + non_list_tensors, w1.begin(), w1.end());
-    to_save.insert(
-        to_save.begin() + non_list_tensors + num_experts, w2.begin(), w2.end());
-    to_save.insert(
-        to_save.begin() + non_list_tensors + 2 * num_experts,
-        w3.begin(),
-        w3.end());
-
-    ctx->save_for_backward(to_save);
-    ctx->saved_data["num_experts"] = num_experts;
-    ctx->saved_data["permuted_weights"] = permuted_weights;
-    ctx->saved_data["activation"] = activation;
-    ctx->saved_data["experts_min"] = experts_min;
-    ctx->saved_data["experts_max"] = experts_max;
-
-    auto output = mixture_of_experts_fwd_dispatch(
-        hidden_states,
-        expert_routing_table,
-        router_weights,
-        w1,
-        w2,
-        w3,
-        permuted_weights,
-        activation,
-        experts_min,
-        experts_max);
-
-    return {output};
-  }
-
-  static torch::autograd::variable_list backward(
-      torch::autograd::AutogradContext* ctx,
-      const torch::autograd::variable_list& grads) {
-    torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
-    auto num_experts = ctx->saved_data["num_experts"].toInt();
-    auto w1 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_tensors,
-        saved_vars.begin() + non_list_tensors + num_experts);
-    auto w2 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_tensors + num_experts,
-        saved_vars.begin() + non_list_tensors + 2 * num_experts);
-    auto w3 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_tensors + 2 * num_experts,
-        saved_vars.begin() + non_list_tensors +
-            weights_list_amount * num_experts);
-
-    auto result = mixture_of_experts_bwd_dispatch(
-        grads[0],
-        saved_vars[0],
-        saved_vars[1],
-        saved_vars[2],
-        w1,
-        w2,
-        w3,
-        ctx->saved_data["permuted_weights"].toBool(),
-        ctx->saved_data["activation"].toStringRef(),
-        ctx->saved_data["experts_min"].toInt(),
-        ctx->saved_data["experts_max"].toInt());
-
-    torch::autograd::variable_list grad_input;
-    grad_input.reserve(non_list_inputs + weights_list_amount * num_experts);
-    for (int64_t i = 0; i < non_list_inputs + weights_list_amount * num_experts;
-         i++) {
-      grad_input.push_back(at::Tensor());
-    }
-    grad_input[0] = result;
-    return grad_input;
-  }
-
- private:
-  static const int64_t weights_list_amount = 3;
-  static const int64_t non_list_tensors = 3;
-  static const int64_t non_list_inputs = 7;
-};
-
-class MixtureOfExpertsFusedWeightsFunction
-    : public torch::autograd::Function<MixtureOfExpertsFusedWeightsFunction> {
- public:
-  static torch::autograd::variable_list forward(
-      torch::autograd::AutogradContext* ctx,
-      const torch::autograd::Variable& hidden_states,
-      const torch::autograd::Variable& expert_routing_table,
-      const torch::autograd::Variable& router_weights,
-      const c10::ArrayRef<torch::autograd::Variable>& w12,
-      const c10::ArrayRef<torch::autograd::Variable>& w3,
-      const bool permuted_weights,
-      const c10::string_view activation,
-      const int64_t experts_min,
-      const int64_t experts_max) {
-    at::AutoDispatchBelowADInplaceOrView g;
-
-    int64_t num_experts = w12.size();
-    torch::autograd::variable_list to_save;
-    to_save.reserve(non_list_tensors + weights_list_amount * num_experts);
-    to_save.push_back(hidden_states);
-    to_save.push_back(expert_routing_table);
-    to_save.push_back(router_weights);
-    to_save.insert(to_save.begin() + non_list_tensors, w12.begin(), w12.end());
-    to_save.insert(
-        to_save.begin() + non_list_tensors + num_experts, w3.begin(), w3.end());
-    ctx->save_for_backward(to_save);
-
-    ctx->saved_data["num_experts"] = num_experts;
-    ctx->saved_data["permuted_weights"] = permuted_weights;
-    ctx->saved_data["activation"] = activation;
-    ctx->saved_data["experts_min"] = experts_min;
-    ctx->saved_data["experts_max"] = experts_max;
-
-    auto output = mixture_of_experts_fwd_fused_weights_dispatch(
-        hidden_states,
-        expert_routing_table,
-        router_weights,
-        w12,
-        w3,
-        permuted_weights,
-        activation,
-        experts_min,
-        experts_max);
-
-    return {output};
-  }
-
-  static torch::autograd::variable_list backward(
-      torch::autograd::AutogradContext* ctx,
-      const torch::autograd::variable_list& grads) {
-    torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
-
-    int64_t num_experts = ctx->saved_data["num_experts"].toInt();
-    auto w12 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_tensors,
-        saved_vars.begin() + non_list_tensors + num_experts);
-    auto w3 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_tensors + num_experts,
-        saved_vars.begin() + non_list_tensors +
-            weights_list_amount * num_experts);
-
-    auto result = mixture_of_experts_bwd_fused_weights_dispatch(
-        grads[0],
-        saved_vars[0],
-        saved_vars[1],
-        saved_vars[2],
-        w12,
-        w3,
-        ctx->saved_data["permuted_weights"].toBool(),
-        ctx->saved_data["activation"].toStringRef(),
-        ctx->saved_data["experts_min"].toInt(),
-        ctx->saved_data["experts_max"].toInt());
-
-    torch::autograd::variable_list grad_input;
-    grad_input.reserve(non_list_inputs + weights_list_amount * num_experts);
-    for (int64_t i = 0; i < non_list_inputs + weights_list_amount * num_experts;
-         i++) {
-      grad_input.push_back(at::Tensor());
-    }
-    grad_input[0] = result;
-    return grad_input;
-  }
-
- private:
-  static const int64_t weights_list_amount = 2;
-  static const int64_t non_list_tensors = 3;
-  static const int64_t non_list_inputs = 7;
-};
-
 at::Tensor mixture_of_experts_fwd_autograd(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
@@ -643,18 +677,35 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
-  return MixtureOfExpertsFunction::apply(
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w1,
-      w2,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max)[0];
+    const int64_t experts_max,
+    const std::optional<bool> recomp) {
+  // In case of calling in compile without requiring gradients intermediate
+  // tensors will be removed from the graph leading to error when trying to
+  // store them. Therefore we call recomp-version that returns valid number of
+  // tensors.
+  return (recomp.value_or(false) || !hidden_states.requires_grad())
+      ? MixtureOfExpertsRecompFunction::apply(
+            hidden_states,
+            expert_routing_table,
+            router_weights,
+            w1,
+            w2,
+            w3,
+            permuted_weights,
+            activation,
+            experts_min,
+            experts_max)[0]
+      : MixtureOfExpertsFunction::apply(
+            hidden_states,
+            expert_routing_table,
+            router_weights,
+            w1,
+            w2,
+            w3,
+            permuted_weights,
+            activation,
+            experts_min,
+            experts_max)[0];
 }
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
@@ -666,17 +717,29 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
-  return MixtureOfExpertsFusedWeightsFunction::apply(
-      hidden_states,
-      expert_routing_table,
-      router_weights,
-      w12,
-      w3,
-      permuted_weights,
-      activation,
-      experts_min,
-      experts_max)[0];
+    const int64_t experts_max,
+    const std::optional<bool> recomp) {
+  return (recomp.value_or(false) || !hidden_states.requires_grad())
+      ? MixtureOfExpertsRecompFusedWeightsFunction::apply(
+            hidden_states,
+            expert_routing_table,
+            router_weights,
+            w12,
+            w3,
+            permuted_weights,
+            activation,
+            experts_min,
+            experts_max)[0]
+      : MixtureOfExpertsFusedWeightsFunction::apply(
+            hidden_states,
+            expert_routing_table,
+            router_weights,
+            w12,
+            w3,
+            permuted_weights,
+            activation,
+            experts_min,
+            experts_max)[0];
 }
 
 } // namespace eager
