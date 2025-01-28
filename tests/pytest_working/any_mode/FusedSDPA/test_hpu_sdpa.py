@@ -811,6 +811,7 @@ tc_fa2_5_1 = [
         True,  # rhslice
         True,  # inference
         "None",  # softmax_mode
+        False,  # return_attn_probs
     ),
 ]
 tc_fa2_5_2 = [
@@ -831,6 +832,7 @@ tc_fa2_5_2 = [
         True,  # rhslice
         True,  # inference
         "None",  # softmax_mode
+        False,  # return_attn_probs
     ),
 ]
 tc_fa2_5_3 = [
@@ -851,6 +853,7 @@ tc_fa2_5_3 = [
         True,  # rhslice
         False,  # inference
         "None",  # softmax_mode
+        False,  # return_attn_probs
     ),
 ]
 tc_fa2_5_4 = [
@@ -871,6 +874,7 @@ tc_fa2_5_4 = [
         True,  # rhslice
         False,  # inference
         "None",  # softmax_mode
+        False,  # return_attn_probs
     ),
 ]
 
@@ -892,6 +896,7 @@ tc_fa2_5_nr1 = [
         True,  # rhslice
         False,  # inference
         "None",  # softmax_mode
+        False,  # return_attn_probs
     ),
 ]
 tc_fa2_5_nr2 = [
@@ -912,6 +917,7 @@ tc_fa2_5_nr2 = [
         False,  # rhslice
         False,  # inference
         "None",  # softmax_mode
+        False,  # return_attn_probs
     ),
 ]
 
@@ -933,14 +939,73 @@ tc_fa2_5_rc1 = [
         True,  # rhslice
         False,  # inference
         "None",  # softmax_mode
+        False,  # return_attn_probs
     ),
 ]
 
+fp32_softmax_list = [
+    (
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+        "fp32",  # softmax_mode
+        False,  # return_attn_probs
+    ),
+    (
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        True,  # inference
+        "fp32",  # softmax_mode
+        False,  # return_attn_probs
+    ),
+    (
+        4,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        8,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+        "fp32",  # softmax_mode
+        False,  # return_attn_probs
+    ),
+]
 # total_tc_list = test_llama_set[-1:]
 # total_tc_list = tc_list_new_rules + tc_list_new_rules_non_recomp
 # total_tc_list = tc_list_new_rules[0:1]
 # For now disable additional tests
-total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list
+total_tc_list = (
+    tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list + fp32_softmax_list
+)
 current_dir = os.path.dirname(__file__)
 csv_file_path = os.path.join(current_dir, "sdpa_config.csv")
 with open(csv_file_path, "r") as config_obj:
@@ -985,9 +1050,17 @@ def is_param_combo_valid(
         # return_attn_probs supported only for inference
         if return_attn_probs:
             return False
+        # softmax_mode == "fp32" is not supported in training
+        if softmax_mode == "fp32":
+            return False
+
     if inference:
         if dropout_p > 0.0:
             return False
+        # softmax_mode == "fp32" is supported only when q/k/v are BF16
+        if softmax_mode == "fp32":
+            if enable_autocast is False:
+                return False
 
     return True
 

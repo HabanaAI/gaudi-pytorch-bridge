@@ -239,6 +239,8 @@ static void fillSdpaParams(
   SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
   if (softmax_mode == "fast") {
     sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
+  } else if (softmax_mode == "fp32") {
+    sfmx_mode = SdpaSoftmaxMode_t::SDPA_FP32_SOFTMAX;
   }
   params.scale = scale;
   params.dropout.ratio = p;
@@ -805,7 +807,7 @@ void SDPARecompFwd::AddNode(
     if ((softmax_mode == "fast") &&
         (q.pt_t.scalar_type() == c10::ScalarType::BFloat16)) {
       linvType = c10::ScalarType::BFloat16;
-    }
+    } // TODO: handle fp32 softmax mode in training
     output_attrs.push_back({out_shapes[1], q.pt_t.scalar_type(), 1});
     output_attrs.push_back({out_shapes[2], linvType, 2});
     if (p > 0.0) {
@@ -962,7 +964,7 @@ void Fp8SDPARecompFwd::AddNode(
     if ((softmax_mode == "fast") &&
         (q.pt_t.scalar_type() == c10::ScalarType::BFloat16)) {
       linvType = c10::ScalarType::BFloat16;
-    }
+    } // TODO: handle fp32 softmax mode in training
     if (q.pt_t.scalar_type() == at::ScalarType::Float8_e4m3fn) {
       linvType = c10::ScalarType::BFloat16;
     }

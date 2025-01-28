@@ -126,6 +126,8 @@ def fp8_sdpa_fwd_wrapper(
     if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
+    assert softmax_mode != "fp32", "softmax_mode == fp32 is not supported in fp8 flow"
+
     # Check if recompute variant is enabled
     if recompute is None:
         recompute = ht.recompute_sdp_enabled()

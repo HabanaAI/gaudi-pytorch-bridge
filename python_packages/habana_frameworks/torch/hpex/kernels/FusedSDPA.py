@@ -136,6 +136,12 @@ def sdpa_fwd_wrapper(
     if recompute:
         assert return_dropout_mask is False, "Return_dropout_mask is not supported in recompute mode"
 
+    if softmax_mode == "fp32":
+        q_dtype = q.dtype
+        assert (
+            requires_backward is False and q_dtype == torch.bfloat16
+        ), "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
+
     gqa = is_gqa(q, k)
     if gqa:
         q, k, v, attn_mask = gqa_input_reshape_fwd(q, k, v, attn_mask)
