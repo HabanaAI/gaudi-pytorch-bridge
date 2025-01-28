@@ -56,27 +56,6 @@ import habana_frameworks.torch.distributed.hccl
 import habana_frameworks.torch.hpu
 import habana_frameworks.torch.internal.bridge_config as bc
 
-
-def overwrite_torch_optimizers():
-    from os import environ
-
-    should_rewrite_optimizers = environ.get("PT_HPU_REPLACE_ADAM_ADAMW", "0").lower()
-    if should_rewrite_optimizers not in ["1", "true", "yes"]:
-        return
-    import habana_frameworks.torch.hpex.optimizers.MarkstepAdam as MarkstepAdam
-    import habana_frameworks.torch.hpex.optimizers.MarkstepAdamW as MarkstepAdamW
-    import torch.optim
-    import torch.optim.adam as modAdam
-    import torch.optim.adamw as modAdamW
-
-    modAdam.Adam.step = MarkstepAdam.Adam.step
-    modAdamW.AdamW.step = MarkstepAdamW.AdamW.step
-    modAdam.Adam = MarkstepAdam.Adam
-    modAdamW.AdamW = MarkstepAdamW.AdamW
-
-
-overwrite_torch_optimizers()
-
 if bc.get_pt_hpu_gpu_migration():
     try:
         import habana_frameworks.torch.gpu_migration
