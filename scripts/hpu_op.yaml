@@ -2695,34 +2695,14 @@ elu_backward.grad_input:
   op_validator: check-node-with-shared-layer
 
 embedding:
-  dtypes:
-    Gaudi:
-      weight: [BFloat16, Float, Int, Char, Short, Byte]
-      indices: [Int, Long]
-    Gaudi2:
-      weight: [BFloat16, Float, Half, Int, Char, Short, Byte, Float8_e5m2, Float8_e4m3fn]
-      indices: [Int, Long]
-    Gaudi3:
-      weight: [BFloat16, Float, Half, Int, Char, Short, Byte, Float8_e5m2, Float8_e4m3fn]
-      indices: [Int, Long]
   fallback_check: [EmbeddingFallbackCheck, scale_grad_by_freq, sparse]
   output_meta: EmbeddingMeta
   guid: embedding_pt_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer - disabled due to [SW-205212]
+  op_validator: check-node-with-shared-layer
 
 embedding_dense_backward:
   custom_fill_params: FillEmbeddingDenseBackwardParams
-  dtypes:
-    Gaudi:
-      grad_output: [BFloat16, Float]
-      indices: [Int, Long]
-    Gaudi2:
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
-    Gaudi3:
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
   output_meta: EmbeddingDenseBwdMeta
   guid: embedding_dense_pt_bwd
   op_backend: EmbeddingDenseBwd
