@@ -199,6 +199,8 @@ void ProcessGroupEagerHCCL::shutdown(std::optional<std::string> reason) {
 }
 
 void ProcessGroupEagerHCCL::destroy() {
+  if (is_destroyed_)
+    return;
   PT_DISTRIBUTED_DEBUG(
       "Destroy ProcessGroupEagerHCCL name:",
       group_name_,
@@ -214,6 +216,9 @@ void ProcessGroupEagerHCCL::destroy() {
     comm_->flush_stream();
     comm_.reset();
   }
+
+  destroyHandshake();
+  is_destroyed_ = true;
 }
 
 ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
@@ -226,7 +231,6 @@ ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
       rank_);
   habana_helpers::AutoNoGIL gil_release;
   destroy();
-  destroyHandshake();
 };
 
 ProcessGroupEagerHCCL::WorkEager::WorkEager(

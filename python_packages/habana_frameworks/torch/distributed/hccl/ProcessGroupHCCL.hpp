@@ -157,8 +157,6 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
   std::map<int, std::shared_ptr<hccl_integration::device_context>>
       device_contexts_;
   std::map<int, synStreamHandle> comm_streams_;
-
-  bool is_destroyed_ = false;
 };
 
 } // namespace c10d
