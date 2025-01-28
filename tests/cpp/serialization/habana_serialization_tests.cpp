@@ -128,11 +128,8 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
-    size_t cache_size = 0;
-    bool dropped = false;
-    do {
-      dropped = HPUDeviceContext::recipe_cache().drop_lru(cache_size);
-    } while (cache_size > 0 && dropped);
+    while (HPUDeviceContext::recipe_cache().drop_lru()) {
+    };
     HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
   }
 
@@ -200,11 +197,8 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
-    size_t cache_size = 0;
-    bool dropped = false;
-    do {
-      dropped = HPUDeviceContext::recipe_cache().drop_lru(cache_size);
-    } while (cache_size > 0 && dropped);
+    while (HPUDeviceContext::recipe_cache().drop_lru()) {
+    };
     HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
   }
   torch::Tensor originalRecipe = {};
@@ -228,8 +222,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
     int recipe_files_count = getFilesCount(getCachePath().c_str(), ".recipe");
     if (i == 0) {
       originalRecipe = result;
-      size_t one = 1;
-      HPUDeviceContext::recipe_cache().drop_lru(one);
+      HPUDeviceContext::recipe_cache().drop_lru();
       HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
       HABANA_ASSERT(recipe_files_count == 1);
     } else if (i == 1) {

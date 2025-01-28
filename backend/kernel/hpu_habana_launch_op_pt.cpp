@@ -172,12 +172,6 @@ void cleanUp() {
 }
 } // namespace HabanaLaunchOpUtils
 
-bool dropCachedRecipe_LRU(size_t& recipe_count) {
-  bool dropped{false};
-  dropped = HPUDeviceContext::recipe_cache().drop_lru(recipe_count);
-  return dropped;
-}
-
 void emitCacheEvent(
     habana_helpers::EventDispatcher::EventDispatcher::Topic topic,
     std::string cache_name) {
@@ -3980,28 +3974,24 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeLauncher& rv) {
 }
 
 void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
-  size_t num_recipes = 1;
-  bool dropped{true};
   // Keep evicting recipes until the memory usage goes below threshold
   if (habana::IsHostMemoryThresholdReached()) {
     // Remove in chunks of 512MB
     int64_t eviction_threshold_left = 512ll * 1024 * 1024;
-    while (dropped && eviction_threshold_left > 0) {
-      dropped = dropCachedRecipe_LRU(num_recipes);
-      if (dropped) {
-        auto dropped_arg =
-            HPUDeviceContext::recipe_cache().dropped_recipe.first;
-        auto dropped_val =
-            HPUDeviceContext::recipe_cache().dropped_recipe.second;
-        // Update the eviction threshold left after removing this recipe
-        eviction_threshold_left -=
-            dropped_val->rl_->recipe_->get_recipe_host_mem_size();
-        auto dropped_dbi =
-            DynamicBucketInfoMap::get_instance().get(dropped_arg);
-        if (dropped_dbi != nullptr) {
-          static_cast<void>(dsi_bucket_id);
-          dropped_dbi->ResetSynapseRecipePtr(dropped_val->rvs_);
-        }
+    while (eviction_threshold_left > 0) {
+      auto dropped_recipe = HPUDeviceContext::recipe_cache().drop_lru();
+      if (!dropped_recipe.has_value())
+        break;
+
+      auto& dropped_arg = dropped_recipe->first;
+      auto& dropped_val = dropped_recipe->second;
+      // Update the eviction threshold left after removing this recipe
+      eviction_threshold_left -=
+          dropped_val->rl_->recipe_->get_recipe_host_mem_size();
+      auto dropped_dbi = DynamicBucketInfoMap::get_instance().get(dropped_arg);
+      if (dropped_dbi != nullptr) {
+        static_cast<void>(dsi_bucket_id);
+        dropped_dbi->ResetSynapseRecipePtr(dropped_val->rvs_);
       }
     }
     // Call TcMalloc extension to release memory
