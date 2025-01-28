@@ -14,6 +14,7 @@
 */
 
 #include "backend/profiling/profiling.h"
+#include <sys/types.h>
 #include <stdexcept>
 #include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/profiling/trace_sources/memory_source.h"
@@ -21,8 +22,24 @@
 #include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include "backend/synapse_helpers/env_flags.h"
 
+namespace {
+constexpr size_t kMaxThreadName = 32;
+} // namespace
+
 namespace habana {
 namespace profile {
+
+std::string getThreadName() {
+  std::array<char, kMaxThreadName + 1> name{};
+  int result = pthread_getname_np(pthread_self(), name.data(), name.size());
+
+  if (result != 0 || name[0] == '\0') {
+    return "UnnamedThread";
+  } else {
+    name[kMaxThreadName] = '\0';
+    return std::string(name.data());
+  }
+}
 
 int64_t getOffset(TraceSourceVariant variant) {
   switch (variant) {
