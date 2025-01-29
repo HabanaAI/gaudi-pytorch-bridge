@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/kernel/hpu_recipe_cache.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "habana_serialization/cache_version.h"
@@ -63,12 +63,18 @@ void RecipeCacheLRU::add(
 void RecipeCacheLRU::insert(
     std::shared_ptr<RecipeArgumentSpec>& key,
     std::shared_ptr<RecipeHolder>& val) {
+#if !defined(_GLIBCXX_USE_CXX11_ABI) || (_GLIBCXX_USE_CXX11_ABI == 1)
+  // C++11 guarantees std::list::size() to be evaluated in constant time.
+  // Pre-C++11 it could be linear, and it seems that this is the case here.
+  // Skip the check to prevent perf issues like SW-216784 and hope corruption
+  // won't happen until we switch back to C++11 ABI.
   TORCH_CHECK(
       map_.size() == list_.size(),
       "lru cache corruption, map size ",
       map_.size(),
       " not equal to list_size ",
       list_.size());
+#endif
 
   if (!val->rvs_->dynamic_graph) {
     while (
@@ -99,14 +105,18 @@ std::shared_ptr<RecipeHolder> RecipeCacheLRU::get(
     std::shared_ptr<RecipeArgumentSpec>& key) {
   std::lock_guard<std::mutex> lg(mutex_);
   if (exists(key)) {
+#if !defined(_GLIBCXX_USE_CXX11_ABI) || (_GLIBCXX_USE_CXX11_ABI == 1)
+    // C++11 guarantees std::list::size() to be evaluated in constant time.
+    // Pre-C++11 it could be linear, and it seems that this is the case here.
+    // Skip the check to prevent perf issues like SW-216784 and hope corruption
+    // won't happen until we switch back to C++11 ABI.
     TORCH_CHECK(
         map_.size() == list_.size(),
         "lru cache corruption, map size ",
         map_.size(),
         " not equal to list_size ",
         list_.size());
-
-    TORCH_CHECK(exists(key), "Recipe does not exist in map");
+#endif
 
     auto mit = map_.find(key);
     list_.splice(list_.begin(), list_, mit->second);
@@ -207,7 +217,8 @@ RecipeCacheLRU::RecipeCacheLRU() {
 }
 
 void RecipeCacheLRU::InitDiskCache() {
-  // Set disk_cache_ if recipe cache directory path is defined via PT_HPU_RECIPE_CACHE_CONFIG
+  // Set disk_cache_ if recipe cache directory path is defined via
+  // PT_HPU_RECIPE_CACHE_CONFIG
   if (!recipe_cache_config_.path().empty()) {
     disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
   }
@@ -231,10 +242,10 @@ void RecipeCacheLRU::FlushDiskCache() {
 }
 
 void RecipeCacheLRU::UpdateCachePath(const std::string& new_path) {
-
   std::string config = GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
   auto pos = config.find(',');
-  std::string new_config = (pos != std::string::npos) ? new_path + config.substr(pos) : new_path;
+  std::string new_config =
+      (pos != std::string::npos) ? new_path + config.substr(pos) : new_path;
 
   SET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG, new_config.c_str(), 1);
   recipe_cache_config_.reload();
