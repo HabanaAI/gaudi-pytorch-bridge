@@ -81,7 +81,6 @@ orchestratorConfig:
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llamav3_1_8b_4096t_bf16_suite
       silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_w2v_suite
-      silentMode: true
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_hf_stable_diffusion_xl_suite
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llamav3_2_11b_4096tokens_2048input_bf16_suite
     # Quantization toolkit tests
