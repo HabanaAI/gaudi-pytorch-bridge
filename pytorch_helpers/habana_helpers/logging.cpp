@@ -15,7 +15,6 @@
 #include "habana_helpers/logging.h"
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
-#include "habana_helpers/pt_version_check.h"
 #include <c10/util/Lazy.h>
 #include <sys/syscall.h>
 #include <sys/types.h>

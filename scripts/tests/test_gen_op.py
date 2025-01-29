@@ -44,7 +44,7 @@ from packaging.version import Version
 TORCH_PKG_PATH = torch.__path__[0]
 
 pytestmark = pytest.mark.skipif(
-    Version(Version(torch.__version__).base_version) < Version("2.5.0"),
+    Version(Version(torch.__version__).base_version) < Version("2.6.0"),
     reason="Only newest PyTorch version should be validated",
 )
 

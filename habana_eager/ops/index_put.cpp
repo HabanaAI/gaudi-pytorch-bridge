@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/InferSize.h>
 #include <ATen/core/TensorBody.h>
 #include <c10/core/SymIntArrayRef.h>
@@ -103,74 +103,6 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
     return indices;
   }
 }
-
-#if IS_PYTORCH_AT_LEAST(2, 6)
-#else
-static C10_UNUSED int hasContiguousSubspace(
-    c10::ArrayRef<c10::IValue> indices_ival) {
-  bool explicit_indices_together = false;
-  int index_tensor_groups = 0;
-  int index_tensor_group_start = 0;
-  int dim = 0;
-  for (auto input : indices_ival) {
-    auto o1 = input.toOptional<at::Tensor>();
-    if (o1.has_value() && !o1->defined()) {
-      if (explicit_indices_together) {
-        explicit_indices_together = false;
-      }
-    } else if (o1.has_value() && o1->defined()) {
-      if (!explicit_indices_together) {
-        index_tensor_group_start = dim;
-        index_tensor_groups++;
-      }
-      explicit_indices_together = true;
-    }
-    dim++;
-  }
-  if (index_tensor_groups <= 1)
-    return index_tensor_group_start;
-  else
-    return 0;
-}
-
-// Transposes the tensor and indices together so that all the non-null indices
-// index the first k dimensions of the tensor. Returns the transposed tensor
-// and the reordered indices. For example:
-// transposeToFront(tensor, {nullptr, a, nullptr, b})
-// returns
-// tensor.permute([1, 3, 0, 2]), {a, b, nullptr, nullptr}
-static C10_UNUSED std::tuple<at::Tensor, std::vector<c10::optional<at::Tensor>>>
-transposeToFront(const at::Stack& stack) {
-  const at::Tensor self = stack_tensor(stack, 0);
-  c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
-  std::vector<int64_t> dims;
-  std::vector<c10::optional<at::Tensor>> transposedIndices;
-  std::vector<c10::optional<at::Tensor>> indices;
-  for (const auto& index_opt : indices_ival) {
-    auto o1 = index_opt.toOptional<at::Tensor>();
-    if (o1.has_value() && o1.value().defined()) {
-      const auto& index = o1.value();
-      indices.emplace_back(std::move(index));
-    } else {
-      indices.emplace_back(c10::nullopt);
-    }
-  }
-  dims.reserve(self.dim());
-  for (const auto i : c10::irange(self.dim())) {
-    if (indices[i].has_value()) {
-      dims.push_back(i);
-      transposedIndices.emplace_back(indices[i]);
-    }
-  }
-  for (const auto i : c10::irange(self.dim())) {
-    if (!indices[i].has_value()) {
-      dims.push_back(i);
-      transposedIndices.emplace_back(c10::nullopt);
-    }
-  }
-  return std::make_tuple(self.permute(dims), std::move(transposedIndices));
-}
-#endif
 
 static std::tuple<at::Tensor, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack) {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2024 Intel Corporation
+ * Copyright (c) 2020-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "pytorch_helpers/habana_helpers/frontend_utils.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace at;
 using namespace habana;

@@ -17,7 +17,6 @@
 #include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
 #include "backend/synapse_helpers/device.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {
 

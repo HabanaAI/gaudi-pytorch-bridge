@@ -13,18 +13,13 @@
  * limitations under the License.
  */
 #include "backend/habana_device/HPUHooksInterface.h"
-#if IS_PYTORCH_AT_LEAST(2, 6) || !defined UPSTREAM_COMPILE
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/random.h"
 namespace habana {
 
-#if IS_PYTORCH_AT_LEAST(2, 6)
 void HPUHooks::init() const {
-#else
-void HPUHooks::initHPU() const {
-#endif
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
 }
@@ -68,4 +63,3 @@ using at::RegistererHPUHooksRegistry;
 REGISTER_HPU_HOOKS(HPUHooks);
 
 } // namespace habana
-#endif

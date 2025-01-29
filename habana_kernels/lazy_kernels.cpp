@@ -61,7 +61,6 @@
 #include "lazy_kernels_declarations.h"
 #include "lazy_optimizer_kernels.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 #define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
 
@@ -2300,74 +2299,6 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
     return indices;
   }
 }
-
-#if IS_PYTORCH_AT_LEAST(2, 6)
-#else
-static C10_UNUSED int hasContiguousSubspace(
-    c10::ArrayRef<c10::IValue> indices_ival) {
-  bool explicit_indices_together = false;
-  int index_tensor_groups = 0;
-  int index_tensor_group_start = 0;
-  int dim = 0;
-  for (auto input : indices_ival) {
-    auto o1 = input.toOptional<at::Tensor>();
-    if (o1.has_value() && !o1->defined()) {
-      if (explicit_indices_together) {
-        explicit_indices_together = false;
-      }
-    } else if (o1.has_value() && o1->defined()) {
-      if (!explicit_indices_together) {
-        index_tensor_group_start = dim;
-        index_tensor_groups++;
-      }
-      explicit_indices_together = true;
-    }
-    dim++;
-  }
-  if (index_tensor_groups <= 1)
-    return index_tensor_group_start;
-  else
-    return 0;
-}
-
-// Transposes the tensor and indices together so that all the non-null indices
-// index the first k dimensions of the tensor. Returns the transposed tensor
-// and the reordered indices. For example:
-// transposeToFront(tensor, {nullptr, a, nullptr, b})
-// returns
-// tensor.permute([1, 3, 0, 2]), {a, b, nullptr, nullptr}
-static C10_UNUSED std::tuple<at::Tensor, std::vector<c10::optional<at::Tensor>>>
-transposeToFront(const at::Stack& stack) {
-  const at::Tensor self = stack_tensor(stack, 0);
-  c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
-  std::vector<int64_t> dims;
-  std::vector<c10::optional<at::Tensor>> transposedIndices;
-  std::vector<c10::optional<at::Tensor>> indices;
-  for (const auto& index_opt : indices_ival) {
-    auto o1 = index_opt.toOptional<at::Tensor>();
-    if (o1.has_value() && o1.value().defined()) {
-      const auto& index = o1.value();
-      indices.emplace_back(std::move(index));
-    } else {
-      indices.emplace_back(c10::nullopt);
-    }
-  }
-  dims.reserve(self.dim());
-  for (const auto i : c10::irange(self.dim())) {
-    if (indices[i].has_value()) {
-      dims.push_back(i);
-      transposedIndices.emplace_back(indices[i]);
-    }
-  }
-  for (const auto i : c10::irange(self.dim())) {
-    if (!indices[i].has_value()) {
-      dims.push_back(i);
-      transposedIndices.emplace_back(c10::nullopt);
-    }
-  }
-  return std::make_tuple(self.permute(dims), std::move(transposedIndices));
-}
-#endif
 
 static std::tuple<at::Tensor, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack) {

@@ -21,7 +21,6 @@
 #include <torch/script.h>
 #include <torch/version.h>
 #include "backend/habana_operator.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 

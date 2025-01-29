@@ -34,7 +34,6 @@
 #include "hpu_ops/shared_meta_common.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace torch;
 using namespace at;

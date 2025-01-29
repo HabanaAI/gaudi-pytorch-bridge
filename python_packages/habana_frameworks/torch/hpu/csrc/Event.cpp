@@ -232,11 +232,9 @@ PyTypeObject THP_HPU_EventType = {
 };
 
 void THP_HPU_Event_init(PyObject* module) {
-#if IS_PYTORCH_AT_LEAST(2, 6)
   TORCH_CHECK(THPEventClass, "THPEvent has not been initialized yet.");
   Py_INCREF(THPEventClass);
   THP_HPU_EventType.tp_base = THPEventClass;
-#endif
   THP_HPU_EventClass = (PyObject*)&THP_HPU_EventType;
   if (PyType_Ready(&THP_HPU_EventType) < 0) {
     throw python_error();

@@ -582,9 +582,8 @@ class YamlContext:
             self.op_data = yaml.load(ff.read(), Loader=Loader)
             # Sometimes disabling ops for an upcoming pytorch version is necessary.
             # All ops added to skip_list won't be processed, same way if they were not present in hpu_op.yaml
-            if is_pytorch_at_least("2.6.0"):
-                skip_ops = []
-                self.op_data = {op: self.op_data[op] for op in self.op_data if op not in skip_ops}
+            skip_ops = []
+            self.op_data = {op: self.op_data[op] for op in self.op_data if op not in skip_ops}
 
     def get_op_names(self):
         return self.op_data.keys()

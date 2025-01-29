@@ -14,8 +14,6 @@
 * limitations under the License.
 */
 
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
-
 #include <ATen/ATen.h>
 #include <ATen/NativeFunctions.h>
 #include <torch/library.h>

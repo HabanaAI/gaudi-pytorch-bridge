@@ -38,14 +38,9 @@ def enable_compiled_autograd(is_dynamic=False, **kwargs):
     def compiler_fn(gm):
         return torch.compile(gm, backend="hpu_backend", options={"inference": False}, **kwargs)
 
-    if Version(Version(torch.__version__).base_version) >= Version("2.6.0"):
-        torch._C._dynamo.compiled_autograd.set_autograd_compiler(
-            functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn), is_dynamic
-        )
-    else:
-        torch._C._dynamo.compiled_autograd.set_autograd_compiler(
-            functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn)
-        )
+    torch._C._dynamo.compiled_autograd.set_autograd_compiler(
+        functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn), is_dynamic
+    )
 
     torch._dynamo.reset()
     torch._dynamo.config.optimize_ddp = "python_reducer"

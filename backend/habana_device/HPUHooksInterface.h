@@ -13,8 +13,6 @@
  * limitations under the License.
  */
 #pragma once
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#if IS_PYTORCH_AT_LEAST(2, 6) || !defined UPSTREAM_COMPILE
 #include <ATen/detail/HPUHooksInterface.h>
 
 namespace habana {
@@ -22,11 +20,7 @@ namespace habana {
 struct HPUHooks : public at::HPUHooksInterface {
   HPUHooks(at::HPUHooksArgs){};
 
-#if IS_PYTORCH_AT_LEAST(2, 6)
   void init() const override;
-#else
-  void initHPU() const override;
-#endif
 
   const at::Generator& getDefaultHPUGenerator(
       at::DeviceIndex device_index = -1) const override;
@@ -38,4 +32,3 @@ struct HPUHooks : public at::HPUHooksInterface {
   bool hasPrimaryContext(at::DeviceIndex device_index) const override;
 };
 } // namespace habana
-#endif

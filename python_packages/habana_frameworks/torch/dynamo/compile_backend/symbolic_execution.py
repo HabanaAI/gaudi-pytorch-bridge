@@ -22,17 +22,11 @@ import sys
 import sympy
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from symengine import sympify as sympify_engine
 from sympy import Function, sympify
 from sympy.printing.precedence import PRECEDENCE
 from sympy.printing.printer import Printer
-
-if is_pytorch_older_than("2.6.0"):
-    from torch._inductor.codegen.common import ExprPrinter as ExprPrinterPT
-else:
-    from torch.utils._sympy.printers import ExprPrinter as ExprPrinterPT
-
+from torch.utils._sympy.printers import ExprPrinter as ExprPrinterPT
 
 logger = get_compile_backend_logger()
 
@@ -163,8 +157,6 @@ class PythonPrinter(ExprPrinter):
 class HPUExprPrinter(ExprPrinterPT):
 
     def _paren(self, expr, precedence=None):
-        if is_pytorch_older_than("2.6.0"):
-            return self.paren(expr)
         return self.parenthesize(expr, precedence)
 
     def _print_ToFloat(self, expr):
