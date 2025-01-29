@@ -16,7 +16,6 @@
 ###############################################################################
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
@@ -46,9 +45,7 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
         return func(input, other, alpha=alpha)
 
     if is_pytest_mode_compile():
-        orig_flag = hpu_backend_config.reinplace_add
-        hpu_backend_config.reinplace_add = False
-        fn = compile_function_if_compile_mode(fn)
+        fn = compile_function_if_compile_mode(fn, options={"reinplace_add": False})
 
     input = generate_tensor(shape_a, dtype)
     other = generate_tensor(shape_b, dtype)
@@ -75,7 +72,6 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
     if is_pytest_mode_compile():
         name = "add" if func == torch.add else "sub"
         check_ops_executed_in_jit_ir(name)
-        hpu_backend_config.reinplace_add = orig_flag
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported trunc mode")

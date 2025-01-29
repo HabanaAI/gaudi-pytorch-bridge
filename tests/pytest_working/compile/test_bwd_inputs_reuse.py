@@ -19,17 +19,12 @@ import os
 
 import habana_frameworks.torch.hpu as hthpu
 import torch
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 
 device = "hpu"
 backend_compiler = "hpu_backend"
-
-
-def compiler_fn(gm):
-    return torch.compile(gm, backend=backend_compiler, fullgraph=True)
 
 
 def hpu_partiton_breaker(x):
@@ -78,36 +73,27 @@ def test_reuse_bwd_input_tensors():
     zero_grad(model)
     print(f"Eager mode max mem allocated is {eager_max_mem} MB")
 
-    # save original flag
-    orig_flag = hpu_backend_config.use_boxed_input
-    orig_eager_fallback = hpu_backend_config.use_eager_fallback
-    hpu_backend_config.use_eager_fallback = True
-
-    model_to_train = compile_function_if_compile_mode(model, backend=backend_compiler)
-
     # compile without reuse
     hthpu.reset_peak_memory_stats()
-    hpu_backend_config.use_boxed_input = False
-    loss = model_to_train(input)
+    options_wo_reuse = {"use_eager_fallback": True, "use_boxed_input": False}
+    model_wo_reuse = compile_function_if_compile_mode(model, backend=backend_compiler, options=options_wo_reuse)
+    loss = model_wo_reuse(input)
     loss.backward()
     compile_wo_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 29 MB
-    zero_grad(model_to_train)
-    torch._dynamo.reset()  # clear the cached compiled function
+    zero_grad(model_wo_reuse)
     print(f"Compile mode w.o. reuse max mem allocated is {compile_wo_reuse_max_mem} MB")
 
     # compile with reuse
     hthpu.reset_peak_memory_stats()
-    hpu_backend_config.use_boxed_input = True
-    loss = model_to_train(input)
+    options_w_reuse = {"use_eager_fallback": True, "use_boxed_input": True}
+    model_w_reuse = compile_function_if_compile_mode(model, backend=backend_compiler, options=options_w_reuse)
+    loss = model_w_reuse(input)
     loss.backward()
     compile_w_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 25 MB
-    zero_grad(model_to_train)
-    torch._dynamo.reset()  # clear the cached compiled function
+    zero_grad(model_w_reuse)
     print(f"Compile mode w. reuse max mem allocated is {compile_w_reuse_max_mem} MB")
 
     # recover original flag
-    hpu_backend_config.use_boxed_input = orig_flag
-    hpu_backend_config.use_eager_fallback = orig_eager_fallback
     os.environ["PT_HPU_SYNC_LAUNCH"] = orig_sync_flag
 
     mem_diff = compile_wo_reuse_max_mem - compile_w_reuse_max_mem
@@ -128,20 +114,19 @@ def test_reuse_bwd_inputs_with_compiled_autograd():
     model = Module(ioc).to(device)
     input = torch.randn([bs, ioc, h, w]).to(device)
 
-    # save original flag
-    orig_flag = hpu_backend_config.use_boxed_input
-    orig_eager_fallback = hpu_backend_config.use_eager_fallback
-    hpu_backend_config.use_eager_fallback = True
-
     # compiled autograd without reuse
     hthpu.reset_peak_memory_stats()
-    hpu_backend_config.use_boxed_input = False
+
+    def compiler_fn_wo_reuse(gm):
+        options_wo_reuse = {"use_eager_fallback": True, "use_boxed_input": False}
+        return torch.compile(gm, backend=backend_compiler, fullgraph=True, options=options_wo_reuse)
+
     loss = model(input)
     if is_pytorch_older_than("2.6.0"):
-        with compiled_autograd.enable(compiler_fn):
+        with compiled_autograd.enable(compiler_fn_wo_reuse):
             loss.backward()
     else:
-        with compiled_autograd._enable(compiler_fn):
+        with compiled_autograd._enable(compiler_fn_wo_reuse):
             loss.backward()
     compile_wo_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 25 MB
     zero_grad(model)
@@ -150,13 +135,17 @@ def test_reuse_bwd_inputs_with_compiled_autograd():
 
     # compiled autograd with reuse
     hthpu.reset_peak_memory_stats()
-    hpu_backend_config.use_boxed_input = True
+
+    def compiler_fn_w_reuse(gm):
+        options_w_reuse = {"use_eager_fallback": True, "use_boxed_input": True}
+        return torch.compile(gm, backend=backend_compiler, fullgraph=True, options=options_w_reuse)
+
     loss = model(input)
     if is_pytorch_older_than("2.6.0"):
-        with compiled_autograd.enable(compiler_fn):
+        with compiled_autograd.enable(compiler_fn_w_reuse):
             loss.backward()
     else:
-        with compiled_autograd._enable(compiler_fn):
+        with compiled_autograd._enable(compiler_fn_w_reuse):
             loss.backward()
     compile_w_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 21 MB
     zero_grad(model)
@@ -164,8 +153,6 @@ def test_reuse_bwd_inputs_with_compiled_autograd():
     print(f"Compiled Autograd mode w. reuse max mem allocated is {compile_w_reuse_max_mem} MB")
 
     # recover original flag
-    hpu_backend_config.use_boxed_input = orig_flag
-    hpu_backend_config.use_eager_fallback = orig_eager_fallback
     os.environ["PT_HPU_SYNC_LAUNCH"] = orig_sync_flag
 
     mem_diff = compile_wo_reuse_max_mem - compile_w_reuse_max_mem
