@@ -23,7 +23,7 @@ from test_utils import compile_function_if_compile_mode
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_scalar_tensor(dtype):
-    import habana_frameworks.torch.core as htcore
+    import habana_frameworks.torch.core as htcore  # noqa
 
     torch.empty(0, device="hpu")  # To initialize HPU device
 

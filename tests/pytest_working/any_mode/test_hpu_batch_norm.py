@@ -21,7 +21,6 @@ from test_utils import setup_teardown_env_fixture  # noqa F401
 from test_utils import (
     check_op_in_fuser_fused_ops,
     check_ops_executed_in_jit_ir,
-    clear_fuser_debug_logs,
     compile_function_if_compile_mode,
     get_fuser_debug_logs_path,
     is_pytest_mode_compile,

@@ -19,24 +19,15 @@
 import copy
 import math  # for ceil etc
 import os
-import sys
 
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
-import numpy as np
 import pytest
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import fp8_fused_sdpa
-from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, inference, vb_print
-from test_utils import (
-    check_ops_executed_in_jit_ir,
-    compare_tensors,
-    compile_function_if_compile_mode,
-    is_gaudi1,
-    is_gaudi3,
-)
+from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, inference, vb_print  # noqa F401
+from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1, is_gaudi3
 
 print_max_diff = False
 

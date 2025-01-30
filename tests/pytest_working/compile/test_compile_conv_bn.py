@@ -15,14 +15,12 @@
 #
 ###############################################################################
 
-import copy
-import os
 
 import numpy
 import pytest
 import torch
-import torch.nn.functional as F
-from test_utils import compile_function_if_compile_mode, env_var_in_scope, inference_env_fixture
+from test_utils import inference_env_fixture  # noqa F401
+from test_utils import compile_function_if_compile_mode, env_var_in_scope
 from torch.fx import symbolic_trace
 
 torch.manual_seed(0)
@@ -32,8 +30,6 @@ batch_norm_test_case_list_2d = [
     # N, H, W, C
     (16, 224, 224, 3),
 ]
-
-from torch import _dynamo as torchdynamo
 
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)

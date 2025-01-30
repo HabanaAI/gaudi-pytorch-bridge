@@ -20,7 +20,6 @@ import random
 
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
 
 self_shapes_pull = [(4, 4), (2, 3, 4), (5,), (2, 2, 2, 2)]

@@ -82,7 +82,7 @@ repos:
       - id: flake8
         name: flake8-tests
         args: ["--select=F401"]
-        files: pytorch_helpers/
+        files: (tests|pytorch_helpers)
   - repo: https://github.com/PyCQA/isort
     rev: 5.13.2
     hooks:

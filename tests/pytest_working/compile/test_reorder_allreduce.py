@@ -28,7 +28,7 @@ from torch.fx.experimental.proxy_tensor import make_fx
 
 
 def test_reorder_allreduce_with_no_users():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)

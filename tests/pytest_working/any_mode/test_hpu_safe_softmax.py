@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-import numpy as np
 import pytest
 import torch
 from test_utils import clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile, is_pytest_mode_eager

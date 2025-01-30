@@ -16,7 +16,6 @@
 ###############################################################################
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import setup_teardown_env_fixture  # noqa F401
 from test_utils import (
     check_ops_executed_in_jit_ir,

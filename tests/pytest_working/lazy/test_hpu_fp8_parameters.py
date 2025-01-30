@@ -19,7 +19,7 @@ import os
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
-from test_utils import inference_env_fixture
+from test_utils import inference_env_fixture  # noqa F401
 
 
 @pytest.fixture

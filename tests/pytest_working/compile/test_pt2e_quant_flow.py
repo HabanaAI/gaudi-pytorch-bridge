@@ -29,7 +29,8 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper, inference_env_fixture, is_gaudi1
+from test_utils import inference_env_fixture  # noqa F401
+from test_utils import fga_assert_helper, is_gaudi1
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer

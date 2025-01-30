@@ -15,22 +15,16 @@
 #
 ###############################################################################
 
-import functools
-import logging
 import os
 import time
-from importlib import reload
 from typing import Callable, Optional
 
 import habana_frameworks.torch as ht
 import torch
 import torch._dynamo
-import torch._dynamo as dynamo
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import compile_function_if_compile_mode
-from torch.autograd import Variable
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.parameter import Parameter
 
 try:
@@ -446,9 +440,6 @@ def run_single_node(rank, *arguments):
     enable_lazy_collective = not (
         os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES") is None or os.environ["PT_HPU_ENABLE_LAZY_COLLECTIVES"] != "1"
     )
-
-    import habana_frameworks.torch.core as htcore
-    import habana_frameworks.torch.distributed.hccl
 
     torch._inductor.config._fuse_ddp_communication = False
 

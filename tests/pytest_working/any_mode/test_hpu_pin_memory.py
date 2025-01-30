@@ -26,7 +26,6 @@
 # was provided.
 #
 ###############################################################################
-import habana_frameworks.torch.hpu
 import pytest
 import torch
 

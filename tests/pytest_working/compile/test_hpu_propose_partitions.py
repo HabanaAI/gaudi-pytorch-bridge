@@ -113,7 +113,7 @@ def test_propose_partitions():
 
 @pytest.mark.skipif(_is_simulator(), reason="using big tensor may cause problems on sim")
 def test_propose_partitions_post_process_full_copy():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)

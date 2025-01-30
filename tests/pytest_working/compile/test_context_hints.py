@@ -15,10 +15,8 @@
 #
 ###############################################################################
 
-from functools import partial
 from typing import Union
 
-import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import clear_t_compile_logs, compile_function_if_compile_mode

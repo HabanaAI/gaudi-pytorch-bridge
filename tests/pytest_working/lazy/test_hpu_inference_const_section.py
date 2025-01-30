@@ -22,7 +22,7 @@ import habana_frameworks.torch as htorch
 import numpy as np
 import pytest  # noqa F401
 import torch
-from test_utils import inference_env_fixture
+from test_utils import inference_env_fixture  # noqa F401
 
 serial_path = "/tmp/const_section_test/"
 

@@ -17,7 +17,6 @@
 
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from habana_frameworks.torch.hpex.kernels import (
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,

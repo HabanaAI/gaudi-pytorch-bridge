@@ -14,12 +14,11 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, setup_teardown_env_fixture
+from test_utils import setup_teardown_env_fixture  # noqa F401
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])

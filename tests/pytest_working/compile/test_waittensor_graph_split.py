@@ -32,7 +32,7 @@ def set_env():
 
 
 def test_waittensor_graph_split(set_env):
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)

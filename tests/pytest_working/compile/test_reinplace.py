@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-import pytest
 import torch
 import torch.distributed._functional_collectives as fcol
 from compile.test_dynamo_utils import use_eager_fallback
@@ -302,7 +301,7 @@ def test_not_reinpalce_single_add_with_viewed_input_e2e():
 
 
 def test_reinplace_allreduce():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa F401
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
@@ -336,7 +335,7 @@ def test_reinplace_allreduce():
 
 
 def test_reinplace_functionalized_allreduce():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa F401
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)

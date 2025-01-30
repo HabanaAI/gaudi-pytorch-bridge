@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -27,10 +27,8 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.core as htcore
-import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
+from test_utils import clear_t_compile_logs
 
 atol_fwd = {torch.float32: 0.001, torch.float16: 0.006, torch.bfloat16: 0.07}
 rtol_fwd = {torch.float32: 0.001, torch.float16: 0.004, torch.bfloat16: 0.05}

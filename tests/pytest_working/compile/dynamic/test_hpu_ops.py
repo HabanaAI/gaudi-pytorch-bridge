@@ -22,7 +22,6 @@ import pytest
 import torch
 import torch.nn as nn
 from compile.test_dynamo_utils import use_eager_fallback
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,

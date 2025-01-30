@@ -16,15 +16,13 @@
 ###############################################################################
 
 
-import copy
 import os
 import random
-import sys
 
 import numpy as np
 import pytest
 import torch
-import torch.ao.quantization.quantize_pt2e as quantize_pt2e
+import torch.ao.quantization.quantize_pt2e as quantize_pt2e  # noqa F401
 from habana_frameworks.torch.core.quantizer import (
     _mark_nodes_as_annotated,
     _update_input_qspec_map,
@@ -32,7 +30,7 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import inference_env_fixture
+from test_utils import inference_env_fixture  # noqa F401
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer

@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch

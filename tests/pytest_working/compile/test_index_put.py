@@ -20,7 +20,6 @@ from functools import reduce
 import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import compile_function_if_compile_mode
 
 
