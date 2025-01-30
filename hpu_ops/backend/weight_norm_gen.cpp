@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
+* Copyright (c) 2021-2025 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -61,13 +61,6 @@ OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-void moveLastOutputTensorAtFront(OpBackend& op) {
-  auto& outputInfMeta = op.GetOutputInfMeta();
-  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
-  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
-  outputInfMeta.RemoveOutput(output_tensor_idx);
-  outputInfMeta.PushOutputTensorAtFront(output_tensor);
-}
 void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto metas = WeightNormMeta(stack);
   auto v_in = stack_tensor(stack, 0);
@@ -124,7 +117,7 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       {{v_shape, v_dtype, 0}});
 
   if (isOutputInfMode()) {
-    moveLastOutputTensorAtFront(*this);
+    moveLastOutputTensorAtFront();
   }
   syn_out(0) = std::move(mulOp[0]);
   syn_out(1) = std::move(normOp);

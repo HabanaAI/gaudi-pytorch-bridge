@@ -1243,4 +1243,12 @@ sh::tensor OpBackend::BuildFlatten(
       {"flatten_fwd", {syn_in}, {{sizes, dtype, final_result_index}}});
   return std::move(flatten.at(0));
 }
+
+void OpBackend::moveLastOutputTensorAtFront() {
+    auto& outputInfMeta = GetOutputInfMeta();
+    auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
+    auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
+    outputInfMeta.RemoveOutput(output_tensor_idx);
+    outputInfMeta.PushOutputTensorAtFront(output_tensor);
+  }
 } // namespace habana

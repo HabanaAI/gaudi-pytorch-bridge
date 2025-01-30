@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
+* Copyright (c) 2021-2025 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -480,13 +480,6 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
   return bn_out;
 }
 
-void moveLastOutputTensorAtFront(OpBackend& op) {
-  auto& outputInfMeta = op.GetOutputInfMeta();
-  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
-  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
-  outputInfMeta.RemoveOutput(output_tensor_idx);
-  outputInfMeta.PushOutputTensorAtFront(output_tensor);
-}
 } // namespace
 
 sizes_vec BatchNormFwdOutputShape(const at::Stack& stack) {
@@ -662,7 +655,7 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           outShapes);
 
   if (isOutputInfMode()) {
-    moveLastOutputTensorAtFront(*this);
+    moveLastOutputTensorAtFront();
   }
 
   syn_out(0) = std::move(bnOut[0]);
