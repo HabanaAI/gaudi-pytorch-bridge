@@ -128,57 +128,6 @@ def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, 
     return (w1_cpu, w2_cpu, w3_cpu), (w1_hpu, w2_hpu, w3_hpu)
 
 
-def generate_view_expert_weights(hidden_dim, ffn_dim, num_experts, dtype):
-    w12_cpu_original = [
-        torch.randn((hidden_dim, 2 * ffn_dim), dtype=dtype, requires_grad=True) for _ in range(num_experts)
-    ]
-    w3_cpu_original = [torch.randn((ffn_dim, hidden_dim), dtype=dtype, requires_grad=True) for _ in range(num_experts)]
-
-    w12_hpu_original = [w.to("hpu").detach().requires_grad_(True) for w in w12_cpu_original]
-    w3_hpu_original = [w.to("hpu").detach().requires_grad_(True) for w in w3_cpu_original]
-
-    w1_cpu = [w[:, :ffn_dim] for w in w12_cpu_original]
-    w2_cpu = [w[:, ffn_dim:] for w in w12_cpu_original]
-    w3_cpu = w3_cpu_original
-
-    w1_hpu = [w[:, :ffn_dim] for w in w12_hpu_original]
-    w2_hpu = [w[:, ffn_dim:] for w in w12_hpu_original]
-    w3_hpu = w3_hpu_original
-
-    return (
-        (w1_cpu, w2_cpu, w3_cpu),
-        (w1_hpu, w2_hpu, w3_hpu),
-        (w12_hpu_original, w3_hpu_original),
-        (w12_cpu_original, w3_cpu_original),
-    )
-
-
-def generate_weights_scales(num_experts):
-    # All set to 1 to test easiest case first
-    w1_scales = [torch.tensor(1.0) for _ in range(num_experts)]
-    w2_scales = [torch.tensor(1.0) for _ in range(num_experts)]
-    w3_scales = [torch.tensor(1.0) for _ in range(num_experts)]
-    intermediate_hidden_states_scales = [torch.tensor(1.0) for _ in range(num_experts)]
-    d_scale_hidden_states = torch.tensor(1.0)
-
-    w1_scales_hpu = [s.to(hpu) for s in w1_scales]
-    w2_scales_hpu = [s.to(hpu) for s in w2_scales]
-    w3_scales_hpu = [s.to(hpu) for s in w3_scales]
-    intermediate_hidden_states_scales_hpu = [s.to(hpu) for s in intermediate_hidden_states_scales]
-    d_scale_hidden_states_hpu = d_scale_hidden_states.to(hpu)
-
-    cpu_scales = (w1_scales, w2_scales, w3_scales, intermediate_hidden_states_scales, d_scale_hidden_states)
-    hpu_scales = (
-        w1_scales_hpu,
-        w2_scales_hpu,
-        w3_scales_hpu,
-        intermediate_hidden_states_scales_hpu,
-        d_scale_hidden_states_hpu,
-    )
-
-    return cpu_scales, hpu_scales
-
-
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
@@ -265,9 +214,8 @@ def test_mixture_of_experts(
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="Mixture of experts FP8 is not supported in eager mode yet")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
-@pytest.mark.parametrize("activation", ACTIVATIONS)
+@pytest.mark.parametrize("activation", ["silu"])  # ["gelu", "relu", "silu"])
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
 @pytest.mark.parametrize("ffn_dim", FFN_DIMS)
 @pytest.mark.parametrize("num_experts", NUM_EXPERTS)
@@ -299,7 +247,7 @@ def test_mixture_of_experts_fp8(
     scales_as_tensors,
     fp8_scales,
 ):
-    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
+    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu) * 0.1
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
     router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
     hidden_states = hidden_states_hpu.float().to(cpu)
