@@ -841,13 +841,19 @@ def index_add(
     # Note: sorted_index[0] = actual indices sorted. sorted_index_pos = orted_index[1] = original positions of the sorted indices in index
     sorted_index_pos = sorted_index[1]
     sorted_index_pos_reshape_shape = [1] * tensor.dim()
-    sorted_index_pos_reshape_shape[dim] = sorted_index_pos.shape[0]
+    if len(sorted_index_pos.shape):
+        sorted_index_pos_reshape_shape[dim] = sorted_index_pos.shape[0]
+    else:
+        sorted_index_pos_reshape_shape[dim] = 1
     sorted_index_pos_reshaped = torch.ops.aten.reshape(sorted_index[1], sorted_index_pos_reshape_shape).expand(
         tensor.shape
     )
     gathered_values = torch.ops.aten.gather(tensor, dim, sorted_index_pos_reshaped)
     index_expand_shape = [1] * gathered_values.dim()
-    index_expand_shape[dim] = sorted_index[0].shape[0]
+    if len(sorted_index[0].shape):
+        index_expand_shape[dim] = sorted_index[0].shape[0]
+    else:
+        index_expand_shape[dim] = 1
     index_expanded = torch.ops.aten.reshape(sorted_index[0], index_expand_shape).expand(gathered_values.shape)
     ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, gathered_values)
     if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
