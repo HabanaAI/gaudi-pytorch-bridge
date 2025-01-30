@@ -14,7 +14,6 @@
  */
 #pragma once
 
-#include <c10_ver/core/SymIntArrayRef.h>
 #include <tuple>
 #include <utility>
 

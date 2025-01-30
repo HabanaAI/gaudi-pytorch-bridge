@@ -16,7 +16,6 @@
 #include <ATen/InferSize.h>
 #include <ATen/native/TypeProperties.h>
 #include <c10/core/SymIntArrayRef.h>
-#include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <cstdlib>
 #include <ctime>
 #include <utility>

@@ -15,8 +15,8 @@
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
-#include <torch_ver/csrc/distributed/c10d/Types.hpp>
-#include <torch_ver/csrc/distributed/c10d/Utils.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
 #include "backend/helpers/collective_utils.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
@@ -32,7 +32,7 @@
 #include <hccl.h>
 #include <hccl_types.h>
 
-using RedOpType = c10d_ver::ReduceOp::RedOpType;
+using RedOpType = c10d::ReduceOp::RedOpType;
 
 using namespace torch;
 namespace habana {

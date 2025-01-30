@@ -21,7 +21,6 @@
 #include <ATen/autocast_mode.h>
 #include <ATen/native/CPUFallback.h>
 #include <ATen/ops/result_type.h>
-#include <ATen_ver/native/CPUFallback.h>
 #include "habana_kernels/op_support_level.h"
 #include "habana_helpers/logging.h"
 // clang-format on
@@ -207,7 +206,7 @@ struct redispatch_if_any_arg_changed final {
     if (redispatch_to_hpu) {
       return Op::call(args...);
     }
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
   }
 };
@@ -380,7 +379,7 @@ struct _dispatch_fallback<
       }
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
   }
 };
@@ -422,7 +421,7 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
         return t;
       }
     }
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
   }
 };
@@ -469,7 +468,7 @@ struct _dispatch_fallback<
       }
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
   }
 };
@@ -563,7 +562,7 @@ struct _dispatch_fallback<
         return std::get<0>(helper::call(arg, args...));
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         arg, args...);
   }
 };
@@ -600,7 +599,7 @@ struct _dispatch_fallback<
         return helper::call(args...);
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
   }
 };

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -67,34 +67,3 @@ macro(detect_pt_version)
 
   message(STATUS "PyTorch version detected: ${TORCH_VERSION}")
 endmacro(detect_pt_version)
-
-macro(find_most_recent_pt_ver)
-  execute_process(
-    COMMAND python3 most_recent_pt_ver.py
-    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/scripts"
-    OUTPUT_VARIABLE PT_VER_NEWEST
-    RESULT_VARIABLE PT_VER_NEWEST_FAILED)
-  if(PT_VER_NEWEST_FAILED)
-    message(
-      FATAL_ERROR
-        "Failed to pick newest PT version include directory from <root>/pt_ver/*"
-    )
-  endif()
-  message(
-    WARNING
-      "Version specific include dir for ${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR} is not present. Trying ${PT_VER_NEWEST} instead."
-  )
-  set(PT_VER_DIR "${PROJECT_SOURCE_DIR}/pt_ver/${PT_VER_NEWEST}")
-endmacro()
-
-macro(set_up_pt_ver_mechanism)
-  detect_pt_version()
-  set(PT_VER_DIR
-      "${PROJECT_SOURCE_DIR}/pt_ver/${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}"
-  )
-  if(NOT EXISTS "${PT_VER_DIR}")
-    find_most_recent_pt_ver()
-  endif()
-  message(VERBOSE "PT_VER includes will be taken from ${PT_VER_DIR}")
-  target_include_directories(torch BEFORE INTERFACE "${PT_VER_DIR}")
-endmacro()

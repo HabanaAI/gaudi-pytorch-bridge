@@ -17,7 +17,6 @@
 #include <ATen/EmptyTensor.h>
 #include <c10/core/DeviceType.h>
 #include <c10/core/MemoryFormat.h>
-#include <c10_ver/core/SymIntArrayRef.h>
 #include <tuple>
 #include <utility>
 

@@ -35,7 +35,7 @@ else()
 endif()
 
 include(pt_ver)
-set_up_pt_ver_mechanism()
+detect_pt_version()
 
 target_compile_options(bindings INTERFACE -fopenmp -fpermissive)
 target_link_libraries(
