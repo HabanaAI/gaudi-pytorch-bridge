@@ -988,9 +988,8 @@ sh::tensor OpBackend::BuildCast(
     const at::ScalarType& to,
     c10::optional<int> final_result_index) {
   PT_BRIDGE_DEBUG("Performing cast from:\t", from, "\t\tto:\t", to);
-  bool handle_from_bool =
-      from == at::kBool && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0;
-  if (!(handle_from_bool || to == at::kBool))
+
+  if (!(from == at::kBool || to == at::kBool))
     return OpBackend::BuildRegularCast(
         op, graph, syn_in, sizes, from, to, final_result_index);
 
