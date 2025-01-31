@@ -45,15 +45,19 @@ struct MarkParamsAsConstPass {
         PT_EAGER_DEBUG("Frozen_param: ", input_name);
         if (example_inputs[index].isTensor()) {
           auto tensor = example_inputs[index].toTensor();
-          auto set_const_id = habana::get_tensor_const_id(tensor);
-          if (set_const_id == INVALID_CONST_ID) {
-            habana::set_tensor_const(tensor, true, const_id);
-            const_id++;
-          } else {
-            habana::set_tensor_const(tensor, true, set_const_id);
+          auto tmeta{get_tensor_extra_meta(tensor)};
+          PT_EAGER_DEBUG("is_view_tensor : ", tmeta->is_view_tensor());
+          if (!tmeta->is_view_tensor()) {
+            auto set_const_id = habana::get_tensor_const_id(tensor);
+            if (set_const_id == INVALID_CONST_ID) {
+              habana::set_tensor_const(tensor, true, const_id);
+              const_id++;
+            } else {
+              habana::set_tensor_const(tensor, true, set_const_id);
+            }
+            TensorExtraMeta::prepare_const_tensor(tensor, true);
+            changed = true;
           }
-          TensorExtraMeta::prepare_const_tensor(tensor, true);
-          changed = true;
         }
       }
       index++;
