@@ -801,7 +801,7 @@ def prepare_build_dirs(
         )
 
         create_ctest_target(pmake)
-        create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configurations)
+        create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configurations, args.verbose)
 
     return cmake_build_configs, wheel_configs
 
@@ -820,7 +820,7 @@ def target_absdir(py_ver, pt_ver, cmake_config, target=None):
     return os.path.abspath(target_reldir(py_ver, pt_ver, cmake_config, target=target))
 
 
-def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configurations) -> None:
+def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configurations, verbose: int) -> None:
     """Using pmake produce gnu-makefile with the following dependency pattern:
     <target> <- $PYTORCH_MODULES_RELEASE_BUILD/<target> <- pytorch/py3.6/pt1.12.0a0/Release/<target>
                                                         <- pytorch/py3.6/pt1.12.0a0/Debug/<target>
@@ -841,6 +841,7 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
     log.info(f"Artifacts built for python{py_ver} will be used by collect binaries targets.")
 
     destinations = []
+    debugopts_for_find = "-D exec" if verbose >= 2 else ""
     for cmake_config in cmake_configurations.keys():
         destination = os.environ[f"PYTORCH_MODULES_{cmake_config.upper()}_BUILD"]
         destinations.append(destination)
@@ -861,7 +862,7 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
         pmake(f"\tcp -fs {source}/*.py $$DESTINATION && \\")
         cmake_config_upper = cmake_config.upper()
         pmake(
-            '\tfind -D exec $${DESTINATION} -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
+            f'\tfind {debugopts_for_find} $$DESTINATION -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
             '-a -not -name "libtorch.so*" '
             "-exec cp -fs {} "
             f"$$BUILD_ROOT_{cmake_config_upper} \;"
