@@ -17,14 +17,7 @@
 
 import pytest
 import torch
-from test_utils import (
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-    format_tc,
-    is_gaudi1,
-    is_pytest_mode_compile,
-    is_pytest_mode_eager,
-)
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
 
 cumulative_ops_out = ["cumsum"]
 cumulative_ops_inplace = ["cumsum_"]
@@ -62,8 +55,6 @@ def get_wrapped_fns(inplace: bool):
 @pytest.mark.parametrize("dtype", supported_dtypes, ids=format_tc)
 def test_hpu_cumulative_op(op_name, shape_and_dim, dtype):
     inplace = op_name in cumulative_ops_inplace
-    if is_pytest_mode_eager() and inplace and (dtype == torch.bfloat16 or dtype == torch.float16):
-        pytest.xfail("SW-182155 wrong results in 4th and subsequent places")
     op = getattr(torch.Tensor if inplace else torch, op_name)
     shape, dim = shape_and_dim
 
