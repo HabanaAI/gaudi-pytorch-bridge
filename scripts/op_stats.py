@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -303,7 +303,7 @@ def get_unique_op_name(n):
 def unique_ops_stats_v1(unique_ops, pt_op_dict):
     unique_op_dict = {}
     for uop in unique_ops:
-        for k, v in pt_op_dict.items():
+        for k, _ in pt_op_dict.items():
             p_uop = get_unique_op_name(k)
             def_dict = {"total_variants": 0, "cvi": 0, "cvni": 0, "ncvi": 0, "ncvni": 0, "rlv": "no", "tc": 0, "tnc": 0}
             if uop == p_uop:
@@ -333,7 +333,7 @@ def unique_ops_stats_v1(unique_ops, pt_op_dict):
 def unique_ops_stats_v2(unique_ops, pt_op_dict):
     unique_op_dict = {}
     for uop in unique_ops:
-        for k, v in pt_op_dict.items():
+        for k, _ in pt_op_dict.items():
             p_uop = get_unique_op_name(k)
             def_dict = {
                 "total_variants": 0,

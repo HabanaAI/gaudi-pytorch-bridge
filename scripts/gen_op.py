@@ -2518,7 +2518,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
             dtype_defs = ""
             functions = ""
 
-    for idx, fgen_pos in enumerate(unique_func_map_custom.values()):
+    for fgen_pos in unique_func_map_custom.values():
         functions, dtype_defs = generate_functions_code(fgens_custom, fgen_pos, native_func_dict, functions, dtype_defs)
 
     frontend_inclusions = "\n" + frontend_inclusions + "\n"

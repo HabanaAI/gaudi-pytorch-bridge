@@ -1167,7 +1167,7 @@ def test_op_randperm():
 
     results_list = []
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
-    for i in range(2):
+    for _ in range(2):
         j = 0
         results = []
         for n in input_n:
@@ -1204,7 +1204,7 @@ def test_op_randperm2():
 
     results_list = []
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
-    for i in range(2):
+    for _ in range(2):
         j = 0
         results = []
         for n in input_n:
@@ -1237,7 +1237,7 @@ def test_op_rand():
 
     compiled_hpu = torch.compile(fn, backend="hpu_backend", dynamic=None)
     results_list = []
-    for i in range(2):
+    for _ in range(2):
         j = 0
         results = []
         for s in shape_in:
@@ -1266,7 +1266,7 @@ def test_op_randn():
 
     compiled_hpu = torch.compile(fn, backend="hpu_backend", dynamic=None)
     results_list = []
-    for i in range(2):
+    for _ in range(2):
         j = 0
         results = []
         for s in shape_in:
@@ -1295,7 +1295,7 @@ def test_op_randint():
 
     compiled_hpu = torch.compile(fn, backend="hpu_backend", dynamic=None)
     results_list = []
-    for i in range(2):
+    for _ in range(2):
         j = 0
         results = []
         for s in shape_in:
@@ -1732,7 +1732,7 @@ def test_bucket_refinement():
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for i, B in enumerate(input_sizes):
-        for j in range(1, test_rounds[i] + 1):
+        for _ in range(1, test_rounds[i] + 1):
             t0 = torch.randn((C, B, A), requires_grad=False)
             t1 = torch.randn((C, B, A), requires_grad=False)
             result = raw_function(t0, t1)

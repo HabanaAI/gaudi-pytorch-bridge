@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ def _handle_quant_stats(model=None):
             if name in max_calibration_data.keys():
                 max_calibration_data[param] = max_calibration_data[name]
                 max_calibration_data.pop(name)
-        for name, param in min_calibration_data.items():
+        for name, _ in min_calibration_data.items():
             try:
                 _record_quant_param(name, min_calibration_data[name], max_calibration_data[name])
             except:

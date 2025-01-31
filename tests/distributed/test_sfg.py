@@ -309,7 +309,7 @@ def run_single_node(rank, *arguments):
     outputs_refs = []
     outputs_sfg = []
 
-    for cnt in range(ITERATIONS):
+    for _ in range(ITERATIONS):
         inp_linear = torch.randn([BS, input_size, linear_weight_dim2], dtype=torch.bfloat16).to(device)
         inputs.append(inp_linear)
         with torch.no_grad():

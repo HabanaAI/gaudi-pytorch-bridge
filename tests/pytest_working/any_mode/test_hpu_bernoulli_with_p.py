@@ -156,7 +156,7 @@ def test_bernouli_input_as_p_different_seed_dynamic(shape, p, dtype, setup_teard
     shapes = [shape, np.multiply(shape, 2), np.multiply(shape, 3), np.multiply(shape, 4)]
     results_1 = []
     results_2 = []
-    for i in range(len(shapes)):
+    for _ in range(len(shapes)):
         input = torch.empty(shape, dtype=dtype).fill_(p).to("hpu")
         torch.manual_seed(12345)
         result_1 = torch.bernoulli(input)

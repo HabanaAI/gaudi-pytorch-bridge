@@ -489,7 +489,7 @@ def run_single_node(rank, *arguments):
     outputs_refs = []
     outputs_sfg = []
 
-    for cnt in range(ITERATIONS):
+    for _ in range(ITERATIONS):
         inp_linear = torch.randn([BS, input_size, hidden_dimension], dtype=torch.bfloat16).to(device)
         out_ref = model(inp_linear, 1)
         inputs.append(inp_linear)

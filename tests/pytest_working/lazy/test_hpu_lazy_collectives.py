@@ -102,7 +102,7 @@ def reduce_scatter_tensor_coalesced_test(rank, world_size, coalescing):
         cs = pg._end_coalescing(torch.device(device_hpu))
         cs.wait()
 
-    for i, output in enumerate(output_tensors):
+    for output in output_tensors:
         assert output.eq(world_size).all()
 
     dist.barrier()

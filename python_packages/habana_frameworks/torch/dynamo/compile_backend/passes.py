@@ -1833,7 +1833,7 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     def reinplace_collective_ops(gm: torch.fx.GraphModule):
         replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
 
-        for idx, node in enumerate(gm.graph.nodes):
+        for node in gm.graph.nodes:
             if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:
                 mutated_arg = node.args[inplaceable_op.mutated_arg]
                 node_users = list(node.users)
@@ -1909,7 +1909,7 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
 
         replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
 
-        for idx, node in enumerate(gm.graph.nodes):
+        for node in gm.graph.nodes:
             if (inplaceable_op := inplaceable_index_copy_ops.get(node.target, None)) is not None:
                 mutated_arg = node.args[inplaceable_op.mutated_arg]
                 mutated_arg_users = list(mutated_arg.users)

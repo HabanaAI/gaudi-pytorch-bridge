@@ -590,7 +590,7 @@ class Flow:
                 ref.host_addr = entry["args"]["dst"]
 
     def _reference_match_object(self, space, no, entry, out):
-        for ref, host_addr in ((ref, ref.host_addr) for ref in self.references if ref.host_addr):
+        for _, host_addr in ((ref, ref.host_addr) for ref in self.references if ref.host_addr):
             if entry["at"] != host_addr:
                 continue
 

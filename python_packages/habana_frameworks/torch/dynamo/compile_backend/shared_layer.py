@@ -191,7 +191,7 @@ def check_for_conditional_eager_fallback(node, op_name, is_dynamic):
         eager_fallback = True
     t = node.args[0]
     indices = node.args[1]
-    for i, index in enumerate(indices):
+    for index in indices:
         # None indices are not supported inside graph
         if index is None:
             eager_fallback = True

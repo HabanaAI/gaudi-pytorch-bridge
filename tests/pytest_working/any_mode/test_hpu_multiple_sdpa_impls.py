@@ -276,7 +276,7 @@ def test_multiple_sdpa_impls(
 
             profile_api.profiler_start(trace_type, profile_dev_id)
 
-            for i in range(total_runs):
+            for _ in range(total_runs):
                 pre_iteration()
                 o_hpu = run_hpu_sdpa(g_hpu, q_hpu, k_hpu, v_hpu, is_causal, with_slice)
                 post_iteration(o_hpu, q_hpu, k_hpu, v_hpu)
@@ -292,7 +292,7 @@ def test_multiple_sdpa_impls(
                 activities=activities,
                 on_trace_ready=torch.profiler.tensorboard_trace_handler("logs"),
             ) as profiler:
-                for i in range(8):
+                for _ in range(8):
                     pre_iteration()
                     o_hpu = run_hpu_sdpa(g_hpu, q_hpu, k_hpu, v_hpu, is_causal, with_slice)
                     post_iteration(o_hpu, q_hpu, k_hpu, v_hpu)

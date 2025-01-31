@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 
 
 def human_readable_size(size, decimal_places=1):
-    for unit in ["B", "KiB", "MiB", "GiB", "TiB"]:
+    for _ in ["B", "KiB", "MiB", "GiB", "TiB"]:
         if size < 1024.0:
             break
         size /= 1024.0
@@ -343,12 +343,12 @@ class Graph:
                 label = f"<\n<table border='1' cellborder='0'>{ins}<tr><td>{node['args']['pGuid'][1:-1]}</td></tr>{ous}</table>\n>"
                 dot.node(node["id"], label, shape="plaintext")
 
-        for ptr, tensor in self.tensors.items():
+        for _, tensor in self.tensors.items():
             src, ouno = tensor.src
             log.debug(
                 f"tensor {tensor.name} from {src['id']} has {len(tensor.dst)} outputs : " + ", ".join(tensor.dst.keys())
             )
-            for did, (dst, inno) in tensor.dst.items():
+            for _, (dst, inno) in tensor.dst.items():
                 s = src["id"] if src["id"].startswith("ARG") or src["id"].startswith("NULL") else f"{src['id']}:o{ouno}"
                 d = dst["id"] if dst["id"].startswith("RET") else f"{dst['id']}:i{inno}"
                 dot.edge(s, d, tensor.name + "\n" + tensor_labels.get(tensor.name, ""))
@@ -896,18 +896,18 @@ class Log:
         dump_graphs_with_makefile()
 
     def cmd_write_graph_test(self, recipe_id, **kwargs):
-        for g, launch_id in self.select_launches(recipe_id):
+        for g, _ in self.select_launches(recipe_id):
             return self.write_graph_test(g, "test.cxx")
 
     def cmd_list_nodes(self, recipe_id, **kwargs):
-        for g, launch_id in self.select_launches(recipe_id):
+        for g, _ in self.select_launches(recipe_id):
             print(g)
             g.print_nodes()
 
     def cmd_runtime_summary(self, recipe_id=None, output=None, **kwargs):
         import numpy as np
 
-        for g, launch_id in self.select_launches(recipe_id):
+        for g, _ in self.select_launches(recipe_id):
             launches = textwrap.wrap(", ".join((f"{idx+1}:{syn_launch}" for idx, syn_launch in enumerate(g.launches))))
             print(g)
             l = np.asarray(list(g.get_launches_duration()))

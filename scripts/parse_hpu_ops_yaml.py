@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ def parse_yaml(f_yaml):
         try:
             yaml_dict = yaml.safe_load(stream)
             # print(yaml_dict)
-            for k, v in yaml_dict.items():
+            for _, v in yaml_dict.items():
                 for vv in v.keys():
                     keyset.add(vv)
         except yaml.YAMLError as exc:

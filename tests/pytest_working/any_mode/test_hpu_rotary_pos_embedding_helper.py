@@ -181,7 +181,7 @@ def prepare_test_data(p_size, cos_sin_size, offset, mode):
             sin = torch.cat((sin, sin), dim=-1)
         else:
             off_size = (p_size[0],)
-            for i in range(len(p_size) - 2):
+            for _ in range(len(p_size) - 2):
                 off_size = off_size + (1,)
             off_size = off_size + (offset,)
 

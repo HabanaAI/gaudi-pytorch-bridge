@@ -40,7 +40,7 @@ def profile_dataloader(s, dataloader, dl_type, workers, num_iterations):
     t_sum = 0
     last_time = time.time()
 
-    for i, data in enumerate(dataloader):
+    for i in range(len(dataloader)):
         t = time.time()
         t_diff = t - last_time
         t_sum += t_diff

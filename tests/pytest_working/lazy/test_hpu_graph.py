@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ def test_graph_training():
         loss_cpu = loss_fn(tmp, target)
         loss_cpu.backward()
         optimizer_cpu.step()
-    for j, (p, q) in enumerate(zip(module1_hpu.parameters(), module1_cpu.parameters())):
+    for p, q in zip(module1_hpu.parameters(), module1_cpu.parameters()):
         if p.requires_grad and q.requires_grad:
             compare_tensors(p, q, atol=0.001, rtol=1.0e-3)
     compare_tensors(loss_hpu, loss_cpu, atol=0.001, rtol=1.0e-3)
@@ -222,7 +222,7 @@ def test_cached_module_training(disable_tensor_cache, dry_run, save_model=False)
 
     net_input = []
     net_output = []
-    for i in range(2):
+    for _ in range(2):
         for item in meta_args:
             x = torch.randn(item[0]).to("hpu")
             x.requires_grad_()
@@ -337,7 +337,7 @@ def test_multiple_graph_capture_with_views():
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, data1, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+    for data, _, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
         data = torch.transpose(data, 0, 1)
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
@@ -350,7 +350,7 @@ def test_multiple_graph_capture_with_views():
     loss_cpu_vec = []
 
     # Input as not view first time while capture, view on second turn
-    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
+    for data, _, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         data = torch.transpose(data, 0, 1)
@@ -358,7 +358,7 @@ def test_multiple_graph_capture_with_views():
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, data1, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+    for data, _, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
         data = torch.transpose(data, 0, 1)
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
@@ -551,7 +551,7 @@ def test_module_cacher_no_requires_grad():
 
     net_input = []
     net_output = []
-    for i in range(2):
+    for _ in range(2):
         for item in meta_args:
             x = torch.randn(item[0]).to("hpu")
             x.requires_grad_()
@@ -731,7 +731,7 @@ def test_module_cacher_propnet_rand():
     outputs_hpu_ref = []
     outputs_hpu = []
 
-    for i in range(6):
+    for _ in range(6):
         t = torch.rand(1, 20)
         inputs_hpu_ref.append(t.to("hpu"))
         inputs_hpu.append(t.to("hpu"))

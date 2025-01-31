@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -245,7 +245,7 @@ def _parse(lines):
 
     potential_dyn_modules = set()
     for step in recompiling_modules:
-        for mdlname, newinp, newout, classnm, filenm, comment in recompiling_modules[step]:
+        for mdlname, newinp, _, _, _, _ in recompiling_modules[step]:
             if not newinp:
                 potential_dyn_modules.update([mdlname])
 

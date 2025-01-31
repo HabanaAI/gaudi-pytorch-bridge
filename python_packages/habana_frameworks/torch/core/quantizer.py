@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -218,7 +218,7 @@ class habana_quantizer(Quantizer):
 
         input_act_qspec = get_input_act_qspec(quantization_config)
         output_act_qspec = get_output_act_qspec(quantization_config)
-        for module_or_fn_type, partitions in matmul_partitions.items():
+        for _, partitions in matmul_partitions.items():
             for p in partitions:
                 assert len(p.input_nodes) == 2
                 act_node1 = p.input_nodes[0]
@@ -273,7 +273,7 @@ class habana_quantizer(Quantizer):
 
         output_act_qspec = get_input_act_qspec(quantization_config)
         input_act_qspec = get_input_act_qspec(quantization_config)
-        for module_or_fn_type, partitions in softmax_partitions.items():
+        for _, partitions in softmax_partitions.items():
             for p in partitions:
                 assert len(p.input_nodes) == 1
                 act_node = p.input_nodes[0]

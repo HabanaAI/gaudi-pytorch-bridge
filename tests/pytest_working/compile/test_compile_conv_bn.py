@@ -145,9 +145,7 @@ def test_hpu_const_marking(inference_env_fixture):
     x_hpu = x.to(hpu)
     x2_hpu = x2.to(hpu)
 
-    num_params = 0
-    for param, param_t in model_hpu.state_dict().items():
-        num_params = num_params + 1
+    num_params = len(model_hpu.state_dict())
 
     print("Infer on HPU....................................", flush=True)
 

@@ -1363,7 +1363,7 @@ def test_sag_topk_node_params_2():
 
     iteration = 0
     htdebug._clear_jit_cache()
-    for k in params:
+    for _ in params:
         input = torch.randn((10), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1826,7 +1826,7 @@ def test_h2d_copy_race_condition_fix():
 
     t1 = torch.arange(1, 5, dtype=torch.bfloat16)
     t2 = torch.arange(1, 5, dtype=torch.bfloat16)
-    for iteration in range(5):
+    for _ in range(5):
         t1_hpu = t1.to("hpu", non_blocking=True)
         t2_hpu = t2.to("hpu", non_blocking=True)
         output_hpu = torch.add(t1_hpu, t2_hpu)

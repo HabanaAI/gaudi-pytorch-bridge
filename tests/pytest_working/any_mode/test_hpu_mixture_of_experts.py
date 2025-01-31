@@ -32,7 +32,6 @@ from test_utils import (
     hpu,
     is_gaudi1,
     is_pytest_mode_compile,
-    is_pytest_mode_eager,
 )
 
 DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16, torch.half]

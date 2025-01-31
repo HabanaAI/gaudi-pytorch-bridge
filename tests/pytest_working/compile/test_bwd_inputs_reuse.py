@@ -48,7 +48,7 @@ class Module(torch.nn.Module):
 
 
 def zero_grad(module: torch.nn.Module):
-    for name, param in module.named_parameters():
+    for _, param in module.named_parameters():
         if param.requires_grad and param.grad is not None:
             param.grad = None
 

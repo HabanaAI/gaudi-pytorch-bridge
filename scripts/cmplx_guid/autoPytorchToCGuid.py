@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -1009,7 +1009,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
     op_test += "\n"
     op_test += "// CHECK: tpckernel." + op + " "
     is_first = True
-    for i in range(num_inputs):
+    for _ in range(num_inputs):
         if not is_first:
             op_test += ", "
         is_first = False
@@ -1144,7 +1144,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
     # Params of op
     if op_info["is_optional"]:
         op_test += "{operand_segment_sizes = array<i32: "
-        for i in range(num_inputs):
+        for _ in range(num_inputs):
             op_test += "1, "
         op_test += "0>}"
 
@@ -1351,7 +1351,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
     op_test_hpp_file_buf.write("          synDeviceType, std::tuple<")
 
     is_first = True
-    for i in range(inTensorDim):
+    for _ in range(inTensorDim):
         if not is_first:
             op_test_hpp_file_buf.write(", ")
         is_first = False
@@ -1898,7 +1898,7 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (
                 test_cases["dimTypeShort"].append(op_dtype[j].lower())
 
                 d = []
-                for l in range(inTensorDim_test[i]):
+                for _ in range(inTensorDim_test[i]):
                     val = random.randint(1, 50)
                     d.append(val)
                 test_cases["dims"].append(d)
@@ -2191,7 +2191,7 @@ if make_changes_in_folders.count("pytorch-integration") > 0 and (
             is_new_block = False
 
     processed_indx = []
-    for i in range(len(lines_to_insert)):
+    for _ in range(len(lines_to_insert)):
         # Find the line with max line indx
         max_line = 0
         for j in range(len(lines_to_insert)):

@@ -128,7 +128,7 @@ def reduce_scatter_tensor_coalesced_test(rank, world_size, kwargs):
     opts.reduceOp = ReduceOp.SUM
     pg.reduce_scatter_tensor_coalesced(output_tensors, input_tensors, opts)
 
-    for i, output in enumerate(output_tensors):
+    for output in output_tensors:
         assert output.eq(world_size).all()
 
 
