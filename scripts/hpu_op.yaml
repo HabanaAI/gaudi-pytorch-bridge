@@ -5210,15 +5210,12 @@ poisson:
   op_validator: PoissonSharedMeta
 
 pow_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   guid: pow_fwd
   inplace_ids: [0]
   op_backend: PowOp
   scalar_ids: [1]
   promote_to_common_type: [self, exponent]
+  op_validator: PowBinarySharedMeta
 
 pow_.Tensor:
   guid: pow_fwd
@@ -5227,15 +5224,12 @@ pow_.Tensor:
   op_validator: check-node-with-shared-layer
 
 pow.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   op_frontend: PowScalar
   guid: pow_fwd
   out_ids: [1]
   scalar_ids: [0]
   promote_to_common_type: [self, exponent]
+  op_validator: PowBinarySharedMeta
 
 pow.Scalar_out:
   broadcast: true
@@ -5246,26 +5240,20 @@ pow.Scalar_out:
 
 pow.Tensor_Scalar:
   broadcast: true
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   guid: pow_fwd
   out_ids: [0]
   op_backend: PowOp
   scalar_ids: [1]
   promote_to_common_type: [self, exponent]
+  op_validator: PowBinarySharedMeta
 
 pow.Tensor_Scalar_out:
   broadcast: true
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Byte, Half]
   guid: pow_fwd
   op_backend: PowOp
   scalar_ids: [1]
   promote_to_common_type: [self, exponent]
+  op_validator: PowBinarySharedMeta
 
 pow.Tensor_Tensor:
   broadcast: true
