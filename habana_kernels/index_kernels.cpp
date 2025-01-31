@@ -526,25 +526,6 @@ SharedMetaDataVector IndexAddSharedMeta(
   multSharedMetaV2.outputs_data.emplace_back(valueDim, valueDtype);
   indexAddSharedMeta.push_back(multSharedMetaV2);
 
-  const auto indicesDtypeCasted = c10::ScalarType::Float;
-  SharedMetaData topkSharedMetaV2("topk");
-  topkSharedMetaV2.inputs_data.emplace_back(indicesDim, indicesDtypeCasted);
-  topkSharedMetaV2.outputs_data.emplace_back(indicesDim, indicesDtypeCasted);
-  topkSharedMetaV2.outputs_data.emplace_back(indicesDim, indicesDtypeCasted);
-  indexAddSharedMeta.push_back(topkSharedMetaV2);
-
-  std::pair<int, c10::ScalarType> castedTopkOutputV2 = {
-      topkSharedMetaV2.outputs_data[1].first, c10::ScalarType::Int};
-
-  SharedMetaData gatherFwdSharedMetaV2("gather_fwd");
-  gatherFwdSharedMetaV2.inputs_data.emplace_back(selfDim, selfDtype);
-  gatherFwdSharedMetaV2.inputs_data.push_back(castedTopkOutputV2);
-  gatherFwdSharedMetaV2.outputs_data.emplace_back(selfDim, selfDtype);
-  indexAddSharedMeta.push_back(gatherFwdSharedMetaV2);
-
-  std::pair<int, c10::ScalarType> topkOutput0AfterReshapeAndBroadcast = {
-      selfDim, c10::ScalarType::Int};
-
   const bool self_is_int32 = selfDtype == c10::ScalarType::Int;
   const bool useUnsortedScatter =
       GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
@@ -559,10 +540,9 @@ SharedMetaDataVector IndexAddSharedMeta(
       self_is_int32 || useUnsortedScatter ? c10::ScalarType::Float : selfDtype;
 
   scatterAddFwdSharedMetaV2.inputs_data.emplace_back(selfDim, castedSelfDtype);
-  scatterAddFwdSharedMetaV2.inputs_data.push_back(
-      topkOutput0AfterReshapeAndBroadcast);
+  scatterAddFwdSharedMetaV2.inputs_data.emplace_back(indicesDim, indicesDtype);
   scatterAddFwdSharedMetaV2.inputs_data.emplace_back(
-      gatherFwdSharedMetaV2.outputs_data[0].first, castedSelfDtype);
+      multSharedMetaV2.outputs_data[0].first, castedSelfDtype);
   scatterAddFwdSharedMetaV2.outputs_data.emplace_back(selfDim, castedSelfDtype);
   indexAddSharedMeta.push_back(scatterAddFwdSharedMetaV2);
 
@@ -758,7 +738,6 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
   auto self_is_int32 = self.scalar_type() == c10::ScalarType::Int;
   auto alpha = inputs[4].toScalar();
 
-  std::vector<synapse_helpers::tensor_or_ref> syn_value;
   torch::jit::Stack temp_stack;
   ////alpha_value = value * alpha;
   auto mulOp = make_operator<MulOperator>(
@@ -767,69 +746,6 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
   mulOp->SetSynapseInput(p_context_->syn_inputs_[2]);
   mulOp->AllocateAndAddSynapseNode(graph, temp_stack, OutputMetaDataVector(1));
   temp_stack.clear();
-  auto pt_index_into_reshape = index;
-  syn_value.push_back(std::move(mulOp->GetSynOutputs()[0]));
-  auto pt_value = mulOp->GetOutputs()[0];
-
-  // TPC mandates indices (and hence the source as well) to be sorted for
-  // scatter_add_fwd guid to work accurately. So sort the indices using topk and
-  // based on sorted indices re order the source using gather.
-
-  // TODO: if Gaudi2 can support scatter_add without sorting, add a check and
-  // avoid sorting on G2
-
-  // Create cast operator for indices->Float = node_type = "cast_i32_to_f32" for
-  // topk
-  auto castIndicesToFloatOp = make_operator<CastOperator>(
-      this->p_context_->device_id_, "cast_i32_to_f32");
-  castIndicesToFloatOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  c10::ScalarType cast_scalar_type = c10::ScalarType::Float;
-  std::vector<c10::IValue> cast_stack{IValue(index), IValue(cast_scalar_type)};
-  castIndicesToFloatOp->AllocateAndAddSynapseNode(
-      graph, cast_stack, OutputMetaDataVector(1));
-  cast_stack.clear();
-  // Node: topk_idx = at::topk(cast_indices_pt_tensor, numel);
-  auto topkOp =
-      make_operator<TopkOperator>(this->p_context_->device_id_, "topk");
-  int64_t topk_dim = 0;
-  bool largest = true;
-  bool sorted = true;
-  topkOp->SetSynapseInput(castIndicesToFloatOp->GetSynOutputs()[0]);
-  std::vector<c10::IValue> topk_stack{
-      IValue(castIndicesToFloatOp->GetOutputs()[0]),
-      IValue(index.numel()),
-      IValue(topk_dim),
-      IValue(largest),
-      IValue(sorted)};
-  topkOp->AllocateAndAddSynapseNode(graph, topk_stack, OutputMetaDataVector(2));
-  // output[0] -> topk_values
-  // output[1] -> topk_indices
-  // Create cast operator for topk_values = node_type = "cast_f32_to_i32"
-  auto castTopkValsOp = make_operator<CastOperator>(
-      this->p_context_->device_id_, "cast_f32_to_i32");
-  castTopkValsOp->SetSynapseInput(topkOp->GetSynOutputs()[0]);
-  cast_scalar_type = c10::ScalarType::Int;
-  std::vector<c10::IValue> cast_stack1{
-      IValue(topkOp->GetOutputs()[0]), IValue(cast_scalar_type)};
-  castTopkValsOp->AllocateAndAddSynapseNode(
-      graph, cast_stack1, OutputMetaDataVector(1));
-
-  pt_index_into_reshape = castTopkValsOp->GetOutputs()[0];
-  // Node: reordered source(i.e, alpha_value tensor) =
-  // at::gather(alpha_value, 0, topk_indices);
-  auto gatherOp = make_operator<GatherOperator>(
-      this->p_context_->device_id_, value.scalar_type());
-  gatherOp->SetSynapseInput(syn_value[0]);
-  gatherOp->SetSynapseInput(topkOp->GetSynOutputs()[1]);
-  bool sparse_grad = false;
-  std::vector<c10::IValue> gather_stack{
-      IValue(mulOp->GetOutputs()[0]),
-      IValue(dim),
-      IValue(topkOp->GetOutputs()[1]),
-      IValue(sparse_grad)};
-  gatherOp->AllocateAndAddSynapseNode(
-      graph, gather_stack, OutputMetaDataVector(1));
-  pt_value = gatherOp->GetOutputs()[0];
 
   // Expand 1D index tensor to same number of dimensions as value tensor
   auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
@@ -845,8 +761,8 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
   ////auto index_expanded = index.view(expanded_sizes)
   auto reshapeOp = make_operator<ReshapeOperator>(
       this->p_context_->device_id_, index.scalar_type());
-  temp_stack = {IValue(pt_index_into_reshape), IValue(expanded_sizes)};
-  reshapeOp->SetSynapseInput(castTopkValsOp->GetSynOutputs()[0]);
+  temp_stack = {IValue(index), IValue(expanded_sizes)};
+  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   reshapeOp->AllocateAndAddSynapseNode(
       graph, temp_stack, OutputMetaDataVector(1));
   temp_stack.clear();
@@ -879,8 +795,8 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
     // cast value
     auto castValueToFloatOp = make_operator<CastOperator>(
         this->p_context_->device_id_, "cast_i32_to_f32");
-    castValueToFloatOp->SetSynapseInput(gatherOp->GetSynOutputs()[0]);
-    cast_stack = {IValue(pt_value), IValue(cast_scalar_type)};
+    castValueToFloatOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
+    cast_stack = {IValue(mulOp->GetOutputs()[0]), IValue(cast_scalar_type)};
     castValueToFloatOp->AllocateAndAddSynapseNode(
         graph, cast_stack, OutputMetaDataVector(1));
     cast_stack.clear();
@@ -922,11 +838,11 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
         IValue(self),
         IValue(dim),
         IValue(bcastOp->GetOutputs()[0]),
-        IValue(pt_value)};
+        IValue(mulOp->GetOutputs()[0])};
 
     scatterAddOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     scatterAddOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-    scatterAddOp->SetSynapseInput(gatherOp->GetSynOutputs()[0]);
+    scatterAddOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
     scatterAddOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
