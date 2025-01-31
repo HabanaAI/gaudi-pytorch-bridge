@@ -27,18 +27,18 @@ from test_utils import (
 )
 
 dtypes = [torch.float, torch.bfloat16]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("dim", [2, 3, 4, 5, 6, 7, 8])
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_layer_norm(dim, dtype):
-    if dim == 4 and is_gaudi1() and (pytest.mode == "lazy" or pytest.mode == "compile"):
-        pytest.xfail("SW-172272")
 
     def fn(input, normalized_shape):
         return torch.nn.functional.layer_norm(input, normalized_shape)
 
-    fn = compile_function_if_compile_mode(fn)
+    fn_compiled = compile_function_if_compile_mode(fn)
 
     input_size = torch.randint(1, 4, size=(dim,)).tolist()
     normalized_shape = input_size[1:dim]
@@ -46,10 +46,10 @@ def test_layer_norm(dim, dtype):
     input_cpu = torch.rand(input_size, dtype=dtype)
     input_hpu = input_cpu.to("hpu")
 
-    result_hpu = fn(input_hpu, normalized_shape)
+    result_hpu = fn_compiled(input_hpu, normalized_shape)
     result_cpu = fn(input_cpu, normalized_shape)
 
-    tol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+    tol = 1e-5 if dtype == torch.float else 1e-2
     assert torch.allclose(result_cpu, result_hpu.cpu(), rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
