@@ -462,8 +462,6 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto scale = stackGetter.getNextInput<double>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
-
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
@@ -480,9 +478,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // Same CGUID is used for fp8 and non-fp8. So fill null ptr
   // for all the fp8 scales
   syn_inputs.insert(syn_inputs.end(), 8, nullptr);
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {meta[0].shape, meta[0].dtype, 0},
@@ -538,8 +534,6 @@ void Fp8SDPABwd::AddNode(
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
-
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
   SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
@@ -583,9 +577,7 @@ void Fp8SDPABwd::AddNode(
   SDPA_ADD_INPUTS(q_scale_s)
   SDPA_ADD_INPUTS(q_scale_ds)
 
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   auto meta = Fp8SDPABwdMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
@@ -1029,8 +1021,6 @@ void SDPARecompBwd::AddNode(
   auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
-
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode);
@@ -1057,9 +1047,7 @@ void SDPARecompBwd::AddNode(
   // Same CGUID is used for fp8 and non-fp8. So fill null ptr
   // for all the fp8 scales
   syn_inputs.insert(syn_inputs.end(), 8, nullptr);
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {meta[0].shape, meta[0].dtype, 0},
@@ -1102,8 +1090,6 @@ void Fp8SDPARecompBwd::AddNode(
 
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
-
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
@@ -1151,9 +1137,7 @@ void Fp8SDPARecompBwd::AddNode(
   SDPA_ADD_INPUTS(q_scale_s)
   SDPA_ADD_INPUTS(q_scale_ds)
 
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   auto out_shapes = Fp8SDPARecompBwdOutputShape(stack);
   // set gradType to BF16 for now.
