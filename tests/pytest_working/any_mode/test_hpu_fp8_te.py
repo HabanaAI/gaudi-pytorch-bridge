@@ -376,7 +376,14 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
 
     # First run - common for E5M2 and HYBRID
     linear = MyLinear(w_cpu.shape[1], w_cpu.shape[0], bias=False, skip_weight_param_allocation=True)
-    out = linear(_fp8_quantize(in_cpu, torch.float8_e5m2), weight=_fp8_quantize(w_cpu, torch.float8_e5m2))
+    out = linear(
+        _fp8_quantize(
+            in_cpu, torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn
+        ),
+        weight=_fp8_quantize(
+            w_cpu, torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn
+        ),
+    )
     loss = out.sum()
     loss.backward()
     grad_in = in_cpu.grad.clone().detach()
@@ -384,7 +391,7 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
     out = out.detach()
 
     # In HYBRID mode, calculate output (but not gradients) using E4M3 quantized values
-    if fp8_format == Format.HYBRID:
+    if fp8_format == Format.HYBRID and not is_gaudi3():
         out = linear(_fp8_quantize(in_cpu, torch.float8_e4m3fn), weight=_fp8_quantize(w_cpu, torch.float8_e4m3fn))
         out = out.detach()
 
@@ -392,7 +399,7 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
 
 
 def _cast_node_name(fp8_format):
-    return "cast_to_fp8_v2" if fp8_format == Format.E5M2 else "cast_to_fp8_hybrid"
+    return "cast_to_fp8_v2" if fp8_format == Format.E5M2 or is_gaudi3() else "cast_to_fp8_hybrid"
 
 
 def _verify_executed_ops(fp8_format):
@@ -410,8 +417,6 @@ def _verify_executed_ops(fp8_format):
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
 
@@ -469,8 +474,6 @@ def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
 def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     device = torch.device("hpu:0")
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
@@ -512,14 +515,14 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     # calculate cpu reference
     in_cpu = torch.full(
         inp_size,
-        fp8_e5m2_in_val,
+        fp8_e5m2_in_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_in_val,
         dtype=dtype,
         device=torch.device("cpu"),
         requires_grad=True,
     )
     w_cpu = torch.full(
         weight_size,
-        fp8_e5m2_w_val,
+        fp8_e5m2_w_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_w_val,
         dtype=dtype,
         device=torch.device("cpu"),
         requires_grad=True,
@@ -528,7 +531,7 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     ref_out, grad_in_ref, grad_w_ref = _train_step(in_cpu, w_cpu, ref_linear)
 
     # If format is hybrid, output should be calculated using e4m3 format
-    if fp8_format == Format.HYBRID:
+    if fp8_format == Format.HYBRID and not is_gaudi3():
         in_cpu = torch.full(
             inp_size,
             fp8_e4m3_in_val,
@@ -654,8 +657,6 @@ def test_longer_history_size():
 def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
 
@@ -693,8 +694,6 @@ def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
 def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torch.float32):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     # Prepare te linear module
     torch.manual_seed(12345)
@@ -753,8 +752,6 @@ def test_te_multiple_fwd_multiple_bwd(
 ):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     def is_first_microbatch(i):
         if not microbatches_approach:
@@ -830,8 +827,6 @@ def test_te_multiple_fwd_multiple_bwd(
 def test_linear_weight_caching_in_microbatches_case(fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     torch.manual_seed(12345)
     device = torch.device("hpu:0")
