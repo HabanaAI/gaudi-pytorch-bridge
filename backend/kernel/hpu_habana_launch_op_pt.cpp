@@ -4894,10 +4894,15 @@ void HabanaLaunchOpPT::run(
 
   if (!compile_mode) {
     graph_key_with_perm_ = graph_key_;
-    graph_symint_hash_ = habana::ComputeSymSizeHashCode(input_refs_);
+    if (jit_graph_and_meta_data_->get_valid_graph_symint_perm_hash()) {
+      graph_symint_hash_ = jit_graph_and_meta_data_->get_graph_symint_hash();
+      graph_perm_hash_ = jit_graph_and_meta_data_->get_graph_perm_hash();
+    } else {
+      graph_symint_hash_ = habana::ComputeSymSizeHashCode(input_refs_);
+      graph_perm_hash_ = habana::ComputePermutationHashCode(input_refs_);
+    }
     graph_key_with_perm_ =
         at::hash_combine(graph_key_with_perm_, graph_symint_hash_);
-    graph_perm_hash_ = habana::ComputePermutationHashCode(input_refs_);
     graph_key_with_perm_ =
         at::hash_combine(graph_key_with_perm_, graph_perm_hash_);
   }

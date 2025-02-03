@@ -155,13 +155,20 @@ void HlExec::Launch(
     opName = lazyInfo->get_lazy_op_name();
   }
 
-  auto graphIndex =
-      GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t perm_hash_code = habana::ComputePermutationHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+
+  auto graphIndex = GetGraphIndex(m_g_hash_, sym_hash_code, perm_hash_code);
   bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+  mp_g_and_meta_data_->set_graph_symint_hash(sym_hash_code);
+  mp_g_and_meta_data_->set_graph_perm_hash(perm_hash_code);
+  mp_g_and_meta_data_->set_valid_graph_symint_perm_hash(true);
 
   auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
   try {
@@ -205,13 +212,20 @@ void HlExec::Launch(
     opName = lazyInfo->get_lazy_op_name();
   }
 
-  auto graphIndex =
-      GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t perm_hash_code = habana::ComputePermutationHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+
+  auto graphIndex = GetGraphIndex(m_g_hash_, sym_hash_code, perm_hash_code);
   bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+  mp_g_and_meta_data_->set_graph_symint_hash(sym_hash_code);
+  mp_g_and_meta_data_->set_graph_perm_hash(perm_hash_code);
+  mp_g_and_meta_data_->set_valid_graph_symint_perm_hash(true);
 
   auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
   try {
@@ -662,6 +676,30 @@ void HlExec::Deserialize(std::istream& is) {
   using namespace serialization;
   deserialize(is, s_graphIndexMap);
   deserialize(is, s_graphIndex);
+}
+
+size_t HlExec::GetGraphIndex(
+    size_t hash,
+    size_t sym_hash_code,
+    size_t perm_hash_code) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_VISUALIZE_GRAPH_INDEX)) {
+    return visualize::GetGraphIndex(hash);
+  }
+
+  hash = at::hash_combine(hash, sym_hash_code);
+  hash = at::hash_combine(hash, perm_hash_code);
+
+  static std::mutex s_mutex;
+  std::lock_guard<std::mutex> guard(s_mutex);
+  size_t graphIndex = hash;
+  if (s_graphIndexMap.count(hash) == 0) {
+    s_graphIndexMap[hash] = s_graphIndex;
+    graphIndex = s_graphIndex;
+    s_graphIndex++;
+  } else {
+    graphIndex = s_graphIndexMap[hash];
+  }
+  return graphIndex;
 }
 
 size_t HlExec::GetGraphIndex(

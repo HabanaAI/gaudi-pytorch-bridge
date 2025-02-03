@@ -357,6 +357,14 @@ struct OptimizedJITGraphAndMetaData {
     graph_key_with_perm_ = key;
   }
 
+  bool get_valid_graph_symint_perm_hash() {
+    return valid_graph_symint_perm_hash;
+  }
+
+  void set_valid_graph_symint_perm_hash(bool val) {
+    valid_graph_symint_perm_hash = val;
+  }
+
   size_t get_graph_perm_hash() {
     return graph_perm_hash_;
   }
@@ -498,6 +506,7 @@ struct OptimizedJITGraphAndMetaData {
   size_t graph_key_with_perm_ = 0;
   size_t graph_symint_hash_ = 0;
   size_t graph_perm_hash_ = 0;
+  bool valid_graph_symint_perm_hash = false;
   bool enable_optim_output_sif_ = false;
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
