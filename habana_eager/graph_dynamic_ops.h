@@ -225,7 +225,7 @@ class RegisterDSOps {
   // backend from HPU Eager Pass
   const std::vector<std::string> getRegisteredDSOpsList() const {
     std::vector<std::string> DSOpsList;
-    for (const auto& op: dsOps_) {
+    for (const auto& op : dsOps_) {
       DSOpsList.push_back(op.first);
     }
     return DSOpsList;

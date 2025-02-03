@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <pybind11/pybind11.h>
 #include <torch/csrc/Device.h>
@@ -78,16 +78,14 @@ static PyObject* THP_HPU_Stream_pynew(
   const auto current_device = habana::HPUDeviceContext::get_device().id();
 
   auto stream = is_default_stream ? c10::hpu::getDefaultHPUStream(device_index)
-                                  : (stream_id || device_index)
-          ? c10::hpu::HPUStream::unpack3(
-                stream_id,
-                device_index,
-                static_cast<c10::DeviceType>(device_type))
-          : stream_ptr
-              ? c10::hpu::getStreamByStreamPtr(
-                    reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
-                    current_device)
-              : c10::hpu::getStreamFromPool((priority < 0), device_index);
+      : (stream_id || device_index)
+      ? c10::hpu::HPUStream::unpack3(
+            stream_id, device_index, static_cast<c10::DeviceType>(device_type))
+      : stream_ptr
+      ? c10::hpu::getStreamByStreamPtr(
+            reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
+            current_device)
+      : c10::hpu::getStreamFromPool((priority < 0), device_index);
 
   THP_HPU_Stream* self = (THP_HPU_Stream*)ptr.get();
   self->stream_id = static_cast<int64_t>(stream.id());

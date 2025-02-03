@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/common/arange_gen.h"
 #include "common/utils.h"
@@ -27,8 +27,9 @@ static bool can_use_dynamic_shapes(
     const bool is_eager = false) {
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
-  return ((is_eager? habana_helpers::GetRefineDynamicShapeStatus(): true) &&
-       habana_helpers::GetArangeHostTensorStatus() &&
+  return (
+      (is_eager ? habana_helpers::GetRefineDynamicShapeStatus() : true) &&
+      habana_helpers::GetArangeHostTensorStatus() &&
       ((start.isIntegral(false) || can_convert(start)) &&
        (end.isIntegral(false) || can_convert(end)) &&
        (step.isIntegral(false) || can_convert(step))));
@@ -155,7 +156,8 @@ synapse_helpers::tensor ArangeCommon(
     c10::optional<int> final_result_index,
     bool is_eager) {
   std::vector<synTensor> inputs = {};
-  if (syn_in0.has_value() && can_use_dynamic_shapes(start, end, step, is_eager)) {
+  if (syn_in0.has_value() &&
+      can_use_dynamic_shapes(start, end, step, is_eager)) {
     // syn_in0 is defined, syn_in1 is optional
     // For arange.start_out, both syn_in0 and syn_in1 are defined.
     // For arange.start_step, only syn_in0 is defined.
@@ -173,20 +175,19 @@ synapse_helpers::tensor ArangeCommon(
     if (is_cast_not_required)
       out_attr.final_result_index = final_result_index;
 
-    std::vector<synapse_helpers::tensor> arange_i32 {};
+    std::vector<synapse_helpers::tensor> arange_i32{};
 
     if (!syn_in1.has_value()) {
-       // arange.start_step
-       // Only syn_in0 is defined
-       arange_i32 = OpBackend::BuildNode(
+      // arange.start_step
+      // Only syn_in0 is defined
+      arange_i32 = OpBackend::BuildNode(
           op, graph, {range_guid, std::move(inputs), {out_attr}});
-    }
-    else {
-       // arange.start_out
-       // syn_in1 is defined
-       inputs.emplace_back(syn_in1.value());
-       op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
-       arange_i32 = OpBackend::BuildNode(
+    } else {
+      // arange.start_out
+      // syn_in1 is defined
+      inputs.emplace_back(syn_in1.value());
+      op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
+      arange_i32 = OpBackend::BuildNode(
           op, graph, {range_guid, {}, {out_attr}, params.get(), size});
     }
 
@@ -278,7 +279,8 @@ OutputMetaDataVector ArangeStartOutMeta(const at::Stack& stack) {
 }
 
 void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  bool is_eager = GetExecutionMode() != habana_helpers::HabanaFrontendTypes::COMPILE;
+  bool is_eager =
+      GetExecutionMode() != habana_helpers::HabanaFrontendTypes::COMPILE;
   const auto meta = ArangeStartOutMeta(stack)[0];
   auto outshape = meta.shape;
   auto out_dtype = meta.dtype;
@@ -519,7 +521,6 @@ synapse_helpers::tensor ArangeDefaultCommon(
     const OutputMetaDataVector& meta,
     std::shared_ptr<void> params,
     size_t params_size) {
-
   constexpr int FINAL_RESULT_INDEX = 0;
   const auto outshape = meta[0].shape;
   const auto out_dtype = meta[0].dtype;
@@ -637,7 +638,8 @@ void ArangeDefaultStartEnd::AddNode(
 void ArangeDefaultStartEndStep::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  bool is_eager = GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER;
+  bool is_eager =
+      GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER;
   const auto meta = OutputMeta(stack);
   const auto outshape = meta[0].shape;
   const auto out_dtype = meta[0].dtype;

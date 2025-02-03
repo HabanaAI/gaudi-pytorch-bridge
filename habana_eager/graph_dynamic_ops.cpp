@@ -1,23 +1,23 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <sstream>
 #include "common/utils.h"
 
-#include "habana_eager/graph_dynamic_ops.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/graph_dynamic.h"
+#include "habana_eager/graph_dynamic_ops.h"
 
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
@@ -270,7 +270,8 @@ void UpdateShapeTensorSize(
       new_shape.set_size(0);
       break;
     } else {
-      new_shape[idx] = static_cast<int64_t>(GetSymintValue(orig_stack, stack_index));
+      new_shape[idx] =
+          static_cast<int64_t>(GetSymintValue(orig_stack, stack_index));
     }
   }
 
@@ -517,7 +518,8 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // dim: Scalar
   // index: Scalar
   HABANA_ASSERT(4 == aten_select_scatter_node->inputs().size());
-  static const auto hpu_select_scatter_symbol{c10::Symbol::fromQualString("hpu::select_scatter")};
+  static const auto hpu_select_scatter_symbol{
+      c10::Symbol::fromQualString("hpu::select_scatter")};
 
   // 2 scalars: dim and index
   auto dim = aten_select_scatter_node->inputs().at(2);
@@ -932,9 +934,11 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // step: Scalar
 
   HABANA_ASSERT(6 == aten_slice_scatter_node->inputs().size());
-  static const auto hpu_slice_scatter_symbol{c10::Symbol::fromQualString("hpu::slice_scatter_ds")};
+  static const auto hpu_slice_scatter_symbol{
+      c10::Symbol::fromQualString("hpu::slice_scatter_ds")};
 
-  at::IntArrayRef self_sizes = value_ivalue_map[aten_slice_scatter_node->input(0)]->toTensor().sizes();
+  at::IntArrayRef self_sizes =
+      value_ivalue_map[aten_slice_scatter_node->input(0)]->toTensor().sizes();
 
   // 4 scalars: dim, start, end, step
   auto dim = aten_slice_scatter_node->inputs().at(2);
@@ -972,8 +976,8 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
 
   // Handle negative dimension for start parameter
   if (start_value < 0) {
-     start_value = at::maybe_wrap_dim(start_value, self_sizes[dim_value]);
-     start_idx = LONG_MAX;
+    start_value = at::maybe_wrap_dim(start_value, self_sizes[dim_value]);
+    start_idx = LONG_MAX;
   }
 
   // slice_insert_ds requires start and step values for all dimensions
@@ -985,11 +989,11 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<long> step_idx_final_v1 = {};
 
   // Set the initial default values
-  for(int j=0; j<dim_value; ++j) {
-     start_value_final_v1.push_back(0);
-     step_value_final_v1.push_back(1);
-     start_idx_final_v1.push_back(LONG_MAX);
-     step_idx_final_v1.push_back(LONG_MAX);
+  for (int j = 0; j < dim_value; ++j) {
+    start_value_final_v1.push_back(0);
+    step_value_final_v1.push_back(1);
+    start_idx_final_v1.push_back(LONG_MAX);
+    step_idx_final_v1.push_back(LONG_MAX);
   }
   // Set the actual value at dim
   start_value_final_v1.push_back(start_value);
@@ -997,11 +1001,11 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   start_idx_final_v1.push_back(start_idx);
   step_idx_final_v1.push_back(step_idx);
   // Set the remaining default values
-  for(int j=dim_value; j<(int)self_sizes.size()-1; ++j) {
-     start_value_final_v1.push_back(0);
-     step_value_final_v1.push_back(1);
-     start_idx_final_v1.push_back(LONG_MAX);
-     step_idx_final_v1.push_back(LONG_MAX);
+  for (int j = dim_value; j < (int)self_sizes.size() - 1; ++j) {
+    start_value_final_v1.push_back(0);
+    step_value_final_v1.push_back(1);
+    start_idx_final_v1.push_back(LONG_MAX);
+    step_idx_final_v1.push_back(LONG_MAX);
   }
   const std::vector<long>& start_value_final = start_value_final_v1;
   const std::vector<long>& step_value_final = step_value_final_v1;
@@ -1010,15 +1014,15 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
 
   // Step2: Create shape tensor and insert to graph inputs.
   auto step_st_name = GetDynamicTensorName(step->debugName(), SHAPE_TENSOR);
-  int64_t step_index =
-      CreateSTAndInsertToDSStack(step_value_final, step_idx_final, {}, {}, m_dmeta);
+  int64_t step_index = CreateSTAndInsertToDSStack(
+      step_value_final, step_idx_final, {}, {}, m_dmeta);
   auto step_st_tensor = graph->addInput(step_st_name);
   m_range_infos->emplace_back(habana_helpers::RangeInfo(
       {}, {}, GetExprFromString({step_expr}), "INVALID", -1));
 
   auto start_st_name = GetDynamicTensorName(start->debugName(), SHAPE_TENSOR);
-  int64_t start_index =
-      CreateSTAndInsertToDSStack(start_value_final, start_idx_final, {}, {}, m_dmeta);
+  int64_t start_index = CreateSTAndInsertToDSStack(
+      start_value_final, start_idx_final, {}, {}, m_dmeta);
   auto start_st_tensor = graph->addInput(start_st_name);
   m_range_infos->emplace_back(habana_helpers::RangeInfo(
       {}, {}, GetExprFromString({start_expr}), "INVALID", -1));

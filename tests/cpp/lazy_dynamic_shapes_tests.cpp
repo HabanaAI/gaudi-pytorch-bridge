@@ -950,7 +950,8 @@ void runWeightNormTest() {
   }
 }
 TEST_F(LazyDynamicShapesTest, WeightNormTest) {
-  std::string org_recipe_cache_path = HPUDeviceContext::recipe_cache().get_cache_path();
+  std::string org_recipe_cache_path =
+      HPUDeviceContext::recipe_cache().get_cache_path();
   HPUDeviceContext::recipe_cache().UpdateCachePath("/tmp/WeightNormTest_dumps");
   HPUDeviceContext::recipe_cache().ResetDiskCache();
   runWeightNormTest();
@@ -2216,7 +2217,8 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
   std::vector<int> in_sizes{6, 8, 10, 20, 50};
   int rounds{2};
 
-  const char* recipe_cache_path = HPUDeviceContext::recipe_cache().get_cache_path().c_str();
+  const char* recipe_cache_path =
+      HPUDeviceContext::recipe_cache().get_cache_path().c_str();
   uint32_t initial_host_mem_threshold =
       GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
   habana::RecipeCacheLRU::SetHostMemoryThreshold(100);

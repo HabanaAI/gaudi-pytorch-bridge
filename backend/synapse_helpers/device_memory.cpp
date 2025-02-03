@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <synapse_api.h>
 #include <synapse_common_types.h>
 #include <iterator>
@@ -30,7 +30,8 @@
 
 namespace synapse_helpers {
 
-std::deque<std::chrono::high_resolution_clock::time_point> device_memory::defragmentation_timestamps;
+std::deque<std::chrono::high_resolution_clock::time_point>
+    device_memory::defragmentation_timestamps;
 std::mutex device_memory::defrag_mutex;
 
 void device_memory::init_hlml_memory() {
@@ -907,7 +908,8 @@ bool device_memory::defragment_memory(
   // Record defragmentation timestamp
   {
     std::lock_guard<std::mutex> guard(defrag_mutex);
-    defragmentation_timestamps.push_back(std::chrono::high_resolution_clock::now());
+    defragmentation_timestamps.push_back(
+        std::chrono::high_resolution_clock::now());
     log_defragmentation_warning_if_needed();
   }
 
@@ -915,21 +917,23 @@ bool device_memory::defragment_memory(
 }
 
 void device_memory::log_defragmentation_warning_if_needed() {
-    using namespace std::chrono;
+  using namespace std::chrono;
 
-    // Remove timestamps older than 5 minutes
-    auto now = high_resolution_clock::now();
-    auto threshold = now - minutes(5);
-    while (!defragmentation_timestamps.empty() && defragmentation_timestamps.front() < threshold) {
-        defragmentation_timestamps.pop_front();
-    }
+  // Remove timestamps older than 5 minutes
+  auto now = high_resolution_clock::now();
+  auto threshold = now - minutes(5);
+  while (!defragmentation_timestamps.empty() &&
+         defragmentation_timestamps.front() < threshold) {
+    defragmentation_timestamps.pop_front();
+  }
 
-    // Check if the number of defragmentation events in the last 5 minutes exceeds 100
-    if (defragmentation_timestamps.size() == 100) {
-        TORCH_WARN_ONCE("defragmentation triggered more than 100 times in the last 5 minutes");
-    }
+  // Check if the number of defragmentation events in the last 5 minutes exceeds
+  // 100
+  if (defragmentation_timestamps.size() == 100) {
+    TORCH_WARN_ONCE(
+        "defragmentation triggered more than 100 times in the last 5 minutes");
+  }
 }
-
 
 size_t device_memory::get_total_memory_required(
     absl::Span<const device_ptr> addresses) {

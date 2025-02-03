@@ -286,7 +286,8 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
     const auto& ival = stack[stack_id];
     const auto& tensors = ival.isTensor()
         ? static_cast<at::List<at::Tensor>>(ival.toTensor())
-        : ival.isTensorList() ? ival.toTensorList() : at::List<at::Tensor>{};
+        : ival.isTensorList() ? ival.toTensorList()
+                              : at::List<at::Tensor>{};
 
     const auto inplace_id = m_inplace_ids[inplace_ids_pos];
     if (inplace_id != (int)stack_id) {
@@ -833,22 +834,22 @@ std::vector<sh::tensor> OpBackend::BuildNode(
                     attr.tensor_type,
                     op->GetOpDynamicity())
               : attr.syn_data_type == syn_type_na
-                  ? habana_helpers::create_tensor(
-                        t,
-                        graph,
-                        is_persistent,
-                        is_external,
-                        attr.dtype,
-                        std::string(),
-                        std::string())
-                  : habana_helpers::create_tensor(
-                        t,
-                        graph,
-                        is_persistent,
-                        is_external,
-                        attr.syn_data_type,
-                        std::string(),
-                        std::string()));
+              ? habana_helpers::create_tensor(
+                    t,
+                    graph,
+                    is_persistent,
+                    is_external,
+                    attr.dtype,
+                    std::string(),
+                    std::string())
+              : habana_helpers::create_tensor(
+                    t,
+                    graph,
+                    is_persistent,
+                    is_external,
+                    attr.syn_data_type,
+                    std::string(),
+                    std::string()));
 
       if (is_persistent) {
         const auto& impl =
@@ -1245,10 +1246,10 @@ sh::tensor OpBackend::BuildFlatten(
 }
 
 void OpBackend::moveLastOutputTensorAtFront() {
-    auto& outputInfMeta = GetOutputInfMeta();
-    auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
-    auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
-    outputInfMeta.RemoveOutput(output_tensor_idx);
-    outputInfMeta.PushOutputTensorAtFront(output_tensor);
-  }
+  auto& outputInfMeta = GetOutputInfMeta();
+  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
+  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
+  outputInfMeta.RemoveOutput(output_tensor_idx);
+  outputInfMeta.PushOutputTensorAtFront(output_tensor);
+}
 } // namespace habana

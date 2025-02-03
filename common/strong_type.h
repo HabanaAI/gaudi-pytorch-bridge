@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -23,9 +23,8 @@
 namespace common {
 
 template <typename T>
-using equality_comparable_t = decltype(
-    std::declval<std::remove_reference_t<T>&>() ==
-    std::declval<std::remove_reference_t<T>&>());
+using equality_comparable_t =
+    decltype(std::declval<std::remove_reference_t<T>&>() == std::declval<std::remove_reference_t<T>&>());
 
 template <typename T, typename = std::void_t<>>
 struct is_equality_comparable : std::false_type {};
@@ -147,9 +146,8 @@ class StrongType<T, Tag, std::enable_if_t<std::is_reference_v<T>>>
 };
 
 template <typename T>
-using ostream_operator_capable_t = std::remove_reference_t<decltype(
-    std::declval<std::ostream>()
-    << std::declval<std::remove_reference_t<T>>())>;
+using ostream_operator_capable_t = std::remove_reference_t<
+    decltype(std::declval<std::ostream>() << std::declval<std::remove_reference_t<T>>())>;
 
 template <typename T, typename = std::void_t<>>
 struct is_ostream_operator_capable : std::false_type {};

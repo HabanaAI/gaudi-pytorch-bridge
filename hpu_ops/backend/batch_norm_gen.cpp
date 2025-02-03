@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2025 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <perf_lib_layer_params.h>
 #include "backend/helpers/habana_types.h"
@@ -157,9 +157,9 @@ c10::IntArrayRef get_rm_size(const at::Tensor& input) {
   return input.sizes()[rm_size_idx];
 }
 
-synapse_helpers::layouts::SynapseLayoutFormat getSynapseLayout(const int64_t& dimensions)
-{
-    switch (dimensions) {
+synapse_helpers::layouts::SynapseLayoutFormat getSynapseLayout(
+    const int64_t& dimensions) {
+  switch (dimensions) {
     case 2:
       return synapse_helpers::layouts::SynapseLayoutFormat::CN;
       break;
@@ -323,8 +323,8 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   std::optional<sh::tensor> biasStorageOpt;
   auto [bias] = get_or_create_tensor<TENSOR_IDX>(
       op, graph, bias_opt, rm_size, c10::ScalarType::Float, 0, biasStorageOpt);
-  bias = cast_if_necessary_or_default(
-      &op, graph, bias_opt, bias, biasStorageOpt);
+  bias =
+      cast_if_necessary_or_default(&op, graph, bias_opt, bias, biasStorageOpt);
   std::optional<sh::tensor> runningMeanStorageOpt;
   auto [running_mean, running_mean_storage_or_idx] =
       get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(

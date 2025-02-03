@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "process_group_lazy_hccl.hpp"
 
 #include <hccl.h>
@@ -211,7 +211,6 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
     std::vector<at::Tensor>& outputs,
     std::vector<at::Tensor>& inputs,
     const ReduceScatterOptions& opts) {
-
   for (size_t index = 0; index < inputs.size(); ++index) {
     auto data_type = inputs.at(index).scalar_type();
     bool cast_tensor =
@@ -226,16 +225,14 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
           outputs.at(index));
     } else {
       t_updated = inputs.at(index).to(c10::ScalarType::Float);
-      auto output =
-          at::empty_like(outputs.at(index), c10::ScalarType::Float);
+      auto output = at::empty_like(outputs.at(index), c10::ScalarType::Float);
       habana_lazy::reduce_scatter_hpu_lazy_out(
           t_updated, (uint8_t)opts.reduceOp, comm_->GetId(), output);
       outputs.at(index).copy_(output.to(data_type));
     }
   }
 
-  auto work =
-      c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
   if (coalescing_state_) {
     coalesed_works_->append(work);
   }

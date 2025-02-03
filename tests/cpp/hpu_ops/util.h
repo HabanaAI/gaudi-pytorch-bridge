@@ -138,9 +138,11 @@ bool HpuOpTestUtilBase::GenerateScalar(
 class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
  public:
   template <typename T>
-  static std::string SerializeShape(const std::vector<T> &, const std::string &);
+  static std::string SerializeShape(const std::vector<T>&, const std::string&);
+
  protected:
   static std::string FixTestName(std::string name);
+
  private:
   void SetUp() override {
     DisableCpuFallback();
@@ -153,11 +155,12 @@ class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
 };
 
 template <typename T>
-std::string HpuOpTestUtil::SerializeShape(const std::vector<T> &shape,
-                                   const std::string &prefix) {
+std::string HpuOpTestUtil::SerializeShape(
+    const std::vector<T>& shape,
+    const std::string& prefix) {
   std::string s = prefix;
   auto seprator = "";
-  for (auto &&d : shape) {
+  for (auto&& d : shape) {
     s += seprator;
     s += std::to_string(d);
     seprator = "x";

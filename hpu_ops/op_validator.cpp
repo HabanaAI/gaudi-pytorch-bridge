@@ -467,8 +467,10 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
       if (guidValidator.QueryGuid(&resultBitMap)) {
         // bit 1: query failed, don't require shape/h2d.
         // we only need to update if m_require_st/m_require_h2d is false.
-        m_require_st = m_require_st || !(resultBitMap & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
-        m_require_h2d = m_require_h2d || !(resultBitMap & SharedLayer::QUERY_H2D_TENSOR_REQ);
+        m_require_st = m_require_st ||
+            !(resultBitMap & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
+        m_require_h2d = m_require_h2d ||
+            !(resultBitMap & SharedLayer::QUERY_H2D_TENSOR_REQ);
       }
       PT_OP_INFO(
           "Shared layer complex op: ",
@@ -595,20 +597,20 @@ bool SharedLayerGuidValidator::fillParam(T& params) {
 }
 
 // input/output tensors will be freed automatically after request
-#define PREPARE_IN_OUT_TENSORS() \
-  const size_t input_count = m_input_values.size(); \
-  const size_t output_count = m_output_values.size(); \
-  HABANA_ASSERT( \
-      input_count <= SharedLayer::MAX_TENSOR_NR, \
-      "Input count passed to Shared Layer exceeds limit"); \
-  HABANA_ASSERT( \
-      output_count <= SharedLayer::MAX_TENSOR_NR, \
+#define PREPARE_IN_OUT_TENSORS()                            \
+  const size_t input_count = m_input_values.size();         \
+  const size_t output_count = m_output_values.size();       \
+  HABANA_ASSERT(                                            \
+      input_count <= SharedLayer::MAX_TENSOR_NR,            \
+      "Input count passed to Shared Layer exceeds limit");  \
+  HABANA_ASSERT(                                            \
+      output_count <= SharedLayer::MAX_TENSOR_NR,           \
       "Output count passed to Shared Layer exceeds limit"); \
-  SharedLayer::Tensor input_tensors[input_count]; \
-  SharedLayer::Tensor output_tensors[output_count]; \
-  params.inputTensorNr = input_count; \
-  params.outputTensorNr = output_count; \
-  params.inputTensors = input_tensors; \
+  SharedLayer::Tensor input_tensors[input_count];           \
+  SharedLayer::Tensor output_tensors[output_count];         \
+  params.inputTensorNr = input_count;                       \
+  params.outputTensorNr = output_count;                     \
+  params.inputTensors = input_tensors;                      \
   params.outputTensors = output_tensors;
 
 /*
@@ -618,7 +620,7 @@ SharedLayer::Return_t SharedLayerGuidValidator::ValidateGuid() {
   SharedLayer::ParamsV2_t params{};
   PREPARE_IN_OUT_TENSORS();
   if (!fillParam(params)) {
-      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    return SharedLayer::Return_t::SHARED_LAYER_FAILED;
   }
   return synSharedLayerValidateGuidV2(&params);
 }
@@ -633,7 +635,7 @@ SharedLayer::Return_t SharedLayerGuidValidator::QueryGuid(
   // synSharedLayerQueryParams will fill this resultBitMap.
   params.resultBitMap = resultBitMap;
   if (!fillParam(params)) {
-      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    return SharedLayer::Return_t::SHARED_LAYER_FAILED;
   }
   return synSharedLayerQueryParams(&params);
 }

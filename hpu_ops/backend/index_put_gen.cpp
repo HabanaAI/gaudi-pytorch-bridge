@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/core/DimVector.h>
 #include "hpu_ops/backend/nonzero.h"
 #include "hpu_ops/index_put.h"
@@ -304,10 +304,10 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
         op,
         graph,
         {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
-        {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
-        {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
-        &scatter_params,
-        sizeof(scatter_params)});
+         {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
+         {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
+         &scatter_params,
+         sizeof(scatter_params)});
     size_t size = 0;
     PARAMS_STUB(ns_CastKernel::Params);
     size = sizeof(params);
@@ -322,15 +322,14 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
          size});
 
   } else {
-      next_node = OpBackend::BuildNode(
+    next_node = OpBackend::BuildNode(
         op,
         graph,
         {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
-        {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
-        {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
-        &scatter_params,
-        sizeof(scatter_params)});
-
+         {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
+         {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
+         &scatter_params,
+         sizeof(scatter_params)});
   }
   auto addOp = OpBackend::BuildNode(
       op,
@@ -417,7 +416,6 @@ void IndexPutEager::AddNode(
       value_upd_dim.insert(
           std::begin(value_upd_dim),
           broadcastToElements / broadcastFromElements);
-
   }
 
   values_bcast_or_reshape_sh_tensor.emplace_back(std::move(BuildOp(
@@ -461,9 +459,9 @@ void IndexPutEager::AddNode(
             cast_guid,
             {scatter_op[0].get()},
             {{self.sizes().vec(), self_scalar_type, 0}},
-             0);
+            0);
 
-        } else {
+      } else {
         next_node = BuildOp(
             graph,
             get_guid_with_precision(
@@ -472,7 +470,6 @@ void IndexPutEager::AddNode(
             {syn_in(0), catop.get(), reshape_val_op.get()},
             {NodeAttr::NodeOutputAttr{
                 self.sizes().vec(), self_scalar_type, 0}});
-
       }
       syn_out(0) = std::move(next_node[0]);
 
@@ -489,7 +486,6 @@ void IndexPutEager::AddNode(
     }
   } else {
     if (!accumulate) {
-
       std::vector<synapse_helpers::tensor> next_node;
       if (cast_needed) {
         auto scatter_op = BuildOp(

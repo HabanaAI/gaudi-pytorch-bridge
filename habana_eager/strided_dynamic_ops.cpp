@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <torch/csrc/jit/ir/ir.h>
 #include <memory>
@@ -951,8 +951,9 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // size: Tuple or ints
   // stride: Tuple or ints
   // storage_offset: int (optional)
-  HABANA_ASSERT(4 == as_strided_scatter_node->inputs().size() ||
-                5 == as_strided_scatter_node->inputs().size());
+  HABANA_ASSERT(
+      4 == as_strided_scatter_node->inputs().size() ||
+      5 == as_strided_scatter_node->inputs().size());
 
   auto in_tensors = getInputTensors(as_strided_scatter_node, value_ivalue_map);
   auto self = in_tensors[0];
@@ -986,7 +987,8 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<uint64_t> h2d_values;
   std::vector<std::string> h2d_expr;
 
-  // Get offset value and index and add it to h2d_values and scalar_indexes respectively
+  // Get offset value and index and add it to h2d_values and scalar_indexes
+  // respectively
   int64_t offset_idx = LONG_MAX;
   int64_t offset_value = 0;
   GetValueAndScalarIndexFromInput(
@@ -1006,7 +1008,8 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<int64_t> scalar_indexes_strides;
   std::vector<int64_t> values_strides;
   std::vector<std::string> expr_strides;
-  // Get stride value and index and add it to h2d_values and scalar_indexes respectively
+  // Get stride value and index and add it to h2d_values and scalar_indexes
+  // respectively
   auto self_strides = self.strides().vec();
   GetValuesAndScalarIndexesFromListConstruct(
       stride_construct_node,
@@ -1024,7 +1027,9 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
     h2d_expr.push_back(*it);
   }
   // Insert strides indexes in reverse order
-  for (auto it = scalar_indexes_strides.rbegin(); it != scalar_indexes_strides.rend(); ++it) {
+  for (auto it = scalar_indexes_strides.rbegin();
+       it != scalar_indexes_strides.rend();
+       ++it) {
     scalar_indexes.push_back(*it);
   }
   // Fill the remaining dimension stride values with 0 and index with LONG_MAX
@@ -1039,12 +1044,14 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // Insert num_strides at 0 index (first value)
   // and LONG_MAX as corresponding index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
-  h2d_values.insert(h2d_values.begin(), static_cast<uint64_t>(values_strides.size()));
+  h2d_values.insert(
+      h2d_values.begin(), static_cast<uint64_t>(values_strides.size()));
   h2d_expr.insert(h2d_expr.begin(), std::to_string(values_strides.size()));
   // Create H2D tensor using h2d_values and scalar_indexes
   at::Tensor h2d_tensor_strides = createDynamicTensor(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
-  SetH2DTensorHostData<uint64_t>(h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
+  SetH2DTensorHostData<uint64_t>(
+      h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
   auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
   int64_t stack_index_strides = UpdateDynamicTensorDSStack(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
@@ -1056,7 +1063,8 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // There are two paths: StridedRatio path or normal path
   // Path 1: Normal path / Non-StridedRatio path
   if (IsStridedRatioUndefined(self_strides, values_strides)) {
-    // Actual stride values are not an integral multiple of input tensor strides (view op)
+    // Actual stride values are not an integral multiple of input tensor strides
+    // (view op)
     auto tmeta{get_tensor_extra_meta(h2d_tensor_strides)};
     tmeta->set_H2D_data_for_bucketing();
     // Create hpu::as_strided_scatter_orig node and insert to the graph
@@ -1071,9 +1079,8 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
         value_ivalue_map);
   } else {
     // Path 2: StridedRatio path
-    // Actual stride values are integral multiple of input tensor strides (view op)
-    // Pass offset as a separate parameter
-    // Create Shape Tensor for offset
+    // Actual stride values are integral multiple of input tensor strides (view
+    // op) Pass offset as a separate parameter Create Shape Tensor for offset
     std::vector<int64_t> values_offset;
     values_offset.push_back(offset_value);
     at::Tensor st_tensor_offset =
@@ -1102,9 +1109,10 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
         iv_st_offset_tensor, scalar_indexes_offset, {}, {}, m_dmeta);
 
-    auto as_strided_scatter_offset_st_name =
-        GetDynamicTensorName(as_strided_scatter_offset->debugName(), SHAPE_TENSOR);
-    auto v_st_offset_tensor = graph->addInput(as_strided_scatter_offset_st_name);
+    auto as_strided_scatter_offset_st_name = GetDynamicTensorName(
+        as_strided_scatter_offset->debugName(), SHAPE_TENSOR);
+    auto v_st_offset_tensor =
+        graph->addInput(as_strided_scatter_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
     m_range_infos->emplace_back(habana_helpers::RangeInfo(
         {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
@@ -1137,7 +1145,6 @@ void AsStridedScatterOperatorDS::UpdateDynamicInputs(
         std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
-
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
       "Dtensor and SymIntData count not matching");
@@ -1220,21 +1227,19 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
   static const auto constant_symbol{
       c10::Symbol::fromQualString("prim::Constant")};
   if (stride_construct_node->kind() == constant_symbol) {
-      GetValuesAndScalarIndexesFromListConst(
-          stride_construct_node,
-          values_strides,
-          scalar_indexes_strides);
-      expr_strides = GetRangeInfoExprFromListConst(
-          stride_construct_node, org_stack_index_map, m_range_infos);
+    GetValuesAndScalarIndexesFromListConst(
+        stride_construct_node, values_strides, scalar_indexes_strides);
+    expr_strides = GetRangeInfoExprFromListConst(
+        stride_construct_node, org_stack_index_map, m_range_infos);
   } else {
-      GetValuesAndScalarIndexesFromListConstruct(
-          stride_construct_node,
-          in_stack,
-          org_stack_index_map,
-          values_strides,
-          scalar_indexes_strides);
-      expr_strides = GetRangeInfoExprFromListConstruct(
-          stride_construct_node, org_stack_index_map, m_range_infos);
+    GetValuesAndScalarIndexesFromListConstruct(
+        stride_construct_node,
+        in_stack,
+        org_stack_index_map,
+        values_strides,
+        scalar_indexes_strides);
+    expr_strides = GetRangeInfoExprFromListConstruct(
+        stride_construct_node, org_stack_index_map, m_range_infos);
   }
   // Fill the strides values in reverse order
   for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {

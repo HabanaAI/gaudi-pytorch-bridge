@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/create_tensor.h"
 #include <string>
@@ -1057,19 +1057,19 @@ auto get_synapse_type_for_long() {
 } // namespace
 
 synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
-  static const std::unordered_map<c10::ScalarType, synDataType> map {
-    {c10::ScalarType::Byte, synDataType::syn_type_uint8},
-        {c10::ScalarType::Char, synDataType::syn_type_int8},
-        {c10::ScalarType::Short, synDataType::syn_type_int16},
-        {c10::ScalarType::Int, synDataType::syn_type_int32},
-        {c10::ScalarType::Long, get_synapse_type_for_long()},
-        {c10::ScalarType::Float, synDataType::syn_type_float},
-        {c10::ScalarType::Half, synDataType::syn_type_fp16},
-        {c10::ScalarType::Double, synDataType::syn_type_float},
-        {c10::ScalarType::Bool, synDataType::syn_type_int8},
-        {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
-        {c10::ScalarType::Float8_e5m2, synDataType::syn_type_fp8_152},
-        {c10::ScalarType::Float8_e4m3fn, synDataType::syn_type_fp8_143},
+  static const std::unordered_map<c10::ScalarType, synDataType> map{
+      {c10::ScalarType::Byte, synDataType::syn_type_uint8},
+      {c10::ScalarType::Char, synDataType::syn_type_int8},
+      {c10::ScalarType::Short, synDataType::syn_type_int16},
+      {c10::ScalarType::Int, synDataType::syn_type_int32},
+      {c10::ScalarType::Long, get_synapse_type_for_long()},
+      {c10::ScalarType::Float, synDataType::syn_type_float},
+      {c10::ScalarType::Half, synDataType::syn_type_fp16},
+      {c10::ScalarType::Double, synDataType::syn_type_float},
+      {c10::ScalarType::Bool, synDataType::syn_type_int8},
+      {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
+      {c10::ScalarType::Float8_e5m2, synDataType::syn_type_fp8_152},
+      {c10::ScalarType::Float8_e4m3fn, synDataType::syn_type_fp8_143},
   };
 
   auto result = map.find(pt_type);
@@ -1080,16 +1080,16 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
 
 c10::ScalarType synapse_to_pytorch_type(const synDataType type) {
   static const auto map = std::unordered_map<synDataType, c10::ScalarType>{
-    {synDataType::syn_type_uint8, c10::ScalarType::Byte},
-        {synDataType::syn_type_int8, c10::ScalarType::Char},
-        {synDataType::syn_type_int16, c10::ScalarType::Short},
-        {synDataType::syn_type_int32, c10::ScalarType::Int},
-        {synDataType::syn_type_float, c10::ScalarType::Float},
-        {synDataType::syn_type_fp16, c10::ScalarType::Half},
-        {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},
-        {synDataType::syn_type_int64, c10::ScalarType::Long},
-        {synDataType::syn_type_fp8_152, c10::ScalarType::Float8_e5m2},
-        {synDataType::syn_type_fp8_143, c10::ScalarType::Float8_e4m3fn},
+      {synDataType::syn_type_uint8, c10::ScalarType::Byte},
+      {synDataType::syn_type_int8, c10::ScalarType::Char},
+      {synDataType::syn_type_int16, c10::ScalarType::Short},
+      {synDataType::syn_type_int32, c10::ScalarType::Int},
+      {synDataType::syn_type_float, c10::ScalarType::Float},
+      {synDataType::syn_type_fp16, c10::ScalarType::Half},
+      {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},
+      {synDataType::syn_type_int64, c10::ScalarType::Long},
+      {synDataType::syn_type_fp8_152, c10::ScalarType::Float8_e5m2},
+      {synDataType::syn_type_fp8_143, c10::ScalarType::Float8_e4m3fn},
   };
 
   auto result = map.find(type);

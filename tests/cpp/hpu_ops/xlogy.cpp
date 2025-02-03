@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "util.h"
 
@@ -76,21 +76,21 @@
     Compare(expected, result);                                                \
   }
 
-#define OTHER_SCALAR_INPLACE_TEST(op)            \
-  TEST_F(HpuOpTest, op##other_scalar_) {         \
-    GenerateInputs(1);                           \
-    float self = 2.3;                            \
-    GetCpuInput(0).op(self);                     \
-    GetHpuInput(0).op(self);                     \
-    Compare(GetCpuInput(0), GetHpuInput(0));     \
+#define OTHER_SCALAR_INPLACE_TEST(op)        \
+  TEST_F(HpuOpTest, op##other_scalar_) {     \
+    GenerateInputs(1);                       \
+    float self = 2.3;                        \
+    GetCpuInput(0).op(self);                 \
+    GetHpuInput(0).op(self);                 \
+    Compare(GetCpuInput(0), GetHpuInput(0)); \
   }
 
-#define OTHER_TENSOR_INPLACE_TEST(op)            \
-  TEST_F(HpuOpTest, op##other_tensor_) {         \
-    GenerateInputs(2);                           \
-    GetCpuInput(0).op(GetCpuInput(1));           \
-    GetHpuInput(0).op(GetHpuInput(1));           \
-    Compare(GetCpuInput(0), GetHpuInput(0));     \
+#define OTHER_TENSOR_INPLACE_TEST(op)        \
+  TEST_F(HpuOpTest, op##other_tensor_) {     \
+    GenerateInputs(2);                       \
+    GetCpuInput(0).op(GetCpuInput(1));       \
+    GetHpuInput(0).op(GetHpuInput(1));       \
+    Compare(GetCpuInput(0), GetHpuInput(0)); \
   }
 
 #define XLOGY_TEST(op)             \

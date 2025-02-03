@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -60,8 +60,8 @@ class CacheFileHandler {
   std::optional<uint64_t> getMaxFolderSize() {
     // Due to the fact that eviction is performed after recipe storing, there is
     // a chance to exceed the disk cache size defined by user via
-    // PT_HPU_RECIPE_CACHE_CONFIG. In order to avoid such a scenario the max size
-    // is limited to the 99% of defined threshold.
+    // PT_HPU_RECIPE_CACHE_CONFIG. In order to avoid such a scenario the max
+    // size is limited to the 99% of defined threshold.
     constexpr double threshold_prescaler = 0.99;
 
     // If set to 0 then recipe cache eviction is disabled.

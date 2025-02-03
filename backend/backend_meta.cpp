@@ -19,11 +19,10 @@
 #include "backend/helpers/runtime_config.h"
 #include "backend/jit_graph_cache.h"
 #include "backend_meta.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
-#include "habana_lazy/tensor_impl.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "common/utils.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_lazy/tensor_impl.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 namespace habana {
 
@@ -349,8 +348,8 @@ std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
 
   auto elem_size =
       c10::elementSize(habana_helpers::getInternalDtype(tensor.scalar_type()));
-  auto total_num_elements = (int64_t)(
-      habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
+  auto total_num_elements =
+      (int64_t)(habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
   std::vector<int64_t> base_size({total_num_elements});
   return base_size;
 }

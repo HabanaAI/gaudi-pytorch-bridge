@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <cstring>
 
@@ -136,7 +136,7 @@ int inplaceInputId(const torch::jit::Node* node) {
   // operators of the form op_ and __iop__ are inplace
   // but operators of the form op and __op__ are not:
   if ((endch == '_' && before_endch != '_') || strstr(node_name, "__i")) {
-      inputId = 0;
+    inputId = 0;
   } else if (strcmp(node_name, "hpu::habana_d2d_memcpy_other") == 0) {
     // Matching how MemCopyOperator::AllocateAndAddSynapseNode() calls
     // habana_helpers::duplicate_tensor_in_memory_section()

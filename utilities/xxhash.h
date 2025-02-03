@@ -3291,7 +3291,8 @@ XXH64_hashFromCanonical(const XXH64_canonical_t* src) {
  * @ref XXH_X86DISPATCH overrides this.
  */
 enum XXH_VECTOR_TYPE /* fake enum */
-{ XXH_SCALAR = 0, /*!< Portable scalar version */
+{
+  XXH_SCALAR = 0, /*!< Portable scalar version */
   XXH_SSE2 = 1, /*!<
                  * SSE2 for Pentium 4, Opteron, all x86_64.
                  *

@@ -99,7 +99,8 @@ class PermutationInfoSaver {
 class PermutationSetAndSave final : public PermutationInfoSaver {
  public:
   PermutationSetAndSave(
-      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph, bool is_dynamic_recipe = false)
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
+      bool is_dynamic_recipe = false)
       : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe){};
   void add_permutation(
       const at::Tensor& tensor,

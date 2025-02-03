@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "process_group_eager_hccl.hpp"
 #include "habana_eager/ops/eager_op.h"
 
@@ -651,52 +651,50 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
     clone_tensor_hb_tmeta->set_tensor_pipelined();
   }
 
-  auto pipeline_or_direct_send_permutes =
-      [tensors_pair = std::move(tensors_backend)]() {
-        for (auto&& tensor_pair : tensors_pair) {
-          auto&& send_tensor = tensor_pair.first;
-          auto&& clone_tensor = tensor_pair.second;
-          synapse_helpers::layouts::MemoryPermutation permutation;
-          std::tie(permutation, std::ignore) =
-              habana_helpers::get_tensor_memory_permutation(send_tensor);
-          PT_DISTRIBUTED_DEBUG("Send: permutation: ", VecToString(permutation));
-          const bool is_permuted = !permutation.empty();
+  auto pipeline_or_direct_send_permutes = [tensors_pair =
+                                               std::move(tensors_backend)]() {
+    for (auto&& tensor_pair : tensors_pair) {
+      auto&& send_tensor = tensor_pair.first;
+      auto&& clone_tensor = tensor_pair.second;
+      synapse_helpers::layouts::MemoryPermutation permutation;
+      std::tie(permutation, std::ignore) =
+          habana_helpers::get_tensor_memory_permutation(send_tensor);
+      PT_DISTRIBUTED_DEBUG("Send: permutation: ", VecToString(permutation));
+      const bool is_permuted = !permutation.empty();
 
-          /*
-           * Get send tensor permutations (current op lowering stage).
-           * Set send org tensor as a metadata to the clone tensor.
-           * In the next op, i.e. copy send tensor to the clone tensor.
-           * If (permutation)
-           *   This copy clears the permutation on the cloned tensor.
-           * Else
-           *   Copy op is discarded at its lowering stage.
-           *
-           * In the pipeline stage, a clone tensor is used, which contains
-           * org send tensor in the metadata. The idea is to use the
-           * clone tensor in case the org send tensor has permutation set.
-           *
-           * If there is no permutation, then an org send tensor is used.
-           * Further, this metadata can be used to discard the next D2D copy op
-           * since clone tensor is not required and to avoid unnecessary copy
-           *
-           * This metadata is queried in the later pipeline stages to select
-           * either clone tensor. or org send tensor for registering events on
-           * collective stream/user streams.
-           *
-           * To avoid data race, this is the sequence of tensor metadata used.
-           * Write in current op lowering and Read in next op lowering/execute.
-           * Current Op Lowering: Set Send Org Metadata on the clone tensor
-           * Next Op Copy D2D Lowering: Get MetaData or Tensor Permutation
-           * Next Op P2P collective Op Execute: Get MetaData
-           * Next Op Work Wait Execute: Get MetaData
-           */
+      /*
+       * Get send tensor permutations (current op lowering stage).
+       * Set send org tensor as a metadata to the clone tensor.
+       * In the next op, i.e. copy send tensor to the clone tensor.
+       * If (permutation)
+       *   This copy clears the permutation on the cloned tensor.
+       * Else
+       *   Copy op is discarded at its lowering stage.
+       *
+       * In the pipeline stage, a clone tensor is used, which contains
+       * org send tensor in the metadata. The idea is to use the
+       * clone tensor in case the org send tensor has permutation set.
+       *
+       * If there is no permutation, then an org send tensor is used.
+       * Further, this metadata can be used to discard the next D2D copy op
+       * since clone tensor is not required and to avoid unnecessary copy
+       *
+       * This metadata is queried in the later pipeline stages to select
+       * either clone tensor. or org send tensor for registering events on
+       * collective stream/user streams.
+       *
+       * To avoid data race, this is the sequence of tensor metadata used.
+       * Write in current op lowering and Read in next op lowering/execute.
+       * Current Op Lowering: Set Send Org Metadata on the clone tensor
+       * Next Op Copy D2D Lowering: Get MetaData or Tensor Permutation
+       * Next Op P2P collective Op Execute: Get MetaData
+       * Next Op Work Wait Execute: Get MetaData
+       */
 
-          auto clone_tensor_hb_tmeta{
-              habana::get_tensor_extra_meta(clone_tensor)};
-          clone_tensor_hb_tmeta->set_send_org_tensor_meta(
-              is_permuted, send_tensor);
-        }
-      };
+      auto clone_tensor_hb_tmeta{habana::get_tensor_extra_meta(clone_tensor)};
+      clone_tensor_hb_tmeta->set_send_org_tensor_meta(is_permuted, send_tensor);
+    }
+  };
 
   habana::eager::PipelineOrExecuteTask(
       std::move(pipeline_or_direct_send_permutes));
@@ -735,20 +733,20 @@ void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
     tensor_hb_tmeta->set_tensor_pipelined();
   }
 
-  auto pipeline_or_direct_clear_permutes =
-      [tensors = std::move(tensors_backend)]() {
-        for (auto&& tensor : tensors) {
-          auto s_meta{habana::get_storage_extra_meta(tensor)};
-          if (s_meta) {
-            auto t_meta{habana::get_tensor_extra_meta(tensor)};
-            PT_DISTRIBUTED_DEBUG(
-                "Receive: tensor: ",
-                t_meta->get_id(),
-                " clearing its permutation.");
-            s_meta->set_memory_permutation({});
-          }
-        }
-      };
+  auto pipeline_or_direct_clear_permutes = [tensors =
+                                                std::move(tensors_backend)]() {
+    for (auto&& tensor : tensors) {
+      auto s_meta{habana::get_storage_extra_meta(tensor)};
+      if (s_meta) {
+        auto t_meta{habana::get_tensor_extra_meta(tensor)};
+        PT_DISTRIBUTED_DEBUG(
+            "Receive: tensor: ",
+            t_meta->get_id(),
+            " clearing its permutation.");
+        s_meta->set_memory_permutation({});
+      }
+    }
+  };
   habana::eager::PipelineOrExecuteTask(
       std::move(pipeline_or_direct_clear_permutes));
 }

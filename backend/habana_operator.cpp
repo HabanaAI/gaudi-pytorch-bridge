@@ -576,8 +576,8 @@ void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(
       0, "Should never reach this empty base ReuseMemoryAndAddSynapseNode");
 };
 
-synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput([
-    [maybe_unused]] synapse_helpers::tensor_or_ref&& tensor) {
+synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
+    [[maybe_unused]] synapse_helpers::tensor_or_ref&& tensor) {
   TORCH_CHECK(
       0, "Should never reach this SetSynapseInput, avoid using std::move");
 }

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/ATen.h>
 #include <ATen/CPUFunctions.h>
 #include <ATen/ExpandUtils.h>
@@ -757,15 +757,16 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
          habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
         (habana::ShapeInference::GetMaxPolicyInUse() ==
          habana_helpers::DynamicDimsPolicy::CALCULATED)) {
-
       std::vector<int64_t> min, max;
       synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
       std::tie(min, max) =
           habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id());
 
-      SliceInsertOperator::UpdateMaxPassSliceInputs(inp_shape, out_shape, step, start, min, max);
+      SliceInsertOperator::UpdateMaxPassSliceInputs(
+          inp_shape, out_shape, step, start, min, max);
 
-      // Modify the start and output shape in name shape map to create valid ranges
+      // Modify the start and output shape in name shape map to create valid
+      // ranges
       synapse_helpers::tensor& syn_tensor_output = p_context_->syn_inputs_[1];
       habana::ShapeInference::UpdateShapeInfo(
           graph, syn_tensor_output.id(), out_shape);
@@ -820,7 +821,8 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     // DS for select_scatter and slice_scatter op leverages
     // DS support for slice_insert with shape tensor only
     // Adds a new shape tensor to graph builder context with context params
-    // Returns address of created syn_tensor (no need to explicitly capture this)
+    // Returns address of created syn_tensor (no need to explicitly capture
+    // this)
     if (graph.is_dynamic_graph()) {
       AllocateSynapseShapeTensor(graph, output, SHAPE_TENSOR);
     }
@@ -837,7 +839,6 @@ void SliceScatterOperatorDSUtil::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-
   // slice_scatter op with dynamic shape enabled has 6 parameters:
   // input: Tensor
   // src: Tensor
@@ -867,7 +868,6 @@ void SliceScatterOperatorDSUtil::AllocateAndAddSynapseNode(
       slicescatterOp->GetSynOutputs()[0];
   p_context_->syn_outputs_.emplace_back(slice_scatter_out);
   p_context_->pt_outputs_.emplace_back(slicescatterOp->GetOutputs()[0]);
-
 }
 
 bool SliceScatterOperator::STMeta(
@@ -904,8 +904,8 @@ bool SelectScatterOperator::STMeta(
   return true;
 }
 
-// func: select_scatter(Tensor self, Tensor src, SymInt? dim, SymInt index) -> Tensor
-// select_scatter supports dynamic shape (DS) using shape tensors
+// func: select_scatter(Tensor self, Tensor src, SymInt? dim, SymInt index) ->
+// Tensor select_scatter supports dynamic shape (DS) using shape tensors
 void SelectScatterOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -921,11 +921,11 @@ void SelectScatterOperator::AllocateAndAddSynapseNode(
   bool is_dim_shape_tensor = inputs[2].isTensor();
   int dim = 0;
   if (is_dim_shape_tensor)
-      dim = inputs[2].toTensor().sizes().vec()[0];
+    dim = inputs[2].toTensor().sizes().vec()[0];
   else
-      // dim is integer if dynamic shape is disabled or
-      // the first iteration if DS is enabled
-      dim = inputs[2].toInt();
+    // dim is integer if dynamic shape is disabled or
+    // the first iteration if DS is enabled
+    dim = inputs[2].toInt();
 
   // Unsqueeze requires src and dim
   auto unsqueezeOp = make_operator<UnsqueezeOperator>(
@@ -940,11 +940,11 @@ void SelectScatterOperator::AllocateAndAddSynapseNode(
   int index = 0;
   bool is_index_shape_tensor = inputs[3].isTensor();
   if (is_index_shape_tensor)
-      index = inputs[3].toTensor().sizes().vec()[0];
+    index = inputs[3].toTensor().sizes().vec()[0];
   else
-      // index is integer if dynamic shape is disabled or
-      // the first iteration if DS is enabled
-      index = inputs[3].toInt();
+    // index is integer if dynamic shape is disabled or
+    // the first iteration if DS is enabled
+    index = inputs[3].toInt();
   int64_t start = index;
   int64_t end = index + 1;
   int64_t step = 1;
@@ -1501,9 +1501,9 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
 // as_strided_scatter(Tensor self, Tensor src, SymInt[] size, SymInt[] stride,
 // SymInt? storage_offset=None) -> Tensor
 // OR
-// DS as_strided_scatter(Tensor self, Tensor src, Tensor stride, Tensor? storage_offset = None) -> Tensor
-// OR
-// DS as_strided_scatter_orig(Tensor self, Tensor src, Tensor stride) -> Tensor
+// DS as_strided_scatter(Tensor self, Tensor src, Tensor stride, Tensor?
+// storage_offset = None) -> Tensor OR DS as_strided_scatter_orig(Tensor self,
+// Tensor src, Tensor stride) -> Tensor
 void AsStridedScatterOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -1515,8 +1515,9 @@ void AsStridedScatterOperator::AllocateAndAddSynapseNode(
   // DS variant
   // Directly pass input to strided_insert op
   if (inputs.size() <= 4 && inputs[2].isTensor()) {
-      StridedInsertOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-      return;
+    StridedInsertOperator::AllocateAndAddSynapseNode(
+        graph, inputs, output_metadata);
+    return;
   }
 
   // Non-DS variant
@@ -1968,7 +1969,7 @@ static auto& BasicKernelsKernelRegistry =
         .add("hpu::slice_insert", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::slice_insert_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::slice_insert_ds_ht", KERNEL_FN_GLOBAL(SliceInsertOperator))
-	.add("hpu::slice_scatter_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
+        .add("hpu::slice_scatter_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(
@@ -1993,8 +1994,12 @@ static auto& BasicKernelsKernelRegistry =
         .add("hpu::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperatorDSUtil))
         .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
         .add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
-        .add("hpu::as_strided_scatter", KERNEL_FN_GLOBAL(AsStridedScatterOperator))
-        .add("hpu::as_strided_scatter_orig", KERNEL_FN_GLOBAL(AsStridedScatterOperator))
+        .add(
+            "hpu::as_strided_scatter",
+            KERNEL_FN_GLOBAL(AsStridedScatterOperator))
+        .add(
+            "hpu::as_strided_scatter_orig",
+            KERNEL_FN_GLOBAL(AsStridedScatterOperator))
         .add(
             "aten::as_strided_scatter",
             KERNEL_FN_GLOBAL(AsStridedScatterOperator));

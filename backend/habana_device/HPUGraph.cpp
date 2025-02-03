@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "HPUGraph.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_utils.h"
@@ -96,12 +96,12 @@ void HPUGraph::capture_end() {
     auto num_inputs = single_graph->input_vals_.size();
     single_graph->hblazy_tensors_in_.clear();
     for (size_t inp = 0; inp < num_inputs; ++inp) {
-        std::shared_ptr<habana_lazy::Data> d =
-            single_graph->input_vals_[inp].m_data_ptr.lock();
-        single_graph->hblazy_tensors_in_.emplace_back(
-            habana_lazy::HbLazyTensor(std::move(d)));
-      }
+      std::shared_ptr<habana_lazy::Data> d =
+          single_graph->input_vals_[inp].m_data_ptr.lock();
+      single_graph->hblazy_tensors_in_.emplace_back(
+          habana_lazy::HbLazyTensor(std::move(d)));
     }
+  }
 
   // Clear the user marked inputs list
   context->ClearHPUGraphUserMarkedInputs();

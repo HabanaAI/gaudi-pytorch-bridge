@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/_foreach_abs.h"
 #include "generated/backend/_foreach_add.h"
@@ -233,7 +233,8 @@ size_t computeInputsNumber(const at::Stack& stack) {
       stack[SELF_INDEX].isTensorList() ? stack[SELF_INDEX].toList().size() : 0;
   const size_t other_size = stack[OTHER_INDEX].isTensorList()
       ? stack[OTHER_INDEX].toList().size()
-      : stack[OTHER_INDEX].isTensor() ? 1 : 0;
+      : stack[OTHER_INDEX].isTensor() ? 1
+                                      : 0;
   return self_size + other_size;
 }
 
