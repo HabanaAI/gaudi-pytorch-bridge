@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -134,6 +134,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
             as_strided_inputs = [input_tensor] + list(as_strided_args[1:])
             as_strided_result = fused_node.target(*as_strided_inputs)
             fill_propagated_tensor_metadata_to_node(as_strided_result, fused_node)
+            fused_node.meta["placement"] = "eager"
 
         leaf_node.replace_all_uses_with(fused_node)
         chain.reverse()
