@@ -546,6 +546,12 @@ SharedMetaDataVector UpsampleNearest2DBwdSharedMeta(
   return UpsampleCommmonSharedLayer(stack, true, 3, false);
 }
 
+SharedMetaDataVector UpssampleTrilinear3DSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return UpsampleCommmonSharedLayer(stack, stack.at(2).toBool(), 3, true);
+}
+
 // Custom FillParams function
 std::shared_ptr<void> FillResizeParams(
     const int shape_in_dim,
