@@ -58,8 +58,6 @@ orchestratorConfig:
       silentMode: true
     # deepspeed-fork <Start>
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_sim_test
-    - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_sim_test
-    - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_hls_asic_unit_tests_promote
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
     - testToLaunch: habana-internal/deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test
     # deepspeed-fork <End>
