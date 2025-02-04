@@ -245,8 +245,8 @@ void collective(
     auto func = [fn = fn,
                  input = std::make_shared<PtTensorInfo>(*inputs.at(i)),
                  output = std::make_shared<PtTensorInfo>(*outputs.at(i)),
-                 in_tensor = in_tensor,
-                 out_tensor = out_tensor,
+                 in_tensor = std::move(in_tensor),
+                 out_tensor = std::move(out_tensor),
                  comm = comm,
                  collective_stream = collective_stream,
                  async = async,
@@ -461,13 +461,15 @@ void HcclBroadcastOperator::Deserialize(std::istream& is) {
 
 void HcclBroadcastOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   collective(
       tensor_inputs,
       tensor_inputs,
-      p_context_->pt_inputs_,
-      p_context_->pt_inputs_,
+      pt_inputs,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -520,6 +522,8 @@ void HcclAllreduceOperator::Deserialize(std::istream& is) {
 
 void HcclAllreduceOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   HABANA_ASSERT(
       is_valid_reduction_dtype(getHCCLDataType(scalar_type_)),
@@ -529,8 +533,8 @@ void HcclAllreduceOperator::RunCollective(
   collective(
       tensor_inputs,
       tensor_inputs,
-      p_context_->pt_inputs_,
-      p_context_->pt_inputs_,
+      pt_inputs,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -601,6 +605,8 @@ void HcclReduceOperator::Deserialize(std::istream& is) {
 
 void HcclReduceOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   HABANA_ASSERT(
       is_valid_reduction_dtype(getHCCLDataType(scalar_type_)),
@@ -610,8 +616,8 @@ void HcclReduceOperator::RunCollective(
   collective(
       tensor_inputs,
       tensor_inputs,
-      p_context_->pt_inputs_,
-      p_context_->pt_inputs_,
+      pt_inputs,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -695,6 +701,8 @@ void HcclAllToAllOutOperator::Deserialize(std::istream& is) {
 
 void HcclAllToAllOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(4)};
@@ -703,8 +711,8 @@ void HcclAllToAllOutOperator::RunCollective(
     collective(
         tensor_inputs,
         tensor_outputs,
-        p_context_->pt_inputs_,
-        p_context_->pt_outputs_,
+        pt_inputs,
+        pt_outputs,
         {device_id_},
         {comm_id_},
         async,
@@ -837,14 +845,16 @@ void HcclAllgatherOutOperator::Deserialize(std::istream& is) {
 
 void HcclAllgatherOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(2)};
   collective(
       tensor_inputs,
       tensor_outputs,
-      p_context_->pt_inputs_,
-      p_context_->pt_outputs_,
+      pt_inputs,
+      pt_outputs,
       {device_id_},
       {comm_id_},
       async,
@@ -902,14 +912,16 @@ void HcclReduceScatterOutOperator::Deserialize(std::istream& is) {
 
 void HcclReduceScatterOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(3)};
   collective(
       tensor_inputs,
       tensor_outputs,
-      p_context_->pt_inputs_,
-      p_context_->pt_outputs_,
+      pt_inputs,
+      pt_outputs,
       {device_id_},
       {comm_id_},
       async,
@@ -976,12 +988,14 @@ void HcclSendOperator::Deserialize(std::istream& is) {
 
 void HcclSendOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
 
   pointToPoint(
       tensor_inputs,
-      p_context_->pt_inputs_,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -1037,12 +1051,14 @@ void HcclRecvOperator::Deserialize(std::istream& is) {
 
 void HcclRecvOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
 
   pointToPoint(
       tensor_inputs,
-      p_context_->pt_inputs_,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,

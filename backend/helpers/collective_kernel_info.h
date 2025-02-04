@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,10 @@ class CollectiveKernelInfos {
   void Deserialize(
       std::istream& is,
       const std::vector<PtTensorInfoShared>& dtensorinfos);
-  void Launch(bool async) const;
+  void Launch(
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
+      bool async) const;
   void ClearAllPtAndSynTensors();
 
   void AddKernel(Info&& info) {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,14 +72,18 @@ size_t CollectiveKernelInfos::Info::Size() const {
   return size;
 }
 
-void CollectiveKernelInfos::Launch(bool async) const {
+void CollectiveKernelInfos::Launch(
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
+    bool async) const {
   HABANA_ASSERT(
       infos_.empty() || GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
   for (const auto& kernel_info : infos_) {
     HABANA_ASSERT(kernel_info.kernel);
     habana::CollectiveOperator& collective = *kernel_info.kernel;
     PT_BRIDGE_DEBUG("Running collective op ", collective.GetGuid());
-    collective.RunCollective(kernel_info.input_tensor_infos, async);
+    collective.RunCollective(
+        kernel_info.input_tensor_infos, pt_inputs, pt_outputs, async);
   }
 }
 void CollectiveKernelInfos::ClearAllPtAndSynTensors() {
