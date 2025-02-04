@@ -865,7 +865,7 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
             f'\tfind {debugopts_for_find} $$DESTINATION -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
             '-a -not -name "libtorch.so*" '
             "-exec cp -fs {} "
-            f"$$BUILD_ROOT_{cmake_config_upper} \;"
+            f"$$BUILD_ROOT_{cmake_config_upper} \\;"
             r" -exec cp -fs {} $$BUILD_ROOT_LATEST \;"
         )
 
@@ -1054,7 +1054,7 @@ class CMakeFlags:
         """Appends a new value to flags storing CMake lists (separated by
         semicolons), e.g. CMAKE_PREFIX_PATH
         """
-        self.override(flag, self[flag] + "\;" + value)
+        self.override(flag, self[flag] + "\\;" + value)
 
     def contains(self, flag: str) -> bool:
         return any(f for f in self.flags if CMakeFlags._flag_name_equals(f, flag))
