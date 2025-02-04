@@ -801,7 +801,8 @@ def load_pt2e(
 
     try:
         # load original model
-        org_model = torch.load(f"{f}")
+        # weights_only flag is True by default from PT2.6 onwards, Hence explicitly setting it as False
+        org_model = torch.load(f"{f}", weights_only=False)
         id_org_model = hash((id(org_model), type(org_model).__name__))
 
         # ToDo: explore to save org model with out state dict
@@ -830,7 +831,7 @@ def load_pt2e(
         if use_export_program:
             # load all exported converted fx graphs and create a dictionary
             # try loading hashkeys
-            fx_module_hashkeys = torch.load("hashkeys.pt2")
+            fx_module_hashkeys = torch.load("hashkeys.pt2", weights_only=False)
             assert len(fx_module_hashkeys) != 0
             ep_dict = dict()
             for key in fx_module_hashkeys:
@@ -843,7 +844,7 @@ def load_pt2e(
             habana_pt2e_quant_context.initialize_ep_dict(ep_dict)
         else:
             # load quantizer for original model if export use scale
-            quantizer = torch.load("quantizer.pt2")
+            quantizer = torch.load("quantizer.pt2", weights_only=False)
             assert quantizer is not None
 
         habana_quantization_map_queue[model_key].append({"task": "inference_pt2e", "quantizer": quantizer})
