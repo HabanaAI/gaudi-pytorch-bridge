@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,9 +24,10 @@ from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend
 
+from .decomposition import get_hpu_decompositions, override_composite_ops
+
 logger = logging.getLogger(__name__)
 
-from .decomposition import get_hpu_decompositions, override_composite_ops
 
 """
 The following two functions are used to postone importing the compilers and hpu_partition until the actual usage of the backend

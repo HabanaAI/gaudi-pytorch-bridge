@@ -19,6 +19,7 @@
 
 import torch
 import torch.nn as nn
+from habana_frameworks.torch.hpu import random as hpu_random
 
 
 # Model with non-aten op Conv1d (torch.nn)
@@ -32,8 +33,6 @@ class Model(nn.Module):
 
         return self.score(x)
 
-
-from habana_frameworks.torch.hpu import random as hpu_random
 
 seed = 42
 torch.manual_seed(seed)

@@ -19,17 +19,15 @@ import os
 import sys
 import time
 
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-
-hpu_backend_config.use_eager_fallback = True
-
-# FIXME: remove unused packages
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
 import pytest
 import torch
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.hpex.kernels import FusedSDPA, PySDPA, PySDPAHinted
 from test_utils import compile_function_if_compile_mode
+
+hpu_backend_config.use_eager_fallback = True
 
 
 # below are utility functions #

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@
 import habana_frameworks.torch._torch_jit_C.jit as jit
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
+from .unfold_tuple_on_output import pass_unfold_tuple_on_output
+
 logger = get_compile_backend_logger()
 
-from .unfold_tuple_on_output import pass_unfold_tuple_on_output
 
 # todo rename file name, dir name and the functions' names defined here https://jira.habana-labs.com/browse/SW-199903
 

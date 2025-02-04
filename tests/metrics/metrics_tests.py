@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@
 
 import os
 
-os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
 import pytest
 import torch
-from habana_frameworks.torch.hpu.metrics import metric_global
 from habana_frameworks.torch.utils.library_loader import load_habana_module
+
+os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
+from habana_frameworks.torch.hpu.metrics import metric_global  # noqa E402
 
 load_habana_module()
 torch.ops.load_library("build/libmetrics_tests.so")

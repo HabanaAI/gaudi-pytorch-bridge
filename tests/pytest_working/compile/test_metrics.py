@@ -34,6 +34,7 @@ from habana_frameworks.torch.hpu.metrics import (
     metric_localcontext,
     metrics_dump,
 )
+from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 from test_utils import compile_function_if_compile_mode
 
 
@@ -544,9 +545,6 @@ class TestMetricsDump:
         assert metric["triggered_by"] == "user"
         assert int(metric["statistics"]["TotalNumber"]) == 2
         assert int(metric["statistics"]["TotalTime"]) > 0
-
-
-from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 
 
 def test_event_process():

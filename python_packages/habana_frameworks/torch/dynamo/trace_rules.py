@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,8 +18,17 @@
 
 import habana_frameworks.torch as htorch
 import torch
-from torch._dynamo.trace_rules import SKIP_DIRS, _module_dir, _recompile_re, manual_torch_name_rule_map
+from torch._dynamo.trace_rules import (
+    SKIP_DIRS,
+    _allowed_callable_ids,
+    _module_dir,
+    _recompile_re,
+    get_torch_obj_rule_map,
+    manual_torch_name_rule_map,
+    torch_name_rule_map,
+)
 from torch._dynamo.variables import TorchCtxManagerClassVariable, TorchInGraphFunctionVariable
+from torch._dynamo.variables.torch import constant_fold_functions
 
 manual_torch_name_rule_map.pop("torch.cuda.current_device", None)
 
@@ -81,8 +90,6 @@ _htorch_non_c_binding_in_graph_functions = {
     ]
 }
 
-from torch._dynamo.trace_rules import get_torch_obj_rule_map, torch_name_rule_map
-
 habana_torch_name_rule_list = [
     _manual_htorch_name_rule_map,
     _htorch_ctx_manager_classes,
@@ -93,7 +100,6 @@ habana_torch_name_rule_list = [
 torch_name_rule_map.extend(habana_torch_name_rule_list)
 get_torch_obj_rule_map.cache_clear()
 
-from torch._dynamo.trace_rules import _allowed_callable_ids
 
 functions_to_add = [
     htorch.hpu.stream,
@@ -104,8 +110,6 @@ functions_to_add = [
 for obj in functions_to_add:
     _allowed_callable_ids.add(id(obj))
 
-
-from torch._dynamo.variables.torch import constant_fold_functions
 
 functions_to_add = [
     htorch.hpu.is_available,

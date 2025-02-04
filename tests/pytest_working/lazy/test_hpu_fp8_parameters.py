@@ -20,6 +20,7 @@ import habana_frameworks.torch.core as htcore
 import pytest
 import torch
 from test_utils import inference_env_fixture  # noqa F401
+from test_utils import is_gaudi2
 
 
 @pytest.fixture
@@ -48,8 +49,6 @@ FP8_MAX = {"152": FP8_MAX_152, "143": FP8_MAX_143}
 def variant_from_dtype(dtype):
     return "152" if (dtype is None or dtype is torch.float8_e5m2) else "143"
 
-
-from test_utils import is_gaudi2
 
 pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports fp8")
 

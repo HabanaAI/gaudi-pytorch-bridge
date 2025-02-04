@@ -16,6 +16,7 @@
 ###############################################################################
 from enum import Enum
 
+import habana_frameworks.torch.hpu as ht
 import numpy as np
 import pytest
 import torch
@@ -35,8 +36,6 @@ from test_utils import (
 Verbose = False
 
 # Disable dynamic shapes
-import habana_frameworks.torch.hpu as ht
-
 ht.disable_dynamic_shape()
 
 pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support fp8")]

@@ -25,14 +25,13 @@ import habana_frameworks.torch.hpu as ht
 import pytest
 import torch
 import torch.nn.functional as F
+from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
 from habana_frameworks.torch.hpex.kernels import fp8_fused_sdpa
 from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, inference, vb_print  # noqa F401
 from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1, is_gaudi3
 
 print_max_diff = False
 
-
-from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
 
 # LNEG = float('-inf')
 LNEG = -1e9

@@ -28,10 +28,9 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 from torch._ops import HigherOrderOperator
 from torch._ops import OpOverload as TorchOpOverload
 
-logger = get_compile_backend_logger()
-
-
 from ._fx_jit_lowering_utils import BUILTIN_OPS_TO_ATEN_OPS, TYPE_TO_JIT_TYPE
+
+logger = get_compile_backend_logger()
 
 
 # The whole mechanism of how an interpreter works is well explained

@@ -17,13 +17,12 @@
 
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 
+import habana_frameworks.torch as htorch
 import torch
+from habana_frameworks.torch import _hpu_C
 
 get_hpu_stream: Optional[Callable[[int], int]]
-
-import habana_frameworks.torch as htorch
-from habana_frameworks.torch import _hpu_C
-from habana_frameworks.torch._hpu_C import _hpu_getCurrentRawStream as get_hpu_stream
+from habana_frameworks.torch._hpu_C import _hpu_getCurrentRawStream as get_hpu_stream  # noqa E402
 
 _device_t = Union[torch.device, str, int, None]
 
