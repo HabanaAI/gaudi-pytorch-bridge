@@ -706,7 +706,7 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
     constexpr bool skip_lowering = true;
     habana::eager::EagerOp<at::Tensor&> hpu_op{
         "hpu::_copy_from",
-        {tensors[i], clone_tensors[i]},
+        {tensors[i], clone_tensors[i], clone_tensors[i]},
         {clone_tensors[i].sizes().vec()},
         num_outputs};
     hpu_op.set_eager_op_info(

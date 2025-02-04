@@ -28,6 +28,7 @@ struct LazyCast : OpBackend {
 struct CopyFrom : OpBackend {
   CopyFrom(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+  static OutputMetaDataVector CopyFromMeta(const at::Stack& stack);
 };
 
 } // namespace habana

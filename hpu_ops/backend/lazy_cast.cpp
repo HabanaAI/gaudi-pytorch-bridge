@@ -64,7 +64,8 @@ static void copy_impl(
     const c10::ScalarType& dst_type,
     OpBackend* op,
     synapse_helpers::graph& graph,
-    synTensor input,
+    const OutputMetaDataVector& meta,
+    std::vector<synTensor>&& inputs,
     synapse_helpers::tensor& output) {
   auto src_type = src.scalar_type();
 
@@ -72,8 +73,6 @@ static void copy_impl(
   auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
 
   auto shape = src.sizes().vec();
-  c10::optional<synapse_helpers::tensor> broadcast;
-
   if (src.sizes() != dst_size) {
     shape = at::infer_size(src.sizes(), dst_size);
     HABANA_ASSERT(
@@ -84,17 +83,27 @@ static void copy_impl(
         src.sizes(),
         " to dst ",
         dst_size);
-    broadcast = OpBackend::BuildBroadcast(op, graph, input, shape, src_type);
-    input = broadcast.value().get();
+
+    ns_Copy::Params params;
+    params.isOutputBool = dst_type == at::ScalarType::Bool;
+    output = std::move(OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("copy_fwd", dst_type),
+         inputs,
+         {{meta[0].shape, meta[0].dtype, 0}},
+         &params,
+         sizeof(params)})[0]);
+    return;
   }
 
   if ((src_type_cast_type == dst_type_cast_type) &&
       !(dst_type == at::ScalarType::Bool && src_type == at::ScalarType::Char)) {
     output = std::move(OpBackend::BuildNode(
-        op, graph, {"identity", {input}, {{shape, src_type, 0}}})[0]);
+        op, graph, {"identity", {inputs[1]}, {{shape, src_type, 0}}})[0]);
   } else {
-    output =
-        OpBackend::BuildCast(op, graph, input, shape, src_type, dst_type, 0);
+    output = OpBackend::BuildCast(
+        op, graph, inputs[1], shape, src_type, dst_type, 0);
   }
 }
 
@@ -103,22 +112,52 @@ static void copy_impl(
     const at::Tensor& dst,
     OpBackend* op,
     synapse_helpers::graph& graph,
-    synTensor input,
+    const OutputMetaDataVector& meta,
+    std::vector<synTensor>&& inputs,
     synapse_helpers::tensor& output) {
   auto dst_size = dst.sizes();
   auto dst_type = dst.scalar_type();
 
-  copy_impl(src, dst_size, dst_type, op, graph, input, output);
+  copy_impl(
+      src, dst_size, dst_type, op, graph, meta, std::move(inputs), output);
 }
 
 CopyFrom::CopyFrom(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {}, {}, {}, true) {}
+    : OpBackend(device_id, {}, scalar_type, {}, {}, {}, true) {
+  SetOutputMetaFn(CopyFrom::CopyFromMeta);
+}
+
+OutputMetaDataVector CopyFrom::CopyFromMeta(const at::Stack& stack) {
+  const auto& src = stack.at(0).toTensor();
+  OutputMetaData meta;
+  meta.shape = src.sizes().vec();
+  meta.dtype = src.scalar_type();
+
+  return {meta};
+}
 
 void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto src = stack_tensor(stack, 0);
-  auto dst = stack_tensor(stack, 1);
+  StackGetter stackGetter(this, stack, "CopyFrom::AddNode");
+  auto src = stackGetter.getNextInput<TensorsPair>();
+  auto dst = stackGetter.getNextInput<TensorsPair>();
+  const auto meta = CopyFromMeta(stack);
+  copy_impl(
+      src.pt_t,
+      dst.pt_t,
+      this,
+      graph,
+      meta,
+      {dst.syn_t, src.syn_t},
+      syn_out(0));
+}
 
-  copy_impl(src, dst, this, graph, syn_in(0), syn_out(0));
+OutputMetaDataVector CopyMeta(const at::Stack& stack) {
+  const auto& src = stack.at(0).toTensor();
+  OutputMetaData meta;
+  meta.shape = src.sizes().vec();
+  meta.dtype = src.scalar_type();
+
+  return {meta};
 }
 
 template <bool is_inplace>
@@ -126,10 +165,18 @@ struct Copy : OpBackend {
   Copy(int device_id, c10::ScalarType scalar_type);
 
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override {
-    auto dst = stack_tensor(stack, 0);
-    auto src = stack_tensor(stack, 1);
-
-    copy_impl(src, dst, this, graph, syn_in(1), syn_out(0));
+    const auto meta = CopyMeta(stack);
+    StackGetter stackGetter(this, stack, "Copy::AddNode");
+    auto dst = stackGetter.getNextInput<TensorsPair>();
+    auto src = stackGetter.getNextInput<TensorsPair>();
+    copy_impl(
+        src.pt_t,
+        dst.pt_t,
+        this,
+        graph,
+        meta,
+        {dst.syn_t, src.syn_t},
+        syn_out(0));
   }
 };
 
@@ -211,9 +258,18 @@ OutputMetaDataVector ToCopy::ToCopyMeta(const at::Stack& stack) {
 }
 
 void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto src = stack_tensor(stack, 0);
-  auto meta = GetOutputMetaData(0);
-  copy_impl(src, meta.shape, meta.dtype, this, graph, syn_in(0), syn_out(0));
+  StackGetter stackGetter(this, stack, "ToCopy::AddNode");
+  auto src = stackGetter.getNextInput<TensorsPair>();
+  const auto meta = GetOutputMetaData();
+  copy_impl(
+      src.pt_t,
+      meta[0].shape,
+      meta[0].dtype,
+      this,
+      graph,
+      meta,
+      {src.syn_t, src.syn_t},
+      syn_out(0));
 }
 
 } // namespace habana
