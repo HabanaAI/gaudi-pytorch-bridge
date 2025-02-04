@@ -242,6 +242,14 @@ def disable_quantization():
     _hpu_C.disable_quantization()
 
 
+def set_mark_scale_const(mark: bool):
+    _hpu_C.set_mark_scale_const(mark)
+
+
+def set_mark_non_scale_const(mark: bool):
+    _hpu_C.set_mark_non_scale_const(mark)
+
+
 def enable_const_section_serialization(path, clear_path, use_compression):
     _hpu_C.enable_const_section_serialization(str(path), clear_path, use_compression)
 

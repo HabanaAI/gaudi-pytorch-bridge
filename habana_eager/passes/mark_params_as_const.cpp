@@ -39,6 +39,19 @@ struct MarkParamsAsConstPass {
     HABANA_ASSERT(m_graph->inputs().size() == example_inputs.size());
     auto index = 0;
     bool changed = false;
+
+    auto mark_tensor_as_const = [&](at::Tensor& tensor) {
+      auto curr_const_id = habana::get_tensor_const_id(tensor);
+      if (curr_const_id == INVALID_CONST_ID) {
+        habana::set_tensor_const(tensor, true, const_id);
+        const_id++;
+      } else {
+        habana::set_tensor_const(tensor, true, curr_const_id);
+      }
+      TensorExtraMeta::prepare_const_tensor(tensor, true);
+      changed = true;
+    };
+
     for (auto input : m_graph->inputs()) {
       auto input_name = input->debugName();
       if (input_name.find("_frozen_param") != std::string::npos) {
@@ -48,15 +61,11 @@ struct MarkParamsAsConstPass {
           auto tmeta{get_tensor_extra_meta(tensor)};
           PT_EAGER_DEBUG("is_view_tensor : ", tmeta->is_view_tensor());
           if (!tmeta->is_view_tensor()) {
-            auto set_const_id = habana::get_tensor_const_id(tensor);
-            if (set_const_id == INVALID_CONST_ID) {
-              habana::set_tensor_const(tensor, true, const_id);
-              const_id++;
-            } else {
-              habana::set_tensor_const(tensor, true, set_const_id);
+            if (habana_helpers::IsMarkScaleConst() && (tensor.numel() == 1)) {
+              mark_tensor_as_const(tensor);
+            } else if (habana_helpers::IsMarkNonScaleConst()) {
+              mark_tensor_as_const(tensor);
             }
-            TensorExtraMeta::prepare_const_tensor(tensor, true);
-            changed = true;
           }
         }
       }

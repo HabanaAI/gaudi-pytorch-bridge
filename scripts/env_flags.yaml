@@ -156,6 +156,14 @@ PT_HPU_INFERENCE_MODE:
   type: bool
   default: false
 
+PT_HPU_INFERENCE_MARK_SCALES_AS_CONST:
+  type: bool
+  default: false
+
+PT_HPU_INFERENCE_MARK_NON_SCALES_AS_CONST:
+  type: bool
+  default: false
+
 PT_HPU_INFERENCE_SYNAPSE_DATA_TYPE_SELECTION:
   type: bool
   default: false
