@@ -22,8 +22,15 @@ struct HPUHooks : public at::HPUHooksInterface {
 
   void init() const override;
 
-  const at::Generator& getDefaultHPUGenerator(
+  const at::Generator& getDefaultGenerator(
       at::DeviceIndex device_index = -1) const override;
+
+  // SW-215844 To be removed after changes on fork promote
+  const at::Generator& getDefaultHPUGenerator(
+      at::DeviceIndex device_index = -1) const override {
+    return getDefaultGenerator(device_index);
+  }
+  // End of code to remove
 
   bool hasHPU() const override;
   at::Device getDeviceFromPtr(void* data) const override;

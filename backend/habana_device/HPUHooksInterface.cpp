@@ -24,7 +24,7 @@ void HPUHooks::init() const {
   device_guard.getDevice();
 }
 
-const at::Generator& HPUHooks::getDefaultHPUGenerator(at::DeviceIndex) const {
+const at::Generator& HPUHooks::getDefaultGenerator(at::DeviceIndex) const {
   return detail::getDefaultHPUGenerator();
 }
 

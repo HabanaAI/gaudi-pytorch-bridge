@@ -1180,7 +1180,7 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
 
     if rtype == "void" and out_ids is not None:
         out_indices = out_ids
-        call_args = [call_args[i] for i in out_indices]
+        call_args = [call_args[i] for i in out_indices if i < len(call_args)]
     return param_vars, call_args, out_indices, fc_params, tfetcher
 
 
