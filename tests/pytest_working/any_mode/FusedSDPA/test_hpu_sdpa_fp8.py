@@ -1023,50 +1023,28 @@ def test_sdpa(
     scalar_run,
 ):
     config_name = (
-        "BatchSize = "
-        + str(batch_size)
-        + " q_heads = "
-        + str(q_heads)
-        + " kv_heads = "
-        + str(kv_heads)
-        + " Nt = "
-        + str(seq_len_N_t)
-        + " Ns = "
-        + str(seq_len_N_s)
-        + " head_dim_qk = "
-        + str(head_dim_qk)
-        + " head_dim_v = "
-        + str(head_dim_v)
-        + " dropout_p = "
-        + str(dropout_p)
-        + "use_attn_mask = "
-        + str(use_attn_mask)
-        + " use_float_mask = = "
-        + str(use_float_mask)
-        + " enable_autocast = "
-        + str(enable_autocast)
-        + " is_causal = "
-        + str(is_causal)
-        + " recompute = "
-        + str(recompute)
-        + " rhSlice = "
-        + str(rhslice)
-        + " inference = "
-        + str(inference)
-        + " softmax_mode = "
-        + str(softmax_mode)
-        + " is_amax_s = "
-        + str(is_amax_s)
-        + " is_amx_o = "
-        + str(is_amax_o)
-        + " is_amax_ds = "
-        + str(is_amax_ds)
-        + " fp8_run_out_type= "
-        + str(fp8_run_out_type)
-        + "is_scalar_run"
-        + str(scalar_run)
+        f"BatchSize = {batch_size} "
+        f"q_heads = {q_heads} "
+        f"kv_heads = {kv_heads} "
+        f"Nt = {seq_len_N_t} "
+        f"Ns = {seq_len_N_s} "
+        f"head_dim_qk = {head_dim_qk} "
+        f"head_dim_v = {head_dim_v} "
+        f"dropout_p = {dropout_p} "
+        f"use_attn_mask = {use_attn_mask} "
+        f"use_float_mask = {use_float_mask} "
+        f"enable_autocast = {enable_autocast} "
+        f"is_causal = {is_causal} "
+        f"recompute = {recompute} "
+        f"rhslice = {rhslice} "
+        f"inference = {inference} "
+        f"softmax_mode = {softmax_mode} "
+        f"is_amax_s = {is_amax_s} "
+        f"is_amax_o = {is_amax_o} "
+        f"is_amax_ds = {is_amax_ds} "
+        f"fp8_run_out_type = {fp8_run_out_type} "
+        f"is_scalar_run = {scalar_run}"
     )
-
     print(config_name)
 
     test_case_valid = is_param_combo_valid(

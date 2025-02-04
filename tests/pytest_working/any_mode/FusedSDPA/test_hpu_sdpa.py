@@ -1003,7 +1003,7 @@ fp32_softmax_list = [
 # total_tc_list = tc_list_new_rules + tc_list_new_rules_non_recomp
 # total_tc_list = tc_list_new_rules[0:1]
 # For now disable additional tests
-total_tc_list = (
+total_tc_list_last = (
     tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list + fp32_softmax_list
 )
 current_dir = os.path.dirname(__file__)
@@ -1203,12 +1203,28 @@ def is_param_combo_valid(
 # DONOT remove following line: re-enable black formatting
 # fmt: on
 
+total_tc_list_out = tc_list_recompute
+
 
 # @pytest.mark.xfail(reason="Results mismatch")
-@pytest.mark.parametrize(
-    "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs",
-    total_tc_list,
-)
+def pytest_generate_tests(metafunc):
+    if "batch_size" in metafunc.fixturenames:
+        # Check if total_tc_list is available in the configuration
+        total_tc_list = getattr(metafunc.config, "total_tc_list", None)
+        if total_tc_list is not None:
+            # Use total_tc_list from the configuration
+            metafunc.parametrize(
+                "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs",
+                total_tc_list,
+            )
+        else:
+            # Fallback to the current method if total_tc_list is not available
+            metafunc.parametrize(
+                "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode, return_attn_probs",
+                total_tc_list_last,
+            )
+
+
 def test_sdpa(
     batch_size,
     n_heads,
@@ -1226,40 +1242,25 @@ def test_sdpa(
     inference,
     softmax_mode,
     return_attn_probs,
+    description="not provided, please see the config name and infer",
 ):
     config_name = (
-        "BatchSize = "
-        + str(batch_size)
-        + " num_heads = "
-        + str(n_heads)
-        + " Nt = "
-        + str(seq_len_N_t)
-        + " Ns = "
-        + str(seq_len_N_s)
-        + " head_dim_qk = "
-        + str(head_dim_qk)
-        + " head_dim_v = "
-        + str(head_dim_v)
-        + " dropout_p = "
-        + str(dropout_p)
-        + "use_attn_mask = "
-        + str(use_attn_mask)
-        + " use_float_mask = = "
-        + str(use_float_mask)
-        + " enable_autocast = "
-        + str(enable_autocast)
-        + " is_causal = "
-        + str(is_causal)
-        + " recompute = "
-        + str(recompute)
-        + " rhSlice = "
-        + str(rhslice)
-        + " infrecence = "
-        + str(inference)
-        + " softmax_mode = "
-        + str(softmax_mode)
-        + " return_attn_probs = "
-        + str(return_attn_probs)
+        f"BatchSize = {batch_size} "
+        f"num_heads = {n_heads} "
+        f"Nt = {seq_len_N_t} "
+        f"Ns = {seq_len_N_s} "
+        f"head_dim_qk = {head_dim_qk} "
+        f"head_dim_v = {head_dim_v} "
+        f"dropout_p = {dropout_p} "
+        f"use_attn_mask = {use_attn_mask} "
+        f"use_float_mask = {use_float_mask} "
+        f"enable_autocast = {enable_autocast} "
+        f"is_causal = {is_causal} "
+        f"recompute = {recompute} "
+        f"rhslice = {rhslice} "
+        f"inference = {inference} "
+        f"softmax_mode = {softmax_mode} "
+        f"return_attn_probs = {return_attn_probs}"
     )
     print(config_name)
     test_case_valid = is_param_combo_valid(
@@ -1284,7 +1285,6 @@ def test_sdpa(
     if is_gaudi1():
         pytest.skip("SDPA tests not supported on G1")
 
-    # print("test_case_valid = ", test_case_valid)
     if not test_case_valid:
         pytest.skip("This testcase is not valid")
 

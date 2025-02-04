@@ -783,11 +783,6 @@ PT_HPU_GPU_MIGRATION:
   default: false
   doc: "Option to enable GPU Migration Toolkit"
 
-PT_HPU_SDPA_SFMX_BWD_V2:
-  type: bool
-  default: false
-  doc: "Option to enable softmax BWD calculation as per FA paper"
-
 PT_HPU_LOP_JIT_WARM_UP_STEPS:
   type: unsigned
   default: 5

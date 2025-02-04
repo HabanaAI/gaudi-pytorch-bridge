@@ -15,9 +15,9 @@
 #
 ###############################################################################
 
-batch_size,num_heads,Nt,Ns,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,returnl
-2,4,32,16,8,16,0.1,True,True,False,False,False,False,False,"None",False
-3,5,16,32,8,4,0.0,False,True,True,True,True,True,False,"None",False
-2,4,32,32,8,8,0.0,False,True,False,True,True,False,False,"None",False
-3,5,16,32,8,4,0.0,False,True,True,True,True,True,False,'fast',False
-2,4,32,32,8,8,0.0,False,True,False,True,True,False,False,'None',False
+
+batch_size,num_heads,Nt,Ns,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,get
+2, 4,8192,8192, 8, 8,0.0,False, False,True,True,True,True,True,"fast",False
+2, 4,8192,8192, 8, 8,0.0,False, False,True,True,True,True,True,"None",False
+2, 4,16384,16384, 64, 64,0.0,False, False,True,True,True,True,True,"fast",False
+2, 4,16384,16384, 64, 64,0.0,False, False,True,True,True,True,True,"None",False
