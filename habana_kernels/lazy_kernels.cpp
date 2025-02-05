@@ -2228,6 +2228,7 @@ static bool check_for_advanced_indexing(
   bool advanced_indexing = false;
   c10::ScalarType prev_scalar_type = c10::ScalarType::Long;
   bool first_scalar = true;
+  int bool_indices_count = 0;
 
   if (indices.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
     for (c10::optional<at::Tensor> input_ind : indices) {
@@ -2236,9 +2237,17 @@ static bool check_for_advanced_indexing(
         advanced_indexing = true;
         break;
       } else {
-        // if we are indexing using a mixture of long and boolean indices,then
+        // if we are indexing using a mixture of long and boolean indices,
+        // or if we have more than one bool indices, then
         // also we will work in advanced indexing mode
         auto cur_scalar_type = input.scalar_type();
+        if (cur_scalar_type == c10::ScalarType::Bool) {
+          bool_indices_count++;
+          if (bool_indices_count > 1) {
+            advanced_indexing = true;
+            break;
+          }
+        }
         if (first_scalar) {
           first_scalar = false;
         } else if (prev_scalar_type != cur_scalar_type) {

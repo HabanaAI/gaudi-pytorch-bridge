@@ -27,21 +27,40 @@ static std::vector<int64_t> broadcast_size(
   if ((indices.size() == 1) && (indices[0].sizes().size() == 0)) {
     return size;
   }
+  bool all_bool_indices = true;
+  int64_t max_indices_count = 1;
+  for (size_t i = 0; i < indices.size(); i++) {
+    if (indices[i].scalar_type() == c10::ScalarType::Bool) {
+      max_indices_count = (indices[i].numel() > max_indices_count)
+          ? indices[i].numel()
+          : max_indices_count;
+    } else {
+      all_bool_indices = false;
+    }
+  }
   auto isz = indices[0].sizes().vec();
   auto self_sizes = self.sizes().vec();
-  if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
-    std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
-                                     // rows indicates broadcast size
-    size = sz;
+  if (all_bool_indices) {
+    for (size_t i = 0; i < indices.size(); i++) {
+      auto sz = indices[i].sizes().vec();
+      size.insert(size.end(), sz.begin(), sz.end());
+    }
+    return size;
   } else {
-    size = isz;
-  }
-  for (size_t i = 1; i < indices.size(); i++) {
-    size = at::infer_size(size, indices[i].sizes());
-  }
-  if ((indices[0].scalar_type() == c10::ScalarType::Bool) &&
-      (int)size.size() < self.dim()) {
-    size = self_sizes;
+    if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
+      std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
+                                       // rows indicates broadcast size
+      size = sz;
+    } else {
+      size = isz;
+    }
+    for (size_t i = 1; i < indices.size(); i++) {
+      size = at::infer_size(size, indices[i].sizes());
+    }
+    if ((indices[0].scalar_type() == c10::ScalarType::Bool) &&
+        (int)size.size() < self.dim()) {
+      size = self_sizes;
+    }
   }
   return size;
 }
@@ -602,7 +621,8 @@ void IndexPutBoolEager::AddNode(
         std::move(inputPutBoolBroadcastIndexInputs),
         {{max_size, index_params.dtype}});
 
-    index_params.sizes = max_size;
+    index_params.sizes = max_size; // indices[i].sizes().vec(); // max_size;
+    // index_params.numel = indices[i].numel();
     index_params.numel = std::accumulate(
         std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
     index_params.force_long = false;
@@ -610,7 +630,7 @@ void IndexPutBoolEager::AddNode(
         this,
         graph,
         index_params,
-        bcastOpInd[0].get(),
+        bcastOpInd[0].get(), // syn_in(1)
         c10::nullopt,
         c10::nullopt,
         false);
@@ -668,55 +688,30 @@ void IndexPutBoolEager::AddNode(
       1) { // if values has more than 1 elem, we have to assume the valid
     // count in indices will match values numel
     auto values_sizes = values.sizes().vec();
-    if (indices[0].dim() != self.dim() &&
-        values.dim() != (1 + (self.dim() - indices[0].dim()))) {
-      size_t i = 0;
-      while (i < rank_idx) {
-        for (int j = 0; j < indices[i].dim(); j++)
-          value_upd_dim.push_back(indices[i].sizes()[j]);
-        i += indices[i].dim();
-      }
-      for (size_t i = rank_idx; i < rank_inp; i++)
-        value_upd_dim.push_back(self_sizes[i]);
-    } else {
-      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
-        value_upd_dim.push_back(values_sizes[i]);
-    }
+    auto indices_fcd = cat_pt_shape[1];
+    // Take leading dimensions of value from indices tensor
+    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++)
+      value_upd_dim.push_back(cat_pt_shape[i]);
+    // Take trailing dims of value from self
+    for (size_t i = indices_fcd; i < self_sizes.size(); i++)
+      value_upd_dim.push_back(self_sizes[i]);
   } else { // We are assuming uses passes value shapes correctly for scatter
-    size_t i = 0;
-    while (i < rank_idx) {
-      for (int j = 0; j < indices[i].dim(); j++)
-        value_upd_dim.push_back(indices[i].sizes()[j]);
-      i += indices[i].dim();
-    }
+    value_upd_dim.push_back(cat_pt_shape[0]);
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
-
   auto bcastOp = BuildOp(
       graph,
       get_guid_with_precision(
           "index_put_bool_broadcast_value", values_scalar_type),
       {syn_in(0), syn_in(1), syn_in(1 + indices.size()), nonzero[0].get()},
       {{value_upd_dim, values_scalar_type}});
-
-  auto flattened_size = std::accumulate(
-      std::begin(value_upd_dim),
-      std::end(value_upd_dim),
-      1,
-      std::multiplies<size_t>());
-  auto reshapebcastOp = BuildOp(
-      graph,
-      "flatten_fwd",
-      {bcastOp[0].get()},
-      {{{flattened_size}, values_scalar_type}});
-
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {syn_in(0), catop.get(), reshapebcastOp[0].get(), nonzero.at(1).get()},
+        {syn_in(0), catop.get(), bcastOp[0].get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
   } else {
@@ -724,10 +719,7 @@ void IndexPutBoolEager::AddNode(
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {zero_op.get(),
-         catop.get(),
-         reshapebcastOp[0].get(),
-         nonzero.at(1).get()},
+        {zero_op.get(), catop.get(), bcastOp[0].get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
@@ -1128,48 +1120,28 @@ void IndexPutCompile::AddNode(
       1) { // if values has more than 1 elem, we have to assume the valid
     // count in indices will match values numel
     auto values_sizes = values.sizes().vec();
-    if (indices[0].dim() != self.dim() &&
-        values.dim() != (1 + (self.dim() - indices[0].dim()))) {
-      size_t i = 0;
-      while (i < rank_idx) {
-        for (int j = 0; j < indices[i].dim(); j++)
-          value_upd_dim.push_back(indices[i].sizes()[j]);
-        i += indices[i].dim();
-      }
-      for (size_t i = rank_idx; i < rank_inp; i++)
-        value_upd_dim.push_back(self_sizes[i]);
-    } else {
-      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
-        value_upd_dim.push_back(values_sizes[i]);
-    }
+    auto indices_fcd = cat_pt_shape[1];
+    // Take leading dimensions of value from indices tensor
+    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++)
+      value_upd_dim.push_back(cat_pt_shape[i]);
+    // Take trailing dims of value from self
+    for (size_t i = indices_fcd; i < self_sizes.size(); i++)
+      value_upd_dim.push_back(self_sizes[i]);
   } else { // We are assuming uses passes value shapes correctly for scatter
-    size_t i = 0;
-    while (i < rank_idx) {
-      for (int j = 0; j < indices[i].dim(); j++)
-        value_upd_dim.push_back(indices[i].sizes()[j]);
-      i += indices[i].dim();
-    }
+    value_upd_dim.push_back(cat_pt_shape[0]);
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
 
   auto bcastOp = BroadcastHelper(
       graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
-  auto flattened_size = std::accumulate(
-      std::begin(value_upd_dim),
-      std::end(value_upd_dim),
-      1,
-      std::multiplies<size_t>());
-  std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
-  auto reshapebcastOp =
-      ReshapeHelper(graph, bcastOp.get(), flattened_size, values_scalar_type);
 
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {syn_in(0), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
+        {syn_in(0), catop.get(), bcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
   } else {
@@ -1177,7 +1149,7 @@ void IndexPutCompile::AddNode(
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {zero_op.get(), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
+        {zero_op.get(), catop.get(), bcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,

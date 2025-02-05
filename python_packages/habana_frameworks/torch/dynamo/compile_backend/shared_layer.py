@@ -225,6 +225,7 @@ def index_put_support_check(node, is_dynamic):
                 return True
         return True
 
+    bool_indices_count = 0
     for i, index in enumerate(indices):
         # None indices are not supported
         if index is None:
@@ -237,6 +238,11 @@ def index_put_support_check(node, is_dynamic):
         # Long and Bool indices mix are supported
         # Check for cases with accumulate flag
         if not accumulate_support_check(accumulate, index, i, t):
+            return False
+        for output_dtype in index.meta["output_dtypes"]:
+            if output_dtype == torch.bool:
+                bool_indices_count = bool_indices_count + 1  # return True
+        if bool_indices_count > 1:
             return False
 
     return True

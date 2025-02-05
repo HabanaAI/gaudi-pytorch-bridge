@@ -34,6 +34,7 @@ static bool check_for_advanced_indexing(
   bool advanced_indexing = false;
   c10::ScalarType prev_scalar_type = c10::ScalarType::Long;
   bool first_scalar = true;
+  int bool_indices_count = 0;
 
   if (indices.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
     for (c10::optional<at::Tensor> input_ind : indices) {
@@ -42,9 +43,17 @@ static bool check_for_advanced_indexing(
         advanced_indexing = true;
         break;
       } else {
-        // if we are indexing using a mixture of long and boolean indices,then
+        // if we are indexing using a mixture of long and boolean indices,
+        // or if we have more than one bool indices, then
         // also we will work in advanced indexing mode
         auto cur_scalar_type = input.scalar_type();
+        if (cur_scalar_type == c10::ScalarType::Bool) {
+          bool_indices_count++;
+          if (bool_indices_count > 1) {
+            advanced_indexing = true;
+            break;
+          }
+        }
         if (first_scalar) {
           first_scalar = false;
         } else if (prev_scalar_type != cur_scalar_type) {
@@ -361,10 +370,6 @@ at::Tensor& _index_put_impl_eager(
     indices_vec.push_back(input.value());
   }
 
-  const bool areAllIndicesBool =
-      std::all_of(indices_vec.cbegin(), indices_vec.cend(), [](const auto& i) {
-        return i.scalar_type() == c10::ScalarType::Bool;
-      });
   auto only_single_index_tensor = ((int)indices_vec.size() == 1) ? true : false;
   auto self_clone = self;
   for (size_t i = 0; i < indices_vec.size(); i++) {
@@ -381,41 +386,18 @@ at::Tensor& _index_put_impl_eager(
       return self;
     }
   }
-  std::vector<at::Tensor> indices_vec_out{};
-  at::Tensor nzt;
 
-  if (areAllIndicesBool &&
-      (advanced_indexing || !only_single_index_tensor ||
-       !GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED))) {
-    for (size_t i = 0; i < indices_vec.size(); i++) {
-      auto ind = indices_vec.at(i);
-      at::Tensor nz = ind.nonzero();
-      if (!nz.dim()) { // bool mask has all False entries
-        return self;
-      } else {
-        auto expanded_ind = indices_vec.at(i).expand_as(self);
-        nzt = at::nonzero(expanded_ind);
-      }
-      indices_vec_out.emplace_back(nzt);
-    }
-  }
-
-  at::TensorList indices_final =
-      (areAllIndicesBool &&
-       (advanced_indexing || !only_single_index_tensor ||
-        !GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)))
-      ? indices_vec_out
-      : indices_vec;
   at::Tensor result;
-  if (areAllIndicesBool && !advanced_indexing && only_single_index_tensor &&
+  if (!advanced_indexing && only_single_index_tensor &&
+      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)) {
     habana::eager::EagerOp<at::Tensor> hpu_op{
         "hpu::_index_put_impl_bool_eager",
-        {self, indices_final, value, accumulate}};
+        {self, indices_vec, value, accumulate}};
     result = hpu_op.call();
   } else {
     habana::eager::EagerOp<at::Tensor> hpu_op{
-        "hpu::_index_put_impl_eager", {self, indices_final, value, accumulate}};
+        "hpu::_index_put_impl_eager", {self, indices_vec, value, accumulate}};
     result = hpu_op.call();
   }
   self.copy_(result);
