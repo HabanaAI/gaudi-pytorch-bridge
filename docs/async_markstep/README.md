@@ -12,4 +12,3 @@
 --Only the above 2 StepMarker(StepMarkerBind/StageSubmission) will create execution thread. By default, async=False is passed to StepMarker.
 --If there are any synchronization points, then HbExecutionContext::JoinPendingLaunchThread() should be called so that the execution threads will join the main thread and the data will be available.
 --Ops such as index/non-zero/zero-scalar and ".to(cpu)", ".item()" are synchronization points.
-

@@ -1,26 +1,22 @@
 ---
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v5.0.0
     hooks:
       - id: check-added-large-files
-        exclude: ^scripts/tests/files/
       - id: check-executables-have-shebangs
       - id: trailing-whitespace
-        exclude: ^(LICENSE|.devops/patches/)
-        # TODO: fix issues and enable when time allows:
-        # https://jira.habana-labs.com/browse/SW-121821
-        # - id: end-of-file-fixer
-        #   exclude: ^(LICENSE.txt|.devops/patches/)
-        # TODO: fix issues and enable when time allows:
-        # https://jira.habana-labs.com/browse/SW-121813
-        # - repo: https://github.com/cheshirekow/cmake-format-precommit
-        #   rev: v0.6.13
-        #   hooks:
-        #       - id: cmake-format
-        #         additional_dependencies: ["pyyaml"]
-        #       - id: cmake-lint
-        #         additional_dependencies: ["pyyaml"]
+      - id: end-of-file-fixer
+        exclude: ^(LICENSE.txt|.devops|scripts/tests/files/)
+  # TODO: fix issues and enable when time allows:
+  # https://jira.habana-labs.com/browse/SW-121813
+  # - repo: https://github.com/cheshirekow/cmake-format-precommit
+  #   rev: v0.6.13
+  #   hooks:
+  #       - id: cmake-format
+  #         additional_dependencies: ["pyyaml"]
+  #       - id: cmake-lint
+  #         additional_dependencies: ["pyyaml"]
   - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
     rev: v10.0.1
     hooks:
@@ -40,54 +36,45 @@ repos:
         types: [c++]
         # TODO: https://jira.habana-labs.com/browse/SW-120634: remove files
         # from this ticket from `exclude:` below once they're fixed
-        #
-        # exclude files handled by setup.py's and PT_VER-specific
         exclude: "^python_packages/habana_frameworks/torch/|\
-          ^pytorch_helpers/dataloader/habana_dataloader/|\
-          ^pt_ver/|\
-          ^tests/test_(autodiff|utils|base).cpp$|\
           ^tests/user_custom_op/|\
           ^pytorch_helpers/habana_helpers/tensor_comparator/synapse/src/infra/(float16|sim_fp16).cpp$|\
-          ^habana_bridge/register/compiler.cpp$|\
-          ^hpu_ops/op_validator.cpp|\
           ^scripts/tests/files/"
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 3.0.0
     hooks:
       - id: forbid-binary
-      # - id: git-check  # hopefully to be added once we fix whitespace issues
       - id: script-must-have-extension
   - repo: https://github.com/psf/black
-    rev: 24.2.0
+    rev: 25.1.0
     hooks:
       - id: black
-  # TODO: fix issues from https://jira.habana-labs.com/browse/SW-121808
   - repo: https://github.com/PyCQA/flake8
     rev: 7.1.1
     hooks:
       - id: flake8
         args: ["--ignore=E203,E501,W503,W504,\
           E722,E741,F401,F403,F405,F811,F821,F841,B001,B006,\
-          B008,B011,B023,B028,C408,C417"] # Too many issues to handle at once
+          B008,B011,B023,B028,C408,C417,EXE001"] # https://jira.habana-labs.com/browse/SW-121808
         additional_dependencies:
-          - flake8-bugbear==24.10.31
+          - flake8-bugbear==24.12.12
           - flake8-comprehensions==3.16.0
-          # - flake8-executable==2.1.3
-          # - flake8-pyi==24.9.0
-          # - mccabe==0.7.0
+          - flake8-executable==2.1.3
+          - flake8-pyi==24.9.0
+          - mccabe==0.7.0
         exclude: __init__.py
       - id: flake8
         name: flake8-tests
         args: ["--select=F401"]
         files: (tests|pytorch_helpers)
   - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
+    rev: 6.0.0
     hooks:
       - id: isort
   # TODO: fix issues and enable when time allows:
   # https://jira.habana-labs.com/browse/SW-121807
   # - repo: https://github.com/PyCQA/pylint
-  #   rev: v2.15.10
+  #   rev: v3.3.4
   #   hooks:
   #       - id: pylint
   - repo: https://github.com/Lucas-C/pre-commit-hooks

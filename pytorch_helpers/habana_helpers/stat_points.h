@@ -18,4 +18,3 @@
 ENUM_TXT_COL(recipe_compile, "recipe compilation time")
 
 // clang-format off
-

@@ -259,7 +259,7 @@ def find_events_time_span(events):
 
 def load_synapse_logger_events(gson_file, event_time_range):
     # Name the synapse log
-    events = [({"name": "process_name", "ph": "M", "pid": SYNAPSE_PID, "args": {"name": "Synapse logger"}})]
+    events = [{"name": "process_name", "ph": "M", "pid": SYNAPSE_PID, "args": {"name": "Synapse logger"}}]
     gson_lines = gson_parsing.gson_iterator(gson_file)
     gson_lines = gson_parsing.replace_with_dur(gson_lines)
     gson_lines = fix_gson(gson_lines)

@@ -2,7 +2,7 @@
 # coding: utf-8
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ def prepare_copyright(created, modified, formatting):
         return prefix if len(line) > 0 else prefix_empty_line
 
     dates = str(modified) if created == modified else f"{created}-{modified}"
-    cpr = [(prefix + copyright[0].format(dates=dates))]
+    cpr = [prefix + copyright[0].format(dates=dates)]
     cpr += [f"{get_prefix(c)}{c}" for c in copyright[1:]]
     bar = linefill * 78
     extra_line_list = [extra_line] if extra_line else []

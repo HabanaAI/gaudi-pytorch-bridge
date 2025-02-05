@@ -169,7 +169,7 @@ def test_hpu_adaptive_avg_pool3d_bwd(shape, output_size, dtype):
 
 
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]], ids=format_tc)
-@pytest.mark.parametrize("output_size", [((2, 2))], ids=format_tc)
+@pytest.mark.parametrize("output_size", [(2, 2)], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_adaptive_avg_pool2d_bwd(shape, output_size, dtype):
     def fn(input):
