@@ -68,7 +68,7 @@ repos:
       - id: flake8
         args: ["--ignore=E203,E501,W503,W504,\
           E722,E741,F401,F403,F405,F811,F821,F841,B001,B006,\
-          B008,B011,B023,B028,C400,C403,C408,C409,C416,C417,C419"] # Too many issues to handle at once
+          B008,B011,B023,B028,C408,C417"] # Too many issues to handle at once
         additional_dependencies:
           - flake8-bugbear==24.10.31
           - flake8-comprehensions==3.16.0

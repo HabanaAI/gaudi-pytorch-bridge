@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ def add_mdef(file, ln, ns, line):
 
 
 def read_file(args, filename):
-    if any([filename.endswith(e) for e in [".cpp", ".hpp", ".h"]]):
+    if any(filename.endswith(e) for e in [".cpp", ".hpp", ".h"]):
         with open(filename, "r") as fr:
             state = "outside"
             ln = 0

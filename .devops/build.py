@@ -1171,9 +1171,9 @@ def collect_build_combinations(wheels_per_build_envs, cmake_configurations) -> L
     for e in wheels_per_build_envs.keys():
         build_envs_by_venv[e.venv_dir].append(e)
 
-    combinations = list(
+    combinations = [
         (e, cmake_config) for e in build_envs_by_venv.values() for cmake_config in cmake_configurations.keys()
-    )
+    ]
     log.debug(f"wheels_per_build_envs {wheels_per_build_envs}")
     log.debug(f"build_envs_by_venv {build_envs_by_venv}")
     return combinations
@@ -1984,7 +1984,7 @@ def main():
         if cpu_index_url != "none":
             wheel_specs = add_upstream_versions(wheel_specs, cpu_index_url)
 
-        selected_pt_versions = set([item for sublist in wheel_specs for item in sublist.pt_versions])
+        selected_pt_versions = {item for sublist in wheel_specs for item in sublist.pt_versions}
         log.debug(f"Selected PyTorch versions: {selected_pt_versions}")
         unsupported_pt_versions = selected_pt_versions.difference(supported_pt_versions)
         unsupported_pt_versions = list(

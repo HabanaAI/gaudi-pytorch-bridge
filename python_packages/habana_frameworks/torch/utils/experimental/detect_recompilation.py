@@ -276,7 +276,7 @@ def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
             htcore.mark_step()
             time.sleep(waittime)
         out_hash = htcore.hpu.input_hash(res)
-        metrics = {k: v for k, v in local_metric.stats()}
+        metrics = dict(local_metric.stats())
         if inp_hash not in field_contents[INP_HASH]:
             field_contents[INP_HASH].update([inp_hash])
             new_inp_string = "Found new input signature "

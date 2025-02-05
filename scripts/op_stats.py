@@ -470,7 +470,7 @@ def main(args):
             op_with_sig = line.split(");")[0]
             prop = {}
             valid_op_decl.append(op_name)
-            if not any([x in op_name for x in exclude]):
+            if not any(x in op_name for x in exclude):
                 # if not match_any(line, exclude):
                 prop["relevant"] = "yes"
             else:

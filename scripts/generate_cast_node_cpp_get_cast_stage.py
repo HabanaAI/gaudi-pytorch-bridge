@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ num_bits = {
 cast_types = {}
 max_len = {}
 for device in devices:
-    cast_types[device] = [key for key in num_bits[device].keys()]
+    cast_types[device] = list(num_bits[device].keys())
     max_len[device] = max([len(t) for t in cast_types[device]])
 
 

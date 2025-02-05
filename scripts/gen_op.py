@@ -2474,7 +2474,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
         op_groups.add(fgen.opgroup)
         add_fgen_idx_to_generate(fgen, idx, unique_func_map, ops_added)
 
-    hpu_shared_layer_unsupported_ops = set([x.func for x in fgens_hpu_wrap])
+    hpu_shared_layer_unsupported_ops = {x.func for x in fgens_hpu_wrap}
     for op in hpu_shared_layer_unsupported_ops:
         if op in unique_func_map:
             del unique_func_map[op]

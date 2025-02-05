@@ -54,7 +54,7 @@ TYPE_TO_JIT_TYPE = TypeToLambdaDict()
 
 
 def py_list_to_jit_list(py_list: List[Any]):
-    types = set([type(elem) for elem in py_list])
+    types = {type(elem) for elem in py_list}
     if len(types) == 1:
         converter = TYPE_TO_JIT_TYPE.find(next(iter(types)))
         if converter:
@@ -70,7 +70,7 @@ def py_list_to_jit_list(py_list: List[Any]):
 
 def py_tuple_to_jit_tuple(py_tuple: Tuple[Any]):
     jit_types = []
-    types = set([type(elem) for elem in py_tuple])
+    types = {type(elem) for elem in py_tuple}
     if len(types) > 0:
         for jit_type in types:
             converter = TYPE_TO_JIT_TYPE.find(jit_type)

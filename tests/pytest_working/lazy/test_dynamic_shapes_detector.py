@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -346,7 +346,7 @@ def match_fl2(fl2, dyn_inps, dyn_ops, reuse_relu, wrap_inner):
         lhs1, rhs1 = ln.split(",")
         assert lhs1 not in d1
         d1[lhs1] = int(rhs1)
-    d2 = {k: v for k, v in zip(lst, num_recompiles)}
+    d2 = dict(zip(lst, num_recompiles))
     return d1 == d2
 
 

@@ -363,14 +363,14 @@ class Graph:
 
     def print_nodes(self):  # , tensor_map):
         for n in self.nodes:
-            in_tensors = list(
+            in_tensors = [
                 "x".join(str(s) for s in shape)
                 for name, shape, syn_type in self.tensor_shapes(n["args"]["pInputsTensorList"])
-            )
-            out_tensors = list(
+            ]
+            out_tensors = [
                 "x".join(str(s) for s in shape)
                 for name, shape, syn_type in self.tensor_shapes(n["args"]["pOutputsTensorList"])
-            )
+            ]
             print(n["args"]["pGuid"], " ".join(in_tensors) + " ==> " + " ".join(out_tensors))
 
 
@@ -815,8 +815,8 @@ class Log:
         from gson2test import Flow
 
         def collect_tss():
-            tss = set([e["ts"] for e in graph.events()])
-            tss |= set([e["end_ts"] for e in graph.events() if "end_ts" in e])
+            tss = {e["ts"] for e in graph.events()}
+            tss |= {e["end_ts"] for e in graph.events() if "end_ts" in e}
             return tss
 
         test_op_list = {
@@ -913,16 +913,16 @@ class Log:
             l = np.asarray(list(g.get_launches_duration()))
             print("\tsynLaunch duration distribution avg,std: ", np.mean(l), np.std(l))
             in_sizes = np.asarray(
-                list(
+                [
                     np.prod((data_type[2],) + shape)
                     for name, shape, data_type in g.tensor_shapes(g.get_input_tensors_names())
-                )
+                ]
             )
             out_sizes = np.asarray(
-                list(
+                [
                     np.prod((data_type[2],) + shape)
                     for name, shape, data_type in g.tensor_shapes(g.get_output_tensors_names())
-                )
+                ]
             )
             in_count, out_count = in_sizes.size, out_sizes.size
             in_total, out_total = tuple(human_readable_size(np.sum(x)) for x in (in_sizes, out_sizes))
@@ -978,11 +978,11 @@ class Log:
             launches = self.launches
         for launch in launches:
             sources = launch.sources
-            dma_sources = list(s for s in sources if isinstance(s.agent, Memcpy))
-            compute_sources = list(s for s in sources if isinstance(s.agent, Launch))
+            dma_sources = [s for s in sources if isinstance(s.agent, Memcpy)]
+            compute_sources = [s for s in sources if isinstance(s.agent, Launch)]
             destinations = launch.destinations
-            dma_destinations = list(s for s in destinations if isinstance(s.agent, Memcpy))
-            compute_destinations = list(s for s in destinations if isinstance(s.agent, Launch))
+            dma_destinations = [s for s in destinations if isinstance(s.agent, Memcpy)]
+            compute_destinations = [s for s in destinations if isinstance(s.agent, Launch)]
             total_inputs, total_outputs = len(launch.inputs), len(launch.outputs)
             if verbose:
                 print(

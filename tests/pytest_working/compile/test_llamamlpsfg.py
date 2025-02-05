@@ -540,6 +540,6 @@ if __name__ == "__main__":
     device_count = ht.hpu.device_count()
     if device_count < world_size:
         world_size = device_count
-    input_args = tuple((world_size,))
+    input_args = (world_size,)
     torch.multiprocessing.spawn(run_single_node, args=(args,), nprocs=world_size)
     print("Time taken :", time.time() - start)

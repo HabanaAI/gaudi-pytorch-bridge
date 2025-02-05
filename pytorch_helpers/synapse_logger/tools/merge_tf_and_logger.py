@@ -217,7 +217,7 @@ def logs_figure_tid_mapping(events):
 
         update_thread(tid, e, who)
     for ttid in tf_tids:
-        print("mappins for ", ttid, " are ", list(stid for stid in syn_tids.keys() if pomap[(stid, ttid)]))
+        print("mappins for ", ttid, " are ", [stid for stid in syn_tids.keys() if pomap[(stid, ttid)]])
     unmapped = tf_tids.copy()
     mapping = dict()
     while unmapped:

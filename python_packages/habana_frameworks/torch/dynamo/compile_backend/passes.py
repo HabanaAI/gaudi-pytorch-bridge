@@ -1235,7 +1235,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             assert input_node is not None
 
             # Internal HPU copies should be placed in the clusters.
-            if all([n.meta["output_device"].type == "hpu" for n in [input_node, node]]):
+            if all(n.meta["output_device"].type == "hpu" for n in [input_node, node]):
                 placement = "hpu_cluster"
             else:
                 placement = "eager"

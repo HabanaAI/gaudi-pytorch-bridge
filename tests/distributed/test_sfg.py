@@ -358,6 +358,6 @@ if __name__ == "__main__":
     # run_single_node(0, tuple((0,)))
     start = time.time()
     world_size = args.world_size
-    input_args = tuple((world_size,))
+    input_args = (world_size,)
     torch.multiprocessing.spawn(run_single_node, args=(args,), nprocs=world_size)
     print("Time taken :", time.time() - start)
