@@ -1462,6 +1462,10 @@ TORCH_LIBRARY_IMPL(hpu, Autograd, m) {
   m.impl(
       "hpu::mixture_of_experts_compile.fused_weights",
       mixture_of_experts_fwd_fused_weights_autograd);
+  m.impl("hpu::mixture_of_experts", mixture_of_experts);
+  m.impl(
+      "hpu::mixture_of_experts.fused_weights",
+      mixture_of_experts_fused_weights);
 }
 
 } // namespace habana::eager

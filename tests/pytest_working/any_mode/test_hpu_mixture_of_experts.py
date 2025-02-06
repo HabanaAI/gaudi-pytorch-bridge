@@ -214,7 +214,7 @@ def test_mixture_of_experts(
 
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
-@pytest.mark.parametrize("activation", ["silu"])  # ["gelu", "relu", "silu"])
+@pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
 @pytest.mark.parametrize("ffn_dim", FFN_DIMS)
 @pytest.mark.parametrize("num_experts", NUM_EXPERTS)
@@ -404,16 +404,16 @@ def test_mixture_of_experts_fwd_bwd(
             w12_grad_reference = torch.cat((expert_weights_cpu[0][i].grad, expert_weights_cpu[1][i].grad), dim=1)
             if permuted_weights:
                 w12_grad_reference = w12_grad_reference.t()
-            check_using_cosine_similarity(w12_hpu[i].grad.cpu(), w12_grad_reference, cos_sim_tol)
+            check_using_cosine_similarity(w12_hpu[i].grad, w12_grad_reference, cos_sim_tol)
         else:
             w1_grad_reference = expert_weights_cpu[0][i].grad.t() if permuted_weights else expert_weights_cpu[0][i].grad
             w2_grad_reference = expert_weights_cpu[1][i].grad.t() if permuted_weights else expert_weights_cpu[1][i].grad
 
-            check_using_cosine_similarity(w1_hpu[i].grad.cpu(), w1_grad_reference, cos_sim_tol)
-            check_using_cosine_similarity(w2_hpu[i].grad.cpu(), w2_grad_reference, cos_sim_tol)
+            check_using_cosine_similarity(w1_hpu[i].grad, w1_grad_reference, cos_sim_tol)
+            check_using_cosine_similarity(w2_hpu[i].grad, w2_grad_reference, cos_sim_tol)
 
     w3_grad_reference = expert_weights_cpu[2][i].grad.t() if permuted_weights else expert_weights_cpu[2][i].grad
-    check_using_cosine_similarity(w3_hpu[i].grad.cpu(), w3_grad_reference, cos_sim_tol)
+    check_using_cosine_similarity(w3_hpu[i].grad, w3_grad_reference, cos_sim_tol)
 
     if is_pytest_mode_compile():
         op_names = (
@@ -502,8 +502,8 @@ def test_mixture_of_experts_fwd_bwd_view(
 
     check_using_cosine_similarity(hidden_states_hpu.grad, hidden_states.grad, cos_sim_tol)
     for i in range(num_experts):
-        check_using_cosine_similarity(w12_hpu_original[i].grad.cpu(), w12_cpu_original[i].grad, cos_sim_tol)
-        check_using_cosine_similarity(w3_hpu_original[i].grad.cpu(), w3_cpu_original[i].grad, cos_sim_tol)
+        check_using_cosine_similarity(w12_hpu_original[i].grad, w12_cpu_original[i].grad, cos_sim_tol)
+        check_using_cosine_similarity(w3_hpu_original[i].grad, w3_cpu_original[i].grad, cos_sim_tol)
 
     if is_pytest_mode_compile():
         op_names = (
