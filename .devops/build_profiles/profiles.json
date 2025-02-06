@@ -44,10 +44,10 @@
     "current": {
       "version": "2.6.0",
       "default_source": "build",
-      "cpu_index_url" : "none",
+      "cpu_index_url" : "default",
       "extras": {
-        "torchvision": "v0.21.0-rc5",
-        "torchaudio": "v2.6.0-rc4",
+        "torchvision": "v0.21.0",
+        "torchaudio": "v2.6.0",
         "torchtext": "v0.18.0",
         "torchdata": "v0.10.1"
       }

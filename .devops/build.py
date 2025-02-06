@@ -1981,7 +1981,7 @@ def main():
 
         pt_version_id = get_pt_version_id(str(current_pt_version))
         cpu_index_url = get_cpu_index_url(pt_version_id)
-        if cpu_index_url != "none":
+        if cpu_index_url != "none" and args.upstream_compile:
             wheel_specs = add_upstream_versions(wheel_specs, cpu_index_url)
 
         selected_pt_versions = {item for sublist in wheel_specs for item in sublist.pt_versions}
