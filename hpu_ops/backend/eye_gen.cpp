@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,9 +57,10 @@ void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 
   auto constant = ConstantHelper(graph, 1.0f, computeDtype, meta.shape);
+  using namespace std::literals;
   eye_out = BuildOp(
       graph,
-      get_guid_with_precision("matrix_diagonal_fwd", computeDtype),
+      get_guid_with_precision("matrix_diagonal_fwd"sv, computeDtype),
       {constant.get()},
       {{meta.shape, computeDtype, finalResultIndex}});
   if (meta.dtype != computeDtype) {

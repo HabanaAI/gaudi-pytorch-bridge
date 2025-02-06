@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,10 +110,11 @@ void NansumList::AddNode(
   }
   auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
 
+  using namespace std::literals;
   // isNan on input
   auto is_nan = BuildOp(
       graph,
-      get_guid_with_precision("isnan_fwd", compute_type),
+      get_guid_with_precision("isnan_fwd"sv, compute_type),
       {input},
       {{inputShape, c10::ScalarType::Char}});
 
@@ -122,7 +123,7 @@ void NansumList::AddNode(
   // where on is_nan
   auto where = BuildOp(
       graph,
-      get_guid_with_precision("where_fwd", compute_type),
+      get_guid_with_precision("where_fwd"sv, compute_type),
       {is_nan[0].get(), zero_constant.get(), input},
       {{inputShape, compute_type}});
 
@@ -136,7 +137,7 @@ void NansumList::AddNode(
 
   auto reduce_sum = BuildOp(
       graph,
-      get_guid_with_precision("reduce_sum_multi_dim_fwd", compute_type),
+      get_guid_with_precision("reduce_sum_multi_dim_fwd"sv, compute_type),
       {where[0].get()},
       {out_attr},
       &params,

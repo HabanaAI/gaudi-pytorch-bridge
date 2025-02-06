@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,57 +143,58 @@ void HuberLossBwdOperator::AddNode(
 
   auto delta_const = ConstantHelper(graph, delta, meta.dtype, meta.shape);
 
+  using namespace std::literals;
   auto t_diff = BuildOp(
       graph,
-      get_guid_with_precision("sub", meta.dtype),
+      get_guid_with_precision("sub"sv, meta.dtype),
       {syn_in(1), syn_in(2)},
       {{meta.shape, meta.dtype}});
 
   auto t_mul = BuildOp(
       graph,
-      get_guid_with_precision("mult", meta.dtype),
+      get_guid_with_precision("mult"sv, meta.dtype),
       {syn_in(0), norm.get()},
       {{meta.shape, meta.dtype}});
 
   auto t_sign = BuildOp(
       graph,
-      get_guid_with_precision("sign_fwd", meta.dtype),
+      get_guid_with_precision("sign_fwd"sv, meta.dtype),
       {t_diff.at(0).get()},
       {{meta.shape, meta.dtype}});
 
   auto t_0 = BuildOp(
       graph,
-      get_guid_with_precision("mult", meta.dtype),
+      get_guid_with_precision("mult"sv, meta.dtype),
       {t_mul.at(0).get(), delta_const.get()},
       {{meta.shape, meta.dtype}});
 
   auto t_1 = BuildOp(
       graph,
-      get_guid_with_precision("mult", meta.dtype),
+      get_guid_with_precision("mult"sv, meta.dtype),
       {t_0.at(0).get(), t_sign.at(0).get()},
       {{meta.shape, meta.dtype}});
 
   auto t_2 = BuildOp(
       graph,
-      get_guid_with_precision("mult", meta.dtype),
+      get_guid_with_precision("mult"sv, meta.dtype),
       {t_diff.at(0).get(), t_mul.at(0).get()},
       {{meta.shape, meta.dtype}});
 
   auto t_abs = BuildOp(
       graph,
-      get_guid_with_precision("abs_fwd", meta.dtype),
+      get_guid_with_precision("abs_fwd"sv, meta.dtype),
       {t_diff.at(0).get()},
       {{meta.shape, meta.dtype}});
 
   auto mask_bwd = BuildOp(
       graph,
-      get_guid_with_precision("less_fwd", meta.dtype),
+      get_guid_with_precision("less_fwd"sv, meta.dtype),
       {t_abs.at(0).get(), delta_const.get()},
       {{meta.shape, at::kBool}});
 
   auto grad_in = BuildOp(
       graph,
-      get_guid_with_precision("where_fwd", meta.dtype),
+      get_guid_with_precision("where_fwd"sv, meta.dtype),
       {mask_bwd.at(0).get(), t_2.at(0).get(), t_1.at(0).get()},
       {{meta.shape, meta.dtype, 0}});
 

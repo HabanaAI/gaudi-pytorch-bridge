@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,7 +169,8 @@ synapse_helpers::tensor ArangeCommon(
         (internal_out_dtype == c10::ScalarType::Long &&
          common::IsInt64Supported());
     auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
-    auto range_guid = get_guid_with_precision("range", scalar_type);
+    using namespace std::literals;
+    auto range_guid = get_guid_with_precision("range"sv, scalar_type);
     NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
 
     if (is_cast_not_required)
@@ -532,7 +533,7 @@ synapse_helpers::tensor ArangeDefaultCommon(
       internal_out_dtype == c10::ScalarType::Int;
   auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
   auto range_guid = is_cast_not_required
-      ? get_guid_with_precision("range", scalar_type)
+      ? get_guid_with_precision("range"sv, scalar_type)
       : "range_i32";
   NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
   if (is_cast_not_required)

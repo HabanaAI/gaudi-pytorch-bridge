@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,6 +190,8 @@ SharedMetaDataVector ForeachClampMaxSharedMeta(
   return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
+using namespace std::literals;
+
 static synapse_helpers::tensor ClampCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -200,7 +202,7 @@ static synapse_helpers::tensor ClampCommon(
   return std::move(OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("clamp_pt_fwd", dtype),
+      {get_guid_with_precision("clamp_pt_fwd"sv, dtype),
        inputs,
        {{shape, dtype, out_index}}})[0]);
 }
@@ -217,7 +219,7 @@ void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("clamp_pt_fwd", compute_type),
+      {get_guid_with_precision("clamp_pt_fwd"sv, compute_type),
        inputs,
        {{meta.shape, meta.dtype, 0}},
        params.get(),

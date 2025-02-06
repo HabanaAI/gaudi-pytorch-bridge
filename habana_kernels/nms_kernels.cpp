@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -432,19 +432,21 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+using namespace std::literals;
+
 static auto& NMSKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "hpu::habana_nms",
             [](int device_id, c10::ScalarType scalar_type) {
               std::string node_type =
-                  get_guid_with_precision("habana_nms", scalar_type);
+                  get_guid_with_precision("habana_nms"sv, scalar_type);
               return std::make_shared<HabanaNMSOperator>(device_id, node_type);
             })
         .add(
             "hpu::batched_nms",
             [](int device_id, c10::ScalarType scalar_type) {
               std::string node_type =
-                  get_guid_with_precision("batched_nms_fwd", scalar_type);
+                  get_guid_with_precision("batched_nms_fwd"sv, scalar_type);
               return std::make_shared<BatchedNMSOperator>(device_id, node_type);
             });

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,9 +112,10 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     const at::ScalarType& result_type = c10::ScalarType::Bool;
 
+    using namespace std::literals;
     auto nan_mask = BuildOp(
         graph,
-        get_guid_with_precision("isnan_fwd", ScalarType()),
+        get_guid_with_precision("isnan_fwd"sv, ScalarType()),
         {syn_in(0)},
         {{outshape, result_type}});
 
@@ -123,7 +124,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto posinf_mask = BuildOp(
         graph,
-        get_guid_with_precision("isinf_fwd", ScalarType()),
+        get_guid_with_precision("isinf_fwd"sv, ScalarType()),
         {syn_in(0)},
         {{outshape, result_type}},
         &params_pos,
@@ -134,7 +135,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto neginf_mask = BuildOp(
         graph,
-        get_guid_with_precision("isinf_fwd", ScalarType()),
+        get_guid_with_precision("isinf_fwd"sv, ScalarType()),
         {syn_in(0)},
         {{outshape, result_type}},
         &params_neg,
@@ -142,19 +143,19 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto where_nan = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", ScalarType()),
+        get_guid_with_precision("where_fwd"sv, ScalarType()),
         {nan_mask[0].get(), const_nan.get(), syn_in(0)},
         {{outshape, ScalarType()}});
 
     auto where_pos = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", ScalarType()),
+        get_guid_with_precision("where_fwd"sv, ScalarType()),
         {posinf_mask[0].get(), const_posinf.get(), where_nan[0].get()},
         {{outshape, ScalarType()}});
 
     auto where_neg = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", ScalarType()),
+        get_guid_with_precision("where_fwd"sv, ScalarType()),
         {neginf_mask[0].get(), const_neginf.get(), where_pos[0].get()},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(where_neg[0]);

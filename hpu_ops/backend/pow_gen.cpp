@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 
 namespace habana {
 
+using namespace std::literals;
+
 static synapse_helpers::tensor PowScalar(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -37,12 +39,12 @@ static synapse_helpers::tensor PowScalar(
     // fast path for square, mult_fwd_u8/s8_trunc will be used to handle
     // overflow
     node_attr = {
-        get_guid_with_precision("mult_fwd", scalar_type),
+        get_guid_with_precision("mult_fwd"sv, scalar_type),
         {inputs[0], inputs[0]},
         {{outshape, scalar_type, out_index}}};
   } else if (exponent == 3.) {
     const std::string mult_node =
-        get_guid_with_precision("mult_fwd", scalar_type);
+        get_guid_with_precision("mult_fwd"sv, scalar_type);
     temp = std::move(OpBackend::BuildNode(
         op,
         graph,
@@ -52,7 +54,7 @@ static synapse_helpers::tensor PowScalar(
         {temp.value().get(), inputs[0]},
         {{outshape, scalar_type, out_index}}};
   } else {
-    std::string guid = get_guid_with_precision("pow_fwd", scalar_type);
+    std::string guid = get_guid_with_precision("pow_fwd"sv, scalar_type);
     node_attr = {
         guid, {inputs[0], inputs[1]}, {{outshape, scalar_type, out_index}}};
   }
@@ -91,7 +93,7 @@ static synapse_helpers::tensor createForeachPowNode(
     return std::move(OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("pow_fwd", result_type),
+        {get_guid_with_precision("pow_fwd"sv, result_type),
          syn_inputs,
          {{outshape, result_type, out_index}}})[0]);
   } else if (pt_inputs[0].isTensor() && pt_inputs[1].isScalar()) {
@@ -125,7 +127,7 @@ static synapse_helpers::tensor createForeachPowNode(
     return std::move(OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("pow_fwd", result_type),
+        {get_guid_with_precision("pow_fwd"sv, result_type),
          {syn_self.get(), syn_inputs[0]},
          {{other.sizes().vec(), result_type, out_index}}})[0]);
   }

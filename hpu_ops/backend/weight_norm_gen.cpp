@@ -104,15 +104,15 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       ord,
       {{metas[1].shape, g_dtype, 1}},
       false);
-
+  using namespace std::literals;
   auto divOp = BuildOp(
       graph,
-      get_guid_with_precision("div_fwd", v_dtype),
+      get_guid_with_precision("div_fwd"sv, v_dtype),
       {syn_in(1), normOp.get()},
       {{g_in_shape, g_dtype}});
   auto mulOp = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", v_dtype),
+      get_guid_with_precision("mult_fwd"sv, v_dtype),
       {syn_in(0), divOp.at(0).get()},
       {{v_shape, v_dtype, 0}});
 

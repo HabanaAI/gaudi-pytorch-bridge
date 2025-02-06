@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,15 +92,16 @@ void OptimizerFusedLarsOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string add_node = get_guid_with_precision("add_fwd", ScalarType());
-  std::string mul_node = get_guid_with_precision("mult_fwd", ScalarType());
-  std::string div_node = get_guid_with_precision("div_fwd", ScalarType());
-  std::string reduce_sum_sq_node =
-      get_guid_with_precision("reduce_sum_square_multi_dim_fwd", ScalarType());
-  std::string sqrt_node = get_guid_with_precision("sqrt_fwd", ScalarType());
+  using namespace std::literals;
+  std::string add_node = get_guid_with_precision("add_fwd"sv, ScalarType());
+  std::string mul_node = get_guid_with_precision("mult_fwd"sv, ScalarType());
+  std::string div_node = get_guid_with_precision("div_fwd"sv, ScalarType());
+  std::string reduce_sum_sq_node = get_guid_with_precision(
+      "reduce_sum_square_multi_dim_fwd"sv, ScalarType());
+  std::string sqrt_node = get_guid_with_precision("sqrt_fwd"sv, ScalarType());
   std::string greater_node =
-      get_guid_with_precision("greater_fwd", ScalarType());
-  std::string where_node = get_guid_with_precision("where_fwd", ScalarType());
+      get_guid_with_precision("greater_fwd"sv, ScalarType());
+  std::string where_node = get_guid_with_precision("where_fwd"sv, ScalarType());
 
   double constant_values[] = {eeta, weight_decay, eps, 0.0, 1.0};
   std::array<synTensor, std::size(constant_values)> constant_ts{};

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -827,6 +827,8 @@ OutputMetaDataVector OptimizerFusedLarsOperatorLazy::OptimizerFusedLarsMeta(
   return meta_vec;
 }
 
+using namespace std::literals;
+
 void OptimizerFusedLarsOperatorLazy::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
@@ -860,7 +862,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     if (!skipMasks[i]) {
       auto mul0 = BuildOp(
           graph,
-          get_guid_with_precision("mult", dtype),
+          get_guid_with_precision("mult"sv, dtype),
           {syn_grad, syn_lr},
           {{outshape, dtype, i}});
       syn_out(i) = std::move(mul0[0]);
@@ -871,7 +873,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto mul1 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {syn_param, syn_param},
         {{outshape, dtype}});
 
@@ -889,7 +891,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     reduce_params.reductionDimension = 0;
     auto sum1 = BuildOp(
         graph,
-        get_guid_with_precision("reduce_sum_fwd", dtype),
+        get_guid_with_precision("reduce_sum_fwd"sv, dtype),
         std::move(reduction_inputs1),
         {{1, dtype}},
         &reduce_params,
@@ -897,14 +899,14 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto sqrt1 = BuildOp(
         graph,
-        get_guid_with_precision("sqrt_fwd", dtype),
+        get_guid_with_precision("sqrt_fwd"sv, dtype),
         {sum1[0].get()},
         {{1, dtype}});
 
     // Norm calculation for 1-st argument viz. param: mul2, sum2, sqrt2
     auto mul2 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {syn_grad, syn_grad},
         {{outshape, dtype}});
 
@@ -920,7 +922,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto sum2 = BuildOp(
         graph,
-        get_guid_with_precision("reduce_sum_fwd", dtype),
+        get_guid_with_precision("reduce_sum_fwd"sv, dtype),
         std::move(reduction_inputs2),
         {{1, dtype}},
         &reduce_params,
@@ -928,97 +930,97 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto sqrt2 = BuildOp(
         graph,
-        get_guid_with_precision("sqrt_fwd", dtype),
+        get_guid_with_precision("sqrt_fwd"sv, dtype),
         {sum2[0].get()},
         {{1, dtype}});
 
     // torch.greater(param_norm, 0)
     auto ge1 = BuildOp(
         graph,
-        get_guid_with_precision("greater_fwd", dtype),
+        get_guid_with_precision("greater_fwd"sv, dtype),
         {sqrt1[0].get(), zero_constant.get()},
         {{outshape, dtype}});
 
     // torch.greater(grad_norm, 0)
     auto ge2 = BuildOp(
         graph,
-        get_guid_with_precision("greater_fwd", dtype),
+        get_guid_with_precision("greater_fwd"sv, dtype),
         {sqrt2[0].get(), zero_constant.get()},
         {{outshape, dtype}});
 
     // eeta*paramNorm
     auto mul3 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {sqrt1[0].get(), eetaTensor.get()},
         {{outshape, dtype}});
 
     // paranNorm*weightDecay
     auto mul4 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {sqrt1[0].get(), weightDecayTensor.get()},
         {{outshape, dtype}});
 
     // weightDecay*paranNorm + eps
     auto add1 = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", dtype),
+        get_guid_with_precision("add_fwd"sv, dtype),
         {mul4[0].get(), epsTensor.get()},
         {{outshape, dtype}});
 
     // gradNorm + weightDecay*paranNorm + eps
     auto add2 = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", dtype),
+        get_guid_with_precision("add_fwd"sv, dtype),
         {add1[0].get(), sqrt2[0].get()},
         {{outshape, dtype}});
 
     //(eeta*param_norm) / (gradNorm + weightDecay*paranNorm + eps)
     auto div1 = BuildOp(
         graph,
-        get_guid_with_precision("div_fwd", dtype),
+        get_guid_with_precision("div_fwd"sv, dtype),
         {mul3[0].get(), add2[0].get()},
         {{outshape, dtype}});
 
     auto where1 = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", dtype),
+        get_guid_with_precision("where_fwd"sv, dtype),
         {ge2[0].get(), div1[0].get(), one_constant.get()},
         {{outshape, dtype}});
 
     // trust_ratio
     auto where2 = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", dtype),
+        get_guid_with_precision("where_fwd"sv, dtype),
         {ge1[0].get(), where1[0].get(), one_constant.get()},
         {{outshape, dtype}});
 
     // scaled_lr = lr*trust_ratio
     auto mul5 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {where2[0].get(), syn_lr},
         {{outshape, dtype}});
 
     // param*weightDecayTensor
     auto mul6 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {syn_param, weightDecayTensor.get()},
         {{outshape, dtype}});
 
     // grad + param*weightDecayTensor
     auto add3 = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", dtype),
+        get_guid_with_precision("add_fwd"sv, dtype),
         {syn_grad, mul6[0].get()},
         {{outshape, dtype}});
 
     // param*weightDecayTensor
     auto mul7 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {add3[0].get(), mul5[0].get()},
         {{outshape, dtype, i}});
 

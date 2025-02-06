@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,10 +69,11 @@ std::vector<synapse_helpers::tensor> CommonReplicationPadBwd(
           outputShapeExpectedMax[dim]);
   }
 
+  using namespace std::literals;
   return op->BuildNode(
       op,
       graph,
-      {get_guid_with_precision("pad_bwd", meta.dtype),
+      {get_guid_with_precision("pad_bwd"sv, meta.dtype),
        {input},
        {{meta.shape, meta.dtype, 0}},
        params.get(),

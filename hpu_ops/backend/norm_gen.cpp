@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -199,10 +199,11 @@ sh::tensor NormCommon(
   }
 
   auto params = FillPFormNormOpParams(self.dim(), dim, keepdim, ord);
+  using namespace std::literals;
   auto reduce_lp_output = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_Lp_multi_dim_fwd", dtype),
+      {get_guid_with_precision("reduce_Lp_multi_dim_fwd"sv, dtype),
        {input_tensor},
        output_attr,
        &params,

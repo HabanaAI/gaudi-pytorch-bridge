@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,6 +99,9 @@ static std::vector<synapse_helpers::tensor> Split(
        &split_params,
        sizeof(split_params)});
 }
+
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> Mul(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -107,7 +110,7 @@ static std::vector<synapse_helpers::tensor> Mul(
   return OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult_fwd", op->ScalarType()),
+      {get_guid_with_precision("mult_fwd"sv, op->ScalarType()),
        std::move(inputs),
        {{outshape, op->ScalarType()}}});
 }
@@ -316,7 +319,7 @@ void LinAlgCross::AddNode(
 
   auto sub = BuildOp(
       graph,
-      get_guid_with_precision("sub", ScalarType()),
+      get_guid_with_precision("sub"sv, ScalarType()),
       {concat1[0].get(), concat2[0].get()},
       {{is_scd ? outshape : transpose_shape,
         ScalarType(),

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,6 +89,8 @@ OutputMetaDataVector DequantizePerChannelMeta(const at::Stack& stack) {
   return {meta};
 }
 
+using namespace std::literals;
+
 void QuantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto scale = stack.at(1);
@@ -129,7 +131,7 @@ void QuantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto meta = QuantizePerTensorMeta(stack)[0];
   auto op = BuildOp(
       graph,
-      get_guid_with_precision("quantize_per_tensor", self.scalar_type()),
+      get_guid_with_precision("quantize_per_tensor"sv, self.scalar_type()),
       std::move(syn_inputs),
       {{meta.shape, meta.dtype, 0}});
   syn_out(0) = std::move(op[0]);
@@ -160,7 +162,7 @@ void DequantizePerTensor::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto meta = DequantizePerTensorMeta(stack)[0];
   auto op = BuildOp(
       graph,
-      get_guid_with_precision("dequantize_per_tensor", out_dtype),
+      get_guid_with_precision("dequantize_per_tensor"sv, out_dtype),
       std::move(syn_inputs),
       {{meta.shape, meta.dtype, 0}});
   syn_out(0) = std::move(op[0]);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,8 @@ class OptimizerFusedSGDMomentumOperator : public OpBackend {
   void AddNode(sh::graph& graph, const at::Stack& stack) override;
 };
 
+using namespace std::literals;
+
 void OptimizerFusedSGDOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
@@ -75,7 +77,7 @@ void OptimizerFusedSGDOperator::AddNode(
   sgd_params.nesterov = nesterov;
   SetScalarType(gradients[0].pt_t.scalar_type());
   std::string sgd_guid =
-      get_guid_with_precision("optimizer_sgd_bwd", at::ScalarType::Float);
+      get_guid_with_precision("optimizer_sgd_bwd"sv, at::ScalarType::Float);
   size_t vec_size = weights.size();
   for (size_t i = 0; i < vec_size; ++i) {
     const auto& gradient = gradients[i];
@@ -124,7 +126,7 @@ void OptimizerFusedSGDMomentumOperator::AddNode(
   sgd_params.nesterov = nesterov;
   SetScalarType(gradients[0].pt_t.scalar_type());
   std::string sgd_guid =
-      get_guid_with_precision("optimizer_sgd_bwd", at::ScalarType::Float);
+      get_guid_with_precision("optimizer_sgd_bwd"sv, at::ScalarType::Float);
 
   size_t vec_size = gradients.size();
   for (size_t i = 0; i < vec_size; ++i) {

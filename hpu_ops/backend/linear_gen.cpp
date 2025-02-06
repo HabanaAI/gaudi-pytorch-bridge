@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ void Linear::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (stack.at(2).isTensor()) {
     input_tensor.push_back(syn_in(2));
   }
-
-  std::string guid = get_guid_with_precision("linear_fwd", meta.dtype);
+  using namespace std::literals;
+  std::string guid = get_guid_with_precision("linear_fwd"sv, meta.dtype);
 
   std::vector<synapse_helpers::tensor> linear = BuildOp(
       graph, guid, std::move(input_tensor), {{meta.shape, meta.dtype, 0}});

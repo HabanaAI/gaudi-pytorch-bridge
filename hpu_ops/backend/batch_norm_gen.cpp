@@ -291,6 +291,8 @@ bool is_no_reshape_op(const OpBackend& op) {
       std::string::npos;
 }
 
+using namespace std::literals;
+
 std::vector<sh::tensor> handle_batch_norm_training_fwd(
     OpBackend& op,
     sh::graph& graph,
@@ -357,7 +359,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     bn_out = OpBackend::BuildNode(
         &op,
         graph,
-        {get_guid_with_precision("batch_norm_reshape_fwd", op.ScalarType()),
+        {get_guid_with_precision("batch_norm_reshape_fwd"sv, op.ScalarType()),
          {input.syn_t, bias, weight, running_mean, running_var},
          {NodeAttr::NodeOutputAttr{
               input_4d_shape, op.ScalarType(), c10::optional<int>(0)},
@@ -386,7 +388,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     bn_out = OpBackend::BuildNode(
         &op,
         graph,
-        {get_guid_with_precision("batch_norm_fwd", op.ScalarType()),
+        {get_guid_with_precision("batch_norm_fwd"sv, op.ScalarType()),
          {input_4d, bias, weight, running_mean, running_var},
          {NodeAttr::NodeOutputAttr{
               input_4d_shape,
@@ -476,7 +478,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
       OpBackend::BuildNode(
           &op,
           graph,
-          {get_guid_with_precision("batch_norm_inf_reshape", op.ScalarType()),
+          {get_guid_with_precision("batch_norm_inf_reshape"sv, op.ScalarType()),
            {input.syn_t, bias, weight, running_mean, running_var},
            {{out_shapes[INPUT_IDX], op.ScalarType(), c10::optional<int>(0)}},
            params.get(),
@@ -934,7 +936,7 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       : c10::optional<int>{INPUT_GRAD_IDX};
   auto bn_out = BuildOp(
       graph,
-      get_guid_with_precision("batch_norm_bwd", meta[0].dtype),
+      get_guid_with_precision("batch_norm_bwd"sv, meta[0].dtype),
       {input_4d, grad_out_4d, saved_mean, saved_istd, weight},
       {{input_4d_shape, meta[INPUT_GRAD_IDX].dtype, final_result_index_0},
        {meta[BIAS_GRAD_IDX].shape, meta[BIAS_GRAD_IDX].dtype, BIAS_GRAD_IDX},

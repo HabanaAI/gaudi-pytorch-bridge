@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -282,6 +282,8 @@ SharedMetaDataVector IndexSharedMeta(
   return {indexSharedMeta};
 }
 
+using namespace std::literals;
+
 void IndexHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -301,7 +303,7 @@ void IndexHabanaOperator::AddNode(
 
     auto result = BuildOp(
         graph,
-        get_guid_with_precision("index", meta.dtype),
+        get_guid_with_precision("index"sv, meta.dtype),
         std::move(index_input),
         {{meta.shape, meta.dtype, 0}},
         params.get(),
@@ -351,7 +353,7 @@ void IndexHabanaOperator::AddNode(
       const auto& gather_params = FillGatherParams(stack_, size);
       auto gatherOp = BuildOp(
           graph,
-          get_guid_with_precision("gather_fwd", ScalarType()),
+          get_guid_with_precision("gather_fwd"sv, ScalarType()),
           {syn_in(0), syn_in(1)},
           {{outshape, ScalarType(), 0}},
           gather_params.get(),
@@ -450,7 +452,7 @@ void IndexHabanaOperator::AddNode(
     }
     auto indexOp = BuildOp(
         graph,
-        get_guid_with_precision("gather_nd_mxnet_fwd", ScalarType()),
+        get_guid_with_precision("gather_nd_mxnet_fwd"sv, ScalarType()),
         {syn_in(0), catop.get()},
         {{shape, ScalarType()}});
     auto final_shape = ComputeIndexOperatorOutputShape(self, tensorlist);
@@ -593,7 +595,7 @@ void IndexHabanaOperator::AddNode(
             index_dtype,
             syn_in(0), // TBD: NOTE: This needs to be changed for DS
             syn_in(1), // TBD: NOTE: This needs to be changed for DS
-            get_guid_with_precision("range", index_dtype),
+            get_guid_with_precision("range"sv, index_dtype),
             outshape,
             params,
             size,
@@ -687,7 +689,7 @@ void IndexHabanaOperator::AddNode(
         tile_params->repeat[0] = repeats_needed[dim];
         auto rpt_op = BuildOp(
             graph,
-            get_guid_with_precision("tile_fwd", index_dtype),
+            get_guid_with_precision("tile_fwd"sv, index_dtype),
             {reshaped_index.get()},
             {{rpt_outshape, index_dtype}},
             tile_params.get(),
@@ -715,7 +717,7 @@ void IndexHabanaOperator::AddNode(
         tile_params->repeat[0] = repeats_needed[dim];
         auto rpt_op = BuildOp(
             graph,
-            get_guid_with_precision("tile_fwd", index_dtype),
+            get_guid_with_precision("tile_fwd"sv, index_dtype),
             {((index_all_elems[dim]) ? index_tensor_to_use.back().get()
                                      : ReshapeHelper(
                                            graph,
@@ -778,7 +780,7 @@ void IndexHabanaOperator::AddNode(
     std::vector<int64_t> shape = {cat_out_shape[1]};
     auto indexOp = BuildOp(
         graph,
-        get_guid_with_precision("gather_nd_mxnet_fwd", ScalarType()),
+        get_guid_with_precision("gather_nd_mxnet_fwd"sv, ScalarType()),
         {permuted_self_t, catop.get()},
         {{shape, ScalarType()}});
     auto index_out_shape = indexOp[0].pt_shape();
@@ -850,7 +852,7 @@ void SimpleIndexCompileOperator::AddNode(
 
   auto result = BuildOp(
       graph,
-      get_guid_with_precision("index", meta.dtype),
+      get_guid_with_precision("index"sv, meta.dtype),
       std::move(index_input),
       {{meta.shape, meta.dtype, 0}},
       params.get(),

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,8 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
   auto shape_tensor_shape = DimVector{5};
   ns_NonzeroV2::Params params = {};
   std::vector<synTensor> inputs = {self_synin};
-  auto guid = get_guid_with_precision("non_zero_v2_fwd", self_params.dtype);
+  using namespace std::literals;
+  auto guid = get_guid_with_precision("non_zero_v2_fwd"sv, self_params.dtype);
 
   auto shape_tensor_dtype =
       (common::IsInt64Supported() &&

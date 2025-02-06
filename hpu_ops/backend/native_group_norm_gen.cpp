@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -231,11 +231,11 @@ std::vector<sh::tensor> GetBnFwdOutGroupNorm(
   params->momentum = 0.0;
   params->epsilon = 1e-5;
   params->isTraining = true;
-
+  using namespace std::literals;
   return OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("batch_norm_fwd", outputDType),
+      {get_guid_with_precision("batch_norm_fwd"sv, outputDType),
        {input,
         bn_bias_running_mean.get(),
         bn_weight_running_var.get(),
@@ -361,12 +361,12 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
 
     auto subOp = BuildOp(
         graph,
-        get_guid_with_precision("sub_fwd", metas[0].dtype),
+        get_guid_with_precision("sub_fwd"sv, metas[0].dtype),
         {bn_fwd_input.get(), mean_for_bn_fwd.get()},
         {{bn_input_shape, metas[0].dtype}});
     bn_fwd_out = BuildOp(
         graph,
-        get_guid_with_precision("mult_fwd", metas[0].dtype),
+        get_guid_with_precision("mult_fwd"sv, metas[0].dtype),
         {subOp[0].get(), rstd_for_bn_fwd.get()},
         {{bn_input_shape, metas[0].dtype}});
   }
@@ -380,7 +380,7 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
 
   auto grad_weight_mult = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", metas[0].dtype),
+      get_guid_with_precision("mult_fwd"sv, metas[0].dtype),
       {grad_out.syn_t, weightReshaped.get()},
       {{metas[0].shape, metas[0].dtype}});
 
@@ -414,7 +414,7 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
   params->momentum = 0;
   auto bn_bwd = BuildOp(
       graph,
-      get_guid_with_precision("batch_norm_bwd", metas[0].dtype),
+      get_guid_with_precision("batch_norm_bwd"sv, metas[0].dtype),
       {bn_bwd_in.get(),
        bn_bwd_grad.get(),
        mean_casted.get(),
@@ -436,13 +436,13 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
   // WEIGHT
   auto grad_bn_fwd_mult = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", metas[0].dtype),
+      get_guid_with_precision("mult_fwd"sv, metas[0].dtype),
       {grad_out.syn_t, bn_fwd_out_reshaped.get()},
       {{metas[0].shape, metas[0].dtype}});
 
   auto grad_gamma = BuildOp(
       graph,
-      get_guid_with_precision("reduce_sum_multi_dim_fwd", metas[2].dtype),
+      get_guid_with_precision("reduce_sum_multi_dim_fwd"sv, metas[2].dtype),
       {grad_bn_fwd_mult[0].get()},
       {{metas[1].shape, metas[1].dtype, 1}},
       reduce_params.get(),
@@ -451,7 +451,7 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
   // BIAS
   auto grad_beta = BuildOp(
       graph,
-      get_guid_with_precision("reduce_sum_multi_dim_fwd", metas[2].dtype),
+      get_guid_with_precision("reduce_sum_multi_dim_fwd"sv, metas[2].dtype),
       {grad_out.syn_t},
       {{metas[2].shape, metas[2].dtype, 2}},
       reduce_params.get(),

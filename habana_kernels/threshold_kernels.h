@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,12 @@ namespace habana {
 class ThresholdBackwardOperator : public HabanaOperator {
  public:
   ThresholdBackwardOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(get_guid_with_precision("relu_bwd", scalar_type)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "relu_bwd"sv;
+            }(),
+            scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});

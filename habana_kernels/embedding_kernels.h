@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,12 @@ namespace habana {
 class EmbeddingBagSumOperator : public HabanaOperator {
  public:
   EmbeddingBagSumOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("embedding_bag_sum_2d_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "embedding_bag_sum_2d_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY,
@@ -42,7 +46,12 @@ class EmbeddingBagSumOperator : public HabanaOperator {
 class PadOperator : public HabanaOperator {
  public:
   PadOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("pad_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "pad_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -82,7 +91,10 @@ class EmbeddingBagSumBwdKernelModeOperator : public HabanaOperator {
       int device_id,
       c10::ScalarType scalarType)
       : HabanaOperator(get_guid_with_precision(
-            "embedding_bag_sum_mid_lengths_2d_fwd",
+            [] {
+              using namespace std::literals;
+              return "embedding_bag_sum_mid_lengths_2d_fwd"sv;
+            }(),
             scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(

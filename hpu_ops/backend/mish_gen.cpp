@@ -63,57 +63,58 @@ void Mishbackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
+  using namespace std::literals;
   auto sigmoid_out = BuildOp(
       graph,
-      get_guid_with_precision("sigmoid_fwd", ScalarType()),
+      get_guid_with_precision("sigmoid_fwd"sv, ScalarType()),
       {syn_in(1)},
       {{outshape, ScalarType()}});
 
   auto softplus_out = BuildOp(
       graph,
-      get_guid_with_precision("softplus_fwd", ScalarType()),
+      get_guid_with_precision("softplus_fwd"sv, ScalarType()),
       {syn_in(1)},
       {{outshape, ScalarType()}});
 
   auto tanh_out = BuildOp(
       graph,
-      get_guid_with_precision("tanh_fwd", ScalarType()),
+      get_guid_with_precision("tanh_fwd"sv, ScalarType()),
       {softplus_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto mul_out1 = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult"sv, ScalarType()),
       {syn_in(1), sigmoid_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto sq_out = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult"sv, ScalarType()),
       {tanh_out[0].get(), tanh_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto mul_out2 = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult"sv, ScalarType()),
       {mul_out1[0].get(), sq_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto sub_out = BuildOp(
       graph,
-      get_guid_with_precision("sub", ScalarType()),
+      get_guid_with_precision("sub"sv, ScalarType()),
       {mul_out1[0].get(), mul_out2[0].get()},
       {{outshape, ScalarType()}});
 
   auto add_out = BuildOp(
       graph,
-      get_guid_with_precision("add", ScalarType()),
+      get_guid_with_precision("add"sv, ScalarType()),
       {tanh_out[0].get(), sub_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto grad_input = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult"sv, ScalarType()),
       {syn_in(0), add_out[0].get()},
       {{outshape, ScalarType(), 0}});
   syn_out(0) = std::move(grad_input[0]);

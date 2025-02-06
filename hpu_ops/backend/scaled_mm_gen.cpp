@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,8 +108,8 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
           mat2_dtype == at::ScalarType::Float8_e4m3fn,
       "Expected mat2 to be Float8_e5m2 or Float8_e4m3fn matrix got ",
       mat2_dtype);
-
-  std::string guid = get_guid_with_precision("fp8_gemm", out_dtype);
+  using namespace std::literals;
+  std::string guid = get_guid_with_precision("fp8_gemm"sv, out_dtype);
   synTensor bias_syn = bias ? bias->syn_t : nullptr;
   synTensor scale_result_syn = scale_result ? scale_result->syn_t : nullptr;
 

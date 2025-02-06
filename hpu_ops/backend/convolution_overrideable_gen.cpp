@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -312,9 +312,10 @@ void ConvolutionOverrideable::AddNode(
 
     c10::optional<int> final_result_index_0 =
         is_conv_1d ? c10::optional<int>{c10::nullopt} : c10::optional<int>{0};
+    using namespace std::literals;
     auto addOp = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", meta.dtype),
+        get_guid_with_precision("add_fwd"sv, meta.dtype),
         {convOp[0].get(), biasExpanded.get()},
         {{meta.shape, meta.dtype, final_result_index_0}});
     IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(addOp[0], meta.shape, 0);

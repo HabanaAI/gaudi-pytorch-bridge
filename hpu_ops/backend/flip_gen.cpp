@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,11 @@
 
 #include "generated/backend/flip.h"
 #define GUID "reverse"
+#define GUIDsv "reverse"sv
 
 namespace habana {
+
+using namespace std::literals;
 
 SharedMetaDataVector FlipSharedMeta(
     const at::Stack& stack,
@@ -77,7 +80,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     intermediate_output = BuildOp(
         graph,
-        get_guid_with_precision(GUID, ScalarType()),
+        get_guid_with_precision(GUIDsv, ScalarType()),
         {intermediate_output_itr[i], const_dim.get()},
         {{outshape, ScalarType()}});
 
@@ -91,7 +94,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto flip_output = BuildOp(
       graph,
-      get_guid_with_precision(GUID, ScalarType()),
+      get_guid_with_precision(GUIDsv, ScalarType()),
       {intermediate_output_itr[dim_list_size - 1], final_const_dim.get()},
       {{outshape, ScalarType(), 0}});
 

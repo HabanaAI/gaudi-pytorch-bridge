@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,6 +71,8 @@ OutputMetaDataVector BaddbmmMeta(const at::Stack& stack) {
   return {meta};
 }
 
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> ComputeBetaSide(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -85,7 +87,7 @@ static std::vector<synapse_helpers::tensor> ComputeBetaSide(
   std::vector<synapse_helpers::tensor> beta_side_out = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult", meta.dtype),
+      {get_guid_with_precision("mult"sv, meta.dtype),
        std::move(node_inputs),
        {{meta.shape, meta.dtype, final_idx}}});
 
@@ -117,7 +119,7 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult", meta.dtype),
+        {get_guid_with_precision("mult"sv, meta.dtype),
          std::move(mul_node_inputs),
          {{meta.shape, meta.dtype, final_idx}}});
     return alpha_mul_out;
@@ -159,7 +161,7 @@ static std::vector<synapse_helpers::tensor> BaddbMMCommon(
     baddbmm_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("add", meta.dtype),
+        {get_guid_with_precision("add"sv, meta.dtype),
          std::move(add_node_inputs),
          {{meta.shape, meta.dtype, 0}}});
   }

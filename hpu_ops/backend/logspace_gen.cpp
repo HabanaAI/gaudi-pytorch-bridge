@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,6 +135,7 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph, 1.f, castNeeded ? at::kInt : outType, meta.shape, 0);
     syn_out(0) = std::move(result);
   } else {
+    using namespace std::literals;
     std::vector<synapse_helpers::tensor> range;
     if (start != end && len != 1) {
       size_t size = 0;
@@ -142,7 +143,7 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
       range = BuildOp(
           graph,
-          get_guid_with_precision("range", outType),
+          get_guid_with_precision("range"sv, outType),
           {},
           {{meta.shape, outType}},
           params.get(),
@@ -155,7 +156,7 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto pow = BuildOp(
         graph,
-        get_guid_with_precision("pow_fwd", outType),
+        get_guid_with_precision("pow_fwd"sv, outType),
         {constant.get(), range[0].get()},
         {{meta.shape, outType, finalIndex}});
 

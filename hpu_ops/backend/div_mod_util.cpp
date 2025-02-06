@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,10 +49,12 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
     std::reverse(node_output_attr.begin(), node_output_attr.end());
   }
 
+  using namespace std::literals;
+
   auto output = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("div_mod_fwd", op->ScalarType()),
+      {get_guid_with_precision("div_mod_fwd"sv, op->ScalarType()),
        std::move(inputs),
        node_output_attr,
        params.get(),

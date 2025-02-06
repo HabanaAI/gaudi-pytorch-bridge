@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,9 +53,10 @@ void BinCount::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     inputs.push_back(weights.value().syn_t);
   }
 
+  using namespace std::literals;
   auto bincount = BuildOp(
       graph,
-      get_guid_with_precision("bincount", meta.dtype),
+      get_guid_with_precision("bincount"sv, meta.dtype),
       std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
       (void*)&params,

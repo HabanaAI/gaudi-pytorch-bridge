@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,11 @@ static auto BuildErfc(
     at::ScalarType dtype,
     at::IntArrayRef outshape,
     int out_index) {
+  using namespace std::literals;
   auto erf = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("erf_fwd", dtype),
+      {get_guid_with_precision("erf_fwd"sv, dtype),
        {input},
        {{outshape, dtype}}});
 
@@ -36,7 +37,7 @@ static auto BuildErfc(
   return OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("sub", dtype),
+      {get_guid_with_precision("sub"sv, dtype),
        {constant.get(), erf[0].get()},
        {{outshape, dtype, out_index}}});
 }

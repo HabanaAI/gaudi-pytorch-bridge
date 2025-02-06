@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,14 +53,15 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
   // optimizations as GC passes.
 
   if (self_dim == other_dim or (self_dim == 2 and other_dim == 1)) {
+    using namespace std::literals;
     if (self_dim == other_dim) {
       if (self_dim == 1) {
-        SetGuid(get_guid_with_precision("dot_fwd", self_dtype));
+        SetGuid(get_guid_with_precision("dot_fwd"sv, self_dtype));
       } else if (self_dim == 2) {
         SetGuid("gemm");
       }
     } else {
-      SetGuid(get_guid_with_precision("mv_fwd", self_dtype));
+      SetGuid(get_guid_with_precision("mv_fwd"sv, self_dtype));
     }
     auto output = OpBackend::BuildNode(
         this,

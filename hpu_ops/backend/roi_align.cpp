@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@ static auto PrepareRois(
     synTensor syn_rois,
     const std::vector<int64_t>& rois_shape,
     const at::ScalarType& dtype) {
+  using namespace std::literals;
   auto rois_outputs = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("prepare_rois_fwd", dtype),
+      {get_guid_with_precision("prepare_rois_fwd"sv, dtype),
        {syn_rois},
        {{{rois_shape[0], rois_shape[1] - 1}, at::ScalarType::Float},
         {{rois_shape[0]}, at::ScalarType::Int}}});

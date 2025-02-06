@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -275,15 +275,16 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(), // TBD: not reqd?
       output_metadata.at(0).persistent);
+  using namespace std::literals;
   if (kernel_mode == 0) {
     auto guid = get_guid_with_precision(
-        "gather_with_valid_count_2d", input.scalar_type());
+        "gather_with_valid_count_2d"sv, input.scalar_type());
     SetGuid(guid);
     p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin() + 2);
     p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin() + 2);
   } else if (kernel_mode == 2) {
     auto guid = get_guid_with_precision(
-        "embedding_bag_sum_small_lengths_2d_fwd", input.scalar_type());
+        "embedding_bag_sum_small_lengths_2d_fwd"sv, input.scalar_type());
     SetGuid(guid);
   }
   AllocateSynapseOutput(graph, output, output_metadata.at(0));

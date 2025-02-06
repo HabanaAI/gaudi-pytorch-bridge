@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,10 +93,11 @@ static synapse_helpers::tensor AnyCommonFunc(
   ns_Reduction::ParamsV2 reductionParams =
       FillReductionParams(rank, dims, keepdim);
 
+  using namespace std::literals;
   auto reduce_sum = op->BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_sum_multi_dim_fwd", dtype),
+      {get_guid_with_precision("reduce_sum_multi_dim_fwd"sv, dtype),
        {abs[0].get()},
        {{outshape, dtype}},
        &reductionParams,

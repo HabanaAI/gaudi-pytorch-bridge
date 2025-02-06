@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -184,7 +184,8 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
 
     std::vector<synTensor> syn_in{synInput1.get(), synInput2.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
-    guid_ = get_guid_with_precision("mult", c10::ScalarType::Int);
+    using namespace std::literals;
+    guid_ = get_guid_with_precision("mult"sv, c10::ScalarType::Int);
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),

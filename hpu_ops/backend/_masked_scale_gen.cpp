@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,10 +53,10 @@ void MaskedScale::AddNode(
   auto scale = stack.at(2).toScalar().toDouble();
   scale = 1.0 / (1.0 - 1.0 / scale);
   const auto meta = MaskedScaleMeta(stack)[0];
-
+  using namespace std::literals;
   auto mult = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", meta.dtype),
+      get_guid_with_precision("mult_fwd"sv, meta.dtype),
       {syn_in(0), syn_in(1)},
       {{meta.shape, meta.dtype}});
 
@@ -64,7 +64,7 @@ void MaskedScale::AddNode(
 
   auto output = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", meta.dtype),
+      get_guid_with_precision("mult_fwd"sv, meta.dtype),
       {mult[0].get(), scale_tensor.get()},
       {{meta.shape, meta.dtype, 0}});
 

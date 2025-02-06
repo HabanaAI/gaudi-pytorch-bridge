@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,9 +86,11 @@ void Xlog1PyOperator::AddNode(
   auto meta = XlogYMeta(stack)[0];
   auto other = stack_tensor(stack, 1);
 
+  using namespace std::literals;
+
   auto logy = BuildOp(
       graph,
-      get_guid_with_precision("log1p_fwd", meta.dtype),
+      get_guid_with_precision("log1p_fwd"sv, meta.dtype),
       {ShouldCastToOutputType(other.scalar_type(), meta.dtype)
            ? OpBackend::BuildCast(
                  this,
@@ -103,7 +105,7 @@ void Xlog1PyOperator::AddNode(
 
   auto xlogy = BuildOp(
       graph,
-      get_guid_with_precision("mult", meta.dtype),
+      get_guid_with_precision("mult"sv, meta.dtype),
       {syn_in(0), logy[0].get()},
       {{meta.shape, meta.dtype, 0}});
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023-2024 Intel Corporation
+ * Copyright (c) 2023-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -175,6 +175,8 @@ ns_CastKernel::Params GetCastParams(
 
 /********** CastToFp8 **********/
 
+using namespace std::literals;
+
 void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
@@ -193,7 +195,7 @@ void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  auto guid = get_guid_with_precision("convert_to_fp8", src_type);
+  auto guid = get_guid_with_precision("convert_to_fp8"sv, src_type);
 
   auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
@@ -259,7 +261,7 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   ValidateScaleShape(scale, scale_shape);
 
-  auto guid = get_guid_with_precision("convert_to_fp8", src_type);
+  auto guid = get_guid_with_precision("convert_to_fp8"sv, src_type);
 
   auto meta = CastToFp8V2Meta(stack);
   std::vector<synTensor> syn_inputs{syn_in(0)};
@@ -324,7 +326,7 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       dst_type == at::ScalarType::Float or dst_type == at::ScalarType::BFloat16,
       "CastFromFp8 output dtype must be equal to float or bfloat16.");
 
-  auto guid = get_guid_with_precision("convert_from_fp8", dst_type);
+  auto guid = get_guid_with_precision("convert_from_fp8"sv, dst_type);
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
   std::vector<sh::tensor> adjusted_scale;
@@ -377,7 +379,7 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
     TORCH_CHECK(false, e.what());
   }
 
-  std::string guid = get_guid_with_precision("fp8_gemm", out_type);
+  std::string guid = get_guid_with_precision("fp8_gemm"sv, out_type);
 
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
   if (scaleAOpt) {
@@ -460,7 +462,7 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   bool accumulate = stackGetter.getNextInput<bool>();
   auto scale_shape = stackGetter.getNextInput<c10::IValue>();
 
-  std::string guid = get_guid_with_precision("fp8_gemm", out_type);
+  std::string guid = get_guid_with_precision("fp8_gemm"sv, out_type);
 
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
   std::vector<sh::tensor> adjusted_scale;

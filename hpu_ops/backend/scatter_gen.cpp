@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,6 +66,8 @@ SharedMetaDataVector ScatterReduceSharedMeta(
   return {scatterReduceSharedMeta};
 }
 
+using namespace std::literals;
+
 void ScatterOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -86,7 +88,7 @@ void ScatterOperator::AddNode(
 
     auto scatterkernel = BuildOp(
         graph,
-        get_guid_with_precision("scatter_fwd", ScalarType()),
+        get_guid_with_precision("scatter_fwd"sv, ScalarType()),
         {syn_in(0), syn_in(1), syn_in(2)},
         {{outshape, ScalarType(), 0}},
         &params,
@@ -124,7 +126,7 @@ void ScatterOperator::AddNode(
     params.value = val.toDouble();
     auto scatterkernel = BuildOp(
         graph,
-        get_guid_with_precision("scatter_value_fwd", ScalarType()),
+        get_guid_with_precision("scatter_value_fwd"sv, ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}},
         &params,
@@ -163,7 +165,7 @@ void ScatterWithReduceOperator::AddNode(
 
   auto scatterkernel = BuildOp(
       graph,
-      get_guid_with_precision("scatter_reduce_fwd", ScalarType()),
+      get_guid_with_precision("scatter_reduce_fwd"sv, ScalarType()),
       std::move(syn_input_tensors),
       {{outshape, ScalarType(), 0}},
       &params,

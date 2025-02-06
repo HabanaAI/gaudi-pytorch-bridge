@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,9 +143,10 @@ void Avgpool2dBwd::AddNode(
   }
   std::vector<synTensor> grad = {syn_in(0)};
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
+  using namespace std::literals;
   auto avg_pool = BuildOp(
       graph,
-      get_guid_with_precision("avg_pool_2d_bwd", meta.dtype),
+      get_guid_with_precision("avg_pool_2d_bwd"sv, meta.dtype),
       std::move(grad),
       {{meta.shape, meta.dtype, 0}},
       params.get(),

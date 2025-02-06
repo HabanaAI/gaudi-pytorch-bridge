@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,12 @@ class MulInplaceOperator : public BinaryInplaceWrapperOperator {
   MulInplaceOperator(int device_id, c10::ScalarType scalarType)
       : BinaryInplaceWrapperOperator(
             device_id,
-            get_guid_with_precision("mult", scalarType)) {
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "mult"sv;
+                }(),
+                scalarType)) {
     scalarType_ = scalarType;
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
@@ -103,7 +108,12 @@ class AddInplaceOperator : public BinaryInplaceWrapperOperatorWithAlpha {
   AddInplaceOperator(int device_id, c10::ScalarType scalarType)
       : BinaryInplaceWrapperOperatorWithAlpha(
             device_id,
-            get_guid_with_precision("add_fwd", scalarType)) {
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "add_fwd"sv;
+                }(),
+                scalarType)) {
     scalarType_ = scalarType;
   }
 };

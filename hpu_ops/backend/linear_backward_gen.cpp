@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,9 +60,9 @@ void LinearBackward::AddNode(
   auto params = FillLinearBwdParams(stack, size);
 
   std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
-
+  using namespace std::literals;
   std::string guid =
-      get_guid_with_precision("linear_temp_bwd", meta.at(0).dtype);
+      get_guid_with_precision("linear_temp_bwd"sv, meta.at(0).dtype);
 
   std::vector<synapse_helpers::tensor> linear_bwd = BuildOp(
       graph,

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,9 +59,10 @@ void Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = GeluMeta(stack)[0];
   size_t size = 0;
   auto params = FillGeluFwdParams(stack, size);
+  using namespace std::literals;
   auto gelu = BuildOp(
       graph,
-      get_guid_with_precision("gelu_fwd", meta.dtype),
+      get_guid_with_precision("gelu_fwd"sv, meta.dtype),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}, {meta.shape, meta.dtype}},
       params.get(),

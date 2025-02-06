@@ -150,6 +150,8 @@ static void DummyOutput(
       p_context_->pt_outputs_.at(1), graph, persistent, external));
 }
 
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> ReduceWeight(
     OpBackend* op,
     const OutputMetaData& meta,
@@ -162,7 +164,7 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
       graph,
       {
 
-          get_guid_with_precision("reduce_sum_fwd", meta.dtype),
+          get_guid_with_precision("reduce_sum_fwd"sv, meta.dtype),
           std::move(input),
           {{1, meta.dtype}},
           &reduce_params,
@@ -198,7 +200,7 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
   auto targetMappedToWeights = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("gather_elements_fwd", weights.scalar_type()),
+      {get_guid_with_precision("gather_elements_fwd"sv, weights.scalar_type()),
        std::vector<synTensor>{
            std::move(inputs[synWeightIdx]), std::move(flattenTarget.get())},
        {{targetFlattenSize, weights.scalar_type()}},
@@ -210,7 +212,7 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
   return OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_sum_fwd", meta.dtype),
+      {get_guid_with_precision("reduce_sum_fwd"sv, meta.dtype),
        std::vector<synTensor>{std::move(targetMappedToWeights[0].get())},
        {{1, meta.dtype}},
        &reduceParams,
@@ -362,7 +364,7 @@ void NllLossBwd::AddNode(
   } else { // weight is not none
     auto nll_loss = BuildOp(
         graph,
-        get_guid_with_precision("cnll_loss_bwd", meta.dtype),
+        get_guid_with_precision("cnll_loss_bwd"sv, meta.dtype),
         {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
         {{meta.shape, meta.dtype, 0}},
         params.get(),

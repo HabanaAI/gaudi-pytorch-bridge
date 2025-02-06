@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,9 +76,9 @@ void SelectBackward::AddNode(
 
   const auto grad_scalar_type = grad.pt_t.scalar_type();
   const auto grad_shape = grad.pt_t.sizes();
-
+  using namespace std::literals;
   std::string guid =
-      get_guid_with_precision("strided_slice_grad", grad_scalar_type);
+      get_guid_with_precision("strided_slice_grad"sv, grad_scalar_type);
 
   synSliceParamsNDims params;
 

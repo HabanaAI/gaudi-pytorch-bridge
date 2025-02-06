@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,10 +55,11 @@ void KvReorderCommon::AddNode(
       beam_idx.pt_t.dim() == 1, "Beam_idx tensor must have dimensions 1");
 
   auto shape = self.pt_t.sizes().vec();
+  using namespace std::literals;
   auto selective_gather = BuildNode(
       this,
       graph,
-      {get_guid_with_precision("selective_gather_fwd", ScalarType()),
+      {get_guid_with_precision("selective_gather_fwd"sv, ScalarType()),
        {self.syn_t, start.syn_t, end.syn_t, beam_idx.syn_t},
        {{shape, ScalarType(), 0}}});
 

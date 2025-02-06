@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,6 +129,8 @@ OutputMetaDataVector DeformConv2dOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
+using namespace std::literals;
+
 void DeformConv2d::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -147,7 +149,7 @@ void DeformConv2d::AddNode(
   auto meta = DeformConv2dOutputMeta(stack)[0];
   syn_out(0) = std::move(BuildOp(
       graph,
-      get_guid_with_precision("deform_conv", input.scalar_type()),
+      get_guid_with_precision("deform_conv"sv, input.scalar_type()),
       std::move(syn_inputs),
       {{meta.shape, meta.dtype, 0}},
       &params,
@@ -181,7 +183,7 @@ void DeformConv2dBackward::AddNode(
   auto meta = DeformConv2dBackwardOutputMeta(stack);
   auto grads = BuildOp(
       graph,
-      get_guid_with_precision("deform_conv_bwd", input.scalar_type()),
+      get_guid_with_precision("deform_conv_bwd"sv, input.scalar_type()),
       std::move(syn_inputs),
       {{meta[0].shape, meta[0].dtype, 0},
        {meta[1].shape, meta[1].dtype, 1},

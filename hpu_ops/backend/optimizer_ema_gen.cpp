@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,9 +50,10 @@ void OptimizerFusedEmaOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string add_node = get_guid_with_precision("add_fwd", ScalarType());
-  std::string sub_node = get_guid_with_precision("sub_fwd", ScalarType());
-  std::string mul_node = get_guid_with_precision("mult_fwd", ScalarType());
+  using namespace std::literals;
+  std::string add_node = get_guid_with_precision("add_fwd"sv, ScalarType());
+  std::string sub_node = get_guid_with_precision("sub_fwd"sv, ScalarType());
+  std::string mul_node = get_guid_with_precision("mult_fwd"sv, ScalarType());
 
   int64_t scalar_shape[] = {1};
   auto c_one = ConstantHelper(graph, 1.0f, ScalarType(), scalar_shape);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,10 +141,11 @@ static auto BuildBinary(
   if (alpha.has_value() and alpha.value().toFloat() != 1.) {
     constant = std::make_unique<synapse_helpers::tensor>(
         OpBackend::BuildConstant(op, graph, *alpha, result_type));
+    using namespace std::literals;
     mul = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult", result_type),
+        {get_guid_with_precision("mult"sv, result_type),
          {inputs[OTHER_INDEX], constant->get()},
          {{sizes[OTHER_INDEX], result_type}}});
     inputs[OTHER_INDEX] = mul[0].get();

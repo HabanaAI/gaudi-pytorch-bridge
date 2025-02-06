@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -368,6 +368,17 @@ std::string get_guid_with_precision(
     const std::string_view guid,
     c10::ScalarType dtype,
     bool use_int64 = false);
+
+/**
+ * For performance reasons (save on invoking strlen in runtime) prefer
+ * string_view literal over char* literal.
+ * Add "using namespace std::literals" and "sv" suffix to literal and it will
+ * select proper overload (e.g., "mult"sv)
+ */
+std::string get_guid_with_precision(
+    const char* const,
+    c10::ScalarType,
+    bool = false) = delete;
 
 //
 // Generic Operator implementation class, holds the operator context

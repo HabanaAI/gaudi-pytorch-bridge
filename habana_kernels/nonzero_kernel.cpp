@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@
 
 using namespace torch;
 using namespace habana;
+
+using namespace std::literals;
 
 void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   TORCH_CHECK(
@@ -134,7 +136,7 @@ InferOutputMetaRetType NonZeroOperator::InferOutputMeta(
     return out;
 
   } else {
-    SetGuid(get_guid_with_precision("non_zero_v2_fwd", self.scalar_type()));
+    SetGuid(get_guid_with_precision("non_zero_v2_fwd"sv, self.scalar_type()));
     InferOutputMetaRetType out;
     // (i) This output_describing_shape_tensor is created to be used by
     // "reshape" node within CGUID. This should be created within CGUID in
@@ -222,7 +224,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
         graph.is_dynamic_graph() ? true : false);
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
-    SetGuid(get_guid_with_precision("non_zero_v2_fwd", self.scalar_type()));
+    SetGuid(get_guid_with_precision("non_zero_v2_fwd"sv, self.scalar_type()));
 
     // (i) This output_describing_shape_tensor is created to be used by
     // "reshape" node within CGUID. This should be created within CGUID in

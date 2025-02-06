@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,12 @@ class GtOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            get_guid_with_precision("greater_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "greater_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 class EqOperator : public CompareWrapperOperator {
@@ -100,7 +105,12 @@ class EqOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            get_guid_with_precision("equal_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "equal_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 class LtOperator : public CompareWrapperOperator {
@@ -109,7 +119,12 @@ class LtOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            get_guid_with_precision("less_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "less_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 } // namespace habana

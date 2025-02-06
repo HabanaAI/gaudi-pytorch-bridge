@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,6 +102,8 @@ OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
   return {meta};
 }
 
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> ComputeBetaSide(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -115,7 +117,7 @@ static std::vector<synapse_helpers::tensor> ComputeBetaSide(
   std::vector<synapse_helpers::tensor> beta_side_out = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult", op->ScalarType()),
+      {get_guid_with_precision("mult"sv, op->ScalarType()),
        std::move(node_inputs),
        {{output_shape, op->ScalarType(), final_idx}}});
 
@@ -192,7 +194,7 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult", op->ScalarType()),
+        {get_guid_with_precision("mult"sv, op->ScalarType()),
          std::move(mul_node_inputs),
          {{output_shape, op->ScalarType(), final_idx}}});
     return alpha_mul_out;
@@ -244,7 +246,7 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
     addmm_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("add", op->ScalarType()),
+        {get_guid_with_precision("add"sv, op->ScalarType()),
          std::move(add_node_inputs),
          {{output_shape, op->ScalarType(), 0}}});
   }
@@ -265,7 +267,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // Formula: out = beta * input0 + alpha * (input1 @ input2)
   // GEMM returns higher precision dtype, so input0 has to be (bf16/fp32).
   auto guid =
-      get_guid_with_precision("addmm", stack_tensor(stack, 1).scalar_type());
+      get_guid_with_precision("addmm"sv, stack_tensor(stack, 1).scalar_type());
 
   if (shouldUseParams) {
     ns_AddmmKernel::Params params{};
@@ -350,7 +352,8 @@ void AddMMActivation::AddNode(
     }
     auto act = BuildOp(
         graph,
-        get_guid_with_precision(use_gelu ? "gelu_fwd" : "relu_fwd", meta.dtype),
+        get_guid_with_precision(
+            use_gelu ? "gelu_fwd"sv : "relu_fwd"sv, meta.dtype),
         {result[0].get()},
         act_output_attr);
     syn_out(0) = std::move(act[0]);

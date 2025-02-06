@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,10 +86,11 @@ static void copy_impl(
 
     ns_Copy::Params params;
     params.isOutputBool = dst_type == at::ScalarType::Bool;
+    using namespace std::literals;
     output = std::move(OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("copy_fwd", dst_type),
+        {get_guid_with_precision("copy_fwd"sv, dst_type),
          inputs,
          {{meta[0].shape, meta[0].dtype, 0}},
          &params,

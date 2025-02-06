@@ -356,6 +356,8 @@ OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack) {
   return meta;
 }
 
+using namespace std::literals;
+
 void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool fused_weights = !stack.at(5).isTensorList();
   auto num_experts = stack.at(3).toTensorList().size();
@@ -383,7 +385,7 @@ void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe", meta[0].dtype),
+      {get_guid_with_precision("moe"sv, meta[0].dtype),
        std::move(inputs),
        output_attrs,
        params.get(),
@@ -434,7 +436,7 @@ void MixtureOfExpertsFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe_fwd", meta[0].dtype),
+      {get_guid_with_precision("moe_fwd"sv, meta[0].dtype),
        std::move(inputs),
        output_attrs,
        params.get(),
@@ -488,7 +490,7 @@ void MixtureOfExpertsFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe", hidden_states.scalar_type()),
+      {get_guid_with_precision("moe"sv, hidden_states.scalar_type()),
        std::move(inputs),
        {{meta.shape, meta.dtype, 0}},
        params.get(),
@@ -535,7 +537,7 @@ void MixtureOfExpertsFp8Scalars::AddNode(
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe", hidden_states.scalar_type()),
+      {get_guid_with_precision("moe"sv, hidden_states.scalar_type()),
        std::move(inputs),
        {{meta.shape, meta.dtype, 0}},
        params.get(),
@@ -574,7 +576,7 @@ void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe_bwd", meta[0].dtype),
+      {get_guid_with_precision("moe_bwd"sv, meta[0].dtype),
        std::move(inputs),
        output_attrs,
        params.get(),
@@ -613,7 +615,7 @@ void MixtureOfExpertsRecompBwd::AddNode(
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe_recomp_bwd", meta[0].dtype),
+      {get_guid_with_precision("moe_recomp_bwd"sv, meta[0].dtype),
        std::move(inputs),
        output_attrs,
        params.get(),

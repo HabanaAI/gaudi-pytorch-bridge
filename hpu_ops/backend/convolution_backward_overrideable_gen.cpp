@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 using namespace synapse_helpers::layouts;
 
 namespace habana {
+using namespace std::literals;
 
 static synapse_helpers::tensor ComputeBiasGradEager(
     habana::OpBackend* op,
@@ -57,7 +58,7 @@ static synapse_helpers::tensor ComputeBiasGradEager(
     auto multi_dim_reduce_sum = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("reduce_sum_multi_dim", op->ScalarType()),
+        {get_guid_with_precision("reduce_sum_multi_dim"sv, op->ScalarType()),
          std::move(syn_grad_output),
          {{{grad_output.sizes()[channel_dim]}, grad_output.scalar_type(), 2}},
          &params,
@@ -111,7 +112,7 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
   } else {
     at::ScalarType scalar_type = grad_output.scalar_type();
     std::string guid =
-        habana::get_guid_with_precision("reduce_sum_fwd", scalar_type);
+        habana::get_guid_with_precision("reduce_sum_fwd"sv, scalar_type);
 
     std::vector<synapse_helpers::tensor> syn_tmp;
     std::vector<int64_t> pyt_shape = grad_output.sizes().vec();

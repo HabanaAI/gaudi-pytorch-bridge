@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,6 +89,8 @@ void LazyExpandIntoJaggedPermute::AddNode(
   syn_out(0) = std::move(permuted[0]);
 }
 
+using namespace std::literals;
+
 LazyBoundsCheckIndices::LazyBoundsCheckIndices(
     int device_id,
     c10::ScalarType scalar_type)
@@ -119,7 +121,7 @@ void LazyBoundsCheckIndices::AddNode(
   }
 
   std::string guid =
-      get_guid_with_precision("bounds_check_indices_fwd", ScalarType());
+      get_guid_with_precision("bounds_check_indices_fwd"sv, ScalarType());
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {indices.pt_t.sizes(), indices.pt_t.scalar_type(), 0},
@@ -161,7 +163,7 @@ void LazySplitPermuteCat::AddNode(
   auto dims = stackGetter.getNextInput<int>();
 
   std::string guid = get_guid_with_precision(
-      "split_permute_cat_fwd", input.pt_t.scalar_type());
+      "split_permute_cat_fwd"sv, input.pt_t.scalar_type());
 
   ns_SplitPermuteCat::Params params;
   params.batchSize = batchSize;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,6 +163,8 @@ HabanaRandomBase::HabanaRandomBase(
           false),
       is_deterministic(is_deterministic) {}
 
+using namespace std::literals;
+
 void HabanaRandomBase::AddNodeCommon(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
@@ -184,7 +186,7 @@ void HabanaRandomBase::AddNodeCommon(
   }
   inputs.push_back(syn_in(0));
   if (guid_.find("habana_seed_generator") != std::string::npos) {
-    SetGuid(get_guid_with_precision("philox_random_uniform", dtype));
+    SetGuid(get_guid_with_precision("philox_random_uniform"sv, dtype));
     inputs.push_back(syn_in(1));
   }
   if ((guid_.find("habana_seed_generator") == std::string::npos) &&
@@ -349,7 +351,7 @@ static std::vector<synapse_helpers::tensor> HabanaRandintCommon(
     update_guid_dtype(guid, "i16");
     out_attr.dtype = c10::ScalarType::Short;
   } else if (c10::isFloatingType(dtype)) {
-    post_op_guid = get_guid_with_precision("floor_fwd", dtype);
+    post_op_guid = get_guid_with_precision("floor_fwd"sv, dtype);
   } else {
     out_attr.final_result_index = idx;
   }

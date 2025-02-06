@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,12 +141,12 @@ void ReflectionPadBwd::AddNode(
     }
   }
   auto meta = ReflectionPadBackwardMeta(stack)[0];
-
+  using namespace std::literals;
   // dropping off the second input to tpc kernel since it
   // expects only 1 input tensor
   auto reflection_pad = BuildOp(
       graph,
-      get_guid_with_precision("pad_bwd", ScalarType()),
+      get_guid_with_precision("pad_bwd"sv, ScalarType()),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}},
       params.get(),

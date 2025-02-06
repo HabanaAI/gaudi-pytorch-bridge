@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,6 +206,8 @@ std::shared_ptr<void> FillPhiloxUniformParams(
   return params;
 }
 
+using namespace std::literals;
+
 synapse_helpers::tensor NormalTensorHelper(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -233,7 +235,7 @@ synapse_helpers::tensor NormalTensorHelper(
   auto normal = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("random_normal_fwd", meta.dtype),
+      {get_guid_with_precision("random_normal_fwd"sv, meta.dtype),
        inputs,
        {{meta.shape, meta.dtype}},
        params.get(),
@@ -247,13 +249,13 @@ synapse_helpers::tensor NormalTensorHelper(
       auto mulOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("mult_fwd", meta.dtype),
+          {get_guid_with_precision("mult_fwd"sv, meta.dtype),
            {stddev_tensor.get(), normal[0].get()},
            {{meta.shape, meta.dtype}}});
       auto addOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("add_fwd", meta.dtype),
+          {get_guid_with_precision("add_fwd"sv, meta.dtype),
            {syn_in0, mulOp[0].get()},
            {{meta.shape, meta.dtype, 0}}});
 
@@ -262,7 +264,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto addOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("add_fwd", meta.dtype),
+          {get_guid_with_precision("add_fwd"sv, meta.dtype),
            {syn_in0, normal[0].get()},
            {{meta.shape, meta.dtype, 0}}});
       return std::move(addOp[0]);
@@ -274,7 +276,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto mulOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("mult_fwd", meta.dtype),
+          {get_guid_with_precision("mult_fwd"sv, meta.dtype),
            {syn_in0,
             normal[0].get()}, // in this variant syn_in0 is stddev tensor
            {{meta.shape, meta.dtype}}});
@@ -283,7 +285,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto addOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("add_fwd", meta.dtype),
+          {get_guid_with_precision("add_fwd"sv, meta.dtype),
            {mean_tensor.get(), mulOp[0].get()},
            {{meta.shape, meta.dtype, 0}}});
       return std::move(addOp[0]);
@@ -291,7 +293,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto mulOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("mult_fwd", meta.dtype),
+          {get_guid_with_precision("mult_fwd"sv, meta.dtype),
            {syn_in0,
             normal[0].get()}, // in this variant syn_in0 is stddev tensor
            {{meta.shape, meta.dtype, 0}}});
@@ -301,13 +303,13 @@ synapse_helpers::tensor NormalTensorHelper(
     auto mulOp = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult_fwd", meta.dtype),
+        {get_guid_with_precision("mult_fwd"sv, meta.dtype),
          {syn_in1, normal[0].get()},
          {{meta.shape, meta.dtype}}});
     auto addOp = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("add_fwd", meta.dtype),
+        {get_guid_with_precision("add_fwd"sv, meta.dtype),
          {syn_in0, mulOp[0].get()},
          {{meta.shape, meta.dtype, 0}}});
     return std::move(addOp[0]);
@@ -336,7 +338,7 @@ synapse_helpers::tensor NormalFloatFloatHelper(
   auto normal = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("random_normal_fwd", meta.dtype),
+      {get_guid_with_precision("random_normal_fwd"sv, meta.dtype),
        inputs,
        {{meta.shape, meta.dtype, 0}},
        params.get(),
@@ -616,7 +618,7 @@ void RandomSeedTensorInputIntegers::AddNode(
     update_guid_dtype(guid_, "i16");
     out_attr.dtype = c10::ScalarType::Short;
   } else if (c10::isFloatingType(dtype)) {
-    post_op_guid = get_guid_with_precision("floor_fwd", dtype);
+    post_op_guid = get_guid_with_precision("floor_fwd"sv, dtype);
   } else {
     out_attr.final_result_index = 0;
   }

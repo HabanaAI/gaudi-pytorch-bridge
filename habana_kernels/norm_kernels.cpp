@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,7 +155,8 @@ void NormOperator::AddL0NormNode(
   stack.emplace_back(IValue(0.0));
   ne_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
-  std::string node_type = get_guid_with_precision("cast_i8_to", scalar_type);
+  using namespace std::literals;
+  std::string node_type = get_guid_with_precision("cast_i8_to"sv, scalar_type);
   auto cast1 = make_operator<CastOperator>(device_id, node_type);
   cast1->SetSynapseInput(ne_op->GetSynOutputs()[0]);
   stack.emplace_back(IValue(ne_op->GetOutputs()[0]));

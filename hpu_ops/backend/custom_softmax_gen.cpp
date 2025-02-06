@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@ void CustomSoftmax::AddNode(
   params.flavor = flavor;
 
   if (flavor == 0) {
-    SetGuid(get_guid_with_precision("softmax_fwd", ScalarType()));
+    using namespace std::literals;
+    SetGuid(get_guid_with_precision("softmax_fwd"sv, ScalarType()));
     // For flavor=0, the classic softmax_fwd is used. In theory
     // it should get ns_Softmax::Params with dim=0, but luckily it has the same
     // size and param type as ns_CustomSoftmax. To make code simpler, especially

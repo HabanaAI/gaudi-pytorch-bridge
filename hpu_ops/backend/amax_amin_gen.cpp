@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 namespace sh = synapse_helpers;
 
 namespace habana {
+using namespace std::literals;
 
 static std::tuple<at::Tensor, at::DimVector, bool> ParseSignature(
     const at::Stack& stack) {
@@ -30,9 +31,10 @@ static std::tuple<at::Tensor, at::DimVector, bool> ParseSignature(
   const bool is_dim_none = stack.size() == 1 || stack.at(1).isNone();
   const bool keepdim = stack.size() >= 3 && stack.at(2).toBool();
 
-  at::DimVector dim_vec = is_dim_none ? at::DimVector{}
-      : stack.at(1).isInt()           ? at::DimVector{stack.at(1).toInt()}
-                                      : stack.at(1).toDimVector();
+  at::DimVector dim_vec = is_dim_none
+      ? at::DimVector{}
+      : stack.at(1).isInt() ? at::DimVector{stack.at(1).toInt()}
+                            : stack.at(1).toDimVector();
   return {self, dim_vec, keepdim};
 }
 
@@ -107,8 +109,8 @@ void Aminmax::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 
   std::array<std::string, 2> guids = {
-      get_guid_with_precision("reduce_min_multi_dim_fwd", meta.dtype),
-      get_guid_with_precision("reduce_max_multi_dim_fwd", meta.dtype),
+      get_guid_with_precision("reduce_min_multi_dim_fwd"sv, meta.dtype),
+      get_guid_with_precision("reduce_max_multi_dim_fwd"sv, meta.dtype),
   };
 
   for (size_t i = 0; i < guids.size(); ++i) {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,12 @@ namespace habana {
 class RandomShuffleOperator : public HabanaOperator {
  public:
   RandomShuffleOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("random_shuffle_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "random_shuffle_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -39,7 +43,12 @@ class RandomShuffleOperator : public HabanaOperator {
 class RandpermOperator : public HabanaOperator {
  public:
   RandpermOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("randperm", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "randperm"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 

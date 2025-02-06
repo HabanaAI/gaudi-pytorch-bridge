@@ -1,6 +1,5 @@
-
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,10 +55,10 @@ void RepeatInterleave::AddNode(
   paramsRange.start.i = 0;
   paramsRange.limit.i = static_cast<int>(self_numel);
   paramsRange.delta.i = 1;
-
+  using namespace std::literals;
   auto range = BuildOp(
       graph,
-      get_guid_with_precision("range", torch::kInt),
+      get_guid_with_precision("range"sv, torch::kInt),
       {},
       {{self_numel, torch::kInt}},
       &paramsRange,
@@ -79,7 +78,7 @@ void RepeatInterleave::AddNode(
 
   auto result = BuildOp(
       graph,
-      get_guid_with_precision("repeat_fwd", dtype),
+      get_guid_with_precision("repeat_fwd"sv, dtype),
       std::move(syn_inputs),
       {{meta.shape,
         dtype,

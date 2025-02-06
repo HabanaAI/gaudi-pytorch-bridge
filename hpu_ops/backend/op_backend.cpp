@@ -54,6 +54,8 @@ auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
 
 namespace habana {
 
+using namespace std::literals;
+
 static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   const auto& ival = stack.at(index);
   auto type =
@@ -286,8 +288,7 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
     const auto& ival = stack[stack_id];
     const auto& tensors = ival.isTensor()
         ? static_cast<at::List<at::Tensor>>(ival.toTensor())
-        : ival.isTensorList() ? ival.toTensorList()
-                              : at::List<at::Tensor>{};
+        : ival.isTensorList() ? ival.toTensorList() : at::List<at::Tensor>{};
 
     const auto inplace_id = m_inplace_ids[inplace_ids_pos];
     if (inplace_id != (int)stack_id) {
@@ -834,22 +835,22 @@ std::vector<sh::tensor> OpBackend::BuildNode(
                     attr.tensor_type,
                     op->GetOpDynamicity())
               : attr.syn_data_type == syn_type_na
-              ? habana_helpers::create_tensor(
-                    t,
-                    graph,
-                    is_persistent,
-                    is_external,
-                    attr.dtype,
-                    std::string(),
-                    std::string())
-              : habana_helpers::create_tensor(
-                    t,
-                    graph,
-                    is_persistent,
-                    is_external,
-                    attr.syn_data_type,
-                    std::string(),
-                    std::string()));
+                  ? habana_helpers::create_tensor(
+                        t,
+                        graph,
+                        is_persistent,
+                        is_external,
+                        attr.dtype,
+                        std::string(),
+                        std::string())
+                  : habana_helpers::create_tensor(
+                        t,
+                        graph,
+                        is_persistent,
+                        is_external,
+                        attr.syn_data_type,
+                        std::string(),
+                        std::string()));
 
       if (is_persistent) {
         const auto& impl =
@@ -914,7 +915,7 @@ sh::tensor OpBackend::BuildBoolCast(
   auto eq = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("equal_fwd", from),
+      {get_guid_with_precision("equal_fwd"sv, from),
        {syn_in, zero_tensor.get()},
        {{sizes, c10::ScalarType::Bool}}});
 
@@ -1038,7 +1039,7 @@ sh::tensor OpBackend::BuildConstant(
     auto constant = BuildNode(
         op,
         graph,
-        {get_guid_with_precision("constant", valtype, true),
+        {get_guid_with_precision("constant"sv, valtype, true),
          input,
          {{constant_outshape, valtype, final_result_index}},
          &paramsV2,
@@ -1058,7 +1059,7 @@ sh::tensor OpBackend::BuildConstant(
     auto constant = BuildNode(
         op,
         graph,
-        {get_guid_with_precision("constant", valtype),
+        {get_guid_with_precision("constant"sv, valtype),
          input,
          {{constant_outshape, valtype, final_result_index}},
          &params,

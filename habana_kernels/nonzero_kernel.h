@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,12 @@ namespace habana {
 class NonZeroOperator : public HabanaOperator {
  public:
   NonZeroOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("non_zero_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "non_zero_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 

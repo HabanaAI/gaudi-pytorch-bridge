@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,10 @@ void ForeachLog10::AddNode(
     const at::ScalarType dtype = isIntegralType(tensor.scalar_type(), true)
         ? torch::kFloat32
         : tensor.scalar_type();
+    using namespace std::literals;
     auto out = BuildOp(
         graph,
-        get_guid_with_precision("log10_fwd", dtype),
+        get_guid_with_precision("log10_fwd"sv, dtype),
         {syn_in(i)},
         {{{tensor.sizes()}, dtype, i}});
     syn_out(i) = std::move(out[0]);

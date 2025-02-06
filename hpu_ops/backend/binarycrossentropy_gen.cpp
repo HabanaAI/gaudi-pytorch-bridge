@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -165,6 +165,8 @@ static std::shared_ptr<void> BceParams(
   return params;
 }
 
+using namespace std::literals;
+
 // Forward variant
 void BinaryCrossEntropyFwd::AddNode(
     synapse_helpers::graph& graph,
@@ -196,7 +198,7 @@ void BinaryCrossEntropyFwd::AddNode(
 
   auto bce_fwd = BuildOp(
       graph,
-      get_guid_with_precision("binary_cross_entropy_pt_fwd", ScalarType()),
+      get_guid_with_precision("binary_cross_entropy_pt_fwd"sv, ScalarType()),
       std::move(input),
       {{output_shape, ScalarType(), 0}},
       params.get(),
@@ -244,7 +246,7 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
 
   auto bce_logits_fwd = BuildOp(
       graph,
-      get_guid_with_precision("binary_cross_entropy_pt_fwd", ScalarType()),
+      get_guid_with_precision("binary_cross_entropy_pt_fwd"sv, ScalarType()),
       std::move(input),
       {{output_shape, ScalarType(), 0}},
       params.get(),
@@ -287,7 +289,7 @@ void BinaryCrossEntropyBwd::AddNode(
 
   auto bce_bwd = BuildOp(
       graph,
-      get_guid_with_precision("binary_cross_entropy_pt_bwd", bce_meta.dtype),
+      get_guid_with_precision("binary_cross_entropy_pt_bwd"sv, bce_meta.dtype),
       std::move(bce_bwd_inputs),
       {{bce_meta.shape, bce_meta.dtype, 0}},
       params.get(),

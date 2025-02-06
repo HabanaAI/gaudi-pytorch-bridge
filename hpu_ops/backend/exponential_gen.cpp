@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,9 +68,10 @@ void ExponentialSeedTensorInput::AddNode(
     inputs.push_back(syn_seed());
 
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
+  using namespace std::literals;
   auto exponential = BuildOp(
       graph,
-      get_guid_with_precision("random_exponential_fwd", meta.dtype),
+      get_guid_with_precision("random_exponential_fwd"sv, meta.dtype),
       std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
       params.get(),

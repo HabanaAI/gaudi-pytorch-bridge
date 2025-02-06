@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,8 +95,9 @@ void MaskedFill::AddNode(
   bool check_long = (out_dtype == c10::ScalarType::Long ||
                      out_dtype == c10::ScalarType::UInt64) &&
       common::IsInt64Supported();
+  using namespace std::literals;
   auto guid =
-      get_guid_with_precision("masked_fill_fwd", ScalarType(), check_long);
+      get_guid_with_precision("masked_fill_fwd"sv, ScalarType(), check_long);
   auto result = BuildOp(
       graph,
       guid,

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
+using namespace std::literals;
+
 static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
     OpBackend* op,
     sh::graph& graph,
@@ -34,7 +36,7 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
   auto abs_input = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("abs", original_dtype),
+      {get_guid_with_precision("abs"sv, original_dtype),
        {input.get()},
        {{pt_input.sizes().vec(), original_dtype}}});
 
@@ -45,7 +47,7 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
   auto amax = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_max_multi_dim_fwd", original_dtype),
+      {get_guid_with_precision("reduce_max_multi_dim_fwd"sv, original_dtype),
        {abs_input[0].get()},
        {{{1}, original_dtype}},
        &reduce_params,
@@ -54,7 +56,7 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
   auto amax_div = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("div_fwd", original_dtype),
+      {get_guid_with_precision("div_fwd"sv, original_dtype),
        {constants[destination_dtype == c10::ScalarType::Float8_e4m3fn ? 2 : 3]
             .get(),
         amax[0].get()},
@@ -63,34 +65,34 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
   auto amax_log = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("log2_fwd", original_dtype),
+      {get_guid_with_precision("log2_fwd"sv, original_dtype),
        {amax_div[0].get()},
        {{{1}, original_dtype}}});
   auto exp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("floor_fwd", original_dtype),
+      {get_guid_with_precision("floor_fwd"sv, original_dtype),
        {amax_log[0].get()},
        {{{1}, original_dtype}}});
 
   auto new_scale = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("pow_fwd", original_dtype),
+      {get_guid_with_precision("pow_fwd"sv, original_dtype),
        {constants[0].get(), exp[0].get()},
        {{{1}, original_dtype}}});
 
   auto mask = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("greater_fwd", original_dtype),
+      {get_guid_with_precision("greater_fwd"sv, original_dtype),
        {new_scale[0].get(), constants[1].get()},
        {{{1}, torch::kBool}}});
 
   auto updated_scale = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("where_fwd", original_dtype),
+      {get_guid_with_precision("where_fwd"sv, original_dtype),
        {mask[0].get(), new_scale[0].get(), old_scale},
        {{{1}, original_dtype, out_scale}}});
 
@@ -98,7 +100,7 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
   auto result = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("convert_to_fp8", original_dtype),
+      {get_guid_with_precision("convert_to_fp8"sv, original_dtype),
        {input.get(), updated_scale[0].get()},
        {{pt_input.sizes().vec(), destination_dtype, out_ids}},
        &cast_params,
@@ -173,12 +175,12 @@ void OptimizerFusedAdamWOperator::AddNode(
       ? ScalarType()
       : at::promote_types(ScalarType(), first_moment_dtype);
 
-  std::string add_node = get_guid_with_precision("add_fwd", scalar_dtype);
-  std::string mul_node = get_guid_with_precision("mult_fwd", scalar_dtype);
-  std::string div_node = get_guid_with_precision("div_fwd", scalar_dtype);
-  std::string sqrt_node = get_guid_with_precision("sqrt_fwd", scalar_dtype);
+  std::string add_node = get_guid_with_precision("add_fwd"sv, scalar_dtype);
+  std::string mul_node = get_guid_with_precision("mult_fwd"sv, scalar_dtype);
+  std::string div_node = get_guid_with_precision("div_fwd"sv, scalar_dtype);
+  std::string sqrt_node = get_guid_with_precision("sqrt_fwd"sv, scalar_dtype);
   std::string from_fp8_node =
-      get_guid_with_precision("convert_from_fp8", scalar_dtype);
+      get_guid_with_precision("convert_from_fp8"sv, scalar_dtype);
 
   int64_t scalar_shape[] = {1};
 

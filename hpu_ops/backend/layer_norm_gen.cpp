@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,6 +104,8 @@ static synTensor CreateLayerNormBiasWeightTensor(
   }
   return storage.back().get();
 }
+
+using namespace std::literals;
 
 void LayerNormHabanaOperator::AddNode(
     sh::graph& graph,
@@ -246,7 +248,7 @@ void LayerNormHabanaOperator::AddNode(
 
     auto ln = BuildOp(
         graph,
-        get_guid_with_precision("layer_norm_fwd", metas[0].dtype),
+        get_guid_with_precision("layer_norm_fwd"sv, metas[0].dtype),
         {reshapedInput.get(), synBias, synWeight},
         std::move(node_output_attr),
         params.get(),
@@ -425,7 +427,7 @@ void LayerNormBwdHabanaOperator::AddNode(
 
     auto lnbwd = BuildOp(
         graph,
-        get_guid_with_precision("layer_norm_bwd", metas[0].dtype),
+        get_guid_with_precision("layer_norm_bwd"sv, metas[0].dtype),
         {input_as_4D, grad_out_as_4D, mean_as_4D, rstd_as_4D, synWeight},
         {{sizes_as_4D, metas[0].dtype},
          {weightShape, c10::kFloat},

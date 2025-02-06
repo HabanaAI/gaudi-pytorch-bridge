@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,7 +108,12 @@ class NarrowOperator : public SliceOperator {
 class GatherOperator : public HabanaOperator {
  public:
   GatherOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("gather_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "gather_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
@@ -134,8 +139,12 @@ class GatherOperator : public HabanaOperator {
 class GatherElemOperator : public HabanaOperator {
  public:
   GatherElemOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("gather_elements_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "gather_elements_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
@@ -257,8 +266,12 @@ class IndexSelectOperator : public GatherOperator {
 class ScatterNdONNXOperator : public HabanaOperator {
  public:
   ScatterNdONNXOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("scatter_nd_onnx_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "scatter_nd_onnx_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
   }
@@ -282,7 +295,12 @@ class ScatterNdONNXOperator : public HabanaOperator {
 class ScatterNdOperator : public HabanaOperator {
  public:
   ScatterNdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("scatter_nd_fwd", scalarType)),
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "scatter_nd_fwd"sv;
+            }(),
+            scalarType)),
         scalarType_(scalarType) {
     this->CreateSynContext(device_id);
   }
@@ -303,7 +321,12 @@ class ScatterNdOperator : public HabanaOperator {
 class IndexPutOperator : public HabanaOperator {
  public:
   IndexPutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("index_put_fwd", scalarType)),
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "index_put_fwd"sv;
+            }(),
+            scalarType)),
         scalarType_(scalarType) {
     this->CreateSynContext(device_id);
   }
@@ -332,7 +355,12 @@ class IndexPutOperator : public HabanaOperator {
 class IndexPutOperator2 : public HabanaOperator {
  public:
   IndexPutOperator2(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("index_put2_fwd", scalarType)),
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "index_put2_fwd"sv;
+            }(),
+            scalarType)),
         scalarType_(scalarType) {
     this->CreateSynContext(device_id);
   }
@@ -350,8 +378,12 @@ class IndexPutOperator2 : public HabanaOperator {
 class IndexAddOperator : public HabanaOperator {
  public:
   IndexAddOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("index_add_fwd_filler", scalarType)),
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "index_add_fwd_filler"sv;
+            }(),
+            scalarType)),
         scalarType_(scalarType) {
     this->CreateSynContext(device_id);
   }
@@ -369,8 +401,12 @@ class IndexAddOperator : public HabanaOperator {
 class IndexAddV2Operator : public HabanaOperator {
  public:
   IndexAddV2Operator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("index_add_fwd_filler", scalarType)),
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "index_add_fwd_filler"sv;
+            }(),
+            scalarType)),
         scalarType_(scalarType) {
     this->CreateSynContext(device_id);
   }
@@ -389,7 +425,12 @@ class IndexAddV2Operator : public HabanaOperator {
 class ArangeOperator : public HabanaOperator {
  public:
   ArangeOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("range", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "range"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -426,7 +467,12 @@ class ArangeOperatorHT : public ArangeOperator {
 class Unique_Operator : public HabanaOperator {
  public:
   Unique_Operator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("unique_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "unique_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -440,7 +486,12 @@ class Unique_Operator : public HabanaOperator {
 class UniqueOperator : public HabanaOperator {
  public:
   UniqueOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("unique_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "unique_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -459,7 +510,12 @@ class UniqueOperator : public HabanaOperator {
 class UniqueDimOperator : public HabanaOperator {
  public:
   UniqueDimOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("unique_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "unique_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 

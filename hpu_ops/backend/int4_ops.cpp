@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,10 +45,11 @@ void Int4BaseOp::AddNode(sh::graph& graph, const at::Stack& stack) {
     inputs.push_back(syn_in(2));
   }
 
+  using namespace std::literals;
   auto result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("dequantize_4_bit", meta.dtype),
+      {get_guid_with_precision("dequantize_4_bit"sv, meta.dtype),
        std::move(inputs),
        {{meta.shape, meta.dtype, 0}}});
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 namespace sh = synapse_helpers;
 
 namespace habana {
+using namespace std::literals;
+
 std::vector<synapse_helpers::tensor> DropoutCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -34,7 +36,7 @@ std::vector<synapse_helpers::tensor> DropoutCommon(
   auto dropout = OpBackend::BuildNode(
       op,
       graph,
-      {std::move(get_guid_with_precision("dropout_fwd", metas[0].dtype)),
+      {std::move(get_guid_with_precision("dropout_fwd"sv, metas[0].dtype)),
        input_tensor,
        {NodeAttr::NodeOutputAttr{
             metas[0].shape, metas[0].dtype, final_result_index},
@@ -161,7 +163,7 @@ void NativeDropoutBackward::AddNode(sh::graph& graph, const at::Stack& stack) {
     mask_syn_t = storage->get();
   }
 
-  std::string mul_node = get_guid_with_precision("mult_fwd", grad_dtype);
+  std::string mul_node = get_guid_with_precision("mult_fwd"sv, grad_dtype);
   const auto& grad_sizes = grad_output.pt_t.sizes();
 
   auto mul1 = BuildOp(

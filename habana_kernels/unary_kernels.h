@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,12 @@ class AbsOperator : public UnaryOperator {
   AbsOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            get_guid_with_precision("abs_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "abs_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 // Sqrt Operator
@@ -49,7 +54,12 @@ class SqrtOperator : public UnaryOperator {
   SqrtOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            get_guid_with_precision("sqrt_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "sqrt_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 //
@@ -57,7 +67,12 @@ class SqrtOperator : public UnaryOperator {
 class ReciprocalOutOperator : public HabanaOperator {
  public:
   ReciprocalOutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("reciprocal_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "reciprocal_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
@@ -90,7 +105,12 @@ class ExpOperator : public UnaryOperator {
   ExpOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            get_guid_with_precision("exp_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "exp_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 class LogOperator : public UnaryOperator {
@@ -98,6 +118,11 @@ class LogOperator : public UnaryOperator {
   LogOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            get_guid_with_precision("log_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "log_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 } // namespace habana

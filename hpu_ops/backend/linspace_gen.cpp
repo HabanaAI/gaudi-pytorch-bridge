@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,7 +155,8 @@ void LinspaceOut::AddNode(
     if (start != end && steps != 1) {
       size_t size = 0;
       auto params = LinspaceRangeParams(stack, size);
-      auto guid = get_guid_with_precision("range", dtype);
+      using namespace std::literals;
+      auto guid = get_guid_with_precision("range"sv, dtype);
       std::vector<synTensor> syn_inputs;
       if (dtype == c10::ScalarType::Float &&
           habana::HPUDeviceContext::get_device().type() !=

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,9 +53,10 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string add_node = get_guid_with_precision("add_fwd", dtype);
-  std::string sub_node = get_guid_with_precision("sub_fwd", dtype);
-  std::string mul_node = get_guid_with_precision("mult_fwd", dtype);
+  using namespace std::literals;
+  std::string add_node = get_guid_with_precision("add_fwd"sv, dtype);
+  std::string sub_node = get_guid_with_precision("sub_fwd"sv, dtype);
+  std::string mul_node = get_guid_with_precision("mult_fwd"sv, dtype);
 
   int64_t scalar_shape[] = {1};
   auto momentum_t =

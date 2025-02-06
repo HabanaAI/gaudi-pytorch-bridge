@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,6 +69,8 @@ SharedMetaDataVector RreluWithNoiseSharedMeta(
   return out;
 }
 
+using namespace std::literals;
+
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -105,7 +107,7 @@ void Rrelu_with_noise::AddNode(
     // uniform random tensor
     auto uniform_random = BuildOp(
         graph,
-        get_guid_with_precision("random_uniform_fwd", ScalarType()),
+        get_guid_with_precision("random_uniform_fwd"sv, ScalarType()),
         std::move(inputs),
         {{outshape, ScalarType()}},
         params.get(),
@@ -115,13 +117,13 @@ void Rrelu_with_noise::AddNode(
     // cond: condition tensor
     auto cond = BuildOp(
         graph,
-        get_guid_with_precision("less_equal_fwd", ScalarType()),
+        get_guid_with_precision("less_equal_fwd"sv, ScalarType()),
         {syn_in(0), zeros.get()},
         {{outshape, c10::ScalarType::Bool}});
     // noise: noise tensor
     auto noise = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", ScalarType()),
+        get_guid_with_precision("where_fwd"sv, ScalarType()),
         {cond[0].get(), uniform_random[0].get(), ones.get()},
         {NodeAttr::NodeOutputAttr{
             outshape,
@@ -133,7 +135,7 @@ void Rrelu_with_noise::AddNode(
     // output
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("mult", ScalarType()),
+        get_guid_with_precision("mult"sv, ScalarType()),
         {syn_in(0), noise[0].get()},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
@@ -145,7 +147,7 @@ void Rrelu_with_noise::AddNode(
     params->alpha = negative_slope;
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("leakyrelu_fwd", ScalarType()),
+        get_guid_with_precision("leakyrelu_fwd"sv, ScalarType()),
         {syn_in(0)},
         {{outshape, ScalarType(), 0}},
         params.get(),
@@ -186,7 +188,7 @@ void Rrelu_with_noise_bwd::AddNode(
     // grad_out * noise
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("mult", ScalarType()),
+        get_guid_with_precision("mult"sv, ScalarType()),
         {syn_in(0), syn_in(2)},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
@@ -197,7 +199,7 @@ void Rrelu_with_noise_bwd::AddNode(
     params->alpha = negative_slope;
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("leakyrelu_bwd", ScalarType()),
+        get_guid_with_precision("leakyrelu_bwd"sv, ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}},
         params.get(),

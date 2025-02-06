@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -257,6 +257,8 @@ sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
   return out_shapes;
 }
 
+using namespace std::literals;
+
 void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "SDPAFwd::AddNode");
   auto q_or_seed = stack[0].toTensor();
@@ -287,7 +289,8 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, is_causal, false, softmax_mode, flags);
 
-  std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_fwd"sv, q.pt_t.scalar_type());
   auto out_shapes = SDPAFwdOutputShape(stack);
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
@@ -372,7 +375,8 @@ void Fp8SDPAFwd::AddNode(
   fillSdpaParams(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode, flags);
 
-  std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_fwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
   if (attention_mask) {
@@ -465,7 +469,8 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
-  std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_bwd"sv, q.pt_t.scalar_type());
   auto meta = SDPABwdMeta(stack);
 
   std::vector<synTensor> syn_inputs = {
@@ -558,7 +563,8 @@ void Fp8SDPABwd::AddNode(
       flags);
 
   // TODO: check if  143 or 152 may matter
-  std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_bwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {
       grad.syn_t, q.syn_t, k.syn_t, v.syn_t, P.syn_t};
@@ -774,7 +780,7 @@ void SDPARecompFwd::AddNode(
       flags);
 
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_fwd"sv, q.pt_t.scalar_type());
   auto out_shapes = SDPARecompFwdOutputShape(stack);
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
@@ -875,7 +881,7 @@ void Fp8SDPARecompFwd::AddNode(
   //}
 
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_fwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
   if (attention_mask) {
@@ -1026,7 +1032,7 @@ void SDPARecompBwd::AddNode(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode);
 
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_bwd"sv, q.pt_t.scalar_type());
   auto meta = SDPARecompBwdMeta(stack);
 
   std::vector<synTensor> syn_inputs = {grad.syn_t, q.syn_t, k.syn_t, v.syn_t};
@@ -1110,7 +1116,7 @@ void Fp8SDPARecompBwd::AddNode(
 
   // TODO: check if  143 or 152 may matter
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_bwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {grad.syn_t, q.syn_t, k.syn_t, v.syn_t};
 

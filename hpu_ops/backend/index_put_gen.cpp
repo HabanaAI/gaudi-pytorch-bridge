@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -146,6 +146,8 @@ static bool CheckAndGetCastGuid(
   return false;
 }
 
+using namespace std::literals;
+
 static synapse_helpers::tensor HandleIndexPutWithAcc(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -204,7 +206,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto mulOp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult_fwd", indices_scalar_type),
+      {get_guid_with_precision("mult_fwd"sv, indices_scalar_type),
        {catop.get(), reshape_ind_op.get()},
        {{catop.pt_shape(), indices_scalar_type}}});
 
@@ -225,7 +227,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto sumop = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_sum_fwd", reduce_sum_type),
+      {get_guid_with_precision("reduce_sum_fwd"sv, reduce_sum_type),
        {mulOp.at(0).get()},
        {{red_output_shape, reduce_sum_type}},
        &red_params,
@@ -291,7 +293,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto gatherOp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("gather_fwd", indices_scalar_type),
+      {get_guid_with_precision("gather_fwd"sv, indices_scalar_type),
        {catop.get(), sort_res1.get()},
        {{outshape, indices_scalar_type}},
        &gather_params,
@@ -322,7 +324,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
     auto scatter_op = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
+        {get_guid_with_precision("scatter_nd_fwd"sv, scatter_nd_fwd_dtype),
          {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
          {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
          &scatter_params,
@@ -344,7 +346,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
     next_node = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
+        {get_guid_with_precision("scatter_nd_fwd"sv, scatter_nd_fwd_dtype),
          {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
          {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
          &scatter_params,
@@ -353,7 +355,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto addOp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("add_fwd", self_scalar_type), // original dtype
+      {get_guid_with_precision("add_fwd"sv, self_scalar_type), // original dtype
        {syn_in_0, next_node.at(0).get()}, // cast node
        {{self.sizes().vec(), self_scalar_type, 0}}});
   return std::move(addOp[0]);
@@ -439,7 +441,7 @@ void IndexPutEager::AddNode(
 
   values_bcast_or_reshape_sh_tensor.emplace_back(std::move(BuildOp(
       graph,
-      get_guid_with_precision("index_put_broadcast_value", ScalarType()),
+      get_guid_with_precision("index_put_broadcast_value"sv, ScalarType()),
       {syn_in(0), catop.get(), syn_in(1 + indices.size())},
       {{value_upd_dim, ScalarType()}})[0]));
   auto self_scalar_type = self.scalar_type();
@@ -468,7 +470,7 @@ void IndexPutEager::AddNode(
         auto scatter_op = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd",
+                "scatter_nd_onnx_fwd"sv,
                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
             {syn_in(0), catop.get(), reshape_val_op.get()},
             {NodeAttr::NodeOutputAttr{
@@ -484,7 +486,7 @@ void IndexPutEager::AddNode(
         next_node = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd",
+                "scatter_nd_onnx_fwd"sv,
                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
             {syn_in(0), catop.get(), reshape_val_op.get()},
             {NodeAttr::NodeOutputAttr{
@@ -510,7 +512,7 @@ void IndexPutEager::AddNode(
         auto scatter_op = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
             {syn_in(0),
              catop.get(),
              values_bcast_or_reshape_sh_tensor[0].get()},
@@ -528,7 +530,7 @@ void IndexPutEager::AddNode(
         next_node = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
             {syn_in(0),
              catop.get(),
              values_bcast_or_reshape_sh_tensor[0].get()},
@@ -647,7 +649,7 @@ void IndexPutBoolEager::AddNode(
         (1 == nonzero_out_shape.size()) ? 1 : nonzero_out_shape[1];
     auto slice = BuildOp(
         graph,
-        get_guid_with_precision("slice", indices_scalar_type),
+        get_guid_with_precision("slice"sv, indices_scalar_type),
         {nonzero[0].get()},
         {{{slice_numel, slice_output_shape_second_dim_size},
           indices_scalar_type}},
@@ -703,14 +705,14 @@ void IndexPutBoolEager::AddNode(
   auto bcastOp = BuildOp(
       graph,
       get_guid_with_precision(
-          "index_put_bool_broadcast_value", values_scalar_type),
+          "index_put_bool_broadcast_value"sv, values_scalar_type),
       {syn_in(0), syn_in(1), syn_in(1 + indices.size()), nonzero[0].get()},
       {{value_upd_dim, values_scalar_type}});
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
         {syn_in(0), catop.get(), bcastOp[0].get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
@@ -718,12 +720,12 @@ void IndexPutBoolEager::AddNode(
     auto zero_op = ConstantHelper(graph, 0, self_scalar_type, self_sizes);
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
         {zero_op.get(), catop.get(), bcastOp[0].get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", self_scalar_type),
+        get_guid_with_precision("add_fwd"sv, self_scalar_type),
         {syn_in(0), scatter_op.at(0).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(add_op[0]);
@@ -831,7 +833,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd",
+                 "scatter_nd_onnx_fwd"sv,
                  scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
              {self_synin, catop.get(), reshape_val_op.get()},
              {NodeAttr::NodeOutputAttr{
@@ -849,7 +851,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd",
+                 "scatter_nd_onnx_fwd"sv,
                  scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
              {self_synin, catop.get(), reshape_val_op.get()},
              {NodeAttr::NodeOutputAttr{
@@ -874,7 +876,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                 "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
              {self_synin,
               catop.get(),
               values_bcast_or_reshape_sh_tensor[0].get()},
@@ -894,7 +896,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                 "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
              {self_synin,
               catop.get(),
               values_bcast_or_reshape_sh_tensor[0].get()},
@@ -1062,7 +1064,7 @@ void IndexPutCompile::AddNode(
           (1 == nonzero_out_shape.size()) ? 1 : nonzero_out_shape[1];
       auto slice = BuildOp(
           graph,
-          get_guid_with_precision("slice", indices_scalar_type),
+          get_guid_with_precision("slice"sv, indices_scalar_type),
           {nonzero[0].get()},
           {{{slice_numel, slice_output_shape_second_dim_size},
             indices_scalar_type}},
@@ -1140,7 +1142,7 @@ void IndexPutCompile::AddNode(
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
         {syn_in(0), catop.get(), bcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
@@ -1148,12 +1150,12 @@ void IndexPutCompile::AddNode(
     auto zero_op = ConstantHelper(graph, 0, self_scalar_type, self_sizes);
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
         {zero_op.get(), catop.get(), bcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", self_scalar_type),
+        get_guid_with_precision("add_fwd"sv, self_scalar_type),
         {syn_in(0), scatter_op.at(0).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(add_op[0]);
