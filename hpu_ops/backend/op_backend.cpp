@@ -1052,6 +1052,8 @@ sh::tensor OpBackend::BuildConstant(
       if (habana_helpers::is_downcast_to_int_needed(valtype)) {
         valtype = c10::ScalarType::Int;
       }
+    } else if (valtype == c10::ScalarType::Bool) {
+      get<float>(params.constant) = static_cast<float>(val.to<bool>());
     } else {
       get<float>(params.constant) = val.to<float>();
     }
