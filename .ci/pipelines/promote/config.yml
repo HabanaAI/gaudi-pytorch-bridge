@@ -94,6 +94,6 @@ orchestratorConfig:
   codeCoverageConfig:
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
-  - exclude: Promote
+  coverityConfig_stageSilentMode: true
 stepConfig:
   jobTimeout: '300'
