@@ -1152,7 +1152,7 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
 
         param_vars.append(pname)
 
-        if cptype == "Tensor":
+        if cptype in ["Tensor", "at::Tensor"]:
             if parser.type_is_const(ptype):
                 tfetcher.add(pname)
             else:
@@ -1162,12 +1162,12 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
                     out_indices.append(i)
 
         if rtype == "void":
-            if cptype in ["TensorList", "Tensor"]:
+            if cptype in ["TensorList", "Tensor", "at::TensorList", "at::Tensor"]:
                 call_args.append(pname)
                 if out_ids is not None:
                     out_indices.append(i)
 
-        elif rtype == "const at::Tensor &" and cptype == "Tensor":
+        elif rtype == "const at::Tensor &" and cptype in ["Tensor", "at::Tensor"]:
             call_args.append(pname)
             out_indices.append(i)
 
