@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -233,7 +233,7 @@ SharedMetaDataVector NllLoss2DFwdSharedMeta(
   nllLossFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
   nllLossFwdSharedMeta.inputs_data = {
       {self.dim(), dtype}, {target.dim(), target.scalar_type()}};
-  if (weight.has_value()) {
+  if (weight.has_value() && weight->defined()) {
     nllLossFwdSharedMeta.inputs_data.emplace_back(weight.value().dim(), dtype);
     nllLossFwdSharedMeta.inputs_data.emplace_back(1, dtype);
 

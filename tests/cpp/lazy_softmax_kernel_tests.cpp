@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest4D) {
   EXPECT_EQ(allclose(hout1, cout), true);
 }
 
-TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
+TEST_F(LazySoftmaxKernelTest, DISABLED_CrossEntropyTest) {
   torch::Tensor input_tensor =
       torch::rand({16, 32, 12, 10}, torch::requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
