@@ -504,6 +504,22 @@ def test_op_expand():
         assert torch.allclose(result_hpu.to("cpu"), result, atol=0, rtol=0)
 
 
+def test_op_expand_input():
+    input_shapes = [[16, 1], [32, 1], [512, 1]]
+
+    def raw_function(input):
+        return input.expand([-1, 10]).abs()
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for shape in input_shapes:
+        input = torch.rand(shape)
+        result = raw_function(input)
+        input_hpu = input.to("hpu")
+        result_hpu = compiled_fn(input_hpu)
+        assert torch.allclose(result_hpu.to("cpu"), result, atol=0, rtol=0)
+
+
 def test_op_as_strided_ratio_flow():
     input_shapes = [(2, 2), (4, 2), (6, 2)]
 

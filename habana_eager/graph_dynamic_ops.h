@@ -495,9 +495,9 @@ class FullOpDS : public DynamicOp {
       LaunchDynamicShapes& launch_shapes);
 };
 
-class ExapndOperatorDS : public DynamicOp {
+class ExpandOperatorDS : public DynamicOp {
  public:
-  ExapndOperatorDS() : DynamicOp() {}
+  ExpandOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
       torch::jit::Node*,
       torch::jit::Stack& in_stack,

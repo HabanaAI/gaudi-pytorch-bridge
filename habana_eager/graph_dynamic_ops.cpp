@@ -845,7 +845,7 @@ void SliceOperatorDS::UpdateDynamicInputs(
   }
 }
 
-bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
+bool ExpandOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* node,
     torch::jit::Stack& stack,
     GraphInputIndexMap& stack_index_map,
@@ -890,12 +890,12 @@ bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
   }
 
   InputPatchPair patch_info(
-      &ExapndOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+      &ExpandOperatorDS::UpdateDynamicInputs, dtensor_indexes);
   dmeta->ds_input_patching_list.push_back(patch_info);
   return true;
 }
 
-void ExapndOperatorDS::UpdateDynamicInputs(
+void ExpandOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<at::IValue*>& ivals,
     c10::SmallVectorImpl<SymIntData>& scalars,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& temp_unused,
@@ -905,10 +905,25 @@ void ExapndOperatorDS::UpdateDynamicInputs(
     LaunchDynamicShapes& launch_shapes) {
   at::IntArrayRef values = scalars[0].values;
   std::vector<int64_t> sizes(values.size(), 1);
+  at::IntArrayRef input_shape;
+  for (auto& inp : stack) {
+    if (inp.isTensor()) {
+      input_shape = inp.toTensor().sizes();
+      break;
+    }
+  }
   for (size_t i{}; i < values.size(); ++i) {
-    bool isNegativeOrMaxLong = values[i] == -1 || values[i] == LONG_MAX;
-    sizes[i] = isNegativeOrMaxLong ? scalars[0].lookup_data[i]
-                                   : stack[values[i]].toInt();
+    bool isNegative = values[i] == -1;
+    bool isMaxLong = values[i] == LONG_MAX;
+    if (isNegative) {
+      // If reshape size contains -1, the sizes need to be
+      // updated according to the original tensor
+      sizes[i] = input_shape[i];
+    } else if (isMaxLong) {
+      sizes[i] = scalars[0].lookup_data[i];
+    } else {
+      sizes[i] = stack[values[i]].toInt();
+    }
   }
   launch_shapes.ds_tensors.push_back(ivals[0]->toTensor());
   launch_shapes.patch_values.push_back(sizes);
@@ -1060,7 +1075,7 @@ static const auto& BasicDSOpsRegistry =
         .DSOP_MID_BACKEND(aten::view, ViewOperatorDS)
         .DSOP_MID_BACKEND(hpu::view_neg, ViewOperatorDS)
         .DSOP_MID_BACKEND(aten::_unsafe_view, ViewOperatorDS)
-        .DSOP_MID_BACKEND(aten::expand, ExapndOperatorDS)
+        .DSOP_MID_BACKEND(aten::expand, ExpandOperatorDS)
         .DSOP_MID_BACKEND(aten::arange, ArangeOperatorDS)
         .DSOP_MID_BACKEND(aten::repeat, RepeatOperatorDS)
         .DSOP_MID_BACKEND(aten::topk, TopkOperatorDS)
