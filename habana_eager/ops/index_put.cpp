@@ -106,8 +106,7 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
     }
   }
   if (has_bool_mask) {
-    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
-    return bool_mask_indices;
+    return c10::List<c10::optional<at::Tensor>>(bool_indices_vec);
   } else {
     return indices;
   }
@@ -119,6 +118,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
 
   std::vector<c10::optional<at::Tensor>> indices;
+  indices.reserve(indices_ival.size());
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (o1.has_value() && o1.value().defined()) {
@@ -190,10 +190,12 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   // TODO:
   // adjust this algorithm to larger dim tensors as the r/ri logic
   // is applied dim wise and not on the flattened shape.
-  int64_t repeats_needed[self.dim()];
-  int64_t repeat_interleaves_needed[self.dim()];
+  absl::FixedArray<int64_t, MAX_DIMS_FOR_ADVANCED_INDEXING> repeats_needed(
+      self.dim());
+  absl::FixedArray<int64_t, MAX_DIMS_FOR_ADVANCED_INDEXING>
+      repeat_interleaves_needed(self.dim());
   int repeat_index = 0;
-  // Array holding a schape that was already processed through the r/ri logic
+  // Array holding a shape that was already processed through the r/ri logic
   // keep the index of the indice in order to copy schema if necessary from
   // repeats_needed and repeat_interleaves_needed arrays.
   std::vector<std::pair<std::vector<int64_t>, int64_t>> explicit_indice_handled;
@@ -219,7 +221,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       }
       // if the current indice is explicit, then save it in order
       // not to apply r/ri, if the same shape exists in the indice array input.
-      shapes_handled.push_back(shape_to_find);
+      shapes_handled.emplace_back(std::move(shape_to_find));
     }
 
     for (int j = 0; j < self.dim(); ++j) {
@@ -241,7 +243,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
           // and already handled, don't r/ri the i indice
           continue;
 
-        shapes_handled.push_back(indices[j].value().sizes().vec());
+        shapes_handled.emplace_back(indices[j].value().sizes().vec());
 
         if (repeat_index >= j)
           repeats_needed[i] *= index_t_sizes[j];

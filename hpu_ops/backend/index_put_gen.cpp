@@ -19,6 +19,8 @@
 
 namespace habana {
 
+using namespace std::literals;
+
 // brodcast index tensor shape and get the correct shape and size
 static std::vector<int64_t> broadcast_size(
     at::TensorList indices,
@@ -119,23 +121,23 @@ static std::vector<int64_t> CalcCatOutSize(
 }
 
 static bool CheckAndGetCastGuid(
-    std::string guid,
+    std::string_view guid,
     at::ScalarType dtype,
     std::string& cast_guid,
     at::ScalarType& cast_dtype) {
   cast_guid = "";
   switch (dtype) {
     case at::ScalarType::Short:
-      if (guid == "scatter_nd_fwd" || guid == "scatter_nd_onnx_fwd") {
-        cast_guid = "cast_i32_to_i16";
+      if (guid == "scatter_nd_fwd"sv || guid == "scatter_nd_onnx_fwd"sv) {
+        cast_guid = "cast_i32_to_i16"sv;
         cast_dtype = at::ScalarType::Int;
         return true;
       }
       break;
 
     case at::ScalarType::Byte:
-      if (guid == "scatter_nd_fwd") {
-        cast_guid = "cast_i32_to_u8";
+      if (guid == "scatter_nd_fwd"sv) {
+        cast_guid = "cast_i32_to_u8"sv;
         cast_dtype = at::ScalarType::Int;
         return true;
       }
