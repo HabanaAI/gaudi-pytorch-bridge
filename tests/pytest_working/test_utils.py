@@ -664,7 +664,7 @@ def print_tensors_internal(tensors, atol, rtol, index=[]):
             tolerance_ok = abs(a - b) <= (atol + rtol * abs(b))
 
         if not tolerance_ok:
-            l = 22
+            l = 24
             s = ""
             for v in tensors:
                 s += f"{v:{l}}"

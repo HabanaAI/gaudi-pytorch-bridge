@@ -305,6 +305,14 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
 
+  synapse_helpers::tensor PermuteHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::IntArrayRef permutation,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   synapse_helpers::tensor IdentityHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,

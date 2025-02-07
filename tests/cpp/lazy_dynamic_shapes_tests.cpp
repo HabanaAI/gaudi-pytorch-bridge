@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1936,36 +1936,6 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest) {
   pad_test({0, 0, 0, 22}, {3, 87, 80});
   pad_test({0, 28, 0, 0}, {3, 80, 106});
   pad_test({0, 0, 0, 20}, {3, 119, 80});
-}
-
-TEST_F(LazyDynamicShapesTest, DISABLED_DS_GridSamplerTest) {
-  auto grid_sampler_test = [](std::vector<int64_t> pad_sizes,
-                              std::vector<int64_t> input_shape) {
-    torch::Tensor tensor = torch::randn(pad_sizes).to(torch::kFloat);
-    torch::Tensor tensorHabana = tensor.to(torch::kHPU);
-    torch::Tensor grid_tensor = torch::randn(input_shape).to(torch::kFloat);
-    torch::Tensor gridHabana = grid_tensor.to(torch::kHPU);
-    namespace F = torch::nn::functional;
-    auto outHabana = F::grid_sample(
-        tensorHabana,
-        gridHabana,
-        F::GridSampleFuncOptions()
-            .mode(torch::kBilinear)
-            .padding_mode(torch::kZeros)
-            .align_corners(false));
-    auto out = F::grid_sample(
-        tensor,
-        grid_tensor,
-        F::GridSampleFuncOptions()
-            .mode(torch::kBilinear)
-            .padding_mode(torch::kZeros)
-            .align_corners(false));
-    bool equal = out.allclose(outHabana.to(torch::kCPU), 0.000001, 0.000001);
-    EXPECT_EQ(equal, true);
-  };
-  grid_sampler_test({2, 3, 4, 4}, {2, 10, 10, 2});
-  grid_sampler_test({1, 1, 2, 2}, {1, 3, 3, 2});
-  grid_sampler_test({1, 1, 2, 2}, {1, 4, 4, 2});
 }
 
 void runIndexPutDynamicTestBool(int N, bool acc) {

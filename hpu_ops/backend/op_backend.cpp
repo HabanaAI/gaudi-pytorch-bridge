@@ -461,6 +461,17 @@ sh::tensor OpBackend::BroadcastHelper(
       this, graph, syn_in, sizes, dtype, final_result_index);
 }
 
+sh::tensor OpBackend::PermuteHelper(
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::IntArrayRef permutation,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildPermute(
+      this, graph, syn_in, sizes, permutation, dtype, final_result_index);
+}
+
 sh::tensor OpBackend::ReshapeHelper(
     sh::graph& graph,
     synTensor syn_in,

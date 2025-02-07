@@ -46,8 +46,8 @@ elu\_                                    Yes      Yes      Yes     No    torch.n
 embedding                                Yes      Yes      Yes     Yes   torch.nn.functional
 embedding_bag                            Yes      Yes      Yes     No    torch.nn.functional
 gelu                                     Yes      Yes      Yes     No    torch.nn.functional
-gelu\_                                   Yes      Yes      Yes     No    torch.nn.functional
-glu                                      Yes      Yes      Yes     No    torch.nn.functional
+glu                                      Yes      No       No      No    torch.nn.functional
+glu_jvp                                  Yes      Yes      Yes     No    torch.nn.functional
 grid_sample                              Yes      Yes      Yes     No    torch.nn.functional
 hardshrink                               Yes      Yes      Yes     No    torch.nn.functional
 hardsigmoid                              Yes      Yes      Yes     No    torch.nn.functional
