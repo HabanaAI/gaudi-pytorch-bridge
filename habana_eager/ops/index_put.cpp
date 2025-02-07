@@ -14,6 +14,7 @@
  */
 #include <ATen/InferSize.h>
 #include <ATen/core/TensorBody.h>
+#include <c10/core/ScalarType.h>
 #include <c10/core/SymIntArrayRef.h>
 
 #include "backend/backend_meta.h"
@@ -108,7 +109,18 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
   if (has_bool_mask) {
     return c10::List<c10::optional<at::Tensor>>(bool_indices_vec);
   } else {
-    return indices;
+    c10::List<c10::optional<at::Tensor>> upcast_indices;
+    for (c10::optional<at::Tensor> ind : indices) {
+      // For non-bool case we need to upcast the indices to long as it may
+      // happen that different indices have different dtypes.
+      if (ind.has_value() && ind.value().defined() &&
+          ind.value().scalar_type() != c10::kLong) {
+        upcast_indices.push_back(ind.value().to(c10::kLong));
+      } else {
+        upcast_indices.push_back(ind);
+      }
+    }
+    return upcast_indices;
   }
 }
 
@@ -316,23 +328,27 @@ at::Tensor& _index_put_impl_eager(
   } else {
     indices = indices_in;
   }
-  std::vector<at::Tensor> indices_vec;
   TORCH_CHECK(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "index_put op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,
       " dims");
   at::Tensor self_permuted;
-  if (self.device().type() != c10::DeviceType::HPU)
+  if (self.device().type() != c10::DeviceType::HPU) {
     self_permuted = self.to(c10::kHPU);
-  else
+  } else {
     self_permuted = self;
+  }
 
   at::Tensor value_in;
-  if (value.device().type() != c10::DeviceType::HPU)
+  if (value.device().type() != c10::DeviceType::HPU) {
     value_in = value.to(c10::kHPU);
-  else
+  } else {
     value_in = value;
+  }
+
+  std::vector<at::Tensor> indices_vec;
+
   if (advanced_indexing) {
     at::Stack stack;
     stack.emplace_back(self);
@@ -372,7 +388,7 @@ at::Tensor& _index_put_impl_eager(
     indices_vec.push_back(input.value());
   }
 
-  auto only_single_index_tensor = ((int)indices_vec.size() == 1) ? true : false;
+  auto only_single_index_tensor = (indices_vec.size() == 1ull);
   auto self_clone = self;
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
