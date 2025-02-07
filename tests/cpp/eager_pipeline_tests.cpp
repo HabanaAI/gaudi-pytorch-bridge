@@ -59,17 +59,15 @@ void ProducerTask() {
 }
 
 TEST_F(EagerPipelineTest, PipelineThrottling) {
-  auto default_queue_capacity_ =
+  auto default_queue_capacity =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
 
   // make sure the thread pools are initialized
   at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
 
-  habana::ThreadPoolWithGILRelease& lowering_thread =
-      habana::HPUDeviceContext::lowering_thread();
-  habana::ThreadPoolWithGILRelease& compile_thread =
-      habana::HPUDeviceContext::compile_thread();
-  compile_thread.set_queue_capacity(2);
+  auto& lowering_thread = habana::HPUDeviceContext::lowering_thread();
+  auto& compile_thread = habana::HPUDeviceContext::compile_thread();
+  SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 2, 1);
   lowering_thread.enqueue(ProducerTask);
 
   auto producer_task = lowering_thread.get_active_task_count();
@@ -83,7 +81,8 @@ TEST_F(EagerPipelineTest, PipelineThrottling) {
   lowering_thread.waitWorkComplete();
   compile_thread.waitWorkComplete();
 
-  compile_thread.set_queue_capacity(default_queue_capacity_);
+  SET_ENV_FLAG_NEW(
+      PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity, 1);
 }
 
 TEST_F(EagerPipelineTest, CompileError) {

@@ -107,6 +107,19 @@ class PipeliningTask {
 
 template <typename T>
 class PipeliningExecutor {
+  static_assert(std::is_base_of_v<
+                habana_helpers::SingleThreadPool,
+                std::remove_reference<decltype(
+                    habana::HPUDeviceContext::lowering_thread())>::type>);
+  static_assert(std::is_base_of_v<
+                habana_helpers::SingleThreadPool,
+                std::remove_reference<decltype(
+                    habana::HPUDeviceContext::compile_thread())>::type>);
+  static_assert(std::is_base_of_v<
+                habana_helpers::SingleThreadPool,
+                std::remove_reference<decltype(
+                    habana::HPUDeviceContext::execute_thread())>::type>);
+
  public:
   static void LoweringStage(T&& pipe_task) {
     pipe_task.LoweringCall();

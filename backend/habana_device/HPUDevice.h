@@ -19,6 +19,7 @@
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
@@ -28,21 +29,54 @@ class TimeSlot;
 
 namespace habana {
 
-class ThreadPoolWithGILRelease : public habana_helpers::SingleThreadPool {
+template <typename T>
+class GILReleaseOnWaitPool : public T {
  public:
-  ThreadPoolWithGILRelease(const std::function<void()>& init_thread)
-      : habana_helpers::SingleThreadPool(
-            true,
-            GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY),
-            init_thread){};
-  void waitWorkComplete();
+  using T::T;
+  void waitWorkComplete() {
+    // TODO remove gil_release once SW-160978 is fixed
+    habana_helpers::AutoNoGIL gil_release;
+    T::waitWorkComplete();
+  }
+};
+
+template <typename T>
+class ThrottlePool : public T {
+ public:
+  using T::T;
+  template <class F, class... Args>
+  void enqueue(F&& f, Args&&... args) {
+    T::enqueue(std::forward<F>(f), std::forward<Args>(args)...);
+    throttleIfNeeded();
+  }
+
+  // The reason why it hasn't been solved by creating Bounded Blocking Queue in
+  // ThreadPool is that we need to release GIL, we don't want to release GIL for
+  // each task while waiting
+  void throttleIfNeeded() {
+    uint64_t queue_capacity =
+        GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
+    if (queue_capacity > 0 && this->get_active_task_count() >= queue_capacity) {
+      // throttle only when queue capacity is limited
+      // and active tasks exceeds the configured capacity
+      auto throttle_limit = queue_capacity / 2;
+      // Release GIL if going to wait (remove once SW-160978 is fixed)
+      habana_helpers::AutoNoGIL gil_release;
+      while (this->get_active_task_count() > throttle_limit) {
+        std::this_thread::yield();
+      }
+    }
+  }
 };
 
 namespace HPUDeviceContext {
+using PipeSingleThreadpool =
+    ThrottlePool<GILReleaseOnWaitPool<habana_helpers::SingleThreadPool>>;
+
 habana_helpers::SingleThreadPool& garbage_collection_thread();
-ThreadPoolWithGILRelease& compile_thread();
-ThreadPoolWithGILRelease& lowering_thread();
-ThreadPoolWithGILRelease& execute_thread();
+PipeSingleThreadpool& compile_thread();
+PipeSingleThreadpool& lowering_thread();
+PipeSingleThreadpool& execute_thread();
 habana_helpers::ThreadPool& compile_thread_pool();
 RecipeCacheLRU& recipe_cache();
 void recipe_cache_clear();

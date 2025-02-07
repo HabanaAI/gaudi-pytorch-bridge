@@ -375,6 +375,7 @@ target_link_libraries(habana_pytorch_backend_ops
   PRIVATE
     habana_serialization
     torch
+    Python::Python
     nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
@@ -441,6 +442,7 @@ target_link_libraries(habana_pytorch_frontend_ops
     habana_serialization
     pytorch_synapse_utils_shim
     torch
+    Python::Python
     nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
