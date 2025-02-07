@@ -6462,7 +6462,6 @@ threshold_backward.grad_input:
 
 topk:
   output_meta: TopkMeta
-  st_meta: TopkSTMeta
   op_backend: Topk
   op_frontend: LazyTopk
   out_ids: [0, 0]
@@ -6471,7 +6470,6 @@ topk:
 
 topk.values:
   output_meta: TopkMeta
-  st_meta: TopkSTMeta
   op_frontend: TopKFE
   op_backend: Topk
   schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
@@ -6479,7 +6477,6 @@ topk.values:
 
 sort.values_stable:
   output_meta: SortStableMeta
-  st_meta: TopkSTMeta
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   op_validator: TopkSharedMeta
@@ -6488,7 +6485,6 @@ sort.stable:
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   output_meta: SortStableMeta
-  st_meta: TopkSTMeta
   out_ids: [0, 0]
   op_validator: TopkSharedMeta
 
