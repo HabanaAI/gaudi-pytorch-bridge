@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -97,16 +97,6 @@ def register_habana_activity_profiler():
                 ]
             else:
                 mandatory_events = ["LaunchRecipeTask", "add_new_recipe", "launch_recipe", "launch"]
-
-            mandatory_events.extend(
-                [
-                    "synEventRecord",
-                    "synEventSynchronize",
-                    "synLaunchWithExternalEvents",
-                    "synMemCopyAsync",
-                    "synGraphCompile",
-                ]
-            )
 
             return mandatory_events
 
