@@ -30,6 +30,7 @@ import habana_frameworks.torch.core as htcore
 import torch
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.utils.debug import _hg_print as hpu_graph_print
+from habana_frameworks.torch.utils.internal import is_lazy
 
 
 def stringify(*args):
@@ -48,6 +49,8 @@ class HPUGraph(object):
     """
 
     def __init__(self):
+        if not is_lazy():
+            raise RuntimeError("HPUGraph class is available in lazy mode only.")
         self.hpu_graph = _hpu_C.HPUGraph()
 
     def capture_begin(self, dry_run=False):
@@ -159,6 +162,8 @@ class graph(object):
         # Lazy-init of default_capture_stream helps avoid circular-import errors.
         # Not thread safe, but graphs already have the general (explicitly documented)
         # restriction that only one capture may be underway at a time in the process.
+        if not is_lazy():
+            raise RuntimeError("Context-manager for HPUGraph is available in lazy mode only.")
         if self.__class__.default_capture_stream is None:
             self.__class__.default_capture_stream = htorch.hpu.Stream()
 

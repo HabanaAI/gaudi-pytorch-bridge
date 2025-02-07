@@ -24,7 +24,6 @@ from typing import Any, List, Optional, Union
 
 import torch
 from habana_frameworks.torch import _hpu_C
-from habana_frameworks.torch.utils.internal import is_lazy
 from torch.types import Device
 from torch.utils.checkpoint import DefaultDeviceType
 
@@ -37,13 +36,11 @@ from ._utils import (
     _get_module_id_from_environ,
 )
 from .events import *
+from .graphs import *
 from .memory import *
 from .metrics import *
 from .random import *
 from .streams import *
-
-if is_lazy():
-    from .graphs import *
 
 _device_t = Union[torch.device, str, int, None]
 _initialized = False
