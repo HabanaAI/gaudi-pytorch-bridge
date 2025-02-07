@@ -168,10 +168,6 @@ PT_HPU_INFERENCE_SYNAPSE_DATA_TYPE_SELECTION:
   type: bool
   default: false
 
-PT_HPU_INFERENCE_STORAGE_OVERRIDE:
-  type: bool
-  default: true
-
 PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD:
   type: bool
   default: true

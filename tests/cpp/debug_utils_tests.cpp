@@ -89,62 +89,6 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
       0);
 }
 
-TEST_F(DebugUtilsTest, DebugCustomOp3) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
-    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE, true, 1);
-
-  auto S = torch::randn({2, 4}, torch::requires_grad(false));
-  auto C = torch::relu(S);
-  auto hS = S.to(torch::kHPU);
-  HbLazyTensor::StepMarker({});
-
-  auto hT = torch::relu(hS);
-  HbLazyTensor::StepMarker({});
-
-  at::Tensor hR = at::empty({8}, hS.options());
-
-  at::TensorImpl* impl = hR.unsafeGetTensorImpl();
-  auto storage = hS.storage();
-  impl->set_storage_keep_dtype(storage);
-  impl->set_storage_offset(0);
-  impl->set_sizes_and_strides(
-      c10::IntArrayRef({2, 4}), c10::IntArrayRef({4, 1}));
-
-  auto hO = torch::relu(hR);
-  auto O = hO.to(torch::kCPU);
-
-  EXPECT_EQ(allclose(C, O), true);
-  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE);
-}
-
-TEST_F(DebugUtilsTest, DebugSetStorageAndSizeStride) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
-    SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE, true, 1);
-
-  auto S = torch::randn({2, 4}, torch::requires_grad(false));
-  auto C = torch::relu(S);
-  auto hS = S.to(torch::kHPU);
-  HbLazyTensor::StepMarker({});
-
-  auto hT = torch::relu(hS);
-  HbLazyTensor::StepMarker({});
-
-  at::Tensor hR = at::empty({0}, hS.options());
-
-  at::TensorImpl* impl = hR.unsafeGetTensorImpl();
-  auto storage = hS.storage();
-  impl->set_storage_keep_dtype(storage);
-  impl->set_storage_offset(0);
-  impl->set_sizes_and_strides(
-      c10::IntArrayRef({2, 4}), c10::IntArrayRef({4, 1}));
-
-  auto hO = torch::relu(hR);
-  auto O = hO.to(torch::kCPU);
-
-  EXPECT_EQ(allclose(C, O), true);
-  UNSET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE);
-}
-
 TEST_F(DebugUtilsTest, CheckTensorSizeForLongType) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
     SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);
