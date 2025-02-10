@@ -37,16 +37,16 @@ SharedMetaDataVector ScaledMmSharedMeta(
   const auto mat2_dtype = stack_tensor(stack, 1).scalar_type();
   const auto scale_a = stack_tensor(stack, 2);
   const auto scale_b = stack_tensor(stack, 3);
-  const auto bias = stack[4].toOptional<at::Tensor>();
-  const auto scale_result = stack[5].toOptional<at::Tensor>();
+  const auto scale_result =
+      stack[5].toOptional<at::Tensor>().value_or(at::Tensor());
   const auto out_dtype =
       stack[6].toOptional<c10::ScalarType>().value_or(mat1_dtype);
 
   const auto optional_meta = createOptionalNotPresentSharedMetaTensor();
   SharedMetaTensor scale_a_meta(scale_a.dim(), scale_a.scalar_type());
   SharedMetaTensor scale_b_meta(scale_b.dim(), scale_b.scalar_type());
-  SharedMetaTensor scale_result_meta = scale_result
-      ? SharedMetaTensor(scale_result->dim(), scale_result->scalar_type())
+  SharedMetaTensor scale_result_meta = scale_result.defined()
+      ? SharedMetaTensor(scale_result.dim(), scale_result.scalar_type())
       : optional_meta;
 
   SharedMetaData meta_gemm{"fp8_gemm"};

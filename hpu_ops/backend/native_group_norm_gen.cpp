@@ -60,21 +60,19 @@ SharedMetaDataVector NativeGroupNormFwdSharedMeta(
     return {memsetSharedMeta, memsetMeanRstdSharedMeta};
   }
 
-  auto weightOpt = stack.at(1).toOptional<at::Tensor>();
-  auto biasOpt = stack.at(2).toOptional<at::Tensor>();
+  auto weight = stack.at(1).toOptional<at::Tensor>().value_or(at::Tensor());
+  auto bias = stack.at(2).toOptional<at::Tensor>().value_or(at::Tensor());
 
   SharedMetaData nativeGroupNormSharedMeta{"native_group_norm_fwd"};
   nativeGroupNormSharedMeta.inputs_data.emplace_back(rank, dtype);
-  if (weightOpt.has_value())
-    nativeGroupNormSharedMeta.inputs_data.emplace_back(
-        weightOpt.value().dim(), dtype);
+  if (weight.defined())
+    nativeGroupNormSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
   else
     nativeGroupNormSharedMeta.inputs_data.push_back(
         createOptionalNotPresentSharedMetaTensor());
 
-  if (biasOpt.has_value())
-    nativeGroupNormSharedMeta.inputs_data.emplace_back(
-        biasOpt.value().dim(), dtype);
+  if (bias.defined())
+    nativeGroupNormSharedMeta.inputs_data.emplace_back(bias.dim(), dtype);
   nativeGroupNormSharedMeta.outputs_data = {
       {rank, dtype}, {2, dtype}, {2, dtype}};
 
@@ -88,7 +86,8 @@ SharedMetaDataVector NativeGroupNormBwdSharedMeta(
   const auto& input = stack_tensor(stack, 1);
   const auto& mean = stack_tensor(stack, 2);
   const auto& rstd = stack_tensor(stack, 3);
-  const auto weightOpt = stack.at(4).toOptional<at::Tensor>();
+  const auto weight =
+      stack.at(4).toOptional<at::Tensor>().value_or(at::Tensor());
   const auto N = stack.at(5).toInt();
   const auto C = stack.at(6).toInt();
   const auto HxW = stack.at(7).toInt();
@@ -128,7 +127,7 @@ SharedMetaDataVector NativeGroupNormBwdSharedMeta(
     metaVec.push_back(subSharedMeta);
   }
 
-  if (!weightOpt.has_value()) {
+  if (!weight.defined()) {
     SharedMetaData constantSharedMeta{"constant"};
     constantSharedMeta.outputs_data = {bnCommonTensor};
     metaVec.push_back(constantSharedMeta);
