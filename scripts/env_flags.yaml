@@ -818,6 +818,11 @@ PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER:
   default: false
   doc: "This flag overrides aten.linear and aten.matmul decompositions in eager and torch.compile."
 
+PT_HPU_EAGER_COLLECTIVE_SYNC:
+  type: bool
+  default: false
+  doc: "This option causes network stream synchronization after each Collective call in nonlazy (happens in Execute stage, not blocking Main Thread)."
+
 PT_HPU_USE_PHILOX_NORMAL:
   type: bool
   default: false

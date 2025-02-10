@@ -297,6 +297,10 @@ hcclResult_t device_context::submit_events(
   return hcclSuccess;
 }
 
+void device_context::wait_until_address_ready(synapse_helpers::device_ptr address) {
+  device_->wait_until_address_ready(address);
+}
+
 hcclResult_t device_context::submit_future(
     synapse_helpers::device_ptr device_addr,
     std::shared_future<bool> fut) {

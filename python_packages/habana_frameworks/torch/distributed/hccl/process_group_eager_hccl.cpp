@@ -533,6 +533,11 @@ void Collective_Execute_Task(
           resource_holder.reset();
           recipe_counter.decrease_and_notify();
         });
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_SYNC)) {
+      // each rank should wait `output_storage_ptr` mapping shared_event done
+      deviceCtxt->wait_until_address_ready(output_storage_ptr);
+    }
   }
 
   return;
