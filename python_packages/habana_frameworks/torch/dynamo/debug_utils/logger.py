@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 #  limitations under the License.
 #
 ###############################################################################
+from functools import wraps
+
 from habana_frameworks.torch.utils.debug import Logger
 
 _compile_backend_logger = None
@@ -39,6 +41,7 @@ def dump_fx_graph(fx_module, jit_graph, recipe_id):
 
 
 def log_function_start_end(fn):
+    @wraps(fn)
     def wrapper(*args, **kwargs):
         logger = get_compile_backend_logger()
         logger.debug("Function %s start %s, %s", fn.__name__, args, kwargs)
