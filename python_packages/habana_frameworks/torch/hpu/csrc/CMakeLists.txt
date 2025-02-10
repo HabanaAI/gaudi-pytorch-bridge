@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,7 +15,14 @@
 #
 ###############################################################################
 
-add_habana_library(_hpu_C SHARED bindings.cpp Exceptions.cpp Stream.cpp Event.cpp Module.cpp)
+add_habana_library(
+  _hpu_C
+  SHARED
+  bindings.cpp
+  Exceptions.cpp
+  Stream.cpp
+  Event.cpp
+  Module.cpp)
 target_compile_definitions(_hpu_C PRIVATE TORCH_EXTENSION_NAME=_hpu_C)
 
 set_target_properties(_hpu_C PROPERTIES PREFIX "")

@@ -31,15 +31,14 @@ option(SANITIZER "build sanitizer configuration" OFF)
 option(GTEST "build gtest executable" OFF)
 message("CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}, SANITIZER = ${SANITIZER}")
 
-
 # disregard default cmake compilation flags in favor of setup
 # that optimizes compilation time and debugability
 set(CMAKE_CXX_FLAGS "-fno-var-tracking -O0 -g -fno-omit-frame-pointer")
 
-if (SANITIZER)
+if(SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-scope")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=leak")
-endif (SANITIZER)
+endif(SANITIZER)
 
 set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS})
 set(CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS})
@@ -51,31 +50,30 @@ include(AddNPUStackDependencies)
 
 add_executable(Test test.cxx ../compare.cxx)
 target_link_libraries(Test PRIVATE Synapse)
-set_target_properties(Test PROPERTIES
-  CXX_STANDARD 17
-  CXX_STANDARD_REQUIRED ON
-  CXX_EXTENSIONS OFF)
+set_target_properties(
+  Test
+  PROPERTIES CXX_STANDARD 17
+             CXX_STANDARD_REQUIRED ON
+             CXX_EXTENSIONS OFF)
 
-
-if (EXISTS "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13" AND GTEST)
-  externalproject_add(
+if(EXISTS "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13" AND GTEST)
+  ExternalProject_Add(
     googletest
     URL "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13/"
     TIMEOUT 10
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -Dgtest_force_shared_crt=ON
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -Dgtest_force_shared_crt=ON
     INSTALL_COMMAND ""
     UPDATE_COMMAND ""
     LOG_DOWNLOAD ON
     LOG_CONFIGURE ON
     LOG_BUILD ON)
-  externalproject_get_property(googletest source_dir binary_dir)
+  ExternalProject_Get_Property(googletest source_dir binary_dir)
   target_include_directories(Test PRIVATE ${source_dir}/googletest/include)
   target_link_libraries(Test PRIVATE ${binary_dir}/googlemock/gtest/libgtest.a)
   target_link_libraries(Test PRIVATE ${binary_dir}/googlemock/gtest/libgtest_main.a)
   add_dependencies(Test googletest)
-else ()
+else()
   target_include_directories(Test PRIVATE gtest_stub)
-endif ()
+endif()
 
 target_link_libraries(Test PRIVATE pthread)

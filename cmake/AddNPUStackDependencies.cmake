@@ -53,7 +53,7 @@ add_library(specs_external INTERFACE IMPORTED)
 set_target_properties(specs_external PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
 add_library(npu::specs_external ALIAS specs_external)
 
-if (EXISTS "$ENV{SPECS_EMBEDDED_ROOT}/hlml_shm.h")
+if(EXISTS "$ENV{SPECS_EMBEDDED_ROOT}/hlml_shm.h")
   add_library(specs_embedded INTERFACE IMPORTED)
   set_target_properties(specs_embedded PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EMBEDDED_ROOT}")
   target_compile_definitions(specs_embedded INTERFACE PT_HLML_ENABLED)

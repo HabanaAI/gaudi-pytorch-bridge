@@ -8,13 +8,11 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
         exclude: ^(LICENSE.txt|.devops|scripts/tests/files/)
-  # TODO: fix issues and enable when time allows:
-  # https://jira.habana-labs.com/browse/SW-121813
-  # - repo: https://github.com/cheshirekow/cmake-format-precommit
-  #   rev: v0.6.13
-  #   hooks:
-  #       - id: cmake-format
-  #         additional_dependencies: ["pyyaml"]
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        additional_dependencies: ["pyyaml"]
   #       - id: cmake-lint
   #         additional_dependencies: ["pyyaml"]
   - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format

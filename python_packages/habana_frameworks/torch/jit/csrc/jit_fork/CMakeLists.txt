@@ -15,5 +15,7 @@
 #
 ###############################################################################
 
-file(GLOB_RECURSE jit_sources ${CMAKE_CURRENT_SOURCE_DIR}/**.cpp )
-set(JIT_FORK_SRCS ${jit_sources} PARENT_SCOPE)
+file(GLOB_RECURSE jit_sources ${CMAKE_CURRENT_SOURCE_DIR}/**.cpp)
+set(JIT_FORK_SRCS
+    ${jit_sources}
+    PARENT_SCOPE)

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ endfunction()
 function(attach_sanitizers_if_requested TARGET_NAME)
   if(SANITIZER)
     target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr
-                                                 -fsanitize-address-use-after-scope -Og)
+                                                  -fsanitize-address-use-after-scope -Og)
     target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=leak -fsanitize=undefined)
   endif()
 
@@ -91,7 +91,6 @@ function(add_habana_executable TARGET_NAME)
     allow_code_coverage_if_requested(${TARGET_NAME})
   endif()
 endfunction()
-
 
 if(SANITIZER)
   message("Building sanitizers configuration")

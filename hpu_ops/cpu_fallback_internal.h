@@ -291,7 +291,7 @@ at::ScalarType expected_result_dtype(
 template <class... ParameterTypes>
 at::ScalarType expected_result_dtype(
     [[maybe_unused]] const c10::SymInt& sint,
-    const std::optional<at::Generator>& gen,
+    [[maybe_unused]] const std::optional<at::Generator>& gen,
     std::optional<c10::ScalarType>& dtypeOpt,
     ParameterTypes...) {
   if (dtypeOpt.has_value()) {

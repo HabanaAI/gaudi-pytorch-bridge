@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ target_link_libraries(
   habana_dl_app
   PUBLIC torch nlohmann_json aeon ${TORCH_PYTHON_LIBRARY}
   PRIVATE Python::Python)
-if (UPSTREAM_COMPILE)
+if(UPSTREAM_COMPILE)
   set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
   install(TARGETS habana_dl_app LIBRARY DESTINATION habana_torch_dataloader/upstream)
 else()

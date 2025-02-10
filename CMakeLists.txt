@@ -23,7 +23,10 @@ endif()
 
 include(CMakeDependentOption)
 
-project(habana_pytorch_plugin VERSION 0.8.0 LANGUAGES CXX)
+project(
+  habana_pytorch_plugin
+  VERSION 0.8.0
+  LANGUAGES CXX)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -44,14 +47,12 @@ endif()
 if(UPSTREAM_COMPILE)
   message(STATUS "Building with upstream torch")
   add_definitions(-DUPSTREAM_COMPILE)
-  set(CMAKE_SHARED_LIBRARY_SUFFIX
-    .upstream${CMAKE_SHARED_LIBRARY_SUFFIX})
+  set(CMAKE_SHARED_LIBRARY_SUFFIX .upstream${CMAKE_SHARED_LIBRARY_SUFFIX})
   set(CMAKE_EXECUTABLE_SUFFIX "_upstream")
 endif(UPSTREAM_COMPILE)
 
-
 message(STATUS "USE_CXX11_ABI is ${USE_CXX11_ABI}")
-if (NOT USE_CXX11_ABI)
+if(NOT USE_CXX11_ABI)
   set(CMAKE_CXX_FLAGS "-fabi-version=11")
 endif()
 
@@ -65,7 +66,8 @@ include(pt_ver)
 detect_pt_version()
 
 set(CMAKE_CONFIGURABLE_FILE_CONTENT "${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}")
-configure_file("${CMAKE_ROOT}/Modules/CMakeConfigurableFile.in" "${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/required_version.txt" @ONLY)
+configure_file("${CMAKE_ROOT}/Modules/CMakeConfigurableFile.in"
+               "${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/required_version.txt" @ONLY)
 unset(CMAKE_CONFIGURABLE_FILE_CONTENT)
 
 include(Targets)
@@ -99,7 +101,10 @@ if(CODE_COVERAGE)
   message(STATUS "code coverage is enabled.")
 endif()
 
-get_property(torch_flags TARGET torch PROPERTY INTERFACE_COMPILE_OPTIONS)
+get_property(
+  torch_flags
+  TARGET torch
+  PROPERTY INTERFACE_COMPILE_OPTIONS)
 
 if(NOT "${torch_flags}" STREQUAL "")
   add_compile_options("${torch_flags}")
@@ -120,7 +125,9 @@ add_subdirectory(pytorch_helpers)
 add_subdirectory(backend)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
-add_habana_library(habana_pytorch_plugin SHARED
+add_habana_library(
+  habana_pytorch_plugin
+  SHARED
   common/lazy/utils.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/logging.cpp
@@ -194,41 +201,35 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_lazy/lazy_storage.cpp
   habana_lazy/lazy_graph_hash_builder.cpp
   habana_lazy/view_utils.cpp
-  habana_lazy/hpu_stage_submission.cpp
-)
+  habana_lazy/hpu_stage_submission.cpp)
 add_subdirectory(hpu_ops)
 add_subdirectory(python_packages/habana_frameworks/torch)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
 # Link against LibTorch and synapse
-target_link_libraries(habana_pytorch_plugin
-  PRIVATE
-  Python::Python
-  habana_serialization
-  tensor_comparator_core
-  nlohmann_json::nlohmann_json
-  PUBLIC
-  habana_pytorch_backend
-  habana_pytorch_frontend_ops
-  torch
-  absl::hash
-  ZLIB::ZLIB
-)
+target_link_libraries(
+  habana_pytorch_plugin
+  PRIVATE Python::Python habana_serialization tensor_comparator_core nlohmann_json::nlohmann_json
+  PUBLIC habana_pytorch_backend habana_pytorch_frontend_ops torch absl::hash ZLIB::ZLIB)
 
-target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
+target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers
+                                                         ${CMAKE_BINARY_DIR})
 
 # Create symlink to latest build from tests dir
 # TODO: make it play nicely with building multiple versions in build.py
-add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
-  ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
-  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
+add_custom_command(
+  TARGET habana_pytorch_plugin
+  POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
-  $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>
-)
+          ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
+          $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>)
 
 install(TARGETS habana_pytorch_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
 
 add_subdirectory(habana_eager)
-add_habana_library(habana_pytorch2_plugin SHARED
+add_habana_library(
+  habana_pytorch2_plugin
+  SHARED
   common/eager/utils.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
@@ -306,36 +307,32 @@ add_habana_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/unique_gen.cpp
   hpu_ops/lazy/upsample_gen.cpp
   hpu_ops/lazy/xlogy_gen.cpp
-  ${habana_pytorch2_plugin_glob_files}
-)
+  ${habana_pytorch2_plugin_glob_files})
 
-target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
+target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers
+                                                          ${CMAKE_BINARY_DIR})
 target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
 # Link against LibTorch and synapse
-target_link_libraries(habana_pytorch2_plugin
-  PRIVATE
-  Python::Python
-  habana_serialization
-  tensor_comparator_core
-  nlohmann_json::nlohmann_json
-  PUBLIC
-  habana_pytorch_backend
-  habana_pytorch2_frontend
-  torch
-  absl::hash
-  npu::hllogger
-  npu::fmt
-  ZLIB::ZLIB
-)
+target_link_libraries(
+  habana_pytorch2_plugin
+  PRIVATE Python::Python habana_serialization tensor_comparator_core nlohmann_json::nlohmann_json
+  PUBLIC habana_pytorch_backend
+         habana_pytorch2_frontend
+         torch
+         absl::hash
+         npu::hllogger
+         npu::fmt
+         ZLIB::ZLIB)
 
 # Create symlink to latest build from tests dir
 # TODO: make it play nicely with building multiple versions in build.py
-add_custom_command(TARGET habana_pytorch2_plugin POST_BUILD COMMAND
-  ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
-  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
+add_custom_command(
+  TARGET habana_pytorch2_plugin
+  POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
-  $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
-)
+          ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
+          $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>)
 add_dependencies(habana_pytorch2_plugin habana_pytorch_frontend_ops)
 add_dependencies(habana_serialization pytorch_generate_env)
 install(TARGETS habana_pytorch2_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
@@ -344,9 +341,7 @@ option(BUILD_TESTS "Build gtest binaries" ON)
 
 if(BUILD_TESTS)
   add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13/"
-    ${CMAKE_BINARY_DIR}/ThirdParty/googletest/
-    EXCLUDE_FROM_ALL
-    SYSTEM)
+                   ${CMAKE_BINARY_DIR}/ThirdParty/googletest/ EXCLUDE_FROM_ALL SYSTEM)
   add_subdirectory(tests/cpp)
 endif()
 
@@ -367,7 +362,8 @@ function(build_or_install_wheel PACKAGE)
   endif()
 
   list(TRANSFORM ARGN PREPEND "${PACKAGE}/" OUTPUT_VARIABLE DEPS)
-  add_custom_command(OUTPUT ${OUTPUT}
+  add_custom_command(
+    OUTPUT ${OUTPUT}
     COMMAND ${PIP} ${PIPARGS}
     COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
     DEPENDS habana_pytorch_plugin habana_pytorch2_plugin
@@ -376,7 +372,8 @@ function(build_or_install_wheel PACKAGE)
 endfunction()
 
 if(BUILD_PKGS)
-  build_or_install_wheel(${PROJECT_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
+  build_or_install_wheel(
+    ${PROJECT_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
     __init__.py
     habana_dataloader/__init__.py
     habana_dataloader/aeon_config.py
@@ -389,9 +386,9 @@ if(BUILD_PKGS)
     include/pybind11_json.hpp
     LICENSE.txt
     main.cpp
-    setup.py
-  )
-  build_or_install_wheel(${PROJECT_SOURCE_DIR}/python_packages
+    setup.py)
+  build_or_install_wheel(
+    ${PROJECT_SOURCE_DIR}/python_packages
     habana_frameworks/torch/__init__.py
     habana_frameworks/torch/activity_profiler/__init__.py
     habana_frameworks/torch/activity_profiler/activity_profiler.py
@@ -471,6 +468,5 @@ if(BUILD_PKGS)
     habana_frameworks/torch/utils/profiler/csrc/bindings.cpp
     LICENSE.txt
     setup.py
-    torch_hpu/__init__.py
-  )
+    torch_hpu/__init__.py)
 endif()
