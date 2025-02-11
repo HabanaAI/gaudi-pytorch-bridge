@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ def main():
     args = parser.parse_args()
     dispatch_key = args.dispatch_key
     if "HPU" in dispatch_key:
-        import habana_frameworks.torch
+        import habana_frameworks.torch  # noqa F401
 
     if args.autograd:
         dispatch_key = "Autograd" + dispatch_key

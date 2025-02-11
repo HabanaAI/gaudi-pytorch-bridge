@@ -18,7 +18,6 @@ import functools
 
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from packaging.version import Version
 from torch._dynamo import compiled_autograd
 
 logger = get_compile_backend_logger()

@@ -28,7 +28,6 @@ from ._helpers import (
     get_dynamic_config_value,
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
-    remove_duplicated_outputs,
     remove_no_effect_inplace_add,
 )
 from .recipe_compiler import get_callable_recipe
@@ -44,7 +43,6 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
 
     from torch._subclasses.fake_tensor import FakeTensor
     from torch.fx.experimental.proxy_tensor import py_sym_types
-    from torch.fx.passes.shape_prop import TensorMetadata
 
     is_dynamic = False
     for node in input_module.graph.nodes:

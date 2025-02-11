@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,9 +20,6 @@ import os
 import torch
 from habana_frameworks.torch import _hpex_C
 from habana_frameworks.torch import core as htcore
-from torch import nn
-from torch.autograd import Variable
-from torch.nn.parameter import Parameter
 from torch.optim.optimizer import Optimizer
 
 

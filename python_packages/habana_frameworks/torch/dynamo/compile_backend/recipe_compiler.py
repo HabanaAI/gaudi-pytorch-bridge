@@ -15,8 +15,6 @@
 #
 ###############################################################################
 
-import logging
-import os
 import sys
 
 import habana_frameworks.torch.internal.bridge_config as bc
@@ -176,7 +174,7 @@ class HabanaGraphModule(torch.nn.Module):
         dynamic=False,
         force_static_compile=False,
     ):
-        from ._recipe_compiler_C import EmptyBatchData, RangeInfo
+        from ._recipe_compiler_C import EmptyBatchData
 
         logger.debug("Creating HabanaGraphModule")
         super().__init__()

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,6 +18,6 @@
 from habana_frameworks.torch import is_torch_fork as _is_torch_fork
 
 if _is_torch_fork:
-    from habana_frameworks.torch.lib.fork_pybind._torch_jit_C.jit import *
+    from habana_frameworks.torch.lib.fork_pybind._torch_jit_C.jit import *  # noqa F401
 else:
-    from habana_frameworks.torch.lib.upstream_pybind._torch_jit_C.jit import *
+    from habana_frameworks.torch.lib.upstream_pybind._torch_jit_C.jit import *  # noqa F401

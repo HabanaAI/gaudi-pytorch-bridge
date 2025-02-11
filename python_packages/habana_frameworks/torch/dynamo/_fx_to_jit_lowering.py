@@ -203,8 +203,6 @@ class FxToJitLowering(torch.fx.Interpreter):
             return self._insert_namedtuple_from_jit_vals(iterable_arg, collected_vals)
 
     def _get_jit_val(self, arg: Any, parameter=None) -> jit.Value:
-        from collections.abc import Iterable
-
         if isinstance(arg, jit.Value):
             return arg
 

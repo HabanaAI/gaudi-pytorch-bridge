@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 from typing import Iterable
 
 import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.hpu as hthpu
 import torch
 from habana_frameworks.torch import _hpex_C
 from habana_frameworks.torch.utils.internal import is_lazy

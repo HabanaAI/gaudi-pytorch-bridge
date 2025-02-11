@@ -17,7 +17,6 @@
 
 
 import habana_frameworks.torch as htorch
-import torch
 from torch._dynamo.trace_rules import (
     SKIP_DIRS,
     _allowed_callable_ids,

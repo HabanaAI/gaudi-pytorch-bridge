@@ -21,7 +21,6 @@ import argparse
 import csv
 import json
 import os
-import sys
 
 
 def compileInfo(path):

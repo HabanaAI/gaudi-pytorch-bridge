@@ -17,12 +17,9 @@
 
 
 import builtins
-import collections
 import ctypes
-import inspect
 import os
-import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import habana_frameworks.torch as htorch
 import torch

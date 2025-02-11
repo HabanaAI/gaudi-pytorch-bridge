@@ -31,7 +31,6 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import dump_fx_graph
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.internal import Timer
-from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
@@ -49,7 +48,7 @@ from .partitioner import HabanaPartitioner
 from .random_utils import is_backward_checkpoint_op
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
-from .symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
+from .symbolic_execution import SymExprNodeManager
 
 logger = get_compile_backend_logger()
 
@@ -1417,7 +1416,6 @@ class resolve_negative_dim:
             "constant_pad_nd",  # it is not a neg-dim op, but requires to create a custom-schema for DS handling
         ]
 
-        from torch._subclasses.fake_tensor import FakeTensor
         from torch.fx.experimental.proxy_tensor import py_sym_types
 
         if node_name in negative_dim_ops:

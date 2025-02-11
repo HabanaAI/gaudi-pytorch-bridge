@@ -21,7 +21,7 @@ import time
 from types import MethodType
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 TAG = "[DETECT_RECOMPILE_AUTO]"
 STEP_COUNT = "step_count"

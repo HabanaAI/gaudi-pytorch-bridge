@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 import threading
 
 import habana_frameworks.torch._core_C as htcore
-import torch
 from habana_frameworks.torch.utils.internal import is_lazy, lazy_only
 
 _DEVICE_CONTEXTS = dict()

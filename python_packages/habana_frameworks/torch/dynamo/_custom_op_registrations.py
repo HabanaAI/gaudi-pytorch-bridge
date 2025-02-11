@@ -17,7 +17,7 @@
 
 from typing import Optional
 
-import torch
+import torch  # noqa F401
 import torch.fx.node as fx_node
 from torch.library import custom_op
 

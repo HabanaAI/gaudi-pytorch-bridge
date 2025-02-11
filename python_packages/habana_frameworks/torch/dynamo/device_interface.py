@@ -15,11 +15,10 @@
 #
 ###############################################################################
 
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import habana_frameworks.torch as htorch
 import torch
-from habana_frameworks.torch import _hpu_C
 
 get_hpu_stream: Optional[Callable[[int], int]]
 from habana_frameworks.torch._hpu_C import _hpu_getCurrentRawStream as get_hpu_stream  # noqa E402

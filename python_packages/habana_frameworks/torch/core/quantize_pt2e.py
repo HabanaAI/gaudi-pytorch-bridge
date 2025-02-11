@@ -20,18 +20,17 @@ import copy
 import importlib
 import io
 import json
-import operator
 import os
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import functorch
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from torch._dynamo.backends.common import aot_autograd
 from torch.ao.quantization.quantizer import Quantizer
-from torch.fx import GraphModule, Node
-from torch.fx.passes.utils.source_matcher_utils import SourcePartition, get_source_partitions
+from torch.fx import GraphModule
+from torch.fx.passes.utils.source_matcher_utils import get_source_partitions
 
 from .pattern_matcher import PatternMatchAndReplacer, get_dequant_node, is_node
 from .torch_overwrites import _native_pt2e_quantization_interface

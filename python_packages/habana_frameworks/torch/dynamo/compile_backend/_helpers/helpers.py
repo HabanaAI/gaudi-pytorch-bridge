@@ -28,7 +28,7 @@ from ..random_utils import (
     is_random_op,
     random_op_inputs,
 )
-from ..symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
+from ..symbolic_execution import HPUExprPrinter, substitute_sympyfn, sympify_expression
 
 logger = get_compile_backend_logger()
 
@@ -407,7 +407,6 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
 
     from torch._subclasses.fake_tensor import FakeTensor
     from torch.fx.experimental.proxy_tensor import py_sym_types
-    from torch.fx.passes.shape_prop import TensorMetadata
 
     is_dynamic = False
     for node in input_module.graph.nodes:
