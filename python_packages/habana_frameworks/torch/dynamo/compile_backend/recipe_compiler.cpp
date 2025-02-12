@@ -104,6 +104,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          bool has_randoms,
          InputSymbolIndexMap& in_symbol_idx_map,
          std::vector<habana_helpers::RangeInfo>& range_infos,
+         std::vector<int64_t>& const_indexes,
          bool mark_dynamic) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
@@ -120,6 +121,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             has_randoms,
             in_symbol_idx_map,
             range_infos,
+            const_indexes,
             mark_dynamic);
       },
       py::return_value_policy::copy,
@@ -131,6 +133,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("has_randoms"),
       py::arg("in_symbol_idx_map"),
       py::arg("range_infos"),
+      py::arg("const_indexes"),
       py::arg("mark_dynamic"));
   m.def(
       "graph_launch",

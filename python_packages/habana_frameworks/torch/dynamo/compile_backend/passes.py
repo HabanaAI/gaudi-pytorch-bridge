@@ -104,6 +104,7 @@ def get_passes(stage: OptimizationPassPlacement):
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
             pass_graph_print,
+            pass_mark_frozen_params,
             pass_mark_waittensor_downstream_ops,
             # These passes will prepare proper placement for some corner-cases.
             pass_propose_partitions,
@@ -676,6 +677,15 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
         StrictRunNode(ctx.graph_module).run(*ctx.example_inputs)
 
     return True
+
+
+def pass_mark_frozen_params(ctx: OptimizerContext) -> bool:
+    for n in ctx.graph_module.graph.nodes:
+        if n.op == "get_attr" or n.op == "placeholder":
+            if "_frozen_param" in n.target:
+                n.meta["frozen_param"] = True
+    ctx.graph_module.graph.lint()
+    ctx.graph_module.recompile()
 
 
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
@@ -1748,7 +1758,6 @@ def pass_compile_clusters(ctx: OptimizerContext):
     num_subgraphs = 0
     refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
     optim_output_sif_ds = bc.get_pt_hpu_optim_dynamic_output_sif()
-
     for n in ctx.graph_module.graph.nodes:
         logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
 

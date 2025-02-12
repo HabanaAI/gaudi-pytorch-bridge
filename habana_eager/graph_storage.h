@@ -34,6 +34,7 @@ class GraphStorage {
       bool has_randoms,
       InputSymbolIndexMap& in_symbol_idx_map,
       std::vector<habana_helpers::RangeInfo>& range_infos,
+      std::vector<int64_t>& const_indexes,
       bool mark_dynamic);
   torch::jit::Stack launch_recipe(
       size_t recipe_id,

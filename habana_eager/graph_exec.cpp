@@ -214,6 +214,7 @@ GraphExec::GraphExec(
     bool has_randoms,
     InputSymbolIndexMap in_symbol_idx_map,
     std::vector<habana_helpers::RangeInfo>& range_infos,
+    std::vector<int64_t>& const_indexes,
     bool mark_dynamic)
     : m_graph_index(recipe_id),
       m_graph(graph),
@@ -223,6 +224,7 @@ GraphExec::GraphExec(
       m_has_randoms(has_randoms),
       m_in_symbol_idx_map(in_symbol_idx_map),
       m_range_infos(range_infos),
+      m_const_indexes(const_indexes),
       m_mark_dynamic(mark_dynamic && dynamic) {
   PT_EAGER_TRACE;
 
@@ -395,7 +397,8 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
         m_graph, m_graph_name + "_jit_graph_before_passes");
   RunPass(
       [this, &example_inputs]() {
-        return pass::MarkParamsAsConst(this->m_graph, example_inputs);
+        return pass::MarkParamsAsConst(
+            this->m_graph, example_inputs, m_const_indexes);
       },
       dump_graphs,
       "MarkParamsAsConst");

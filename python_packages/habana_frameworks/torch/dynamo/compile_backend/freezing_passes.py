@@ -218,6 +218,10 @@ def freeze(
 
     # TODO - mostly CPU specific passes
     # freezing_passes(aot_autograd_gm, aot_example_inputs)
+    logger.debug(
+        "Post freeze graph:\n%s",
+        aot_autograd_gm.print_readable(print_output=False),
+    )
 
     try:
         with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):

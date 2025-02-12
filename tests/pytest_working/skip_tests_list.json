@@ -234,7 +234,6 @@
             "pytest_working/any_mode/test_hpu_scaled_triangular_softmax.py::test_scaled_triangular_softmax_retain[dtype0-0.75-shape2]"
         ],
         "compile": [
-            "pytest_working/compile/test_compile_conv_bn.py::test_hpu_const_marking",
             "pytest_working/compile/test_hpu_convolution.py::test_hpu_convolution_grad_with_view",
             "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[float32-[4x3x8]]",
             "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]"
@@ -508,7 +507,6 @@
             "pytest_working/compile/test_hpu_arange.py::test_arange[40-1-10-layout1-dtype2]",
             "pytest_working/compile/test_hpu_arange.py::test_arange[40-20-0-None-dtype1]",
             "pytest_working/compile/test_hpu_arange.py::test_arange[40-20-0-None-dtype2]",
-            "pytest_working/compile/test_compile_conv_bn.py::test_hpu_const_marking",
             "pytest_working/compile/test_hpu_convolution.py::test_hpu_convolution_grad_with_view",
             "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[float32-[4x3x8]]",
             "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]"

@@ -170,6 +170,7 @@ class HabanaGraphModule(torch.nn.Module):
         outputs_metadata,
         symbolic_metadata,
         pholder_symbolic_dict,
+        const_input_indexes,
         is_training=False,
         dynamic=False,
         force_static_compile=False,
@@ -184,6 +185,7 @@ class HabanaGraphModule(torch.nn.Module):
         self._in_to_out_dups = graph_module.meta.get("in_to_out_dups", None)
         self._outputs_metadata = outputs_metadata.copy()
         self._pholder_symbolic_dict = pholder_symbolic_dict
+        self._const_input_indexes = const_input_indexes
         self._range_list = []
         self._inference = not is_training
         self._recipe_id = None
@@ -307,6 +309,7 @@ class HabanaGraphModule(torch.nn.Module):
                 has_randoms=self._has_randoms,
                 in_symbol_idx_map=self._pholder_symbolic_dict,
                 range_infos=self._range_list,
+                const_indexes=self._const_input_indexes,
                 mark_dynamic=self._mark_dynamic,
             )
 
@@ -360,6 +363,8 @@ def get_callable_recipe(
         outputs_metadata = get_outputs_metadata_dynamic(graph_module)
         symbolic_metadata, pholder_symbolic_dict = get_symbolic_metadata(graph_module, outputs_metadata)
 
+    const_input_indexes = get_const_input_indexes(graph_module)
+
     if hpu_backend_config.use_compiled_recipes:
         return HabanaGraphModule(
             jit_ir,
@@ -368,6 +373,7 @@ def get_callable_recipe(
             outputs_metadata,
             symbolic_metadata,
             pholder_symbolic_dict,
+            const_input_indexes,
             is_training=is_training,
             dynamic=is_dynamic,
             force_static_compile=hpu_backend_config.force_static_compile,
@@ -375,6 +381,21 @@ def get_callable_recipe(
     else:
         # Return unchanged module, it will be ran eagerly.
         return graph_module
+
+
+def get_const_input_indexes(graph_module):
+    const_indexes = []
+    placeholder_idx = 0
+    for node in graph_module.graph.nodes:
+        if node.op != "placeholder":
+            continue
+
+        is_frozen_param = node.meta.get("frozen_param", False)
+        if is_frozen_param:
+            const_indexes.append(placeholder_idx)
+            logger.debug("Constant input nodes:", node.target)
+        placeholder_idx += 1
+    return const_indexes
 
 
 def get_symbolic_metadata(graph_module, outputs_metadata):

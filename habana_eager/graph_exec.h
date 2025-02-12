@@ -43,6 +43,7 @@ class GraphExec {
       bool has_randoms,
       InputSymbolIndexMap in_symbol_idx_map,
       std::vector<habana_helpers::RangeInfo>& range_infos,
+      std::vector<int64_t>& const_indexes,
       bool mark_dynamic);
 
   torch::jit::Stack launch(
@@ -109,6 +110,7 @@ class GraphExec {
   const bool m_has_randoms;
   InputSymbolIndexMap m_in_symbol_idx_map;
   std::vector<habana_helpers::RangeInfo> m_range_infos;
+  std::vector<int64_t> m_const_indexes;
   bool m_mark_dynamic = false;
   bool m_reset_seed = true;
   SeedTensors m_seed_tensors{};

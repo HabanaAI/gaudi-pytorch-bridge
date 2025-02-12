@@ -20,10 +20,6 @@
 
 namespace habana_helpers {
 bool enable_inference_mode{GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)};
-bool enable_mark_scale_constant{
-    GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MARK_SCALES_AS_CONST)};
-bool enable_mark_non_scale_constant{
-    GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MARK_NON_SCALES_AS_CONST)};
 
 bool enable_quantization = false;
 // if a proper path is set,const section serialization will be enabled.
@@ -35,6 +31,9 @@ bool enable_compression = false;
 
 // if true enables recompute based fused SDPA
 bool enabled_recomputeFSDPA = true;
+
+bool enable_mark_scale_constant = true;
+bool enable_mark_non_scale_constant = true;
 
 void EnableInferenceMode() {
   enable_inference_mode = true;
