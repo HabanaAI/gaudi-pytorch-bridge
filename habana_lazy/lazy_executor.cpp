@@ -103,16 +103,10 @@ void HbExecutionContext::JoinPendingLaunchThread(bool wait_only) {
       // If the future is already ready when below line executes, it can
       // create an exception. Ignore the exception as the wait is already
       // over.
-
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-          (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-        m_launch_thread_handle.get();
+      if (wait_only) {
+        m_launch_thread_handle.wait();
       } else {
-        if (wait_only) {
-          m_launch_thread_handle.wait();
-        } else {
-          m_launch_thread_handle.get();
-        }
+        m_launch_thread_handle.get();
       }
     }
   }

@@ -364,8 +364,7 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
         stack.at(6),
         setToIntegralDType)};
   } else {
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1 ||
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
       // Lazy Flow
       auto output_shape_tensor = stack[1].toTensor();
       depth = output_shape_tensor.sizes()[0];

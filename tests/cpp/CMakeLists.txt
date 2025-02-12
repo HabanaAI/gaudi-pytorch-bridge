@@ -38,7 +38,6 @@ set(lazy_tests_src
     lazy_dynamic_shapes_serialize_tests.cpp
     lazy_dynamic_shapes_tests.cpp
     lazy_dynamic_shapes_tests2.cpp
-    lazy_eager_tests.cpp
     lazy_embedding_kernel_tests.cpp
     lazy_execution_test.cpp
     lazy_fill_kernel_tests.cpp

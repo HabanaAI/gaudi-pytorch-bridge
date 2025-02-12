@@ -136,11 +136,9 @@ void GraphHashBuilder::prepareInputsStackMap(
         graph_input_stack_uid_map.size() - 1,
         " is index ",
         indx);
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
-      HABANA_ASSERT(
-          d->running_cntr != -1,
-          "Producing graph metadata with input that has no running ID");
-    }
+    HABANA_ASSERT(
+        d->running_cntr != -1,
+        "Producing graph metadata with input that has no running ID");
   }
 }
 

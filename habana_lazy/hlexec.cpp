@@ -585,32 +585,27 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
     optimized_lazy_eager_key = lazyInfo->get_optimized_lazy_eager_key();
   }
 
-  // To not read the normal cache for optimized eager
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
-    mp_g_and_meta_data_ =
-        habana::JitGraphCache::GetJitCache().GetOptimizedJITGraphAndMetaData(
-            m_g_hash_);
-  }
+  mp_g_and_meta_data_ =
+      habana::JitGraphCache::GetJitCache().GetOptimizedJITGraphAndMetaData(
+          m_g_hash_);
 
   // Cache miss
   // ==========
   if (mp_g_and_meta_data_ == nullptr) {
     ConstructJITGraph();
     // To not write the normal cache for optimized eager
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
-      PT_LAZY_DEBUG(
-          "JIT Cache miss :: key ",
-          m_g_hash_,
-          ", graph_index ",
-          GetGraphIndex(
-              m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
-          ", bcast_map = ",
-          node_bcast_map_.size());
-      PT_IRGRAPH_DEBUG("JIT Cache miss");
-      // Cache miss handling
-      // ===================
-      habana::JitGraphCache::GetJitCache().Add(m_g_hash_, mp_g_and_meta_data_);
-    }
+    PT_LAZY_DEBUG(
+        "JIT Cache miss :: key ",
+        m_g_hash_,
+        ", graph_index ",
+        GetGraphIndex(
+            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
+        ", bcast_map = ",
+        node_bcast_map_.size());
+    PT_IRGRAPH_DEBUG("JIT Cache miss");
+    // Cache miss handling
+    // ===================
+    habana::JitGraphCache::GetJitCache().Add(m_g_hash_, mp_g_and_meta_data_);
   } else {
     PT_LAZY_DEBUG(
         "JIT Cache hit :: key ",

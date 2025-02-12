@@ -159,40 +159,10 @@ bool is_inplace(at::Symbol symbol) {
   return endch == '_';
 }
 
-namespace {
-void flushWithMarkStep() {
-  // Generate a random number and invoke the mark_step
-  static std::once_flag flag;
-  std::call_once(flag, [&]() { srand((unsigned)time(0)); });
-
-  // Generate a random number between 1 - 100
-  auto rand_num = rand() % 100 + 1;
-
-  // By default, we want to trigger 50% of the time
-  auto aggressiveness = 50;
-  if (const auto envp =
-          std::getenv("INTERNAL_PT_HPU_LAZY_MARK_STEP_TEST_TRIGGER")) {
-    aggressiveness = std::stoul(envp, nullptr, 10);
-    // Cap the trigger to at least 1% to at most 100%
-    if (aggressiveness < 1) {
-      aggressiveness = 0;
-    } else if (aggressiveness > 100) {
-      aggressiveness = 100;
-    }
-  }
-  if (rand_num < aggressiveness) {
-    PT_LAZY_DEBUG("Triggering a mark_step");
-    PT_IRGRAPH_DEBUG("step marker due to flushWithMarkStep");
-    HbLazyTensor::StepMarker({});
-  }
-}
-} // namespace
-
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
 void flush_op(
-    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,
-    std::vector<HbLazyTensor> out_hb_lazy_tensor) {
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info) {
   // Count number of ops added by both accumulation thread and the main thread.
   // This is not accurate number of ops. The accurate number of ops can be taken
   // from accumulated ops (incrementAccumulatedOps).
@@ -204,20 +174,9 @@ void flush_op(
     return;
   }
 
-  const bool m_flush_op = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2;
-  const bool m_random_flush = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 3;
   StageSubmission::getInstance().incrementAccumulatedOps();
 
-  if (m_flush_op) {
-    bool async =
-        (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
-         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD));
-    PT_IRGRAPH_DEBUG("step marker due to flush_op");
-    HbLazyTensor::StepMarker(
-        {}, lazy_front_end_info, out_hb_lazy_tensor, async);
-  } else if (m_random_flush) {
-    flushWithMarkStep();
-  } else if (StageSubmission::getInstance().isExceededMaxAccumlatedSize()) {
+  if (StageSubmission::getInstance().isExceededMaxAccumlatedSize()) {
     PT_LAZY_DEBUG("Reached max accumulated graph size, triggering a mark_step");
     PT_IRGRAPH_DEBUG("step marker due to max accumulated graph size");
     HbLazyTensor::StepMarker({}, lazy_front_end_info);
@@ -370,10 +329,6 @@ std::vector<int64_t> CalculateStrides(
 }
 
 void updateDstDependencies(const Tensor& dst) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    return;
-  };
-
   auto hb_result = GetHbLazyTensor(dst);
   auto node = ir::Node::Create(
       Symbol::fromQualString("hpu::control_edge_"), {hb_result.GetIrValue()});
@@ -1389,25 +1344,18 @@ Tensor as_strided_hpu(
   // lazy within lazy. as strided node is not here. Only the view table update
   // happens here
 
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    auto out = HbLazyTensorViews::process_strided_view(
-        self, size_in, stride_in, storage_offset_val, true);
-    return out;
-  } else {
-    auto out = HbLazyTensorViews::add_strided_view_node(
-        self,
-        size_in,
-        stride_in,
-        storage_offset_val,
-        true /*is_update_view*/,
-        c10::nullopt);
-    if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
-      flush_op();
-    }
-    return out;
+  auto out = HbLazyTensorViews::add_strided_view_node(
+      self,
+      size_in,
+      stride_in,
+      storage_offset_val,
+      true /*is_update_view*/,
+      c10::nullopt);
+  if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
+    flush_op();
   }
-}; // namespace habana_lazy
+  return out;
+}
 
 // THis kernel has two paths, lowering and lazy
 // During lazy we set up the as strided tensor meta data
@@ -1424,26 +1372,19 @@ Tensor as_strided_hpu_lazy(
   // happens here
   auto storage_offset_val = storage_offset.value_or(self.storage_offset());
 
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    auto out = HbLazyTensorViews::process_strided_view(
-        self, size_in, stride_in, storage_offset_val, true);
-    return out;
-  } else {
-    auto out = HbLazyTensorViews::add_strided_view_node(
-        self,
-        size_in,
-        stride_in,
-        storage_offset_val,
-        true /*is_update_view*/,
-        c10::nullopt);
+  auto out = HbLazyTensorViews::add_strided_view_node(
+      self,
+      size_in,
+      stride_in,
+      storage_offset_val,
+      true /*is_update_view*/,
+      c10::nullopt);
 
-    habana::get_and_set_tensor_const(self, out);
-    if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
-      flush_op();
-    }
-    return out;
+  habana::get_and_set_tensor_const(self, out);
+  if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
+    flush_op();
   }
+  return out;
 }
 
 void as_strided_hpu_lazy_inplace_parralel_impl(
@@ -1569,11 +1510,6 @@ Tensor view_hpu(const Tensor& self_, SymIntArrayRef size) {
   handle_collective(self_);
   auto out = as_strided_hpu_lazy(
       self_, inferred_size, stride_value, self_.storage_offset());
-
-  // no need to create view table
-  if (lazyEagerOptimizedViewHandling()) {
-    return out;
-  }
 
   auto func = std::bind(view_hpu_lazy_parallel_impl, self_, size_.vec(), out);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {
@@ -1763,16 +1699,12 @@ void add_tensor_hpu_lazy_parallel_impl(
   auto alpha_double = alpha.toDouble();
   if (alpha_double != 1.0) {
     at::Tensor mul_out;
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-      // For lazy eager Skip scalar handling at FE
-      mul_out = torch::mul(other, alpha);
-    } else {
-      at::Tensor alpha_tensor =
-          get_tensor_for_scalar(alpha_double, other.options());
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
 
-      auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-      mul_out = torch::mul(other, alpha_tensor);
-    }
+    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+    mul_out = torch::mul(other, alpha_tensor);
+
     if (other.unsafeGetTensorImpl()->is_wrapped_number()) {
       // The operation has been split into intermediate multiply and then
       // again add op tensor produced by this split resulted in inappropriate
@@ -1832,14 +1764,8 @@ Tensor& add_scalar_hpu_lazy_(
     const Scalar& alpha) {
   PT_LAZY_TRACE;
 
-  // Handle scalar handling for lazy mode only at FE
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
-    auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
-    return add_tensor_hpu_lazy_(self, other_tensor, alpha);
-  }
-
-  LazyOp<Tensor&> op("hpu::add_", {self, other, alpha});
-  return op.call(self);
+  auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
+  return add_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
 
 void add_tensor_hpu_lazy_inplace_parallel_impl(
@@ -1850,16 +1776,11 @@ void add_tensor_hpu_lazy_inplace_parallel_impl(
   auto alpha_double = alpha.toDouble();
   if (alpha_double != 1.0) {
     at::Tensor mul_out;
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-      // For lazy eager Skip scalar handling at FE
-      mul_out = torch::mul(other, alpha);
-    } else {
-      at::Tensor alpha_tensor =
-          get_tensor_for_scalar(alpha_double, other.options());
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
 
-      auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-      mul_out = torch::mul(other, alpha_tensor);
-    }
+    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+    mul_out = torch::mul(other, alpha_tensor);
     add_tensor_hpu_lazy_inplace_parallel_impl(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<Tensor&> op("hpu::add_", {self, other, alpha}, false, true);
@@ -2185,11 +2106,6 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
 
 Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
   PT_LAZY_TRACE;
-  // This WA can be removed once GC fixes SW-70270
-  // If self is a ZST then return it as it is since there is nothing to fill
-  if (!self.numel() && (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))
-    return self;
-
   if (value.isBoolean()) {
     int bool_val = value.toBool();
     LazyOp<at::Tensor&> k{"aten::fill_", {self, bool_val}};
@@ -3338,12 +3254,6 @@ Tensor slice_hpu_lazy(
   // allocate correct autograd gradient function for view tensor.
   auto out = at::native::slice(self_in, dim, start, end, step);
 
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    return out;
-  }
-
   auto param_setter = [dim, start, end, step](
                           const Tensor& self_in, StrideParams& strided_param) {
     strided_param.optype = kStridedOpSlice;
@@ -3394,12 +3304,6 @@ Tensor alias_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto out = as_strided_hpu_lazy(
       self, self.sizes(), self.strides(), self.storage_offset());
-
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    return out;
-  }
 
   auto param_setter = [](const Tensor& self, StrideParams& strided_param) {
     strided_param.optype = kStridedOpIdentity;
@@ -4536,13 +4440,6 @@ Tensor empty_strided_hpu_lazy(
     empty_tensor.unsafeGetTensorImpl()->set_storage_offset(storage_offset);
   }
 
-  // lazy eager optimized view handling
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true) &&
-      is_strided) {
-    return empty_tensor;
-  }
-
   // empty_hpu_lazy call might move the tensor to cpu for unsupported dtypes
   if (empty_tensor.device().type() != c10::DeviceType::HPU)
     return empty_tensor;
@@ -4561,12 +4458,6 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_LAZY_TRACE;
 
   auto out = at::native::transpose(self, dim0_, dim1_);
-
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    return out;
-  }
 
   // To Do - to check if below handling required in lazye eager.
   // if due to any reason 'out' does not have the storage then we
@@ -4606,12 +4497,6 @@ Tensor t_hpu_lazy(const Tensor& self) {
   }
   auto out = at::native::t(self);
 
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    return out;
-  }
-
   // To Do - To check if any special handling required for
   // 0-D and 1-D input for lazy eager
 
@@ -4634,12 +4519,6 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
     out = at::native::squeeze(self, dim);
   } else {
     out = at::native::squeeze(self);
-  }
-
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    return out;
   }
 
   auto param_setter = [dim](const Tensor& self, StrideParams& strided_param) {
@@ -4674,12 +4553,6 @@ Tensor squeeze_dims_hpu_lazy(const Tensor& self, IntArrayRef dims) {
   auto dims_vec = dims.vec();
   at::wrap_all_dims(dims_vec, self.dim());
   out = at::native::squeeze(self, dims_vec);
-
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    return out;
-  }
 
   auto param_setter = [dims_vec](
                           const Tensor& self, StrideParams& strided_param) {
@@ -4865,12 +4738,6 @@ Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
   }
 
   auto out = at::native::expand(self, size_in, implicit);
-
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
-    return out;
-  }
 
   auto additional_predicate = [](const Tensor& self, const Tensor& out) {
     auto self_id = GetHbLazyTensorId(self);

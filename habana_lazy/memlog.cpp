@@ -55,8 +55,7 @@ const std::pair<uint64_t, uint32_t> get_future_memory() {
   auto context = habana_lazy::get_device_lazy_execution_context();
 
   if (context == nullptr || context->m_launch_thread_handle.valid() == true ||
-      context->m_launch_thread_context == true ||
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      context->m_launch_thread_context == true) {
     return std::make_pair<uint64_t, uint32_t>(0, 0);
   }
 
