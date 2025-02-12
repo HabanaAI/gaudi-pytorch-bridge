@@ -36,7 +36,7 @@ from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
 
 from ._helpers import *
-from ._passes.batch_as_strided import pass_batch_as_strided
+from ._passes.batch_as_strided import batch_as_strided, group_batch_as_strided
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
@@ -116,7 +116,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_reorder_collectives,
             pass_make_symints_available,
             pass_fuse_view_chains,
-            pass_batch_as_strided,
+            pass_batch_as_strided_groups,
             pass_graph_print,
             pass_wa_fix_output,
         ]
@@ -146,6 +146,23 @@ class FusedCollectiveOperatorSupport(OperatorSupport):
             node.meta["partition_assigned"] = "true"
             return True
         return False
+
+
+def pass_batch_as_strided_groups(ctx: OptimizerContext):
+    graph_module = ctx.graph_module
+    current_groups = group_batch_as_strided(graph_module)
+    merged_groups = merge_paths(graph_module, current_groups)
+
+    inserted_batch = batch_as_strided(graph_module, merged_groups)
+
+    post_changed = post_process_partitions(
+        # not having not mergable when grouping as_strided's
+        ctx.graph_module,
+        merged_groups,
+        [],
+    )
+
+    return inserted_batch or post_changed
 
 
 def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
@@ -423,15 +440,7 @@ def optimize_graph(
     is_dynamic = is_module_dynamic(graph_module)
 
     ctx = OptimizerContext(
-        graph_module,
-        graph_name,
-        example_inputs,
-        is_training,
-        is_backward,
-        is_dynamic,
-        stage,
-        None,
-        None,
+        graph_module, graph_name, example_inputs, is_training, is_backward, is_dynamic, stage, None, None, None, None
     )
 
     def run_passes(ctx: OptimizerContext):
@@ -1003,13 +1012,18 @@ def match_full_copy_pattern(node: torch.fx.Node) -> Tuple[bool, torch.fx.Node, t
     return True, full_node, copy_node
 
 
-def pass_post_process_partitions(ctx: OptimizerContext):
+def post_process_partitions(
+    graph_module: torch.fx.GraphModule,
+    current_partitions: List[torch.fx.passes.infra.partitioner.Partition],
+    current_partitions_non_mergeable: List[torch.fx.passes.infra.partitioner.Partition],
+):
     """
     This pass will do some post process for those proposed partitions from hpu
     partitioner, like move some specific ops from one partition to another
     partition, to reduce some unnecessary tensor passing between partitions.
     Currently, the post process is mainly for device memory optimization.
     """
+    assert None not in [graph_module, current_partitions, current_partitions_non_mergeable]
     from torch.fx.passes.infra.partitioner import Partition
 
     partition_changed = False
@@ -1082,7 +1096,7 @@ def pass_post_process_partitions(ctx: OptimizerContext):
 
     assignments: Dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
     partitions_by_id: Dict[int, Partition] = {}  # mapping from partition_id to partition
-    for partition in ctx.current_partitions + ctx.current_partitions_non_mergeable:
+    for partition in current_partitions + current_partitions_non_mergeable:
         id = partition.id
         partitions_by_id[id] = partition
         for node in list(partition.nodes):
@@ -1090,14 +1104,18 @@ def pass_post_process_partitions(ctx: OptimizerContext):
 
     if hpu_backend_config.reassign_full_copy:
         partition_changed = partition_changed or reassign_full_copy_to_upstream_partition(
-            ctx.graph_module, assignments, partitions_by_id
+            graph_module, assignments, partitions_by_id
         )
     if hpu_backend_config.reassign_copy_:
         partition_changed = partition_changed or reassign_copy__to_upstream_partition(
-            ctx.graph_module, assignments, partitions_by_id
+            graph_module, assignments, partitions_by_id
         )
 
     return partition_changed
+
+
+def pass_post_process_partitions(ctx: OptimizerContext) -> bool:
+    return post_process_partitions(ctx.graph_module, ctx.current_partitions, ctx.current_partitions_non_mergeable)
 
 
 def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
@@ -1224,7 +1242,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     "hpu_cluster" - such OPs will be later placed inside HPU clusters
     """
     assert ctx.graph_module is not None
-
     for node in ctx.graph_module.graph.nodes:
         placement = None
         dynamic_call_function = is_call_function_dynamic(node, ctx.is_dynamic) if node.op == "call_function" else False
@@ -1339,42 +1356,39 @@ def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
     return False
 
 
-def pass_merge_paths(ctx: OptimizerContext) -> bool:
+def merge_paths(
+    graph_module: torch.fx.Graph, current_partitions: List[torch.fx.passes.infra.partitioner.Partition]
+) -> List[torch.fx.passes.infra.partitioner.Partition]:
     """
     This pass that will merge parallel partitions.
     """
-    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
-    assert ctx.graph_module is not None
-    assert ctx.current_partitions is not None
 
-    logger.debug(f"Merging parallel graph path. Partition cnt: {len(ctx.current_partitions)}")
+    logger.debug(f"Merging parallel graph path. Partition cnt: {len(current_partitions)}")
 
-    graph_changed = False
-
-    if len(ctx.current_partitions) == 1:
+    if len(current_partitions) == 1:
         logger.debug("Merging skipped for single partition graph")
         # In case of single partition there is no merging to be done
-        return graph_changed
+        return current_partitions
 
     color_graph = ColorGraph()
 
     # Color all nodes in every partition on the same color
     partitions_by_color = dict()
 
-    for part in ctx.current_partitions:
+    for part in current_partitions:
         partition_color = color_graph.assign_new_color(is_partition_color=True)
         for node in part.nodes:
             node.meta["merge_path_color"] = partition_color
         partitions_by_color[partition_color] = part
 
     # Color remaining nodes (new color for every node)
-    for node in ctx.graph_module.graph.nodes:
+    for node in graph_module.graph.nodes:
         if "merge_path_color" not in node.meta:
             node_color = color_graph.assign_new_color()
             node.meta["merge_path_color"] = node_color
 
     # Build color graph
-    for node in ctx.graph_module.graph.nodes:
+    for node in graph_module.graph.nodes:
         for user in node.users.keys():
             user_color = user.meta.get("merge_path_color")
             node_color = node.meta.get("merge_path_color")
@@ -1385,7 +1399,7 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
     new_partitions_desc_list = color_graph.get_parallel_blocks()
 
     # Update only if new partitioning is better than old one
-    if len(new_partitions_desc_list) < len(ctx.current_partitions):
+    if len(new_partitions_desc_list) < len(current_partitions):
         logger.debug("New partition list (by colors): %s", new_partitions_desc_list)
         from torch.fx.passes.infra.partitioner import Partition
 
@@ -1397,15 +1411,27 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
                     new_part.add_node(node)
             new_partitions.append(new_part)
 
-        ctx.current_partitions = new_partitions
-        graph_changed = True
-        logger.debug("Merge paths done. Partition cnt: %s", len(ctx.current_partitions))
+        current_partitions = new_partitions
+
+        logger.debug("Merge paths done. Partition cnt: %s", len(new_partitions))
     else:
         logger.debug("No partitions suitable for merging found")
 
     # Cleanup coloring information from meta
-    for node in ctx.graph_module.graph.nodes:
+    for node in graph_module.graph.nodes:
         del node.meta["merge_path_color"]
+
+    return current_partitions
+
+
+def pass_merge_paths(ctx: OptimizerContext) -> bool:
+    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
+    assert ctx.graph_module is not None
+    assert ctx.current_partitions is not None
+
+    new_partitions = merge_paths(ctx.graph_module, ctx.current_partitions)
+    graph_changed = new_partitions != ctx.current_partitions
+    ctx.current_partitions = new_partitions
 
     return graph_changed
 
@@ -2124,6 +2150,8 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
                 }
                 and node._pretty_print_target(node.target) not in host_call_functions
             ):
+                for key in node.meta.keys():
+                    logger.debug(f"{key=}: {node.meta[key]}")
                 if node.meta["placement"] == "eager":
                     eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
         assert len(eager_nodes) == 0, f"Eager fallback in nodes: {eager_nodes}"

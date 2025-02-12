@@ -129,7 +129,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         )
 
         with ctx.graph_module.graph.inserting_before(chain[0]):
-            fused_node = ctx.graph_module.graph.call_function(torch.as_strided, as_strided_args)
+            fused_node = ctx.graph_module.graph.call_function(torch.ops.aten.as_strided.default, as_strided_args)
             input_tensor = chain[0].meta["val"]
             as_strided_inputs = [input_tensor] + list(as_strided_args[1:])
             as_strided_result = fused_node.target(*as_strided_inputs)

@@ -51,3 +51,42 @@ def test_pass_fuse_view_chains():
     assert ops_summary[0]["torch.ops.hpu.batch_as_strided"].eager_count == 1
     for r_hpu, r_cpu in zip(results_hpu, results_cpu):
         torch.allclose(r_hpu.to("cpu"), r_cpu)
+
+
+def test_as_strided_batching():
+    def func(x0, x1):
+        x = x0 + 1
+        y = x + x1
+        as_strided = torch.as_strided(y, size=(2, 2), stride=(2, 2))
+        z = torch.abs(as_strided)
+        return torch.as_strided(z, size=(2, 2), stride=(1, 1)), as_strided
+
+    compiled_func = torch.compile(func, backend="hpu_backend")
+
+    with FxGraphAnalyzer() as fga:
+
+        t1_cpu = torch.ones((8, 8))
+        t2_cpu = t1_cpu.clone()
+        t1_hpu, t2_hpu = t1_cpu.to("hpu"), t2_cpu.to("hpu")
+        cpu_res = func(t1_cpu, t2_cpu)
+        hpu_res = tuple([r.to("cpu") for r in compiled_func(t1_hpu, t2_hpu)])
+        for c, h in zip(cpu_res, hpu_res):
+            torch.allclose(c, h)
+        ops_summary = fga.get_ops_summary()
+        assert ops_summary[0]["torch.ops.hpu.batch_as_strided"].eager_count == 1
+
+
+def test_as_strided_not_possible_to_merge():
+    @torch.compile(backend="hpu_backend")
+    def func(x1, x0):
+        op0 = torch.abs(x0)
+        strided0 = torch.as_strided(op0, size=(2, 2), stride=(1, 1))
+        op1 = x1 * 5.0
+        strided1 = torch.as_strided(op1, size=(2, 2), stride=(1, 1))
+        op2 = torch.add(strided0, strided1)
+        strided2 = torch.as_strided(op2, size=(2, 2), stride=(1, 1))
+        return strided1, strided2
+
+    t1 = torch.rand(4, 4, device="hpu")
+    t2 = torch.rand(4, 4, device="hpu")
+    _, _ = func(t1, t2)
