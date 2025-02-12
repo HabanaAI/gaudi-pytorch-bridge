@@ -36,7 +36,7 @@ OutputMetaDataVector BinaryCrossEntropyFwdMetaData(const at::Stack& stack) {
   return {meta};
 }
 
-OutputMetaDataVector BinaryCrossEntropyLogitsFwdMetaData(
+OutputMetaDataVector BinaryCrossEntropyWithLogitsFwdMetaData(
     const at::Stack& stack) {
   auto self = stack.at(index_of_fwd_self).toTensor();
   OutputMetaData meta;
@@ -56,6 +56,7 @@ OutputMetaDataVector BinaryCrossEntropyBwdMetaData(const at::Stack& stack) {
   meta.shape = self.sizes().vec();
   return {meta};
 }
+
 SharedMetaDataVector BinaryCrossEntropyFwdSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
@@ -79,7 +80,8 @@ SharedMetaDataVector BinaryCrossEntropyFwdSharedMeta(
 }
 
 SharedMetaDataVector BinaryCrossEntropyWithLogitsFwdSharedMeta(
-    const at::Stack& stack) {
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   auto self = stack_tensor(stack, 0);
   auto target = stack_tensor(stack, 1);
   auto weights = stack.at(2).toOptional<at::Tensor>();
@@ -90,19 +92,21 @@ SharedMetaDataVector BinaryCrossEntropyWithLogitsFwdSharedMeta(
   auto outputRank =
       reduction == at::Reduction::Reduction::None ? self.dim() : 1;
 
-  SharedMetaData binaryCrossEntropyFwdSharedMeta{"binary_cross_entropy_fwd"};
-  binaryCrossEntropyFwdSharedMeta.inputs_data = {
+  SharedMetaData binaryCrossEntropyWithLogitsFwdSharedMeta{
+      "binary_cross_entropy_fwd"};
+  binaryCrossEntropyWithLogitsFwdSharedMeta.inputs_data = {
       {self.dim(), dtype}, {target.dim(), dtype}};
   if (posWeights.has_value())
-    binaryCrossEntropyFwdSharedMeta.inputs_data.emplace_back(
+    binaryCrossEntropyWithLogitsFwdSharedMeta.inputs_data.emplace_back(
         posWeights.value().dim(), dtype);
 
   if (weights.has_value())
-    binaryCrossEntropyFwdSharedMeta.inputs_data.emplace_back(
+    binaryCrossEntropyWithLogitsFwdSharedMeta.inputs_data.emplace_back(
         target.dim(), dtype);
 
-  binaryCrossEntropyFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
-  return {binaryCrossEntropyFwdSharedMeta};
+  binaryCrossEntropyWithLogitsFwdSharedMeta.outputs_data.emplace_back(
+      outputRank, dtype);
+  return {binaryCrossEntropyWithLogitsFwdSharedMeta};
 }
 
 SharedMetaDataVector BinaryCrossEntropyBwdSharedMeta(
@@ -218,7 +222,8 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
   auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
   auto pos_weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
 
-  const auto output_shape = BinaryCrossEntropyLogitsFwdMetaData(stack)[0].shape;
+  const auto output_shape =
+      BinaryCrossEntropyWithLogitsFwdMetaData(stack)[0].shape;
   const bool is_weights_used = weight.has_value();
   const bool is_pos_weights_used = pos_weight.has_value();
   const int reduction_index = 4;

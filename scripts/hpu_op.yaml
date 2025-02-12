@@ -1862,51 +1862,31 @@ bernoulli.float_out:
 
 binary_cross_entropy:
   output_meta: BinaryCrossEntropyFwdMetaData
-  dtypes:
-    Gaudi: [Float, BFloat16]
-    Gaudi2: [Float, BFloat16, Half]
-    Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyFwd
   out_ids: [0]
-  #op_validator: BinaryCrossEntropyFwdSharedMeta SW-163929
+  op_validator: BinaryCrossEntropyFwdSharedMeta
 
 binary_cross_entropy_backward:
   output_meta: BinaryCrossEntropyBwdMetaData
-  dtypes:
-    Gaudi: [Float, BFloat16]
-    Gaudi2: [Float, BFloat16, Half]
-    Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyBwd
   out_ids: [0]
-  #op_validator: BinaryCrossEntropyBwdSharedMeta SW-163929
+  op_validator: BinaryCrossEntropyBwdSharedMeta
 
 binary_cross_entropy.out:
   output_meta: BinaryCrossEntropyFwdMetaData
-  dtypes:
-    Gaudi: [Float, BFloat16]
-    Gaudi2: [Float, BFloat16, Half]
-    Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyFwd
-  #op_validator: BinaryCrossEntropyFwdSharedMeta SW-163929
+  op_validator: BinaryCrossEntropyFwdSharedMeta
 
 binary_cross_entropy_backward.grad_input:
   output_meta: BinaryCrossEntropyBwdMetaData
-  dtypes:
-    Gaudi: [Float, BFloat16]
-    Gaudi2: [Float, BFloat16, Half]
-    Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyBwd
-  #op_validator: BinaryCrossEntropyBwdSharedMeta SW-163929
+  op_validator: BinaryCrossEntropyBwdSharedMeta
 
 binary_cross_entropy_with_logits:
-  output_meta: BinaryCrossEntropyLogitsFwdMetaData
-  dtypes:
-    Gaudi: [Float, BFloat16]
-    Gaudi2: [Float, BFloat16, Half]
-    Gaudi3: [Float, BFloat16, Half]
+  output_meta: BinaryCrossEntropyWithLogitsFwdMetaData
   op_backend: BinaryCrossEntropyWithLogitsFwd
   out_ids: [0]
-  #op_validator: BinaryCrossEntropyWithLogitsFwdSharedMeta SW-163929
+  op_validator: BinaryCrossEntropyWithLogitsFwdSharedMeta
 
 bitwise_and.Scalar:
   output_meta: BitwiseLogicalMeta
