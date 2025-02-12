@@ -186,7 +186,6 @@ RecipeCacheLRU::dropped_recipe_t RecipeCacheLRU::drop_lru_impl(
       dropped_recipe_t dropped_recipe(std::make_pair(lit->first, lit->second));
       map_.erase(lit->first);
       list_.erase(lit);
-
       PT_BRIDGE_DEBUG(
           "after dropping lru recipe, #recipes ",
           RecipeValueSpec::get_recipe_count(),
@@ -359,23 +358,10 @@ void DiskCache::flush() {
 
 std::shared_ptr<RecipeHolder> DiskCache::Find(const RecipeArgumentSpec& spec) {
   std::stringstream ss;
-  auto res = recipe_cache_.lookup(
+  auto recipe = recipe_cache_.lookup(
       std::to_string(spec.hashCode()) + cache_id_suffix_, ss);
-  if (res) {
-    auto val = std::make_shared<RecipeHolder>(ss);
-    if (*res != nullptr) {
-      if (!val->rl_->recipe_) {
-        PT_BRIDGE_WARN(
-            "Unexpected nullptr recipe came from cache entry for hash ",
-            std::to_string(spec.hashCode()));
-        return nullptr;
-      }
-      val->rl_->recipe_->syn_recipe_handle_ = *res;
-      val->rl_->recipe_->in_execution_phase_ = true;
-    }
-    return val;
-  }
-  return nullptr;
+
+  return recipe ? std::make_shared<RecipeHolder>(ss, *recipe) : nullptr;
 }
 
 std::shared_ptr<RecipeValueSpec> TemporaryRecipeStore::GetRVS(

@@ -441,7 +441,10 @@ struct RecipeLauncher {
   RecipeLauncher(
       const RecipeValueSpec& rvs,
       std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe = nullptr);
-  RecipeLauncher(std::istream& is, const RecipeValueSpec& rvs);
+  RecipeLauncher(
+      std::istream& is,
+      const RecipeValueSpec& rvs,
+      synRecipeHandle recipe);
   void Launch(
       synapse_helpers::hpuStream_t hpu_stream,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
@@ -491,7 +494,7 @@ struct RecipeHolder {
       std::shared_ptr<RecipeLauncher> rl,
       std::shared_ptr<RecipeValueSpec> rvs)
       : rl_(rl), rvs_(rvs){};
-  RecipeHolder(std::istream& is);
+  RecipeHolder(std::istream& is, synRecipeHandle recipe);
   std::shared_ptr<RecipeLauncher> rl_;
   std::shared_ptr<RecipeValueSpec> rvs_;
 

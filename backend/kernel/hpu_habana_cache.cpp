@@ -351,10 +351,10 @@ int RecipeValueSpec::update_hit_count() {
   return rv_hit_count;
 }
 
-RecipeHolder::RecipeHolder(std::istream& is) {
+RecipeHolder::RecipeHolder(std::istream& is, synRecipeHandle recipe) {
   using namespace serialization;
   rvs_ = std::make_shared<RecipeValueSpec>(is);
-  rl_ = std::make_shared<RecipeLauncher>(is, *rvs_);
+  rl_ = std::make_shared<RecipeLauncher>(is, *rvs_, recipe);
 }
 
 RecipeValueSpec::RecipeValueSpec(std::istream& is) {
@@ -1487,7 +1487,10 @@ RecipeLauncher::RecipeLauncher(
   SetRecipe(recipe);
 }
 
-RecipeLauncher::RecipeLauncher(std::istream& is, const RecipeValueSpec& rvs) {
+RecipeLauncher::RecipeLauncher(
+    std::istream& is,
+    const RecipeValueSpec& rvs,
+    synRecipeHandle recipe) {
   id_ = rvs.id;
   num_inputs_ = rvs.num_inputs;
   num_outputs_ = rvs.num_outputs;
@@ -1501,11 +1504,14 @@ RecipeLauncher::RecipeLauncher(std::istream& is, const RecipeValueSpec& rvs) {
   bool valid_recipe_handle = false;
   deserialize(is, valid_recipe_handle);
 
+  HABANA_ASSERT(valid_recipe_handle != (recipe == nullptr));
+
   if (valid_recipe_handle) {
     recipe_ = std::make_shared<synapse_helpers::graph::recipe_handle>();
     deserialize(is, recipe_->recipe_name_);
     deserialize(is, recipe_->graph_is_empty_);
-    recipe_->in_execution_phase_ = false;
+    recipe_->syn_recipe_handle_ = recipe;
+    recipe_->in_execution_phase_ = true;
   }
   deserialize(is, workspace_size_);
   deserialize(is, ntensorbytes_);
