@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@ void emitRecipeLaunch(
     const std::vector<synLaunchTensorInfo>& tensors);
 void emitRecipeFinished(
     const synapse_helpers::graph::recipe_handle* recipe_handle);
-
+void collectiveLaunch(const std::string& info);
+void collectiveFinished(const std::string& info);
 void emitPythonString(const std::string& s);
 
 void emitDeviceMemorySummary(const char* tag);
@@ -73,6 +74,8 @@ _MAKE_TOWL_ENTRYPOINT(
     emitRecipeFinished,
     (const synapse_helpers::graph::recipe_handle* recipe_handle),
     (recipe_handle));
+_MAKE_TOWL_ENTRYPOINT(collectiveLaunch, (const std::string& info), (info));
+_MAKE_TOWL_ENTRYPOINT(collectiveFinished, (const std::string& info), (info));
 _MAKE_TOWL_ENTRYPOINT(emitPythonString, (const std::string& s), (s));
 _MAKE_TOWL_ENTRYPOINT(emitDeviceMemorySummary, (const char* tag), (tag));
 } // namespace

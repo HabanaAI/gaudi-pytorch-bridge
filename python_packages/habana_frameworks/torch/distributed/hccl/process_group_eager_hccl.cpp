@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_helpers/towl.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
@@ -532,7 +533,10 @@ void Collective_Execute_Task(
         [resource_holder, &recipe_counter]() mutable {
           resource_holder.reset();
           recipe_counter.decrease_and_notify();
+          towl::collectiveFinished("eager");
         });
+
+    towl::collectiveLaunch("eager");
 
     if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_SYNC)) {
       // each rank should wait `output_storage_ptr` mapping shared_event done
