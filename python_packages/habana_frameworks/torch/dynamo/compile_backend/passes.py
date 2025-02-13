@@ -35,7 +35,19 @@ from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
 
-from ._helpers import *
+from ._helpers import (
+    fill_propagated_tensor_metadata_to_node,
+    get_node_args,
+    is_module_dynamic,
+    is_node_supported,
+    is_view_node,
+    jit_node_annotation_propagation,
+    jit_node_shape_propagation,
+    post_pass_finalize,
+    remove_duplicated_outputs,
+    remove_no_effect_inplace_add,
+    wrap_random_ops,
+)
 from ._passes.batch_as_strided import batch_as_strided, group_batch_as_strided
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
