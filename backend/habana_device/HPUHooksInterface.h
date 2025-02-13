@@ -26,15 +26,6 @@ struct HPUHooks : public at::HPUHooksInterface {
   const at::Generator& getDefaultGenerator(
       at::DeviceIndex device_index = -1) const override;
 
-#if IS_PYTORCH_OLDER_THAN(2, 7)
-  // SW-215844 To be removed after changes on fork promote
-  const at::Generator& getDefaultHPUGenerator(
-      at::DeviceIndex device_index = -1) const override {
-    return getDefaultGenerator(device_index);
-  }
-  // End of code to remove
-#endif
-
   bool hasHPU() const override;
   at::Device getDeviceFromPtr(void* data) const override;
   bool isPinnedPtr(const void* data) const override;
