@@ -93,7 +93,18 @@ class MixtralSparseMoeBlock(nn.Module):
         return final_hidden_states, amax_per_expert
 
 
-def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, dtype, is_training=False):
+def check_using_cosine_similarity(hpu_tensor, cpu_tensor, required_similarity):
+    assert hpu_tensor.shape == cpu_tensor.shape
+    hpu_tensor = hpu_tensor.to(cpu)
+    cos_sim = nn.CosineSimilarity(dim=0)(hpu_tensor.reshape(-1), cpu_tensor.reshape(-1))
+    # In case when cosine similarity is less than required,
+    # we will check if tensors are similar as bas similarity could not be enough to determine if results are correct.
+    # Example: torch.zeros((5)) and torch.zeros((5)) have similarity equal to 0 but are equal.
+    if cos_sim < required_similarity:
+        torch.testing.assert_close(hpu_tensor, cpu_tensor)
+
+
+def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, dtype, scales=None, is_training=False):
     if dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
         w1 = [torch.randn((hidden_dim, ffn_dim), dtype=torch.float).to(dtype) for _ in range(num_experts)]
         w2 = [torch.randn((hidden_dim, ffn_dim), dtype=torch.float).to(dtype) for _ in range(num_experts)]
@@ -103,9 +114,10 @@ def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, 
         w2_cpu = [w.float() for w in w2]
         w3_cpu = [w.float() for w in w3]
 
-        w1_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w1]
-        w2_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w2]
-        w3_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w3]
+        (d_scale_w1, d_scale_w2, d_scale_w3) = scales
+        w1_hpu = [(w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale for w, d_scale in zip(w1, d_scale_w1)]
+        w2_hpu = [(w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale for w, d_scale in zip(w2, d_scale_w2)]
+        w3_hpu = [(w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale for w, d_scale in zip(w3, d_scale_w3)]
     else:
         w1_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
         w2_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
@@ -192,12 +204,7 @@ def test_mixture_of_experts(
         else:
             result_hpu = partial(call_moe_fn)()
 
-    # Experimental metric to find similarity as elementwise comparison may lead to false negative results
-    cos_sim_tol = 0.98
-    cos_sim = nn.CosineSimilarity(dim=0)(result_hpu.to(cpu).view(-1), result_cpu.view(-1))
-
-    assert cos_sim > cos_sim_tol
-    assert result_hpu.shape == result_cpu.shape
+    check_using_cosine_similarity(result_hpu, result_cpu, 0.98)
 
     if measurement_mode:
         assert amax_per_expert_hpu.device.type == "hpu"
@@ -226,11 +233,11 @@ def test_mixture_of_experts(
     "fp8_scales",
     [
         {
-            "d_scale_w1": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            "d_scale_w2": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            "d_scale_w3": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            "d_scale_w1": [4.35, 1.49, 1.12, 2.22, 8.33, 1.28, 2.94, 1.79],
+            "d_scale_w2": [1.10, 2.13, 2.78, 1.22, 3.45, 1.59, 1.35, 1.72],
+            "d_scale_w3": [6.67, 1.09, 2.08, 2.70, 1.56, 1.23, 1.89, 3.85],
             "d_scale_intermediate_hidden_states": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            "d_scale_hidden_states": 1.0,
+            "d_scale_hidden_states": 3.17,
         }
     ],
 )
@@ -246,22 +253,23 @@ def test_mixture_of_experts_fp8(
     scales_as_tensors,
     fp8_scales,
 ):
-    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu) * 0.1
+    d_scale_w1 = fp8_scales["d_scale_w1"]
+    d_scale_w2 = d_scale_w1 if fused_weights else fp8_scales["d_scale_w2"]
+    d_scale_w3 = fp8_scales["d_scale_w3"]
+    d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
+    d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
+
+    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
     router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
     hidden_states = hidden_states_hpu.float().to(cpu)
+    hidden_states_hpu /= d_scale_hidden_states
     router_weights = router_weights_hpu.float().to(cpu)
     expert_routing_table = expert_routing_table_hpu.to(cpu)
 
     expert_weights_cpu, expert_weights_hpu = generate_expert_weights(
-        hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype
+        hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype, (d_scale_w1, d_scale_w2, d_scale_w3)
     )
-
-    d_scale_w1 = fp8_scales["d_scale_w1"]
-    d_scale_w2 = fp8_scales["d_scale_w2"]
-    d_scale_w3 = fp8_scales["d_scale_w3"]
-    d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
-    d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
 
     if scales_as_tensors:
         d_scale_w1 = [torch.tensor(s).to(hpu) for s in d_scale_w1]
@@ -302,25 +310,10 @@ def test_mixture_of_experts_fp8(
     with torch.inference_mode():
         result_hpu = partial(call_moe_fn)()
 
-    cos_sim_tol = 0.98
-    cos_sim = nn.CosineSimilarity(dim=0)(result_hpu.to(cpu).view(-1), result_cpu.view(-1))
-
-    assert cos_sim > cos_sim_tol
-    assert result_hpu.shape == result_cpu.shape
+    check_using_cosine_similarity(result_hpu, result_cpu, 0.975)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
-
-
-def check_using_cosine_similarity(hpu_tensor, cpu_tensor, required_similarity):
-    assert hpu_tensor.shape == cpu_tensor.shape
-    hpu_tensor = hpu_tensor.to(cpu)
-    cos_sim = nn.CosineSimilarity(dim=0)(hpu_tensor.reshape(-1), cpu_tensor.reshape(-1))
-    # In case when cosine similarity is less than required,
-    # we will check if tensors are similar as bas similarity could not be enough to determine if results are correct.
-    # Example: torch.zeros((5)) and torch.zeros((5)) have similarity equal to 0 but are equal.
-    if cos_sim < required_similarity:
-        torch.testing.assert_close(hpu_tensor, cpu_tensor)
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
@@ -355,6 +348,7 @@ def test_mixture_of_experts_fwd_bwd(
         num_experts,
         permuted_weights,
         dtype,
+        scales=None,
         is_training=True,
     )
 
