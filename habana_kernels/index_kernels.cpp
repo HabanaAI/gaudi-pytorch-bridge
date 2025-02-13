@@ -747,39 +747,6 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
   mulOp->AllocateAndAddSynapseNode(graph, temp_stack, OutputMetaDataVector(1));
   temp_stack.clear();
 
-  // Expand 1D index tensor to same number of dimensions as value tensor
-  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
-  // Check if index is a scalar value to avoid invalid output shapes
-  int temp_size = index.sizes()[0];
-  if (temp_size == 0) {
-    if (index.numel() == 1) {
-      temp_size = 1;
-    }
-  }
-  expanded_sizes[dim] = temp_size;
-
-  ////auto index_expanded = index.view(expanded_sizes)
-  auto reshapeOp = make_operator<ReshapeOperator>(
-      this->p_context_->device_id_, index.scalar_type());
-  temp_stack = {IValue(index), IValue(expanded_sizes)};
-  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  reshapeOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
-
-  // Broadcast index tensor to same shape as value tensor
-  bool implicit =
-      false; // The value of implicit is currently ignored in broadcast kernel
-  auto bcastOp = make_operator<BroadcastOperator>(
-      this->p_context_->device_id_, reshapeOp->GetOutputs()[0].scalar_type());
-  temp_stack = {
-      IValue(reshapeOp->GetOutputs()[0]),
-      IValue(value.sizes()),
-      IValue(implicit)};
-  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
-  bcastOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
   // TPC does not support int for scatter_add;
   // Cast self and alpha_value to float
   if (self_is_int32) {
@@ -807,11 +774,11 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
     temp_stack = {
         IValue(castSelfToFloatOp->GetOutputs()[0]),
         IValue(dim),
-        IValue(bcastOp->GetOutputs()[0]),
+        IValue(index),
         IValue(castValueToFloatOp->GetOutputs()[0])};
 
     scatterAddOp->SetSynapseInput(castSelfToFloatOp->GetSynOutputs()[0]);
-    scatterAddOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatterAddOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     scatterAddOp->SetSynapseInput(castValueToFloatOp->GetSynOutputs()[0]);
     scatterAddOp->AllocateAndAddSynapseNode(
         graph, temp_stack, OutputMetaDataVector(1));
@@ -837,11 +804,11 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
     temp_stack = {
         IValue(self),
         IValue(dim),
-        IValue(bcastOp->GetOutputs()[0]),
+        IValue(index),
         IValue(mulOp->GetOutputs()[0])};
 
     scatterAddOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    scatterAddOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatterAddOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     scatterAddOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
     scatterAddOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
 
