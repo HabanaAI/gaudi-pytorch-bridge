@@ -31,6 +31,11 @@ host_memory::~host_memory() {
 }
 
 synStatus host_memory::malloc(void** ptr, size_t size) {
+  *ptr = nullptr;
+  if (size == 0) {
+    return synSuccess;
+  }
+
   std::lock_guard<std::mutex> lock(mutex_);
 
   if (device_.HostMemoryCacheEnabled_()) {
@@ -46,7 +51,6 @@ synStatus host_memory::malloc(void** ptr, size_t size) {
     }
   }
 
-  *ptr = nullptr;
   /* allocate a new block if no cached allocation is found */
   auto err = synHostMalloc(device_.id(), size, 0, ptr);
   /* release the cache and retry malloc if the error is OOM */
@@ -74,11 +78,11 @@ static void free_memory(device* d, void* ptr) {
 }
 
 synStatus host_memory::free(void* ptr) {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (!ptr) {
+  if (nullptr == ptr) {
     return synSuccess;
   }
+
+  std::lock_guard<std::mutex> lock(mutex_);
 
   auto it = blocks.find(ptr);
   HABANA_ASSERT(it != blocks.end());
@@ -97,9 +101,13 @@ synStatus host_memory::free(void* ptr) {
 }
 
 synStatus host_memory::uncached_malloc(void** ptr, size_t size) {
+  *ptr = nullptr;
+  if (size == 0) {
+    return synSuccess;
+  }
+
   std::lock_guard<std::mutex> lock(mutex_);
 
-  *ptr = nullptr;
   /* allocate a new block*/
   auto err = synHostMalloc(device_.id(), size, 0, ptr);
   /* release the cache and retry malloc if the error is OOM */
@@ -118,11 +126,11 @@ synStatus host_memory::uncached_malloc(void** ptr, size_t size) {
 }
 
 synStatus host_memory::uncached_free(void* ptr) {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (!ptr) {
+  if (nullptr == ptr) {
     return synSuccess;
   }
+
+  std::lock_guard<std::mutex> lock(mutex_);
 
   auto it = blocks.find(ptr);
   HABANA_ASSERT(it != blocks.end());

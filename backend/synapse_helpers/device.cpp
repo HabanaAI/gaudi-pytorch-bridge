@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1349,10 +1349,7 @@ synapse_error device::copy_data_to_device(
   for (std::size_t i = 0; i < transfers.size(); ++i) {
     auto src = transfers[i].src;
     auto len = transfers[i].bytes_to_transfer;
-    std::copy(
-        reinterpret_cast<uint8_t*>(src),
-        reinterpret_cast<uint8_t*>(src) + len,
-        mem_ptr);
+    std::copy_n(reinterpret_cast<uint8_t*>(src), len, mem_ptr);
     mapped_srcs[i] = reinterpret_cast<uint64_t>(mem_ptr);
     mem_ptr += len;
     lens[i] = len;
