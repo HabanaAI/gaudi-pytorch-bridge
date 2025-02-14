@@ -2162,8 +2162,6 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
                 }
                 and node._pretty_print_target(node.target) not in host_call_functions
             ):
-                for key in node.meta.keys():
-                    logger.debug(f"{key=}: {node.meta[key]}")
                 if node.meta["placement"] == "eager":
                     eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
         assert len(eager_nodes) == 0, f"Eager fallback in nodes: {eager_nodes}"
