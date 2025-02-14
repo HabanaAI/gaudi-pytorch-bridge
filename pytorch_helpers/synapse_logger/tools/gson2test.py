@@ -100,7 +100,7 @@ class Flow:
         return f"return {var};"
 
     def __init__(self, input_iterator, computation_result=None):
-        self.references = list()
+        self.references = []
         self.objs = {}
         self.bin_file_size = 0
         self.last_compiled_recipe = None
@@ -181,8 +181,8 @@ class Flow:
             self.memory = Flow.SpacesMap.Space(renderer, {"0": ("nullptr", "nullptr_t*")})
             self.node_id = Flow.SpacesMap.Space(renderer)
 
-            self.device_allocations = dict()
-            self.host_allocations = dict()
+            self.device_allocations = {}
+            self.host_allocations = {}
             self.objs = objs
             self.renderer = renderer
             # measure maximum accessed addr to possibly run test in environment
@@ -529,7 +529,7 @@ class Flow:
         args = entry["args"]
         out("{")
         if not replacements:
-            replacements = dict()
+            replacements = {}
         mapped_inputs = ", ".join([space.get(tensor, "synTensor") for tensor in args["pInputsTensorList"]])
         if mapped_inputs:
             out(f"synTensor node{no}_inputs[] = {{{mapped_inputs}}};")
@@ -762,7 +762,7 @@ class Flow:
                         self._handle_node_create(space, out, no, entry, replacements=replacements)
 
                     elif func_def.name == "synNodeDependencySet":
-                        replacements = dict()
+                        replacements = {}
                         mapped_blocking = ", ".join(
                             [space.node_id.get(str(node_id), "synNodeId") for node_id in args["pBlockingNodesIdList"]]
                         )

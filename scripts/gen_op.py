@@ -1928,7 +1928,7 @@ def is_tensor_api(fndef):
 
 def extract_pt_ops(path, hpu_ops):
     errors = []
-    pt_ops = dict()
+    pt_ops = {}
     all_ops_metas = []
 
     for line in open(path, "r"):
@@ -2011,7 +2011,7 @@ def generate_backend(args, fgens, is_custom=False):
     custom_schema_regs = ""
     fgen_files = defaultdict(list)
     op_groups = set()
-    backend_per_op_group = dict()
+    backend_per_op_group = {}
     for idx, fgen in enumerate(fgens):
         fgen_files[fgen.opgroup].append(fgen)
         if fgen.op_backend is None:
@@ -2121,7 +2121,7 @@ def generate_frontend(args, fgens, out_dir, namespace="aten"):
 
     fgen_files = defaultdict(list)
     op_groups = set()
-    frontend_per_op_group = dict()
+    frontend_per_op_group = {}
 
     for idx, fgen in enumerate(fgens_filtered):
         fgen_files[fgen.opgroup].append(fgen)

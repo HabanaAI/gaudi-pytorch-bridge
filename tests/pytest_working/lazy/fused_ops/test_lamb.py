@@ -90,15 +90,15 @@ class TorchNVLAMB(torch.optim.Optimizer):
     ):
         if amsgrad:
             raise RuntimeError("TorchNVLAMB does not support the AMSGrad variant.")
-        defaults = dict(
-            lr=lr,
-            bias_correction=bias_correction,
-            betas=betas,
-            eps=eps,
-            weight_decay=weight_decay,
-            grad_averaging=grad_averaging,
-            max_grad_norm=max_grad_norm,
-        )
+        defaults = {
+            "lr": lr,
+            "bias_correction": bias_correction,
+            "betas": betas,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "grad_averaging": grad_averaging,
+            "max_grad_norm": max_grad_norm,
+        }
         super().__init__(params, defaults)
         self.fused = fused
         self.adam_w_mode = 1 if adam_w_mode else 0  # dummy for now, always use adam_w mode (wd is excluded from EMA)

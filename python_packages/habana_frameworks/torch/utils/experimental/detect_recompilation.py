@@ -390,7 +390,7 @@ def get_shape(item):
         return tuple(item.shape)
     elif type(item) is type([]):
         return tuple([get_shape(k) for k in item])
-    elif type(item) is type(tuple()):
+    elif type(item) is type(()):
         return tuple([get_shape(k) for k in item])
     elif isinstance(item, dict):
         return tuple((get_shape(k), get_shape(v)) for k, v in item.items())

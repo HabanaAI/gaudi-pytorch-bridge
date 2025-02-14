@@ -144,7 +144,7 @@ def test_get_op_group(op, op_group):
 
 
 class CtxOpStub:
-    def __init__(self, props=dict()):
+    def __init__(self, props={}):
         self.properties = props
 
     def set_property(self, key, value):
@@ -202,7 +202,7 @@ class FgenStub:
 
 @pytest.mark.parametrize("is_backend", [True, False])
 def test_generate_op_hclasses(is_backend):
-    classes = dict()
+    classes = {}
     header_file = "header.h"
     base_class = "ns::BaseClass"
 

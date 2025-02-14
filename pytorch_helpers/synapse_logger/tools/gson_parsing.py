@@ -117,7 +117,7 @@ def replace_with_dur(matched_sequence):
 
 
 def filter_nested(entries):
-    tid_name = dict()
+    tid_name = {}
     no = 0
     for _, entry in entries:
         if entry["name"][:4] == "call":

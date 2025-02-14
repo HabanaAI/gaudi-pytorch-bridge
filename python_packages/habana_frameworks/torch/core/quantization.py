@@ -58,9 +58,9 @@ def adjust_name(name):
 
 def _handle_quant_stats(model=None):
     if model is not None:
-        min_calibration_data = dict()
-        max_calibration_data = dict()
-        placeholder_dict = dict()
+        min_calibration_data = {}
+        max_calibration_data = {}
+        placeholder_dict = {}
         for name, param in model._buffers["ranges"]["outputs"].items():
             if name.endswith(".min_val"):
                 name = adjust_name(name)

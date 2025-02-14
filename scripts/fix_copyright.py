@@ -102,7 +102,7 @@ def _patch_file(f):
     while contents[0] == "\n":  # remove blank lines from the top
         contents = contents[1:]
         result = 1
-    script_header = list()  # shebang or other stuff that goes above the copyright definition.
+    script_header = []  # shebang or other stuff that goes above the copyright definition.
     for l in contents[:3]:
         if l[:2] == "#!":
             script_header.append(l)

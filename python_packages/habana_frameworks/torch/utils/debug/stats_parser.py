@@ -24,7 +24,7 @@ import os
 
 
 def compileInfo(path):
-    recipe_dict = dict()
+    recipe_dict = {}
     total_iter_count = 0
     total_static_comp = 0
     total_dyn_comp = 0
@@ -107,7 +107,7 @@ def printJit(path, file_name):
     print("JIT_IR End :")
 
 
-graph_dict = dict()
+graph_dict = {}
 
 
 def statsParser(path, file_name):
@@ -120,7 +120,7 @@ def statsParser(path, file_name):
     miss_cnt = 0
     miss_freq = 0
     total_cnt = 0
-    data_dict = dict()
+    data_dict = {}
     for data in data_list:
         for k1 in data:
             total_cnt += 1.0
@@ -240,7 +240,7 @@ def analyzeBucket(path, file_name, bucket_analyze):
     f = open(path + "/" + file_name)
     # data is loaded as list of dicts
     data_list = json.load(f)
-    range_dict = dict()
+    range_dict = {}
     bucket = 0
     # process each dicts
     for data in data_list:
@@ -278,8 +278,8 @@ def analyzeBucketCall(path, file_name):
     f = open(path + "/" + file_name)
     # data is loaded as list of dicts
     data_list = json.load(f)
-    recipe_bucket_map = dict()
-    bucket_hit_count = dict()
+    recipe_bucket_map = {}
+    bucket_hit_count = {}
     # process each dicts
     for data in data_list:
         for iter in data:
@@ -306,7 +306,7 @@ def dumpShapes(path, file_name):
     f = open(path + "/" + file_name)
     # data is loaded as list of dicts
     data_list = json.load(f)
-    shape_dict = dict()
+    shape_dict = {}
 
     for data in data_list:
         for iter in data:

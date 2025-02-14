@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -78,15 +78,15 @@ class FusedLamb(Optimizer):
     ):
         if amsgrad:
             raise RuntimeError("FusedLamb does not support the AMSGrad variant.")
-        defaults = dict(
-            lr=lr,
-            bias_correction=bias_correction,
-            betas=betas,
-            eps=eps,
-            weight_decay=weight_decay,
-            grad_averaging=grad_averaging,
-            max_grad_norm=max_grad_norm,
-        )
+        defaults = {
+            "lr": lr,
+            "bias_correction": bias_correction,
+            "betas": betas,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "grad_averaging": grad_averaging,
+            "max_grad_norm": max_grad_norm,
+        }
         super().__init__(params, defaults)
         self.fused = fused
         self.adam_w_mode = 1 if adam_w_mode else 0

@@ -31,13 +31,7 @@ class FusedLars(Optimizer):
         self.skip_mask = skip_mask
 
         defaults = optimizer.defaults
-        defaults.update(
-            dict(
-                skip_mask=skip_mask,
-                eeta=eeta,
-                eps=eps,
-            )
-        )
+        defaults.update({"skip_mask": skip_mask, "eeta": eeta, "eps": eps})
         super().__init__(optimizer.param_groups, defaults)
         self.state = self.optim.__getstate__()["state"]
 

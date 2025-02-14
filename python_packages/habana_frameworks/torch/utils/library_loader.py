@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ _mandatory_libs = ["libhabana_pytorch_plugin.so"]
 _profiler_libs = ["pytorch_synapse_logger.so"]
 
 
-def _check_modules_directory(directory, library_list=list()):
+def _check_modules_directory(directory, library_list=[]):
     if not os.path.isdir(directory):
         return False
 
@@ -45,7 +45,7 @@ def _check_modules_directory(directory, library_list=list()):
     return True
 
 
-def _get_modules_directory(library_list=list()):
+def _get_modules_directory(library_list=[]):
     """
     Returns a directory containing Habana modules, which is:
         - habana_frameworks

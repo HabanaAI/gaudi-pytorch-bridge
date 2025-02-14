@@ -38,7 +38,7 @@ from .torch_overwrites import _native_pt2e_quantization_interface
 logger = get_compile_backend_logger()
 
 habana_quantization_map_queue = []
-export_model_record = dict()
+export_model_record = {}
 habana_pt2e_quant_context = None
 param_id = 0
 
@@ -81,7 +81,7 @@ class HabanaPT2EQuantContext:
         self._model_key = model_key
         self._total_number_of_graphs = 0
         self._input_for_tracing = input
-        self._ep_dict = dict()
+        self._ep_dict = {}
         self._graphs = ""
         self._model = None
         self._context = ""
@@ -92,7 +92,7 @@ class HabanaPT2EQuantContext:
         self._total_number_of_graphs = self._total_number_of_graphs + 1
         self._model.graph = self._graphs
 
-    def initialize_ep_dict(self, ep_dict=dict()):
+    def initialize_ep_dict(self, ep_dict={}):
         self._ep_dict = ep_dict
 
     def get_ep(self, key):
@@ -832,7 +832,7 @@ def load_pt2e(
             # try loading hashkeys
             fx_module_hashkeys = torch.load("hashkeys.pt2", weights_only=False)
             assert len(fx_module_hashkeys) != 0
-            ep_dict = dict()
+            ep_dict = {}
             for key in fx_module_hashkeys:
                 exported_program_filename = f"{key}.pt2"
                 with torch.no_grad():

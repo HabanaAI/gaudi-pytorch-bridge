@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -46,13 +46,14 @@ class FusedAdagrad(Optimizer):
         if not 0.0 <= eps:
             raise ValueError("Invalid epsilon value: {}".format(eps))
 
-        defaults = dict(
-            lr=lr,
-            lr_decay=lr_decay,
-            eps=eps,
-            weight_decay=weight_decay,
-            initial_accumulator_value=initial_accumulator_value,
-        )
+        defaults = {
+            "lr": lr,
+            "lr_decay": lr_decay,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "initial_accumulator_value": initial_accumulator_value,
+        }
+
         super().__init__(params, defaults)
 
         # State initialization

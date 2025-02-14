@@ -25,7 +25,7 @@ from test_utils import (
 )
 
 
-@pytest.mark.parametrize("shape", [tuple(), (3, 3)])
+@pytest.mark.parametrize("shape", [(), (3, 3)])
 @pytest.mark.parametrize("dim", [None, (-1, -2), 0])
 @pytest.mark.parametrize("keepdim", [True, False])
 @pytest.mark.parametrize("p", [None, "fro", "nuc", 0, 1, 2])

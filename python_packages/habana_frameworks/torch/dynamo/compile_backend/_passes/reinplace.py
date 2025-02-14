@@ -176,7 +176,7 @@ except AttributeError:
 
 
 def construct_inplaceable_ops():
-    inplaceable_ops = dict()
+    inplaceable_ops = {}
     if hpu_backend_config.reinplace_add:
         inplaceable_ops[aten.add.Tensor] = InplaceableOp(aten.add_.Tensor, 0, reinplace_add_extra_check)
     if hpu_backend_config.use_inplace_index_copy:
@@ -322,7 +322,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
             return not any_use_of_views_after_node(node, shared_view_nodes, copy_node=None, mutated_arg=mutated_arg)
 
     replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
-    reinplaced_nodes = list()
+    reinplaced_nodes = []
 
     for node in graph.nodes:
         if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:

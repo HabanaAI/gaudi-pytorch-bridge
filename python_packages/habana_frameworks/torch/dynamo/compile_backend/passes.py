@@ -238,9 +238,9 @@ def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
     pass_wa_fix_output(ctx)
 
     graph = ctx.graph_module.graph
-    collective_nodes = list()
-    wait_tensor_nodes = list()
-    traversed_nodes = list()
+    collective_nodes = []
+    wait_tensor_nodes = []
+    traversed_nodes = []
     col_move_target = None
     wt_move_target = None
     graph_changed = False
@@ -1385,7 +1385,7 @@ def merge_paths(
     color_graph = ColorGraph()
 
     # Color all nodes in every partition on the same color
-    partitions_by_color = dict()
+    partitions_by_color = {}
 
     for part in current_partitions:
         partition_color = color_graph.assign_new_color(is_partition_color=True)
@@ -1415,7 +1415,7 @@ def merge_paths(
         logger.debug("New partition list (by colors): %s", new_partitions_desc_list)
         from torch.fx.passes.infra.partitioner import Partition
 
-        new_partitions = list()
+        new_partitions = []
         for desc in new_partitions_desc_list:
             new_part = Partition()
             for color in desc:
@@ -2055,7 +2055,7 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
             if node.op == "placeholder":
                 in_nodes.append(node)
 
-        in_to_out_dups = dict()
+        in_to_out_dups = {}
         visited = set()
         for in_idx, in_node in enumerate(in_nodes):
             queue = [in_node]

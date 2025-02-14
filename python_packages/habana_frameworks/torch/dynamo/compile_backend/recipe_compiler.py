@@ -331,7 +331,7 @@ class HabanaGraphModule(torch.nn.Module):
             # insert the inputs into the out stack
             if self._in_to_out_dups is not None:
                 out_stack = (
-                    list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else list())
+                    list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else [])
                 )
                 out_indexes = self._out_to_in_dups.keys()
                 for out_idx in out_indexes:

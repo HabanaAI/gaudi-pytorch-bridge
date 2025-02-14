@@ -267,7 +267,7 @@ def prepare_env(venv_dir):
 
     if venv_dir == ".":
         return None
-    env = dict()
+    env = {}
     env.update(os.environ)
     venv = env.get("VIRTUAL_ENV", None)
 
@@ -429,7 +429,7 @@ def resolve_pip_args(version_and_source: VersionAndSource) -> Tuple[str, ...]:
     if source == "build":
         return (locate_fork_wheel(version),)
 
-    args = ("--pre",) if version == "nightly" or version.is_prerelease else tuple()
+    args = ("--pre",) if version == "nightly" or version.is_prerelease else ()
 
     if source != "pypi":
         if source.startswith("-r"):
@@ -460,7 +460,7 @@ def install_pt(pt_ver: VersionAndSource, venv_python, venv_dir, user):
 def install_requirements(
     pt_modules_root, pt_ver: VersionAndSource, venv_dir, venv_python, label=None
 ) -> Optional[Version]:
-    user = tuple()
+    user = ()
     if venv_dir is None:
         user = ("--user",)
 
@@ -675,7 +675,7 @@ def prepare_build_envs(
         result: dict {BuildEnvs: list(WheelTarget)}
     """
     result = defaultdict(list)
-    created_venvs = dict()
+    created_venvs = {}
     installed_packages = get_installed_packages()
 
     for wheel_spec in wheel_specs:
@@ -1216,13 +1216,13 @@ def build(
     jobs=default_job_count,
     targets=("all",),
     verbose=0,
-    extra_make_flags=tuple(),
+    extra_make_flags=(),
     use_icecc=False,
 ):
     with chdir(work_dir):
-        jobs = ("-j", str(jobs)) if jobs else tuple()
-        verbose = ("VERBOSE=1",) if verbose >= 2 else tuple() if verbose == 1 else ("-s",)
-        use_icecc = ("CCACHE_PREFIX=icecc",) if use_icecc else tuple()
+        jobs = ("-j", str(jobs)) if jobs else ()
+        verbose = ("VERBOSE=1",) if verbose >= 2 else () if verbose == 1 else ("-s",)
+        use_icecc = ("CCACHE_PREFIX=icecc",) if use_icecc else ()
         try:
             run(
                 *use_icecc,

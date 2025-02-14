@@ -79,7 +79,7 @@ def write_events(events, out_file_name="merged.json.gz"):
 
 
 def load_events_for_merge(gson_file, hvd_file, tf_files):
-    events = list()
+    events = []
     events.extend(load_tf_events(*tf_files) if tf_files else [])
     events.extend(load_hvd_events(hvd_file) if hvd_file else [])
     # Get range from both HVD and TF
@@ -107,7 +107,7 @@ def fix_gson(gson_lines):
 
 
 def load_tf_events(*tf_files):
-    events = list()
+    events = []
     tf_start = 10e100
     tf_stop = 0
 
@@ -122,7 +122,7 @@ def load_tf_events(*tf_files):
 
 
 def load_hvd_events(*hvd_files):
-    events = list()
+    events = []
     hvd_start = 10e100
     hvd_stop = 0
 
@@ -151,10 +151,10 @@ def load_hvd_events(*hvd_files):
 
 def logs_figure_tid_mapping(events):
 
-    tf_tids, syn_tids = set(), dict()
-    pomap = dict()
+    tf_tids, syn_tids = set(), {}
+    pomap = {}
     TF, SYN = "tf", "syn"
-    threads = dict()  # keep last processed operation on each thread
+    threads = {}  # keep last processed operation on each thread
 
     def add_tid(new_tid):
         # when new syn tid comes it can be mapped to any tf thread that is not yet mapped and vice versa
@@ -219,10 +219,10 @@ def logs_figure_tid_mapping(events):
     for ttid in tf_tids:
         print("mappins for ", ttid, " are ", [stid for stid in syn_tids.keys() if pomap[(stid, ttid)]])
     unmapped = tf_tids.copy()
-    mapping = dict()
+    mapping = {}
     while unmapped:
         # find stid with least options
-        opts = list()
+        opts = []
         for ttid in unmapped:
             sopts = [(stid, worth) for stid, worth in syn_tids.items() if pomap[(stid, ttid)]]
             opts.append((ttid, sopts))

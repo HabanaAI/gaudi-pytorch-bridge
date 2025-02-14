@@ -305,7 +305,7 @@ def test_propose_partitions_post_process_full_copy():
     assert changed, "pass_post_process_partitions didn't take effect"
 
     # recover the assignment
-    assignments = dict()
+    assignments = {}
     for partition in ctx.current_partitions:
         id = partition.id
         for node in list(partition.nodes):

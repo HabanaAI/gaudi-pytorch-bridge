@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -47,13 +47,13 @@ class FusedSGD(Optimizer):
         if not 0.0 <= dampening:
             raise ValueError("Invalid dampening value: {}".format(dampening))
 
-        defaults = dict(
-            lr=lr,
-            momentum=momentum,
-            weight_decay=weight_decay,
-            dampening=dampening,
-            nesterov=nesterov,
-        )
+        defaults = {
+            "lr": lr,
+            "momentum": momentum,
+            "weight_decay": weight_decay,
+            "dampening": dampening,
+            "nesterov": nesterov,
+        }
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
 

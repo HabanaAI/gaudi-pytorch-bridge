@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ class ResourceApplyMomentum(Optimizer):
         if weight_decay < 0.0:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
-        defaults = dict(lr=lr, momentum=momentum, weight_decay=weight_decay, nesterov=nesterov)
+        defaults = {"lr": lr, "momentum": momentum, "weight_decay": weight_decay, "nesterov": nesterov}
         if nesterov and (momentum <= 0):
             raise ValueError("Nesterov momentum requires a momentum")
         super(ResourceApplyMomentum, self).__init__(params, defaults)

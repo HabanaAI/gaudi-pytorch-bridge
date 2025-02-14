@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -298,7 +298,7 @@ class CpuFallbackMetric(Metric):
 
     def __init__(self):
         self._total_fallback_count = 0
-        self._total_op_fallback_count = dict()
+        self._total_op_fallback_count = {}
         self._ed = EventDispatcher.instance()
         self._handle = None
         self.start()
@@ -339,7 +339,7 @@ class CpuFallbackMetric(Metric):
     def reset(self):
         self.process()
         self._total_fallback_count = 0
-        self._total_op_fallback_count = dict()
+        self._total_op_fallback_count = {}
 
     def __del__(self):
         self.stop()

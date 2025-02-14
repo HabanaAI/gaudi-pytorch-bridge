@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ from torch.functional import Tensor
 LAZY_DEFAULT_PROTOCOL = 4
 
 _name_stack = deque()
-_module_dict = dict()
+_module_dict = {}
 _lock = threading.Lock()
 
 

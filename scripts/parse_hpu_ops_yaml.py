@@ -48,7 +48,7 @@ def parse_yaml(f_yaml):
         except yaml.YAMLError as exc:
             print(exc)
     # print(keyset)
-    op_dict = dict()
+    op_dict = {}
     with open(f_yaml, "r") as stream:
         try:
             yaml_dict = yaml.safe_load(stream)

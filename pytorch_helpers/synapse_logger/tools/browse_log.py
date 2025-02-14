@@ -117,7 +117,7 @@ class Tensor:
             self.name = custom_name
         else:
             self.name = creation_event["args"]["tensorName"] if new_api else descriptor["args"]["fields"]["m_name"]
-        self.dst = dict()
+        self.dst = {}
         self.src = None
         self.is_output = False
         if is_null:
@@ -156,7 +156,7 @@ class Tensor:
 
     def update_from_descriptor(self, desc):
         self.dims = desc["args"]["fields"]["m_dims"] if desc else []
-        self.shape = tuple(desc["args"]["fields"]["m_sizes"][: self.dims]) if desc else tuple()
+        self.shape = tuple(desc["args"]["fields"]["m_sizes"][: self.dims]) if desc else ()
         self.byte_size = descriptor_byte_size(desc["args"]) if desc else 0
         self.syn_type = syn_types[desc["args"]["fields"]["m_dataType"] if desc else 0]
 
@@ -376,7 +376,7 @@ class Graph:
 
 class Durations:
     def __init__(self, input_file=None, limit=None, **kwargs):
-        self.durations = list()
+        self.durations = []
         nid = 0
         line_limit = int(limit)
         previous = 0
@@ -429,7 +429,7 @@ class MemMap:
 
     class Agent:
         def __init__(self, entry):
-            self.sources, self.destinations = list(), list()
+            self.sources, self.destinations = [], []
             self.entry = entry
             self.ts = entry["ts"]
 
@@ -647,7 +647,7 @@ class Log:
         self.graphs = {}
         self.ngraphs = {}
         self.memory = MemMap()
-        self.launches = list()
+        self.launches = []
         self.rawlogs = []
         nid = 0
         launch_limit, graph_limit, line_limit = None, None, None

@@ -20,7 +20,7 @@ import threading
 import habana_frameworks.torch._core_C as htcore
 from habana_frameworks.torch.utils.internal import is_lazy, lazy_only
 
-_DEVICE_CONTEXTS = dict()
+_DEVICE_CONTEXTS = {}
 _DEVICE_CONTEXTS_LOCK = threading.Lock()
 
 

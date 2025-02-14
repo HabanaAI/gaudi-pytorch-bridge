@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -38,13 +38,13 @@ class FxGraphAnalyzer:
             return str(self)
 
     id_iter = itertools.count()
-    registered_contexts: dict = dict()
+    registered_contexts: dict = {}
 
     def __init__(self, reset_dynamo=False, capture_non_hpu_output=False):
         self.capture_non_hpu_output = capture_non_hpu_output
         self.reset_dynamo = reset_dynamo
         self.id = next(FxGraphAnalyzer.id_iter)
-        self.graphs = list()
+        self.graphs = []
         self.partition_num = 0
         atexit.register(self._at_exit_callback)
 
