@@ -347,6 +347,32 @@ def test_cast_to_fp8_hybrid_scales(is_scale_152, is_scale_143):
     cast_to_fp8_hybrid_common((16, 24, 8), torch.bfloat16, True, True, is_scale_152, is_scale_143)
 
 
+def test_fp8_gemm_out():
+    shape_a = (8, 12)
+    shape_b = (12, 16)
+
+    src_dtype = torch.float8_e5m2
+    dst_dtype = torch.bfloat16
+
+    a = torch.randn(shape_a).to(src_dtype)
+    b = torch.randn(shape_b).to(src_dtype)
+
+    ah = a.to("hpu")
+    bh = b.to("hpu")
+
+    a = a.to(dst_dtype)
+    b = b.to(dst_dtype)
+
+    result_cpu = torch.matmul(a, b)
+    result_hpu = torch.empty(result_cpu.shape, dtype=dst_dtype, device="hpu")
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_gemm)
+
+    fn(ah, False, bh, False, result_hpu, dst_dtype, None, None, None, False, result_hpu)
+
+    compare_tensors(result_hpu.cpu(), result_cpu, rtol=0.0, atol=0.0)
+
+
 def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp8_dtype):
     hpu = torch.device("hpu")
     A = torch.rand(shapeA[-1] if isinstance(shapeA, list) else shapeA, dtype=dtype) * 10 + 30.0

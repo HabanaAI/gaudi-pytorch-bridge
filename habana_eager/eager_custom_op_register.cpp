@@ -1474,11 +1474,14 @@ namespace {
 // Inplace ops must be additionally registered to Functionalize backend
 // to be handled in torch.compile
 // https://gist.github.com/bdhirsh/7dadbf6296f8f7d1abcf4c482f438aaa
-at::Tensor get_functional_tensor(const at::Tensor& tensor) {
-  TORCH_INTERNAL_ASSERT(
-      at::functionalization::impl::isFunctionalTensor(tensor));
-  at::functionalization::impl::sync(tensor);
-  return at::functionalization::impl::from_functional_tensor(tensor);
+template <class T>
+T get_functional_tensor(const T& tensor) {
+  if (at::functionalization::impl::isFunctionalTensor(tensor)) {
+    at::functionalization::impl::sync(tensor);
+    return at::functionalization::impl::from_functional_tensor(tensor);
+  } else {
+    return tensor;
+  }
 }
 
 at::Tensor& kv_reorder_functionalization_glue(
@@ -1529,6 +1532,64 @@ at::Tensor& in_place_interleave_functionalization_glue(at::Tensor& self) {
   at::functionalization::impl::sync(self);
   return self;
 }
+
+at::Tensor& fp8_gemm_functionalization_glue(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const at::Tensor& D,
+    at::ScalarType out_dtype,
+    const c10::optional<at::Tensor>& A_scale_inv,
+    const c10::optional<at::Tensor>& B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate,
+    at::Tensor& out) {
+  auto A_ = get_functional_tensor(A);
+  auto B_ = get_functional_tensor(B);
+  auto D_ = get_functional_tensor(D);
+  auto A_scale_inv_ = get_functional_tensor(A_scale_inv);
+  auto B_scale_inv_ = get_functional_tensor(B_scale_inv);
+  auto bias_ = get_functional_tensor(bias);
+  auto out_ = get_functional_tensor(out);
+
+  static auto op_handle = c10::Dispatcher::singleton()
+                              .findSchemaOrThrow("hpu::fp8_gemm_v2", "")
+                              .typed<at::Tensor(
+                                  const at::Tensor&,
+                                  bool,
+                                  const at::Tensor&,
+                                  bool,
+                                  const c10::optional<at::Tensor>&,
+                                  at::ScalarType,
+                                  const c10::optional<at::Tensor>&,
+                                  const c10::optional<at::Tensor>&,
+                                  const c10::optional<at::Tensor>&,
+                                  bool,
+                                  at::OptionalIntArrayRef)>();
+
+  at::Tensor tmp_output;
+  {
+    at::AutoDispatchSkipFunctionalize guard;
+    tmp_output = op_handle.call(
+        A_,
+        trans_A,
+        B_,
+        trans_B,
+        D_,
+        out_dtype,
+        A_scale_inv_,
+        B_scale_inv_,
+        bias_,
+        accumulate,
+        c10::nullopt);
+  }
+
+  at::functionalization::impl::replace_(out, tmp_output);
+  at::functionalization::impl::commit_update(out);
+  at::functionalization::impl::sync(out);
+  return out;
+}
 } // namespace
 
 namespace habana::eager {
@@ -1536,6 +1597,7 @@ namespace habana::eager {
 TORCH_LIBRARY_IMPL(hpu, Functionalize, m) {
   m.impl("kv_reorder_", kv_reorder_functionalization_glue);
   m.impl("in_place_interleave_", in_place_interleave_functionalization_glue);
+  m.impl("fp8_gemm", fp8_gemm_functionalization_glue);
 }
 
 } // namespace habana::eager
