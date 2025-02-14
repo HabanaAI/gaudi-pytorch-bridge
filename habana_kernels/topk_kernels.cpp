@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(
         (p_context_->syn_inputs_.size() == 2) ||
         (p_context_->syn_inputs_.size() == 4));
-    TORCH_CHECK(p_context_->syn_inputs_.at(1).ref().is_shape_tensor());
+    TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
     Tensor k_tensor = inputs[1].toTensor();
     k = k_tensor.sizes().vec().at(
         0); // Get the first element which holds the dynamic value of k

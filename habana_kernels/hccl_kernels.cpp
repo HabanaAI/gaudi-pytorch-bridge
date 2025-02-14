@@ -681,7 +681,7 @@ void HcclAllToAllOutOperator::AllocateAndAddSynapseNode(
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_.at(1),
+          get_syn_input_at(1),
           graph,
           output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(outputTensor);
@@ -829,7 +829,7 @@ void HcclAllgatherOutOperator::AllocateAndAddSynapseNode(
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_.at(1),
+          get_syn_input_at(1),
           graph,
           output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(outputTensor);

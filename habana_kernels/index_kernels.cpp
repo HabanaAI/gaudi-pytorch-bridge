@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2314,7 +2314,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 
   // save to be used as input to cast operator if required
   synapse_helpers::tensor& range_syn_input =
-      std::move(p_context_->syn_inputs_.at(0));
+      std::move(get_syn_input_at(0));
   bool cast_required =
       !(result.scalar_type() == ScalarType::Int ||
         result.scalar_type() == ScalarType::Float ||

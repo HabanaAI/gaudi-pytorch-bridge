@@ -380,6 +380,19 @@ std::string get_guid_with_precision(
     c10::ScalarType,
     bool = false) = delete;
 
+// Utility method for checked get from deque
+template <class T>
+inline T& get_checked(
+    std::deque<T>& d, size_t index) {
+  HABANA_ASSERT(
+      index < d.size(),
+      "index ",
+      index,
+      "is out of range ",
+      d.size());
+  return d[index];
+}
+
 //
 // Generic Operator implementation class, holds the operator context
 // kernel meta data and helper methods for adding the node to the
@@ -627,12 +640,20 @@ class HabanaOperator {
     p_context_->pt_inputs_.clear();
   }
 
+  inline synapse_helpers::tensor_or_ref& get_syn_input_at(size_t index) {
+    return get_checked(p_context_->syn_inputs_, index);
+  }
+
+  inline synapse_helpers::tensor_or_ref& get_syn_output_at(size_t index) {
+    return get_checked(p_context_->syn_outputs_, index);
+  }
+
   static std::vector<int64_t> CalculateStrides(
       const at::IntArrayRef sizes,
       c10::MemoryFormat format);
 
   virtual synapse_helpers::tensor_or_ref& SynInput(size_t index) {
-    return p_context_->syn_inputs_.at(index);
+    return get_syn_input_at(index);
   }
 
   void setDeterministic(bool val) {

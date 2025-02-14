@@ -113,7 +113,7 @@ sh::tensor& OpBackend::syn_out(size_t index) {
         0, {}, {}, false, std::string(), DATA_TENSOR, false);
     return ph;
   }
-  return p_context_->syn_outputs_.at(index);
+  return get_syn_output_at(index);
 }
 
 synTensor OpBackend::syn_seed() {
@@ -130,7 +130,7 @@ sh::tensor_or_ref& OpBackend::SynInput(size_t index) {
   if (it != syn_inputs_cast_.end()) {
     return it->second;
   }
-  return p_context_->syn_inputs_.at(index);
+  return get_syn_input_at(index);
 }
 
 const sh::tensor_or_ref& OpBackend::ReadSynInput(size_t index) {
@@ -264,7 +264,7 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
     p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_.at(syn_inputs_size - i),
+            get_syn_input_at(syn_inputs_size - i),
             graph,
             m_output_metadata.at(m_num_out_tensors - i).external));
   }
@@ -813,7 +813,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       // - HandleFn placed the output(s) in in syn_outputs_ when the op uses
       // output_meta
       outputs.emplace_back(
-          std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
+          std::move(op->get_syn_output_at(*attr.final_result_index).ref()));
     } else if (attr.inplace_out_ptr) {
       if (std::holds_alternative<sh::tensor*>(*attr.inplace_out_ptr)) {
         outputs.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
