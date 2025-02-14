@@ -66,6 +66,28 @@ std::shared_ptr<void> FillSoftmaxBackwardParams(
   return params;
 }
 
+SharedMetaDataVector SoftmaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  auto dtype = self.scalar_type();
+  const auto rank = self.dim();
+
+  // reject hf8 config and fall back to f32
+  // as softamx_fwd_hf8 requires three inputs
+  // so GLUE_INCOMPATIBLE_INPUT_COUNT would occur with only one input
+  // see issue described in SW-196893
+  if (dtype == at::ScalarType::Float8_e4m3fn) {
+    dtype = at::ScalarType::Int;
+  }
+
+  SharedMetaData softmaxFwdSharedMeta{"softmax_fwd"};
+  softmaxFwdSharedMeta.inputs_data.emplace_back(rank, dtype);
+  softmaxFwdSharedMeta.outputs_data.emplace_back(rank, dtype);
+
+  return {softmaxFwdSharedMeta};
+}
+
 SharedMetaDataVector SoftmaxBackwardSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {

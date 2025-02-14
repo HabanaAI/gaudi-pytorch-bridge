@@ -6058,31 +6058,20 @@ smooth_l1_loss_backward.grad_input:
 
 _softmax:
   custom_fill_params: FillSoftmaxForwardParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: softmax_fwd
+  op_validator: SoftmaxSharedMeta
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-196893
 
 _safe_softmax:
   custom_fill_params: FillSafeSoftmaxForwardParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: softmax_fwd
+  op_validator: SoftmaxSharedMeta
   out_ids: [0]
 
 _softmax.out:
   custom_fill_params: FillSoftmaxForwardParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: softmax_fwd
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-196893
+  op_validator: SoftmaxSharedMeta
 
 _softmax_backward_data:
   custom_fill_params: FillSoftmaxBackwardParams
