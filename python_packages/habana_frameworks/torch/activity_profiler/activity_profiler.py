@@ -28,6 +28,27 @@ class DebugActivity(Enum):
     BRIDGE_FUNCTION_CALLS = 2
 
 
+# W/A for issue https://github.com/pytorch/pytorch/issues/146900
+# Should be removed once the issue is fixed.
+def clean_json(path):
+    """
+    Cleans a JSON file by removing control bytes (0x00-0x1F and 0x7F) from its contents.
+    The cleaned content is then written back to the same file.
+    """
+    # Define control bytes: 0x00-0x1F and 0x7F
+    control_bytes = set(range(0x00, 0x20))
+    control_bytes.add(0x7F)
+
+    with open(path, "rb") as f:
+        file_bytes = f.read()
+
+    cleaned_bytes = bytes(b for b in file_bytes if b not in control_bytes)
+    decoded_string = cleaned_bytes.decode("utf-8", errors="replace")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(decoded_string)
+
+
 def register_habana_activity_profiler():
     from typing import Any, Callable, Iterable, Optional
 
@@ -36,6 +57,10 @@ def register_habana_activity_profiler():
     class habana_autograd_profile_wrapper(torch.autograd.profiler.profile):
         def export_chrome_trace(self, path):
             super().export_chrome_trace(path)
+            # W/A for issue https://github.com/pytorch/pytorch/issues/146900
+            # Should be removed once the issue is fixed.
+            if getattr(self, "with_stack", False):
+                clean_json(path)
             hpu_profiler._export_logs(path)
 
     class habana_profile(torch.profiler.profile):
