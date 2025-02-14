@@ -19,8 +19,11 @@
 import numpy
 import pytest
 import torch
-from test_utils import inference_env_fixture  # noqa F401
-from test_utils import compile_function_if_compile_mode, env_var_in_scope
+from test_utils import (
+    compile_function_if_compile_mode,
+    env_var_in_scope,
+    inference_env_fixture,  # noqa F401
+)
 from torch.fx import symbolic_trace
 
 torch.manual_seed(0)

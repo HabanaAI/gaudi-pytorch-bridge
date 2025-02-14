@@ -17,7 +17,11 @@
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
-from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 from torch import nn
 
 

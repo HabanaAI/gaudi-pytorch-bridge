@@ -17,12 +17,17 @@
 
 
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
 from habana_frameworks.torch.dynamo._fx_to_jit_lowering import FxToJitLowering
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes import run_jit_fork_passes
+from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes import (
+    run_jit_fork_passes,
+)
+
+import torch
 
 from ._helpers import (
     get_dynamic_config_value,

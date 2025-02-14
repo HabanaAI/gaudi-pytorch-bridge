@@ -104,9 +104,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch.fx.passes.reinplace import _is_view_op
 
 logger = get_compile_backend_logger()

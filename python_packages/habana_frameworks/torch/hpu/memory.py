@@ -20,8 +20,9 @@ import warnings
 from typing import Any, Dict, Optional, Tuple, Union
 
 import habana_frameworks.torch.hpu as hpu
-import torch
 from habana_frameworks.torch import _hpu_C
+
+import torch
 
 from ._utils import _get_device_index
 

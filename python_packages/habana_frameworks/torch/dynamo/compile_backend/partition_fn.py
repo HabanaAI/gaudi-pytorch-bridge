@@ -19,10 +19,14 @@
 import collections
 from typing import Deque, List, Tuple
 
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+
+import torch
 from torch._dynamo.utils import count_calls
-from torch._functorch.partitioners import default_partition, min_cut_rematerialization_partition
+from torch._functorch.partitioners import (
+    default_partition,
+    min_cut_rematerialization_partition,
+)
 
 from .passes import is_view_node
 

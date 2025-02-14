@@ -29,10 +29,21 @@ import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
 from fp8_utils import simulateFp8Precision
-from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import cast_from_fp8, cast_to_fp8
-from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import FP8GlobalStateManager
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
-from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import FP8FwdTensors, FP8TensorMeta
+from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
+    cast_from_fp8,
+    cast_to_fp8,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import (
+    FP8GlobalStateManager,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
+    DelayedScaling,
+    Format,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import (
+    FP8FwdTensors,
+    FP8TensorMeta,
+)
 from test_utils import (
     _is_simulator,
     check_ops_executed_in_jit_ir,
@@ -1222,7 +1233,9 @@ def test_save_load_module(init_before_load, amax_history_len, fp8_format):
 def test_gradient_checkpointing(fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import activation_checkpointing
+    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import (
+        activation_checkpointing,
+    )
     from torch.utils.checkpoint import checkpoint
 
     fwd_step = get_train_step_fwd_function()
@@ -1492,7 +1505,9 @@ def test_te_fused_sdpa(
 
     from contextlib import nullcontext
 
-    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import activation_checkpointing
+    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import (
+        activation_checkpointing,
+    )
     from torch.utils.checkpoint import checkpoint
 
     fp8_enabled = fp8_format is not None

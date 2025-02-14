@@ -17,7 +17,13 @@
 
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    format_tc,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 cumulative_ops_out = ["cumsum"]
 cumulative_ops_inplace = ["cumsum_"]

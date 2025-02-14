@@ -18,6 +18,7 @@
 from typing import Any, Callable, Dict, Optional, Union
 
 import habana_frameworks.torch as htorch
+
 import torch
 
 get_hpu_stream: Optional[Callable[[int], int]]

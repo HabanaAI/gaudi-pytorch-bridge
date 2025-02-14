@@ -19,7 +19,10 @@
 from typing import Tuple, Union
 
 import torch
-from habana_frameworks.torch.dynamo._custom_op_registrations import register_post_ops, register_prepare_ops
+from habana_frameworks.torch.dynamo._custom_op_registrations import (
+    register_post_ops,
+    register_prepare_ops,
+)
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
 
 OP_STATE = 0

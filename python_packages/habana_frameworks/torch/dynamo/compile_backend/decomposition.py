@@ -20,10 +20,11 @@ from itertools import accumulate
 from typing import Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
-import torch._prims_common as utils
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
+import torch._prims_common as utils
 from torch._decomp import core_aten_decompositions, get_decompositions
 from torch._ops import DispatchKey
 

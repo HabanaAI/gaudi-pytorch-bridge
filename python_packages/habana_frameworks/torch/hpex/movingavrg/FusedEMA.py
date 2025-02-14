@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@ import math
 from copy import deepcopy
 
 import habana_frameworks.torch.core as htcore
-import torch
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch import nn
 
 hpu = torch.device("hpu")

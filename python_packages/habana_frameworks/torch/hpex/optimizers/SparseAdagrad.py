@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,4 +15,6 @@
 #
 ###############################################################################
 
-from habana_frameworks.torch._hpex_C import sparse_adagrad_with_valid_count as forward  # noqa: F401
+from habana_frameworks.torch._hpex_C import (
+    sparse_adagrad_with_valid_count as forward,  # noqa: F401
+)

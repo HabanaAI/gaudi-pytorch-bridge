@@ -20,9 +20,10 @@ import warnings
 
 import habana_frameworks.torch.utils.debug as htdebug
 import habana_frameworks.torch.utils.experimental as htexp
-import torch
 from habana_frameworks.torch import hpu
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 
 # expose common APIs
 from .quantization import (
@@ -52,7 +53,10 @@ overwrite_capture_pre_autograd_graph()
 # this is to prevent potential circular imports caused by the function *overwrite_native_pt2e_quantization_interface()*
 from functools import wraps
 
-from habana_frameworks.torch.dynamo.compile_backend.backends import import_compilers, import_hpu_partition
+from habana_frameworks.torch.dynamo.compile_backend.backends import (
+    import_compilers,
+    import_hpu_partition,
+)
 
 
 def create_and_apply_on_import_wrapper():

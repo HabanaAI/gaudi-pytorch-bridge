@@ -18,12 +18,13 @@
 import os
 from typing import Tuple
 
-import torch
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
 from habana_frameworks.torch.utils.experimental.distributed_emulation import (
     distributed_emulation_apply_if_enabled,
     is_distributed_emulation_enabled,
 )
+
+import torch
 
 _lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "1"))
 _lazy_collectives_enabled = os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES", "False").lower() in ["true", "1"]

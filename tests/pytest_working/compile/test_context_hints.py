@@ -40,7 +40,9 @@ def check_hints_in_jit_ir(op_name: str, expected_hints: Union[list, dict], op_id
     """
     import re
 
-    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import logger as graph_logger
+    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import (
+        logger as graph_logger,
+    )
 
     op_found = False
     pattern = r"::(\w+)(\[|\()"

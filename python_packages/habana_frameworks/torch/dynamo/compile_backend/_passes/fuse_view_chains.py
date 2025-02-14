@@ -15,11 +15,16 @@
 #
 ###############################################################################
 
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch.fx.passes.shape_prop import TensorMetadata
 
-from .._helpers import calculate_default_strides, fill_propagated_tensor_metadata_to_node, is_view_node
+from .._helpers import (
+    calculate_default_strides,
+    fill_propagated_tensor_metadata_to_node,
+    is_view_node,
+)
 from .utils import OptimizerContext
 
 logger = get_compile_backend_logger()

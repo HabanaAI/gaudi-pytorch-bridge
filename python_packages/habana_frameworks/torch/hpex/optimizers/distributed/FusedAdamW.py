@@ -18,8 +18,9 @@
 import math
 from typing import Dict, List, Optional, Tuple, Union
 
-import torch
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch import Tensor
 
 # The following Function is a modified version of _FunctionalFuseAdamW from

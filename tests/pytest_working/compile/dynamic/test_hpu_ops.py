@@ -1701,7 +1701,9 @@ def test_complex_symbolic_input():
 
 
 def test_dynamic_strided():
-    from habana_frameworks.torch.hpex.kernels import RotaryPosEmbeddingHelperV2 as FusedRoPE
+    from habana_frameworks.torch.hpex.kernels import (
+        RotaryPosEmbeddingHelperV2 as FusedRoPE,
+    )
 
     torch.manual_seed(12345)
 

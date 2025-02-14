@@ -18,7 +18,10 @@
 import torch
 import torch.distributed._functional_collectives as fcol
 from compile.test_dynamo_utils import use_eager_fallback
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizationPassPlacement,
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_eagerize_leaf_views,
     pass_fake_propagation,
@@ -412,7 +415,10 @@ def test_partition_in_out_duplicates_caused_by_index_copy_():
 
 
 def get_model_with_observer(model):
-    from habana_frameworks.torch.core.quantizer import habana_quant_config_symmetric, habana_quantizer
+    from habana_frameworks.torch.core.quantizer import (
+        habana_quant_config_symmetric,
+        habana_quantizer,
+    )
     from torch._export import capture_pre_autograd_graph
     from torch.ao.quantization.quantize_pt2e import prepare_pt2e
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,11 +19,19 @@
 import pytest
 import torch
 import torch.distributed._functional_collectives as funcol
-from torch.distributed._tensor import Replicate, Shard, distribute_tensor, init_device_mesh
+from torch.distributed._tensor import (
+    Replicate,
+    Shard,
+    distribute_tensor,
+    init_device_mesh,
+)
 from torch.distributed._tensor.experimental import local_map
 from torch.distributed.tensor.debug import CommDebugMode
 from torch.testing._internal.common_utils import run_tests
-from torch.testing._internal.distributed._tensor.common_dtensor import DTensorTestBase, with_comms
+from torch.testing._internal.distributed._tensor.common_dtensor import (
+    DTensorTestBase,
+    with_comms,
+)
 
 funcol_py = torch.ops.c10d_functional
 

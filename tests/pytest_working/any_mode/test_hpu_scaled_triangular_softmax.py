@@ -17,7 +17,11 @@
 
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("shape", [(4, 10, 10), (4, 8, 8), (6, 128, 128)])

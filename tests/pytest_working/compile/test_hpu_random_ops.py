@@ -17,7 +17,12 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 
 
 @pytest.mark.parametrize("shape", [(3, 4), (2, 5, 6)], ids=format_tc)

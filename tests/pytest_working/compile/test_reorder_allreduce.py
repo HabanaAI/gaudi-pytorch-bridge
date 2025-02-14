@@ -17,7 +17,10 @@
 
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizationPassPlacement,
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_allreduce_parents,
     pass_fuse_partitions,

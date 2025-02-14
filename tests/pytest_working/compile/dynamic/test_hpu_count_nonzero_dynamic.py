@@ -20,7 +20,12 @@ import copy
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1, setup_teardown_env_fixture  # noqa F401
+from test_utils import (  # noqa F401
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi1,
+    setup_teardown_env_fixture,
+)
 
 params = [
     ([8, 2, 3], [0, 2]),

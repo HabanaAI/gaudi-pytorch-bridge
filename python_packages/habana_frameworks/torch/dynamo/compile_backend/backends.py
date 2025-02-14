@@ -19,8 +19,9 @@ import logging
 from functools import partial
 from typing import List
 
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+
+import torch
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend
 
@@ -37,7 +38,11 @@ For more detailed information, see create_and_apply_on_import_wrapper() function
 
 def import_compilers():
     global hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
-    from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
+    from .compilers import (
+        hpu_inference_compiler,
+        hpu_training_compiler_bw,
+        hpu_training_compiler_fw,
+    )
 
 
 def import_hpu_partition():

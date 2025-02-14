@@ -25,8 +25,9 @@ from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import functorch
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch._dynamo.backends.common import aot_autograd
 from torch.ao.quantization.quantizer import Quantizer
 from torch.fx import GraphModule
@@ -368,7 +369,9 @@ def habana_quant_backend(
     """
     This function implements interface for Habana's PT2E quantization backend.
     """
-    from habana_frameworks.torch.dynamo.compile_backend import config as habana_quant_backend_config
+    from habana_frameworks.torch.dynamo.compile_backend import (
+        config as habana_quant_backend_config,
+    )
     from habana_frameworks.torch.dynamo.compile_backend.decomposition import (
         get_hpu_decompositions,
         override_composite_ops,

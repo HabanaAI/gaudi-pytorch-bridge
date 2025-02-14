@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,12 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.float32, torch.bfloat16]
 if not is_gaudi1():

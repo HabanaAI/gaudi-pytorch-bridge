@@ -28,9 +28,10 @@ This module implements Habana quantizers that can be used in PT2E-Quantization.
 import itertools
 from typing import Any, Dict, List, Optional
 
-import torch
 from habana_frameworks.torch.core.observer import AbsMaxObserver
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch.ao.quantization.observer import PlaceholderObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer.x86_inductor_quantizer import (
@@ -50,7 +51,10 @@ from torch.ao.quantization.quantizer.xnnpack_quantizer_utils import (
     get_weight_qspec,
 )
 from torch.fx import Node
-from torch.fx.passes.utils.source_matcher_utils import SourcePartition, get_source_partitions
+from torch.fx.passes.utils.source_matcher_utils import (
+    SourcePartition,
+    get_source_partitions,
+)
 
 logger = get_compile_backend_logger()
 

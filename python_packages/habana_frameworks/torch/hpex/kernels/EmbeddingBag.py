@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,5 +15,9 @@
 #
 ###############################################################################
 
-from habana_frameworks.torch._hpex_C import embedding_bag_sum_bwd as backward  # noqa: F401
-from habana_frameworks.torch._hpex_C import embedding_bag_sum_fwd as forward  # noqa: F401
+from habana_frameworks.torch._hpex_C import (
+    embedding_bag_sum_bwd as backward,  # noqa: F401
+)
+from habana_frameworks.torch._hpex_C import (
+    embedding_bag_sum_fwd as forward,  # noqa: F401
+)

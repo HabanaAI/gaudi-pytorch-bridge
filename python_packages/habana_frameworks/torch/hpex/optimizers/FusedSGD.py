@@ -18,9 +18,10 @@
 from typing import Callable, Iterable
 
 import habana_frameworks.torch.core as htcore
-import torch
 from habana_frameworks.torch import _hpex_C
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch.optim import Optimizer
 from torch.optim.optimizer import required
 

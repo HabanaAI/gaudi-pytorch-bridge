@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,12 @@ from operator import add
 
 import pytest
 import torch
-from test_utils import compare_tensors, evaluate_fwd_bwd_kernel, evaluate_fwd_kernel, hpu
+from test_utils import (
+    compare_tensors,
+    evaluate_fwd_bwd_kernel,
+    evaluate_fwd_kernel,
+    hpu,
+)
 
 # used as limit for randint
 element_val_min = -630

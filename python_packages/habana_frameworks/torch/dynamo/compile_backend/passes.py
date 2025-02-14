@@ -24,13 +24,16 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
-import torch.fx
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import dump_fx_graph
+from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import (
+    dump_fx_graph,
+)
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.internal import Timer
+
+import torch
+import torch.fx
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
@@ -54,7 +57,12 @@ from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
 from ._passes.reorder_custom_ops import pass_reorder_custom_ops
-from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
+from ._passes.utils import (
+    ColorGraph,
+    OptimizationPassPlacement,
+    OptimizerContext,
+    SchedulePolicy,
+)
 from .cluster_compiler import pass_compile_clusters_jit_fork_version
 from .partitioner import HabanaPartitioner
 from .random_utils import is_backward_checkpoint_op

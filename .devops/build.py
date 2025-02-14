@@ -31,12 +31,31 @@ from collections import defaultdict, namedtuple
 from contextlib import contextmanager
 from dataclasses import astuple, dataclass
 from io import StringIO
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import op_stats_generator
 from build_profiles import profiles
-from build_profiles.profiles import VersionLiteralAndSource, get_cpu_index_url, get_pt_version_id
-from build_profiles.version import Version, is_official_stable_cpu_version, is_wheel_version
+from build_profiles.profiles import (
+    VersionLiteralAndSource,
+    get_cpu_index_url,
+    get_pt_version_id,
+)
+from build_profiles.version import (
+    Version,
+    is_official_stable_cpu_version,
+    is_wheel_version,
+)
 
 log = logging.getLogger(__file__)
 

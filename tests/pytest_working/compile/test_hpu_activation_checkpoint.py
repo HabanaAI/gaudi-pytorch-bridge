@@ -17,10 +17,18 @@
 
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.random_utils import HABANA_CHECKPOINT_OPS
-from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
+from habana_frameworks.torch.dynamo.compile_backend.random_utils import (
+    HABANA_CHECKPOINT_OPS,
+)
+from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+    hpu_fallback_op_list,
+)
 from test_dynamo_utils import use_eager_fallback
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compile_function_if_compile_mode
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compile_function_if_compile_mode,
+)
 
 
 def bernoulli(x):

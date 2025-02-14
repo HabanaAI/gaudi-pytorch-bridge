@@ -21,8 +21,9 @@ import os
 import subprocess
 import sys
 
-import torch
 from habana_frameworks.torch import _hpu_C
+
+import torch
 
 _mandatory_libs = ["libhabana_pytorch_plugin.so"]
 # must be preloaded before _mandatory_libs for profiler to work

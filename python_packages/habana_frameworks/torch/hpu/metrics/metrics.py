@@ -400,7 +400,7 @@ class GraphCompilationMetric(Metric):
             result[self._RECIPE_PARAM_NAME] = list(
                 map(lambda name, duration: (name, duration), self._recipe_names, self._recipe_durations)
             )
-        return [(tag, value) for tag, value in result.items()]
+        return list(result.items())
 
     def process(self):
         if self._handle:

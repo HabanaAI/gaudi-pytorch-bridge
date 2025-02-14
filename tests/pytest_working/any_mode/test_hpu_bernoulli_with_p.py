@@ -18,7 +18,12 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import format_tc, is_pytest_mode_compile, is_pytest_mode_eager, setup_teardown_env_fixture  # noqa F401
+from test_utils import (  # noqa F401
+    format_tc,
+    is_pytest_mode_compile,
+    is_pytest_mode_eager,
+    setup_teardown_env_fixture,
+)
 
 
 @pytest.mark.skipif(

@@ -178,7 +178,7 @@ def get_wheel_install_requires(pt_versions):
 
 
 def check_profile_file_integrity():
-    from jsonschema import validate  # pylint: disable=import-outside-toplevel
+    from jsonschema import validate
 
     with open(
         os.path.join(os.getenv("PYTORCH_MODULES_ROOT_PATH"), ".devops/build_profiles/profiles.schema.json"),

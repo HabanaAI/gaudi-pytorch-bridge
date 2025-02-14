@@ -18,7 +18,12 @@
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
-from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, is_gaudi1
+from test_utils import (
+    compare_tensors,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi1,
+)
 
 dtypes = [torch.float, torch.bfloat16]
 if not is_gaudi1():

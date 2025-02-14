@@ -22,8 +22,9 @@ import threading
 import warnings
 from typing import Any, List, Optional, Union
 
-import torch
 from habana_frameworks.torch import _hpu_C
+
+import torch
 from torch.types import Device
 from torch.utils.checkpoint import DefaultDeviceType
 

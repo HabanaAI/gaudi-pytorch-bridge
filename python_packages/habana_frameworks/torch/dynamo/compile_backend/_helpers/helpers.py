@@ -18,8 +18,9 @@
 from collections.abc import Iterable
 
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 
 from ..random_utils import (
     backward_random_op_inputs,

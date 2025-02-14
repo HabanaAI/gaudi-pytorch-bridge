@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@
 
 from typing import List, Optional, Tuple
 
-import torch
 from habana_frameworks.torch import _hpex_C
+
+import torch
 
 # The file implements operators included in the FBGEMM (Facebook GEneral Matrix Multiplication) library.
 

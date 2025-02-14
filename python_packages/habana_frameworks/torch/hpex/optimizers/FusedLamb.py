@@ -15,8 +15,9 @@
 #
 ###############################################################################
 
-import torch
 from habana_frameworks.torch import core as htcore
+
+import torch
 from torch.optim import Optimizer
 
 

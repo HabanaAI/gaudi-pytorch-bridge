@@ -17,6 +17,7 @@
 
 
 import habana_frameworks.torch as htorch
+
 from torch._dynamo.trace_rules import (
     SKIP_DIRS,
     _allowed_callable_ids,
@@ -26,7 +27,10 @@ from torch._dynamo.trace_rules import (
     manual_torch_name_rule_map,
     torch_name_rule_map,
 )
-from torch._dynamo.variables import TorchCtxManagerClassVariable, TorchInGraphFunctionVariable
+from torch._dynamo.variables import (
+    TorchCtxManagerClassVariable,
+    TorchInGraphFunctionVariable,
+)
 from torch._dynamo.variables.torch import constant_fold_functions
 
 manual_torch_name_rule_map.pop("torch.cuda.current_device", None)

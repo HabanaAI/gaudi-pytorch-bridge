@@ -29,7 +29,9 @@ import numpy as np
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
+from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+    hpu_fallback_op_list,
+)
 from packaging.version import Version
 
 hpu = torch.device("hpu")
@@ -404,7 +406,7 @@ class TcLimitedFormatter:
         if isinstance(val, np.ndarray):
             val = val.tolist()
 
-        if isinstance(val, torch.dtype):  # pylint: disable=no-member
+        if isinstance(val, torch.dtype):
             ret = repr(val)
             return ret.split(sep=".")[1]
         elif isinstance(val, tuple):
@@ -481,9 +483,15 @@ def is_pytest_mode_lazy():
 
 
 def clear_t_compile_logs():
-    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import logger as helpers_logger
-    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
-    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
+    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import (
+        logger as helpers_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
 
     helpers_logger.set_store_data(True)
     graph_logger.set_store_data(True)
@@ -516,8 +524,12 @@ def compile_function_if_compile_mode(
 def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(), forbidden_ops=set()):
     import re
 
-    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
-    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
 
     graphs_data = graph_logger.data
     fallback_data = fallback_logger.data

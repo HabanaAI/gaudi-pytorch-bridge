@@ -17,7 +17,12 @@
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, is_gaudi1
+from test_utils import (
+    compare_tensors,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi1,
+)
 
 basic_dtypes = extended_dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():

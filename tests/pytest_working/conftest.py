@@ -62,7 +62,9 @@ backup_env = pytest.StashKey[Mapping]()
 
 def pytest_runtest_setup(item):
 
-    from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+    from habana_frameworks.torch.dynamo.compile_backend.config import (
+        configuration_flags,
+    )
 
     configuration_flags["use_eager_fallback"] = False
 
@@ -93,7 +95,9 @@ def pytest_runtest_teardown(item):
         )
         and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
     ):
-        from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+        from habana_frameworks.torch.dynamo.compile_backend.config import (
+            configuration_flags,
+        )
 
         configuration_flags["use_eager_fallback"] = False
 

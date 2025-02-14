@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2024 Intel Corporation
+#  Copyright (c) 2024-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,8 +15,9 @@
 #
 ###############################################################################
 
-import torch
 from packaging.version import Version
+
+import torch
 
 
 def is_pytorch_older_than(version: str) -> bool:

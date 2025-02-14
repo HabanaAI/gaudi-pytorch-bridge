@@ -18,8 +18,9 @@
 import operator
 from typing import List, Mapping
 
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch.fx.passes.operator_support import OperatorSupport
 
 from .._helpers import fill_propagated_tensor_metadata_to_node

@@ -22,8 +22,9 @@ import os
 from typing import Any, Optional, Union
 
 import habana_frameworks.torch as htorch
-import torch
 from habana_frameworks.torch import _hpu_C
+
+import torch
 
 from ._utils import _get_device_index
 

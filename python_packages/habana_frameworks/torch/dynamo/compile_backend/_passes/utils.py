@@ -21,10 +21,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List
 
-import torch
-import torch.fx
 from habana_frameworks.torch.dynamo.compile_backend.partitioner import HabanaPartitioner
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
+import torch.fx
 
 logger = get_compile_backend_logger()
 

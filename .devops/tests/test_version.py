@@ -60,7 +60,7 @@ def test_version_equal_to_same_version():
 
 def test_version_unequal_to_different_git_sha():
     assert Version("1.12.0a0+git7315ac") != Version("1.12.0a0+git7890abc")
-    assert not Version("1.12.0a0+git7315ac") == Version("1.12.0a0+git7890abc")  # pylint: disable=unneeded-not
+    assert not Version("1.12.0a0+git7315ac") == Version("1.12.0a0+git7890abc")
 
 
 def test_version_losslessly_converts_to_and_from_string():

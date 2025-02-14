@@ -23,8 +23,13 @@ from binary_cross_entropy_utils import (
     binary_cross_entropy_with_logits_fwd_test,
 )
 from compile.test_dynamo_utils import use_eager_fallback
-from test_utils import setup_teardown_env_fixture  # noqa F401
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile, is_pytest_mode_eager
+from test_utils import (
+    format_tc,
+    is_gaudi1,
+    is_pytest_mode_compile,
+    is_pytest_mode_eager,
+    setup_teardown_env_fixture,  # noqa F401
+)
 
 size = [
     (6,),

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,13 +19,19 @@ from typing import List
 from unittest import mock
 
 import functorch
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import log_function_start_end
+
+import torch
 from torch._dynamo.utils import detect_fake_mode
 
 from .freezing_passes import freeze
-from .internal import optimize_post_partitioner, optimize_pre_partitioner, optimize_pre_placement, partition_module
+from .internal import (
+    optimize_post_partitioner,
+    optimize_pre_partitioner,
+    optimize_pre_placement,
+    partition_module,
+)
 
 
 def _gen_graph_name():

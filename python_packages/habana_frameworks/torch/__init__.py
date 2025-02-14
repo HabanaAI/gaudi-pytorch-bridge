@@ -27,9 +27,10 @@ import habana_frameworks.autoload
 
 habana_frameworks.autoload.is_loaded = True
 
-import torch
 from habana_frameworks.torch.utils.internal import is_lazy
 from packaging.version import Version
+
+import torch
 
 REQUIRED_VERSION_FILE = "required_version.txt"
 REQUIRED_VERSION_FILE_PATH = os.path.join(os.path.dirname(__file__), REQUIRED_VERSION_FILE)

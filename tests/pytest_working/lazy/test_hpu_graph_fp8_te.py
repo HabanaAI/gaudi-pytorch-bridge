@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,13 @@ import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import numpy as np
 import pytest
 import torch
-from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import FP8GlobalStateManager
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
+from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import (
+    FP8GlobalStateManager,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
+    DelayedScaling,
+    Format,
+)
 from test_utils import is_gaudi1
 
 pytestmark = [

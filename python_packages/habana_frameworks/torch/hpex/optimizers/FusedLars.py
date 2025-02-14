@@ -17,9 +17,10 @@
 
 import os
 
-import torch
 from habana_frameworks.torch import _hpex_C
 from habana_frameworks.torch import core as htcore
+
+import torch
 from torch.optim.optimizer import Optimizer
 
 

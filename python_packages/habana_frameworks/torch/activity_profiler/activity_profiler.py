@@ -19,8 +19,9 @@
 from enum import Enum
 
 import habana_frameworks.torch.utils._activity_profiler_C as hpu_profiler
-import torch
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 
 
 class DebugActivity(Enum):

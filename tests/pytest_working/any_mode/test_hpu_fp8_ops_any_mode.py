@@ -734,7 +734,10 @@ def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out):
 @pytest.mark.parametrize("scale_out", [0.0625, 256.0, 7.5])
 def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
     ht.enable_inference_mode()
-    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import (
+        _check_params_as_const,
+        _mark_params_as_const,
+    )
 
     dtype = torch.bfloat16
 
@@ -783,7 +786,10 @@ def test_fp8_gemm_v2_diff_scales_const_at_cache_hit():
     import habana_frameworks.torch.core as htcore
 
     ht.enable_inference_mode()
-    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import (
+        _check_params_as_const,
+        _mark_params_as_const,
+    )
 
     scale_a = [16.0, 1.0, 7.5]
     scale_b = [16.0, 1.0, 7.5]

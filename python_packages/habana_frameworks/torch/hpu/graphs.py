@@ -26,10 +26,11 @@ from typing import List
 
 import habana_frameworks.torch as htorch
 import habana_frameworks.torch.core as htcore
-import torch
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.utils.debug import _hg_print as hpu_graph_print
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 
 
 def stringify(*args):

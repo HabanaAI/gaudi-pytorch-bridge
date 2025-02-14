@@ -16,7 +16,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, is_gaudi1
+from test_utils import (
+    compare_tensors,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi1,
+)
 
 zero_size_shapes = [[0], [0, 1], [0, 1, 2]]
 

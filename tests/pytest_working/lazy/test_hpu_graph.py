@@ -22,7 +22,10 @@ import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import numpy as np
 import pytest
 import torch
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
+    DelayedScaling,
+    Format,
+)
 from test_utils import _kernel_copy_to_device, compare_tensors, is_gaudi1
 
 g = ht.hpu.HPUGraph()

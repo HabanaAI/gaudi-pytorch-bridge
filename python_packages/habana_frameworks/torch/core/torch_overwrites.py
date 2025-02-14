@@ -28,9 +28,10 @@ import habana_frameworks.torch.hpu as ht
 import habana_frameworks.torch.hpu.random as rand_hpu
 import habana_frameworks.torch.internal.bridge_config as bc
 import habana_frameworks.torch.utils.debug as htdebug
-import torch
 from habana_frameworks.torch.utils import _weights_only_unpickler
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch.distributed.constants import default_pg_timeout
 from torch.functional import Tensor
 
@@ -135,7 +136,9 @@ def overwrite_torch_functions():
     @wraps(torch.manual_seed)
     def wrap_manual_seed(seed):
         if not is_lazy():
-            from habana_frameworks.torch.dynamo.compile_backend import _recipe_compiler_C
+            from habana_frameworks.torch.dynamo.compile_backend import (
+                _recipe_compiler_C,
+            )
             from habana_frameworks.torch.utils import _debug_eager_C
 
             _debug_eager_C.join_pending_pipeline_threads()

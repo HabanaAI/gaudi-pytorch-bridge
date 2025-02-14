@@ -261,8 +261,9 @@ def _parse(lines):
 
 def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
     import habana_frameworks.torch.core as htcore
-    import torch
     from habana_frameworks.torch.hpu.metrics import metric_localcontext
+
+    import torch
 
     def forward(self, *args, **kwargs):
         assert not torch.distributed.is_initialized(), "Expected 1x run, but torch being used in distributed fashion"

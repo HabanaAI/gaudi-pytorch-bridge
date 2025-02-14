@@ -17,7 +17,12 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, is_pytest_mode_compile, is_pytest_mode_lazy
+from test_utils import (
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+    is_pytest_mode_lazy,
+)
 
 
 @pytest.mark.parametrize(

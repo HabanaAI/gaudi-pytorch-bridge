@@ -30,7 +30,11 @@ from typing import Union
 
 import torch
 from torch._utils import ExceptionWrapper
-from torch.utils.data._utils import IS_WINDOWS, MP_STATUS_CHECK_INTERVAL, signal_handling
+from torch.utils.data._utils import (
+    IS_WINDOWS,
+    MP_STATUS_CHECK_INTERVAL,
+    signal_handling,
+)
 
 if IS_WINDOWS:
     import ctypes

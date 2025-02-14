@@ -141,7 +141,9 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         else:
             raise ValueError("Unsupported device")
 
-        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
+        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import (
+            HPUMediaPipe,
+        )
 
         pipeline = HPUMediaPipe(
             a_torch_transforms=transform,
@@ -157,7 +159,9 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
             a_device=media_device_type,
         )
 
-        from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUSsdPytorchIterator
+        from habana_frameworks.mediapipe.plugins.iterator_pytorch import (
+            HPUSsdPytorchIterator,
+        )
 
         self.iterator = HPUSsdPytorchIterator(mediapipe=pipeline)
         print(
@@ -327,7 +331,9 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
             # Try aeon when HPUMediaPipe is not available
             if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 try:
-                    from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
+                    from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import (
+                        HPUMediaPipe,
+                    )
 
                 except ImportError as e:
                     print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
@@ -382,7 +388,9 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                     a_dataset_manifest=manifest,
                 )
 
-                from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUResnetPytorchIterator
+                from habana_frameworks.mediapipe.plugins.iterator_pytorch import (
+                    HPUResnetPytorchIterator,
+                )
 
                 self.iterator = HPUResnetPytorchIterator(mediapipe=pipeline)
 
@@ -653,7 +661,9 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     num_instances = kwargs["num_device"]
     instance_id = int(os.getenv("LOCAL_RANK", "0"))
 
-    from habana_frameworks.medialoaders.torch.mediapipe_unet_3d_cpp_bf16 import Unet3dMediaPipe
+    from habana_frameworks.medialoaders.torch.mediapipe_unet_3d_cpp_bf16 import (
+        Unet3dMediaPipe,
+    )
 
     pipe = Unet3dMediaPipe(
         a_device="mixed",
@@ -666,7 +676,9 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
         **pipe_kwargs,
     )
 
-    from habana_frameworks.mediapipe.plugins.iterator_pytorch import CPUHPUUnet3DPytorchIterator
+    from habana_frameworks.mediapipe.plugins.iterator_pytorch import (
+        CPUHPUUnet3DPytorchIterator,
+    )
 
     iterator = CPUHPUUnet3DPytorchIterator(mediapipe=pipe)
     return iterator

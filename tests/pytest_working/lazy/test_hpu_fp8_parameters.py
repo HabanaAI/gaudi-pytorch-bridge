@@ -19,8 +19,10 @@ import os
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
-from test_utils import inference_env_fixture  # noqa F401
-from test_utils import is_gaudi2
+from test_utils import (
+    inference_env_fixture,  # noqa F401
+    is_gaudi2,
+)
 
 
 @pytest.fixture
@@ -64,7 +66,10 @@ def test_fp8_quant_model(set_env_variable, inference_env_fixture):
     shapeA = (8, 4096)
     shapeB = (4096, 4096)
 
-    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import (
+        _check_params_as_const,
+        _mark_params_as_const,
+    )
 
     class TestModel(torch.nn.Module):
         def __init__(self, input_scale, input_scale_inv, other_scale, other_scale_inv):

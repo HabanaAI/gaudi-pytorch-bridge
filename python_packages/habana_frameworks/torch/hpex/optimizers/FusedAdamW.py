@@ -18,9 +18,10 @@
 import math
 from typing import Callable, Iterable, Optional, Tuple, Union
 
-import torch
 from habana_frameworks.torch import core as htcore
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch.optim import Optimizer
 
 

@@ -19,12 +19,17 @@
 from typing import Callable, List, Optional, Tuple
 from unittest import mock
 
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch._dynamo.utils import detect_fake_mode
 from torch._functorch.compile_utils import fx_graph_cse
 from torch._inductor.constant_folding import ConstantFolder, replace_node_with_constant
-from torch._inductor.freezing import discard_traced_gm_params, invalidate_eager_modules, replace_params_with_constants
+from torch._inductor.freezing import (
+    discard_traced_gm_params,
+    invalidate_eager_modules,
+    replace_params_with_constants,
+)
 
 from . import config as hpu_backend_config
 from .passes import post_pass_finalize

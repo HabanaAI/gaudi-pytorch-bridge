@@ -19,15 +19,23 @@ import sys
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import sympy
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from habana_frameworks.torch.dynamo.debug_utils.logger import dump_fx_graph, get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.logger import (
+    dump_fx_graph,
+    get_compile_backend_logger,
+)
 from sympy import sympify
+
+import torch
 from torch._subclasses.fake_tensor import FakeTensor
 from torch.fx.experimental.proxy_tensor import py_sym_types, unset_fake_temporarily
 
 from .random_utils import is_random_op
-from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator, substitute_sympyfn
+from .symbolic_execution import (
+    PythonPrinter,
+    SymbolicShapeEvaluator,
+    substitute_sympyfn,
+)
 
 logger = get_compile_backend_logger()
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
@@ -240,7 +248,13 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = []
         inputs = tuple(args)
 
-        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_symval_hashcode, graph_compile, graph_launch
+        from ._recipe_compiler_C import (
+            RangeInfo,
+            batch_empty,
+            calculate_symval_hashcode,
+            graph_compile,
+            graph_launch,
+        )
 
         curr_symval_hash = (
             calculate_symval_hashcode(inputs, self._pholder_symbolic_dict) if self._pholder_symbolic_dict else None

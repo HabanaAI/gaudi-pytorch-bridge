@@ -17,6 +17,7 @@
 from typing import List, Optional, Union
 
 import torch
+from torch.types import _bool, _device, _float, _int
 
 _device_t = Union[torch.device, str, int, None]
 
@@ -34,8 +35,6 @@ def get_device_properties(device: Optional[_device_t] = None) -> str: ...
 def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool: ...
 def get_arch_list() -> List[str]: ...
 def get_gencode_flags() -> str: ...
-
-from torch.types import _bool, _device, _dtype, _float, _int
 
 class device:
     type: str  # THPDevice_type
