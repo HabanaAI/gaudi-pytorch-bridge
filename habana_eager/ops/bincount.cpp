@@ -71,7 +71,12 @@ at::Tensor bincount_eager(
   }
 
   // .item() internally triggers a mark_step
-  auto max_in_input = static_cast<int64_t>(at::max(self).item<int64_t>());
+  const auto self_dtype = self.scalar_type();
+  auto maybe_casted_self = self;
+  if (self_dtype == c10::ScalarType::Short || self_dtype == c10::ScalarType::Char)
+    maybe_casted_self = self.to(c10::ScalarType::Int);
+
+  auto max_in_input = static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
   auto length = std::max(max_in_input + 1, minlength);
   std::vector<int64_t> shape{length};
   auto out_dtype = bincount_output_dtype(weights);
