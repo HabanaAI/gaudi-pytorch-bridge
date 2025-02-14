@@ -657,6 +657,15 @@ build_pytorch_fork()
         return $__result
     fi
 
+    $__python_cmd -m pip install -r requirements.txt
+    __result=$?
+    if [ $__result -ne 0 ]; then
+        echo "torch requirements installation failed!"
+        popd
+        restore_python_version
+        return $__result
+    fi
+
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
     fi
