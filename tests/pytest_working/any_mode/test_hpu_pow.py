@@ -99,3 +99,24 @@ def test_hpu_square(shape, dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("pow")
+
+
+@pytest.mark.parametrize("scalar", [-1, 1, 0.5, 2, 3, -0.5, 0.3])
+def test_pow_scalar(scalar):
+    dtype = torch.float32
+    shape = [2, 2]
+
+    def fn(x):
+        return torch.pow(x, scalar)
+
+    cpu_input = torch.rand(shape).to(dtype)
+    hpu_input = cpu_input.to("hpu")
+
+    cpu_output = fn(cpu_input)
+    hpu_fn = compile_function_if_compile_mode(fn)
+    hpu_output = hpu_fn(hpu_input)
+
+    torch.testing.assert_close(hpu_output.cpu(), cpu_output, atol=None, rtol=None)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("pow")

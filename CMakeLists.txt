@@ -303,7 +303,6 @@ add_habana_library(
   hpu_ops/lazy/embedding_gen.cpp
   hpu_ops/lazy/index_select_gen.cpp
   hpu_ops/lazy/maxpool_gen.cpp
-  hpu_ops/lazy/pow_gen.cpp
   hpu_ops/lazy/unique_gen.cpp
   hpu_ops/lazy/upsample_gen.cpp
   hpu_ops/lazy/xlogy_gen.cpp
