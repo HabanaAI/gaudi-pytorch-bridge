@@ -2241,29 +2241,30 @@ void HabanaLaunchOpPT::UpdateMaxValues(
     std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues) {
   for (size_t i = 0; i < input_stack.size(); ++i) {
     auto& input_tensor = input_stack[i];
-    std::vector<int64_t> max_new, max_old;
+    std::vector<int64_t> max_new;
+    std::vector<int64_t> const* max_old;
     if (input_tensor.isTensor()) {
       auto tmeta = get_tensor_extra_meta(input_tensor.toTensor());
       auto ivalHash = input_tensor.hash().toInt();
       auto input_idx = ival_hash_to_input_index_map_[ivalHash];
       if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
           tmeta->peek_H2D_data_for_bucketing()) {
-        max_old = index2maxvalues[i];
+        max_old = &(index2maxvalues[i]);
         max_new = SliceOperator::GetH2DTensorData(
             input_tensor.toTensor(), true, false);
       } else {
         max_new = std::get<1>(habana::ShapeInference::GetMinMaxShape(
             habana_op->SynInput(i).ref().id()));
-        max_old = index2maxvalues[i];
+        max_old = &(index2maxvalues[i]);
       }
-      HABANA_ASSERT(max_new.size() == max_old.size());
+      HABANA_ASSERT(max_new.size() == (*max_old).size());
       for (size_t j = 0; j < max_new.size(); ++j) {
-        if (max_new[j] != max_old[j]) {
+        if (max_new[j] != (*max_old)[j]) {
           PT_DYNAMIC_SHAPE_DEBUG(
               "Need to update dynamic ranges of bucket id ",
               current_bucket_id_,
               " from ",
-              max_old[j],
+              (*max_old)[j],
               " to ",
               max_new[j],
               " at input_idx ",

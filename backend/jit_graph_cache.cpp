@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -431,7 +431,7 @@ JitGraphCache::JitGraphCache() : m_mutex{} {}
 
 std::shared_ptr<habana::OptimizedJITGraphAndMetaData> JitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     // We found the graph in cache
@@ -446,12 +446,12 @@ void JitGraphCache::Add(
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
   TORCH_CHECK(!IsCached(key), "This key is already cached!");
 
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.emplace(key, val);
 }
 
 void JitGraphCache::RemoveGraph(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     m_cache_map.erase(iter);
@@ -459,12 +459,9 @@ void JitGraphCache::RemoveGraph(size_t key) {
 }
 
 bool JitGraphCache::IsCached(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
-  if (!m_cache_map.empty() && iter != m_cache_map.end()) {
-    return true;
-  }
-  return false;
+  return (!m_cache_map.empty() && iter != m_cache_map.end());
 }
 
 bool JitGraphCache::Empty() {
@@ -472,6 +469,7 @@ bool JitGraphCache::Empty() {
 }
 
 void JitGraphCache::Clear() {
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.clear();
 }
 
@@ -485,7 +483,7 @@ OptimizedJitGraphCache::OptimizedJitGraphCache() : m_mutex{} {}
 
 std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedJitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     // We found the graph in cache
@@ -500,12 +498,12 @@ void OptimizedJitGraphCache::Add(
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
   TORCH_CHECK(!IsCached(key), "This key is already cached!");
 
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.emplace(key, val);
 }
 
 void OptimizedJitGraphCache::RemoveGraph(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     m_cache_map.erase(iter);
@@ -513,7 +511,7 @@ void OptimizedJitGraphCache::RemoveGraph(size_t key) {
 }
 
 bool OptimizedJitGraphCache::IsCached(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (!m_cache_map.empty() && iter != m_cache_map.end()) {
     return true;
@@ -530,6 +528,7 @@ bool OptimizedJitGraphCache::Empty() {
 }
 
 void OptimizedJitGraphCache::Clear() {
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.clear();
 }
 

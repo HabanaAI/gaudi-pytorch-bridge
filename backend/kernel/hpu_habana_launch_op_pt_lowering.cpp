@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -290,7 +290,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
   }
 }
 
-static synRetrievedLaunchTensorInfo* getRecipeTensorInfos(
+static std::vector<synRetrievedLaunchTensorInfo> getRecipeTensorInfos(
     const synRecipeHandle& recipeHandle,
     uint32_t numOfTensors) {
   synStatus status;
@@ -298,12 +298,12 @@ static synRetrievedLaunchTensorInfo* getRecipeTensorInfos(
   status = synTensorRetrieveLaunchIds(recipeHandle, ids, numOfTensors);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
-  auto tensorInfos = new synRetrievedLaunchTensorInfo[numOfTensors];
+  std::vector<synRetrievedLaunchTensorInfo> tensorInfos(numOfTensors);
   for (unsigned i = 0; i < numOfTensors; i++) {
     tensorInfos[i].tensorId = ids[i];
   }
-  status =
-      synTensorRetrieveLaunchInfoById(recipeHandle, numOfTensors, tensorInfos);
+  status = synTensorRetrieveLaunchInfoById(
+      recipeHandle, numOfTensors, tensorInfos.data());
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   return tensorInfos;
@@ -577,16 +577,16 @@ void habana::HabanaLaunchOpPT::HandleTensorWithChecksumOnDevice(
 
 void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     synapse_helpers::graph::recipe_handle& recipe) {
-  std::vector<synSectionId> constSectionIds;
-  uint32_t numOfTensors = 0;
-  std::unordered_set<int> handled_ids_set;
   if (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) {
     return;
   }
+  uint32_t numOfTensors = 0;
   synStatus status =
       synTensorRetrieveLaunchAmount(recipe.syn_recipe_handle_, &numOfTensors);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
+  std::vector<synSectionId> constSectionIds;
+  std::unordered_set<int> handled_ids_set;
   auto tensorInfos =
       getRecipeTensorInfos(recipe.syn_recipe_handle_, numOfTensors);
   for (size_t input_index = 0; input_index < pt_stack_sh_.size();
@@ -614,7 +614,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             getTensorSectionId(
                 tensor.get(),
                 tensorSectionId,
-                tensorInfos,
+                tensorInfos.data(),
                 numOfTensors,
                 isInput);
             if (!isInput) {
@@ -736,7 +736,6 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     constSectionIds.clear();
   }
 
-  delete[] tensorInfos;
   // Call TcMalloc extension to release memory
   synapse_helpers::ReleaseFreeMemory();
 }
@@ -752,11 +751,17 @@ std::shared_ptr<synapse_helpers::graph::recipe_handle> habana::
   }
 
   std::chrono::steady_clock::time_point t_start;
-  t_start = std::chrono::steady_clock::now();
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+    t_start = std::chrono::steady_clock::now();
+  }
+
   auto recipe = syn_graph_ptr_->compile();
-  auto t_compile = std::chrono::steady_clock::now() - t_start;
-  t_compile_ns_ =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(t_compile).count();
+
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+    auto t_compile = std::chrono::steady_clock::now() - t_start;
+    t_compile_ns_ =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(t_compile).count();
+  }
 
   RecipeValueSpec::increment_compile_count();
 

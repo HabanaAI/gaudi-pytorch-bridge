@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,6 +86,9 @@ torch::jit::Stack habana::CreateInputStack(
 }
 
 void habana::PrintStack(torch::jit::Stack& st) {
+  if (not IS_BRIDGE_DEBUG_ENABLED) {
+    return;
+  }
   PT_BRIDGE_DEBUG("aten_inputs #", st.size(), "::");
   for (size_t idx = 0; idx < st.size(); idx++) {
     PT_BRIDGE_DEBUG(habana_helpers::DebugString(st.at(idx)));

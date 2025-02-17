@@ -465,8 +465,8 @@ void HandleOutputInsert(
 
   PT_EAGER_DEBUG(
       "[HandleOutputInsert] Eager Op Info = ", eager_op_meta_data.to_string());
-  if (!(eager_op_meta_data.op_name_ ==
-        std::string("hpu::_copy_from_strided_insert"))) {
+  using namespace std::literals;
+  if (!(eager_op_meta_data.op_name_ == "hpu::_copy_from_strided_insert"sv)) {
     PT_EAGER_DEBUG(
         "[HandleOutputInsert] Node replacement with SI not required.");
     return;
@@ -552,8 +552,8 @@ void HandleInputOutputViews(
   PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Eager Op Info = ",
       eager_op_meta_data.to_string());
-  if (eager_op_meta_data.op_name_ ==
-      std::string("hpu::_copy_from_strided_insert")) {
+  using namespace std::literals;
+  if (eager_op_meta_data.op_name_ == "hpu::_copy_from_strided_insert"sv) {
     return;
   }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,6 @@
 #include "cache_file_handler.h"
 
 namespace serialization {
-
-constexpr const char* CONST_SECTION_DATA_PREFIX = "const_tensor_";
-constexpr const char* CONST_SECTION_DATA_SUFFIX = ".data";
 
 class ConstSectionFileHandler {
  public:

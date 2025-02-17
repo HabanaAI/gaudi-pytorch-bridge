@@ -389,9 +389,10 @@ void EagerExec::launch() {
 
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
+    using namespace std::literals;
     auto dump_graphs =
-        std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "all" ||
-        std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "eager";
+        std::string_view(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "all"sv ||
+        std::string_view(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "eager"sv;
     CValPtrMap jit_val_map; // map for capturing node params jit values
     auto graph{create_eager_graph(orig_inputs, jit_val_map)};
     if (dump_graphs)
@@ -523,6 +524,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   using JitValue = torch::jit::Value;
   auto graph = std::make_shared<torch::jit::Graph>();
   std::vector<JitValue*> node_inputs;
+  node_inputs.reserve(stack.size());
   size_t idx = 0;
   const bool add_val_flag =
       NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
@@ -565,9 +567,9 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
           [&node_inputs,
            &graph](const c10::ArrayRef<torch::jit::IValue>& list) {
             std::vector<JitValue*> list_inp_args;
-            for (size_t i = 0; i < list.size(); ++i) {
-              auto tensor = list[i].toTensor();
-              auto t = graph->addInput(tensor.toString());
+            for (const auto& item : list) {
+              auto& tensor = item.toTensor();
+              auto* t = graph->addInput(tensor.toString());
               t->setType(c10::TensorType::createContiguous(
                   tensor.scalar_type(), tensor.device(), tensor.sizes()));
               list_inp_args.push_back(t);
@@ -785,8 +787,7 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
   input_addr_map.reserve(stack_size);
   size_t num_duplicate_inputs = 0;
 
-  for (size_t i = 0; i < stack_size; i++) {
-    auto& input = stack[i];
+  for (auto& input : stack) {
     if (!input.isTensor()) {
       continue;
     }
@@ -811,17 +812,18 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
       // address is used for ZST tensors. 2 different ZST tensors can both
       // have addr = 0 and removing one of them results in cycles in synapse
       // graph in some cases
-      input_addr_map[input_addr] = i;
+      input_addr_map.emplace(input_addr, i);
       continue;
     }
-    if (input_addr_map.find(input_addr) == input_addr_map.end()) {
+    auto pidx_iter = input_addr_map.find(input_addr);
+    if (pidx_iter == input_addr_map.end()) {
       // unique input
-      input_addr_map[input_addr] = i;
+      input_addr_map.emplace(input_addr, i);
       continue;
     }
-    auto pidx = input_addr_map.at(input_addr);
-    auto parent_tensor = stack[pidx].toTensor();
-    auto input_tensor = input.toTensor();
+    auto pidx = pidx_iter->second;
+    auto& parent_tensor = stack[pidx].toTensor();
+    auto& input_tensor = input.toTensor();
     // Check for shape and stride match
     if (input_tensor.sizes() == parent_tensor.sizes() &&
         input_tensor.strides() == parent_tensor.strides()) {
@@ -854,12 +856,21 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
 void EagerExec::prune_duplicate_stack_inputs(
     torch::jit::Stack& stack,
     const UniqueIdxVec& parent_vec) {
-  for (int64_t j = (int64_t)parent_vec.size() - 1; j >= 0; j--) {
-    if (parent_vec.is_duplicate(j)) {
-      PT_EAGER_DEBUG("Deleting ", j, "th entry from the stack");
-      stack.erase(stack.begin() + j);
-    }
-  }
+  stack.erase(
+      std::remove_if(
+          stack.begin(),
+          stack.end(),
+          [&stack, &parent_vec](const c10::IValue& v) {
+            const auto index = static_cast<size_t>(
+                static_cast<const c10::IValue*>(&v) - &stack[0]);
+            const auto is_duplicate = parent_vec.is_duplicate(index);
+            if (is_duplicate) {
+              PT_EAGER_DEBUG(
+                  "Deleting duplicate entry from stack at position ", index);
+            }
+            return is_duplicate;
+          }),
+      stack.end());
 }
 
 void EagerExec::prune_duplicate_graph_inputs(
@@ -912,7 +923,7 @@ void EagerExec::prune_duplicate_graph_inputs(
 torch::jit::Stack EagerExec::prepare_input_stack(
     const torch::jit::Stack& inputs) {
   torch::jit::Stack stack;
-  stack.reserve(stack.size());
+  stack.reserve(inputs.size());
   traversing_ivalues<ProcessList::asTensor>(
       inputs,
       overloaded{// metadata
@@ -962,7 +973,7 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
     return false;
   }
 
-  auto eager_compiler_unsupported_op_prefixes =
+  auto& eager_compiler_unsupported_op_prefixes =
       habana::OptimizedJitGraphCache::GetOptimizedJitCache()
           .get_eager_compiler_unsupported_op_prefixes();
 
@@ -987,7 +998,8 @@ a contiguous view on a 1D buffer
 void EagerExec::mark_maybe_grad_view() {
   if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT))
     return;
-  if (std::string(m_symbol.toQualString()) != "aten::mul")
+  using namespace std::literals;
+  if (std::string_view(m_symbol.toQualString()) != "aten::mul"sv)
     return;
   if (m_eager_op_meta_data.op_kind_ != InplaceOut)
     return;

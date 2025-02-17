@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,24 +86,42 @@ void ConstSectionFileHandler::init(std::string path) {
   }
 }
 
+namespace {
+using namespace std::literals;
+
+constexpr const auto CONST_SECTION_DATA_PREFIX = "const_tensor_"sv;
+constexpr const auto CONST_SECTION_DATA_SUFFIX = ".data"sv;
+} // namespace
+
 std::string ConstSectionDataSerialize::getSerializedFullPath(int const_id) {
   HABANA_ASSERT(habana_helpers::IsConstSectionSerialization());
-  return habana_helpers::GetConstSectionSerializationPath() + "/" +
-      std::to_string(m_constSectFH->getRank()) + "/" +
-      CONST_SECTION_DATA_PREFIX + std::to_string(const_id) +
-      CONST_SECTION_DATA_SUFFIX;
+  return habana_helpers::GetConstSectionSerializationPath()
+      .append("/"sv)
+      .append(std::to_string(m_constSectFH->getRank()))
+      .append("/"sv)
+      .append(CONST_SECTION_DATA_PREFIX)
+      .append(std::to_string(const_id))
+      .append(CONST_SECTION_DATA_SUFFIX);
 }
 
 std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
     int const_id,
     const size_t key) {
-  std::vector<std::string> split_config = RecipeCacheConfig::split_params(
-      GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
-  std::string cache_path = split_config.size() > 0 ? split_config[0] : "";
-  auto full_path = cache_path + "/" + std::to_string(key) + "_" +
-      CONST_SECTION_DATA_PREFIX + std::to_string(const_id) +
-      CONST_SECTION_DATA_SUFFIX;
-  return full_path;
+  static const std::string cache_path = [] {
+    std::vector<std::string> split_config = RecipeCacheConfig::split_params(
+        GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
+    return (split_config.size() > 0 ? split_config[0] : "") + "/";
+  }();
+  std::string result;
+  result.reserve(
+      cache_path.size() + 21 + 1 + CONST_SECTION_DATA_PREFIX.size() + 21 +
+      CONST_SECTION_DATA_SUFFIX.size());
+  return result.append(cache_path)
+      .append(std::to_string(key))
+      .append("_"sv)
+      .append(CONST_SECTION_DATA_PREFIX)
+      .append(std::to_string(const_id))
+      .append(CONST_SECTION_DATA_SUFFIX);
 }
 
 bool ConstSectionDataSerialize::fileExists(int const_id) {
