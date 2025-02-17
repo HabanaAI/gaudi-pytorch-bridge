@@ -150,6 +150,7 @@ SYN_API_PTR(synTensorGetExternal);
 SYN_API_PTR(synTensorSetDeviceFullLayout);
 SYN_API_PTR(synTensorSetQuantizationData);
 SYN_API_PTR(synTensorSetAllowPermutation);
+SYN_API_PTR(synTensorSetMemoryReuse);
 SYN_API_PTR(synTensorGetHostPtr);
 SYN_API_PTR(synStatusGetBriefDescription);
 SYN_API_PTR(synDumpStateAndTerminate);
@@ -258,6 +259,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorSetDeviceFullLayout);
   SYN_API_INIT_PTR(synTensorSetQuantizationData);
   SYN_API_INIT_PTR(synTensorSetAllowPermutation);
+  SYN_API_INIT_PTR(synTensorSetMemoryReuse);
   SYN_API_INIT_PTR(synTensorGetHostPtr);
   SYN_API_INIT_PTR(synStatusGetBriefDescription);
   SYN_API_INIT_PTR(synDumpStateAndTerminate);
@@ -1152,6 +1154,16 @@ synTensorSetAllowPermutation(synTensor tensor, int8_t allowPermutation) {
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synTensorSetAllowPermutation, tensor, allowPermutation);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synTensorSetMemoryReuse(synTensor tensor, bool isReusable) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(isReusable));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorSetMemoryReuse, tensor, isReusable);
   API_LOG_RESULT();
   return status;
 }

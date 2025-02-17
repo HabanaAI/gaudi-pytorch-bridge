@@ -38,6 +38,11 @@ class FxGraphAnalyzer:
         def __repr__(self):
             return str(self)
 
+    class PartitionInfo:
+        def __init__(self):
+            self.num_nodes = 0
+            self.meta = None
+
     id_iter = itertools.count()
     registered_contexts: dict = {}
 
@@ -47,6 +52,7 @@ class FxGraphAnalyzer:
         self.id = next(FxGraphAnalyzer.id_iter)
         self.graphs = []
         self.partition_num = 0
+        self.partition_infos = list()
         atexit.register(self._at_exit_callback)
 
     def __del__(self):
@@ -82,6 +88,11 @@ class FxGraphAnalyzer:
                 submodule = ctx.graph_module.get_submodule(n.target)
                 self.count_ops(submodule.graph.nodes, ctx, True, ops_in_graph)
                 self.partition_num += 1
+                part_info = FxGraphAnalyzer.PartitionInfo()
+                part_info.num_nodes = len(submodule.graph.nodes)
+                part_info.meta = submodule.meta
+                self.partition_infos.append(part_info)
+
             elif n.op in {"call_function", "call_method"}:
                 if (
                     "output_device" not in n.meta
@@ -103,3 +114,6 @@ class FxGraphAnalyzer:
 
     def get_partition_num(self):
         return self.partition_num
+
+    def get_partition_infos(self):
+        return self.partition_infos

@@ -123,6 +123,7 @@
   visitor(synTensorRetrieveLaunchInfoById);   \
   visitor(synConstTensorCreate);              \
   visitor(synTensorSetAllowPermutation);      \
+  visitor(synTensorSetMemoryReuse);           \
   visitor(synTensorGetHostPtr);               \
   visitor(synTensorSetDeviceDataType);        \
   visitor(synStatusGetBriefDescription);      \

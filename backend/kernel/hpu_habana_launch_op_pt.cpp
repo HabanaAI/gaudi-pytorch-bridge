@@ -59,6 +59,7 @@
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/op_backend.h"
 #include "hpu_ops/op_logger.h"
+
 using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace sh = synapse_helpers;
@@ -217,6 +218,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   op_strs_ = optimized_jit_graph_and_meta_data->get_cached_opstrs();
   optimized_jit_graph_and_meta_data->SetUserMarkDynamic(false);
   range_infos_ = optimized_jit_graph_and_meta_data->GetUserRangesDynamic();
+  is_reusable_ = optimized_jit_graph_and_meta_data->GetIsReusable();
 
   compile_stats_path_ = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
 
@@ -589,6 +591,21 @@ void HabanaLaunchOpPT::GetSynapseInputsForTensors(
             std::make_shared<SynTensorOrRefList>();
         HandleMappedandUnmappedTensor(
             value_in, habana_op, tensor_ref_list_ptr_sh, scope_string);
+
+        // Set memory reuse info
+        if (input_reusable_pairs_.count(
+                const_cast<torch::jit::Value*>(value_in))) {
+          bool reusable = input_reusable_pairs_.at(
+              const_cast<torch::jit::Value*>(value_in));
+          if (reusable) {
+            for (sh::tensor_or_ref& tensor : *tensor_ref_list_ptr_sh) {
+              PT_BRIDGE_DEBUG(
+                  "Setting mem reusable info on tensor: ", tensor.ref().id());
+              synTensorSetMemoryReuse(tensor.ref().get(), true);
+              tensor.ref().set_reusable(true);
+            }
+          }
+        }
       };
 
   if (isTensor ||
@@ -2996,6 +3013,17 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   if (!syn_build_cache.is_complete()) {
     persistence_marker_pass_data_ptr_ =
         PersistenceMarkerPass(this).VisitGraph(jit_ir_graph_);
+  }
+
+  // Set graph inputs' mem reuse information
+  if (!is_reusable_.empty()) {
+    size_t jit_graph_inputs_size = jit_ir_graph_->inputs().size();
+    HABANA_ASSERT(jit_graph_inputs_size == is_reusable_.size());
+    for (size_t i = 0; i < jit_graph_inputs_size; ++i) {
+      auto input = jit_ir_graph_->inputs().at(i);
+      bool reusable = is_reusable_[i];
+      input_reusable_pairs_.emplace(input, reusable);
+    }
   }
 
   auto

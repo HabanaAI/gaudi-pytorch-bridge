@@ -215,7 +215,8 @@ GraphExec::GraphExec(
     InputSymbolIndexMap in_symbol_idx_map,
     std::vector<habana_helpers::RangeInfo>& range_infos,
     std::vector<int64_t>& const_indexes,
-    bool mark_dynamic)
+    bool mark_dynamic,
+    const std::vector<bool>& is_reusable)
     : m_graph_index(recipe_id),
       m_graph(graph),
       m_dynamic(dynamic),
@@ -230,6 +231,18 @@ GraphExec::GraphExec(
 
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
   m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
+
+  // Temporailly record the original jit graph input to reusable info map
+  std::unordered_map<torch::jit::Value*, bool> input_reusable_pairs;
+  if (!is_reusable.empty()) {
+    size_t jit_graph_inputs_size = m_graph->inputs().size();
+    HABANA_ASSERT(jit_graph_inputs_size == is_reusable.size());
+    for (size_t i = 0; i < jit_graph_inputs_size; ++i) {
+      auto input = m_graph->inputs().at(i);
+      bool reusable = is_reusable[i];
+      input_reusable_pairs.emplace(input, reusable);
+    }
+  }
 
   UpdateSeedTensors(example_inputs);
 
@@ -284,6 +297,18 @@ GraphExec::GraphExec(
     jit_graph_name = m_graph_name;
   }
 
+  // The jit graph inputs number may be changed, we need to re-construct the
+  // reusable info
+  if (!input_reusable_pairs.empty()) {
+    for (size_t i = 0; i < m_graph->inputs().size(); ++i) {
+      auto input = m_graph->inputs().at(i);
+      bool reusable = input_reusable_pairs.count(input)
+          ? input_reusable_pairs.at(input)
+          : false;
+      m_is_reusable.emplace_back(reusable);
+    }
+  }
+
   bool is_dynamic_compile = IsDynamicGraph() && !m_static_fallback;
   m_graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
       m_graph,
@@ -292,7 +317,9 @@ GraphExec::GraphExec(
       std::vector<bool>{} /*node_bcast_map_*/,
       jit_graph_name,
       is_dynamic_compile,
-      m_input_new_base_sizes);
+      m_input_new_base_sizes,
+      habana_helpers::HabanaFrontendTypes::COMPILE,
+      m_is_reusable);
 
   m_graph_and_meta->SetGraphIndex(m_graph_index);
   m_graph_and_meta->SetFrontendType(

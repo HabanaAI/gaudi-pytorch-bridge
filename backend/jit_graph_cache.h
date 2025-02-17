@@ -44,7 +44,8 @@ void ComputeGraphHashCode(
     bool dynamic_graph = false,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
     habana_helpers::HabanaFrontendTypes frontend_type =
-        habana_helpers::HabanaFrontendTypes::INVALID);
+        habana_helpers::HabanaFrontendTypes::INVALID,
+    std::vector<bool> is_reusable = {});
 
 size_t GetDataChecksum(void* data, size_t dataSize);
 
@@ -200,7 +201,8 @@ struct OptimizedJITGraphAndMetaData {
       const bool dynamic = false,
       const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
       habana_helpers::HabanaFrontendTypes frontend_type =
-          habana_helpers::HabanaFrontendTypes::INVALID);
+          habana_helpers::HabanaFrontendTypes::INVALID,
+      std::vector<bool> is_reusable = {});
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
@@ -249,6 +251,8 @@ struct OptimizedJITGraphAndMetaData {
       std::vector<habana_helpers::RangeInfo>& range_infos);
 
   std::vector<habana_helpers::RangeInfo> GetUserRangesDynamic();
+
+  const std::vector<bool>& GetIsReusable();
 
   bool IsUserMarkDynamic();
 
@@ -518,6 +522,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<int64_t> new_strided_insert_output_shape_;
   bool user_mark_dynamic = false;
   std::vector<habana_helpers::RangeInfo> m_range_infos;
+  std::vector<bool> m_is_reusable;
   bool skip_tensor_permutation_{false};
   size_t jit_cache_hit_count_ = 0;
 };

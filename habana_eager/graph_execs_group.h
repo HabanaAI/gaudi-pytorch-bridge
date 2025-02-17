@@ -37,6 +37,7 @@ struct GraphExecsGroup {
       size_t recipe_id,
       std::shared_ptr<torch::jit::Graph> graph,
       torch::jit::Stack& example_inputs,
+      const std::vector<bool>& is_reusable,
       bool dynamic,
       bool inference,
       bool has_preallocated_outputs,
@@ -70,6 +71,8 @@ struct GraphExecsGroup {
   std::vector<habana_helpers::RangeInfo> m_range_infos;
   std::vector<int64_t> m_const_indexes;
   bool m_mark_dynamic = false;
+
+  std::vector<bool> m_is_reusable;
 
   std::unordered_map<int, GraphExec> m_graph_exec_storage;
 

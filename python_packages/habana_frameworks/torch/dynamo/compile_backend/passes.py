@@ -147,6 +147,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_summarize_graph,
             pass_check_eager_fallbacks,
             pass_detect_partition_in_to_out_duplicates,
+            pass_detect_reusable_inputs_for_partition,
             pass_compile_clusters,
             pass_make_boxed_graph,
         ]
@@ -1739,6 +1740,100 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     return graph_changed
 
 
+def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
+    """
+    This pass goes through each node in the main module. For each HPU partition,
+    we will check if it's input can be reused. If the input can be reused, then
+    we will record this information in the partition node's meta field.
+    """
+
+    if not hpu_backend_config.enable_synapse_input_reuse:
+        return False
+
+    from typing import Dict
+
+    from torch.fx.node import Node, map_arg
+
+    graph_inputs: List[Node] = []
+    arg_to_last_user: Dict[Node, Node] = {}
+    user_to_last_used_args: Dict[Node, List[Node]] = {}
+
+    def register_last_uses(arg: Node, user: Node):
+        if arg not in arg_to_last_user:
+            arg_to_last_user[arg] = user
+            user_to_last_used_args[user].append(arg)
+
+    def is_graph_input(node: Node):
+        return node.op == "placeholder" or (
+            node.op == "call_function" and node.target == operator.getitem and node.args[0].op == "placeholder"
+        )
+
+    def is_inplaced_node(node: Node):
+        return node.op == "call_function" and (
+            node.target.__name__.split(".")[0].endswith("_") or node.target == torch.ops.hpu.weight_permutation
+        )
+
+    def is_shared_with_partition_input(node: Node):
+        if node.op == "call_module":
+            out_idx = 0
+            submod_target = node.target
+        elif node.op == "call_function" and node.target == operator.getitem and node.args[0].op == "call_module":
+            out_idx = node.args[1]
+            submod_target = node.args[0].target
+        else:
+            return False
+
+        submod = ctx.graph_module.get_submodule(submod_target)
+        if "in_to_out_dups" not in submod.meta:
+            return False
+        in_to_out_dups = submod.meta["in_to_out_dups"]
+        out_to_in_dups = {v: k for k, v in in_to_out_dups.items()}
+
+        if out_idx in out_to_in_dups:
+            return True
+
+        return False
+
+    def not_share_mem_with_others(node: Node):
+        # make sure the tensor doesn't have any alias to easy the algo and ensure safety
+        # TODO: consider more complex situations, and refer to the alias check in reinplacer
+        no_other_alias = not any((is_view_node(user) or is_inplaced_node(user)) for user in node.users.keys())
+        not_an_alias = not (is_view_node(node) or is_inplaced_node(node) or is_shared_with_partition_input(node))
+        return no_other_alias and not_an_alias
+
+    def is_frozen(node: Node):
+        return node.meta.get("frozen_param", False)
+
+    for node in reversed(ctx.graph_module.graph.nodes):
+        logger.debug("Node: %s Op: %s Target: %s", node, node.op, node.target)
+
+        if is_graph_input(node):
+            graph_inputs.append(node)
+
+        user_to_last_used_args[node] = list()
+        map_arg(node.args, lambda arg: register_last_uses(arg, node))
+
+    for user in user_to_last_used_args:
+        if user.op != "call_module":
+            continue
+
+        last_used_args = user_to_last_used_args[user]
+        is_reusables: List[bool] = []
+        for arg in user.args:
+            is_last_use = arg in last_used_args
+            not_graph_input = arg not in graph_inputs
+            no_share_mem = not_share_mem_with_others(arg)
+            not_frozen = not is_frozen(arg)
+
+            reusable = is_last_use and not_graph_input and no_share_mem and not_frozen
+            is_reusables.append(reusable)
+        submod = ctx.graph_module.get_submodule(user.target)
+        submod.meta["is_reusables"] = is_reusables
+        logger.debug(f"Partition {user.target} has reusable input information: {is_reusables}")
+
+    return True
+
+
 def pass_compile_clusters(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated HPU cluster
@@ -1809,7 +1904,12 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
         if n.op == "call_module":
             assert not n.kwargs
+
             submod = ctx.graph_module.get_submodule(n.target)
+
+            is_reusables: List[bool] = []
+            if "is_reusables" in submod.meta:
+                is_reusables = submod.meta["is_reusables"]
 
             jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
             jit_node_annotation_propagation(jit_ir_function, submod_updated)
@@ -1828,6 +1928,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 ctx.graph_name,
                 is_training=ctx.is_training,
                 is_dynamic=is_submod_dynamic,
+                is_reusables=is_reusables,
             )
 
             ctx.graph_module.delete_submodule(n.target)

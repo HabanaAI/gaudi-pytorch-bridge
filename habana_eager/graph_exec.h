@@ -44,7 +44,8 @@ class GraphExec {
       InputSymbolIndexMap in_symbol_idx_map,
       std::vector<habana_helpers::RangeInfo>& range_infos,
       std::vector<int64_t>& const_indexes,
-      bool mark_dynamic);
+      bool mark_dynamic,
+      const std::vector<bool>& is_reusable);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
@@ -94,6 +95,7 @@ class GraphExec {
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::string m_graph_name;
   bool m_dynamic;
+  std::vector<bool> m_is_reusable;
 
   bool m_static_fallback = false;
   bool m_inference;

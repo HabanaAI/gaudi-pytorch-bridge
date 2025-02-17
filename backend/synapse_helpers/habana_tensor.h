@@ -319,6 +319,14 @@ class tensor final {
     set_permutation();
   }
 
+  bool set_reusable(bool reusable) {
+    return is_reusable_ = reusable;
+  }
+
+  bool is_reusable() const {
+    return is_reusable_;
+  }
+
   synDataType type() const {
     return data_type_;
   }
@@ -532,6 +540,8 @@ class tensor final {
   bool dont_allow_permute_ = false;
 
   bool is_shape_agnostic_ = false;
+
+  bool is_reusable_ = false;
 };
 
 /**

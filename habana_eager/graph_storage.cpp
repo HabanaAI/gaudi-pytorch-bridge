@@ -29,6 +29,7 @@ GraphStorage& GraphStorage::get() {
 size_t GraphStorage::add_new_recipe(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
+    const std::vector<bool>& is_reusable,
     bool dynamic,
     bool inference,
     bool has_preallocated_outputs,
@@ -43,6 +44,7 @@ size_t GraphStorage::add_new_recipe(
       output_recipe_group_id,
       graph,
       example_inputs,
+      is_reusable,
       dynamic,
       inference,
       has_preallocated_outputs,

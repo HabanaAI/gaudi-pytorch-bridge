@@ -654,6 +654,11 @@ synTensorSetAllowPermutation(synTensor tensor, int8_t allowPermutation) {
 }
 
 synStatus SYN_API_CALL
+synTensorSetMemoryReuse(synTensor tensor, bool isReusable) {
+  return syn_api->synTensorSetMemoryReuse(tensor, isReusable);
+}
+
+synStatus SYN_API_CALL
 synTensorGetName(const synTensor tensor, const uint64_t size, char* name) {
   return syn_api->synTensorGetName(tensor, size, name);
 }

@@ -63,7 +63,8 @@ void ComputeGraphHashCode(
     std::vector<bool> node_bcast_details,
     bool dynamic_graph,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes,
-    habana_helpers::HabanaFrontendTypes frontend_type) {
+    habana_helpers::HabanaFrontendTypes frontend_type,
+    std::vector<bool> is_reusable) {
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
@@ -224,6 +225,11 @@ void ComputeGraphHashCode(
         at::hash_combine(graphHashCode, GetWeightHash(input_refs, irgraph));
   }
 
+  if (!is_reusable.empty()) {
+    std::hash<std::vector<bool>> hash_reusable;
+    graphHashCode = at::hash_combine(graphHashCode, hash_reusable(is_reusable));
+  }
+
   size_t graphHashCodeNoConst = graphHashCode;
   graphHashCode = at::hash_combine(graphHashCode, const_input_hash);
   PT_BRIDGE_DEBUG(
@@ -327,12 +333,14 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::string& id,
     const bool dynamic,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes,
-    habana_helpers::HabanaFrontendTypes f_type)
+    habana_helpers::HabanaFrontendTypes f_type,
+    std::vector<bool> is_reusable)
     : jit_graph_to_lowering(JitGraphToLowering),
       unique_graph_cntr(ug_cntr),
       dynamic_graph(dynamic),
       node_bcast_details(bcast_details),
-      frontend_type(f_type) {
+      frontend_type(f_type),
+      m_is_reusable(is_reusable) {
   // Compute the graph hash
   ComputeGraphHashCode(
       JitGraphToLowering, input_refs, id, m_input_new_base_sizes);
@@ -355,7 +363,8 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
       node_bcast_details,
       dynamic_graph,
       m_input_new_base_sizes,
-      frontend_type);
+      frontend_type,
+      m_is_reusable);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {
@@ -394,6 +403,10 @@ void OptimizedJITGraphAndMetaData::SetUserRangesDynamic(
 std::vector<habana_helpers::RangeInfo> OptimizedJITGraphAndMetaData::
     GetUserRangesDynamic() {
   return m_range_infos;
+}
+
+const std::vector<bool>& OptimizedJITGraphAndMetaData::GetIsReusable() {
+  return m_is_reusable;
 }
 
 void SynBuildCache::clear_cached_outputs_tensors() {

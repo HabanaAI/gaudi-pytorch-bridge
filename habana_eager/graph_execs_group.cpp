@@ -79,13 +79,15 @@ void GraphExecsGroup::CopyGraphAndEmplace(
           m_in_symbol_idx_map,
           m_range_infos,
           m_const_indexes,
-          m_mark_dynamic));
+          m_mark_dynamic,
+          m_is_reusable));
 }
 
 GraphExecsGroup::GraphExecsGroup(
     size_t recipe_id,
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
+    const std::vector<bool>& is_reusable,
     bool dynamic,
     bool inference,
     bool has_preallocated_outputs,
@@ -103,7 +105,8 @@ GraphExecsGroup::GraphExecsGroup(
       m_in_symbol_idx_map(in_symbol_idx_map),
       m_range_infos(range_infos),
       m_const_indexes(const_indexes),
-      m_mark_dynamic(mark_dynamic) {
+      m_mark_dynamic(mark_dynamic),
+      m_is_reusable(is_reusable) {
   PT_EAGER_TRACE;
 
   m_graphs_group_name = "graphs_group_" + std::to_string(recipe_id);

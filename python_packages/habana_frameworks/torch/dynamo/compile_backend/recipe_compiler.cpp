@@ -98,6 +98,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "graph_compile",
       [](std::shared_ptr<torch::jit::Graph> graph,
          const py::tuple& inputs,
+         const py::tuple& is_reusable,
          bool dynamic,
          bool inference,
          bool has_preallocated_outputs,
@@ -111,10 +112,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         for (auto& obj : inputs) {
           stack.push_back(torch::jit::toTypeInferredIValue(obj));
         }
+        std::vector<bool> is_reusable_vec;
+        is_reusable_vec.reserve(is_reusable.size());
+        for (auto& obj : is_reusable) {
+          is_reusable_vec.push_back(obj.cast<bool>());
+        }
         auto& graph_storage{habana::graph::GraphStorage::get()};
         return graph_storage.add_new_recipe(
             graph,
             stack,
+            is_reusable_vec,
             dynamic,
             inference,
             has_preallocated_outputs,
@@ -127,6 +134,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::return_value_policy::copy,
       py::arg("graph"),
       py::arg("inputs"),
+      py::arg("is_reusable"),
       py::arg("dynamic"),
       py::arg("inference"),
       py::arg("has_preallocated_outputs"),

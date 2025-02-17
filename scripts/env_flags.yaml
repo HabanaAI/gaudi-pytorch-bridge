@@ -563,6 +563,10 @@ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE:
   type: bool
   default: true
 
+PT_HPU_ENABLE_SYNAPSE_INPUT_REUSE:
+  type: bool
+  default: true
+
 PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE:
   type: bool
   default: true

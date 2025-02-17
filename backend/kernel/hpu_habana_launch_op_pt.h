@@ -439,6 +439,8 @@ class HabanaLaunchOpPT {
 
   std::vector<TensorMetaData> input_tms_;
 
+  std::vector<bool> is_reusable_;
+
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their
@@ -461,6 +463,8 @@ class HabanaLaunchOpPT {
   std::unordered_set<unsigned> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;
+
+  std::unordered_map<torch::jit::Value*, bool> input_reusable_pairs_;
 
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map_;

@@ -16,6 +16,7 @@
 ###############################################################################
 
 import sys
+from typing import List
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import sympy
@@ -182,6 +183,7 @@ class HabanaGraphModule(torch.nn.Module):
         is_training=False,
         dynamic=False,
         force_static_compile=False,
+        is_reusables: List[bool] = [],
     ):
         from ._recipe_compiler_C import EmptyBatchData
 
@@ -200,6 +202,16 @@ class HabanaGraphModule(torch.nn.Module):
         self._dynamic = dynamic
         self._mark_dynamic = False
         self._force_static_compile = force_static_compile
+        # To reuse a input tensor's memory, we have to satisfy two conditions:
+        # - Current partition is the last user of the input tensor
+        # - The compiled recipe of current partition can reuse the tensor internally
+
+        # The @is_reusables here is to represent the first condition. If the
+        # N-th element of is_reusables is True, it means the memory of the N-th
+        # input tensor of this partition can be reused. We pass this information
+        # to synapse graph compiler, and graph compiler will compelete the
+        # second condition.
+        self.is_reusables = is_reusables
         self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
         self._has_randoms = False
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
@@ -306,8 +318,10 @@ class HabanaGraphModule(torch.nn.Module):
                     self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
                     self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
 
+            is_reusable = tuple(self.is_reusables)
             if self._has_randoms:
                 inputs = (None, None) + inputs
+                is_reusable = (False, False) + is_reusable
 
             if self._get_pt_hpu_use_jit_fork:
                 graph = self._jit_ir
@@ -317,6 +331,7 @@ class HabanaGraphModule(torch.nn.Module):
             self._recipe_id = graph_compile(
                 graph=graph,
                 inputs=inputs,
+                is_reusable=is_reusable,
                 dynamic=self._dynamic,
                 inference=self._inference,
                 has_preallocated_outputs=bool(outputs),
@@ -362,7 +377,12 @@ class HabanaGraphModule(torch.nn.Module):
 
 
 def get_callable_recipe(
-    jit_ir, graph_module: torch.fx.GraphModule, parent_graph_name, is_training=False, is_dynamic=False
+    jit_ir,
+    graph_module: torch.fx.GraphModule,
+    parent_graph_name,
+    is_training=False,
+    is_dynamic=False,
+    is_reusables: List[bool] = [],
 ):
     """
     Calls backend to create compiled recipe or just returns unchanged module to
@@ -391,6 +411,7 @@ def get_callable_recipe(
             is_training=is_training,
             dynamic=is_dynamic,
             force_static_compile=hpu_backend_config.force_static_compile,
+            is_reusables=is_reusables,
         )
     else:
         # Return unchanged module, it will be ran eagerly.
