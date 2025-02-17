@@ -28,6 +28,7 @@ from test_utils import (
     format_tc,
     is_gaudi1,
     is_gaudi2,
+    is_gaudi3,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
     is_pytest_mode_lazy,
@@ -334,6 +335,7 @@ def cast_to_fp8_hybrid_common(shape, dtype, stochastic, is_amax, is_scale_152, i
         check_ops_executed_in_jit_ir({"cast_to_fp8_hybrid", "cast_from_fp8"})
 
 
+@pytest.mark.skipif(is_gaudi3(), reason="Gaudi3 doesn't use cast_to_fp8_hybrid")
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("stochastic", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
@@ -341,6 +343,7 @@ def test_cast_to_fp8_hybrid(dtype, stochastic, is_amax):
     cast_to_fp8_hybrid_common((64, 48), dtype, stochastic, is_amax, True, True)
 
 
+@pytest.mark.skipif(is_gaudi3(), reason="Gaudi3 doesn't use cast_to_fp8_hybrid")
 @pytest.mark.parametrize("is_scale_152", [True, False])
 @pytest.mark.parametrize("is_scale_143", [True, False])
 def test_cast_to_fp8_hybrid_scales(is_scale_152, is_scale_143):
