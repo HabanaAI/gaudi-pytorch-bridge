@@ -42,7 +42,7 @@ class stream {
   std::condition_variable cond_var_;
   std::condition_variable cond_var_empty;
   std::thread gc_worker_;
-
+  bool is_compute_stream_;
   synStreamHandle handle_;
 
   /*! \brief Internal garbage collector thread, that collects all the events
@@ -55,10 +55,12 @@ class stream {
    *  \param id of the device
    *  \param flavor dedicated usage type of the stream
    */
-  explicit stream(device& device);
+  explicit stream(device& device, bool is_compute_stream = false);
 
   stream(const stream& other)
-      : device_(other.device_), handle_(other.handle_) {}
+      : device_(other.device_),
+        is_compute_stream_(other.is_compute_stream_),
+        handle_(other.handle_) {}
 
   ~stream();
 

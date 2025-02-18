@@ -392,6 +392,9 @@ if(BUILD_PKGS)
     habana_frameworks/torch/activity_profiler/__init__.py
     habana_frameworks/torch/activity_profiler/activity_profiler.py
     habana_frameworks/torch/activity_profiler/csrc/bindings.cpp
+    habana_frameworks/torch/hw_utilization_metric/__init__.py
+    habana_frameworks/torch/hw_utilization_metric/hw_utilization_metric.py
+    habana_frameworks/torch/hw_utilization_metric/csrc/bindings.cpp
     habana_frameworks/torch/core/__init__.py
     habana_frameworks/torch/core/bindings.cpp
     habana_frameworks/torch/core/hccl/__init__.py

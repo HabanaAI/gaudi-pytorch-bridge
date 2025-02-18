@@ -50,6 +50,7 @@ target_link_libraries(
 
 add_subdirectory(internal/bridge_config)
 add_subdirectory(activity_profiler/csrc)
+add_subdirectory(hw_utilization_metric/csrc)
 add_subdirectory(core)
 add_subdirectory(distributed/hccl)
 add_subdirectory(dynamo/compile_backend)

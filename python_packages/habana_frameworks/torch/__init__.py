@@ -55,6 +55,7 @@ import habana_frameworks.torch.activity_profiler
 import habana_frameworks.torch.core
 import habana_frameworks.torch.distributed.hccl
 import habana_frameworks.torch.hpu
+import habana_frameworks.torch.hw_utilization_metric
 import habana_frameworks.torch.internal.bridge_config as bc
 
 if bc.get_pt_hpu_gpu_migration():

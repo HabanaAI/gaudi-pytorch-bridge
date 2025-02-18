@@ -962,7 +962,7 @@ void device::create_default_stream() {
         Logger::formatStatusMsg(status),
         "synDeviceGetNextStreamAffinity failed.");
   }
-  default_streams_[COMPUTE] = absl::make_unique<stream>(*this);
+  default_streams_[COMPUTE] = absl::make_unique<stream>(*this, true);
 
   PT_SYNHELPER_DEBUG(
       "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
