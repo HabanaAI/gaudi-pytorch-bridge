@@ -76,23 +76,6 @@ def helper_post_pass_placement_update(input_module: torch.fx.GraphModule):
     return input_module
 
 
-class HbConstantFolder(ConstantFolder):
-    """
-    Used in the constant_fold method - need a derived class to override the is_impure
-    method as it currently skips FX graphs with quant/dequant nodes
-    """
-
-    def __init__(
-        self,
-        gm,
-        skip_constructors=False,
-    ):
-        super().__init__(gm, skip_constructors)
-
-    def is_impure(self, node: torch.fx.node.Node):
-        return False
-
-
 @torch.utils._python_dispatch._disable_current_modes()
 def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[torch.fx.Node], bool]] = None):
     """
@@ -107,7 +90,7 @@ def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[to
         gm (torch.fx.GraphModule): The aot_autograd constructed GraphModule to be constant folded.
         constraint_fn (Callable[[torch.fx.Node], bool]): Currently unused
     """
-    cf = HbConstantFolder(gm, skip_constructors=True)
+    cf = ConstantFolder(gm, skip_constructors=True)
     cf.run()
 
     for node, constant in cf.node_replacements.items():
