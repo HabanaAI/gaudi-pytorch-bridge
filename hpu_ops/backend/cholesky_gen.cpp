@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,30 @@ OutputMetaDataVector CholeskyMeta(const at::Stack& stack) {
   return OutputMetaDataVector{
       OutputMetaData(self.scalar_type(), selfShape),
       OutputMetaData(torch::kInt32, infoShape)};
+}
+
+SharedMetaDataVector CholeskySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto inputRank = self.dim();
+  const auto outputRank = std::max<int64_t>(1, inputRank - 2);
+  const auto dtype = self.scalar_type();
+
+  SharedMetaData choleskySharedMeta{"cholesky_fwd"};
+  choleskySharedMeta.inputs_data.emplace_back(inputRank, dtype);
+  choleskySharedMeta.outputs_data.emplace_back(outputRank, dtype);
+
+  SharedMetaDataVector metaVec{choleskySharedMeta};
+  const auto has_two_outputs = (stack.size() >= 3) && stack.at(2).isBool();
+  if (has_two_outputs && outputRank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(
+        outputRank, c10::ScalarType::Int);
+    metaVec.push_back(constantSharedMeta);
+  }
+
+  return metaVec;
 }
 
 void Cholesky::AddNode(sh::graph& graph, const at::Stack& stack) {
