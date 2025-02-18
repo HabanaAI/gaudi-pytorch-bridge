@@ -927,6 +927,7 @@ softmax                                  Yes      Yes      Yes     No        No 
 xlog1py                                  Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.special
 xlogy                                    Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch.special
 batched_nms                              Yes      Yes      No      No        No       No        No        No       No     torchvision.ops
+deform_conv2d                            Yes      No       No      No        No       No        No        No       No     torchvision.ops
 nms                                      Yes      Yes      No      No        No       No        No        No       No     torchvision.ops
 roi_align                                Yes      No       No      No        No       No        No        No       No     torchvision.ops
 _safe_softmax                            Yes      Yes      Yes     No        No       No        No        No       No     torch.ops
