@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch import _hpex_C
@@ -40,13 +40,13 @@ class FusedSGD(Optimizer):
         nesterov: bool = False,
     ):
         if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
+            raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= momentum:
-            raise ValueError("Invalid momentum value: {}".format(momentum))
+            raise ValueError(f"Invalid momentum value: {momentum}")
         if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
         if not 0.0 <= dampening:
-            raise ValueError("Invalid dampening value: {}".format(dampening))
+            raise ValueError(f"Invalid dampening value: {dampening}")
 
         defaults = {
             "lr": lr,

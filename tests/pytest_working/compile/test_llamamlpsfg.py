@@ -17,7 +17,7 @@
 
 import os
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import habana_frameworks.torch as ht
 import torch
@@ -87,7 +87,7 @@ def init_weights(m):
 
 def ensure_divisibility(numerator: int, denominator: int) -> None:
     """Ensure that numerator is divisible by the denominator."""
-    assert numerator % denominator == 0, "{} is not divisible by {}".format(numerator, denominator)
+    assert numerator % denominator == 0, f"{numerator} is not divisible by {denominator}"
 
 
 def divide_and_check_no_remainder(numerator: int, denominator: int) -> int:
@@ -148,7 +148,7 @@ class ColumnParallelLinear(torch.nn.Module):
         stride: int = 1,
         keep_master_weight_for_test: bool = False,
     ) -> None:
-        super(ColumnParallelLinear, self).__init__()
+        super().__init__()
 
         # Keep input parameters
         self.in_features = in_features
@@ -222,7 +222,7 @@ class RowParallelLinear(torch.nn.Module):
         stride: int = 1,
         keep_master_weight_for_test: bool = False,
     ):
-        super(RowParallelLinear, self).__init__()
+        super().__init__()
 
         # Keep input parameters
         self.in_features = in_features
@@ -268,7 +268,7 @@ class FeedForward(nn.Module):
         dim: int,
         hidden_dim: int,
         multiple_of: int,
-        ffn_dim_multiplier: Optional[float],
+        ffn_dim_multiplier: float | None,
     ):
         super().__init__()
         hidden_dim = int(2 * hidden_dim / 3)
@@ -285,7 +285,7 @@ class FeedForward(nn.Module):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
-class HabanaDeviceProfile(object):
+class HabanaDeviceProfile:
     def __init__(self, profiler, device_profiler_step) -> None:
         if device_profiler_step:
             print(

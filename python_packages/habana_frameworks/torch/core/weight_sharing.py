@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 
 
-from typing import Any, Union
+from typing import Any
 
 import torch
 
@@ -87,7 +87,7 @@ def update_habana_parameter(result):
         HabanaParameterWrapper.db[id(result)] = result
 
 
-def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
+def wrapped__getattr__(self, name: str) -> torch.Tensor | torch.nn.Module:
     result = self.original__get_attr__(name)
     try:
         if name not in self.checked_parameters:

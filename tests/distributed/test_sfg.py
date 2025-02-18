@@ -41,7 +41,7 @@ except ImportError:
     TraceType = None
 
 
-class HabanaDeviceProfile(object):
+class HabanaDeviceProfile:
     def __init__(self, profiler, device_profiler_step) -> None:
         if device_profiler_step:
             print(
@@ -349,7 +349,7 @@ def run_single_node(rank, *arguments):
         run_iterations()
 
     print(ht.hpu.memory.memory_stats())
-    for ref, sfg in zip(outputs_refs, outputs_sfg):
+    for ref, sfg in zip(outputs_refs, outputs_sfg, strict=False):
         assert torch.allclose(ref.cpu(), sfg.cpu())
 
 

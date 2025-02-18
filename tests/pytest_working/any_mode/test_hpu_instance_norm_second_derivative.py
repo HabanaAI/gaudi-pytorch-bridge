@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -67,5 +67,5 @@ def test_hpu_instance_norm_second_derivative(shape, use_weight_and_bias, dtype):
     results_hpu = fn(input_hpu, weight_hpu, bias_hpu)
 
     tol = 7e-2 if dtype == torch.bfloat16 else 1e-5
-    for res_cpu, res_hpu in zip(results_cpu, results_hpu):
+    for res_cpu, res_hpu in zip(results_cpu, results_hpu, strict=False):
         assert torch.allclose(res_cpu, res_hpu.cpu(), atol=tol, rtol=tol)

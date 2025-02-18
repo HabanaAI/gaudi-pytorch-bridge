@@ -17,7 +17,6 @@
 
 
 import collections
-from typing import Deque, List, Tuple
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 
@@ -51,7 +50,7 @@ def is_view_node_wrapper(node: torch.fx.Node):
 
 
 def has_mutation_users(producer: torch.fx.Node):
-    queue: Deque[torch.fx.Node] = collections.deque()
+    queue: collections.deque[torch.fx.Node] = collections.deque()
     queue.append(producer)
 
     while len(queue) != 0:
@@ -68,7 +67,7 @@ def has_mutation_users(producer: torch.fx.Node):
 
 
 def remove_unnecessary_clone(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
-    to_remove: List[torch.fx.Node] = []
+    to_remove: list[torch.fx.Node] = []
 
     # if only one clone op in graph, not remove it
     if count_calls(gm.graph) <= 1:
@@ -102,7 +101,7 @@ def remove_unnecessary_clone(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
 
 def hpu_partition(
     joint_module: torch.fx.GraphModule, _joint_inputs, *, num_fwd_outputs
-) -> Tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
+) -> tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
     # optimize the joint module before partitioning it
     if hpu_backend_config.remove_unnecessary_clones:
         joint_module = remove_unnecessary_clone(joint_module)

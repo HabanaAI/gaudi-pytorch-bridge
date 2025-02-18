@@ -40,20 +40,20 @@ def print_mem_summary(name, short=True):
         mem_max_in_use = ht.memory._extended_memory_summary_dict()["max_in_use"]
 
         label = "workspace:"
-        value = str(mem_workspace) + " ({:.2f}) MB".format(mem_workspace / MB)
+        value = str(mem_workspace) + f" ({mem_workspace / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value)
 
         label = "persistent:"
-        value = str(mem_persistent) + " ({:.2f}) MB".format(mem_persistent / MB)
+        value = str(mem_persistent) + f" ({mem_persistent / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value)
 
         label = "max_in_use:"
-        value = str(mem_max_in_use) + " ({:.2f}) MB".format(mem_max_in_use / MB)
+        value = str(mem_max_in_use) + f" ({mem_max_in_use / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value)
 
         label = "max_in_use-persistent:"
         mem_max_in_use_minus_persistent = mem_max_in_use - mem_persistent
-        value = str(mem_max_in_use_minus_persistent) + " ({:.2f}) MB".format(mem_max_in_use_minus_persistent / MB)
+        value = str(mem_max_in_use_minus_persistent) + f" ({mem_max_in_use_minus_persistent / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value + "\n")
     else:
         print(ht.memory.memory_summary())

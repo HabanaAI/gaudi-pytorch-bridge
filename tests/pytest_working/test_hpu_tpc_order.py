@@ -26,7 +26,7 @@ from habana_frameworks.torch.hpu import random as hpu_random
 # Output of this model is passed to flip and topk op
 class Model(nn.Module):
     def __init__(self):
-        super(Model, self).__init__()
+        super().__init__()
         self.score = nn.Conv1d(96, 192, 1)
 
     def forward(self, x):

@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-from typing import Union
 
 import pytest
 import torch
@@ -29,7 +28,7 @@ except ModuleNotFoundError:
     skip_test = True
 
 
-def check_hints_in_jit_ir(op_name: str, expected_hints: Union[list, dict], op_idx=0):
+def check_hints_in_jit_ir(op_name: str, expected_hints: list | dict, op_idx=0):
     """
     op_name: name of op to be checked
     expected_hints: can be a list or a dict

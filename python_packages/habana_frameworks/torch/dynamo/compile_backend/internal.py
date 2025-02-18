@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-from typing import List
 
 import torch
 
@@ -25,7 +24,7 @@ from .passes import OptimizationPassPlacement, optimize_graph
 def optimize_pre_placement(
     graph_module: torch.fx.GraphModule,
     graph_name: str,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ):
@@ -41,7 +40,7 @@ def optimize_pre_placement(
 def optimize_pre_partitioner(
     graph_module: torch.fx.GraphModule,
     graph_name: str,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ):
@@ -57,7 +56,7 @@ def optimize_pre_partitioner(
 def optimize_post_partitioner(
     graph_module: torch.fx.GraphModule,
     graph_name: str,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ):
@@ -73,7 +72,7 @@ def optimize_post_partitioner(
 def partition_module(
     graph_module: torch.fx.GraphModule,
     graph_name: str,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ) -> torch.fx.GraphModule:

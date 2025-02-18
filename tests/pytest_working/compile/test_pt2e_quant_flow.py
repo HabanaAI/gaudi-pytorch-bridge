@@ -57,7 +57,7 @@ def set_env_variable():
 
 class SimpleModel(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModel, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
 
@@ -69,7 +69,7 @@ class SimpleModel(torch.nn.Module):
 
 class SimpleModelWithMultipleGraphs(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModelWithMultipleGraphs, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
         self.gemm2 = torch.nn.Linear(2, 2, dtype=dtype)

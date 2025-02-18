@@ -26,7 +26,7 @@ This module implements Habana quantizers that can be used in PT2E-Quantization.
 # However, they have been renamed and amended as per the present need.
 
 import itertools
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from habana_frameworks.torch.core.observer import AbsMaxObserver
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
@@ -59,14 +59,14 @@ from torch.fx.passes.utils.source_matcher_utils import (
 logger = get_compile_backend_logger()
 
 QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
-extra_args_act: Dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
-extra_args_weight: Dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
+extra_args_act: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
+extra_args_weight: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
 
 
 # ======================================================================================
 # Utility functions used by Habana Quantizer definition
 # ======================================================================================
-def _mark_nodes_as_annotated(nodes: List[Node]):
+def _mark_nodes_as_annotated(nodes: list[Node]):
     for node in nodes:
         if node is not None:
             if "quantization_annotation" not in node.meta:
@@ -74,7 +74,7 @@ def _mark_nodes_as_annotated(nodes: List[Node]):
             node.meta["quantization_annotation"]._annotated = True
 
 
-def _is_annotated(nodes: List[Node]):
+def _is_annotated(nodes: list[Node]):
     annotated = False
     for node in nodes:
         annotated = annotated or (
@@ -111,7 +111,7 @@ class habana_quantizer(Quantizer):
     def __init__(self):
         super().__init__()
         self.global_config: QuantizationConfig = None  # type: ignore[assignment]
-        self.operator_type_config: Dict[str, Optional[QuantizationConfig]] = {}
+        self.operator_type_config: dict[str, QuantizationConfig | None] = {}
 
     def set_global(self, quantization_config: QuantizationConfig):
         """set global QuantizationConfig used for the backend.
@@ -295,7 +295,7 @@ class habana_quantizer(Quantizer):
         pass
 
     @classmethod
-    def get_supported_operators(cls) -> List[OperatorConfig]:
+    def get_supported_operators(cls) -> list[OperatorConfig]:
         return []
 
 

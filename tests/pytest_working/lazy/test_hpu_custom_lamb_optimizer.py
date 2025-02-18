@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ def reference_lamb_norm(grads, max_grad_norm):
 
 def create_args(dtypes, shapes, fn):
     cpu_grads, hpu_grads = [], []
-    for dtype, shape in zip(dtypes, shapes):
+    for dtype, shape in zip(dtypes, shapes, strict=False):
         cpu_grads.append(fn(shape, device=cpu).to(dtype))
         hpu_grads.append(cpu_grads[-1].to(hpu))
     return cpu_grads, hpu_grads
@@ -102,7 +102,7 @@ def test_optimizer_lamb_norm_views():
 
 
 def reference_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_steps, neg_step, weight_decay, use_lamb):
-    for weight, adam_norm, weight_norm, adam_step in zip(weights, adam_norms, weight_norms, adam_steps):
+    for weight, adam_norm, weight_norm, adam_step in zip(weights, adam_norms, weight_norms, adam_steps, strict=False):
         if (weight_decay != 0 or use_lamb) and adam_norm > 0 and weight_norm > 0:
             trust_ratio = weight_norm / adam_norm
         else:
@@ -283,7 +283,7 @@ def test_optimizer_lamb_phase1(weight_decay, bias_correction, step, grad_averagi
 def test_lamb0():
     class TinyModel(nn.Module):
         def __init__(self):
-            super(TinyModel, self).__init__()
+            super().__init__()
             self.l0 = nn.Linear(1, 1)
 
         def forward(self, x):
@@ -327,7 +327,7 @@ def test_lamb0():
 
 class MNISTNet(nn.Module):
     def __init__(self):
-        super(MNISTNet, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 3, 5, 1)
         self.conv2 = nn.Conv2d(3, 6, 5, 1)
         self.fc1 = nn.Linear(3 * 3 * 6, 30)
@@ -384,6 +384,6 @@ def test_lamb(count, lr):
         opt_hpu_fl.step()
 
     # compare NVLamb and FusedLamb results
-    for p, q in zip(m_hpu_nv.parameters(), m_clone.parameters()):
+    for p, q in zip(m_hpu_nv.parameters(), m_clone.parameters(), strict=False):
         if p.requires_grad and q.requires_grad:
             compare_tensors(p.data.to(cpu), q.data.to(cpu), atol=1.0e-4, rtol=1.0e-4)

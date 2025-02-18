@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ def test_hpu_deform_conv2d():
     grad_cpu = []
     grad_hpu = []
 
-    for cpu_t, hpu_t in zip(cpu_tensors, hpu_tensors):
+    for cpu_t, hpu_t in zip(cpu_tensors, hpu_tensors, strict=False):
         grad_cpu.append(cpu_t.grad)
         grad_hpu.append(hpu_t.grad)
         assert grad_cpu[-1].shape == grad_hpu[-1].shape

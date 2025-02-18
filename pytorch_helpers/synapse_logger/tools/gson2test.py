@@ -79,7 +79,7 @@ def descriptor_byte_size(descriptor):
 def generate_array(no, type, name, nitems, items):
     var_name = f"{name}{no}"
     var_items = ", ".join(items)
-    var_body = "{%s}" % var_items
+    var_body = f"{{{var_items}}}"
     var_def = f"{type} {var_name}[{nitems}] = {var_body};"
     return var_name, var_def
 
@@ -578,7 +578,7 @@ class Flow:
         for ref, graph in ((ref, ref.graph) for ref in self.references if ref.graph):
             if entry["args"]["pRecipeHandle"] == graph["args"]["pRecipeHandle"]:
                 out_patching = entry["args"]["launchTensorsInfo"]
-                out_patching = zip(out_patching[::2], out_patching[1::2])
+                out_patching = zip(out_patching[::2], out_patching[1::2], strict=False)
                 dev_pointer = next(
                     dev_addr for enq_tensor_name, dev_addr in out_patching if enq_tensor_name == tensor_name
                 )
@@ -642,14 +642,14 @@ class Flow:
                             args["type"],
                             f"object_{no}",
                             initializer=f"={args['type']}{{"
-                            + ",".join((TransposePermutationDim.from_int(p) for p in args["fields"]))
+                            + ",".join(TransposePermutationDim.from_int(p) for p in args["fields"])
                             + "}",
                         )
 
                     if args["type"] == "synTensorDescriptor":
                         descriptor = args["fields"]
 
-                        out(f"unsigned dims{no}[5] = {{" + ",".join((str(dim) for dim in descriptor["m_sizes"])) + "};")
+                        out(f"unsigned dims{no}[5] = {{" + ",".join(str(dim) for dim in descriptor["m_sizes"]) + "};")
 
                         fields = args["fields"]
                         fields["m_dataType"] = syn_types[fields["m_dataType"]][0]
@@ -674,7 +674,7 @@ class Flow:
                         )
                     elif args["type"] == "synTensorGeometry":
                         fields = args["fields"]
-                        fields["m_sizes"] = "{" + ",".join((str(dim) for dim in fields["m_sizes"])) + "}"
+                        fields["m_sizes"] = "{" + ",".join(str(dim) for dim in fields["m_sizes"]) + "}"
                         fields = ", ".join(f"/*.{k}*/{v}" for k, v in fields.items())
                         v = space.memory.add(
                             args["at"],
@@ -685,7 +685,7 @@ class Flow:
                         )
                     elif args["type"] == "synTensorDeviceLayout":
                         fields = args["fields"]
-                        fields["strides"] = "{" + ",".join((str(dim) for dim in fields["strides"])) + "}"
+                        fields["strides"] = "{" + ",".join(str(dim) for dim in fields["strides"]) + "}"
                         fields["deviceDataType"] = "(synDataType){}".format(fields["deviceDataType"])
                         fields = ", ".join(f"/*.{k}*/{v}" for k, v in fields.items())
                         v = space.memory.add(
@@ -923,7 +923,8 @@ class Flow:
                             for i, ptr in enumerate(args["launchTensorsInfo"][1::2])
                         ]
                         tensors_info = ", ".join(
-                            f'{{"{n}", {f}}}' for n, f in zip(args["launchTensorsInfo"][::2], mapped_tensors)
+                            f'{{"{n}", {f}}}'
+                            for n, f in zip(args["launchTensorsInfo"][::2], mapped_tensors, strict=False)
                         )
                         out(f"synLaunchTensorInfo launch_tensors_info{no}[] = {{{tensors_info}}};")
                         replacements["launchTensorsInfo"] = f"launch_tensors_info{no}"

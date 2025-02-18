@@ -26,7 +26,6 @@ import os
 import queue
 import random
 from collections import namedtuple
-from typing import Union
 
 import torch
 from torch._utils import ExceptionWrapper
@@ -43,7 +42,7 @@ if IS_WINDOWS:
     # On Windows, the parent ID of the worker process remains unchanged when the manager process
     # is gone, and the only way to check it through OS is to let the worker have a process handle
     # of the manager and ask if the process status has changed.
-    class ManagerWatchdog(object):
+    class ManagerWatchdog:
         def __init__(self):
             self.manager_pid = os.getppid()
 
@@ -71,7 +70,7 @@ if IS_WINDOWS:
 
 else:
 
-    class ManagerWatchdog(object):  # type: ignore[no-redef]
+    class ManagerWatchdog:  # type: ignore[no-redef]
         def __init__(self):
             self.manager_pid = os.getppid()
             self.manager_dead = False
@@ -85,7 +84,7 @@ else:
 _worker_info = None
 
 
-class WorkerInfo(object):
+class WorkerInfo:
     __initialized = False
 
     def __init__(self, **kwargs):
@@ -96,13 +95,13 @@ class WorkerInfo(object):
 
     def __setattr__(self, key, val):
         if self.__initialized:
-            raise RuntimeError("Cannot assign attributes to {} objects".format(self.__class__.__name__))
-        return super(WorkerInfo, self).__setattr__(key, val)
+            raise RuntimeError(f"Cannot assign attributes to {self.__class__.__name__} objects")
+        return super().__setattr__(key, val)
 
     def __repr__(self):
         items = []
         for k in self.__keys:
-            items.append("{}={}".format(k, getattr(self, k)))
+            items.append(f"{k}={getattr(self, k)}")
         return "{}({})".format(self.__class__.__name__, ", ".join(items))
 
 
@@ -185,7 +184,7 @@ def _worker_loop(
 
             fetcher = _DatasetKind.create_fetcher(dataset_kind, dataset, auto_collation, collate_fn, drop_last)
         except Exception:
-            init_exception = ExceptionWrapper(where="in DataLoader worker process {}".format(worker_id))
+            init_exception = ExceptionWrapper(where=f"in DataLoader worker process {worker_id}")
 
         # When using Iterable mode, some worker can exit earlier than others due
         # to the IterableDataset behaving differently for different workers.
@@ -225,7 +224,7 @@ def _worker_loop(
                 # processing steps.
                 continue
             idx, index = r
-            data: Union[_IterableDatasetStopIteration, ExceptionWrapper]
+            data: _IterableDatasetStopIteration | ExceptionWrapper
             if init_exception is not None:
                 data = init_exception
                 init_exception = None
@@ -243,7 +242,7 @@ def _worker_loop(
                         # It is important that we don't store exc_info in a variable.
                         # `ExceptionWrapper` does the correct thing.
                         # See NOTE [ Python Traceback Reference Cycle Problem ]
-                        data = ExceptionWrapper(where="in DataLoader worker process {}".format(worker_id))
+                        data = ExceptionWrapper(where=f"in DataLoader worker process {worker_id}")
             # TODO: need to resolve this for now just boycotting
             try:
                 data_queue.put((idx, data))

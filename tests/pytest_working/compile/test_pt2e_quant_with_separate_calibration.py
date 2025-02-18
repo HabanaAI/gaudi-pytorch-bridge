@@ -44,7 +44,7 @@ from torch.fx.passes.utils.source_matcher_utils import get_source_partitions
 
 def fga_assert_helper(ops_summary, op, count_list):
     assert len(ops_summary) == len(count_list)
-    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list):
+    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list, strict=False):
         if graph_eager_count is None:
             assert op not in single_graph_summary
         else:
@@ -68,7 +68,7 @@ def set_env_variable():
 
 class SimpleModel(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModel, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
 
@@ -80,7 +80,7 @@ class SimpleModel(torch.nn.Module):
 
 class SimpleModelWithMultipleGraphs(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModelWithMultipleGraphs, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
         self.gemm2 = torch.nn.Linear(2, 2, dtype=dtype)

@@ -123,7 +123,7 @@ def allgather_into_tensor_coalesced_test(rank, world_size, coalescing):
     if coalescing:
         pg._start_coalescing(torch.device(device_hpu))
 
-    for output, input in zip(output_tensors, input_tensors):
+    for output, input in zip(output_tensors, input_tensors, strict=False):
         torch.distributed.distributed_c10d.all_gather_into_tensor(output, input, group=pg)
 
     if coalescing:

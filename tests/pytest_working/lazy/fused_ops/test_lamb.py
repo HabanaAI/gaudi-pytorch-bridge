@@ -111,7 +111,7 @@ class TorchNVLAMB(torch.optim.Optimizer):
                 for p in group["params"]:
                     p.grad = None
         else:
-            super(TorchNVLAMB, self).zero_grad()
+            super().zero_grad()
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -218,8 +218,8 @@ def test_lamb():
     t = torch.rand(d1, d2)
     v = u.clone()
     w = t.clone()
-    print("input u ::\n{}".format(u))
-    print("input w ::\n{}".format(w))
+    print(f"input u ::\n{u}")
+    print(f"input w ::\n{w}")
 
     x = u.detach().to(habana)
     x.requires_grad = True
@@ -236,11 +236,11 @@ def test_lamb():
     optim_x = FusedLamb([x], lr=lr)
     optim_x.add_param_group({"params": s})
 
-    print("before lamb_habana.step x ::\n{}".format(x.to(cpu)))
-    print("before lamb_habana.step s ::\n{}".format(s.to(cpu)))
+    print(f"before lamb_habana.step x ::\n{x.to(cpu)}")
+    print(f"before lamb_habana.step s ::\n{s.to(cpu)}")
     optim_x.step()
-    print("after  lamb_habana.step x ::\n{}".format(x.to(cpu)))
-    print("after  lamb_habana.step s ::\n{}".format(s.to(cpu)))
+    print(f"after  lamb_habana.step x ::\n{x.to(cpu)}")
+    print(f"after  lamb_habana.step s ::\n{s.to(cpu)}")
 
     y = v.detach().to(habana)
     y.requires_grad = True
@@ -257,11 +257,11 @@ def test_lamb():
     optim_y = TorchNVLAMB([y], lr=0.001)
     optim_y.add_param_group({"params": z})
 
-    print("before NVlamb.step y ::\n{}".format(y.to(cpu)))
-    print("before NVlamb.step z ::\n{}".format(z.to(cpu)))
+    print(f"before NVlamb.step y ::\n{y.to(cpu)}")
+    print(f"before NVlamb.step z ::\n{z.to(cpu)}")
     optim_y.step()
-    print("after NVLamb.step y ::\n{}".format(y.to(cpu)))
-    print("after NVLamb.step z ::\n{}".format(z.to(cpu)))
+    print(f"after NVLamb.step y ::\n{y.to(cpu)}")
+    print(f"after NVLamb.step z ::\n{z.to(cpu)}")
 
     x_cpu = x.to(cpu)
     s_cpu = s.to(cpu)

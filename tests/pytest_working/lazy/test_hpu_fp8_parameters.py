@@ -73,7 +73,7 @@ def test_fp8_quant_model(set_env_variable, inference_env_fixture):
 
     class TestModel(torch.nn.Module):
         def __init__(self, input_scale, input_scale_inv, other_scale, other_scale_inv):
-            super(TestModel, self).__init__()
+            super().__init__()
             if outside_parameter:
                 print(f"TestModel::__init__ {type(input_scale)=} {type(input_scale_inv)=}")
                 self.input_scale = input_scale if input_scale is not None else None

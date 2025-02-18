@@ -102,7 +102,7 @@ class FusedLamb(Optimizer):
                 for p in group["params"]:
                     p.grad = None
         else:
-            super(FusedLamb, self).zero_grad()
+            super().zero_grad()
 
     def step(self, closure=None):
         """Performs a single optimization step.

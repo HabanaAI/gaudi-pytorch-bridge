@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ scalar_list = [2.0, -100, 0.5, 3, 1]
 
 
 def generate_tensor_list(shapes, types):
-    return [torch.randn(shape).to(dtype).to(hpu) for shape, dtype in zip(shapes, types)]
+    return [torch.randn(shape).to(dtype).to(hpu) for shape, dtype in zip(shapes, types, strict=False)]
 
 
 @pytest.mark.parametrize("self_value", [generate_tensor_list(self_shapes, self_dtypes)])

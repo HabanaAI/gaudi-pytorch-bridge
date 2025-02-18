@@ -115,9 +115,18 @@ def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, 
         w3_cpu = [w.float() for w in w3]
 
         (d_scale_w1, d_scale_w2, d_scale_w3) = scales
-        w1_hpu = [(w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale for w, d_scale in zip(w1, d_scale_w1)]
-        w2_hpu = [(w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale for w, d_scale in zip(w2, d_scale_w2)]
-        w3_hpu = [(w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale for w, d_scale in zip(w3, d_scale_w3)]
+        w1_hpu = [
+            (w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale
+            for w, d_scale in zip(w1, d_scale_w1, strict=False)
+        ]
+        w2_hpu = [
+            (w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale
+            for w, d_scale in zip(w2, d_scale_w2, strict=False)
+        ]
+        w3_hpu = [
+            (w.t().to(hpu) if permuted_weights else w.to(hpu)) / d_scale
+            for w, d_scale in zip(w3, d_scale_w3, strict=False)
+        ]
     else:
         w1_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
         w2_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=dtype) for _ in range(num_experts)]
@@ -178,7 +187,7 @@ def test_mixture_of_experts(
     fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
     w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
     cat_dim = 0 if permuted_weights else 1
-    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu)]
+    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu, strict=False)]
 
     def call_moe_fn():
         common_inputs = (
@@ -284,7 +293,7 @@ def test_mixture_of_experts_fp8(
     fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
     w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
     cat_dim = 0 if permuted_weights else 1
-    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu)]
+    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu, strict=False)]
 
     def call_moe_fn():
         common_inputs = (
@@ -358,7 +367,7 @@ def test_mixture_of_experts_fwd_bwd(
 
     w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
     cat_dim = 0 if permuted_weights else 1
-    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu)]
+    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu, strict=False)]
     w12_hpu = [w.detach().requires_grad_(True) for w in w12_hpu]
 
     hidden_states_hpu = hidden_states.detach().to(hpu).requires_grad_(True)

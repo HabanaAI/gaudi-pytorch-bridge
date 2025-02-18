@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,47 +22,20 @@
 # Do not make changes to this file unless you know what you are doing--modify
 # the SWIG interface file instead.
 
-from sys import version_info as _swig_python_version_info
 
-if _swig_python_version_info >= (2, 7, 0):
+def swig_import_helper():
+    import importlib
 
-    def swig_import_helper():
-        import importlib
+    pkg = __name__.rpartition(".")[0]
+    mname = ".".join((pkg, "_py_synapse_logger")).lstrip(".")
+    try:
+        return importlib.import_module(mname)
+    except ImportError:
+        return importlib.import_module("_py_synapse_logger")
 
-        pkg = __name__.rpartition(".")[0]
-        mname = ".".join((pkg, "_py_synapse_logger")).lstrip(".")
-        try:
-            return importlib.import_module(mname)
-        except ImportError:
-            return importlib.import_module("_py_synapse_logger")
 
-    _py_synapse_logger = swig_import_helper()
-    del swig_import_helper
-elif _swig_python_version_info >= (2, 6, 0):
-
-    def swig_import_helper():
-        import imp
-        from os.path import dirname
-
-        fp = None
-        try:
-            fp, pathname, description = imp.find_module("_py_synapse_logger", [dirname(__file__)])
-        except ImportError:
-            import _py_synapse_logger
-
-            return _py_synapse_logger
-        try:
-            _mod = imp.load_module("_py_synapse_logger", fp, pathname, description)
-        finally:
-            if fp is not None:
-                fp.close()
-        return _mod
-
-    _py_synapse_logger = swig_import_helper()
-    del swig_import_helper
-else:
-    import _py_synapse_logger
-del _swig_python_version_info
+_py_synapse_logger = swig_import_helper()
+del swig_import_helper
 
 try:
     _swig_property = property
@@ -91,7 +64,7 @@ def _swig_setattr_nondynamic(self, class_type, name, value, static=1):
         else:
             self.__dict__[name] = value
     else:
-        raise AttributeError("You cannot add attributes to %s" % self)
+        raise AttributeError("You cannot add attributes to {self}")
 
 
 def _swig_setattr(self, class_type, name, value):
@@ -104,7 +77,7 @@ def _swig_getattr(self, class_type, name):
     method = class_type.__swig_getmethods__.get(name, None)
     if method:
         return method(self)
-    raise AttributeError("'%s' object has no attribute '%s'" % (class_type.__name__, name))
+    raise AttributeError("'{class_type.__name__}' object has no attribute '{name}'")
 
 
 def _swig_repr(self):
@@ -112,11 +85,7 @@ def _swig_repr(self):
         strthis = "proxy of " + self.this.__repr__()
     except __builtin__.Exception:
         strthis = ""
-    return "<%s.%s; %s >" % (
-        self.__class__.__module__,
-        self.__class__.__name__,
-        strthis,
-    )
+    return f"<{self.__class__.__module__}.{self.__class__.__name__}; {strthis} >"
 
 
 try:

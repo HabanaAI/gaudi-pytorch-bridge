@@ -23,7 +23,7 @@ import re
 
 def get_fw_time(path, tid, start_time, end_time):
     try:
-        file1 = open(path, "r")
+        file1 = open(path)
         host_data = json.load(file1)
     except ValueError:
         print("json parse has failed may be due to missing ']' ")

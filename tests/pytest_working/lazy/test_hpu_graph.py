@@ -73,20 +73,20 @@ def test_graph_training():
     real_targets_cpu = [torch.randn(N, D_out, device="cpu") for _ in range(100)]
     real_targets_hpu = [target.to("hpu") for target in real_targets_cpu]
 
-    for data, target in zip(real_inputs_hpu, real_targets_hpu):
+    for data, target in zip(real_inputs_hpu, real_targets_hpu, strict=False):
         optimizer_hpu.zero_grad(set_to_none=True)
         tmp = module1_hpu(data)
         loss_hpu = loss_fn(tmp, target)
         loss_hpu.backward()
         optimizer_hpu.step()
 
-    for data, target in zip(real_inputs_cpu, real_targets_cpu):
+    for data, target in zip(real_inputs_cpu, real_targets_cpu, strict=False):
         optimizer_cpu.zero_grad(set_to_none=True)
         tmp = module1_cpu(data)
         loss_cpu = loss_fn(tmp, target)
         loss_cpu.backward()
         optimizer_cpu.step()
-    for p, q in zip(module1_hpu.parameters(), module1_cpu.parameters()):
+    for p, q in zip(module1_hpu.parameters(), module1_cpu.parameters(), strict=False):
         if p.requires_grad and q.requires_grad:
             compare_tensors(p, q, atol=0.001, rtol=1.0e-3)
     compare_tensors(loss_hpu, loss_cpu, atol=0.001, rtol=1.0e-3)
@@ -100,7 +100,7 @@ def wrapped_func(data, target, module1, loss_fn):
 
 class Model(torch.nn.Module):
     def __init__(self, inp_size, out_size, inner_size):
-        super(Model, self).__init__()
+        super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, inner_size)
         self.Linear2 = torch.nn.Linear(inner_size, out_size)
         self.h = torch.nn.ModuleList([torch.nn.Linear(inp_size, inp_size) for i in range(20)])
@@ -131,12 +131,12 @@ def test_multiple_graph_capture():
     loss_hpu_vec = []
     loss_cpu_vec = []
 
-    for data, target in zip(real_inputs_hpu, real_targets_hpu):
+    for data, target in zip(real_inputs_hpu, real_targets_hpu, strict=False):
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, target in zip(real_inputs_cpu, real_targets_cpu):
+    for data, target in zip(real_inputs_cpu, real_targets_cpu, strict=False):
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.0e-3)
@@ -161,7 +161,7 @@ def test_multiple_graph_capture_memoptimization(asynchronous=False, dry_run=Fals
     loss_cpu_vec = []
 
     count = 0
-    for data, target in zip(real_inputs_hpu, real_targets_hpu):
+    for data, target in zip(real_inputs_hpu, real_targets_hpu, strict=False):
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
@@ -169,7 +169,7 @@ def test_multiple_graph_capture_memoptimization(asynchronous=False, dry_run=Fals
             module1_hpu.clear_cache()
         count = count + 1
 
-    for data, target in zip(real_inputs_cpu, real_targets_cpu):
+    for data, target in zip(real_inputs_cpu, real_targets_cpu, strict=False):
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.0e-3)
@@ -187,16 +187,14 @@ def test_tensor_packer():
     output_unpacked = tensor_packer.unpack(tensors, metadata)
 
     metadata_expected = "({'x': #0, 'y': #1}, #2)"
-    assert str(metadata) == metadata_expected, "Incorrect metadata:\nExpected {0},  but got {1}".format(
-        metadata_expected, metadata
-    )
+    assert str(metadata) == metadata_expected, f"Incorrect metadata:\nExpected {metadata_expected},  but got {metadata}"
 
     assert output == output_unpacked
 
 
 class Net(torch.nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.fc1 = torch.nn.Linear(4, 4)
         self.fc2 = torch.nn.Linear(4, 4)
         self.fc3 = torch.nn.Linear(4, 4)
@@ -235,7 +233,7 @@ def test_cached_module_training(disable_tensor_cache, dry_run, save_model=False)
 
     def train_model():
         m = 0
-        for inp, y in zip(net_input, net_output):
+        for inp, y in zip(net_input, net_output, strict=False):
             output = model(**inp)
             y_pred = torch.mean(output[1], 1)
             optimizer.zero_grad(set_to_none=True)
@@ -267,7 +265,7 @@ def test_cached_module_training(disable_tensor_cache, dry_run, save_model=False)
 
 class ModelHpu(torch.nn.Module):
     def __init__(self, inp_size, out_size):
-        super(ModelHpu, self).__init__()
+        super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
 
     def forward(self, inp, m):
@@ -296,12 +294,12 @@ def test_graph_capture_scalar(asynchronous=False, disable_tensor_cache=False):
     loss_hpu_vec = []
     loss_cpu_vec = []
 
-    for data, data2, target in zip(real_inputs_hpu, real_inputs_hpu_scalar, real_targets_hpu):
+    for data, data2, target in zip(real_inputs_hpu, real_inputs_hpu_scalar, real_targets_hpu, strict=False):
         loss_hpu = wrapped_func_scalar(data, data2, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, data2, target in zip(real_inputs_cpu, real_inputs_cpu_scalar, real_targets_cpu):
+    for data, data2, target in zip(real_inputs_cpu, real_inputs_cpu_scalar, real_targets_cpu, strict=False):
         loss_cpu = wrapped_func_scalar(data, data2, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
 
@@ -332,7 +330,7 @@ def test_multiple_graph_capture_with_views():
     loss_cpu_vec = []
 
     # Input as view first time while capture, second time not view
-    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
+    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu, strict=False):
         data = torch.transpose(data, 0, 1)
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
@@ -340,7 +338,7 @@ def test_multiple_graph_capture_with_views():
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, _, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+    for data, _, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu, strict=False):
         data = torch.transpose(data, 0, 1)
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
@@ -353,7 +351,7 @@ def test_multiple_graph_capture_with_views():
     loss_cpu_vec = []
 
     # Input as not view first time while capture, view on second turn
-    for data, _, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
+    for data, _, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu, strict=False):
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         data = torch.transpose(data, 0, 1)
@@ -361,7 +359,7 @@ def test_multiple_graph_capture_with_views():
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, _, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+    for data, _, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu, strict=False):
         data = torch.transpose(data, 0, 1)
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
@@ -374,7 +372,7 @@ def test_multiple_graph_capture_with_views():
     loss_cpu_vec = []
 
     # Input as not view first time while capture, view on second turn
-    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
+    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu, strict=False):
         data = torch.transpose(data, 0, 1)
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
@@ -389,7 +387,7 @@ def test_multiple_graph_capture_with_views():
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, data1, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+    for data, data1, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu, strict=False):
         data = torch.transpose(data, 0, 1)
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
@@ -430,12 +428,12 @@ def test_wrap_hpugraphs_max_graphs(max_graphs=10):
     loss_hpu_vec = []
     loss_cpu_vec = []
 
-    for data, target in zip(real_inputs_hpu, real_targets_hpu):
+    for data, target in zip(real_inputs_hpu, real_targets_hpu, strict=False):
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, target in zip(real_inputs_cpu, real_targets_cpu):
+    for data, target in zip(real_inputs_cpu, real_targets_cpu, strict=False):
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.0e-3)
@@ -564,7 +562,7 @@ def test_module_cacher_no_requires_grad():
 
     def train_model():
         m = 0
-        for inp, y in zip(net_input, net_output):
+        for inp, y in zip(net_input, net_output, strict=False):
             output = model(**inp)
             y_pred = output["T1"] + output["T2"] + output["T3"] + output["T4"]
             optimizer.zero_grad(set_to_none=True)
@@ -587,7 +585,7 @@ def test_module_cacher_no_requires_grad():
 
 class ModelPropNet(torch.nn.Module):
     def __init__(self):
-        super(ModelPropNet, self).__init__()
+        super().__init__()
         self.Linear1 = torch.nn.Linear(20, 25)
         self.relu = torch.nn.ReLU()
         self.Linear2 = torch.nn.Linear(25, 3)
@@ -708,7 +706,7 @@ def test_module_cacher_propnet_views():
 
 class ModelPropRandNet(torch.nn.Module):
     def __init__(self):
-        super(ModelPropRandNet, self).__init__()
+        super().__init__()
         self.Linear1 = torch.nn.Linear(20, 25)
         self.relu = torch.nn.ReLU()
         self.Linear2 = torch.nn.Linear(25, 3)

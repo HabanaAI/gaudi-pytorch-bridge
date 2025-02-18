@@ -42,5 +42,5 @@ def test_unbind(dim, shape, dtype):
 
     hresult = compiled_fn(hx, dim)
 
-    for a, b in zip(result, hresult):
+    for a, b in zip(result, hresult, strict=False):
         assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)

@@ -42,7 +42,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C, inference_env_f
 
     class bn(torch.nn.Module):
         def __init__(self):
-            super(bn, self).__init__()
+            super().__init__()
             self.conv2 = torch.nn.Conv2d(C, C, kernel_size=3, stride=1, bias=True)
             self.conv2.weight = torch.nn.Parameter(0.2 * torch.ones_like(self.conv2.weight))
             self.conv2.bias = torch.nn.Parameter(0.5 * torch.ones_like(self.conv2.bias))
@@ -115,7 +115,7 @@ def test_hpu_const_marking(inference_env_fixture):
 
     class CustomModel(torch.nn.Module):
         def __init__(self):
-            super(CustomModel, self).__init__()
+            super().__init__()
             self.conv = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1)
             self.relu = torch.nn.ReLU(inplace=True)
             self.linear = torch.nn.Linear(64 * 32 * 32, 10)  # Assuming input image size of 32x32

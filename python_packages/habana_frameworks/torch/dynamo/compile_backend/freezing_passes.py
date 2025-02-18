@@ -16,7 +16,7 @@
 ###############################################################################
 
 
-from typing import Callable, List, Optional, Tuple
+from collections.abc import Callable
 from unittest import mock
 
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
@@ -77,7 +77,7 @@ def helper_post_pass_placement_update(input_module: torch.fx.GraphModule):
 
 
 @torch.utils._python_dispatch._disable_current_modes()
-def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[torch.fx.Node], bool]] = None):
+def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Callable[[torch.fx.Node], bool] | None = None):
     """
     Based on the constant_fold method present in torch/_inductor/constant_folding.py - cannot use the original method due to
     additional meta data handling which is HPU backend specific
@@ -115,8 +115,8 @@ def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[to
 def freeze(
     dynamo_gm: torch.fx.GraphModule,
     aot_autograd_gm: torch.fx.GraphModule,
-    example_inputs: List[torch._subclasses.FakeTensor] = None,
-) -> Tuple[torch.fx.GraphModule, List[int]]:
+    example_inputs: list[torch._subclasses.FakeTensor] = None,
+) -> tuple[torch.fx.GraphModule, list[int]]:
     """
     Based on the freezing method present in torch/_inductor/freezing.py - cannot use the original method due to
     dependencies on passes which are MKL-DNN specific

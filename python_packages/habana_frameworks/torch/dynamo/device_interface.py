@@ -15,20 +15,21 @@
 #
 ###############################################################################
 
-from typing import Any, Callable, Dict, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 import habana_frameworks.torch as htorch
 
 import torch
 
-get_hpu_stream: Optional[Callable[[int], int]]
+get_hpu_stream: Callable[[int], int] | None
 from habana_frameworks.torch._hpu_C import _hpu_getCurrentRawStream as get_hpu_stream  # noqa E402
 
-_device_t = Union[torch.device, str, int, None]
+_device_t = torch.device | str | int | None
 
 # Recording the device properties in the main process but used in worker process.
-caching_worker_device_properties: Dict[str, Any] = {}
-caching_worker_current_devices: Dict[str, int] = {}
+caching_worker_device_properties: dict[str, Any] = {}
+caching_worker_current_devices: dict[str, int] = {}
 
 
 class DeviceInterface:

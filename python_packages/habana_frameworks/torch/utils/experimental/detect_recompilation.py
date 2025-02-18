@@ -87,7 +87,10 @@ class Table:
             assert len(budget_col) == len(row)
             # splitting a row across multiple rows
             max_rows_needed = max(
-                [int(math.ceil(len(str(item)) / char_budget)) for item, char_budget in zip(row, budget_col)]
+                [
+                    int(math.ceil(len(str(item)) / char_budget))
+                    for item, char_budget in zip(row, budget_col, strict=False)
+                ]
             )
             start_col = ("", "\033[91m")[rowidx == 0]
             end_col = ("", "\033[1m")[rowidx == 0]

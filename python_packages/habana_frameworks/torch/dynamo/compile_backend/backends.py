@@ -17,7 +17,6 @@
 
 import logging
 from functools import partial
-from typing import List
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 
@@ -51,7 +50,7 @@ def import_hpu_partition():
 
 
 @register_backend
-def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], **kwargs):
+def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], **kwargs):
     """
     This function implements interface for HPU training/inference backend.
     """

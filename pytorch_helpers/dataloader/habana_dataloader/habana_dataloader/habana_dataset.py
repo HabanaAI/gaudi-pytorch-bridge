@@ -20,7 +20,8 @@ import copy
 import inspect
 import itertools
 import os
-from typing import Any, Callable, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import habana_frameworks.torch.utils.experimental as htexp
 import torch.distributed as dist
@@ -104,7 +105,7 @@ class SSDDataLoader(torch.utils.data.DataLoader):
         if self.encoder:
             bbox_out = torch.empty((self.batch_size, 8732, 4), dtype=bbox.dtype)
             label_out = torch.empty((self.batch_size, 8732), dtype=label.dtype)
-            for i, (b, l) in enumerate(zip(bbox, label)):
+            for i, (b, l) in enumerate(zip(bbox, label, strict=False)):
                 indexes = l.nonzero()
                 if indexes.nelement() == 0:
                     # WA for empty label
@@ -245,10 +246,10 @@ class ImageFolderWithManifest(torchvision.datasets.DatasetFolder):
         root: str,
         manifest: dict,
         loader: Callable[[str], Any] = torchvision.datasets.folder.default_loader,
-        extensions: Optional[Tuple[str, ...]] = torchvision.datasets.folder.IMG_EXTENSIONS,
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        is_valid_file: Optional[Callable[[str], bool]] = None,
+        extensions: tuple[str, ...] | None = torchvision.datasets.folder.IMG_EXTENSIONS,
+        transform: Callable | None = None,
+        target_transform: Callable | None = None,
+        is_valid_file: Callable[[str], bool] | None = None,
     ) -> None:
         self.root = root
         self.manifest = manifest
@@ -315,7 +316,7 @@ class ImageFolderWithManifest(torchvision.datasets.DatasetFolder):
 class ResnetDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
-        keyword_args.update(dict(zip(inspect.getfullargspec(super(ResnetDataLoader, self).__init__).args[1:], args)))
+        keyword_args.update(dict(zip(inspect.getfullargspec(super().__init__).args[1:], args, strict=False)))
         channels_last = keyword_args.get("channels_last", False)
 
         self.DeviceType = htexp._get_device_type()
@@ -403,7 +404,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
         except (ValueError, ImportError) as e:
             print(f"Failed to initialize Habana Dataloader, error: {str(e)}\nRunning with PyTorch Dataloader")
             self.fallback_activated = True
-            super(ResnetDataLoader, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
     def __len__(self):
         if self.fallback_activated:
@@ -610,7 +611,7 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
         elif mode == "test":
             nbs = kwargs["test_batches"]
         else:
-            raise ValueError("Unsupported mode {} for benchmark!".format(mode))
+            raise ValueError(f"Unsupported mode {mode} for benchmark!")
 
         if kwargs["dim"] == 3:
             nbs *= batch_size
@@ -638,7 +639,7 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
             pipeline = "BenchmarkPipeline_Train"
             num_threads = 3  # Reader, Crop are CPU heavy ops, so kept 3 threads
         else:
-            raise ValueError("Unsupported mode {} for benchmark!".format(mode))
+            raise ValueError(f"Unsupported mode {mode} for benchmark!")
 
         if kwargs["dim"] == 2:
             pipe_kwargs.update({"batch_size_2d": batch_size})

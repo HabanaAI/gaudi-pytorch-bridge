@@ -15,21 +15,20 @@
 #
 ###############################################################################
 
-from typing import Optional
 
 import torch  # noqa F401
 import torch.fx.node as fx_node
 from torch.library import custom_op
 
 
-def register_prepare_ops(fn, fake_fn, name: str, device_types: str = "cpu", schema: Optional[str] = None):
+def register_prepare_ops(fn, fake_fn, name: str, device_types: str = "cpu", schema: str | None = None):
     op_name = f"hpu_prepare_ops::{name}"
     custom_fn = custom_op(op_name, fn, mutates_args=(), device_types=device_types, schema=schema)
     custom_fn.register_fake(fake_fn)
     fx_node._side_effectful_functions.add(eval(f"torch.ops.hpu_prepare_ops.{name}.default"))
 
 
-def register_post_ops(fn, fake_fn, name: str, device_types: str = "cpu", schema: Optional[str] = None):
+def register_post_ops(fn, fake_fn, name: str, device_types: str = "cpu", schema: str | None = None):
     op_name = f"hpu_post_ops::{name}"
     custom_fn = custom_op(op_name, fn, mutates_args=(), device_types=device_types, schema=schema)
     custom_fn.register_fake(fake_fn)

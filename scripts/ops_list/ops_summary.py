@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ def filter(op, filtered_out):
 def read_ops(args, file, all_ops):
     filtered_out = set()
     ops = set()
-    with open(file, "r") as read_obj:
+    with open(file) as read_obj:
         for line in read_obj:
             op = line.strip()
 
@@ -74,7 +74,6 @@ def read_registration_declarations(args, python_path):
     reg_decl = {}
     with open(
         python_path + "/torch/include/ATen/RegistrationDeclarations.h",
-        "r",
     ) as read_obj:
         for line in read_obj:
             pattern = '"schema": "'
@@ -154,7 +153,7 @@ def read_preambler_data(args, prea_path):
     for filename in glob.iglob(prea_path + "/**/*.csv", recursive=True):
         if args.verbose:
             print(f"Reading preambler data: {filename}")
-        with open(filename, "r") as read_obj:
+        with open(filename) as read_obj:
             for line in read_obj:
                 pattern = ",Torch,"
                 pos = line.find(pattern)

@@ -41,7 +41,7 @@ def test_reduction(op_code):
     hresult = compiled_fn(hx)
 
     if isinstance(result, tuple):
-        for a, b in zip(result, hresult):
+        for a, b in zip(result, hresult, strict=False):
             assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
     else:
         assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
@@ -67,7 +67,7 @@ def test_reduction_dim(op_code, dim, keepdim):
     hresult = compiled_fn(hx, dim, keepdim)
 
     if isinstance(result, tuple):
-        for a, b in zip(result, hresult):
+        for a, b in zip(result, hresult, strict=False):
             assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
     else:
         assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)

@@ -72,7 +72,7 @@ def add_mdef(file, ln, ns, line):
 
 def read_file(args, filename):
     if any(filename.endswith(e) for e in [".cpp", ".hpp", ".h"]):
-        with open(filename, "r") as fr:
+        with open(filename) as fr:
             state = "outside"
             ln = 0
             for line in fr:

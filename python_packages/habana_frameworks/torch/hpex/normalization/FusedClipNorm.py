@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch import _hpex_C
@@ -30,9 +30,9 @@ class FusedClipNorm:
         self.dtype = torch.float32
         if len(params_list) != 0:
             self.dtype = params_list[0].dtype  # assume params are of same type and use type of first param
-        self.max_norm_t = (torch.ones((1)) * max_norm).to(self.dtype).to(torch.device("hpu"))
+        self.max_norm_t = (torch.ones(1) * max_norm).to(self.dtype).to(torch.device("hpu"))
         self.norm_type = 2.0
-        super(FusedClipNorm, self).__init__()
+        super().__init__()
 
     def clip_norm(self, parameters):
         htcore.step_closure._mark_step_if_lazy()

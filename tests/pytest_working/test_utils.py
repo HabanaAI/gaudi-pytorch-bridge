@@ -18,10 +18,9 @@
 
 import os
 import types
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Callable, Dict, Optional
 
 import habana_frameworks.torch.hpu as hthpu
 import habana_frameworks.torch.utils.debug as htdebug
@@ -226,8 +225,8 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
                 rtol=rtol,
             )
         else:
-            print("hpu_result[{}]".format(i), hpu_tensors[i].detach().numpy())
-            print("cpu_result[{}]".format(i), cpu_tensors[i].detach().numpy())
+            print(f"hpu_result[{i}]", hpu_tensors[i].detach().numpy())
+            print(f"cpu_result[{i}]", cpu_tensors[i].detach().numpy())
             return np.allclose(
                 hpu_tensors[i].detach().numpy(),
                 cpu_tensors[i].detach().numpy(),
@@ -265,7 +264,7 @@ def env_var_in_scope(vars=None):
                     del os.environ[key]
 
 
-def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable] = None):
+def generic_setup_teardown_env(temp_test_env: dict, callback: Callable | None = None):
     htdebug._bridge_cleanup()
     assert isinstance(temp_test_env, Mapping)
 
@@ -416,8 +415,8 @@ class TcLimitedFormatter:
                 assert val
                 ret = self.format_tc_common(val[0], limit_array)
             for i in range(1, len(val)):
-                ret = "{}x{}".format(ret, self.format_tc_common(val[i], limit_array))
-            return "[{}]".format(ret)
+                ret = f"{ret}x{self.format_tc_common(val[i], limit_array)}"
+            return f"[{ret}]"
         elif isinstance(val, list):
             if len(val) == 0:
                 return "[]"
@@ -427,15 +426,15 @@ class TcLimitedFormatter:
                 current_value = val[i]
                 if limited:
                     if i == limit_array:
-                        current_value = "_INNER{}_".format(self.counter)
+                        current_value = f"_INNER{self.counter}_"
                         self.counter += 1
                     elif i > limit_array and i < len(val) - limit_array:
                         continue
 
-                ret = "{}x{}".format(ret, self.format_tc_common(current_value, limit_array))
-            ret = "{}]".format(ret)
+                ret = f"{ret}x{self.format_tc_common(current_value, limit_array)}"
+            ret = f"{ret}]"
             if limit_str is not None and len(ret) > limit_str:
-                ret = ret[0:limit_str] + "___{}".format(self.counter)
+                ret = ret[0:limit_str] + f"___{self.counter}"
                 self.counter += 1
             return ret
         elif val is None:
@@ -666,7 +665,7 @@ def is_dtype_floating_point(dtype):
 
 def print_tensors_internal(tensors, atol, rtol, index=[]):
     if isinstance(tensors[0], Iterable):
-        for i, (tensors_sub) in enumerate(zip(*tensors)):
+        for i, (tensors_sub) in enumerate(zip(*tensors, strict=False)):
             print_tensors_internal(tensors_sub, atol, rtol, index + [i])
     else:
         tolerance_ok = False
@@ -684,14 +683,14 @@ def print_tensors_internal(tensors, atol, rtol, index=[]):
 
 
 def print_tensors(labels, tensors, atol=None, rtol=None):
-    for l, t in zip(labels, tensors):
+    for l, t in zip(labels, tensors, strict=False):
         print(f"{l} : {t.shape}")
     print_tensors_internal([t.tolist() for t in tensors], atol, rtol)
 
 
 def fga_assert_helper(ops_summary, op, count_list):
     assert len(ops_summary) == len(count_list)
-    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list):
+    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list, strict=False):
         if graph_eager_count is None:
             assert op not in single_graph_summary
         else:

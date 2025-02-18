@@ -58,7 +58,7 @@ def test_one_hot_multiple_calls():
 
     fn = compile_function_if_compile_mode(fn)
 
-    for input_shape, num_classes in zip(input_shapes, num_classes_list):
+    for input_shape, num_classes in zip(input_shapes, num_classes_list, strict=False):
         input_cpu = torch.randint(0, num_classes, input_shape).to(torch.long)
         input_hpu = input_cpu.to("hpu")
 

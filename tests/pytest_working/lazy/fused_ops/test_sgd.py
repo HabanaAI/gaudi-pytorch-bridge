@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -33,14 +33,14 @@ def test_sgd():
 
     u1 = torch.rand(d1, d2)
     v1 = u1.clone()
-    print("input ::\n{}".format(u1))
+    print(f"input ::\n{u1}")
 
     x1 = u1.detach().to(cpu)
     x1.requires_grad = True
 
     u2 = torch.rand(d1, d2)
     v2 = u2.clone()
-    print("input ::\n{}".format(u2))
+    print(f"input ::\n{u2}")
 
     x2 = u2.detach().to(cpu)
     x2.requires_grad = True

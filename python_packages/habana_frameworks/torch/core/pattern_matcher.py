@@ -174,7 +174,7 @@ def get_dequant_node(node):
         if is_node(node, "dequantize_per_tensor.default"):
             return node
         if node.target.__name__ not in view_nodes:
-            logger.debug("Traced back to a non view node {}".format(node.target.__name__))
+            logger.debug(f"Traced back to a non view node {node.target.__name__}")
             break
         node = node.args[0]
     return None
@@ -507,4 +507,4 @@ class PatternMatchAndReplacer:
         logger.debug("=================AFTER PASS================")
         logger.debug(self._graph_module.graph)
         logger.debug("===========================================")
-        logger.debug("=================TOTAL CHANGES {} ================".format(nodes_replaced))
+        logger.debug(f"=================TOTAL CHANGES {nodes_replaced} ================")

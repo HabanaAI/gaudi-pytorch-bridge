@@ -232,7 +232,7 @@ def test_user_access_to_modified_tensor(set_env_variable, inference_env_fixture)
 def test_zero_sized_tensor(set_env_variable, inference_env_fixture):
     class Model(nn.Module):
         def __init__(self):
-            super(Model, self).__init__()
+            super().__init__()
 
             # Define two parameters 'a' and 'b'
             self.a = nn.Parameter(torch.randn(1, requires_grad=True))

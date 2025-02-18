@@ -16,7 +16,6 @@
 ###############################################################################
 
 import os
-from typing import Tuple
 
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
 from habana_frameworks.torch.utils.experimental.distributed_emulation import (
@@ -106,7 +105,7 @@ def _read_values_from_env():
     return world_size, rank, local_rank
 
 
-def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> Tuple[int, int, int]:
+def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> tuple[int, int, int]:
     r"""Initializes and returns distributed configuration
     Returns world_size, rank and local_rank if the processes
     are launched using either MPI or torchrun related APIS

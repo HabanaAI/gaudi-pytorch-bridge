@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ def bool_to_yes(v):
 
 def read_ops(args, file):
     ops = set()
-    with open(file, "r") as read_obj:
+    with open(file) as read_obj:
         for line in read_obj:
             op = line.strip()
             last_space = op.rfind(" ")
@@ -64,7 +64,7 @@ def read_http_aten_ops_supported(args, url):
 
     ops = sorted(ops)
     if args.verbose:
-        print("Ops read from: {}".format(url))
+        print(f"Ops read from: {url}")
         for op in ops:
             print(op)
 

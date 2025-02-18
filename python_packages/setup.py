@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ modules_build_dir = os.getenv(modules_build_dir_var)
 
 
 if modules_build_dir is None:
-    raise EnvironmentError(f"{modules_build_dir_var} not set")
+    raise OSError(f"{modules_build_dir_var} not set")
 build_dir = os.path.join(modules_build_dir, "python_packages")
 if os.path.exists(build_dir):
     shutil.rmtree(build_dir)
@@ -38,12 +38,12 @@ os.makedirs(build_dir)
 wheel_build_dir_var = "PYTORCH_MODULES_WHL_BUILD_DIR"
 wheel_build_dir = os.getenv(wheel_build_dir_var)
 if wheel_build_dir is None:
-    raise EnvironmentError(f"{wheel_build_dir_var} not set")
+    raise OSError(f"{wheel_build_dir_var} not set")
 
 wheel_pt_vers_var = "PT_WHEEL_VERS"
 wheel_pt_vers = os.getenv(wheel_pt_vers_var)
 if wheel_pt_vers is None:
-    raise EnvironmentError(f"{wheel_pt_vers_var} not set")
+    raise OSError(f"{wheel_pt_vers_var} not set")
 
 
 class InstallHeaders(build_ext):
@@ -52,7 +52,7 @@ class InstallHeaders(build_ext):
         pytorch_modules_root_var = "PYTORCH_MODULES_ROOT_PATH"
         pytorch_modules_root = os.getenv(pytorch_modules_root_var)
         if pytorch_modules_root is None:
-            raise EnvironmentError(f"{pytorch_modules_root_var} not set")
+            raise OSError(f"{pytorch_modules_root_var} not set")
         src_path = os.path.join(pytorch_modules_root, "include", "habanalabs")
         dst_path = os.path.join(self.build_lib, "habana_frameworks", "torch", "include")
         shutil.copytree(src_path, dst_path)

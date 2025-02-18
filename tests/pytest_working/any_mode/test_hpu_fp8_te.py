@@ -178,7 +178,7 @@ class MyLinear(torch.nn.Module):
         skip_weight_param_allocation: bool = False,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
-        super(MyLinear, self).__init__()
+        super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.skip_weight_param_allocation = skip_weight_param_allocation
@@ -209,9 +209,7 @@ class MyLinear(torch.nn.Module):
         )
 
     def extra_repr(self) -> str:
-        return "in_features={}, out_features={}, bias={}".format(
-            self.in_features, self.out_features, self.bias is not None
-        )
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
 
 
 def fwd_step(linear, inp, *args, fp8_enabled=True, fp8_recipe=None, skip_fp8_context=False, **kwargs):
@@ -1243,7 +1241,7 @@ def test_gradient_checkpointing(fp8_format):
 
     class Subnet(torch.nn.Module):
         def __init__(self, hidden_dim):
-            super(Subnet, self).__init__()
+            super().__init__()
             self.hidden_dim = hidden_dim
             self.fc = te.Linear(self.hidden_dim, self.hidden_dim, bias=False)
 
@@ -1253,7 +1251,7 @@ def test_gradient_checkpointing(fp8_format):
 
     class Net(torch.nn.Module):
         def __init__(self, input_dim, hidden_dim, output_dim):
-            super(Net, self).__init__()
+            super().__init__()
             self.input_dim = input_dim
             self.hidden_dim = hidden_dim
             self.output_dim = output_dim
@@ -1306,7 +1304,7 @@ LNEG = -1e9
 def _create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s, dtype, shape, float_mask=True):
     attn_mask = torch.randint(0, 2, (seq_len_N_s,)).float()
     if float_mask:
-        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, float(0.0))
+        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, 0.0)
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":
@@ -1673,7 +1671,7 @@ def test_te_fused_sdpa(
 
     class AttentionSubnet(torch.nn.Module):
         def __init__(self, scale, attention_dropout, enable_recompute, enable_act_ckpt):
-            super(AttentionSubnet, self).__init__()
+            super().__init__()
             self.activation_checkpointing = enable_act_ckpt
             self.sdpa = te.FusedAttention(
                 scale=scale, attention_dropout=attention_dropout, enable_recompute=enable_recompute
@@ -1880,7 +1878,7 @@ def test_save_load_te_module_indirectly(
             device=device,
             dtype=dtype,
         ):
-            super(TestFP8Linear, self).__init__(
+            super().__init__(
                 in_features=input_size,
                 out_features=output_size,
                 bias=True,
@@ -1978,7 +1976,7 @@ def test_save_load_te_module_indirectly(
                     if isinstance(loaded_extra_state[key][k], list):
                         # 'global_fp8_buffer' - 'FWD_AMAX_*', 'BWD_AMAX_*'
                         # 'extra_fp8_variables' - 'run_id_fwd_stack',
-                        for val, load_val in zip(loaded_extra_state[key][k], saved_extra_state[key][k]):
+                        for val, load_val in zip(loaded_extra_state[key][k], saved_extra_state[key][k], strict=False):
                             assert torch.allclose(
                                 val, load_val, rtol=0.0, atol=0.0
                             ), f"loaded {key}-{k} from saved state not matching to saved state"

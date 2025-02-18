@@ -31,7 +31,7 @@ except ImportError:
 
 class Model(torch.nn.Module):
     def __init__(self, inp_size, out_size, inner_size):
-        super(Model, self).__init__()
+        super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, inner_size)
         self.Linear2 = torch.nn.Linear(inner_size, out_size)
         self.h = torch.nn.ModuleList([torch.nn.Linear(inp_size, inp_size) for i in range(20)])
@@ -63,20 +63,20 @@ def test_graph_training():
     real_targets_cpu = [torch.randn(N, D_out, device="cpu") for _ in range(100)]
     real_targets_hpu = [target.to("hpu") for target in real_targets_cpu]
 
-    for data, target in zip(real_inputs_hpu, real_targets_hpu):
+    for data, target in zip(real_inputs_hpu, real_targets_hpu, strict=False):
         optimizer_hpu.zero_grad(set_to_none=True)
         tmp = module1_hpu(data)
         loss_hpu = loss_fn(tmp, target)
         loss_hpu.backward()
         optimizer_hpu.step()
 
-    for data, target in zip(real_inputs_cpu, real_targets_cpu):
+    for data, target in zip(real_inputs_cpu, real_targets_cpu, strict=False):
         optimizer_cpu.zero_grad(set_to_none=True)
         tmp = module1_cpu(data)
         loss_cpu = loss_fn(tmp, target)
         loss_cpu.backward()
         optimizer_cpu.step()
-    for _, (p, q) in enumerate(zip(module1_hpu.parameters(), module1_cpu.parameters())):
+    for _, (p, q) in enumerate(zip(module1_hpu.parameters(), module1_cpu.parameters(), strict=False)):
         if p.requires_grad and q.requires_grad:
             compare_tensors(p, q, atol=0.001, rtol=1.0e-3)
     compare_tensors(loss_hpu, loss_cpu, atol=0.001, rtol=1.0e-3)

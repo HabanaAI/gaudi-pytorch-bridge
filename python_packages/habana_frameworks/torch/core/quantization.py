@@ -97,7 +97,7 @@ def _mark_params_as_const(model=None, mark_scales=False, mark_non_scales=False, 
             if param_t_meta.const_id != -1:
                 param_t_meta.is_const_tensor = True
                 if console_prints:
-                    print("Metadata already exists, const_id '{}'".format(param_t_meta.const_id))
+                    print(f"Metadata already exists, const_id '{param_t_meta.const_id}'")
                 return
         global _const_id
         _const_id = _const_id + 1
@@ -107,7 +107,7 @@ def _mark_params_as_const(model=None, mark_scales=False, mark_non_scales=False, 
         is_const = param_t_meta_copy.is_const_tensor
         id = param_t_meta_copy.const_id
         if console_prints:
-            print("Tensor '{}' is_const '{}' id '{}'".format(param, is_const, id))
+            print(f"Tensor '{param}' is_const '{is_const}' id '{id}'")
 
     for param, param_t in model.state_dict().items():
         if mark_scales and mark_non_scales:

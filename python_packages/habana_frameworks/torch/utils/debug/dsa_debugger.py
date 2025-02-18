@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -356,7 +356,7 @@ class DivergenceAnalyzer:
         data_ids_table1 = [item[idx_data] for item in tensors_static[:compare_len]]
         data_ids_table2 = [item[idx_data] for item in tensors_dynamic[:compare_len]]
         if data_ids_table1 != data_ids_table2:
-            for t_static, t_dynamic in zip(tensors_static[:compare_len], tensors_dynamic[:compare_len]):
+            for t_static, t_dynamic in zip(tensors_static[:compare_len], tensors_dynamic[:compare_len], strict=False):
                 # Check if tensor is valid and data is different
                 if (
                     (t_static[idx_validation] == 0)
@@ -393,7 +393,7 @@ class DivergenceAnalyzer:
 
     @staticmethod
     def read_values(path):
-        with open(path, "r") as file:
+        with open(path) as file:
             # skip first line as it contains tensor name
             return np.float64(file.read().strip().split("\n")[1:])
 
@@ -406,7 +406,7 @@ class DivergenceAnalyzer:
 
     @staticmethod
     def get_node(path, graph_name, tensor):
-        with open(path, "r") as file:
+        with open(path) as file:
             json_data = json.load(file)
         for graph in json_data["graphs"]:
             if graph["name"] == graph_name:
@@ -443,7 +443,7 @@ class DivergenceAnalyzer:
 
         self.json_tests_bin = self.get_json_tests_bin()
 
-        pairs = list(zip(self.mismatch_static, self.mismatch_dynamic))
+        pairs = list(zip(self.mismatch_static, self.mismatch_dynamic, strict=False))
         results = [None] * len(pairs)
         if self.cfg.max_threads > 1:
             with ThreadPoolExecutor(max_workers=self.cfg.max_threads) as executor:

@@ -73,5 +73,5 @@ def test_hpu_convolution_grad_with_view():
     cpu_grads = run("cpu")
     hpu_grads = run("hpu")
 
-    for cpu_grad, hpu_grad in zip(cpu_grads, hpu_grads):
+    for cpu_grad, hpu_grad in zip(cpu_grads, hpu_grads, strict=False):
         assert torch.allclose(cpu_grad, hpu_grad.cpu())

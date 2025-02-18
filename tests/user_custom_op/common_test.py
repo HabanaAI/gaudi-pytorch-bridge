@@ -62,7 +62,7 @@ def custom_add(compile, legacy):
     fn = torch.ops.custom_op.custom_add
     if compile:
         fn = torch.compile(fn, backend="hpu_backend")
-    a = torch.rand((1))
+    a = torch.rand(1)
     b = torch.rand((6, 4))
     a_hpu = a.to("hpu")
     b_hpu = b.to("hpu")

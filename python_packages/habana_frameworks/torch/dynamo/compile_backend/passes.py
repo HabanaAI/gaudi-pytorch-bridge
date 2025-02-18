@@ -20,8 +20,9 @@ import operator
 import os
 import queue
 import sys
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
@@ -442,7 +443,7 @@ def optimize_graph(
     stage: OptimizationPassPlacement,
     graph_module: torch.fx.GraphModule,
     graph_name: str,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ) -> bool:
@@ -563,7 +564,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
         if expected_policy.lower() == "strict":
             return SchedulePolicy.strict
 
-        logger.warn("Currently policy {} is not supported, fall back to strict policy.".format(expected_policy))
+        logger.warn(f"Currently policy {expected_policy} is not supported, fall back to strict policy.")
         return SchedulePolicy.strict
 
     def get_supported_hints() -> list:
@@ -581,9 +582,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
             for h in hints.keys():
                 if h not in get_supported_hints():
                     logger.warn(
-                        "hint key '{}' is not support yet hence expect to not take effect. Supported hint keys are {}".format(
-                            h, get_supported_hints()
-                        )
+                        f"hint key '{h}' is not support yet hence expect to not take effect. Supported hint keys are {get_supported_hints()}"
                     )
 
     def inline_hints_wrapper(
@@ -611,7 +610,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
                 continue
             new_node_args.append(arg)
 
-        replacement_mapping: Dict[torch.fx.Node, torch.fx.Node] = {}
+        replacement_mapping: dict[torch.fx.Node, torch.fx.Node] = {}
         # args starts from idx 1
         ph_count = 1
 
@@ -668,9 +667,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
             # annotate node from here
             n.meta["context_hints"] = parent_hints
-            logger.debug(
-                "annotated node {} with hints {} inside submodule {}".format(n, parent_hints, submodule_qualified_name)
-            )
+            logger.debug(f"annotated node {n} with hints {parent_hints} inside submodule {submodule_qualified_name}")
 
         inline_hints_wrapper(parent_module, wrapper_node, submodule)
         parent_module.delete_submodule(submodule_name)
@@ -862,7 +859,7 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
         def __init__(
             self,
             graph_module: torch.fx.GraphModule,
-            fake_mode: Optional[FakeTensorMode] = None,
+            fake_mode: FakeTensorMode | None = None,
         ):
             super().__init__(graph_module)
             if fake_mode is None:
@@ -1019,7 +1016,7 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     return False
 
 
-def match_full_copy_pattern(node: torch.fx.Node) -> Tuple[bool, torch.fx.Node, torch.fx.Node]:
+def match_full_copy_pattern(node: torch.fx.Node) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
     is_full_copy_pattern = (
         node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
     )
@@ -1035,8 +1032,8 @@ def match_full_copy_pattern(node: torch.fx.Node) -> Tuple[bool, torch.fx.Node, t
 
 def post_process_partitions(
     graph_module: torch.fx.GraphModule,
-    current_partitions: List[torch.fx.passes.infra.partitioner.Partition],
-    current_partitions_non_mergeable: List[torch.fx.passes.infra.partitioner.Partition],
+    current_partitions: list[torch.fx.passes.infra.partitioner.Partition],
+    current_partitions_non_mergeable: list[torch.fx.passes.infra.partitioner.Partition],
 ):
     """
     This pass will do some post process for those proposed partitions from hpu
@@ -1050,7 +1047,7 @@ def post_process_partitions(
     partition_changed = False
 
     def reassign_full_copy_to_upstream_partition(
-        graph_module, assignments: Dict[torch.fx.Node, int], partitions_by_id: Dict[int, Partition]
+        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1083,7 +1080,7 @@ def post_process_partitions(
         return changed
 
     def reassign_copy__to_upstream_partition(
-        graph_module, assignments: Dict[torch.fx.Node, int], partitions_by_id: Dict[int, Partition]
+        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1115,8 +1112,8 @@ def post_process_partitions(
             changed = True
         return changed
 
-    assignments: Dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
-    partitions_by_id: Dict[int, Partition] = {}  # mapping from partition_id to partition
+    assignments: dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
+    partitions_by_id: dict[int, Partition] = {}  # mapping from partition_id to partition
     for partition in current_partitions + current_partitions_non_mergeable:
         id = partition.id
         partitions_by_id[id] = partition
@@ -1378,8 +1375,8 @@ def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
 
 
 def merge_paths(
-    graph_module: torch.fx.Graph, current_partitions: List[torch.fx.passes.infra.partitioner.Partition]
-) -> List[torch.fx.passes.infra.partitioner.Partition]:
+    graph_module: torch.fx.Graph, current_partitions: list[torch.fx.passes.infra.partitioner.Partition]
+) -> list[torch.fx.passes.infra.partitioner.Partition]:
     """
     This pass that will merge parallel partitions.
     """
@@ -1750,13 +1747,11 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
     if not hpu_backend_config.enable_synapse_input_reuse:
         return False
 
-    from typing import Dict
-
     from torch.fx.node import Node, map_arg
 
     graph_inputs: List[Node] = []
-    arg_to_last_user: Dict[Node, Node] = {}
-    user_to_last_used_args: Dict[Node, List[Node]] = {}
+    arg_to_last_user: dict[Node, Node] = {}
+    user_to_last_used_args: dict[Node, List[Node]] = {}
 
     def register_last_uses(arg: Node, user: Node):
         if arg not in arg_to_last_user:
@@ -1810,7 +1805,7 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
         if is_graph_input(node):
             graph_inputs.append(node)
 
-        user_to_last_used_args[node] = list()
+        user_to_last_used_args[node] = []
         map_arg(node.args, lambda arg: register_last_uses(arg, node))
 
     for user in user_to_last_used_args:
@@ -1985,7 +1980,7 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
         return graph_changed
 
     def reinplace_collective_ops(gm: torch.fx.GraphModule):
-        replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
+        replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
 
         for node in gm.graph.nodes:
             if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:
@@ -2061,7 +2056,7 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
             torch.ops.aten.index_copy.default: InplaceableOp(torch.ops.aten.index_copy_.default, 0),
         }
 
-        replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
+        replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
 
         for node in gm.graph.nodes:
             if (inplaceable_op := inplaceable_index_copy_ops.get(node.target, None)) is not None:

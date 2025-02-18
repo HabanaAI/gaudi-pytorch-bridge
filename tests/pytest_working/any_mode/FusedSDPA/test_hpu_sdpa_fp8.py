@@ -206,7 +206,7 @@ class TestModel(torch.nn.Module):
         inference=False,
         is_scalar_run=False,
     ):
-        super(TestModel, self).__init__()
+        super().__init__()
 
         def get_first_scalar(scaleOpt):
             if is_scalar_run and (scaleOpt is not None):
@@ -273,7 +273,7 @@ class TestModel(torch.nn.Module):
 def create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s, dtype, shape, float_mask=True):
     attn_mask = torch.randint(0, 2, (seq_len_N_s,)).float()
     if float_mask:
-        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, float(0.0))
+        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, 0.0)
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":

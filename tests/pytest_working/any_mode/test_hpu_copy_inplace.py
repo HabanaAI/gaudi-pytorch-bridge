@@ -18,7 +18,7 @@
 import copy
 import os
 from dataclasses import dataclass, field
-from typing import Callable, List
+from typing import Callable  # noqa UP035
 
 import pytest
 import torch
@@ -78,8 +78,8 @@ def test_hpu_view_copy_(dtype, view_mode, op):
     @dataclass
     class TestData:
         make_view: Callable[torch.Tensor, torch.Tensor]
-        src_shape: List[int]
-        dst_shape: List[int] = complex_default([8, 6])
+        src_shape: list[int]
+        dst_shape: list[int] = complex_default([8, 6])
 
     test_data = {}
 
@@ -115,7 +115,7 @@ def test_hpu_view_copy_(dtype, view_mode, op):
 
     fn_op = compile_function_if_compile_mode(fn_op)
 
-    for fn, tensors in zip([fn_op_cpu, fn_op], [cpu_tensors, hpu_tensors]):
+    for fn, tensors in zip([fn_op_cpu, fn_op], [cpu_tensors, hpu_tensors], strict=False):
         dst_view = make_view(tensors["dst"])
         tensors["result"] = fn(dst_view, tensors["src"])
 

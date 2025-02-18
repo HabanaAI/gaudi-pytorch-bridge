@@ -16,8 +16,8 @@
 ###############################################################################
 
 import unittest
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 import habana_frameworks.torch as htorch
 import pytest

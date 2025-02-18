@@ -57,5 +57,5 @@ def test_split(shape, split_dim):
     hpu_in = cpu_in.to("hpu")
     expected = fn(cpu_in, 2, split_dim)
     result = compiled_fn(hpu_in, 2, split_dim)
-    for exp, res in zip(expected, result):
+    for exp, res in zip(expected, result, strict=False):
         assert torch.equal(exp, res.cpu())

@@ -432,7 +432,7 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
     As_hpu = [A_hpu[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A_hpu]
     Bs = [B[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B]
     Bs_hpu = [B_hpu[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B_hpu]
-    result_ref = [torch.matmul(a.transpose(-2, -1), b) for a, b in zip(As, Bs)]
+    result_ref = [torch.matmul(a.transpose(-2, -1), b) for a, b in zip(As, Bs, strict=False)]
 
     out_shape = [rr.shape for rr in result_ref]
     bias_tensor = [torch.rand(s, dtype=dtype) * 10 + 30.0 for s in out_shape]
@@ -484,16 +484,18 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
             tBias,
             accumulate,
         )
-        for tA, tB, tOut, tBias in zip(As_hpu, Bs_hpu, out_hpu, bias_tensor_hpu)
+        for tA, tB, tOut, tBias in zip(As_hpu, Bs_hpu, out_hpu, bias_tensor_hpu, strict=False)
     ]
 
     if bias:
-        result_ref = [rRef + tBias for rRef, tBias in zip(result_ref, bias_tensor)]
+        result_ref = [rRef + tBias for rRef, tBias in zip(result_ref, bias_tensor, strict=False)]
     if accumulate:
-        result_ref = [rRef + o for rRef, o in zip(result_ref, out)]
+        result_ref = [rRef + o for rRef, o in zip(result_ref, out, strict=False)]
     result = [r.cpu() for r in result]
 
-    percentage_diff = [torch.abs((((r - rRef) / rRef) * 100).to(torch.int)) for r, rRef in zip(result, result_ref)]
+    percentage_diff = [
+        torch.abs((((r - rRef) / rRef) * 100).to(torch.int)) for r, rRef in zip(result, result_ref, strict=False)
+    ]
     for pd in percentage_diff:
         assert np.amax(pd.numpy()) <= 15
 
@@ -781,7 +783,7 @@ def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
 
     class TestModel(torch.nn.Module):
         def __init__(self, input_scale, other_scale, out_scale):
-            super(TestModel, self).__init__()
+            super().__init__()
             self.input_scale = torch.nn.Parameter(input_scale)
             self.other_scale = torch.nn.Parameter(other_scale)
             self.out_scale = torch.nn.Parameter(out_scale)
@@ -836,7 +838,7 @@ def test_fp8_gemm_v2_diff_scales_const_at_cache_hit():
 
     class TestModel(torch.nn.Module):
         def __init__(self, input_scale, other_scale, out_scale):
-            super(TestModel, self).__init__()
+            super().__init__()
             self.input_scale = torch.nn.Parameter(input_scale)
             self.other_scale = torch.nn.Parameter(other_scale)
             self.out_scale = torch.nn.Parameter(out_scale)

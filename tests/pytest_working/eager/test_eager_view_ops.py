@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 ###############################################################################
 
 import copy
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
@@ -645,11 +645,11 @@ def test_view(ttl, inout):
     @dataclass
     class TestData:
         num_views: int
-        command: Callable[[Dict[str, torch.Tensor], List[torch.Tensor]], torch.Tensor]
+        command: Callable[[dict[str, torch.Tensor], list[torch.Tensor]], torch.Tensor]
 
         num_tensors: int = 1
-        view_base_shape: List[int] = complex_default([3, 5])
-        tensor_shape: List[int] = complex_default([3])
+        view_base_shape: list[int] = complex_default([3, 5])
+        tensor_shape: list[int] = complex_default([3])
         normalize: bool = True
         make_view: Callable[[torch.Tensor], torch.Tensor] = lambda t: t[1, 0:5:2]
         store_result: str = "t1"

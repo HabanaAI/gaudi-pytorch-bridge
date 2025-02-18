@@ -17,7 +17,6 @@
 
 from contextlib import contextmanager
 from itertools import accumulate
-from typing import Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
@@ -336,7 +335,7 @@ def register_custom_decomposition(ops, decomposition_list):
     return torch._decomp.register_decomposition(ops, decomposition_list)
 
 
-def get_like_layout(tensor: torch.Tensor, memory_format: Optional[torch.memory_format]) -> torch.memory_format:
+def get_like_layout(tensor: torch.Tensor, memory_format: torch.memory_format | None) -> torch.memory_format:
     if memory_format in (torch.preserve_format, None):
         return utils.suggest_memory_format(tensor)
     else:
@@ -348,9 +347,9 @@ def full_like(
     a: utils.TensorLikeType,
     fill_value: utils.NumberType,
     *,
-    dtype: Optional[torch.dtype] = None,
-    layout: Optional[torch.layout] = None,
-    device: Optional[torch.device] = None,
+    dtype: torch.dtype | None = None,
+    layout: torch.layout | None = None,
+    device: torch.device | None = None,
     pin_memory: bool = False,
     requires_grad: bool = False,
     memory_format: torch.memory_format = torch.preserve_format,
@@ -434,9 +433,9 @@ def bernoulli_Tensor(input, p, *, generator=None):
 def randngen(
     size,
     generator=None,
-    dtype: Optional[torch.dtype] = None,
-    layout: Optional[torch.layout] = None,
-    device: Optional[torch.device] = None,
+    dtype: torch.dtype | None = None,
+    layout: torch.layout | None = None,
+    device: torch.device | None = None,
     pin_memory: bool = False,
 ):
     mean = torch.full(
@@ -755,7 +754,7 @@ def rrelu_with_noise_functional(
     lower: float = 0.125,
     upper: float = 0.3333333333333333,
     training: bool = False,
-    generator: Optional[torch.Generator] = None,
+    generator: torch.Generator | None = None,
 ) -> utils.Tuple[torch.Tensor, torch.Tensor]:
     if training:
         not_positive = self <= 0

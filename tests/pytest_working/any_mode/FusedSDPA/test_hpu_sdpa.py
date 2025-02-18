@@ -80,7 +80,7 @@ def create_attention_mask_for_test(
 ):  # RTC: cross attention will need to use source and target seq lens
     attn_mask = torch.randint(0, 2, (seq_len_N_s,)).float()
     if float_mask:
-        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, float(0.0))
+        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, 0.0)
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":
@@ -1008,7 +1008,7 @@ total_tc_list_last = (
 )
 current_dir = os.path.dirname(__file__)
 csv_file_path = os.path.join(current_dir, "sdpa_config.csv")
-with open(csv_file_path, "r") as config_obj:
+with open(csv_file_path) as config_obj:
     config_reader = csv.reader(config_obj)
     # total_tc_list = list(config_reader)
 

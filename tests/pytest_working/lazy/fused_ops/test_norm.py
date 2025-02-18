@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ def test_norm():
 
     from habana_frameworks.torch import _hpex_C
 
-    max_norm_t = (torch.ones((1)) * max_norm_val).to(habana)
+    max_norm_t = (torch.ones(1) * max_norm_val).to(habana)
     n_hpu = _hpex_C.fused_norm(vec_hpu, max_norm_t, norm_type)
 
     max_norm_cpu = float(max_norm_val)
@@ -52,8 +52,8 @@ def test_norm():
         rtol=0.001,
         equal_nan=True,
     )
-    print("FusedNorm output match :: {}".format(comp))
-    for p, q in zip(vec_hpu, vec_cpu):
+    print(f"FusedNorm output match :: {comp}")
+    for p, q in zip(vec_hpu, vec_cpu, strict=False):
         comp = np.allclose(
             p.to(cpu).detach().numpy(),
             q.detach().numpy(),
@@ -61,4 +61,4 @@ def test_norm():
             rtol=0.001,
             equal_nan=True,
         )
-        print("FusedNorm grad param match :: {}".format(comp))
+        print(f"FusedNorm grad param match :: {comp}")

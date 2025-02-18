@@ -19,7 +19,7 @@
 import builtins
 import ctypes
 import os
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import habana_frameworks.torch as htorch
 from habana_frameworks.torch import _hpu_C
@@ -47,7 +47,7 @@ class _device:
         return self.type == other.type and self.index == other.index
 
 
-_device_t = Union[_device, str, int, None]
+_device_t = torch.device | str | int | None
 
 
 class Stream(_hpu_C._HpuStreamBase):
@@ -68,7 +68,7 @@ class Stream(_hpu_C._HpuStreamBase):
             htorch.hpu.init()
         if "device_index" in kwargs and not isinstance(kwargs["device_index"], int):
             kwargs["device_index"] = _get_device_index(kwargs["device_index"])
-        return super(Stream, cls).__new__(cls, priority=priority, **kwargs)
+        return super(Stream, cls).__new__(cls, priority=priority, **kwargs)  # noqa UP008
 
     def wait_event(self, event):
         r"""Makes all future work submitted to the stream wait for an event.
@@ -259,7 +259,7 @@ def set_stream(stream):
     )
 
 
-def current_stream(device: Optional[_device_t] = None) -> Stream:
+def current_stream(device: _device_t | None = None) -> Stream:
     r"""Gets the current stream.
     Args:
         device (torch.device or int, optional): selected device. Returns
@@ -288,7 +288,7 @@ def current_stream(device: Optional[_device_t] = None) -> Stream:
     return stream
 
 
-def default_stream(device: Optional[_device_t] = None) -> Stream:
+def default_stream(device: _device_t | None = None) -> Stream:
     r"""Gets the default stream on HPU device.This is a wrapper API to get the stream.
     Args:
         device (torch.device or int, optional): selected device. Returns

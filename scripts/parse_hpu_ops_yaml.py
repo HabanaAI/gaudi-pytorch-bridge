@@ -38,7 +38,7 @@ import yaml
 
 def parse_yaml(f_yaml):
     keyset = set()
-    with open(f_yaml, "r") as stream:
+    with open(f_yaml) as stream:
         try:
             yaml_dict = yaml.safe_load(stream)
             # print(yaml_dict)
@@ -49,7 +49,7 @@ def parse_yaml(f_yaml):
             print(exc)
     # print(keyset)
     op_dict = {}
-    with open(f_yaml, "r") as stream:
+    with open(f_yaml) as stream:
         try:
             yaml_dict = yaml.safe_load(stream)
             for k, v in yaml_dict.items():

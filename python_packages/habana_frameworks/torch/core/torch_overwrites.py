@@ -20,9 +20,10 @@ import os
 import pickle
 import threading
 from collections import deque
+from collections.abc import Callable, Generator
 from functools import wraps
 from os import environ, path
-from typing import IO, Any, BinaryIO, Callable, Dict, Generator, Optional, Tuple, Union
+from typing import IO, Any, BinaryIO, Union
 
 import habana_frameworks.torch.hpu as ht
 import habana_frameworks.torch.hpu.random as rand_hpu
@@ -328,8 +329,8 @@ def overwrite_torch_functions():
         @wraps(torch.distributed.irecv)
         def wrap_irecv(
             tensor: torch.Tensor,
-            src: Optional[int] = None,
-            group: Optional[distributed_c10d.ProcessGroup] = None,
+            src: int | None = None,
+            group: distributed_c10d.ProcessGroup | None = None,
             tag: int = 0,
         ) -> distributed_c10d.Work:
             res = irecv_orig(tensor, src, group, tag)
@@ -404,7 +405,7 @@ def overwrite_torch_functions():
     @wraps(torch.save)
     def wrap_save(
         obj: object,
-        f: Union[str, os.PathLike, BinaryIO, IO[bytes]],
+        f: str | os.PathLike | BinaryIO | IO[bytes],
         pickle_module: Any = pickle,
         pickle_protocol: int = LAZY_DEFAULT_PROTOCOL,
         _use_new_zipfile_serialization: bool = True,
@@ -517,13 +518,11 @@ def overwrite_torch_functions():
     # Then it is sent to map_location (desired device)
     @wraps(torch.load)
     def wrap_load(
-        f: Union[str, os.PathLike, BinaryIO, IO[bytes]],
-        map_location: Optional[
-            Union[Callable[[torch.Storage, str], torch.Storage], torch.device, str, Dict[str, str]]
-        ] = None,
+        f: str | os.PathLike | BinaryIO | IO[bytes],
+        map_location: Callable[[torch.Storage, str], torch.Storage] | torch.device | str | dict[str, str] | None = None,
         pickle_module: Any = pickle,
         weights_only: bool = False,
-        mmap: Optional[bool] = None,
+        mmap: bool | None = None,
         **pickle_load_args,
     ) -> Any:
 
@@ -543,7 +542,7 @@ def overwrite_torch_functions():
         )
 
         if map_location is not None:
-            if isinstance(map_location, (str, torch.device, Callable)):
+            if isinstance(map_location, str | torch.device | Callable):
                 device = map_location
             elif isinstance(map_location, dict):
                 device = map_location.get(device, device)
@@ -612,9 +611,9 @@ def overwrite_capture_pre_autograd_graph():
     @wraps(torch._export.capture_pre_autograd_graph)
     def wrap_capture_pre_autograd_graph(
         f: torch.nn.Module,
-        args: Tuple[Any] = None,
-        kwargs: Optional[Dict[str, Any]] = None,
-        dynamic_shapes: Optional[Union[Dict[str, Any], Tuple[Any]]] = None,
+        args: tuple[Any] = None,
+        kwargs: dict[str, Any] | None = None,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
     ) -> torch.nn.Module:
         from habana_frameworks.torch.core.quantize_pt2e import export
 
@@ -676,10 +675,10 @@ def overwrite_native_pt2e_quantization_interface():
     @wraps(torch.export.save)
     def wrap_torch_export_save(
         model: Any,  # e.g. torch.nn.Module, GraphModule, ExportedProgram
-        f: Union[str, os.PathLike, io.BytesIO],
+        f: str | os.PathLike | io.BytesIO,
         *,
-        extra_files: Optional[Dict[str, Any]] = None,
-        opset_version: Optional[Dict[str, int]] = None,
+        extra_files: dict[str, Any] | None = None,
+        opset_version: dict[str, int] | None = None,
     ) -> None:
         from habana_frameworks.torch.core.quantize_pt2e import save_pt2e
 
@@ -690,10 +689,10 @@ def overwrite_native_pt2e_quantization_interface():
     # wrap torch.export.load
     @wraps(torch.export.load)
     def wrap_torch_export_load(
-        f: Union[str, os.PathLike, io.BytesIO],
+        f: str | os.PathLike | io.BytesIO,
         *,
-        extra_files: Optional[Dict[str, Any]] = None,
-        expected_opset_version: Optional[Dict[str, int]] = None,
+        extra_files: dict[str, Any] | None = None,
+        expected_opset_version: dict[str, int] | None = None,
     ) -> Any:
         from habana_frameworks.torch.core.quantize_pt2e import load_pt2e
 

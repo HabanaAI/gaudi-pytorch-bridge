@@ -36,7 +36,7 @@ from torch.utils.data import DataLoader, Dataset
 
 class Relu(nn.Module):
     def __init__(self):
-        super(Relu, self).__init__()
+        super().__init__()
 
     def forward(self, x):
         return torch.clip(x, min=0)
@@ -44,7 +44,7 @@ class Relu(nn.Module):
 
 class ConvRelu(nn.Module):
     def __init__(self, inch, outch, relu=None):
-        super(ConvRelu, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(inch, outch, 3, 3)
         if relu is None:
             self.relu = Relu()
@@ -57,7 +57,7 @@ class ConvRelu(nn.Module):
 
 class InnerNet(nn.Module):
     def __init__(self, dyn_ops, reuse_relu, sz):
-        super(InnerNet, self).__init__()
+        super().__init__()
         if reuse_relu:
             relu = Relu()
         else:
@@ -92,7 +92,7 @@ class InnerNet(nn.Module):
 
 class Net(nn.Module):
     def __init__(self, dyn_ops, reuse_relu, wrap_inner, sz):
-        super(Net, self).__init__()
+        super().__init__()
         innernet = InnerNet(dyn_ops, reuse_relu, sz)
         if wrap_inner:
             self.innernet = detect_recompilation_auto_model(innernet, mdlname="InnerNet", waittime=0.25)
@@ -346,7 +346,7 @@ def match_fl2(fl2, dyn_inps, dyn_ops, reuse_relu, wrap_inner):
         lhs1, rhs1 = ln.split(",")
         assert lhs1 not in d1
         d1[lhs1] = int(rhs1)
-    d2 = dict(zip(lst, num_recompiles))
+    d2 = dict(zip(lst, num_recompiles, strict=False))
     return d1 == d2
 
 

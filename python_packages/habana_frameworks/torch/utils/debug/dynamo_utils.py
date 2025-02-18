@@ -52,7 +52,7 @@ class FxGraphAnalyzer:
         self.id = next(FxGraphAnalyzer.id_iter)
         self.graphs = []
         self.partition_num = 0
-        self.partition_infos = list()
+        self.partition_infos = []
         atexit.register(self._at_exit_callback)
 
     def __del__(self):

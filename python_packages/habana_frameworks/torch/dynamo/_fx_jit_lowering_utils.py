@@ -22,7 +22,7 @@ except ImportError:
     NoneType = type(None)
 
 from collections.abc import Iterable
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import habana_frameworks.torch._torch_jit_C.jit as jit
 
@@ -31,12 +31,12 @@ import torch
 
 class TypeToLambdaDict:
     def __init__(self):
-        self._mapping: Dict[type, Any] = {}
+        self._mapping: dict[type, Any] = {}
 
     def add(self, key: type, value: Any):
         self._mapping[key] = value
 
-    def find(self, key: type) -> Optional[Any]:
+    def find(self, key: type) -> Any | None:
         value = self._mapping.get(key)
         if not value:
             for subtype, value in self._mapping.items():
@@ -54,7 +54,7 @@ class TypeToLambdaDict:
 TYPE_TO_JIT_TYPE = TypeToLambdaDict()
 
 
-def py_list_to_jit_list(py_list: List[Any]):
+def py_list_to_jit_list(py_list: list[Any]):
     types = {type(elem) for elem in py_list}
     if len(types) == 1:
         converter = TYPE_TO_JIT_TYPE.find(next(iter(types)))
@@ -69,7 +69,7 @@ def py_list_to_jit_list(py_list: List[Any]):
     return None
 
 
-def py_tuple_to_jit_tuple(py_tuple: Tuple[Any]):
+def py_tuple_to_jit_tuple(py_tuple: tuple[Any]):
     jit_types = []
     types = {type(elem) for elem in py_tuple}
     if len(types) > 0:
@@ -102,7 +102,7 @@ TYPE_TO_JIT_TYPE.add(torch.Tensor, lambda arg: jit.TensorType.get())
 TYPE_TO_JIT_TYPE.add(tuple, py_tuple_to_jit_tuple)
 
 
-def convert_getitem_op(args: List[jit.Value], kwargs: List[jit.Value]):
+def convert_getitem_op(args: list[jit.Value], kwargs: list[jit.Value]):
     # Schema of aten::__getitem__ does not accept
     # tuple type as the first argument, we need
     # the equivalent of aten::__getitem__, but for
@@ -115,7 +115,7 @@ def convert_getitem_op(args: List[jit.Value], kwargs: List[jit.Value]):
     raise NotImplementedError(f"Not supported argument type: {args[0].type()} for getitem operator.")
 
 
-BUILTIN_OPS_TO_ATEN_OPS: Dict[str, Any] = {
+BUILTIN_OPS_TO_ATEN_OPS: dict[str, Any] = {
     "getitem": convert_getitem_op,
     "mul": lambda args, kwargs: "aten::mul",
     "truediv": lambda args, kwargs: "aten::div",
@@ -195,7 +195,7 @@ def is_node_or_arg_complex(node: torch.fx.node.Node) -> bool:
 
 def flatten(nested_iterable):
     for item in nested_iterable:
-        if isinstance(item, Iterable) and not isinstance(item, (str, bytes)):
+        if isinstance(item, Iterable) and not isinstance(item, str | bytes):
             yield from flatten(item)
         else:
             yield item

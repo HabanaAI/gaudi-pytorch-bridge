@@ -24,7 +24,7 @@ _DEVICE_CONTEXTS = {}
 _DEVICE_CONTEXTS_LOCK = threading.Lock()
 
 
-class _DeviceContext(object):
+class _DeviceContext:
     def __init__(self, device):
         self.device = device
 

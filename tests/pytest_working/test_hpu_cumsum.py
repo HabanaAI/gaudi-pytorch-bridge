@@ -24,7 +24,7 @@ from test_utils import cpu, hpu
 
 class Model(nn.Module):
     def __init__(self):
-        super(Model, self).__init__()
+        super().__init__()
 
     def forward(self, x, dim):
         t = torch.cumsum(x, dim)

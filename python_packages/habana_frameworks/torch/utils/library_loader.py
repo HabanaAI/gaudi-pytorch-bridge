@@ -99,7 +99,7 @@ def _load_habana_module(library_list):
     if habana_modules_directory is None:
         raise Exception("Cannot find Habana modules")
 
-    print("Loading Habana modules from {}".format(habana_modules_directory))
+    print(f"Loading Habana modules from {habana_modules_directory}")
     for module in library_list:
         torch.ops.load_library(os.path.abspath(os.path.join(habana_modules_directory, module)))
         sys.path.insert(0, habana_modules_directory)

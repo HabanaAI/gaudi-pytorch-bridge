@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 
 from os import PathLike
-from typing import List
 
 import torch
 
@@ -39,7 +38,7 @@ if HAS_NETWORKX:
             def __init__(
                 self,
                 node: torch.fx.Node,
-                inputs: List[torch.fx.Node],
+                inputs: list[torch.fx.Node],
                 node_coloring: callable,
             ):
                 self.node_data = {}

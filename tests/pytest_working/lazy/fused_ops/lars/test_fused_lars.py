@@ -135,7 +135,7 @@ def test_lars():
         run_model(devr, model_ref, xr, opt_ref)
         run_model(devt, model_test, xt, opt_test)
 
-    for pr, pt in zip(model_ref.parameters(), model_test.parameters()):
+    for pr, pt in zip(model_ref.parameters(), model_test.parameters(), strict=False):
         prc = pr.to("cpu")
         ptc = pt.to("cpu")
         print(" Cosine similarity angle= ", cosine_sim(prc, ptc))

@@ -16,7 +16,7 @@
 ###############################################################################
 
 import copy
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import torch
 import torch.fx as fx
@@ -65,7 +65,7 @@ def fuse_conv_bn_weights(conv_w, conv_b, bn_rm, bn_rv, bn_eps, bn_w, bn_b):
     return torch.nn.Parameter(conv_w), torch.nn.Parameter(conv_b)
 
 
-def _parent_name(target: str) -> Tuple[str, str]:
+def _parent_name(target: str) -> tuple[str, str]:
     """
     Splits a ``qualname`` into parent path and last atom.
     For example, `foo.bar.baz` -> (`foo.bar`, `baz`)
@@ -74,7 +74,7 @@ def _parent_name(target: str) -> Tuple[str, str]:
     return parent[0] if parent else "", name
 
 
-def replace_node_module(node: fx.Node, modules: Dict[str, Any], new_module: torch.nn.Module):
+def replace_node_module(node: fx.Node, modules: dict[str, Any], new_module: torch.nn.Module):
     assert isinstance(node.target, str)
     parent_name, name = _parent_name(node.target)
     setattr(modules[parent_name], name, new_module)

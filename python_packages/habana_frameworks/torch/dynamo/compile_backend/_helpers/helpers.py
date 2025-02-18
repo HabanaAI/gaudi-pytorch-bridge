@@ -517,16 +517,16 @@ def jit_node_annotation_propagation(jit_ir, fx_module):
         return
 
     is_annotated_graph = False
-    for jit_node, fx_node in zip(jit_graph_nodes, fx_nodes):
+    for jit_node, fx_node in zip(jit_graph_nodes, fx_nodes, strict=False):
         fx_node_name = fx_node.target.__name__.split(".")[0]
         if fx_node_name not in jit_node.kind():
-            logger.debug("FX node {} doesn't match with Jit node {}".format(fx_node_name, jit_node.kind()))
+            logger.debug(f"FX node {fx_node_name} doesn't match with Jit node {jit_node.kind()}")
             break
 
         # extract hints from FX node metadata
         context_hints = fx_node.meta.get("context_hints", None)
         if context_hints:
-            logger.debug("node {} has context hints {}".format(fx_node_name, context_hints))
+            logger.debug(f"node {fx_node_name} has context hints {context_hints}")
             # combine hints into a single string in format "name1:value1;[name2:value2;]"
             hints_str = ""
             for k, v in context_hints.items():

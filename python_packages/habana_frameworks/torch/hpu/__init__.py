@@ -20,7 +20,7 @@ import contextlib
 import os
 import threading
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from habana_frameworks.torch import _hpu_C
 
@@ -43,7 +43,7 @@ from .metrics import *
 from .random import *
 from .streams import *
 
-_device_t = Union[torch.device, str, int, None]
+_device_t = torch.device | str | int | None
 _initialized = False
 _tls = threading.local()
 _initialization_lock = threading.Lock()
@@ -116,7 +116,7 @@ def is_available() -> bool:
     return device_count() > 0
 
 
-def get_device_name(device: Optional[_device_t] = None) -> str:
+def get_device_name(device: _device_t | None = None) -> str:
     r"""Gets the name of a device.
 
     Args:
@@ -272,7 +272,7 @@ def is_bf16_supported():
         return False
 
 
-def get_device_capability(device: Optional[_device_t] = None) -> str:
+def get_device_capability(device: _device_t | None = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
         return ""
@@ -284,7 +284,7 @@ def get_device_capability(device: Optional[_device_t] = None) -> str:
     return _hpu_C.get_device_capability()
 
 
-def get_device_properties(device: Optional[_device_t] = None) -> str:
+def get_device_properties(device: _device_t | None = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
         return ""
@@ -305,9 +305,9 @@ def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
     peer_device = _get_device_index(peer_device, optional=True)
     count = device_count()
     if device < 0 or device >= count:
-        raise AssertionError("Invalid device id : {}".format(device))
+        raise AssertionError(f"Invalid device id : {device}")
     if peer_device < 0 or peer_device >= count:
-        raise AssertionError("Invalid device id : {}".format(peer_device))
+        raise AssertionError(f"Invalid device id : {peer_device}")
     if device == peer_device:
         raise AssertionError("Both the ids are same.")
     if device <= count and peer_device <= count:
@@ -321,7 +321,7 @@ def get_gencode_flags() -> str:
     return ""
 
 
-def get_arch_list() -> List[str]:
+def get_arch_list() -> list[str]:
     r"""Returns the architecture the library is compiled with"""
     arch_list = []
     device = current_device()
@@ -373,7 +373,7 @@ def set_device(device: _device_t) -> None:
 set_device.current_device_idx = -1
 
 
-class device(object):
+class device:
     r"""Context manager that changes the selected device."""
 
     def __init__(self, device: Any):
@@ -404,10 +404,10 @@ class device_of(device):
 
     def __init__(self, obj):
         idx = obj.get_device() if obj.is_hpu else -1
-        super(device_of, self).__init__(idx)
+        super().__init__(idx)
 
 
-def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
+def memory_usage(device: Device | int | None = None) -> int:
     r"""Returns the memory used. as given by `hl-smi`.
 
     Args:
@@ -422,7 +422,7 @@ def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
     return _hpu_C.get_mem_stats(device_idx)["InUse"]
 
 
-def utilization(device: Optional[Union[Device, int]] = None) -> int:
+def utilization(device: Device | int | None = None) -> int:
     r"""Returns the usage as given by `hl-smi`.
 
     Args:

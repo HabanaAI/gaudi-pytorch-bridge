@@ -17,8 +17,6 @@
 ###############################################################################
 
 
-from __future__ import print_function
-
 import argparse
 import collections.abc
 import copy
@@ -30,7 +28,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
 from functools import wraps
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 import gen_op_files.code_templates as templates
 import gen_op_files.parser as parser
@@ -578,7 +576,7 @@ class Op:
 
 class YamlContext:
     def __init__(self, yamlfile):
-        with open(yamlfile, "r") as ff:
+        with open(yamlfile) as ff:
             self.op_data = yaml.load(ff.read(), Loader=Loader)
             # Sometimes disabling ops for an upcoming pytorch version is necessary.
             # All ops added to skip_list won't be processed, same way if they were not present in hpu_op.yaml
@@ -667,7 +665,7 @@ def fallback_if_unsupported(
 
 def bitwise_ops_alt_guid(guid):
     logical_guid = guid.replace("bitwise_", "")
-    return "if (ScalarType() == at::kBool) {{\n" '      SetGuid("{}_i8");\n' "    }}".format(logical_guid)
+    return "if (ScalarType() == at::kBool) {\n" f'      SetGuid("{logical_guid}_i8");\n' "    }"
 
 
 def extract_reduction_vars_indices(param_vars, use_int=False):
@@ -705,14 +703,14 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     is_custom_op_out_variant = ctxop.get_is_custom_op_out_variant()
 
     assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(is_custom_op_out_variant, fname), (
-        "`out_ids` or `inplace_ids` should not be defined for {}".format(fname)
+        f"`out_ids` or `inplace_ids` should not be defined for {fname}"
         if is_out_fn(is_custom_op_out_variant, fname)
-        else "Either `out_ids` or `inplace_ids` should be defined for {}".format(fname)
+        else f"Either `out_ids` or `inplace_ids` should be defined for {fname}"
     )
 
     scalar_ids_set = set(scalar_ids)
     err_ids = scalar_ids_set.intersection(out_ids if len(out_ids) else inplace_ids)
-    assert len(err_ids) == 0, "Input(s) at {} cannot be both scalar and tensor for {}.".format(err_ids, fname)
+    assert len(err_ids) == 0, f"Input(s) at {err_ids} cannot be both scalar and tensor for {fname}."
 
     out_ids = ", ".join([str(o) for o in out_ids])
     inplace_ids = ", ".join([str(i) for i in inplace_ids])
@@ -734,13 +732,13 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         assert len(synapse_layouts[1]), "Output layouts size should be atleast 1."
         in_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[0]])
         out_layouts = ", ".join(["synapse_helpers::layouts::SynapseLayoutFormat::" + l for l in synapse_layouts[1]])
-        ctor_extra_calls.append("SetSynapseLayouts({{{}}}, {{{}}});".format(in_layouts, out_layouts))
+        ctor_extra_calls.append(f"SetSynapseLayouts({{{in_layouts}}}, {{{out_layouts}}});")
 
     if is_out_fn(is_custom_op_out_variant, fname) and num_out_tensors > 1:
-        ctor_extra_calls.append("SetNumOutTensors({});".format(num_out_tensors))
+        ctor_extra_calls.append(f"SetNumOutTensors({num_out_tensors});")
 
     if output_meta_fn:
-        ctor_extra_calls.append("SetOutputMetaFn({});".format(output_meta_fn))
+        ctor_extra_calls.append(f"SetOutputMetaFn({output_meta_fn});")
     elif promote_to_common_type or promote_int_to_float:
         if promote_int_to_float:
             type_promo_variant = "PromoteIntToFloat"
@@ -758,17 +756,17 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
             f"{', '.join(map(str, input_indices))}>);"
         )
     elif output_shape_fn:
-        ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
+        ctor_extra_calls.append(f"SetComputeOutputShapes({output_shape_fn});")
 
     if st_meta_fn:
-        ctor_extra_calls.append("SetSTMetaFn({});".format(st_meta_fn))
+        ctor_extra_calls.append(f"SetSTMetaFn({st_meta_fn});")
 
     if custom_fill_params:
-        ctor_extra_calls.append("SetFillParams({});".format(custom_fill_params))
+        ctor_extra_calls.append(f"SetFillParams({custom_fill_params});")
 
     if tpc_input_order:
         tpc_input_order_str = ", ".join(map(str, tpc_input_order))
-        ctor_extra_calls.append("SetTpcInputOrder({{{}}});".format(tpc_input_order_str))
+        ctor_extra_calls.append(f"SetTpcInputOrder({{{tpc_input_order_str}}});")
 
     if promote_to_common_type:
         ctor_extra_calls.append("EnableTypePromotion();")
@@ -779,7 +777,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         ctor_extra_calls.append("HandleBoolInputs();")
 
     if shared_layer_meta_meta_fn:
-        ctor_extra_calls.append("SetSharedLayerMetaFn({});".format(shared_layer_meta_meta_fn))
+        ctor_extra_calls.append(f"SetSharedLayerMetaFn({shared_layer_meta_meta_fn});")
 
     return templates._OPCLASS_HEADER.format(
         op_backend_class=op_backend_class,
@@ -795,7 +793,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
 
 def generate_impl(op_variant, overload, override_fn):
-    return '  m.impl("{}", static_cast<{}>(&{}));\n'.format(op_variant, overload, override_fn)
+    return f'  m.impl("{op_variant}", static_cast<{overload}>(&{override_fn}));\n'
 
 
 def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
@@ -809,7 +807,7 @@ def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
 
 def generate_frontend_functions(fgen, mode):
     # torch registrations
-    override_fn = "habana::{}".format(fgen.func)
+    override_fn = f"habana::{fgen.func}"
     pos = fgen.funsig.find("(")
     overload = fgen.funsig[:pos] + " (*)" + fgen.funsig[pos:]
     impl = generate_impl(get_aten_opname(fgen.aten_sig), overload, override_fn)
@@ -904,7 +902,7 @@ def generate_header_decls(fgens):
     fill_params_decls = ""
     fallback_check_decls = ""
     for fgen in fgens:
-        reg_decls += "{};\n".format(fgen.rwsig)
+        reg_decls += f"{fgen.rwsig};\n"
 
         early_exit_fun = fgen.ctxop.get_early_exit_fun()
         if early_exit_fun is not None and early_exit_fun not in early_exit_fns:
@@ -953,11 +951,11 @@ def gen_output_file(args, name):
 
 
 def gen_h_output_file(args, opgroup):
-    return gen_output_file(args, "{}.h".format(opgroup))
+    return gen_output_file(args, f"{opgroup}.h")
 
 
 def gen_cpp_output_file(args, opgroup):
-    return gen_output_file(args, "{}.cpp".format(opgroup))
+    return gen_output_file(args, f"{opgroup}.cpp")
 
 
 def is_pytorch_at_least(version: str) -> bool:
@@ -1080,7 +1078,7 @@ def generate_autocast_ops(op_metas, args):
 
     # only ops defined in 'at' namespace are applicable for autocast
     ops_not_in_at = set()
-    with open(args.native_functions, "r") as f:
+    with open(args.native_functions) as f:
         native_functions = yaml.load(f.read(), Loader=Loader)
     for function in native_functions:
         if "variants" in function and "function" not in function["variants"]:
@@ -1172,11 +1170,11 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
             out_indices.append(i)
 
         if fc and pname in fc[1:]:
-            fc_params.append("{} {}".format(param_types[i].strip(), pname))
+            fc_params.append(f"{param_types[i].strip()} {pname}")
 
     assert len(fc) == 0 or len(fc_params) + 1 == len(
         fc
-    ), "Cannot find all params specified for fallback check {}.".format(fc[0])
+    ), f"Cannot find all params specified for fallback check {fc[0]}."
 
     if rtype == "void" and out_ids is not None:
         out_indices = out_ids
@@ -1379,20 +1377,20 @@ def handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars):
     code = ""
     if is_inplace_or_out_op(ctxop.get_is_custom_op_out_variant(), fname):
         if rtype.startswith("::std::tuple<at::Tensor"):
-            code += "  auto tuple = {};\n".format(fe_call_args)
-            code += "  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op, tuple)".format(fname)
+            code += f"  auto tuple = {fe_call_args};\n"
+            code += f"  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, tuple)"
         elif rtype == "void" and "TensorList" in sig:
-            code += "  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, param_vars[0])
+            code += f"  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, {param_vars[0]})"
         elif rtype.startswith("const at::Tensor"):
-            code += "  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, fe_call_args)
+            code += f"  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, {fe_call_args})"
         else:
-            code += "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, fe_call_args)
+            code += f"  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, {fe_call_args})"
     else:
         if rtype.startswith("::std::tuple<at::Tensor"):
-            code += "  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
+            code += f"  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
         elif rtype.startswith("void") and "TensorList" in sig:
             if sig.count("TensorList") == 1:
-                code += "  RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, param_vars[0])
+                code += f"  RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, {param_vars[0]})"
             elif sig.count("TensorList") == 2:
                 code += "  RUN_TENSOR_LIST2_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
                     fname, f"{param_vars[0]}, {param_vars[1]}"
@@ -1401,7 +1399,7 @@ def handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars):
             else:
                 raise Exception(f"Only up to 2 TensorList inputs are supported. Sig: {sig}")
         else:
-            code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
+            code += f"  RUN_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
     return code + ";"
 
 
@@ -1424,7 +1422,7 @@ def lazy_frontend(
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
     schema_fn = f"{ns}::{opname}"
-    code = "{} {{\n".format(sig)
+    code = f"{sig} {{\n"
     if not is_check_kernel_support:
         code += generate_entry_debug_code(fname, params, False)
     if not (is_check_kernel_support or is_acc_thread_supported(ctxop, rtype, sig)):
@@ -1615,7 +1613,7 @@ def eager_frontend(
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
     schema_fn = f"{ns}::{opname}"
-    code = "{} {{\n".format(sig)
+    code = f"{sig} {{\n"
     code += generate_entry_debug_code(fname, params, True)
 
     fe_call_args = ""
@@ -1730,7 +1728,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     opgroup = get_op_group(op_name)
     rtype = parser.get_return_type_str(rwxtree, rwsig)
 
-    sig, fname, xfname = parser.get_function_signature(rwxtree, rwsig, lambda x: "{}".format(x))
+    sig, fname, xfname = parser.get_function_signature(rwxtree, rwsig, lambda x: f"{x}")
 
     if is_check_kernel_support:
         sig = prepare_sig_for_kernel_support(sig)
@@ -1819,7 +1817,7 @@ def generate_op_meta(cpp_sig, op_name):
     rwxtree = parser.xparse(rwsig)
     funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
 
-    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: "{}".format(x))
+    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: f"{x}")
     return OpMeta(op_variant=op_name, mapsig=mapsig, funsig=funsig, func=fname)
 
 
@@ -1830,7 +1828,7 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
     autograd_impls = []
     header_impls = []
     for fgen in op_metas:
-        override_fn = "hpu_wrap::{}".format(fgen.func)
+        override_fn = f"hpu_wrap::{fgen.func}"
 
         pos = fgen.funsig.find("(")
         overload = fgen.funsig[:pos] + " (*)" + fgen.funsig[pos:]
@@ -1931,7 +1929,7 @@ def extract_pt_ops(path, hpu_ops):
     pt_ops = {}
     all_ops_metas = []
 
-    for line in open(path, "r"):
+    for line in open(path):
         m = re.match(r"\s*([^\s].*); //\s+(.*)", line)
         if not m:
             continue
@@ -1950,7 +1948,7 @@ def extract_pt_ops(path, hpu_ops):
         except Exception as e:
             if is_tensor_api(cpp_sig)[0]:
                 errors.append((cpp_sig, str(e)))
-                print('Error parsing "{}": {}'.format(cpp_sig, e), file=sys.stderr)
+                print(f'Error parsing "{cpp_sig}": {e}', file=sys.stderr)
     return pt_ops, errors, all_ops_metas
 
 
@@ -1982,7 +1980,7 @@ def print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, ge
             custom_schema_regs=torch_library_fragment(custom_schema_regs),
             file_idx=gen_file_idx,
         ),
-        file=gen_cpp_output_file(args, "backend/hpu_op{}".format(gen_file_idx)),
+        file=gen_cpp_output_file(args, f"backend/hpu_op{gen_file_idx}"),
     )
 
 
@@ -2104,7 +2102,7 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_fil
             custom_schema_regs="",
             file_idx=gen_file_idx,
         ),
-        file=gen_cpp_output_file(args, "{}/hpu_op{}".format(out_dir, gen_file_idx)),
+        file=gen_cpp_output_file(args, f"{out_dir}/hpu_op{gen_file_idx}"),
     )
 
 
@@ -2254,7 +2252,7 @@ def generate_check_kernel_support_sigs(fgen):
 
     if fgen.op_frontend_lazy:
         # Lazy functions
-        op_frontend_functions += "{}\n\n".format(fgen.op_frontend_lazy)
+        op_frontend_functions += f"{fgen.op_frontend_lazy}\n\n"
 
     # Lowering Kernel code
 
@@ -2315,7 +2313,7 @@ def codegen_custom_ops(param_vars, fun_args):
     ivalue_lines = []
     base_lines = []
 
-    for i, (name, type_) in enumerate(zip(param_vars, fun_args)):
+    for i, (name, type_) in enumerate(zip(param_vars, fun_args, strict=False)):
         type_ = type_.replace("const ", "").replace("&", "").strip()
         ivalue_lines.append(f"c10::IValue {name} = std::move(peek(stack, {i}, {len(param_vars)}));")
 
@@ -2353,7 +2351,7 @@ def codegen_custom_ops(param_vars, fun_args):
 
 
 def generate_stack_pop(fgens, fgen_pos, native_func_dict):
-    struct_def = "struct shared_layer_{func_name} : SharedLayerOp {{\n".format(func_name=fgens[fgen_pos[0]].func)
+    struct_def = f"struct shared_layer_{fgens[fgen_pos[0]].func} : SharedLayerOp {{\n"
     stack_unroll = "bool func(torch::jit::Stack &stack, bool is_dynamic) {\n"
 
     funsig = fgens[fgen_pos[0]].funsig
@@ -2362,7 +2360,7 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
     for pos in fgen_pos:
         fun_args = re.split(r",(?!\d)", re.split(r"\(|\)", fgens[pos].funsig)[1])
         param_nums.append(len(fun_args))
-    param_nums, fgen_pos = (list(t) for t in zip(*sorted(zip(param_nums, fgen_pos))))
+    param_nums, fgen_pos = (list(t) for t in zip(*sorted(zip(param_nums, fgen_pos, strict=False)), strict=False))
     num_param_fun = 0
     first_stack_pop = True
     for pos_idx, pos in enumerate(fgen_pos):
@@ -2381,13 +2379,13 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
         if len(param_types) != len(param_vars):
             print("Error in generating ", fgens[pos].func)
         if pos_idx == 0:
-            stack_unroll += "  if (stack.size() == {num_param}) {{\n".format(num_param=len(param_vars))
+            stack_unroll += f"  if (stack.size() == {len(param_vars)}) {{\n"
         elif num_param_fun != len(param_types):
-            stack_unroll += "  }}\n  if (stack.size() == {num_param}) {{\n".format(num_param=len(param_vars))
+            stack_unroll += f"  }}\n  if (stack.size() == {len(param_vars)}) {{\n"
             first_stack_pop = True
         num_param_fun = len(param_types)
         stack_unroll += (
-            "    auto ivalue_arr = torch::jit::last(stack, {num_elem});\n    if (".format(num_elem=len(param_types))
+            f"    auto ivalue_arr = torch::jit::last(stack, {len(param_types)});\n    if ("
             if first_stack_pop
             else "    else if ("
         )
@@ -2399,7 +2397,7 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
             cptype_check = get_cp_type_check(cptype)
             if cptype_check is not None:
                 stack_unroll += "&& " if param_idx > 0 else ""
-                stack_unroll += "ivalue_arr[{idx}].{cptype_check}() ".format(idx=idx, cptype_check=cptype_check)
+                stack_unroll += f"ivalue_arr[{idx}].{cptype_check}() "
                 param_idx += 1
         # generates if (true) in case there was no other condition
         if param_idx == 0:
@@ -2432,7 +2430,7 @@ using namespace torch::jit;
 """
 
 
-def add_fgen_idx_to_generate(fgen: OpGen, idx: int, unique_funcs: Dict[str, List[int]], ops_added: Set[str]) -> None:
+def add_fgen_idx_to_generate(fgen: OpGen, idx: int, unique_funcs: dict[str, list[int]], ops_added: set[str]) -> None:
     if fgen.func in unique_funcs:
         unique_funcs[fgen.func].append(idx)
     else:
@@ -2441,8 +2439,8 @@ def add_fgen_idx_to_generate(fgen: OpGen, idx: int, unique_funcs: Dict[str, List
 
 
 def generate_functions_code(
-    fgens: List[OpGen], fgen_pos: List[int], native_func_dict: Dict[str, Any], functions: str, dtype_defs: str
-) -> Tuple[str, str]:
+    fgens: list[OpGen], fgen_pos: list[int], native_func_dict: dict[str, Any], functions: str, dtype_defs: str
+) -> tuple[str, str]:
     functions += generate_stack_pop(fgens, fgen_pos, native_func_dict)
     for fgen_idx in fgen_pos:
         fgen = fgens[fgen_idx]
@@ -2513,7 +2511,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
                 ),
                 file=file_name,
             )
-            gen_hdr_file_includes += "#include<hpu_op{}.h>\n".format(gen_file_idx)
+            gen_hdr_file_includes += f"#include<hpu_op{gen_file_idx}.h>\n"
             gen_file_idx += 1
             dtype_defs = ""
             functions = ""
@@ -2550,7 +2548,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
     )
     map_def = "std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, const py::list&, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {\n"
     for op in sorted(ops_added):
-        map_def += """{{"{op}", &check_support<habana::shared_layer_{op}>}},\n""".format(op=op)
+        map_def += f"""{{"{op}", &check_support<habana::shared_layer_{op}>}},\n"""
     map_def += "};\n"
     print(
         header_inclusions + gen_hdr_file_includes + map_def + hpu_shared_layer_unsupported_ops_def,

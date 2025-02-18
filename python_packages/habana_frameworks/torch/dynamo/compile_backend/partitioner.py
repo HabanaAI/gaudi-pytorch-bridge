@@ -16,7 +16,7 @@
 ###############################################################################
 
 import ctypes
-from typing import Dict, List, Mapping
+from collections.abc import Mapping
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 
@@ -40,7 +40,7 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
             allows_single_node_partition=True,
         )
 
-    def propose_partitions(self) -> List[Partition]:
+    def propose_partitions(self) -> list[Partition]:
         if hpu_backend_config.use_cpp_partitioner:
             return self._propose_partitions_binded()
         else:
@@ -82,7 +82,7 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
 
         return node_wrappers, mapping_prim_id
 
-    def _convert_dto_to_partition(self, dtos: List[PartitionDTO], mapping_prim_id: Dict[int, torch.fx.Node]):
+    def _convert_dto_to_partition(self, dtos: list[PartitionDTO], mapping_prim_id: dict[int, torch.fx.Node]):
         """
         Convert PartitionDTO object to Partition object
         """
@@ -108,7 +108,7 @@ class NodeWrapper:
         self.users = [id(user) for user in node.users]
         self.input_nodes = [id(input_node) for input_node in node.all_input_nodes]
 
-    def update_neighbors(self, mapping: Dict[int, int]) -> None:
+    def update_neighbors(self, mapping: dict[int, int]) -> None:
         self.users = [ctypes.cast(mapping[node_id], ctypes.py_object).value.prim_id for node_id in self.users]
         self.input_nodes = [
             ctypes.cast(mapping[node_id], ctypes.py_object).value.prim_id for node_id in self.input_nodes

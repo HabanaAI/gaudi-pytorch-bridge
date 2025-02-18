@@ -59,7 +59,7 @@ ops_list_inplace = ops_with_tensor_variant_inplace + ops_without_tensor_variant_
 
 
 def generate_tensor_list(shapes, dtypes, non_negative=False):
-    self_cpu = [torch.randn(shape).to(dtype) for shape, dtype in zip(shapes, dtypes)]
+    self_cpu = [torch.randn(shape).to(dtype) for shape, dtype in zip(shapes, dtypes, strict=False)]
     if non_negative:
         self_cpu = [torch.abs(tensor) for tensor in self_cpu]
     self_hpu = [tensor.to("hpu") for tensor in self_cpu]

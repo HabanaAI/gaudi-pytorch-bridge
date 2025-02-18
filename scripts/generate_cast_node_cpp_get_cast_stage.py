@@ -81,7 +81,7 @@ def print_comment_table(casts, device):
     ident = "  "
     cast_types_local = cast_types[device]
     max_len_local = max_len[device]
-    print("\n{}// cast".format(ident))
+    print(f"\n{ident}// cast")
 
     label = "fr/to"
     label_len = len(label)
@@ -90,7 +90,7 @@ def print_comment_table(casts, device):
     first_row = "{0:<{1}}".format(label, first_col_len)
     for cast_type in cast_types_local:
         first_row += " " + cast_type
-    print("{}// {}".format(ident, first_row))
+    print(f"{ident}// {first_row}")
 
     for src in cast_types_local:
         line = "{0:<{1}}".format(src, first_col_len)
@@ -103,7 +103,7 @@ def print_comment_table(casts, device):
             elif src in casts and dst in casts[src]:
                 c = "X"
             line += "{0:>{1}}".format(c, len(dst) + 1)
-        print("{}// {}".format(ident, line))
+        print(f"{ident}// {line}")
 
 
 class CastOpWeight:
@@ -160,9 +160,9 @@ class CastOpWeight:
         self.next = None
 
     def __add__(self, other):
-        min_bits = tuple([min(b[0], b[1]) for b in zip(self.min_bits, other.min_bits)])
+        min_bits = tuple([min(b[0], b[1]) for b in zip(self.min_bits, other.min_bits, strict=False)])
         num_steps = self.num_steps + other.num_steps
-        max_bits = tuple([max(b[0], b[1]) for b in zip(self.max_bits, other.max_bits)])
+        max_bits = tuple([max(b[0], b[1]) for b in zip(self.max_bits, other.max_bits, strict=False)])
         min_int_mant = min(self.min_int_mant, other.min_int_mant)
         num_identities = self.num_identities + other.num_identities
         max_mant_inc_after_sign_change = max(self.max_mant_inc_after_sign_change, other.max_mant_inc_after_sign_change)
@@ -234,7 +234,7 @@ def print_stages_list(weights, device):
     intermediates.sort()
 
     ident = "  "
-    print("\n{}// clang-format off".format(ident))
+    print(f"\n{ident}// clang-format off")
     print("#define {0:<{1}} CastStage {{}}".format("OK", max_len_interm))
     for intermediate in intermediates:
         print(
@@ -242,7 +242,7 @@ def print_stages_list(weights, device):
                 intermediate.upper(), max_len_interm, intermediate, max_len_interm
             )
         )
-    print("{}// clang-format on".format(ident))
+    print(f"{ident}// clang-format on")
 
     intermediates.reverse()
     return intermediates
@@ -251,7 +251,7 @@ def print_stages_list(weights, device):
 def print_undefs(intermediates):
     print()
     for intermediate in intermediates:
-        print("#undef {}".format(intermediate.upper()))
+        print(f"#undef {intermediate.upper()}")
     print("#undef OK")
 
 
@@ -271,10 +271,10 @@ def print_mapping_table(weights, device):
     ident = "  "
     next_ident = ident + ident + ident
 
-    print("\n{}// TODO: SW-35847 Remove indirect casting".format(ident))
-    print("{}using LineT = EnumMappingTable<CastType, CastStage>;".format(ident))
-    print("{}static const EnumMappingTable<CastType, LineT> cast_stage_matrix_{} = {{".format(ident, device))
-    print("{}// clang-format off".format(next_ident))
+    print(f"\n{ident}// TODO: SW-35847 Remove indirect casting")
+    print(f"{ident}using LineT = EnumMappingTable<CastType, CastStage>;")
+    print(f"{ident}static const EnumMappingTable<CastType, LineT> cast_stage_matrix_{device} = {{")
+    print(f"{next_ident}// clang-format off")
 
     line = "{0}//         {1:<{2}} to:  ".format(next_ident, " ", max_len_local)
     for dst in cast_types_local:
@@ -292,8 +292,8 @@ def print_mapping_table(weights, device):
         line += " },"
         print(line)
 
-    print("{}// clang-format on".format(next_ident))
-    print("{}}};".format(ident))
+    print(f"{next_ident}// clang-format on")
+    print(f"{ident}}};")
 
 
 def print_source(casts, weights, device):
@@ -335,7 +335,7 @@ def Floyd_Warshall(casts, device):
     for src, dst_cast_types in casts.items():
         for dst in dst_cast_types:
             if src == dst or is_identity(src, dst):
-                print("Ignoring cast {}->{} as this is identity".format(src, dst))
+                print(f"Ignoring cast {src}->{dst} as this is identity")
             else:
                 src_weight = CastOpWeight(
                     num_bits=num_bits_local[src],
@@ -386,7 +386,7 @@ def Floyd_Warshall(casts, device):
 def generate_casts(file_with_cast_kernels, device):
     casts = {}
     cast_types_local = cast_types[device]
-    with open(file_with_cast_kernels, "r") as read_obj:
+    with open(file_with_cast_kernels) as read_obj:
         for line in read_obj:
             cast_pos = line.find("CastKernel::")
             if cast_pos >= 0:
@@ -399,20 +399,20 @@ def generate_casts(file_with_cast_kernels, device):
                 split = line[cast_pos:end_pos].split("::")
                 words = split[1].split("_")
                 if len(words) != 3:
-                    print("Ommited non standard kernel {}".format(split[1]))
+                    print(f"Ommited non standard kernel {split[1]}")
                     continue
                 src = words[0]
                 dst = words[2]
                 if src in cast_types_local and dst in cast_types_local:
-                    print("Read cast {} --> {}".format(src, dst))
+                    print(f"Read cast {src} --> {dst}")
                     casts.setdefault(src, set()).add(dst)
                 else:
-                    print("Omitted cast {} --> {}".format(src, dst))
+                    print(f"Omitted cast {src} --> {dst}")
     print("\nCasts summary:")
     for key, data in casts.items():
-        print("{} -->".format(key))
+        print(f"{key} -->")
         for dst in data:
-            print("    {}".format(dst))
+            print(f"    {dst}")
 
     weights = Floyd_Warshall(casts, device)
     return casts, weights
@@ -424,7 +424,7 @@ def main():
     weights = {}
 
     for device, file in files_with_cast_kernels.items():
-        print("\n======== {} ========\n".format(device))
+        print(f"\n======== {device} ========\n")
         casts[device], weights[device] = generate_casts(args.npu_stack_directory + file, device)
 
     for device in devices:

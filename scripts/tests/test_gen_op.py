@@ -264,7 +264,7 @@ def test_parse_params(cpp_sig, out_indices, expected_results):
     rtype = parser.get_return_type_str(rwxtree, rwsig)
     funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
 
-    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: "{}".format(x))
+    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: f"{x}")
 
     param_vars, call_args, out_indices, fc_params, _ = parse_params(params, fname, rtype, [], funsig, out_indices)
 

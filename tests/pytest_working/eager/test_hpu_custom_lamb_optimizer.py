@@ -23,7 +23,7 @@ from test_utils import compare_tensors, cpu, hpu
 
 def create_grads(dtypes, shapes, transposed):
     cpu_grads, hpu_grads = [], []
-    for dtype, shape in zip(dtypes, shapes):
+    for dtype, shape in zip(dtypes, shapes, strict=False):
         cpu_tensor = torch.randn(shape, device=cpu).to(dtype)
         hpu_tensor = cpu_tensor.to(hpu)
         if transposed:
@@ -36,14 +36,14 @@ def create_grads(dtypes, shapes, transposed):
 
 def create_norms(dtypes, shapes):
     cpu_grads, hpu_grads = [], []
-    for dtype, shape in zip(dtypes, shapes):
+    for dtype, shape in zip(dtypes, shapes, strict=False):
         cpu_grads.append(torch.empty(shape, device=cpu).uniform_().to(dtype))
         hpu_grads.append(cpu_grads[-1].to(hpu))
     return cpu_grads, hpu_grads
 
 
 def reference_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_steps, neg_step, weight_decay, use_lamb):
-    for weight, adam_norm, weight_norm, adam_step in zip(weights, adam_norms, weight_norms, adam_steps):
+    for weight, adam_norm, weight_norm, adam_step in zip(weights, adam_norms, weight_norms, adam_steps, strict=False):
         if (weight_decay != 0 or use_lamb) and adam_norm > 0 and weight_norm > 0:
             trust_ratio = weight_norm / adam_norm
         else:

@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-from typing import Dict, List
 
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
@@ -284,7 +283,7 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
     # bool has issue with JIT scalar representation
     # in the bool_fallback_list key is op_name and value is a list of
     # arguments that cannot be of type bool
-    bool_fallback_list: Dict[str, List[int]] = {"full": [1], "mul": [1]}
+    bool_fallback_list: dict[str, list[int]] = {"full": [1], "mul": [1]}
     if op_name in bool_fallback_list:
         for idx in bool_fallback_list[op_name]:
             if isinstance(node.args[idx], bool):
@@ -343,7 +342,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
                 try:
                     # Extracts unerlying values from sym nodes
                     def convert(val):
-                        if isinstance(val, (torch.SymInt, torch.SymFloat, torch.SymBool)):
+                        if isinstance(val, torch.SymInt | torch.SymFloat | torch.SymBool):
                             return val.node.hint
                         # if list, then check if it contains any sym node
                         elif isinstance(val, list):
@@ -361,7 +360,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
 
                     shared_meta = [
                         (len(shape), dtype)
-                        for shape, dtype in zip(node.meta["output_shapes"], node.meta["output_dtypes"])
+                        for shape, dtype in zip(node.meta["output_shapes"], node.meta["output_dtypes"], strict=False)
                     ]
                     do_fallback = check_cpu_fallback_op(
                         op_name,

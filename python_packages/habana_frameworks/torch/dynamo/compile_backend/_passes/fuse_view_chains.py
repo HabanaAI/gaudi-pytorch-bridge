@@ -80,7 +80,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
 
             # Needed to update strides of outputs which are noncontiguous acording to dynamo
             # but are in fact contiguous due to being calculated on HPU
-            for cluster_user, is_input_contiguous in zip(users, cluster_output_contiguity):
+            for cluster_user, is_input_contiguous in zip(users, cluster_output_contiguity, strict=False):
                 cluster_output_contiguous_meta_to_node[cluster_user] = is_input_contiguous
                 if not is_input_contiguous:
                     strides = calculate_default_strides(node.meta["output_shapes"][0])

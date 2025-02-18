@@ -47,7 +47,7 @@ def copy_attr(a, b, include=(), exclude=()):
 class FusedEMA:
     def __init__(self, model: nn.Module, decay: float = 0.9999, updates: float = 0):
         if not 0.0 <= decay:
-            raise ValueError("Invalid decay value: {}".format(decay))
+            raise ValueError(f"Invalid decay value: {decay}")
 
         self.ema = deepcopy(model.module if is_parallel(model) else model).eval()  # FP32 EMA
         self.decay = lambda x: decay * (1 - math.exp(-x / 2000))  # decay exponential ramp (to help early epochs) #decay

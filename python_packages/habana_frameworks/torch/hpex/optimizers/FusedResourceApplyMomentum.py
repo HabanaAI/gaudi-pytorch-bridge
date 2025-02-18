@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-from typing import List
 
 import habana_frameworks.torch.core as htcore
 
@@ -27,7 +26,7 @@ hpu = torch.device("hpu")
 
 
 def resource_apply_momentum(
-    params_momentum_buffer_list: List[Tensor], d_p_list: List[Tensor], *, momentum: float, lr: float, nesterov: bool
+    params_momentum_buffer_list: list[Tensor], d_p_list: list[Tensor], *, momentum: float, lr: float, nesterov: bool
 ):
 
     # grads may not be present always and hence the list may be empty.
@@ -78,10 +77,10 @@ class FusedResourceApplyMomentum(Optimizer):
         }
         if nesterov and (momentum <= 0):
             raise ValueError("Nesterov momentum requires a momentum")
-        super(FusedResourceApplyMomentum, self).__init__(params, defaults)
+        super().__init__(params, defaults)
 
     def __setstate__(self, state):
-        super(FusedResourceApplyMomentum, self).__setstate__(state)
+        super().__setstate__(state)
         for group in self.param_groups:
             group.setdefault("nesterov", False)
 

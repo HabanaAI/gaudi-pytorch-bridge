@@ -17,7 +17,7 @@
 
 
 import os
-from typing import Callable
+from collections.abc import Callable
 
 import habana_frameworks.torch
 import torch
@@ -142,7 +142,7 @@ def allgather_into_tensor_coalesced_test(rank, world_size, kwargs):
     comm_ranks = list(range(world_size))
     pg = dist.new_group(ranks=comm_ranks)
     pg._start_coalescing(torch.device(device))
-    for output, input in zip(output_tensors, input_tensors):
+    for output, input in zip(output_tensors, input_tensors, strict=False):
         torch.distributed.distributed_c10d.all_gather_into_tensor(output, input, group=pg, async_op=kwargs["async_op"])
     cs = pg._end_coalescing(torch.device(device))
     cs.wait()

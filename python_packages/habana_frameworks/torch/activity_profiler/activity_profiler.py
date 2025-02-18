@@ -51,7 +51,8 @@ def clean_json(path):
 
 
 def register_habana_activity_profiler():
-    from typing import Any, Callable, Iterable, Optional
+    from collections.abc import Callable, Iterable
+    from typing import Any
 
     original_activity = torch.profiler.ProfilerActivity
 
@@ -68,17 +69,17 @@ def register_habana_activity_profiler():
         def __init__(
             self,
             *,
-            activities: Optional[Iterable[torch.profiler.ProfilerActivity]] = None,
-            debug_activities: Optional[Iterable[DebugActivity]] = None,
-            schedule: Optional[Callable[[int], torch.profiler.ProfilerAction]] = None,
-            on_trace_ready: Optional[Callable[..., Any]] = None,
+            activities: Iterable[torch.profiler.ProfilerActivity] | None = None,
+            debug_activities: Iterable[DebugActivity] | None = None,
+            schedule: Callable[[int], torch.profiler.ProfilerAction] | None = None,
+            on_trace_ready: Callable[..., Any] | None = None,
             record_shapes: bool = False,
             profile_memory: bool = False,
             with_stack: bool = False,
             with_flops: bool = False,
             with_modules: bool = False,
-            experimental_config: Optional[torch._C._profiler._ExperimentalConfig] = None,
-            use_cuda: Optional[bool] = None
+            experimental_config: torch._C._profiler._ExperimentalConfig | None = None,
+            use_cuda: bool | None = None
         ):
             activities = (
                 (torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU)

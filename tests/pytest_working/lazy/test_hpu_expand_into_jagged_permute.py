@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 import itertools
 import random
-from typing import List
 
 import pytest
 import torch
@@ -26,9 +25,9 @@ from test_utils import cpu, hpu, is_gaudi1
 
 
 def expand_into_jagged_permute_ref(
-    permute: List[int],
-    length: List[int],
-) -> List[int]:
+    permute: list[int],
+    length: list[int],
+) -> list[int]:
     offsets = [0] + list(itertools.accumulate(length))
     output_permute = []
     for r in permute:

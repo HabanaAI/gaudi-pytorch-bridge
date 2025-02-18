@@ -55,7 +55,7 @@ def test_split(shape, size, dim, dtype):
 
     tol = 1e-5
 
-    for res_cpu, res_hpu in zip(result_cpu, result_hpu):
+    for res_cpu, res_hpu in zip(result_cpu, result_hpu, strict=False):
         compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
         assert res_hpu.dtype == dtype
 

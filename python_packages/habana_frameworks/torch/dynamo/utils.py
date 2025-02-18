@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 def auto_map(f):
     def wrapper(x, *args, **kwargs):
-        if isinstance(x, (list, tuple)):
+        if isinstance(x, list | tuple):
             return type(x)(map(lambda y: wrapper(y, *args, **kwargs), x))
         return f(x, *args, **kwargs)
 
@@ -26,7 +26,7 @@ def auto_map(f):
 
 
 def str_join(inp):
-    if isinstance(inp, (list, tuple)):
+    if isinstance(inp, list | tuple):
         out = ", ".join(str_join(x) for x in inp)
         if isinstance(inp, list):
             return f"[{out}]"

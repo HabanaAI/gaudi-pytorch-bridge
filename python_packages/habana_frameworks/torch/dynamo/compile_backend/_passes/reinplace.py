@@ -101,8 +101,9 @@
 
 # mypy: allow-untyped-defs
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
@@ -118,7 +119,7 @@ def get_storage(t: torch.Tensor) -> int:
     return t.untyped_storage()._cdata
 
 
-def get_node_storage(node: torch.fx.Node) -> Optional[int]:
+def get_node_storage(node: torch.fx.Node) -> int | None:
     if "val" not in node.meta:
         return None
     if not isinstance(node.meta["val"], torch.Tensor):
@@ -224,7 +225,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
     mutated_inputs = set()
     storage_to_nodes = defaultdict(list)
     nodes_to_storage = defaultdict()
-    node_order: Dict[Any, int] = {}
+    node_order: dict[Any, int] = {}
     for i, node in enumerate(reversed(graph.nodes)):
         node_order[node] = len(graph.nodes) - i - 1
         storage = get_node_storage(node)
@@ -278,7 +279,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
         return False
 
     def can_inplace(node, mutated_arg):
-        if isinstance(mutated_arg, (list, tuple)):
+        if isinstance(mutated_arg, list | tuple):
             unique_storages = {nodes_to_storage[arg] for arg in mutated_arg}
             if len(unique_storages) != len(mutated_arg):
                 # at least two Tensors in mutated_arg alias each other, so we can't reinplace it.
@@ -322,7 +323,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
         else:
             return not any_use_of_views_after_node(node, shared_view_nodes, copy_node=None, mutated_arg=mutated_arg)
 
-    replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
+    replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
     reinplaced_nodes = []
 
     for node in graph.nodes:

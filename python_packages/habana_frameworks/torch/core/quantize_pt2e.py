@@ -22,7 +22,7 @@ import io
 import json
 import os
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import functorch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
@@ -140,8 +140,8 @@ class HabanaPT2EQuantContext:
 # ======================================================================================
 def graph_breaks(
     f: torch.nn.Module,
-    args: Tuple[Any],
-    kwargs: Optional[Dict[str, Any]] = None,
+    args: tuple[Any],
+    kwargs: dict[str, Any] | None = None,
 ) -> bool:
     """
     Graph break detector for Habana's PT2E-Quantization flow.
@@ -162,7 +162,7 @@ def graph_breaks(
     # Finally, try and figure out if there is any graph break.
     try:
 
-        def detect_graph_break(model: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+        def detect_graph_break(model: torch.fx.GraphModule, example_inputs: list[torch.Tensor]):
             return model
 
         torch._dynamo.config.suppress_errors = True
@@ -347,7 +347,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
 
 def habana_quant_compiler_fw(
     module: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     module_key: torch.fx.GraphModule,
     pt2e_quant_context: HabanaPT2EQuantContext,
 ):
@@ -355,13 +355,13 @@ def habana_quant_compiler_fw(
     return functorch.compile.make_boxed_func(HabanaQuantWrapperModule(module, module_key, pt2e_quant_context))
 
 
-def habana_quant_compiler_bw_raise(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def habana_quant_compiler_bw_raise(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor]):
     raise Exception("tried to call backward pass compiler in inference backend")
 
 
 def habana_quant_backend(
     graph_module: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     module_key: torch.fx.GraphModule,
     pt2e_quant_context: HabanaPT2EQuantContext,
     **kwargs,
@@ -395,9 +395,9 @@ def habana_quant_backend(
 # ======================================================================================
 def export(
     f: torch.nn.Module,
-    args: Tuple[Any] = None,
-    kwargs: Optional[Dict[str, Any]] = None,
-    dynamic_shapes: Optional[Union[Dict[str, Any], Tuple[Any]]] = None,
+    args: tuple[Any] = None,
+    kwargs: dict[str, Any] | None = None,
+    dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
 ) -> torch.nn.Module:
     """
     Habana's implementation of PT2E like multi-graph export
@@ -541,7 +541,7 @@ def convert_to_module_name(input_str):
     return output_str
 
 
-def dump_scale(module: torch.fx.GraphModule, extra_file: Optional[str] = None):
+def dump_scale(module: torch.fx.GraphModule, extra_file: str | None = None):
     graph = copy.deepcopy(module.graph)
     graph = module.graph
     dump_json_output = {"GlobalRank": None, "LocalRank": -1, "Mode": "Scale", "Nodes": {}}
@@ -614,13 +614,13 @@ def dump_scale(module: torch.fx.GraphModule, extra_file: Optional[str] = None):
     logger.debug(f"PT2E scale info dumped to file: {file_path}")
 
 
-def load_scale(module: torch.fx.GraphModule, extra_file: Optional[str] = None):
+def load_scale(module: torch.fx.GraphModule, extra_file: str | None = None):
     graph = module.graph
 
     file_path = os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "0")
     if extra_file is not None:
         file_path = extra_file
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         scale_info_json = json.load(file)
 
     count = 0
@@ -713,10 +713,10 @@ def load_scale(module: torch.fx.GraphModule, extra_file: Optional[str] = None):
 # ======================================================================================
 def save_pt2e(
     model: Any,  # e.g. torch.nn.Module, GraphModule, ExportedProgram
-    f: Union[str, os.PathLike, io.BytesIO],
+    f: str | os.PathLike | io.BytesIO,
     *,
-    extra_files: Optional[Dict[str, Any]] = None,
-    opset_version: Optional[Dict[str, int]] = None,
+    extra_files: dict[str, Any] | None = None,
+    opset_version: dict[str, int] | None = None,
 ) -> None:
     """
     Habana's implementation of torch.export.save for multi-graph scenario
@@ -746,7 +746,7 @@ def save_pt2e(
         quantized_fx_graphs_with_args_list = habana_pt2e_quant_context._quantized_fx_graphs_with_args_list
 
         assert len(fx_graphs_hash_list) == len(quantized_fx_graphs_with_args_list)
-        for key, value in zip(fx_graphs_hash_list, quantized_fx_graphs_with_args_list):
+        for key, value in zip(fx_graphs_hash_list, quantized_fx_graphs_with_args_list, strict=False):
             if use_export_program:
                 exported_program_filename = f"{key}.pt2"
                 with torch.no_grad():
@@ -791,10 +791,10 @@ class ModelWrapper(torch.nn.Module):
 # Habana's implementation of torch.export.load for multi-graph scenario
 # ======================================================================================
 def load_pt2e(
-    f: Union[str, os.PathLike, io.BytesIO],
+    f: str | os.PathLike | io.BytesIO,
     *,
-    extra_files: Optional[Dict[str, Any]] = None,
-    expected_opset_version: Optional[Dict[str, int]] = None,
+    extra_files: dict[str, Any] | None = None,
+    expected_opset_version: dict[str, int] | None = None,
 ) -> Any:
     """
     Habana's implementation of torch.export.load for multi-graph scenario

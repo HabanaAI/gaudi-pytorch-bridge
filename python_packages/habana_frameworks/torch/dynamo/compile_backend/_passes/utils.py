@@ -19,7 +19,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
 
 from habana_frameworks.torch.dynamo.compile_backend.partitioner import HabanaPartitioner
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
@@ -41,13 +40,13 @@ class OptimizationPassPlacement(Enum):
 class OptimizerContext:
     graph_module: torch.fx.GraphModule
     graph_name: str
-    example_inputs: List[torch.Tensor]
+    example_inputs: list[torch.Tensor]
     is_training: bool
     is_backward: bool
     is_dynamic: bool
     stage: OptimizationPassPlacement
-    current_partitions: List
-    current_partitions_non_mergeable: List
+    current_partitions: list
+    current_partitions_non_mergeable: list
     habana_partitioner: HabanaPartitioner = None
     is_submod: bool = False
     use_jit_fork: bool = False

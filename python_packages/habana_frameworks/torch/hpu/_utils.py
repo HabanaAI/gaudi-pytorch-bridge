@@ -17,7 +17,7 @@
 
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import habana_frameworks.torch.hpu as hpu
 
@@ -46,7 +46,7 @@ def _get_device_index(device: Any, optional: bool = False, allow_cpu: bool = Fal
         device_idx = device
     if isinstance(device, str):
         device = torch.device(device)
-    device_idx: Optional[int] = None
+    device_idx: int | None = None
     if isinstance(device, torch.device):
         if allow_cpu:
             if device.type not in ["hpu", "cpu"]:

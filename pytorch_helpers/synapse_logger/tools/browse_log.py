@@ -44,7 +44,7 @@ def is_call(entry, func):
 
 
 def print_wrapped(indent, items, separator=", "):
-    lines = textwrap.wrap(separator.join((str(item) for item in items)))
+    lines = textwrap.wrap(separator.join(str(item) for item in items))
     print(indent.join(lines))
 
 
@@ -76,7 +76,7 @@ class Utils:
             "\t@echo Done",
             "",
             "run: compile",
-            "\n".join(map(lambda p: f"\t./{p[0]} {p[1]}", zip(exes, bins))),
+            "\n".join(map(lambda p: f"\t./{p[0]} {p[1]}", zip(exes, bins, strict=False))),
             "",
             "%.exe: %.cpp",
             "\t${CXX} ${CXXFLAGS} -o $@ $< ${LIBS}",
@@ -164,7 +164,7 @@ class Tensor:
         if self.is_null:
             return self.name
         flags = (" ret" * self.is_ret) + (" arg" * self.is_arg) + (" persistent" * self.is_persistent)
-        shape = "x".join((str(x) for x in self.shape))
+        shape = "x".join(str(x) for x in self.shape)
 
         return f"{self.name} {shape} of {self.syn_type[1]}{flags}"
 
@@ -195,18 +195,14 @@ class Graph:
     def events(self):
         yield self.creat
         yield self.compile_entry
-        for p in self.node_params:
-            yield p
-        for s in self.sections.values():
-            yield s
+        yield from self.node_params
+        yield from self.sections.values()
         for n in self.nodes:
             if n["args"]["pGuid"] not in ("RET", "ARG"):
                 yield n
         for t in self.tensors.values():
-            for te in t.events:
-                yield te
-        for d in self.dependencies:
-            yield d
+            yield from t.events
+        yield from self.dependencies
 
     def compile(self, entry):
         self.name = entry["args"]["pRecipeName"][1:-1]
@@ -547,7 +543,7 @@ class MemMap:
             return
         watch_collisions_after = get_watch_collisions()
         for idx, ((b_ptr, b_size, b_src), (a_ptr, a_size, a_src)) in enumerate(
-            zip(watch_collisions_before, watch_collisions_after)
+            zip(watch_collisions_before, watch_collisions_after, strict=False)
         ):
             if b_ptr != a_ptr or b_size != a_size or b_src != a_src:
                 print(
@@ -884,7 +880,7 @@ class Log:
             graphs = self.ngraphs.values()
             paths = list(map(convert_to_path, self.ngraphs.keys()))
 
-            for fname, graph in zip(paths, graphs):
+            for fname, graph in zip(paths, graphs, strict=False):
                 self.write_graph_test(graph, fname, Flow.ComputationResult.LAST_COMPILED_RECIPE)
 
             srcs = list(map(os.path.basename, paths))

@@ -16,7 +16,6 @@
 ###############################################################################
 
 import sys
-from typing import List
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import sympy
@@ -127,7 +126,7 @@ def get_input_symbolic(graph_module, inputs):
                 if input_node.meta:
                     if "val" in input_node.meta:
                         input_meta = input_node.meta["val"]
-                        if isinstance(input_meta, (FakeTensor, torch.Tensor)):
+                        if isinstance(input_meta, FakeTensor | torch.Tensor):
                             input_shape = input_meta.size()
                             logger.debug(f"Getting Min/Max for Tensor {input_node.name}")
                             min, max, expr = get_input(input_shape)
@@ -183,7 +182,7 @@ class HabanaGraphModule(torch.nn.Module):
         is_training=False,
         dynamic=False,
         force_static_compile=False,
-        is_reusables: List[bool] = [],
+        is_reusables: list[bool] = [],
     ):
         from ._recipe_compiler_C import EmptyBatchData
 
@@ -278,12 +277,14 @@ class HabanaGraphModule(torch.nn.Module):
                 output_sizes = [
                     self._symbol_evaluator.calculate_shape(metadata[0], inputs) for metadata in self._outputs_metadata
                 ]
-                for output, size in zip(self._outputs_batch_data, output_sizes):
+                for output, size in zip(self._outputs_batch_data, output_sizes, strict=False):
                     output.size = size
                 if curr_symval_hash is not None:
                     self._symval_output_size_map[curr_symval_hash] = output_sizes
             else:
-                for output, size in zip(self._outputs_batch_data, self._symval_output_size_map[curr_symval_hash]):
+                for output, size in zip(
+                    self._outputs_batch_data, self._symval_output_size_map[curr_symval_hash], strict=False
+                ):
                     output.size = size
 
         outputs = batch_empty(self._outputs_batch_data)
@@ -382,7 +383,7 @@ def get_callable_recipe(
     parent_graph_name,
     is_training=False,
     is_dynamic=False,
-    is_reusables: List[bool] = [],
+    is_reusables: list[bool] = [],
 ):
     """
     Calls backend to create compiled recipe or just returns unchanged module to
@@ -517,6 +518,7 @@ def get_outputs_metadata(graph_module):
                         if "output_strides_has_zero" not in i.meta or not i.meta["output_strides_has_zero"]
                         else i.meta["output_strides"]
                     ),
+                    strict=False,
                 ):
                     outputs_metadata.append((shape, dtype, strides))
 
@@ -546,6 +548,7 @@ def get_outputs_metadata_dynamic(graph_module):
                         if "output_strides_has_zero" not in i.meta or not i.meta["output_strides_has_zero"]
                         else i.meta["output_strides"]
                     ),
+                    strict=False,
                 ):
                     dynamic_shape_sympy = []
                     dynamic_shape_sym_expr_token = []

@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-from typing import List
 from unittest import mock
 
 import functorch
@@ -48,7 +47,7 @@ _gen_graph_name.ordinal = 0
 def hpu_freezing_compiler_inner(
     graph_module: torch.fx.GraphModule,
     dyn_graph_module: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ):
@@ -111,7 +110,7 @@ def hpu_freezing_compiler_inner(
 
 @log_function_start_end
 def hpu_compiler_inner(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], is_training: bool, is_backward: bool
 ):
     """
     This function will be called for each input FX graph. There will be at least
@@ -144,14 +143,14 @@ def hpu_compiler_inner(
         return wrapper
 
 
-def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor]):
     """
     Just passthrough for forward pass training compilation.
     """
     return hpu_compiler_inner(graph_module, example_inputs, True, False)
 
 
-def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor]):
     """
     Just passthrough for backward pass training compilation.
     """
@@ -159,7 +158,7 @@ def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs:
 
 
 def hpu_inference_compiler(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], dyn_graph_module: torch.fx.GraphModule
+    graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], dyn_graph_module: torch.fx.GraphModule
 ):
     """
     Just passthrough for forward inference compilation.

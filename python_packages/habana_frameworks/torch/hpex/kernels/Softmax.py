@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 
@@ -37,7 +37,7 @@ class RaggedSoftmax(torch.autograd.Function):
         return grad_input, None, None, None
 
 
-@lru_cache(maxsize=None)
+@cache
 def valid_counts(p, q, device):
     return torch.cat(p * [torch.arange(1, q + 1)]).to(device)
 

@@ -47,7 +47,7 @@ def simple(rank, world_size, args):
     input_tensor = torch.reshape(input_tensor, (world_size, 2))
     dist.reduce_scatter_tensor(output_tensor, input_tensor)
     result_cmp = input_tensor * world_size
-    for i, j in zip(result_cmp[rank], output_tensor):
+    for i, j in zip(result_cmp[rank], output_tensor, strict=False):
         if i != j:
             assert "output value is incorrect"
     print("DONE for rank :: ", rank)

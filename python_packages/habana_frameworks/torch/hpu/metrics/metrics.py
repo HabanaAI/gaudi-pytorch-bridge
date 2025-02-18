@@ -17,9 +17,9 @@
 import abc
 import atexit
 import os
+from collections.abc import Sequence
 from contextlib import contextmanager
 from statistics import mean
-from typing import Sequence, Tuple
 
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
@@ -36,7 +36,7 @@ def bool_helper(value):
         return False
 
 
-class MetricManager(object):
+class MetricManager:
     def __init__(self) -> None:
         self._metrics_types = {}
         self._global_metrics = []
@@ -113,7 +113,7 @@ class Metric(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def stats(self) -> Sequence[Tuple[str, int]]:
+    def stats(self) -> Sequence[tuple[str, int]]:
         """Returns list of tuples describing collected statistics.
         Each statistic is described as statistic name and its count.
         """

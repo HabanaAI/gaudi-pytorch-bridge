@@ -16,7 +16,7 @@
 ###############################################################################
 
 import operator
-from typing import List, Mapping
+from collections.abc import Mapping
 
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
@@ -34,7 +34,7 @@ class BatchAsStridedOperatorSupport(OperatorSupport):
         return "as_strided" in str(node.target) and "hpu" in str(node.meta["output_device"])
 
 
-def group_batch_as_strided(graph_module: torch.fx.GraphModule) -> List:
+def group_batch_as_strided(graph_module: torch.fx.GraphModule) -> list:
     """
     This pass is supposed to run partitioner that will create proposition of partitioning.
     """

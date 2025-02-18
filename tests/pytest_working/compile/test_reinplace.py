@@ -476,7 +476,7 @@ def test_avoid_cycle():
     class TestModule(torch.nn.Module):
         def __init__(self, sel_device):
             torch.manual_seed(777)
-            super(TestModule, self).__init__()
+            super().__init__()
             self.sel_device = sel_device
             self.state1 = torch.empty(size=[], dtype=torch.float32, device="cpu").uniform_(-1, 1).to(device=sel_device)
             self.state2 = torch.empty(size=[], dtype=torch.float32, device="cpu").uniform_(-1, 1).to(device=sel_device)

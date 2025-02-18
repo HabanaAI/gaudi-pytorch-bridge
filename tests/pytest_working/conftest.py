@@ -18,8 +18,8 @@
 import json
 import os
 import random
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping, Union
 
 import numpy as np
 import pytest
@@ -121,7 +121,7 @@ def pytest_configure(config):
         os.environ["PT_HPU_USE_EAGER_FALLBACK"] = "0"
         try:
             eager_fallback_path = Path(__file__).parent.joinpath(EAGER_FALLBACK_TESTS_LIST)
-            with open(eager_fallback_path, "r") as f:
+            with open(eager_fallback_path) as f:
                 pytest.eager_fallback_tests = json.load(f)
         except FileNotFoundError:
             import warnings
@@ -152,7 +152,7 @@ def pytest_collection_modifyitems(config, items):
     skip_dict = {}
     try:
         skip_path = Path(__file__).parent.joinpath(SKIP_TESTS_LIST)
-        with open(skip_path, "r") as f:
+        with open(skip_path) as f:
             skip_dict = json.load(f)
     except FileNotFoundError:
         import warnings
@@ -177,7 +177,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_marker)
 
 
-def get_testname(item: Union[pytest.Function, str]) -> str:
+def get_testname(item: pytest.Function | str) -> str:
     if isinstance(item, str):
         testname = item
     else:

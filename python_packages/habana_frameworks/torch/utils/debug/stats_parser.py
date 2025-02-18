@@ -212,21 +212,13 @@ def reasonMismatch(range_dict, shapes, bucket, compile):
             #  continue
 
             if check_list_min(val, min):
-                print(
-                    "Bucket {} Failed in MinShape {} - Input={} -> Range-[ min={} - max={} ]".format(
-                        r, keys, val, min, max
-                    )
-                )
+                print(f"Bucket {r} Failed in MinShape {keys} - Input={val} -> Range-[ min={min} - max={max} ]")
                 match = False
             if check_list_max(val, max):
-                print(
-                    "Bucket {} Failed in MaxShape {} - Input={} -> Range-[ min={} - max={} ]".format(
-                        r, keys, val, min, max
-                    )
-                )
+                print(f"Bucket {r} Failed in MaxShape {keys} - Input={val} -> Range-[ min={min} - max={max} ]")
                 match = False
         if match:
-            print("xxxxxxxxxxxxxxxxxxxx    Bucket found = {} xxxxxxxxxxxxxxxxxxx".format(r))
+            print(f"xxxxxxxxxxxxxxxxxxxx    Bucket found = {r} xxxxxxxxxxxxxxxxxxx")
             print("xxxxxxxxxxxxxxxxxxxx    Cache Hit     xxxxxxxxxxxxxxxxxxx")
             Hit = True
             assert not (compile is True)

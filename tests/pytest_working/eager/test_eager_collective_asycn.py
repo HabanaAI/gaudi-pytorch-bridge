@@ -259,7 +259,7 @@ def gather_with_odd_size(rank, world_size, args):
     for r in range(world_size):
         torch.distributed.gather(input, output_list if rank == r else None, dst=r)
         if rank == r:
-            for t1, t2 in zip(expected_output_list, output_list):
+            for t1, t2 in zip(expected_output_list, output_list, strict=False):
                 assert torch.equal(t1.cpu(), t2.cpu()), (
                     f"Gathered tensor is not equal to expected one. " f"Got: {t2}, expected: {t1}."
                 )

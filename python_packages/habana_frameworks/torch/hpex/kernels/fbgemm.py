@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-from typing import List, Optional, Tuple
 
 from habana_frameworks.torch import _hpex_C
 
@@ -25,28 +24,28 @@ import torch
 
 
 def permute_1D_sparse_data(
-    permute: torch.Tensor, lengths: torch.Tensor, indices: torch.Tensor, weights: Optional[torch.Tensor]
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    permute: torch.Tensor, lengths: torch.Tensor, indices: torch.Tensor, weights: torch.Tensor | None
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     list_res = _hpex_C.permute_1D_sparse_data(permute, lengths, indices, weights)
     return tuple(list_res) if len(list_res) == 3 else (list_res[0], list_res[1], None)
 
 
 def permute_2D_sparse_data(
-    permute: torch.Tensor, lengths: torch.Tensor, indices: torch.Tensor, weights: Optional[torch.Tensor]
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    permute: torch.Tensor, lengths: torch.Tensor, indices: torch.Tensor, weights: torch.Tensor | None
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     list_res = _hpex_C.permute_2D_sparse_data(permute, lengths, indices, weights)
     return tuple(list_res) if len(list_res) == 3 else (list_res[0], list_res[1], None)
 
 
 def split_embedding_codegen_lookup_function(
     host_weights: torch.Tensor,
-    weights_offsets: List[int],
-    D_offsets: List[int],
+    weights_offsets: list[int],
+    D_offsets: list[int],
     total_D: int,
     indices: torch.Tensor,
     offsets: torch.Tensor,
     pooling_mode: int,
-    kernel_mode: List[int] = None,
+    kernel_mode: list[int] = None,
 ) -> torch.Tensor:
     if kernel_mode is None:
         kernel_mode = [1] * len(weights_offsets)
@@ -101,8 +100,8 @@ def split_embedding_codegen_lookup_function(
 def split_embedding_codegen_lookup_sgd_function_hpu(
     host_weights: torch.Tensor,
     weights_placements: torch.Tensor,
-    weights_offsets: List[int],
-    D_offsets: List[int],
+    weights_offsets: list[int],
+    D_offsets: list[int],
     total_D: int,
     max_D: int,
     hash_size_cumsum: torch.Tensor,
@@ -110,8 +109,8 @@ def split_embedding_codegen_lookup_sgd_function_hpu(
     indices: torch.Tensor,
     offsets: torch.Tensor,
     pooling_mode: int,
-    indice_weights: Optional[torch.Tensor],
-    feature_requires_grad: Optional[torch.Tensor],
+    indice_weights: torch.Tensor | None,
+    feature_requires_grad: torch.Tensor | None,
     gradient_clipping: bool,
     max_gradient: float,
     stochastic_rounding: bool,
@@ -126,8 +125,8 @@ def split_embedding_codegen_lookup_sgd_function_hpu(
 def split_embedding_codegen_lookup_adagrad_function_hpu(
     host_weights: torch.Tensor,
     weights_placements: torch.Tensor,
-    weights_offsets: List[int],
-    D_offsets: List[int],
+    weights_offsets: list[int],
+    D_offsets: list[int],
     total_D: int,
     max_D: int,
     hash_size_cumsum: torch.Tensor,
@@ -135,8 +134,8 @@ def split_embedding_codegen_lookup_adagrad_function_hpu(
     indices: torch.Tensor,
     offsets: torch.Tensor,
     pooling_mode: int,
-    indice_weights: Optional[torch.Tensor],
-    feature_requires_grad: Optional[torch.Tensor],
+    indice_weights: torch.Tensor | None,
+    feature_requires_grad: torch.Tensor | None,
     gradient_clipping: bool,
     max_gradient: float,
     stochastic_rounding: bool,
@@ -164,7 +163,7 @@ def bounds_check_indices(
     offsets: torch.Tensor,
     bounds_check_mode: int,
     warning: torch.Tensor,
-    weights: Optional[torch.Tensor],
+    weights: torch.Tensor | None,
 ):
     _hpex_C.bounds_check_indices(indices, offsets, warning, rows_per_table, bounds_check_mode, weights)
 

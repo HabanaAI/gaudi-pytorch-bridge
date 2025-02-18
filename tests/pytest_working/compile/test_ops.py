@@ -123,7 +123,7 @@ def run_test(aten_name, dtype):
             t_kwargs,
         )
 
-        results = list(zip(result_cpu, result_hpu))
+        results = list(zip(result_cpu, result_hpu, strict=False))
         return results
     return []
 

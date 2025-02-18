@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -208,7 +208,7 @@ def type_core(t, recursive=True):
                 except:
                     pass
             return c.children[0].value
-    raise RuntimeError("Not a type tree: {}".format(t))
+    raise RuntimeError(f"Not a type tree: {t}")
 
 
 def type_is_const(t):
@@ -233,7 +233,7 @@ def get_function_signature(t, orig_sig, namefn):
     emit_string(typed_child(t, 0, "type"), emit, lambda t: 0)
     fnname = typed_child(t, 1, "fnname").children[0]
     xfname = namefn(fnname.value)
-    emit.append(" {}(".format(xfname))
+    emit.append(f" {xfname}(")
     # Emit parameter list w/out parameter names.
     emit_string(typed_child(t, 3, "params"), emit, lambda t: 0)
     emit.append(")")

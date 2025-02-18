@@ -28,20 +28,13 @@ import subprocess as sp  # nosec
 import sys
 import tempfile
 from collections import defaultdict, namedtuple
+from collections.abc import Iterable, Sequence
 from contextlib import contextmanager
 from dataclasses import astuple, dataclass
 from io import StringIO
 from typing import (
     Any,
-    Dict,
-    Iterable,
-    List,
     NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
 )
 
 import op_stats_generator
@@ -62,7 +55,7 @@ log = logging.getLogger(__file__)
 
 @dataclass(unsafe_hash=True)
 class VersionAndSource:
-    version: Union[str, Version]  # can be "nightly"
+    version: str | Version  # can be "nightly"
     source: str
 
     # allow unpacking
@@ -182,7 +175,7 @@ def ensure_iceccd_started():
 
 def get_release_version():
     ver_str = []
-    with open(os.path.join(os.getenv("SPECS_EXT_ROOT"), "version.h"), "r") as file:
+    with open(os.path.join(os.getenv("SPECS_EXT_ROOT"), "version.h")) as file:
         for line in file:
             if "HL_DRIVER_MAJOR" in line or "HL_DRIVER_MINOR" in line or "HL_DRIVER_PATCHLEVEL" in line:
                 ver_str += [s for s in line.split() if s.isdigit()]
@@ -194,9 +187,7 @@ def get_release_version():
     return ".".join(ver_str)
 
 
-def get_supported_python_version(
-    candidate: str, supported_list: Iterable[Union[str, Version]]
-) -> Optional[Union[str, Version]]:
+def get_supported_python_version(candidate: str, supported_list: Iterable[str | Version]) -> str | Version | None:
     for supported in supported_list:
         if supported.significant_matches(candidate):
             log.debug(f"Matched supported version: {supported}")
@@ -205,9 +196,9 @@ def get_supported_python_version(
 
 
 def get_supported_pt_version(
-    candidate: Union[str, Version],
-    supported_list: Iterable[Union[VersionLiteralAndSource, VersionAndSource]],
-) -> Optional[Union[VersionLiteralAndSource, VersionAndSource]]:
+    candidate: str | Version,
+    supported_list: Iterable[VersionLiteralAndSource | VersionAndSource],
+) -> VersionLiteralAndSource | VersionAndSource | None:
     for supported in supported_list:
         if supported.version == "nightly":
             if "dev" in str(candidate):
@@ -221,9 +212,9 @@ def get_supported_pt_version(
 
 
 def get_similar_supported_pt_version(
-    candidate: Union[str, Version],
-    supported_list: Iterable[Union[VersionLiteralAndSource, VersionAndSource]],
-) -> Optional[VersionLiteralAndSource]:
+    candidate: str | Version,
+    supported_list: Iterable[VersionLiteralAndSource | VersionAndSource],
+) -> VersionLiteralAndSource | None:
     """Returns a the first supported version that's roughly the same as the candidate, or None.
     For instance, could return 2.3.0 if 2.3.1 is passed as a candidate, but is not present in supported_list.
     Will skip versions that have a more sophisticated version than just X.Y.Z (e.g. with a specific commit hash).
@@ -362,7 +353,7 @@ class RecreateVenv:
         return RecreateVenv.FORCE, RecreateVenv.AS_NEEDED, RecreateVenv.NEVER
 
 
-def query_installed_pt_ver(venv_dir, venv_python, label=None) -> Optional[Version]:
+def query_installed_pt_ver(venv_dir, venv_python, label=None) -> Version | None:
     verbose = " --verbose" if log.isEnabledFor(logging.DEBUG) else ""
     installed_pt_ver = outof(venv_python, build_py, "--get-pt-version" + verbose, venv=venv_dir).strip()
     if installed_pt_ver == "None":
@@ -374,7 +365,7 @@ def query_installed_pt_ver(venv_dir, venv_python, label=None) -> Optional[Versio
         sys.exit(1)
 
 
-def _is_compatible_wheel_with_matching_version(path: str, pt_ver: Union[str, Version]):
+def _is_compatible_wheel_with_matching_version(path: str, pt_ver: str | Version):
     if pt_ver == "nightly":
         return True
     filename, extension = os.path.splitext(path)
@@ -390,7 +381,7 @@ def _list_files_in_directory(directory: str):
     return os.listdir(directory) if os.path.exists(directory) else []
 
 
-def _find_compatible_wheels_in_directory(path: str, pt_ver: Union[str, Version]):
+def _find_compatible_wheels_in_directory(path: str, pt_ver: str | Version):
     files = _list_files_in_directory(path)
     compatible_wheels = filter(
         lambda wheel: _is_compatible_wheel_with_matching_version(wheel, pt_ver),
@@ -399,7 +390,7 @@ def _find_compatible_wheels_in_directory(path: str, pt_ver: Union[str, Version])
     return [os.path.join(path, wheel) for wheel in compatible_wheels]
 
 
-def locate_fork_wheel(pt_ver: Union[str, Version]) -> str:
+def locate_fork_wheel(pt_ver: str | Version) -> str:
     """Finds a PT fork wheel in the given version in PT-fork's build directory
 
     Args:
@@ -436,7 +427,7 @@ def locate_fork_wheel(pt_ver: Union[str, Version]) -> str:
 
 
 # TODO: support RC builds
-def resolve_pip_args(version_and_source: VersionAndSource) -> Tuple[str, ...]:
+def resolve_pip_args(version_and_source: VersionAndSource) -> tuple[str, ...]:
     """Returns a tuple with pip arguments required for installing the PT wheel."""
     version, source = version_and_source
     source = source.strip()
@@ -478,7 +469,7 @@ def install_pt(pt_ver: VersionAndSource, venv_python, venv_dir, user):
 
 def install_requirements(
     pt_modules_root, pt_ver: VersionAndSource, venv_dir, venv_python, label=None
-) -> Optional[Version]:
+) -> Version | None:
     user = ()
     if venv_dir is None:
         user = ("--user",)
@@ -531,7 +522,7 @@ def prepare_venv(
     pt_ver: VersionAndSource,
     pt_modules_root: str,
     recreate_venv=RecreateVenv.AS_NEEDED,
-) -> Tuple[str, Version]:
+) -> tuple[str, Version]:
     """Prepares virtual environment to build PyTorch modules against the
     given PyTorch and Python version.
 
@@ -676,9 +667,9 @@ def prepare_build_envs(
     wheel_specs: Sequence[WheelSpec],
     pt_modules_root,
     current_python_version,
-    current_pt_version: Optional[Version] = None,
+    current_pt_version: Version | None = None,
     recreate_venv=RecreateVenv.AS_NEEDED,
-) -> Dict[BuildEnv, List[WheelNameAndSource]]:
+) -> dict[BuildEnv, list[WheelNameAndSource]]:
     """Based on selected Python versions and PT versions/wheel spec,
     prepares build environments needed to build all requested configurations.
     Also, for each build env we are mapping wheels, that should contain binaries
@@ -735,10 +726,10 @@ def prepare_build_envs(
 def prepare_build_dirs(
     build_root_dir,
     wheels_per_build_envs,
-    cmake_configurations: Dict,
+    cmake_configurations: dict,
     pt_modules_root,
     args,
-) -> Tuple[List[Tuple], List[WheelConfig]]:
+) -> tuple[list[tuple], list[WheelConfig]]:
     """
     Prepares build dirs for requested configurations
     Args:
@@ -977,12 +968,12 @@ def create_wheel_target_for_single_python(
 
 
 def create_wheel_targets(
-    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource],
+    wheels_per_build_envs: dict[BuildEnv, WheelNameAndSource],
     whl_build_dir,
     cmake_configurations: Sequence[str],
     pmake,
     verbose,
-) -> List[WheelConfig]:
+) -> list[WheelConfig]:
     """Returns a list of wheel configs to be built"""
     wheel_configs = []
 
@@ -1026,7 +1017,7 @@ def create_wheel_targets(
     return wheel_configs
 
 
-def create_wheel_finalization_target(wheel_configs: List[WheelConfig], pmake) -> str:
+def create_wheel_finalization_target(wheel_configs: list[WheelConfig], pmake) -> str:
     """Puts wheels in wheelhouse and repairs them for manylinux"""
 
     wheelhouse = "wheelhouse"
@@ -1063,7 +1054,7 @@ def add_target_to_repair_all_wheels(pmake, moving_target, wheelhouse) -> str:
 class CMakeFlags:
     """Helps modify CMake flags"""
 
-    def __init__(self, flags: List[str]):
+    def __init__(self, flags: list[str]):
         self.flags = flags
 
     def __copy__(self):
@@ -1184,7 +1175,7 @@ def run_cmake_build_generation(pt_modules_root, cmake_config, common_venv_build_
         sys.exit(1)
 
 
-def collect_build_combinations(wheels_per_build_envs, cmake_configurations) -> List[Tuple[list, Any]]:
+def collect_build_combinations(wheels_per_build_envs, cmake_configurations) -> list[tuple[list, Any]]:
     """Returns a list of pairs: venv path and CMake flags"""
     build_envs_by_venv = defaultdict(list)
     for e in wheels_per_build_envs.keys():
@@ -1258,7 +1249,7 @@ def build(
             sys.exit(error.returncode)
 
 
-def get_current_pt_version() -> Optional[Version]:
+def get_current_pt_version() -> Version | None:
     """Figure out the PT version available in the current environment.
     This is used for an internal call as well as via a subprocess call to
     `build.py --get-pt-version` to probe virtual build environments.
@@ -1290,7 +1281,7 @@ def is_running_in_venv():
     return native
 
 
-def get_cmake_configurations(args) -> Dict[str, List[str]]:
+def get_cmake_configurations(args) -> dict[str, list[str]]:
     """Compiles user-supplied cmd args into a mapping of configurations names
     and lists of CMake flags.
     Deals with conflicts like passing -DCMAKE_BUILD_TYPE=Debug together with -r,
@@ -1389,7 +1380,7 @@ def resolve_python_from_venv(venv_dir: str, build_envs: Sequence[BuildEnv]) -> s
     return get_python_exec(matching_build_env)
 
 
-def generate_op_stats(cmake_build_configs: List[Tuple[str, str, bool]], build_envs: Sequence[BuildEnv]) -> None:
+def generate_op_stats(cmake_build_configs: list[tuple[str, str, bool]], build_envs: Sequence[BuildEnv]) -> None:
     output_dir = os.getenv("HABANA_LOGS")
     for build_directory, venv_directory, _ in cmake_build_configs:
         if "Release" in build_directory:
@@ -1620,7 +1611,7 @@ def parse_args():
     return args, raw_args
 
 
-class ManylinuxRunner(object):
+class ManylinuxRunner:
     def __init__(self, with_icecc=False):
         self.with_icecc = with_icecc
         if with_icecc:
@@ -1652,7 +1643,7 @@ class ManylinuxRunner(object):
         os.makedirs(ccache_dir, exist_ok=True)
 
         release_build_number = os.environ.get("RELEASE_BUILD_NUMBER", "")
-        proxy_keys = " -e ".join((f"{k}={os.environ[k]}" for k in os.environ if "proxy" in k.lower()))
+        proxy_keys = " -e ".join(f"{k}={os.environ[k]}" for k in os.environ if "proxy" in k.lower())
         proxy_keys = f" -e {proxy_keys}" if proxy_keys else ""
 
         # Dockerized build that triggers kernel OOM can bring down the whole
@@ -1716,7 +1707,7 @@ class ManylinuxRunner(object):
         sp.check_call(command, shell=True)
 
 
-def select_targets_and_configs(args, wheel_configs: List[WheelConfig]) -> Tuple[Set, List]:
+def select_targets_and_configs(args, wheel_configs: list[WheelConfig]) -> tuple[set, list]:
     if args.no_ext_build:
         return {"all"}, []
 
@@ -1741,7 +1732,7 @@ def get_newest_file(files: Sequence[str]) -> str:
     return files[newest_file_index]
 
 
-def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConfig], args):
+def log_produced_wheels_and_dump_manifest(selected_wheel_configs: list[WheelConfig], args):
     log.info("Produced wheels:")
     wheel_manifest = []
     for no, wheel_config in enumerate(selected_wheel_configs):
@@ -1781,8 +1772,8 @@ def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConf
 
 
 def list_wheel_specs_for_specific_pt_versions(
-    versions: Set[VersionAndSource],
-) -> List[WheelSpec]:
+    versions: set[VersionAndSource],
+) -> list[WheelSpec]:
     return [
         WheelSpec(
             wheel_name="habana_torch_plugin",
@@ -1799,15 +1790,15 @@ def list_wheel_specs_for_specific_pt_versions(
 
 # TODO: if source == build or is_specific_wheel(version): always reinstall package in venvs
 def prepare_wheel_specs(
-    wheel_spec: str, requested_pt_versions: List[str], preinstalled_pt_version: Optional[Version]
-) -> Tuple[Optional[Version], List[WheelSpec]]:
+    wheel_spec: str, requested_pt_versions: list[str], preinstalled_pt_version: Version | None
+) -> tuple[Version | None, list[WheelSpec]]:
     if wheel_spec:
         wheel_specs = parse_wheel_spec(wheel_spec)
     else:
         if "all" in requested_pt_versions:
             wheel_specs = list_wheel_specs_for_specific_pt_versions(set(supported_pt_versions))
         else:
-            pt_versions: Set[VersionAndSource] = set()
+            pt_versions: set[VersionAndSource] = set()
             for requested in requested_pt_versions:
                 if requested == "preinstalled":
                     decide_on_building_with_preinstalled_version(preinstalled_pt_version, pt_versions)
@@ -1832,7 +1823,7 @@ def prepare_wheel_specs(
 
 
 def decide_on_building_with_preinstalled_version(
-    preinstalled_pt_version: Optional[Version], pt_versions: Set[VersionAndSource]
+    preinstalled_pt_version: Version | None, pt_versions: set[VersionAndSource]
 ):
     if preinstalled_pt_version is None:
         log.warning(
@@ -1884,7 +1875,7 @@ def locate_pt_sources():
     return pt_source_dir
 
 
-def select_python_versions(args) -> Set[Version]:
+def select_python_versions(args) -> set[Version]:
     if "all" in args.python_versions:
         return set(supported_python_versions)
 
@@ -1951,9 +1942,9 @@ def install_wheels_in_venvs(selected_wheel_configs):
         # else: checked in log_produced_wheels_and_dump_manifest
 
 
-def add_upstream_versions(wheel_specs: List[WheelSpec], cpu_index_url: Optional[str]) -> List[WheelSpec]:
+def add_upstream_versions(wheel_specs: list[WheelSpec], cpu_index_url: str | None) -> list[WheelSpec]:
     for ws in wheel_specs:
-        new_pt_versions: Set[VersionAndSource] = set()
+        new_pt_versions: set[VersionAndSource] = set()
         for pt_ver in ws.pt_versions:
             new_pt_versions.add(pt_ver)
 

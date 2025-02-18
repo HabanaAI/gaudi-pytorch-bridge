@@ -70,7 +70,7 @@ def _node_meta_str_(node, dump_inputs_meta):
             local_msg = ""
             if isinstance(input_node, torch.fx.node.Node):
                 local_msg += _node_meta_str_(input_node, False)[0]
-            elif isinstance(input_node, (list, tuple)):
+            elif isinstance(input_node, list | tuple):
                 local_msg += "["
                 separator = ", "
                 local_msg += separator.join(

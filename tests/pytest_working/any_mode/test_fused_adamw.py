@@ -144,7 +144,7 @@ def test_adamw(dtype, moments_dtype):
                 else hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
             )
 
-    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
+    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors, strict=False):
         rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)
 
@@ -176,6 +176,6 @@ def test_adamw_distributed(dtype, moments_dtype):
                 else hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
             )
 
-    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
+    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors, strict=False):
         rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)

@@ -36,7 +36,7 @@ def replace(file_path, pattern, subst):
 
 def prepend_line(file_name, line):
     dummy_file = file_name + ".bak"
-    with open(file_name, "r") as read_obj, open(dummy_file, "w") as write_obj:
+    with open(file_name) as read_obj, open(dummy_file, "w") as write_obj:
         write_obj.write(line + "\n")
         for line in read_obj:
             write_obj.write(line)
@@ -59,7 +59,7 @@ single_graph_file_name = "single_graph.dot"
 list_of_files = glob.glob(".graph_dumps/*")
 
 for file_name in list_of_files:
-    f = open(file_name, "r")
+    f = open(file_name)
     lst = []
     for line in f:
         lst.append(line)

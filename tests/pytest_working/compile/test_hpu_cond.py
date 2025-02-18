@@ -80,9 +80,9 @@ def test_hpu_use_only_one_outer_input():
     res_f = compiled_cond_fn(inp0, false_t, inp1)
     res_t = compiled_cond_fn(inp0, true_t, inp1)
 
-    for a, b in zip(ref_f, res_f):
+    for a, b in zip(ref_f, res_f, strict=False):
         torch.allclose(a, b)
-    for a, b in zip(ref_t, res_t):
+    for a, b in zip(ref_t, res_t, strict=False):
         torch.allclose(a, b)
 
 

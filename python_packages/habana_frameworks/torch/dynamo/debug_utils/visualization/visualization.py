@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ def get_node_coloring_strategy(stage=None, graph_pass=None):
         buffer_color = node.meta.get("buffer_color", 0)
         red_value = (buffer_color * 73 % 120) + 120
         green_value = (buffer_color * 29 % 120) + 120
-        hex_color = "#{:02X}{:02X}c0".format(red_value, green_value)
+        hex_color = f"#{red_value:02X}{green_value:02X}c0"
         return hex_color
 
     def color_by_placement(node: torch.fx.Node):

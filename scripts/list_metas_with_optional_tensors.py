@@ -41,7 +41,7 @@ def read_ops_with_optional_tensor(filename):
     label = "Ops with optional tensors"
     print(f"BEGIN: {label}")
     result = []
-    with open(filename, "r") as file:
+    with open(filename) as file:
         for line in file:
             op = op_with_optional_tensor(line)
             if op:
@@ -54,7 +54,7 @@ def read_ops_with_custom_sl_meta(filename):
     label = "Ops with custom shared layer meta"
     print(f"BEGIN: {label}")
     result = {}
-    with open(filename, "r") as file:
+    with open(filename) as file:
         op_data = yaml.load(file.read(), Loader=yaml.CLoader)
         for op in op_data:
             if "op_validator" in op_data[op] and op_data[op]["op_validator"] != "check-node-with-shared-layer":

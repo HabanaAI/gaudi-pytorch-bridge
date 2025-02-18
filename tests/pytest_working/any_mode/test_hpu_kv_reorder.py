@@ -95,7 +95,7 @@ def test_kv_reorder_with_view(shape, dtype):
 
 def print_table_kv_reorder_one_dim(index, icpu_full, ihpu_full, icpu, ihpu, rcpu, rhpu):
     if isinstance(icpu, Iterable):
-        for i, (icpu_sub, ihpu_sub, rcpu_sub, rhpu_sub) in enumerate(zip(icpu, ihpu, rcpu, rhpu)):
+        for i, (icpu_sub, ihpu_sub, rcpu_sub, rhpu_sub) in enumerate(zip(icpu, ihpu, rcpu, rhpu, strict=False)):
             print_table_kv_reorder_one_dim(index + [i], icpu_full, ihpu_full, icpu_sub, ihpu_sub, rcpu_sub, rhpu_sub)
     else:
         if rhpu == rcpu:

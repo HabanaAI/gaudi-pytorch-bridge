@@ -172,10 +172,9 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
                 return 2 ** (exp_width - 1) - 1
 
             MAX_RANGE = {
-                torch.float8_e4m3fn: 2 ** ((2**4 - 2 - get_default_exp_bias(torch.float8_e4m3fn)))
+                torch.float8_e4m3fn: 2 ** (2**4 - 2 - get_default_exp_bias(torch.float8_e4m3fn))
                 * (2 - 2 ** -(8 - 1 - 4)),
-                torch.float8_e5m2: 2 ** ((2**5 - 2 - get_default_exp_bias(torch.float8_e5m2)))
-                * (2 - 2 ** -(8 - 1 - 5)),
+                torch.float8_e5m2: 2 ** (2**5 - 2 - get_default_exp_bias(torch.float8_e5m2)) * (2 - 2 ** -(8 - 1 - 5)),
             }
 
             def get_fullscale(dtype, exp_bias=None):
@@ -376,10 +375,9 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
                 return 2 ** (exp_width - 1) - 1
 
             MAX_RANGE = {
-                torch.float8_e4m3fn: 2 ** ((2**4 - 2 - get_default_exp_bias(torch.float8_e4m3fn)))
+                torch.float8_e4m3fn: 2 ** (2**4 - 2 - get_default_exp_bias(torch.float8_e4m3fn))
                 * (2 - 2 ** -(8 - 1 - 4)),
-                torch.float8_e5m2: 2 ** ((2**5 - 2 - get_default_exp_bias(torch.float8_e5m2)))
-                * (2 - 2 ** -(8 - 1 - 5)),
+                torch.float8_e5m2: 2 ** (2**5 - 2 - get_default_exp_bias(torch.float8_e5m2)) * (2 - 2 ** -(8 - 1 - 5)),
             }
 
             def get_fullscale(dtype, exp_bias=None):

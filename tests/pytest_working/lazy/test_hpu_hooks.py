@@ -52,7 +52,7 @@ def test_fun():
 def test_module_hooks():
     class SingleLayerModel(torch.nn.Module):
         def __init__(self):
-            super(SingleLayerModel, self).__init__()
+            super().__init__()
 
         def forward(self, x):
             return self.fc(x)

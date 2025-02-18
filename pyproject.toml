@@ -6,6 +6,9 @@ profile = "black"
 line_length = 120
 multi_line_output = 3
 
+[tool.ruff]
+target-version = "py312"
+
 # Rules: https://docs.astral.sh/ruff/rules
 [tool.ruff.lint]
 select = ["F","E","W","I","UP","B","C4","EXE","PYI","SIM","ARG","FIX"]
@@ -27,24 +30,6 @@ ignore = [
    "B904",
    "C417",
    "EXE001",
-   "UP004",
-   "UP006",
-   "UP007",
-   "UP008",
-   "UP009",
-   "UP010",
-   "UP015",
-   "UP018",
-   "UP024",
-   "UP028",
-   "UP030",
-   "UP031",
-   "UP032",
-   "UP033",
-   "UP034",
-   "UP035",
-   "UP036",
-   "PYI016",
    "PYI024",
    "PYI026",
    "PYI032",

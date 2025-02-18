@@ -99,7 +99,7 @@ FuncDef = namedtuple("FuncDef", ["name", "args", "return_type"])
 def func_def_from_pretty_function(pfunction, args):
     type_and_name, args_types = pfunction.split("(")
     return_type, name = type_and_name.split(" ")
-    args_types = OrderedDict(zip(args, args_types[:-1].split(", ")))
+    args_types = OrderedDict(zip(args, args_types[:-1].split(", "), strict=False))
     return FuncDef(name, args_types, return_type)
 
 
@@ -271,7 +271,10 @@ def gson_iterator(gson_file_name, end_on_error=True):
 
 def zip_launch_info(entry):
     launch = entry["args"]
-    tensors = ((name, addr) for name, addr in zip(launch["launchTensorsInfo"][::2], launch["launchTensorsInfo"][1::2]))
+    tensors = (
+        (name, addr)
+        for name, addr in zip(launch["launchTensorsInfo"][::2], launch["launchTensorsInfo"][1::2], strict=False)
+    )
     return tensors
 
 

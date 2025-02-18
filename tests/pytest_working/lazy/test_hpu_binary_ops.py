@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -252,7 +252,7 @@ def test_hpu_binary_op_remainder_tensor_tensor_inplace():
 
 def test_hpu_binary_op_remainder_tensor_scalar_inplace():
     input = torch.tensor([4, 8, 2]).to(torch.int)
-    other = int(3)
+    other = 3
 
     input_hpu = input.to("hpu")
 
