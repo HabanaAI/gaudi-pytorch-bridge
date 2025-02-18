@@ -141,9 +141,11 @@ __rshift__.Tensor_out:
 
 _copy_from:
   override_fn: _copy_from
+  op_validator: CopySharedMeta
 
 _copy_from_and_resize:
   override_fn: _copy_from_and_resize
+  op_validator: CopySharedMeta
 
 _efficientzerotensor:
   output_meta: EfficientZeroMeta
@@ -165,7 +167,6 @@ _foreach_abs_:
   op_validator: UnaryForeachAbsSharedMeta
 
 _foreach_add.Scalar:
-  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
   guid: add_fwd
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
@@ -173,7 +174,6 @@ _foreach_add.Scalar:
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.List:
-  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
   guid: add_fwd
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
@@ -181,7 +181,6 @@ _foreach_add.List:
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.Tensor:
-  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
   guid: add_fwd
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
@@ -189,7 +188,6 @@ _foreach_add.Tensor:
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.ScalarList:
-  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
   guid: add_fwd
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
@@ -1081,26 +1079,33 @@ native_dropout_backward:
 
 as_strided:
   override_fn: as_strided_hpu
+  op_validator: StridedViewSharedMeta
   acc_thread: true
 
 as_strided_:
   override_fn: as_strided_hpu_lazy_
+  op_validator: StridedViewSharedMeta
   acc_thread: true
 
 set_:
   override_fn: set_
+  op_validator: EmptySharedMeta
 
 set_.source_Storage:
   override_fn: set_source_Storage
+  op_validator: EmptySharedMeta
 
 set_.source_Tensor:
   override_fn: set_source_Tensor
+  op_validator: EmptySharedMeta
 
 set_.source_Storage_storage_offset:
   override_fn: set_source_Storage_storage_offset
+  op_validator: EmptySharedMeta
 
 _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu
+  op_validator: EmptySharedMeta
 
 abs:
   guid: abs_fwd
@@ -1183,20 +1188,14 @@ add.Scalar:
     override_fn: add_scalar_hpu_lazy
 
 add_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Short, Int, Long, Char]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
   override_fn: add_scalar_hpu_lazy_
+  op_validator: AddInplaceSharedMeta
   acc_thread: true
   promote_to_common_type: [self, other]
 
 add_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Short, Int, Long, Char]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Char, Float8_e5m2, Float8_e4m3fn]
   override_fn: add_tensor_hpu_lazy_
+  op_validator: AddInplaceSharedMeta
   acc_thread: true
   promote_to_common_type: [self, other]
 
@@ -1380,6 +1379,7 @@ addr.out:
 
 alias:
   override_fn: alias_hpu_lazy
+  op_validator: AliasSharedMeta
   acc_thread: true
 
 all:
@@ -2328,6 +2328,7 @@ lift_fresh_copy:
 
 complex:
   override_fn: complex_hpu
+  op_validator: EmptySharedMeta
 
 constant_pad_nd:
   output_meta: ConstantPadMeta
@@ -2860,6 +2861,7 @@ expm1.out:
 
 expand:
   override_fn: expand_hpu_lazy
+  op_validator: StridedViewSharedMeta
   acc_thread: true
 
 expm1_:
@@ -3560,8 +3562,8 @@ isposinf.out:
   op_validator: IsInfSharedMeta
 
 kl_div:
-  dtypes: [BFloat16, Float]
   override_fn: kl_div_hpu_lazy
+  op_validator: KlDivSharedMeta
   acc_thread: true
 
 kthvalue:

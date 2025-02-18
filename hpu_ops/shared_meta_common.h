@@ -59,5 +59,9 @@ SHARED_META(Empty)
 SHARED_META(Matmul)
 SHARED_META(StridedView)
 SHARED_META(InstanceNorm)
+SHARED_META(AddInplace)
+SHARED_META(KlDiv)
+SHARED_META(CopyShared)
+SHARED_META(Alias)
 
 } // namespace habana
