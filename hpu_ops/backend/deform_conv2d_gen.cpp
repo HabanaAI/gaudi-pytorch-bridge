@@ -34,6 +34,7 @@ OutputMetaDataVector DeformConv2dOutputMeta(const at::Stack& stack) {
   const auto use_mask = stack[13].toBool();
 
   const int batch_sz = input.size(0);
+  const int in_channels = input.size(1);
   const int in_h = input.size(2);
   const int in_w = input.size(3);
 
@@ -63,18 +64,29 @@ OutputMetaDataVector DeformConv2dOutputMeta(const at::Stack& stack) {
       " weight_w: ",
       weight_w);
   TORCH_CHECK(
-      stride_h > 0 && stride_w > 0,
-      "stride_h: ",
+      stride_h == 1 && stride_w == 1,
+      "Stride_h and stride_w must be equal to 1, got stride_h: ",
       stride_h,
       " stride_w: ",
       stride_w);
-  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_h, " pad_w: ", pad_w);
   TORCH_CHECK(
-      dilation_h > 0 && dilation_w > 0,
-      "dilation_h: ",
+      pad_h == 1 && pad_w == 1,
+      "Pad_h and pad_w must be equal to 1, got pad_h: ",
+      pad_h,
+      " pad_w: ",
+      pad_w);
+  TORCH_CHECK(
+      dilation_h == 1 && dilation_w == 1,
+      "Dilation_h and dilation_w must be equal to 1, got dilation_h: ",
       dilation_h,
       " dilation_w: ",
       dilation_w);
+  TORCH_CHECK(
+      weight_h == 3 && weight_w == 3,
+      "Weight_h and weight_w must be equal to 3, got weight_h: ",
+      weight_h,
+      " weight_w: ",
+      weight_w);
 
   TORCH_CHECK(weight.size(1) * n_weight_grps == input.size(1));
   TORCH_CHECK(weight.size(0) % n_weight_grps == 0);
@@ -125,6 +137,12 @@ OutputMetaDataVector DeformConv2dOutputMeta(const at::Stack& stack) {
       out_h,
       " out_w: ",
       out_w);
+  TORCH_CHECK(
+      in_channels == out_channels,
+      "In channels and out channels must be equal. Got in_channels: ",
+      in_channels,
+      ", out_channels: ",
+      out_channels);
 
   return {meta};
 }
