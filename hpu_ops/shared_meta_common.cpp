@@ -835,4 +835,17 @@ SharedMetaDataVector CopySharedMeta(
   return {copySharedMeta};
 }
 
+SharedMetaDataVector OneHotSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto dtype = self.scalar_type();
+  const auto rank = self.dim();
+
+  SharedMetaData oneHotSharedMeta{"one_hot_fwd"};
+  oneHotSharedMeta.inputs_data.emplace_back(rank, dtype);
+  oneHotSharedMeta.outputs_data.emplace_back(rank + 1, dtype);
+  return {oneHotSharedMeta};
+}
+
 } // namespace habana

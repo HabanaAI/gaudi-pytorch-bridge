@@ -25,16 +25,20 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/mixture_of_experts.h"
 #include "habana_helpers/logging.h"
+#include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
+#include "hpu_ops/op_validator.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "hpu_ops/sdpa_gen.h"
+#include "hpu_ops/shared_meta_common.h"
 #include "ops/batch_as_strided.h"
 
 using namespace habana;
 
 namespace {
+using habana::dispatch_fallback; // For VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE
 using habana::to_string; // For DUMP_*ARGS
 
 /***********************************************************************************
@@ -1236,9 +1240,17 @@ at::Tensor cdist(
   return _cdist_forward(x1, x2, p, compute_mode);
 }
 
+habana::CheckNodeWithSharedLayerValidator validator_one_hot(
+    "one_hot",
+    habana::OneHotSharedMeta,
+    habana_helpers::HabanaExecutionMode::EAGER);
+
 at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
   PT_EAGER_TRACE;
   PT_OP_INFO("one_hot: ", DUMP_2ARGS(self, num_classes));
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(one_hot, false, self, num_classes)
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::one_hot", {self, num_classes}};
   hpu_op.SetOutputMetaFn(habana::OneHotMeta);

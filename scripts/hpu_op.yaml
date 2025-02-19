@@ -5189,7 +5189,7 @@ one_hot:
   custom_fill_params: FillOneHotParams
   output_meta: OneHotMeta
   guid: one_hot_fwd
-  op_validator: OneHotSharedMeta
+  op_validator: check-node-with-shared-layer
   out_ids: [0]
 
 permute:
