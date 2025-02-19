@@ -35,6 +35,7 @@ option(SANITIZER "build sanitizer configuration" OFF)
 cmake_dependent_option(THREAD_SANITIZER "build thread sanitizer configuration" OFF "NOT SANITIZER" OFF)
 option(MANYLINUX "build for manylinux configuration, synapse shim will be used" ON)
 option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
+option(USE_CXX11_ABI "Use CXX11 ABI" ON)
 
 if(MANYLINUX)
   message(STATUS "Building with shim layer")
@@ -52,8 +53,18 @@ if(UPSTREAM_COMPILE)
 endif(UPSTREAM_COMPILE)
 
 message(STATUS "USE_CXX11_ABI is ${USE_CXX11_ABI}")
+
 if(NOT USE_CXX11_ABI)
-  set(CMAKE_CXX_FLAGS "-fabi-version=11")
+  add_compile_definitions($<$<COMPILE_LANGUAGE:CXX>:_GLIBCXX_USE_CXX11_ABI=0>)
+
+  # This is required to ensure compatibility with PyTorch binary.
+  # Conditional, as Clang does not have this flag, only GCC
+  include(CheckCXXCompilerFlag)
+  check_cxx_compiler_flag("-fabi-version=11" HAS_FABI_VERSION_11)
+
+  if(HAS_FABI_VERSION_11)
+    add_compile_options(-fabi-version=11)
+  endif()
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -97,6 +108,7 @@ if(NOT DEFINED CLANG_TIDY OR CLANG_TIDY)
 endif()
 
 option(CODE_COVERAGE "Allow code coverage" OFF)
+
 if(CODE_COVERAGE)
   message(STATUS "code coverage is enabled.")
 endif()
@@ -205,6 +217,7 @@ add_habana_library(
 add_subdirectory(hpu_ops)
 add_subdirectory(python_packages/habana_frameworks/torch)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
+
 # Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch_plugin
@@ -311,6 +324,7 @@ add_habana_library(
 target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers
                                                           ${CMAKE_BINARY_DIR})
 target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
+
 # Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch2_plugin
