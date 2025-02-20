@@ -107,6 +107,15 @@ class TestHpuUpsample:
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
 
+    @pytest.mark.parametrize("shape, size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
+    @pytest.mark.parametrize("scale_factor", [None, [1, 2]], ids=format_tc)
+    def test_upsample_nearest_exact2d(self, shape, size, scale_factor, variant, dtype):
+        if pytest.mode == "lazy" and variant == "bwd":
+            pytest.skip("aten::_upsample_nearest_exact2d_backward.grad_input is not yet implemented on HPU")
+        if pytest.mode == "compile":
+            pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
+        TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest-exact", dtype)
+
     @pytest.mark.parametrize("shape,size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]], ids=format_tc)
     def test_upsample_nearest3d(self, shape, size, scale_factor, variant, dtype):

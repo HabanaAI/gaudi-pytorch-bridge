@@ -6828,6 +6828,16 @@ upsample_nearest2d.out:
   - [WHCN, WHCN]
   - [WHCN]
 
+_upsample_nearest_exact2d.out:
+  custom_fill_params: FillNearestExact2DFwdParams
+  output_meta: UpsampleNearestExact2DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleNearestExact2DFwdOperator
+  op_validator: UpsampleNearestExact2DFwdSharedMeta
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+
 upsample_nearest2d_backward:
   custom_fill_params: FillNearestBwdParams
   output_meta: UpsampleNearest2DBwdMeta
