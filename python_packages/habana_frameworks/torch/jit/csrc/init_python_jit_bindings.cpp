@@ -31,6 +31,7 @@
 #include "jit_fork/ir/type_wrapper.h"
 #include "jit_fork/passes/getitem_folding_pass.h"
 #include "jit_fork/passes/rem_dup_const_pass.h"
+#include "jit_fork/python/forked_pybind_utils.h"
 
 #include <iostream>
 
@@ -65,7 +66,7 @@ class unwrapping_shared_ptr {
   unwrapping_shared_ptr() : impl({}) {}
 
   explicit unwrapping_shared_ptr(T* p) : impl(p->wrap()) {
-    impl->clear_cb = &torch::jit::clear_registered_instances;
+    impl->clear_cb = &habana_torch::jit::clear_registered_instances;
   }
 
   T* get() const {
