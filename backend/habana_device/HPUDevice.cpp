@@ -29,10 +29,10 @@ struct HPUDeviceContextImpl {
 
   std::unique_ptr<RecipeCacheLRU> recipe_cache_;
 
-  std::unique_ptr<habana_helpers::ThreadPool> compile_thread_pool_;
+  std::unique_ptr<habana_helpers::ThreadPool> lazy_compile_thread_pool_;
 
   std::unique_ptr<PipeSingleThreadpool> execute_thread_;
-  std::unique_ptr<PipeSingleThreadpool> compile_thread_;
+  std::unique_ptr<PipeThreadpool> compile_thread_pool_;
   std::unique_ptr<PipeSingleThreadpool> lowering_thread_;
 
   // Holding this is required for proper destruction order
@@ -63,7 +63,7 @@ void HPUDeviceContextImpl::JoinPipelineThreads() {
     throw;
   }
 
-  compile_thread_->waitWorkComplete();
+  compile_thread_pool_->waitWorkComplete();
   execute_thread_->waitWorkComplete();
 }
 
@@ -97,12 +97,14 @@ void HPUDeviceContextImpl::Init() {
       std::make_unique<habana_helpers::SingleThreadPool>(true);
   recipe_cache_ = std::make_unique<RecipeCacheLRU>();
 
-  compile_thread_pool_ = std::make_unique<habana_helpers::ThreadPool>();
+  lazy_compile_thread_pool_ = std::make_unique<habana_helpers::ThreadPool>();
 
   execute_thread_ = std::make_unique<PipeSingleThreadpool>(
       true, []() { c10::setThreadName("Pipeline Execute Thread"); });
-  compile_thread_ = std::make_unique<PipeSingleThreadpool>(
-      true, []() { c10::setThreadName("Pipeline Compile Thread"); });
+  compile_thread_pool_ = std::make_unique<PipeThreadpool>(
+      true,
+      []() { c10::setThreadName("Pipeline Compile Thread"); },
+      GET_ENV_FLAG_NEW(PT_HPU_COMPILE_THREAD_POOL_SIZE));
   lowering_thread_ = std::make_unique<PipeSingleThreadpool>(
       true, []() { c10::setThreadName("Pipeline Lowering Thread"); });
   constant_information_ = ConstantInformationPtr();
@@ -120,12 +122,12 @@ void HPUDeviceContextImpl::ThreadsRelease() {
 
   habana_helpers::AutoNoGIL gil_release;
   device_context.lowering_thread_.reset();
-  device_context.compile_thread_.reset();
+  device_context.compile_thread_pool_.reset();
   device_context.execute_thread_.reset();
 }
 
 void HPUDeviceContextImpl::Finish() {
-  compile_thread_pool_.reset();
+  lazy_compile_thread_pool_.reset();
   recipe_cache_.reset();
   scalar_cache_.reset();
 
@@ -176,9 +178,9 @@ bool get_exception_occurred() {
   return exception_occurred;
 }
 
-PipeSingleThreadpool& compile_thread() {
-  HABANA_ASSERT(device_context.compile_thread_);
-  return *device_context.compile_thread_;
+PipeThreadpool& compile_thread_pool() {
+  HABANA_ASSERT(device_context.compile_thread_pool_);
+  return *device_context.compile_thread_pool_;
 }
 
 habana_helpers::SingleThreadPool& garbage_collection_thread() {
@@ -196,9 +198,9 @@ PipeSingleThreadpool& execute_thread() {
   return *device_context.execute_thread_;
 }
 
-habana_helpers::ThreadPool& compile_thread_pool() {
-  HABANA_ASSERT(device_context.compile_thread_pool_);
-  return *device_context.compile_thread_pool_;
+habana_helpers::ThreadPool& lazy_compile_thread_pool() {
+  HABANA_ASSERT(device_context.lazy_compile_thread_pool_);
+  return *device_context.lazy_compile_thread_pool_;
 }
 
 backend::ScalarCache& scalar_cache() {

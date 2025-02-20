@@ -53,14 +53,14 @@ void Copy_Scalar_To_Host_Empty_Lowering_Task(
     const at::Tensor& dst,
     uint32_t size,
     c10::hpu::HPUStream stream) {
-  habana::HPUDeviceContext::compile_thread().enqueue(
+  habana::HPUDeviceContext::compile_thread_pool().enqueue(
       Copy_Scalar_To_Host_Empty_Compile_Task,
       std::move(src),
       std::move(dst),
       size,
       std::move(stream));
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
+    habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete();
   }
 }
 

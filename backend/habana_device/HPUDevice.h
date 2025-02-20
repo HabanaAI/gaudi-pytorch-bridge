@@ -72,12 +72,15 @@ class ThrottlePool : public T {
 namespace HPUDeviceContext {
 using PipeSingleThreadpool =
     ThrottlePool<GILReleaseOnWaitPool<habana_helpers::SingleThreadPool>>;
+using PipeThreadpool =
+    ThrottlePool<GILReleaseOnWaitPool<habana_helpers::ThreadPool>>;
 
 habana_helpers::SingleThreadPool& garbage_collection_thread();
-PipeSingleThreadpool& compile_thread();
+
+PipeThreadpool& compile_thread_pool();
 PipeSingleThreadpool& lowering_thread();
 PipeSingleThreadpool& execute_thread();
-habana_helpers::ThreadPool& compile_thread_pool();
+habana_helpers::ThreadPool& lazy_compile_thread_pool();
 RecipeCacheLRU& recipe_cache();
 void recipe_cache_clear();
 void flush_disk_cache();

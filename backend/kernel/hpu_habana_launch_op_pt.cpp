@@ -91,7 +91,7 @@ class PipelineCall : public PipelineCallBase {
     return is_called_;
   }
   void compile_sync() override {
-    HPUDeviceContext::compile_thread().waitWorkComplete();
+    HPUDeviceContext::compile_thread_pool().waitWorkComplete();
   }
 
   virtual void execute(
@@ -150,7 +150,7 @@ void LoweringTask(
       });
 
   if (sync_with_compile_stage)
-    HPUDeviceContext::compile_thread().waitWorkComplete();
+    HPUDeviceContext::compile_thread_pool().waitWorkComplete();
 }
 } // namespace HabanaLaunchOpPipeline
 
@@ -5586,7 +5586,7 @@ void HabanaLaunchOpPT::CompileLazyGraphInParallel() {
   auto is_recipe_done = recipe_done.get_future();
   TemporaryRecipeStore::get().Add(cur_rargpsh_, std::move(is_recipe_done), rvs);
 
-  HPUDeviceContext::compile_thread_pool().enqueue(
+  HPUDeviceContext::lazy_compile_thread_pool().enqueue(
       [recipe_done = std::move(recipe_done),
        syn_graph_ptr = syn_graph_ptr_,
        cur_rargpsh = cur_rargpsh_,
