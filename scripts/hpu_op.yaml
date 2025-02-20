@@ -2129,6 +2129,7 @@ bucketize.Tensor_out:
   guid: search_sorted_fwd
   promote_to_common_type: [self, boundaries]
   tpc_input_order: [1, 0]
+  safe_cast_check: false
   op_validator: check-node-with-shared-layer
 
 cat:
