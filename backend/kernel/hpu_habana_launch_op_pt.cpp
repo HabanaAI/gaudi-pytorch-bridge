@@ -3003,6 +3003,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   auto itr_rv_node = BuildSgGetItrRvNode(syn_graph);
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE) &&
+      !is_shape_inference) {
+    fuse_collective_view_pass_data_ptr_ =
+        FuseCollectiveViewPass(this).VisitGraph(jit_ir_graph_);
+    if (fuse_collective_view_pass_data_ptr_) {
+      jit_ir_graph_ = fuse_collective_view_pass_data_ptr_->getClonedGraph();
+    }
+  }
+
   // for each node in IR graph, at this point the graph is a list with nodes
   // topoloically sorted
   // TODO : check if we need to reorder nodes in any case
@@ -3036,6 +3045,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               is_shape_inference,
               graph_nodes,
               itr_rv_node);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE) &&
+      !is_shape_inference && fuse_collective_view_pass_data_ptr_) {
+    jit_ir_graph_ = fuse_collective_view_pass_data_ptr_->getOriginalGraph();
+  }
 
   if ((refine_ds_enabled_ && enable_fast_shape_inf_ &&
        syn_graph.is_dynamic_graph() && !is_shape_inference)) {
@@ -3565,6 +3579,11 @@ void HabanaLaunchOpPT::HandleCollectives(
   }
   kernel_info.kernel =
       std::dynamic_pointer_cast<CollectiveOperator>(HabanaKernel);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE) &&
+      fuse_collective_view_pass_data_ptr_) {
+    fuse_collective_view_pass_data_ptr_->PostRunFuseOpsPasses(
+        node, kernel_info);
+  }
   collective_kernels_info_.AddKernel(std::move(kernel_info));
 }
 
@@ -6221,5 +6240,74 @@ bool HabanaLaunchOpPT::is_hccl_send_mark_step() {
     return false;
   }
   return lazy_info_->get_is_hccl_send_mark_step();
+}
+
+void HabanaLaunchOpPT::CreateOutputReuseInputSynapseTensor(
+    torch::jit::Value* value) {
+  auto it = value_to_ivalue_.find(value);
+  if (it != value_to_ivalue_.end() && value_to_ivalue_[value]->isTensor()) {
+    const auto& ivpsh = value_to_ivalue_[value];
+    auto tensor = ivpsh->toTensor();
+    auto dtype = tensor.scalar_type();
+
+    auto variant =
+        synapse_helpers::tensor_builder(
+            tensor.sizes(),
+            tensor.strides(),
+            habana_helpers::pytorch_to_synapse_type(dtype))
+            .mark_persistence(true)
+            .build(
+                HPUDeviceContext::get_device(tensor.device().index()),
+                syn_graph_ptr_->get_graph_handle());
+
+    meta_syn_tensors_.push_back(
+        absl::get<synapse_helpers::tensor>(std::move(variant)));
+
+    PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
+        ivpsh,
+        meta_syn_tensors_.back().name(),
+        value,
+        meta_syn_tensors_.back().id(),
+        meta_syn_tensors_.back().get(),
+        meta_syn_tensors_.back().tensor_type());
+    ivalue_to_tensor_info_map_[ivpsh] = ti;
+
+    std::vector<PtTensorInfoShared> tiv;
+    tiv.push_back(ti);
+    if (enable_caching_ || enable_shape_agnostic_caching_) {
+      void* buffp = ti->get_buffer_start();
+      if (ti->is_ZST() == false) {
+        buff_to_input_ivpsh_map_.emplace(buffp, ivpsh);
+      }
+      input_tiv_map_.emplace(ivpsh, tiv);
+    } else {
+      input_tivs_.emplace_back(tiv);
+    }
+
+    if (!isInGraphOutputs(value)) {
+      if (ti->is_ZST() == false) {
+        duplicate_input_tivs_.emplace_back(ti);
+      } else {
+        AddAtenIntermediate(ivpsh, ti);
+      }
+    } else {
+      if (!enable_caching_ && !enable_shape_agnostic_caching_) {
+        output_tensorinfo_map_.emplace(ivpsh, ti);
+      } else {
+        if (ti->is_ZST() == false) {
+          duplicate_input_to_outtinfo_map_.emplace(ivpsh, ti);
+        } else {
+          output_tensorinfo_map_.emplace(ivpsh, ti);
+        }
+      }
+    }
+
+    auto& syn_tensor = meta_syn_tensors_.back();
+    pt_to_synapse_tensors_.erase(ivpsh);
+    SharedSynTensorOrRefListPtr tensorList =
+        std::make_shared<SynTensorOrRefList>();
+    tensorList->emplace_back(synapse_helpers::tensor_or_ref(syn_tensor));
+    pt_to_synapse_tensors_.emplace(ivpsh, tensorList);
+  }
 }
 } // namespace habana

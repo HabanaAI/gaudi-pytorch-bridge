@@ -23,6 +23,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "backend/passes/fuse_collective_view_pass.h"
 #include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 namespace habana {
@@ -160,8 +161,11 @@ std::string DumpOpInfo(
 
 // Forward declaration
 class PersistenceMarkerPassData;
+class FuseCollectiveViewPassData;
 
 class HabanaLaunchOpPT {
+  friend class FuseCollectiveViewPass;
+
  public:
   explicit HabanaLaunchOpPT(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
@@ -418,6 +422,8 @@ class HabanaLaunchOpPT {
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
   std::shared_ptr<RecipeArgumentSpec> cur_rargpsh_{nullptr};
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
+  std::unique_ptr<FuseCollectiveViewPassData>
+      fuse_collective_view_pass_data_ptr_;
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info_ =
       nullptr;
 
@@ -882,6 +888,8 @@ class HabanaLaunchOpPT {
     std::string ir_name = "%" + vp->debugName();
     AddAtenIntermediate(ivpsh, syntensor_name, ir_name, tensor_id);
   }
+
+  void CreateOutputReuseInputSynapseTensor(torch::jit::Value* value);
 
   // Member functions related to lowering IR to Synapse
   // To clear the non static members
