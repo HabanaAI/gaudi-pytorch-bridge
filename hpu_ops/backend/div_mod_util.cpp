@@ -34,17 +34,16 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
     synTensor syn_denominator,
     bool pyCompatible,
     const std::vector<long int> shape_out,
-    DIV_MODE_OUTPUT_TYPE t) {
+    DIV_MODE_OUTPUT_TYPE t,
+    c10::ScalarType output_type) {
   static_cast<void>(t);
   auto inputs = {syn_numerator, syn_denominator};
   size_t size;
   const auto& params = FillDivModParams(size, pyCompatible);
 
   std::vector<NodeAttr::NodeOutputAttr> node_output_attr = {
-      {c10::IntArrayRef(shape_out.data(), shape_out.size()),
-       op->ScalarType(),
-       0},
-      {c10::IntArrayRef(shape_out.data(), shape_out.size()), op->ScalarType()}};
+      {c10::IntArrayRef(shape_out.data(), shape_out.size()), output_type, 0},
+      {c10::IntArrayRef(shape_out.data(), shape_out.size()), output_type}};
   if (DIV_MODE_OUTPUT_TYPE::REMAINDER == t) {
     std::reverse(node_output_attr.begin(), node_output_attr.end());
   }
@@ -54,7 +53,7 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
   auto output = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("div_mod_fwd"sv, op->ScalarType()),
+      {get_guid_with_precision("div_mod_fwd"sv, output_type),
        std::move(inputs),
        node_output_attr,
        params.get(),
