@@ -551,7 +551,8 @@ sizes_vec BatchNormNoStatsFwdOutputShape(const at::Stack& stack) {
 OutputMetaDataVector BatchNormBwdMeta(const at::Stack& stack) {
   using namespace BNBwd;
   auto input = stack_tensor(stack, INPUT_IDX);
-  auto weightBiasShape = stack.at(WEIGHT_IDX).isTensor()
+  auto weightBiasShape = (stack.at(WEIGHT_IDX).isTensor() &&
+                          stack.at(WEIGHT_IDX).toTensor().defined())
       ? stack_tensor(stack, WEIGHT_IDX).sizes().vec()
       : get_rm_size(input).vec();
 
@@ -569,12 +570,14 @@ OutputMetaDataVector BatchNormBwdMeta(const at::Stack& stack) {
 OutputMetaDataVector BatchNormFwdMeta(const at::Stack& stack) {
   using namespace BNFwd;
   const auto& input = stack[INPUT_IDX].toTensor();
-  auto saved_mean_sv = stack[WEIGHT_IDX].isTensor()
+  auto saved_mean_sv =
+      (stack[WEIGHT_IDX].isTensor() && stack[WEIGHT_IDX].toTensor().defined())
       ? stack[WEIGHT_IDX].toTensor().sizes().vec()
-      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  auto saved_istd_sv = stack[BIAS_IDX].isTensor()
+      : get_rm_size(input).vec();
+  auto saved_istd_sv =
+      (stack[BIAS_IDX].isTensor() && stack[BIAS_IDX].toTensor().defined())
       ? stack[BIAS_IDX].toTensor().sizes().vec()
-      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
+      : get_rm_size(input).vec();
 
   OutputMetaData out_meta;
   out_meta.shape = input.sizes().vec();
@@ -710,7 +713,11 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
     reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
   }
 
-  if (isOutputInfMode()) {
+  const auto isBackendReshapeNeeded =
+      input.pt_t.sizes().size() != 4 && !is_lazy_or_eager;
+
+  // Not needed when reshape is handled by CGUID or is not needed at all
+  if (isOutputInfMode() && isBackendReshapeNeeded) {
     moveLastOutputTensorAtFront();
   }
 
@@ -955,6 +962,11 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       bn_out[INPUT_GRAD_IDX],
       meta[INPUT_GRAD_IDX].dtype);
 
+  const auto isBackendReshapeNeeded = meta[INPUT_GRAD_IDX].shape.size() != 4;
+
+  if (isOutputInfMode() && isBackendReshapeNeeded) {
+    moveLastOutputTensorAtFront();
+  }
   syn_out(INPUT_GRAD_IDX) = std::move(bn_out[0]);
   syn_out(WEIGHT_GRAD_IDX) = std::move(bn_out[2]);
   syn_out(BIAS_GRAD_IDX) = std::move(bn_out[1]);
