@@ -78,7 +78,7 @@ def direct_execution(input1_list, input2_list, functor_count_list):
 
         for _ in range(execution_set_count):
             start = time.perf_counter()
-            for input1, input2 in zip(input1_list, input2_list):
+            for input1, input2 in zip(input1_list, input2_list, strict=True):
                 result = functor(input1, input2)
             habana_frameworks.torch.hpu.synchronize()
             stop = time.perf_counter()
@@ -109,10 +109,10 @@ def compiled_execution(input1_list, input2_list, functor_count_list):
 
         functor = perf_utils.create_functor(op_count)
         for _ in range(execution_set_count):
-            functor_compiled = torch.compile(functor, backend="hpu_backend")
+            functor_compiled = torch.compile(functor, dynamic=False, backend="hpu_backend")
 
             start = time.perf_counter()
-            for input1, input2 in zip(input1_list, input2_list):
+            for input1, input2 in zip(input1_list, input2_list, strict=True):
                 result = functor_compiled(input1, input2)
             habana_frameworks.torch.hpu.synchronize()
             stop = time.perf_counter()
