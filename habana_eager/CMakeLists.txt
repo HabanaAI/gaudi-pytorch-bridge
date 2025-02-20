@@ -39,24 +39,25 @@ add_habana_library(
   ops/as_strided.cpp
   ops/batch_as_strided.cpp
   ops/bincount.cpp
-  ops/empty.cpp
   ops/copy_from.cpp
   ops/complex.cpp
+  ops/eager_op.cpp
+  ops/empty.cpp
+  ops/fused_sdpa.cpp
   ops/index_put.cpp
   ops/instance_norm.cpp
+  ops/linear.cpp
   ops/local_scalar_dense.cpp
   ops/matmul.cpp
   ops/masked_select.cpp
   ops/mixture_of_experts.cpp
   ops/nonzero.cpp
+  ops/pin_memory.cpp
+  ops/repeat.cpp
+  ops/set.cpp
   ops/unique.cpp
   ops/unique2.cpp
-  ops/set.cpp
   ops/view.cpp
-  ops/pin_memory.cpp
-  ops/eager_op.cpp
-  ops/repeat.cpp
-  ops/linear.cpp
   passes/add_attribute_alpha.cpp
   passes/detect_weights_tensors.cpp
   passes/get_outputs_order_in_graph.cpp

@@ -30,6 +30,11 @@ SKIP_TESTS_LIST = "skip_tests_list.json"
 EAGER_FALLBACK_TESTS_LIST = "compile_eager_fallback_list.json"
 
 
+def set_env_var(env_name, value):
+    if os.getenv(env_name) is None:
+        os.environ[env_name] = str(value)
+
+
 @pytest.fixture(autouse=True)
 def reset_seed(seed=0xC001A1):
     import torch
@@ -114,11 +119,13 @@ def pytest_configure(config):
 
     if pytest.mode == "eager":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
+        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
     elif pytest.mode == "lazy":
         os.environ["PT_HPU_LAZY_MODE"] = "1"
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
         os.environ["PT_HPU_USE_EAGER_FALLBACK"] = "0"
+        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
         try:
             eager_fallback_path = Path(__file__).parent.joinpath(EAGER_FALLBACK_TESTS_LIST)
             with open(eager_fallback_path) as f:

@@ -34,3 +34,12 @@ def str_join(inp):
             return f"({out})"
 
     return str(inp)
+
+
+def str_to_bool(s):
+    if isinstance(s, bool):
+        return s
+    elif isinstance(s, str):
+        return s.lower() in ["true", "1", "yes", "y"]
+    else:
+        raise ValueError(f"Input must be a string or bool, got {type(s).__name__}: {s}")
