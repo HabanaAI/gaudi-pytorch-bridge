@@ -220,6 +220,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         type(None): None,
     }
 
+    logger.debug("node name: %s", node.name)
     if (
         type(result) is torch._subclasses.FakeTensor
         or type(result) is torch._subclasses.fake_tensor.FakeTensor
@@ -329,16 +330,18 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     node.meta["output_contiguous"] = output_contiguous  # list expected
     node.meta["output_offset"] = output_offset  # list expected
 
-    if bc.get_pt_hpu_use_jit_fork() and (type(result) not in [torch.SymInt, torch.SymBool, torch.SymFloat]):
-        logger.debug('Filling metadata "val" for Lowering pass')
+
+def fill_propagated_tensor_metadata_jitfork(node: torch.fx.Node):
+    if bc.get_pt_hpu_use_jit_fork():
+        logger.debug('Filling metadata "val" for node: %s', node.name)
         meta_output_vals = []
-        for i in range(len(dtypes)):
+        for i in range(len(node.meta["output_dtypes"])):
             meta_output_vals.append(  # output_strides consists of storage_offset, strides, acccess only strides
                 torch.empty_strided(
-                    output_shapes[i],
-                    output_strides[i],
-                    dtype=dtypes[i],
-                    device=device,
+                    node.meta["output_shapes"][i],
+                    node.meta["output_strides"][i],
+                    dtype=node.meta["output_dtypes"][i],
+                    device=node.meta["output_device"],
                 )
             )
         node.meta["val"] = meta_output_vals[0] if len(meta_output_vals) == 1 else tuple(meta_output_vals)

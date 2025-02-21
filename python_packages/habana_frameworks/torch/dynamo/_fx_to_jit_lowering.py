@@ -215,6 +215,15 @@ class FxToJitLowering(torch.fx.Interpreter):
         if converter:
             jit_type = converter(arg)
             if jit_type:
+                if (
+                    isinstance(jit_type, jit.TupleType)
+                    and hasattr(parameter, "type")
+                    and parameter.type.kind() == "ListType"
+                ):
+                    # If jit_type mismatchs the parameter type, we need to convert it.
+                    element_type = parameter.type.getElementType()
+                    jit_type = jit.ListType(element_type)
+
                 new_const = self.jit_ir.insertConstant(arg, jit_type)
                 self.const_cache[cache_key] = new_const
                 return new_const
@@ -391,7 +400,10 @@ class FxToJitLowering(torch.fx.Interpreter):
                 f"The metadata contains unsupported type: {type(meta_val)}. " "Please report a bug."
             )
 
-        jit_val.setType(input_type)
+        if isinstance(input_type, jit.NoneType) and jit_val.type().annotation_str == "Tensor":
+            logger.debug("Won't rewrite metadata from Tensor to NoneType")
+        else:
+            jit_val.setType(input_type)
 
     def _apply_meta_for_collections(self, meta_val, jit_val: jit.Value):
         # If we are dealing with ListConstruct or TupleConstruct,
@@ -404,8 +416,8 @@ class FxToJitLowering(torch.fx.Interpreter):
             num_jit_value_inputs = jit_val.node().inputsSize()
             if num_meta_elem != num_jit_value_inputs:
                 raise RuntimeError(
-                    "The number of elements in the FX collection does not match "
-                    "with number of elements in the JIT collection."
+                    f"The number of elements:{str(num_meta_elem)} in the FX collection does not match "
+                    f"with number of elements:{str(num_jit_value_inputs)} in the JIT collection."
                 )
 
             for i, val in enumerate(meta_val):

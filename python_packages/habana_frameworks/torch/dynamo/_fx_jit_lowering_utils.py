@@ -79,7 +79,7 @@ def py_tuple_to_jit_tuple(py_tuple: tuple[Any]):
                 jit_types.append(converter(None))
             else:
                 return None
-        return jit.TupleType(types)
+        return jit.TupleType(jit_types)
     else:
         return None
 

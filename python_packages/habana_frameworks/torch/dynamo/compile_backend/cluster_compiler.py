@@ -114,6 +114,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
         # This function has been overwritten because we need
         # access to FX nodes, not node.target as done in the base
         # run_node function.
+        logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
         with self._set_current_node(n):
             assert "val" in n.meta.keys(), f"{n=} {n.target=} {n.meta.keys()=}"
             if n.op == "call_module":

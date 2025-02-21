@@ -18,6 +18,7 @@
 
 from .helpers import (
     calculate_default_strides,
+    fill_propagated_tensor_metadata_jitfork,
     fill_propagated_tensor_metadata_to_node,
     get_dynamic_config_value,
     get_node_args,
@@ -38,6 +39,7 @@ from .helpers import (
 
 __all__ = [
     "calculate_default_strides",
+    "fill_propagated_tensor_metadata_jitfork",
     "fill_propagated_tensor_metadata_to_node",
     "get_dynamic_config_value",
     "get_node_args",

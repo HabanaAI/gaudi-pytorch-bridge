@@ -92,6 +92,9 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
             with graph_module.graph.inserting_before(list(node.users.keys())[0]):
                 getitem_node = graph_module.graph.call_function(operator.getitem, (batch_as_strided_node, index))
                 getitem_node.meta["placement"] = "eager"
+                getitem_input_tensors = batch_as_strided_node.meta["val"]
+                getitem_result = getitem_node.target(getitem_input_tensors, index)
+                fill_propagated_tensor_metadata_to_node(getitem_result, getitem_node)
             node.replace_all_uses_with(getitem_node)
             graph_module.graph.erase_node(node)
     graph_module.recompile()

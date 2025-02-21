@@ -40,6 +40,7 @@ from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
 
 from ._helpers import (
+    fill_propagated_tensor_metadata_jitfork,
     fill_propagated_tensor_metadata_to_node,
     get_node_args,
     is_module_dynamic,
@@ -1182,10 +1183,10 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             ), "Currently we are assuming that all args of output should be Nodes"
             meta_val = tuple([a.meta.get("val", None) for a in args])
 
-        assert meta_val, f"Target has 0 outputs: {target}"
-
-        graph_node.meta["val"] = meta_val if len(meta_val) > 1 else meta_val[0]
-        graph_changed = True
+        # it is possible to have zero graph outputs with KEEP_INPUT_MUTATIONS enabled
+        if meta_val:
+            graph_node.meta["val"] = meta_val if len(meta_val) > 1 else meta_val[0]
+            graph_changed = True
 
     return graph_changed
 
@@ -1239,6 +1240,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                     input_copy_node.meta["output_strides"] = [arg.meta["output_strides"][0]]
                     input_copy_node.meta["output_contiguous"] = [arg.meta["output_contiguous"][0]]
                     input_copy_node.meta["output_offset"] = [arg.meta["output_offset"][0]]
+                    fill_propagated_tensor_metadata_jitfork(input_copy_node)
                     node.replace_input_with(arg, input_copy_node)
                 graph_changed = True
 
