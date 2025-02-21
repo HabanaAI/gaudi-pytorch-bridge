@@ -1244,8 +1244,7 @@
                 "test_scalar_bool",
                 "test_recipe_cache1",
                 "test_index_put_ellipsis[inputs_shape0]",
-                "test_index_put_cpu_index[inputs_shape0]",
-                "test_smoke_jit_forked_lowering_eager_fallback"
+                "test_index_put_cpu_index[inputs_shape0]"
         ],
         "gaudi": [
                 "test_hpu_adaptive_avg_pool1d[bfloat16-10-[2x2x7]]",

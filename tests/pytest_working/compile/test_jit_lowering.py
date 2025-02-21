@@ -31,14 +31,14 @@ def test_smoke_jit_forked_lowering():
     bc.set_pt_hpu_use_jit_fork(prev)
 
 
-def test_smoke_jit_forked_lowering_eager_fallback():
+def test_smoke_jit_forked_lowering2():
     prev = bc.get_pt_hpu_use_jit_fork()
     bc.set_pt_hpu_use_jit_fork(True)
     t = torch.tensor([1.0], device="hpu")
 
     @torch.compile(backend="hpu_backend")
     def smoke(x):
-        y = torch.tensor([2.0]).to(device="hpu")
+        y = torch.tensor([2.0], device="hpu")
         return y + x
 
     _ = smoke(t)
