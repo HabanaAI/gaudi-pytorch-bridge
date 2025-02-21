@@ -64,8 +64,8 @@ in_place_interleave                        No      Yes       No       No       N
 kv_reorder                                Yes      Yes      Yes       No      Yes       Yes       No        Yes        No       No
 masked_batch_gemm                         Yes      Yes      Yes       No       No        No       No        Yes        No       No
 ragged_softmax                            Yes      Yes      Yes       No       No        No       No         No        No       No
-mixture_of_experts                        Yes      Yes      Yes       No       No        No       No        Yes        No       No
-mixture_of_experts.fused_weights          Yes      Yes      Yes       No       No        No       No        Yes        No       No
+mixture_of_experts                        Yes      Yes      No        No       No        No       No        Yes        No       No
+mixture_of_experts.fused_weights          Yes      Yes      No        No       No        No       No        Yes        No       No
 rotary_pos_embedding                      Yes      Yes      Yes       No       No        No       No         No        No       No
 rotary_pos_embedding_backward             Yes      Yes      Yes       No       No        No       No         No        No       No
 ctc_loss_custom                           Yes      Yes      Yes       No       No        No       No         No        No       No

@@ -34,7 +34,7 @@ from test_utils import (
     is_pytest_mode_compile,
 )
 
-DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16, torch.half]
+DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16]
 ACTIVATIONS = ["silu"]  # ["gelu", "relu", "silu"]
 HIDDEN_DIMS = [64]
 FFN_DIMS = [224]
