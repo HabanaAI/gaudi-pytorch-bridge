@@ -356,8 +356,8 @@ void strided_insert_hpu_lazy(
     const Tensor& insert_t,
     bool is_flush) {
   PT_LAZY_TRACE;
-  auto hl_self = GetHbLazyTensor(self, true, false);
-  auto& stride_params_opt = hl_self.getDataPtr()->stride_params;
+  auto& stride_params_opt =
+      GetHbLazyTensor(self, true, true).getDataPtr()->stride_params;
   TORCH_CHECK(stride_params_opt.has_value(), "incorrect tensor id");
   StrideParams& params = stride_params_opt.value();
 
@@ -371,39 +371,9 @@ void strided_insert_hpu_lazy(
   auto recent_insert_t = HbLazyTensorViews::get_recent_base_tensor(insert_t);
   auto back_to_back_slices = HbLazyTensorViews::getSliceInsertParams(
       recent_orig_t, recent_insert_t, params);
-  auto mark_step_func = [&]() {
-    if (hl_self.IsCollective() &&
-        (!habana_lazy::AccThread::IsAccThreadEnabled() ||
-         !habana_lazy::AccThread::Get().inAccThreadContext())) {
-      habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
-    }
-  };
-
-  auto is_support_fuse_func = [&]() -> bool {
-    if (hl_self.IsCollective()) {
-      auto hl_insert = GetHbLazyTensor(insert_t, true, false);
-      auto value = hl_insert.CurrentIrValue();
-      auto& mp_node = value.mp_node;
-      if (mp_node && !mp_node->is_control_edge()) {
-        std::string node_name = (std::string)mp_node->op().toQualString();
-        if (strcmp(node_name.c_str(), "hccl::alltoall_out") == 0) {
-          auto& meta_data = mp_node->GetMetaData();
-          auto outputSplitSizes = meta_data.get(2).toIntVector();
-          auto inputSplitSizes = meta_data.get(3).toIntVector();
-          if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
-            return true;
-          }
-        } else if (strcmp(node_name.c_str(), "hccl::allgather_out") == 0) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
 
   at::Tensor out;
   if (back_to_back_slices.empty()) {
-    mark_step_func();
     out = add_strided_insert_node(
         recent_orig_t,
         recent_insert_t,
@@ -411,19 +381,8 @@ void strided_insert_hpu_lazy(
         params.offset,
         is_flush);
   } else {
-    bool env_fuse = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE);
-    auto& dim = params.params.slice_param.dim;
-    auto& step = params.params.slice_param.step;
-    bool need_fuse =
-        env_fuse && dim == 0 && step == 1 && is_support_fuse_func();
-    if (!need_fuse) {
-      mark_step_func();
-    }
     out = add_slice_insert_node(
         recent_orig_t, recent_insert_t, back_to_back_slices);
-    if (need_fuse) {
-      mark_step_func();
-    }
   }
 
   // update orig tensor map

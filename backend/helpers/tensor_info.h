@@ -258,18 +258,6 @@ class PtTensorInfo {
   void set_offset(synapse_helpers::device_ptr val) {
     offset_ = val;
   }
-  synapse_helpers::device_ptr get_external_offset() const {
-    return external_offset_;
-  }
-  void set_external_offset(synapse_helpers::device_ptr val) {
-    external_offset_ = val;
-  }
-  uint64_t get_external_numel() const {
-    return external_numel_;
-  }
-  void set_external_numel(uint64_t val) {
-    external_numel_ = val;
-  }
 
   void set_shape(const std::vector<int64_t>& shape) {
     shape_ = shape;
@@ -395,9 +383,6 @@ class PtTensorInfo {
   void* buffer_start_{nullptr};
   // offset is used for view tensor only
   synapse_helpers::device_ptr offset_{0};
-  // external_offset_ and external_numel_ are used for collective ops only
-  synapse_helpers::device_ptr external_offset_{(uint64_t)-1};
-  uint64_t external_numel_{(uint64_t)-1};
   std::string ir_name_;
   std::string syn_name_;
 

@@ -185,11 +185,9 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, hb_internal_perm_);
   deserialize(is, hb_dont_allow_permute_);
   deserialize(is, offset_);
-  deserialize(is, external_offset_);
   deserialize(is, ir_name_);
   deserialize(is, syn_name_);
   deserialize(is, numel_);
-  deserialize(is, external_numel_);
   deserialize(is, size_);
   deserialize(is, is_duplicate_);
   deserialize(is, parent_index_);
@@ -216,11 +214,9 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, hb_internal_perm_);
   serialize(os, hb_dont_allow_permute_);
   serialize(os, offset_);
-  serialize(os, external_offset_);
   serialize(os, ir_name_);
   serialize(os, syn_name_);
   serialize(os, numel_);
-  serialize(os, external_numel_);
   serialize(os, size_);
   serialize(os, is_duplicate_);
   serialize(os, parent_index_);

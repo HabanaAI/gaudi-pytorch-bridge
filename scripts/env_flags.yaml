@@ -789,10 +789,6 @@ PT_HPU_GPU_MIGRATION:
   default: false
   doc: "Option to enable GPU Migration Toolkit"
 
-PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE:
-  type: bool
-  default: true
-
 PT_HPU_LOP_JIT_WARM_UP_STEPS:
   type: unsigned
   default: 5

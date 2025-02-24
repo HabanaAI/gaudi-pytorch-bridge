@@ -281,22 +281,9 @@ void collective(
 
       void* input_address;
       void* output_address;
-      auto input_buffer = input->get_buffer();
-      auto output_buffer = output->get_buffer();
-      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE)) {
-        auto external_offset = input->get_external_offset();
-        if (external_offset != (uint64_t)-1) {
-          input_buffer =
-              (char*)input->get_buffer_start() + input->get_external_offset();
-        }
-        external_offset = output->get_external_offset();
-        if (external_offset != (uint64_t)-1) {
-          output_buffer =
-              (char*)output->get_buffer_start() + output->get_external_offset();
-        }
-      }
       deviceCtxt->lock_address(
-          {input_buffer, output_buffer}, resource_holder->address_lock);
+          {input->get_buffer(), output->get_buffer()},
+          resource_holder->address_lock);
       input_address =
           reinterpret_cast<void*>(resource_holder->address_lock->at(0));
       HABANA_ASSERT(input_address != nullptr, "input_address is null");
@@ -736,7 +723,7 @@ void HcclAllToAllOutOperator::RunCollective(
             void* recv_buffer,
             std::shared_ptr<HcclCommunicator> comm,
             synStreamHandle stream) {
-          int64_t count = CollectiveOperator::GetNumel(input);
+          int64_t count = input->get_numel();
           auto type = getHCCLDataType(scalar_type);
           getCountDatatype(scalar_type, count, type);
           hcclResult_t hccl_result{hcclSuccess};
@@ -879,7 +866,7 @@ void HcclAllgatherOutOperator::RunCollective(
           std::shared_ptr<HcclCommunicator> comm,
           synStreamHandle stream) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
-        int64_t numel = CollectiveOperator::GetNumel(input);
+        int64_t numel = input->get_numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
         hcclResult_t hccl_result = hcclAllGather(
             send_buffer,
