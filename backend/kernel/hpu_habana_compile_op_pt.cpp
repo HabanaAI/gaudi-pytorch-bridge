@@ -33,7 +33,7 @@ void CompileSynapseTaskWrapper(
       (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_COMPILE_ID,
       launch_op.get_graph_key(),
       launch_op.get_jit_graph_cache_hit_count(),
-      HPUDeviceContext::compile_thread_pool().get_active_task_count(),
+      HPUDeviceContext::compile_thread().get_active_task_count(),
       device_queue_length);
 
   if (func)

@@ -54,7 +54,7 @@ void WorkTask() {
 
 void ProducerTask() {
   for (int i = 0; i < 10; i++) {
-    habana::HPUDeviceContext::compile_thread_pool().enqueue(WorkTask);
+    habana::HPUDeviceContext::compile_thread().enqueue(WorkTask);
   }
 }
 
@@ -66,20 +66,20 @@ TEST_F(EagerPipelineTest, PipelineThrottling) {
   at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
 
   auto& lowering_thread = habana::HPUDeviceContext::lowering_thread();
-  auto& compile_thread_pool = habana::HPUDeviceContext::compile_thread_pool();
+  auto& compile_thread = habana::HPUDeviceContext::compile_thread();
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 2, 1);
   lowering_thread.enqueue(ProducerTask);
 
   auto producer_task = lowering_thread.get_active_task_count();
   while (producer_task > 0) {
-    auto work_task = compile_thread_pool.get_active_task_count();
+    auto work_task = compile_thread.get_active_task_count();
     ASSERT_LE(work_task, 2) << "Number of tasks exceeds capacity.";
     std::this_thread::yield();
     producer_task = lowering_thread.get_active_task_count();
   }
 
   lowering_thread.waitWorkComplete();
-  compile_thread_pool.waitWorkComplete();
+  compile_thread.waitWorkComplete();
 
   SET_ENV_FLAG_NEW(
       PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity, 1);
@@ -89,9 +89,9 @@ TEST_F(EagerPipelineTest, CompileError) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana::HPUDeviceContext::compile_thread_pool().enqueue(CompileTask, true);
+  habana::HPUDeviceContext::compile_thread().enqueue(CompileTask, true);
   EXPECT_ANY_THROW(
-      habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete());
+      habana::HPUDeviceContext::compile_thread().waitWorkComplete());
   SET_ENV_FLAG_NEW(
       PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity_, 1);
 }
