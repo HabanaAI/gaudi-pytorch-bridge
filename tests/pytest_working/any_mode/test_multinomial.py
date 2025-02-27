@@ -61,7 +61,7 @@ def test_multinomial_output(dtype):
     diff = torch.abs(result_prob - original_prob)
     standard_error = torch.sqrt((original_prob * (1 - original_prob)) / N)
 
-    assert np.all((3 * standard_error > diff).numpy())
+    assert np.alltrue((3 * standard_error > diff).numpy())
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("habana_multinomial")
