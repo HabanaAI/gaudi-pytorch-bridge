@@ -419,14 +419,14 @@ def get_model_with_observer(model):
         habana_quant_config_symmetric,
         habana_quantizer,
     )
-    from torch._export import capture_pre_autograd_graph
     from torch.ao.quantization.quantize_pt2e import prepare_pt2e
+    from torch.export import export_for_training
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(torch.float8_e4m3fn)
     quantizer.set_global(quant_config)
 
-    exported_model = capture_pre_autograd_graph(model)
+    exported_model = export_for_training(model)
     prepared_model = prepare_pt2e(exported_model, quantizer)
 
     return prepared_model

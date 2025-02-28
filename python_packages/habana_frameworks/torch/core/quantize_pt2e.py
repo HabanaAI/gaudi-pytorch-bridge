@@ -437,7 +437,7 @@ def export(
         habana_pt2e_quant_context = None
         if kwargs is not None and "graph_break_present" in kwargs:
             kwargs.pop("graph_break_present")
-        model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
+        model = _native_pt2e_quantization_interface("export")(f, args, kwargs)
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
         model.multi_graph = False
         export_model_record[id_model] = [model, habana_pt2e_quant_context]

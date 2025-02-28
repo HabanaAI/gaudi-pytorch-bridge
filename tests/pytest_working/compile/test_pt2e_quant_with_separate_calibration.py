@@ -160,26 +160,25 @@ def use_pt2e_quant_flow_with_separate_calibration(
     inputs0 = inputs0.to(HPU)
     inputs1 = inputs1.to(HPU)
     inputs2 = inputs2.to(HPU)
-    example_inputs0 = [
-        inputs0,
-    ]
-    example_inputs1 = [
-        inputs1,
-    ]
-    example_inputs2 = [
-        inputs2,
-    ]
+    example_inputs0 = (inputs0,)
+    example_inputs1 = (inputs1,)
+    example_inputs2 = (inputs2,)
 
     model.to(device=HPU)
     model.eval()
 
     with torch.no_grad():
-        from torch._export import capture_pre_autograd_graph
+        from habana_frameworks.torch.core.torch_overwrites import (
+            overwrite_export_for_training,
+        )
+        from torch.export import export_for_training
+
+        overwrite_export_for_training()
 
         if pass_input_during_export:
-            model = capture_pre_autograd_graph(model, example_inputs0)
+            model = export_for_training(model, example_inputs0)
         else:
-            model = capture_pre_autograd_graph(model)
+            model = export_for_training(model)
 
         if save_or_load == "save":
             with FxGraphAnalyzer(reset_dynamo=False) as fga:
