@@ -1637,7 +1637,7 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
         if node.op == "call_function":
             if resolve_negative_dim.required(node):
                 py_node_manager.set_insert_point(node.prev)
-                graph_changed = resolve_negative_dim(ctx, node)
+                graph_changed = resolve_negative_dim(ctx, node) or graph_changed
 
     if graph_changed:
         ctx.graph_module.recompile()
