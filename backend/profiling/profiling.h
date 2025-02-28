@@ -32,7 +32,6 @@ std::string getThreadName();
 enum class ActivityType { KERNEL, RUNTIME, MEMCPY, MEMSET, CPU_INSTANT_EVENT };
 enum class TraceSourceVariant : unsigned {
   SYNAPSE_PROFILER = 0,
-  SYNAPSE_LOGGER = 10000,
   BRIDGE_LOGS = 20000,
   MEMORY_LOGS = 30000
 };
@@ -132,7 +131,6 @@ class Profiler {
  public:
   Profiler(TraceSink& sink);
   void init_sources(
-      bool synapse_logger,
       bool bridge,
       bool memory,
       const std::vector<std::string>& mandatory_events);

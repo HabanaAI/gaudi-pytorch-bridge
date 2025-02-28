@@ -25,7 +25,6 @@
 
 #include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/runtime_tracing.h"
 
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
@@ -284,7 +283,6 @@ class PTFuncLog {
               ": begin of ",
               pName));
     }
-    synapse_helpers::trace_start(name.data());
     habana::profile::bridge::trace_start(name);
   }
   ~PTFuncLog() {
@@ -294,7 +292,6 @@ class PTFuncLog {
           FORMAT_AND_MSG(
               "[Rank:", Logger::get_rank(), "] ", module, ": end of ", pName));
     }
-    synapse_helpers::trace_end(name.data());
     habana::profile::bridge::trace_end(name);
   }
 };

@@ -364,7 +364,7 @@ build_pytorch_modules()
         fi
     fi
 
-    "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py $__variables_to_build
+    TORCH_DEVICE_BACKEND_AUTOLOAD=0 "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py $__variables_to_build
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Failed to run build.py. Exit code: " $__result

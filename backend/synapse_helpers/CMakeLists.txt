@@ -31,7 +31,6 @@ add_habana_library(
   habana_tensor.cpp
   hccl_communicator.cpp
   host_memory.cpp
-  logger_stub.cpp
   lightweight_memory_usage_logger.cpp
   mem_handle.cpp
   $<$<TARGET_EXISTS:npu::specs_embedded>:mem_hlml.cpp>

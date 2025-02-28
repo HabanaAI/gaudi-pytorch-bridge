@@ -18,7 +18,6 @@
 #include <stdexcept>
 #include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/profiling/trace_sources/memory_source.h"
-#include "backend/profiling/trace_sources/synapse_logger_source.h"
 #include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include "backend/synapse_helpers/env_flags.h"
 
@@ -45,8 +44,6 @@ int64_t getOffset(TraceSourceVariant variant) {
   switch (variant) {
     case TraceSourceVariant::SYNAPSE_PROFILER:
       return 0;
-    case TraceSourceVariant::SYNAPSE_LOGGER:
-      return 10000;
     case TraceSourceVariant::BRIDGE_LOGS:
       return 0;
     case TraceSourceVariant::MEMORY_LOGS:
@@ -58,7 +55,6 @@ int64_t getOffset(TraceSourceVariant variant) {
 Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {}
 
 void Profiler::init_sources(
-    bool synapse_logger,
     bool bridge,
     bool memory,
     const std::vector<std::string>& mandatory_events) {
@@ -68,10 +64,6 @@ void Profiler::init_sources(
   trace_sources_.clear();
 
   trace_sources_.push_back(std::make_unique<SynapseProfilerSource>());
-  if (synapse_logger || !mandatory_events.empty()) {
-    trace_sources_.push_back(std::make_unique<SynapseLoggerSource>(
-        synapse_logger, mandatory_events));
-  }
   if (bridge || !mandatory_events.empty()) {
     trace_sources_.push_back(
         std::make_unique<BridgeLogsSource>(bridge, mandatory_events));

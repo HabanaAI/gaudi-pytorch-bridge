@@ -480,8 +480,6 @@ if(BUILD_PKGS)
     habana_frameworks/torch/utils/lib_utils.py
     habana_frameworks/torch/utils/library_loader.py
     habana_frameworks/torch/utils/version_checker.py
-    habana_frameworks/torch/utils/profiler/__init__.py
-    habana_frameworks/torch/utils/profiler/csrc/bindings.cpp
     LICENSE.txt
     setup.py
     torch_hpu/__init__.py)

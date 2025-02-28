@@ -52,12 +52,11 @@ void export_profiler_logs(std::string_view path) {
   JsonActivityProfiler::exportProfilerLogs(path);
 }
 void setup_profiler_sources(
-    bool synapse_logger,
     bool bridge,
     bool memory,
     const std::vector<std::string>& mandatory_events) {
   JsonActivityProfiler::instance()->init_sources(
-      synapse_logger, bridge, memory, mandatory_events);
+      bridge, memory, mandatory_events);
 }
 void start_profiler_session() {
   JsonActivityProfiler::instance()->start();

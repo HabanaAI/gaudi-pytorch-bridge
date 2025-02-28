@@ -18,8 +18,6 @@
 
 #include <synapse_api.h> // IWYU pragma: keep
 
-#include "synapse_logger/synapse_logger_observer.h"
-
 #define SYN_API_SYMBOL_VISIT(visitor)         \
   visitor(synDeviceSynchronize);              \
   visitor(synStreamCreateGeneric);            \
@@ -141,6 +139,5 @@ struct synapse_api_t {
 extern synapse_api_t* syn_api;
 synapse_api_t* GetSynapseApi();
 void EnableSynapseApi();
-void EnableSynapseApiLogger(synapse_logger::SynapseLoggerObserver*);
 void EnableSynapseApiStub();
 void EnableNullHw();

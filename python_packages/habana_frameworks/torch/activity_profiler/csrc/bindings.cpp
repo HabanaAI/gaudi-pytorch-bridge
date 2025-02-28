@@ -27,14 +27,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def(
       "_setup_activity_profiler_sources",
-      [](bool synapse_logger,
-         bool bridge,
-         bool memory,
-         std::vector<std::string> mandatory_events) {
+      [](bool bridge, bool memory, std::vector<std::string> mandatory_events) {
         habana::profile::setup_profiler_sources(
-            synapse_logger, bridge, memory, mandatory_events);
+            bridge, memory, mandatory_events);
       },
-      py::arg("synapse_logger") = "",
       py::arg("bridge") = "",
       py::arg("memory") = "",
       py::arg("mandatory_events") = "");

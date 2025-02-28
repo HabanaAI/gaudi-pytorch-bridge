@@ -71,7 +71,6 @@ add_habana_library(
   profiling/json_activity_profiler.cpp
   profiling/json_file_parser.cpp
   profiling/profiling.cpp
-  profiling/trace_sources/synapse_logger_source.cpp
   profiling/trace_sources/synapse_profiler_source.cpp
   profiling/trace_sources/bridge_logs_source.cpp
   profiling/trace_sources/trace_parser.cpp

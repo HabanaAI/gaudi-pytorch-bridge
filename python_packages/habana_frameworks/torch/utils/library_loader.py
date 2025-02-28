@@ -26,8 +26,6 @@ from habana_frameworks.torch import _hpu_C
 import torch
 
 _mandatory_libs = ["libhabana_pytorch_plugin.so"]
-# must be preloaded before _mandatory_libs for profiler to work
-_profiler_libs = ["pytorch_synapse_logger.so"]
 
 
 def _check_modules_directory(directory, library_list=[]):
@@ -109,7 +107,3 @@ def _load_habana_module(library_list):
 
 def load_habana_module():
     _load_habana_module(_mandatory_libs)
-
-
-def load_habana_profiler():
-    _load_habana_module(_profiler_libs)

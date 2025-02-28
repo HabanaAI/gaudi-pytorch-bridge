@@ -861,7 +861,6 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
         pmake(f"{destination}/all {destination}/wheel_install: intermediate/$$(notdir $$@)")
         pmake("\tDESTINATION=$(dir $@);\\")
         pmake("\trm $$DESTINATION/*.so* 2>/dev/null;\\")
-        pmake("\trm $$DESTINATION/*.py 2>/dev/null;\\")
         pmake("\trm $$DESTINATION/test_* 2>/dev/null;\\")
         pmake("\tmkdir -p $$DESTINATION && \\")
         for pt_ver_and_src in lib_versions:
@@ -869,7 +868,6 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
             pmake(f'\techo "Copying {pt_ver_and_src.version} targets from {source} to $$DESTINATION" &&\\')
             pmake(f"\tcp -fs {source}/*.so $$DESTINATION && \\")
             pmake(f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\")  # skip if not building tests
-        pmake(f"\tcp -fs {source}/*.py $$DESTINATION && \\")
         cmake_config_upper = cmake_config.upper()
         pmake(
             f'\tfind {debugopts_for_find} $$DESTINATION -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
@@ -1099,6 +1097,7 @@ def append_cmake_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFla
         cmake_flags.insert("UPSTREAM_COMPILE", "ON")
     is_cxx11_abi = (
         outof(
+            "TORCH_DEVICE_BACKEND_AUTOLOAD=0",
             get_python_exec(build_env),
             "-c",
             "'import torch; print(torch.compiled_with_cxx11_abi())'",
@@ -1338,6 +1337,7 @@ def add_python_env_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeF
 
 def query_torch_path(venv_python: str, venv_dir: str) -> str:
     return outof(
+        "TORCH_DEVICE_BACKEND_AUTOLOAD=0",
         venv_python,
         "-c",
         "'import torch; print(torch.__path__[0])'",

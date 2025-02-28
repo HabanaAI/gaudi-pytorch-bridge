@@ -22,7 +22,6 @@ namespace habana {
 namespace profile {
 void export_profiler_logs(std::string_view path);
 void setup_profiler_sources(
-    bool synapse_logger,
     bool bridge,
     bool memory,
     const std::vector<std::string>& mandatory_events);

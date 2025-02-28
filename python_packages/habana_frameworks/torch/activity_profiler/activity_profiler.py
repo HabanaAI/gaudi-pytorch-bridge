@@ -14,14 +14,15 @@
 #  limitations under the License.
 #
 ###############################################################################
-
-
+import logging
 from enum import Enum
 
 import habana_frameworks.torch.utils._activity_profiler_C as hpu_profiler
 from habana_frameworks.torch.utils.internal import is_lazy
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 class DebugActivity(Enum):
@@ -88,12 +89,11 @@ def register_habana_activity_profiler():
             )
             self.hpu_profiling_active = torch.profiler.ProfilerActivity.HPU in activities
             activities = [self._exchange_activity(activity) for activity in activities]
-            synapse_logger = debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities
             bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
+            if DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities:
+                logger.warning("DebugActivity.SYNAPSE_FUNCTION_CALLS is no longer supported in bridge")
             mandatory_events = self._get_mandatory_events()
-            hpu_profiler._setup_activity_profiler_sources(
-                synapse_logger, bridge_profile, profile_memory, mandatory_events
-            )
+            hpu_profiler._setup_activity_profiler_sources(bridge_profile, profile_memory, mandatory_events)
 
             super().__init__(
                 activities=activities,
