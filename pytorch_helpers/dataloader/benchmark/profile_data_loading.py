@@ -22,8 +22,7 @@ import time
 import habana_torch_dataloader
 import matplotlib
 import torch
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
+from torchvision import datasets, transforms
 
 X = []
 Y = []

@@ -36,7 +36,7 @@ def test_weight_norm_fwd_bwd(dtype):
             super().__init__()
             m = nn.Linear(in_numel, out_numel, bias=False)
             m.weight = nn.Parameter(w)
-            self.layer = nn.utils.weight_norm(m, dim=dim)
+            self.layer = nn.utils.parametrizations.weight_norm(m, dim=dim)
 
         def forward(self, x):
             return self.layer(x)

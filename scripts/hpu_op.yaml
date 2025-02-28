@@ -2177,17 +2177,6 @@ channel_shuffle:
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
-cholesky:
-  guid: cholesky_fwd
-  op_backend: Cholesky
-  out_ids: [0]
-  op_validator: CholeskySharedMeta
-
-cholesky.out:
-  guid: cholesky_fwd
-  op_backend: Cholesky
-  op_validator: CholeskySharedMeta
-
 clamp:
   custom_fill_params: FillClampParams
   promote_to_common_type: [self, min, max]

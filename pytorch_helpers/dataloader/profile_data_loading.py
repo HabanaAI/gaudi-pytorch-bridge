@@ -32,9 +32,8 @@ import sys
 import time
 
 import torch
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
 from mpi4py import MPI
+from torchvision import datasets, transforms
 
 # DATA_LOADER_AEON_LIB_PATH='/home/janand/trees/npu-stack/tf_aeon/lib_python/aeon.so'
 DATA_LOADER_AEON_LIB_PATH = "/home/janand/trees/npu-stack/dev/data_loader/build/lib/aeon.so"

@@ -248,7 +248,7 @@ def test_cached_module_training(disable_tensor_cache, dry_run, save_model=False)
 
     if save_model:
         torch.save(model, "model.pb")
-        model = torch.load("model.pb")
+        model = torch.load("model.pb", weights_only=True)
     loss_original, m_original = train_model()
     model.load_state_dict(state_dict)
 
@@ -256,7 +256,7 @@ def test_cached_module_training(disable_tensor_cache, dry_run, save_model=False)
 
     if save_model:
         torch.save(model, "model_cached.pb")
-        model = torch.load("model_cached.pb")
+        model = torch.load("model_cached.pb", weights_only=True)
 
     loss_cached, m_cached = train_model()
     assert loss_original == loss_cached

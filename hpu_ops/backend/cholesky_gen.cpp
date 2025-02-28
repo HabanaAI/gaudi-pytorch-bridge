@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "generated/backend/cholesky.h"
 #include "generated/backend/linalg_cholesky_ex.h"
 
 namespace sh = synapse_helpers;

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ from test_utils import (
         (torch.linalg.cholesky_ex, True),
         (torch.linalg.cholesky_ex, False),
         (torch.linalg.cholesky, None),
-        (torch.cholesky, None),
     ],
 )
 def test_hpu_cholesky(shape, upper, check_errors, op):
@@ -48,11 +47,10 @@ def test_hpu_cholesky(shape, upper, check_errors, op):
     hpu_A = cpu_A.to("hpu")
 
     result_cpu = op(cpu_A, **kwargs)
-    op_name = "cholesky" if op == torch.cholesky else "linalg_cholesky_ex"
     op = compile_function_if_compile_mode(op)
     result_hpu = op(hpu_A, **kwargs)
 
     compare_tensors(result_hpu, result_cpu, 1e-5, 1e-5)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir(op_name)
+        check_ops_executed_in_jit_ir("linalg_cholesky_ex")

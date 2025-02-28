@@ -304,7 +304,7 @@ def overwrite_torch_functions():
 
             if dummy_mode == 2:
                 if path.exists(tensor_file):
-                    tensor = torch.load(tensor_file).to("hpu")
+                    tensor = torch.load(tensor_file, weights_only=True).to("hpu")
                     print("Dummy Mode: " + tensor_file + " loaded.")
                 else:
                     irecv_aux.dummy_mode_seq = 0
@@ -317,7 +317,7 @@ def overwrite_torch_functions():
                     )
                     if path.exists(tensor_file):
                         print("Dummy Mode: " + tensor_file + " loaded.")
-                        tensor = torch.load(tensor_file).to("hpu")
+                        tensor = torch.load(tensor_file, weights_only=True).to("hpu")
                     else:
                         raise Exception(
                             "Attempting to run HPU Dummy Mode but needed file " + tensor_file + " does not exist!"

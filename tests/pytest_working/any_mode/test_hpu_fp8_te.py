@@ -1433,7 +1433,7 @@ class VanillaAttnFunc(torch.autograd.Function):
         OVERRIDE_TE_SDPA_DOUT_PATH = os.getenv("PT_TE_OVERRIDE_SDPA_DOUT", "")
         if OVERRIDE_TE_SDPA_DOUT_PATH:
             print(f"Overriding VanillaAttnFunc dout with {OVERRIDE_TE_SDPA_DOUT_PATH}")
-            dout = torch.load(OVERRIDE_TE_SDPA_DOUT_PATH).to("cpu")
+            dout = torch.load(OVERRIDE_TE_SDPA_DOUT_PATH, weights_only=True).to("cpu")
         torch.autograd.backward(ctx.out, dout)
         return ctx.query.grad, ctx.key.grad, ctx.value.grad, None, None, None, None, None
 
@@ -1547,9 +1547,9 @@ def test_te_fused_sdpa(
 
     USE_REAL_DATA_PATH = os.getenv("USE_REAL_DATA", "")
     if USE_REAL_DATA_PATH:
-        q = torch.load(f"{USE_REAL_DATA_PATH}_q_1.pt").to("cpu")
-        k = torch.load(f"{USE_REAL_DATA_PATH}_k_1.pt").to("cpu")
-        v = torch.load(f"{USE_REAL_DATA_PATH}_v_1.pt").to("cpu")
+        q = torch.load(f"{USE_REAL_DATA_PATH}_q_1.pt", weights_only=True).to("cpu")
+        k = torch.load(f"{USE_REAL_DATA_PATH}_k_1.pt", weights_only=True).to("cpu")
+        v = torch.load(f"{USE_REAL_DATA_PATH}_v_1.pt", weights_only=True).to("cpu")
         fwd_out_shape = (q.shape[0], q.shape[1], q.shape[2], v.shape[3], q.shape[4])
         g = torch.ones(fwd_out_shape).to(grad_dtype)
 
@@ -2001,7 +2001,7 @@ def test_save_load_te_module_indirectly(
         elif isinstance(extra_state, io.BytesIO):
             FIRST_CHARACTER = 0
             extra_state.seek(FIRST_CHARACTER)
-            extra_state = torch.load(extra_state)
+            extra_state = torch.load(extra_state, weights_only=True)
 
         return extra_state
 

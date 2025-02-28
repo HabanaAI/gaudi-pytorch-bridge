@@ -20,6 +20,14 @@ repos:
     hooks:
       - id: git-clang-format
         exclude: ^(scripts/tests/files/|.devops/patches/)
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        name: TorchFix
+        args: ["--select=TOR0,TOR102,TOR103,TOR2"]
+        additional_dependencies:
+          - torchfix==0.7.0
   - repo: local
     hooks:
       - id: check-bash-syntax
