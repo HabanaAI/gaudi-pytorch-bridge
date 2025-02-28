@@ -195,10 +195,7 @@ class habana_quantizer(Quantizer):
                     weight_node = None
                     bias_node = None
                     for node in p.params:
-                        try:
-                            weight_or_bias = getattr(gm, node.target)  # type: ignore[arg-type]
-                        except:
-                            continue
+                        weight_or_bias = getattr(gm, node.target)  # type: ignore[arg-type]
                         if weight_or_bias.ndim == 2:  # type: ignore[attr-defined]
                             weight_node = node
                         if weight_or_bias.ndim == 1:  # type: ignore[attr-defined]

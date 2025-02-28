@@ -563,7 +563,7 @@ def overwrite_torch_functions():
 # The fields that hold the implementations are set when overwrite_native_pt2e_quantization_interface() is called
 class NativeFunctions:
     org_export = None
-    _did_overwrite_export_for_training = False
+    _did_overwrite_capture_pre_autograd_graph = False
     org_prepare_pt2e = None
     org_convert_pt2e = None
     org_save_pt2e = None
@@ -584,7 +584,7 @@ def _native_pt2e_quantization_interface(name):
     ):
         overwrite_native_pt2e_quantization_interface()
     if NativeFunctions.org_export is None:
-        overwrite_export_for_training()
+        overwrite_capture_pre_autograd_graph()
     if name == "export":
         return NativeFunctions.org_export
     elif name == "prepare_pt2e":
@@ -599,17 +599,17 @@ def _native_pt2e_quantization_interface(name):
         return None
 
 
-def overwrite_export_for_training():
+def overwrite_capture_pre_autograd_graph():
     # calling this function more than one time makes the wrapper wrap itself, causing infinite recursion, hence the guard to make sure it doesn't happen
-    if NativeFunctions._did_overwrite_export_for_training:
+    if NativeFunctions._did_overwrite_capture_pre_autograd_graph:
         return
 
-    NativeFunctions._did_overwrite_export_for_training = True
-    NativeFunctions.org_export = torch.export.export_for_training
+    NativeFunctions._did_overwrite_capture_pre_autograd_graph = True
+    NativeFunctions.org_export = torch._export.capture_pre_autograd_graph
 
     # wrap capture_pre_autograd_graph
-    @wraps(torch.export.export_for_training)
-    def wrap_export_for_training(
+    @wraps(torch._export.capture_pre_autograd_graph)
+    def wrap_capture_pre_autograd_graph(
         f: torch.nn.Module,
         args: tuple[Any] = None,
         kwargs: dict[str, Any] | None = None,
@@ -619,7 +619,7 @@ def overwrite_export_for_training():
 
         return export(f, args, kwargs, dynamic_shapes)
 
-    torch.export.export_for_training = wrap_export_for_training
+    torch._export.capture_pre_autograd_graph = wrap_capture_pre_autograd_graph
 
 
 def overwrite_native_pt2e_quantization_interface():
