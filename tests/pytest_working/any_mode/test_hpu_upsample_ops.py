@@ -72,9 +72,13 @@ class TestHpuUpsample:
             pytest.xfail(
                 "Unsupported dtype on CPU: `only Tensors of floating point and complex dtype can require gradients`"
             )
-        if antialias and (
-            (shape == (2, 2, 3, 3) and size == (6, 6) and scale_factor is None)
-            or (shape == (2, 2, 3, 3) and size is None and scale_factor == [1, 2])
+        if (
+            antialias
+            and (
+                (shape == (2, 2, 3, 3) and size == (6, 6) and scale_factor is None)
+                or (shape == (2, 2, 3, 3) and size is None and scale_factor == [1, 2])
+            )
+            and variant == "bwd"
         ):
             pytest.skip("Unsupported test configuration (aten::_upsample_bicubic2d_aa.out is not yet supported on HPU)")
         if is_gaudi3 and pytest.mode != "eager" and not antialias and size is None:

@@ -505,17 +505,57 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
   }
   return out_shape;
 }
+// Forward Meta Function - Bicubic2D AA
+std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(
+    const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  auto scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  std::vector<int64_t> out_shape;
+  if (!out_size.isNone()) {
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        out_size.toIntVector().at(0),
+        out_size.toIntVector().at(1)};
+  } else if (scale_w != 1.0 || scale_h != 1.0) {
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
+        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+  }
+  return out_shape;
+}
 // Forward Meta Function - Bicubic2D
 OutputMetaDataVector UpsampleBicubic2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
-  std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
 
   OutputMetaData meta;
   meta.shape = UpsampleBicubic2DFwdOutputShapeSynapseLayout(stack);
+  meta.dtype = self.scalar_type();
+
+  CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
+      self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
+
+  return {meta};
+}
+// Forward Meta Function - Bicubic2D AA
+OutputMetaDataVector UpsampleBicubic2DFwdMetaAA(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_h = stack.at(3).toOptional<double>();
+  auto scale_w = stack.at(4).toOptional<double>();
+  upsample_exact_2d_check(self, out_size);
+  check_null_inputs_2d(out_size, scale_h, scale_w);
+
+  OutputMetaData meta;
+  meta.shape = UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(stack);
   meta.dtype = self.scalar_type();
 
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
@@ -804,6 +844,31 @@ std::shared_ptr<void> FillBicubicFwdParams(
       scale_d,
       align_corners,
       false /*antialias*/);
+}
+
+std::shared_ptr<void> FillBicubicFwdParamsAA(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(2).toBool();
+  // scales
+  auto scales = stack.at(3);
+  double scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_d = 1.0;
+  bool antialias = true;
+  return FillResizeParams(
+      self.dim(),
+      size,
+      bicubic,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
 }
 
 std::shared_ptr<void> FillBicubicBwdParams(
