@@ -1712,7 +1712,7 @@ lazy_frontend_blacklist = [
 ]
 
 # List of ops that shouldn't be generated in eager mode
-eager_frontend_blacklist = []
+eager_frontend_blacklist = ["im2col", "im2col.out"]
 
 
 def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False, ns="aten"):
