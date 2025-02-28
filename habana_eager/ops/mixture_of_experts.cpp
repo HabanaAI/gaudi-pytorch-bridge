@@ -718,71 +718,56 @@ static at::Tensor mixture_of_experts_fp8_common(
     const at::Tensor current_expert_w3 =
         permuted_weights ? w3[expert_idx].transpose(0, 1) : w3[expert_idx];
 
-    auto hidden_states_w1 = activation_fn(std::get<0>(cast_to_fp8_v2(
-        fp8_gemm_v2(
-            hidden_states,
-            false,
-            current_expert_w1,
-            false,
-            std::nullopt,
-            torch::kBFloat16,
-            default_scale,
-            d_scale_w1[expert_idx],
-            std::nullopt,
-            false,
-            std::nullopt),
-        default_scale,
+    auto hidden_states_w1 = activation_fn(fp8_gemm_v2(
+        hidden_states,
         false,
+        current_expert_w1,
         false,
-        fp8_type,
-        std::nullopt)));
-
-    auto hidden_states_w2 = std::get<0>(cast_to_fp8_v2(
-        fp8_gemm_v2(
-            hidden_states,
-            false,
-            current_expert_w2,
-            false,
-            std::nullopt,
-            torch::kBFloat16,
-            default_scale,
-            d_scale_w2[expert_idx],
-            std::nullopt,
-            false,
-            std::nullopt),
-        default_scale,
+        std::nullopt,
+        torch::kBFloat16,
+        d_scale_hidden_states,
+        d_scale_w1[expert_idx],
+        std::nullopt,
         false,
-        false,
-        fp8_type,
         std::nullopt));
+
+    auto hidden_states_w2 = fp8_gemm_v2(
+        hidden_states,
+        false,
+        current_expert_w2,
+        false,
+        std::nullopt,
+        torch::kBFloat16,
+        d_scale_hidden_states,
+        d_scale_w2[expert_idx],
+        std::nullopt,
+        false,
+        std::nullopt);
 
     auto hidden_states_w12 = hidden_states_w1 * hidden_states_w2;
 
-    auto hidden_states_w3 = std::get<0>(cast_to_fp8_v2(
-        fp8_gemm_v2(
-            hidden_states_w12,
-            false,
-            current_expert_w3,
-            false,
-            std::nullopt,
-            torch::kBFloat16,
-            d_scale_intermediate_hidden_states[expert_idx],
-            d_scale_w3[expert_idx],
-            std::nullopt,
-            false,
-            std::nullopt),
-        default_scale,
+    hidden_states_w12 = std::get<0>(cast_to_fp8_v2(
+        hidden_states_w12,
+        d_scale_intermediate_hidden_states[expert_idx],
         false,
         false,
         fp8_type,
         std::nullopt));
 
-    final_hidden_states += cast_from_fp8(
-                               hidden_states_w3,
-                               d_scale_hidden_states,
-                               torch::kBFloat16,
-                               std::nullopt) *
-        padded_weights[expert_idx];
+    auto hidden_states_w3 = fp8_gemm_v2(
+        hidden_states_w12,
+        false,
+        current_expert_w3,
+        false,
+        std::nullopt,
+        torch::kBFloat16,
+        default_scale,
+        d_scale_w3[expert_idx],
+        std::nullopt,
+        false,
+        std::nullopt);
+
+    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
   }
 
   auto result = final_hidden_states.reshape(hidden_states.sizes());

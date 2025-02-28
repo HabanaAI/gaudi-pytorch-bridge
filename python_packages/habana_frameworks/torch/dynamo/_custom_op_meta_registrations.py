@@ -1065,7 +1065,7 @@ def meta_mixture_of_experts_fp8_measurement_fused_weights(
 
 
 @register_meta([torch.ops.hpu.mixture_of_experts.fp8, torch.ops.hpu.mixture_of_experts.fp8_scalars])
-def meta_mixture_of_experts(
+def meta_mixture_of_experts_fp8(
     hidden_states,
     expert_routing_table,
     router_weights,
@@ -1088,7 +1088,7 @@ def meta_mixture_of_experts(
 @register_meta(
     [torch.ops.hpu.mixture_of_experts.fp8_fused_weights, torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars]
 )
-def meta_mixture_of_experts_fused_weights(
+def meta_mixture_of_experts_fp8_fused_weights(
     hidden_states,
     expert_routing_table,
     router_weights,
