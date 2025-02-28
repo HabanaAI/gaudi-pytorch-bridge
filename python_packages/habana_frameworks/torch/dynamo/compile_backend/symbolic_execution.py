@@ -33,6 +33,8 @@ logger = get_compile_backend_logger()
 
 torch_sympy_functions = {}
 
+all_expr_hist = {}
+
 
 def substitute_sympyfn(expr):
     import torch.utils._sympy.functions as functions
@@ -321,12 +323,15 @@ class SymExprNodeManager:
             def symexpr_python(
                 *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
             ):
-                sym_value_dict = {}
-                for idx, sub_sym in enumerate(sym_expr_symbols):
-                    value = arguments[idx]
-                    sym_value_dict[sub_sym] = value
-                size_e = sym_expr.subs(sym_value_dict)
-                return int(size_e)
+                sym_value_dict = dict(zip(sym_expr_symbols, arguments, strict=False))
+                sym_value_set = frozenset(sym_value_dict.items())
+                expr_hist = all_expr_hist.setdefault(sym_expr, {})
+                if sym_value_set in expr_hist:
+                    return expr_hist[sym_value_set]
+                else:
+                    size = int(sym_expr.subs(sym_value_dict))
+                    expr_hist[sym_value_set] = size
+                    return size
 
             with self._graph_module.graph.inserting_after(self._insert_point_node):
                 new_kwargs = None
@@ -339,12 +344,15 @@ class SymExprNodeManager:
             def symexpr_python(
                 *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
             ):
-                sym_value_pair = []
-                for idx, sub_sym in enumerate(sym_expr_symbols):
-                    value = arguments[idx]
-                    sym_value_pair.append((sub_sym, value))
-                size = sym_expr.subs(sym_value_pair)
-                return int(size)
+                sym_value_pairs = list(zip(sym_expr_symbols, arguments, strict=False))
+                sym_value_set = frozenset(sym_value_pairs)
+                expr_hist = all_expr_hist.setdefault(sym_expr, {})
+                if sym_value_set in expr_hist:
+                    return expr_hist[sym_value_set]
+                else:
+                    size = int(sym_expr.subs(sym_value_pairs))
+                    expr_hist[sym_value_set] = size
+                    return size
 
             node_name = SymExprNodeManager.node_name
             with self._graph_module.graph.inserting_after(self._insert_point_node):
