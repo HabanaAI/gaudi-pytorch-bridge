@@ -1752,10 +1752,6 @@ _adaptive_avg_pool3d_backward:
 
 adaptive_avg_pool3d_backward.grad_input:
   output_meta: AdaptiveAvgPool3dBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: complex_adaptive_avg_pool_3d_bwd
   op_backend: AdaptiveAvgPool3dBwd
   op_validator: AdaptiveAvgPool3dBwdSharedMeta
@@ -1798,10 +1794,6 @@ baddbmm.out:
   op_validator: BAddBMMSharedMeta
 
 bernoulli:
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
   op_frontend: GeneratorToSeed
   op_backend: Bernoulli
@@ -1812,10 +1804,6 @@ bernoulli:
 
 bernoulli_.float:
   custom_fill_params: FillBernoulliWithPParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: BernoulliFE
@@ -1824,10 +1812,6 @@ bernoulli_.float:
   schema_args: "(Tensor(a!) self, float p, *, Tensor? seed=None) -> Tensor(a!)"
 
 bernoulli_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
@@ -1836,10 +1820,6 @@ bernoulli_.Tensor:
   schema_args: "(Tensor(a!) self, Tensor p, *, Tensor? seed=None) -> Tensor(a!)"
 
 bernoulli.out:
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
   op_frontend: GeneratorToSeedOut
   op_backend: BernoulliOut
@@ -1849,10 +1829,6 @@ bernoulli.out:
 
 bernoulli.float_out:
   custom_fill_params: FillBernoulliWithPParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
   op_frontend: BernoulliOutFE
   op_backend: BernoulliWithP
@@ -2169,10 +2145,6 @@ ceil_:
 channel_shuffle:
   output_meta: ChannelShuffleMeta
   custom_fill_params: FillChannelShuffleParams
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: channel_shuffle
   out_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -2324,10 +2296,6 @@ constant_pad_nd:
   output_meta: ConstantPadMeta
   op_backend: ConstantPad
   custom_fill_params: FillConstantPadParams
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Short, Char, Byte, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
   lazy:
@@ -2337,10 +2305,6 @@ constant_pad_nd:
 
 convolution_overrideable:
   output_meta: ConvolutionOverrideableMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionOverrideableFE
   op_backend: ConvolutionOverrideable
   st_meta: DefaultSTMetaFnOneOutputShapeUpdate
@@ -2349,10 +2313,6 @@ convolution_overrideable:
 
 convolution:
   output_meta: ConvolutionOverrideableMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionOverrideableFE
   op_backend: ConvolutionOverrideable
   st_meta: DefaultSTMetaFnOneOutputShapeUpdate
@@ -2361,10 +2321,6 @@ convolution:
 
 convolution_backward_overrideable:
   output_meta: ConvolutionOverrideableMetaBwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   st_meta: ConvBwdDSSTMeta
@@ -2374,10 +2330,6 @@ convolution_backward_overrideable:
 convolution_backward:
   output_meta: ConvolutionOverrideableMetaBwd
   st_meta: ConvBwdDSSTMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   # guid is specified here to distinguish between convolution_backward_overrideable
@@ -2949,7 +2901,6 @@ floor_:
 floor_divide.out:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
@@ -2958,7 +2909,6 @@ floor_divide.out:
 floor_divide:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   out_ids: [0]
@@ -2966,7 +2916,6 @@ floor_divide:
 
 floor_divide_.Tensor:
   custom_fill_params: FillFloorDivideParams
-  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   inplace_ids: [0]
@@ -2975,7 +2924,6 @@ floor_divide_.Tensor:
 floor_divide.Scalar:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
@@ -2985,7 +2933,6 @@ floor_divide.Scalar:
 floor_divide.Scalar_out:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
@@ -3237,10 +3184,6 @@ grid_sampler_3d_backward:
   op_validator: check-node-with-shared-layer
 
 native_group_norm:
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
   guid: native_group_norm_fwd
   custom_fill_params: FillNativeGroupNormParams
   op_backend: NativeGroupNormFwd
@@ -3249,10 +3192,6 @@ native_group_norm:
   op_validator: NativeGroupNormFwdSharedMeta
 
 native_group_norm_backward:
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
   output_meta: GroupNormBwdMeta
   op_backend: NativeGroupNormBwdHabanaOperator
   synapse_layouts:
@@ -4532,20 +4471,12 @@ mish_backward:
 
 mm:
   output_meta: MmMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
 mm.out:
   output_meta: MmMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
   op_validator: check-node-with-shared-layer
 
@@ -6260,7 +6191,6 @@ std.correction_out:
 
 std_mean.correction:
   output_meta: StdVarMeanMeta
-  dtypes: [BFloat16, Float]
   op_backend: StdMean
   op_validator: StdMeanSharedMeta
   out_ids: [0, 0]
