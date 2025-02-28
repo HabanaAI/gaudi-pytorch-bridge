@@ -26,6 +26,9 @@ struct HPUHooks : public at::HPUHooksInterface {
   const at::Generator& getDefaultGenerator(
       at::DeviceIndex device_index = -1) const override;
 
+  at::Generator getNewGenerator(
+      at::DeviceIndex device_index = -1) const override;
+
   bool hasHPU() const override;
   at::Device getDeviceFromPtr(void* data) const override;
   bool isPinnedPtr(const void* data) const override;

@@ -28,6 +28,10 @@ const at::Generator& HPUHooks::getDefaultGenerator(at::DeviceIndex) const {
   return detail::getDefaultHPUGenerator();
 }
 
+at::Generator HPUHooks::getNewGenerator(at::DeviceIndex) const {
+  return detail::createHPUGenerator();
+}
+
 bool HPUHooks::hasHPU() const {
   return true;
 }
