@@ -563,10 +563,10 @@ _foreach_floor:
   op_validator: UnaryForeachFloorSharedMeta
 
 _foreach_floor_:
-  dtypes: [BFloat16, Float]
   guid: floor_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachFloorSharedMeta
 
 _foreach_frac:
   guid: frac_fwd
