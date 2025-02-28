@@ -193,6 +193,7 @@ add_habana_library(
   backend/_masked_scale_gen.cpp
   backend/matmul.cpp
   backend/max_min_gen.cpp
+  backend/max_unpool2d_gen.cpp
   backend/maxpool_gen.cpp
   backend/median_gen.cpp
   backend/mish_gen.cpp

@@ -731,3 +731,18 @@ def inference_env_fixture():
     htcore.hpu_set_inference_env()
     yield
     htcore.hpu_teardown_inference_env()
+
+
+def filter_dtypes(
+    dtypes: list[torch.dtype], filter_function: Callable[[torch.dtype], bool] | None = None
+) -> list[torch.dtype]:
+    def default_filter_function(dtype: torch.dtype) -> bool:
+        if is_gaudi1() and dtype in [torch.float16, torch.float8_e5m2, torch.float8_e4m3fn]:
+            return False
+        return True
+
+    if filter_function is None:
+        filter_function = default_filter_function
+    filtered_dtypes = filter(filter_function, dtypes)
+
+    return list(filtered_dtypes)

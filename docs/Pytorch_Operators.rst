@@ -68,6 +68,7 @@ max_pool2d                               Yes      Yes      Yes     No        No 
 max_pool2d_with_indices                  Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 max_pool3d                               Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 max_pool3d_with_indices                  Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
+max_unpool2d                             Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 mish                                     Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 mish\_                                   Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
 mse_loss                                 Yes      Yes      Yes     No        No       No        No        No       No     torch.nn.functional
@@ -544,6 +545,7 @@ LogSoftmax                               Yes      Yes      Yes     No        No 
 MSELoss                                  Yes      Yes      Yes     No        No       No        No        No       No     torch.nn
 MaxPool2d                                Yes      Yes      Yes     No        No       No        No        No       No     torch.nn
 MaxPool3d                                Yes      Yes      Yes     No        No       No        No        No       No     torch.nn
+MaxUnpool2d                              Yes      Yes      Yes     No        No       No        No        No       No     torch.nn
 Mish                                     Yes      Yes      Yes     No        No       No        No        No       No     torch.nn
 MultiLabelMarginLoss                     Yes      Yes      Yes     No        No       No        No        No       No     torch.nn
 MultiMarginLoss                          Yes      Yes      Yes     No        No       No        No        No       No     torch.nn
