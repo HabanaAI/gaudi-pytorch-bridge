@@ -984,33 +984,28 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {
-  // In case of calling in compile without requiring gradients intermediate
-  // tensors will be removed from the graph leading to error when trying to
-  // store them. Therefore we call recomp-version that returns valid number of
-  // tensors.
-  return (recomp.value_or(false) || !hidden_states.requires_grad())
-      ? MixtureOfExpertsRecompFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w1,
-            w2,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0]
-      : MixtureOfExpertsFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w1,
-            w2,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0];
+  return recomp.value_or(true) ? MixtureOfExpertsRecompFunction::apply(
+                                     hidden_states,
+                                     expert_routing_table,
+                                     router_weights,
+                                     w1,
+                                     w2,
+                                     w3,
+                                     permuted_weights,
+                                     activation,
+                                     experts_min,
+                                     experts_max)[0]
+                               : MixtureOfExpertsFunction::apply(
+                                     hidden_states,
+                                     expert_routing_table,
+                                     router_weights,
+                                     w1,
+                                     w2,
+                                     w3,
+                                     permuted_weights,
+                                     activation,
+                                     experts_min,
+                                     experts_max)[0];
 }
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
@@ -1024,7 +1019,7 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {
-  return (recomp.value_or(false) || !hidden_states.requires_grad())
+  return recomp.value_or(true)
       ? MixtureOfExpertsRecompFusedWeightsFunction::apply(
             hidden_states,
             expert_routing_table,

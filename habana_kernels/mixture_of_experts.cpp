@@ -933,29 +933,28 @@ at::Tensor mixture_of_experts_fwd_autograd_lazy(
           experts_min,
           experts_max,
           recomp));
-  return (recomp.value_or(false) || !hidden_states.requires_grad())
-      ? MixtureOfExpertsRecompFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w1,
-            w2,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0]
-      : MixtureOfExpertsFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w1,
-            w2,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0];
+  return recomp.value_or(true) ? MixtureOfExpertsRecompFunction::apply(
+                                     hidden_states,
+                                     expert_routing_table,
+                                     router_weights,
+                                     w1,
+                                     w2,
+                                     w3,
+                                     permuted_weights,
+                                     activation,
+                                     experts_min,
+                                     experts_max)[0]
+                               : MixtureOfExpertsFunction::apply(
+                                     hidden_states,
+                                     expert_routing_table,
+                                     router_weights,
+                                     w1,
+                                     w2,
+                                     w3,
+                                     permuted_weights,
+                                     activation,
+                                     experts_min,
+                                     experts_max)[0];
 }
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd_lazy(
@@ -984,7 +983,7 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd_lazy(
           experts_max,
           recomp));
 
-  return (recomp.value_or(false) || !hidden_states.requires_grad())
+  return recomp.value_or(true)
       ? MixtureOfExpertsRecompFusedWeightsFunction::apply(
             hidden_states,
             expert_routing_table,

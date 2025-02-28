@@ -415,8 +415,8 @@ def test_mixture_of_experts_fwd_bwd(
             check_using_cosine_similarity(w1_hpu[i].grad, w1_grad_reference, cos_sim_tol)
             check_using_cosine_similarity(w2_hpu[i].grad, w2_grad_reference, cos_sim_tol)
 
-    w3_grad_reference = expert_weights_cpu[2][i].grad.t() if permuted_weights else expert_weights_cpu[2][i].grad
-    check_using_cosine_similarity(w3_hpu[i].grad, w3_grad_reference, cos_sim_tol)
+        w3_grad_reference = expert_weights_cpu[2][i].grad.t() if permuted_weights else expert_weights_cpu[2][i].grad
+        check_using_cosine_similarity(w3_hpu[i].grad, w3_grad_reference, cos_sim_tol)
 
     if is_pytest_mode_compile():
         op_names = (
