@@ -160,6 +160,7 @@ def test_hpu_binary_cross_entropy_with_logits_fwd_dynamic(
 # <--- Backward --->
 
 
+@pytest.mark.skip(reason="[SW-220028] Temporarily skiped due to tpc_kernels patch")
 @pytest.mark.parametrize("size", size, ids=format_tc)
 @pytest.mark.parametrize("reduction", reduction, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtype, ids=format_tc)
@@ -169,6 +170,7 @@ def test_hpu_binary_cross_entropy_bwd(size, reduction, dtype, use_weight):
     binary_cross_entropy_bwd_test(size, reduction, dtype, use_weight, is_compile=is_pytest_mode_compile())
 
 
+@pytest.mark.skip(reason="[SW-220028] Temporarily skiped due to tpc_kernels patch")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="DS are not supported in eager mode")
 @pytest.mark.parametrize("size", size, ids=format_tc)
 @pytest.mark.parametrize("reduction", reduction, ids=format_tc)
