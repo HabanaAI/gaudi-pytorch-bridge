@@ -17,6 +17,7 @@
 #include "generated/backend/_upsample_nearest_exact1d.h"
 #include "generated/backend/_upsample_nearest_exact1d_backward.h"
 #include "generated/backend/_upsample_nearest_exact2d.h"
+#include "generated/backend/_upsample_nearest_exact3d.h"
 #include "generated/backend/upsample_linear1d.h"
 #include "generated/backend/upsample_linear1d_backward.h"
 #include "generated/backend/upsample_nearest1d.h"
@@ -36,19 +37,37 @@ using namespace synapse_helpers::layouts;
            (scale != c10::nullopt && !scale.isScalar())),     \
       "Upsample: Must specify exactly one of output_size and scale_factors");
 
-bool both_scales_given(c10::IValue scale_h, c10::IValue scale_w) {
-  return scale_h != c10::nullopt && scale_w != c10::nullopt;
+inline void check_null_inputs_2d(
+    c10::IValue out_size,
+    c10::optional<double> scale_h,
+    c10::optional<double> scale_w) {
+  TORCH_CHECK(
+      (scale_h.has_value() && scale_w.has_value()) || !out_size.isNone(),
+      "Upsample: Must specify output size if scales aren't given, but got output_size: ",
+      out_size,
+      " and scale_factors: ",
+      scale_h,
+      ", ",
+      scale_w);
 }
 
-#define CHECK_NULL_INPUTS(out_size, scale_h, scale_w)                                     \
-  TORCH_CHECK(                                                                            \
-      (both_scales_given(scale_h, scale_w)) || (out_size != c10::nullopt),                \
-      "Upsample: Must specify output size if scales aren't given, but got output_size: ", \
-      out_size,                                                                           \
-      " and scale_factors: ",                                                             \
-      scale_h,                                                                            \
-      " and ",                                                                            \
+inline void check_null_inputs_3d(
+    c10::IValue out_size,
+    c10::optional<double> scale_d,
+    c10::optional<double> scale_h,
+    c10::optional<double> scale_w) {
+  TORCH_CHECK(
+      (scale_d.has_value() && scale_h.has_value() && scale_w.has_value()) ||
+          !out_size.isNone(),
+      "Upsample: Must specify output size if scales aren't given, but got output_size: ",
+      out_size,
+      " and scale_factors: ",
+      scale_d,
+      ", ",
+      scale_h,
+      ", ",
       scale_w);
+}
 
 #define CHECK_INPUT_OUTPUT_WIDTH(input_width, output_width)                               \
   TORCH_CHECK(                                                                            \
@@ -184,6 +203,20 @@ void upsample_3d_common_check(
         scales.toDoubleVector().size() == 3,
         "Upsample3D expects scales equals to 3, but got ",
         scales.toDoubleVector().size());
+  }
+}
+
+void upsample_exact_3d_check(const torch::Tensor& input, c10::IValue out_size) {
+  TORCH_CHECK(
+      input.dim() == 5,
+      "Upsample3D expects input_size equals to 5, but got size ",
+      input.dim());
+
+  if (!out_size.isNone()) {
+    TORCH_CHECK(
+        out_size.toIntVector().size() == 3,
+        "Upsample3D expects out_size equals to 3, but got ",
+        out_size.toIntVector().size());
   }
 }
 
@@ -336,9 +369,8 @@ std::vector<int64_t> UpsampleNearestExact2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {
   auto self_sizes = stack.at(0).toTensor().sizes();
   auto out_size = stack.at(1).toIntVector();
-  auto in_size = stack.at(2);
-  auto scales_h = stack.at(3);
-  auto scales_w = stack.at(4);
+  auto scale_h = stack.at(2).toOptional<double>().value_or(1.0);
+  auto scale_w = stack.at(3).toOptional<double>().value_or(1.0);
   std::vector<int64_t> out_shape;
   if (!out_size.empty()) {
     // NCHW
@@ -347,12 +379,36 @@ std::vector<int64_t> UpsampleNearestExact2DFwdOutputShapeSynapseLayout(
         self_sizes.at(INPUT_C_IDX),
         out_size.at(0),
         out_size.at(1)};
-  } else if (both_scales_given(scales_h, scales_w)) {
-    double scale_w = scales_w.toOptional<double>().value();
-    double scale_h = scales_h.toOptional<double>().value();
+  } else if (scale_h != 1.0 || scale_w != 1.0) {
     out_shape = {
         self_sizes.at(INPUT_N_IDX),
         self_sizes.at(INPUT_C_IDX),
+        static_cast<int64_t>(self_sizes.at(INPUT_H_IDX) * scale_h),
+        static_cast<int64_t>(self_sizes.at(INPUT_W_IDX) * scale_w)};
+  }
+  return out_shape;
+}
+std::vector<int64_t> UpsampleNearestExact3DFwdOutputShapeSynapseLayout(
+    const at::Stack& stack) {
+  auto self_sizes = stack.at(0).toTensor().sizes();
+  auto out_size = stack.at(1).toIntVector();
+  auto scale_d = stack.at(2).toOptional<double>().value_or(1.0);
+  auto scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  auto scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  std::vector<int64_t> out_shape;
+  if (!out_size.empty()) {
+    // NCDHW
+    out_shape = {
+        self_sizes.at(INPUT_N_IDX),
+        self_sizes.at(INPUT_C_IDX),
+        out_size.at(0),
+        out_size.at(1),
+        out_size.at(2)};
+  } else if (scale_d != 1.0 || scale_h != 1.0 || scale_w != 1.0) {
+    out_shape = {
+        self_sizes.at(INPUT_N_IDX),
+        self_sizes.at(INPUT_C_IDX),
+        static_cast<int64_t>(self_sizes.at(INPUT_C_IDX) * scale_d),
         static_cast<int64_t>(self_sizes.at(INPUT_H_IDX) * scale_h),
         static_cast<int64_t>(self_sizes.at(INPUT_W_IDX) * scale_w)};
   }
@@ -391,16 +447,38 @@ OutputMetaDataVector UpsampleNearest2DBwdMeta(const at::Stack& stack) {
 OutputMetaDataVector UpsampleNearestExact2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
-  auto scales_h = stack.at(2);
-  auto scales_w = stack.at(3);
+  auto scales_h = stack.at(2).toOptional<double>();
+  auto scales_w = stack.at(3).toOptional<double>();
   upsample_exact_2d_check(self, out_size);
-  CHECK_NULL_INPUTS(out_size, scales_h, scales_w);
+  check_null_inputs_2d(out_size, scales_h, scales_w);
   OutputMetaData meta;
   meta.dtype = self.scalar_type();
   meta.shape = UpsampleNearestExact2DFwdOutputShapeSynapseLayout(stack);
 
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
+  return {meta};
+}
+// Forward Meta Function - NearestExact3D
+OutputMetaDataVector UpsampleNearestExact3DFwdMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scales_d = stack.at(2).toOptional<double>();
+  auto scales_h = stack.at(3).toOptional<double>();
+  auto scales_w = stack.at(4).toOptional<double>();
+  upsample_exact_3d_check(self, out_size);
+  check_null_inputs_3d(out_size, scales_d, scales_h, scales_w);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = UpsampleNearestExact3DFwdOutputShapeSynapseLayout(stack);
+
+  CHECK_INPUT_OUTPUT_DEPTH_HEIGHT_WIDTH(
+      self.sizes()[2],
+      meta.shape.at(2),
+      self.sizes()[3],
+      meta.shape.at(3),
+      self.sizes()[4],
+      meta.shape.at(4));
   return {meta};
 }
 
@@ -927,6 +1005,30 @@ std::shared_ptr<void> FillNearestExact2DFwdParams(
       antialias);
 }
 
+std::shared_ptr<void> FillNearestExact3DFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  double scale_d = stack.at(2).toOptional<double>().value_or(1.0);
+  double scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  c10::IValue scales = stack.at(2);
+  bool align_corners = false;
+  bool antialias = false;
+  return FillResizeParams(
+      self.dim(),
+      size,
+      nearest_exact,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
 std::shared_ptr<void> FillNearestBwdParams(
     const at::Stack& stack,
     size_t& size) {
@@ -1347,36 +1449,32 @@ void UpSampleNearest2DOperator::AddNode(
   }
   syn_out(0) = std::move(resize.at(0));
 }
-// AddNode FWD 2D Nearest Exact function
-void UpsampleNearestExact2DFwdOperator::AddNode(
+
+synapse_helpers::tensor UpsampleNearestExactFwdCommon(
+    OpBackend* op,
     synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto meta = UpsampleNearestExact2DFwdMeta(stack)[0];
+    const at::Stack& stack,
+    std::vector<synTensor> input,
+    const std::shared_ptr<void>& params,
+    size_t size) {
+  auto meta = op->OutputMeta(stack)[0];
   auto self = stack_tensor(stack, 0);
-  std::vector<synTensor> input{syn_in(0)};
   std::optional<synapse_helpers::tensor> cast_storage;
   c10::optional<int> final_index = 0;
-  CreateShapeTensorInput(graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
+  op->CreateShapeTensorInput(
+      graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
   auto intermediateDtype = meta.dtype;
   if (meta.dtype == c10::ScalarType::Byte) {
     // u8 to f32
     intermediateDtype = c10::ScalarType::Float;
-    cast_storage = BuildCast(
-        this,
-        graph,
-        input[0],
-        self.sizes().vec(),
-        meta.dtype,
-        intermediateDtype);
+    cast_storage = OpBackend::BuildCast(
+        op, graph, input[0], self.sizes().vec(), meta.dtype, intermediateDtype);
     input[0] = cast_storage->get();
     final_index = c10::nullopt;
   }
 
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-
   auto resize = Resize(
-      this,
+      op,
       graph,
       input,
       meta.shape,
@@ -1384,18 +1482,30 @@ void UpsampleNearestExact2DFwdOperator::AddNode(
       params,
       size,
       final_index);
-  if (meta.dtype == c10::ScalarType::Byte) {
-    // f32 to u8
-    resize[0] = BuildCast(
-        this,
-        graph,
-        resize[0].get(),
-        meta.shape,
-        intermediateDtype,
-        meta.dtype,
-        0);
-  }
-  syn_out(0) = std::move(resize.at(0));
+  if (meta.dtype != c10::ScalarType::Byte)
+    return std::move(resize[0]);
+
+  // f32 to u8
+  return OpBackend::BuildCast(
+      op, graph, resize[0].get(), meta.shape, intermediateDtype, meta.dtype, 0);
+}
+// AddNode FWD 2D Nearest Exact function
+void UpsampleNearestExact2DFwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size;
+  auto params = FillParams(stack, size);
+  syn_out(0) = UpsampleNearestExactFwdCommon(
+      this, graph, stack, {syn_in(0)}, params, size);
+}
+// AddNode FWD 3D Nearest Exact function
+void UpsampleNearestExact3DFwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size;
+  auto params = FillParams(stack, size);
+  syn_out(0) = UpsampleNearestExactFwdCommon(
+      this, graph, stack, {syn_in(0)}, params, size);
 }
 void UpSampleTrilinear3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,

@@ -6919,6 +6919,16 @@ upsample_nearest3d_backward.grad_input:
   - [WHDCN, WHDCN]
   - [WHDCN]
 
+_upsample_nearest_exact3d.out:
+  custom_fill_params: FillNearestExact3DFwdParams
+  output_meta: UpsampleNearestExact3DFwdMeta
+  guid: resize_fwd
+  op_backend: UpsampleNearestExact3DFwdOperator
+  op_validator: UpsampleNearest1D3DFwdSharedMeta
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
 upsample_nearest2d.vec:
   only_shared_layer: true
   dtypes:
