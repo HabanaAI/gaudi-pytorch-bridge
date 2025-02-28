@@ -484,7 +484,7 @@ def sort(
     a: utils.Tensor,
     dim: int = -1,
     descending: bool = False,
-) -> utils.Tuple[utils.Tensor, utils.Tensor]:
+) -> tuple[utils.Tensor, utils.Tensor]:
     k = a.size(dim) if a.dim() > 0 else 1
     return torch.topk(a, k, dim, descending)
 
@@ -755,7 +755,7 @@ def rrelu_with_noise_functional(
     upper: float = 0.3333333333333333,
     training: bool = False,
     generator: torch.Generator | None = None,
-) -> utils.Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     if training:
         not_positive = self <= 0
         r = aten.uniform(self, lower, upper, generator=generator)
