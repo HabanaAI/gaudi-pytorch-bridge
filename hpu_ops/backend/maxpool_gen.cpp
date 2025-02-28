@@ -36,11 +36,12 @@ static int OutputShapeComputation(
     int padding,
     int dilation,
     bool ceilMode) {
-  return (
-      ((input_shape + 2 * padding - dilation * (kernel - 1) - 1 +
-        (ceilMode ? stride - 1 : 0)) /
-       stride) +
-      1);
+  auto output = static_cast<float>(
+                    input_shape + 2 * padding - dilation * (kernel - 1) - 1) /
+          stride +
+      1;
+  return ceilMode ? static_cast<int>(std::ceil(output))
+                  : static_cast<int>(std::floor(output));
 }
 
 OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
@@ -127,6 +128,7 @@ OutputMetaDataVector MaxPoolMetaBwd(const at::Stack& stack) {
   if (kernel.size() == 3) {
     indices = Maxpool3dWithIndicesMeta(stack_fwd)[0].shape;
   }
+
   HABANA_ASSERT(
       (grad.sizes() == indices), "Grad and Indices sizes don't match");
 
@@ -385,8 +387,6 @@ static at::ScalarType FindRetainTensorType(at::ScalarType inputTensorType) {
   }
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool3DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -437,7 +437,7 @@ void MaxPool3DWithIndicesBwd::AddNode(
       this,
       graph,
       syn_in(2),
-      stack.back().toTensor().sizes(),
+      stack.at(7).toTensor().sizes(),
       at::kLong,
       FindRetainTensorType(meta.dtype));
 
@@ -470,8 +470,6 @@ void MaxPool3DWithIndicesBwd::AddNode(
   syn_out(0) = std::move(grad_output[0]);
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool2DWithIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -507,8 +505,6 @@ void MaxPool2DWithIndices::AddNode(
   syn_out(1) = std::move(maxPool2d[0]);
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool2DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

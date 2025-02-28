@@ -4389,18 +4389,12 @@ max_pool3d_with_indices:
   output_meta: Maxpool3dWithIndicesMeta
   out_ids: [0, 0]
 
-# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
-# max_pool3d_with_indices.out:
-#   custom_fill_params: FillSpatialReduction3DParamsFwd
-#   custom_output_shape: MaxPool3DIndicesOutputShape
-#   dtypes:
-#     self: [BFloat16, Float]
-#     out: [BFloat16, Float]
-#     indices: [BFloat16, Float]
-#   op_backend: MaxPool3DWithIndicesOut
-#   synapse_layouts:
-#   - [WHDCN]
-#   - [WHDCN, WHDCN]
+max_pool3d_with_indices.out:
+  custom_fill_params: FillSpatialReduction3DParamsFwd
+  guid: maxpool_3d_fwd
+  op_backend: MaxPool3DWithIndicesOut
+  op_validator: MaxPool3DWithIndicesFwdSharedMeta
+  output_meta: Maxpool3dWithIndicesMeta
 
 max_pool3d_with_indices_backward:
   custom_fill_params: FillSpatialReduction3DParamsBwd
@@ -4411,18 +4405,13 @@ max_pool3d_with_indices_backward:
   op_validator: MaxPool3DWithIndicesBwdSharedMeta
   out_ids: [0]
 
-# Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
-# max_pool3d_with_indices_backward.grad_input:
-#   custom_fill_params: FillSpatialReduction3DParamsBwd
-#   custom_output_shape: MaxPoolOutputShapeBwd
-#   dtypes:
-#     self: [BFloat16, Float]
-#     grad_output: [BFloat16, Float]
-#     indices: [Byte, Int]
-#   op_backend: MaxPool3DWithIndicesBwd
-#   synapse_layouts:
-#   - [WHDCN, WHDCN]
-#   - [WHDCN]
+max_pool3d_with_indices_backward.grad_input:
+  custom_fill_params: FillSpatialReduction3DParamsBwd
+  output_meta: MaxPoolMetaBwd
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
+  guid: maxpool_3d_bwd
+  op_backend: MaxPool3DWithIndicesBwd
+  op_validator: MaxPool3DWithIndicesBwdSharedMeta
 
 mean:
   output_meta: ReductionOpMeta
