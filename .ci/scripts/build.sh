@@ -579,6 +579,9 @@ build_pytorch_fork()
         --install )
             __whl_params=" install"
             ;;
+        --develop )
+            __whl_params=" develop"
+            ;;
         --build-number )
             __env_vars+=" PYTORCH_BUILD_NUMBER=$2"
             shift
@@ -698,20 +701,22 @@ build_pytorch_fork()
         return $__result
     fi
 
-    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
-        TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
-    else
-        TORCH_WHL_PATH="$__pytorch_root/dist/"
-    fi
-    if [ -n "$__debug" ]; then
-       rm -rf $PYTORCH_FORK_DEBUG_BUILD/pkgs
-       mkdir -p $PYTORCH_FORK_DEBUG_BUILD/pkgs
-       cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_DEBUG_BUILD/pkgs
-    else
-       rm -rf $PYTORCH_FORK_RELEASE_BUILD/pkgs
-       mkdir -p $PYTORCH_FORK_RELEASE_BUILD/pkgs
-       cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_RELEASE_BUILD/pkgs
+    if [ ${__whl_params} != "develop" ];then
+        if [ "z${__build_manylinux_whl}" == "ztrue" ];then
+            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
+            TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
+        else
+            TORCH_WHL_PATH="$__pytorch_root/dist/"
+        fi
+        if [ -n "$__debug" ]; then
+            rm -rf $PYTORCH_FORK_DEBUG_BUILD/pkgs
+            mkdir -p $PYTORCH_FORK_DEBUG_BUILD/pkgs
+            cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_DEBUG_BUILD/pkgs
+        else
+            rm -rf $PYTORCH_FORK_RELEASE_BUILD/pkgs
+            mkdir -p $PYTORCH_FORK_RELEASE_BUILD/pkgs
+            cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_RELEASE_BUILD/pkgs
+        fi
     fi
 
     popd
