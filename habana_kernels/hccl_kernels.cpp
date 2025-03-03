@@ -130,7 +130,8 @@ void adjustElementcount_int64(
 }
 
 bool is_valid_reduction_dtype(hcclDataType_t data_type) {
-  if (data_type == hcclBfloat16 || data_type == hcclFloat) {
+  if (data_type == hcclBfloat16 || data_type == hcclFloat ||
+      data_type == hcclHalf) {
     return true;
   }
   return false;

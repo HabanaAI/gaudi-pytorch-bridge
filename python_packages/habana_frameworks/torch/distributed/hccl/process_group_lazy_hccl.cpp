@@ -371,6 +371,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
     auto data_type = t.scalar_type();
     bool cast_tensor =
         !(data_type == c10::ScalarType::Float ||
+          data_type == c10::ScalarType::Half ||
           data_type == c10::ScalarType::BFloat16);
     at::Tensor t_updated;
     if (!cast_tensor) {
