@@ -90,7 +90,7 @@ def register_habana_activity_profiler():
             self.hpu_profiling_active = torch.profiler.ProfilerActivity.HPU in activities
             activities = [self._exchange_activity(activity) for activity in activities]
             bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
-            if DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities:
+            if debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities:
                 logger.warning("DebugActivity.SYNAPSE_FUNCTION_CALLS is no longer supported in bridge")
             mandatory_events = self._get_mandatory_events()
             hpu_profiler._setup_activity_profiler_sources(bridge_profile, profile_memory, mandatory_events)
