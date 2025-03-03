@@ -2,6 +2,7 @@
 common:
   testRepos:
     - repository: automation
+      githubOrg: habana-internal
     - repository: pytorch-integration
       githubOrg: habana-internal
     - repository: coral-sim
