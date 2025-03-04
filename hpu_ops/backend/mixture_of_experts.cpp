@@ -13,10 +13,11 @@
  * limitations under the License.
  */
 
-#include "hpu_ops/mixture_of_experts.h"
+#include "generated/backend/mixture_of_experts.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "hpu_ops/custom_op_outshape.h"
+#include "hpu_ops/mixture_of_experts.h"
 
 namespace sh = synapse_helpers;
 
@@ -215,20 +216,6 @@ MixtureOfExperts::MixtureOfExperts(
           {},
           false),
       measurement_mode(measurement_mode) {}
-
-MixtureOfExpertsFp8::MixtureOfExpertsFp8(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(device_id, "moe", scalar_type, {2}, {}, {}, false) {
-  SetOutputMetaFn(MixtureOfExpertsFp8Meta);
-}
-
-MixtureOfExpertsFp8Scalars::MixtureOfExpertsFp8Scalars(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(device_id, "moe", scalar_type, {2}, {}, {}, false) {
-  SetOutputMetaFn(MixtureOfExpertsFp8Meta);
-}
 
 static const std::map<c10::string_view, MoeActivationMode_t> activationModeMap =
     {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
@@ -662,16 +649,4 @@ static const auto& MixtureOfExpertsKernelRegistry =
             KERNEL_FN_ARG(MixtureOfExperts, true))
         .add(
             "hpu::mixture_of_experts_fp8_measurement.fused_weights",
-            KERNEL_FN_ARG(MixtureOfExperts, true))
-        .add(
-            "hpu::mixture_of_experts.fp8",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsFp8))
-        .add(
-            "hpu::mixture_of_experts.fp8_fused_weights",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsFp8))
-        .add(
-            "hpu::mixture_of_experts.fp8_scalars",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsFp8Scalars))
-        .add(
-            "hpu::mixture_of_experts.fp8_fused_weights_scalars",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsFp8Scalars));
+            KERNEL_FN_ARG(MixtureOfExperts, true));

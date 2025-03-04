@@ -109,6 +109,7 @@ _TYPE_NSMAP = {
 _AVAILABLE_FIELDS = {
     "acc_thread",
     "broadcast",
+    "frontend_blocklist",
     "custom_fill_params",
     "custom_op_schema",
     "dtypes",
@@ -540,6 +541,9 @@ class Op:
 
     def get_fallback_check(self):
         return self.op.get("fallback_check", [])
+
+    def get_frontend_blocklist(self):
+        return self.op.get("frontend_blocklist", [])
 
     @lazy_support
     def get_override_fn(self):
@@ -1117,12 +1121,12 @@ class TensorFetcher:
         return self.tensors
 
 
-inplace_params_blacklist = [
+inplace_params_blocklist = [
     "_native_batch_norm_legit",
 ]
 
 # SW-212132
-inplace_params_blacklist_dict = {
+inplace_params_blocklist_dict = {
     "rrelu_with_noise": "noise",
     "rrelu_with_noise_": "noise",
     "rrelu_with_noise_out": "noise",
@@ -1130,8 +1134,8 @@ inplace_params_blacklist_dict = {
 
 
 def should_skip_inplace_params(fname, pname):
-    return fname in inplace_params_blacklist or (
-        fname in inplace_params_blacklist_dict.keys() and inplace_params_blacklist_dict[fname] == pname
+    return fname in inplace_params_blocklist or (
+        fname in inplace_params_blocklist_dict.keys() and inplace_params_blocklist_dict[fname] == pname
     )
 
 
@@ -1703,18 +1707,6 @@ def get_op_group(opname):
     return opgroup
 
 
-# List of ops that shouldn't be generated in lazy mode
-lazy_frontend_blacklist = [
-    # convolution and convolution_backward are handled in lazy mode with
-    # convolution_overrideable and convolution_backward_overrideable
-    "convolution",
-    "convolution_backward",
-]
-
-# List of ops that shouldn't be generated in eager mode
-eager_frontend_blacklist = ["im2col", "im2col.out"]
-
-
 def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False, ns="aten"):
     dtdf = fndef.dtdf
     tree = parser.parse(fndef.cpp_sig)
@@ -1751,7 +1743,8 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         op_backend = get_op_backend_class_impl(ctxop, fname, op_backend_class, len(call_args), param_vars)
 
     op_frontend_eager = None
-    if dtdf and opgroup not in eager_frontend_blacklist:
+    blocklisted_frontends = ctxop.get_frontend_blocklist()
+    if dtdf and "eager" not in blocklisted_frontends:
         op_frontend_eager = eager_frontend(
             ctxop,
             tfetcher,
@@ -1770,7 +1763,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         ctxop.set_lazy()
 
     op_frontend_lazy = None
-    if is_check_kernel_support or opgroup not in lazy_frontend_blacklist:
+    if is_check_kernel_support or "lazy" not in blocklisted_frontends:
         op_frontend_lazy = lazy_frontend(
             ctxop,
             tfetcher,

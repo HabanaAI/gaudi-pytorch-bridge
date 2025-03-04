@@ -2,6 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "exp_fast_math.h"
+#include "mixture_of_experts.h"
 #include "softmax_fp8.h"
 
 
@@ -29,11 +30,19 @@ struct Genexp_fast_math : OpBackend {
   }
 };
 
+struct Genmixture_of_experts_fp8_fused_weights : MixtureOfExpertsFp8 {
+  Genmixture_of_experts_fp8_fused_weights(int device_id, c10::ScalarType scalar_type) :
+      MixtureOfExpertsFp8(device_id, "None", scalar_type, {2}, {}, {}, false) {
+        SetOutputMetaFn(MixtureOfExpertsFp8Meta);
+  }
+};
+
 
 
 static const auto& kr_gen__custom = KernelRegistry()
 .REGISTER_HPU_BACKEND("hpu::softmax_fp8", Gensoftmax_fp8)
 .REGISTER_HPU_BACKEND("hpu::exp_fast_math", Genexp_fast_math)
+.REGISTER_HPU_BACKEND("hpu::mixture_of_experts.fp8_fused_weights", Genmixture_of_experts_fp8_fused_weights)
 ;
 
 
@@ -42,6 +51,7 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   static_cast<void>(m);
   m.def("hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor");
   m.def("hpu::exp_fast_math(Tensor self) -> Tensor");
+  m.def("hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
 
 }
 }  // namespace habana

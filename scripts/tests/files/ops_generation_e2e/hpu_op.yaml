@@ -269,3 +269,10 @@ _deform_conv2d_backward:
   - [WHCN, SRCK, WHCN, WHCN, DONT_CARE]
   op_backend: DeformConv2dBackward
   out_ids: [0]
+
+mixture_of_experts.fp8_fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8
+  frontend_blocklist: [eager]
+  out_ids: [2]

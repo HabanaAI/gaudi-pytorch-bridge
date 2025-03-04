@@ -29,6 +29,7 @@
 #  - output_meta - function for output tensors metadata calculation.
 #  - st_meta - attribute to add an op to the optimized output sif flow for dynamic cache hit scenarios
 #  - custom_fill_params - function filling params structure for kernel/cguid. Not needed if op_backend used.
+#  - frontend_blocklist - used to limit frontend generation either to eager or lazy.
 #  - promote_to_common_type - names of inputs to execute type promotion on.
 #  - promote_int_to_float - names of inputs casted automatically to float.
 #  - promote_int_to_long - names of inputs casted automatically to long.
@@ -2312,6 +2313,7 @@ convolution:
   st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   out_ids: [0]
   op_validator: ConvolutionSharedMeta
+  frontend_blocklist: [lazy]
 
 convolution_backward_overrideable:
   output_meta: ConvolutionOverrideableMetaBwd
@@ -2331,6 +2333,7 @@ convolution_backward:
   guid: convolution_backward
   out_ids: [0, 0, 0]
   op_validator: ConvolutionBwdSharedMeta
+  frontend_blocklist: [lazy]
 
 copysign.out:
   broadcast: true
@@ -3512,6 +3515,7 @@ im2col:
   - [WHN]
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  frontend_blocklist: [eager]
 
 im2col.out:
   fallback_check: [Im2ColFallbackCheck, kernel_size, dilation, padding, stride]
@@ -3522,6 +3526,7 @@ im2col.out:
   - [WHCN]
   - [WHN]
   op_validator: check-node-with-shared-layer
+  frontend_blocklist: [eager]
 
 index_add_:
   override_fn: index_add_hpu_lazy_
@@ -7562,3 +7567,31 @@ reciprocal_fast_math:
   guid: reciprocal_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+
+mixture_of_experts.fp8:
+  custom_op_schema: "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8
+  frontend_blocklist: [eager]
+  out_ids: [2]
+
+mixture_of_experts.fp8_fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8
+  frontend_blocklist: [eager]
+  out_ids: [2]
+
+mixture_of_experts.fp8_scalars:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8Scalars
+  frontend_blocklist: [eager]
+  out_ids: [2]
+
+mixture_of_experts.fp8_fused_weights_scalars:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8Scalars
+  frontend_blocklist: [eager]
+  out_ids: [2]
