@@ -46,6 +46,8 @@ int GetRankFromEnv() {
  *  log_devmem=[0|1]    - enables devmem logging category
  *  log_recipe=[0|1]    - enables recipe logging category
  *  log_python=[0|1]    - enables python logging category
+ *  log_collective=[0|1]- enables collective logging category
+ *  log_copy=[0|1]      - enables copy logging category
  *  rank=int            - logs only under given rank (determined by env RANK)
  *  any_rank=[0|1]      - ignore `rank` option and always log events
  */
@@ -55,6 +57,8 @@ struct Config {
   bool log_devmem_summary = true;
   bool log_recipe = true;
   bool log_python = true;
+  bool log_collective = true;
+  bool log_copy = true;
   int rank = -1;
   bool any_rank = false;
 
@@ -100,6 +104,8 @@ struct Config {
           config.log_devmem_summary = flag;
           config.log_recipe = flag;
           config.log_python = flag;
+          config.log_collective = flag;
+          config.log_copy = flag;
         } else if (key == "log_devmem_buf") {
           config.log_devmem_buf = value == "1";
         } else if (key == "log_devmem_summary") {
@@ -108,6 +114,10 @@ struct Config {
           config.log_python = value == "1";
         } else if (key == "log_recipe") {
           config.log_recipe = value == "1";
+        } else if (key == "log_collective") {
+          config.log_collective = value == "1";
+        } else if (key == "log_copy") {
+          config.log_copy = value == "1";
         } else if (key == "rank") {
           if (value == "any") {
             config.any_rank = true;
@@ -146,6 +156,8 @@ struct Config {
     PT_TOWL_WARN("Config log_devmem_summary=", config.log_devmem_summary);
     PT_TOWL_WARN("Config log_recipe=", config.log_recipe);
     PT_TOWL_WARN("Config log_python=", config.log_python);
+    PT_TOWL_WARN("Config log_collective=", config.log_collective);
+    PT_TOWL_WARN("Config log_copy=", config.log_copy);
     PT_TOWL_WARN(
         "Config rank=",
         config.rank,
@@ -243,18 +255,21 @@ void emitRecipeLaunch(
         (tensor.tensorName ? tensor.tensorName : ""));
   }
 }
-void collectiveLaunch(const std::string& info) {
-  if (not config.log_recipe) {
+
+void emitCollectiveLaunch(const std::string& info) {
+  if (not config.log_collective) {
     return;
   }
   PT_TOWL_DEBUG("collective.launch ", info);
 }
-void collectiveFinished(const std::string& info) {
-  if (not config.log_recipe) {
+
+void emitCollectiveFinished(const std::string& info) {
+  if (not config.log_collective) {
     return;
   }
   PT_TOWL_DEBUG("collective.finished ", info);
 }
+
 void emitPythonString(const std::string& s) {
   if (not config.log_python)
     return;
@@ -279,6 +294,44 @@ void emitDeviceMemorySummary(const char* tag) {
       stats.bytes_in_use - stats.scratch_mem_in_use,
       " tag ",
       tag);
+}
+
+void emitCopyLaunch(const char* tag, void* src, void* dst, size_t size) {
+  if (not config.log_copy) {
+    return;
+  }
+  PT_TOWL_DEBUG("copy.launch ", tag, " src ", src, " dst ", dst, " size ", size);
+}
+
+void emitCopyFinished(const char* tag, void* src, void* dst) {
+  if (not config.log_copy) {
+    return;
+  }
+  PT_TOWL_DEBUG("copy.finished ", tag, " src ", src, " dst ", dst);
+}
+
+void emitCopyMultipleLaunch(const char* tag, const uint64_t* srcs, const uint64_t* dsts, const uint64_t* sizes, size_t num_copies) {
+  if (not config.log_copy) {
+    return;
+  }
+  PT_TOWL_DEBUG("h2d_multiple.launch ", tag, " num_copies ", num_copies);
+  for (size_t i = 0; i < num_copies; ++i) {
+    emitCopyLaunch(tag, reinterpret_cast<void*>(srcs[i]), reinterpret_cast<void*>(dsts[i]), sizes[i]);
+  }
+}
+
+void emitCopyMultipleFinished(const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked) {
+  if (not config.log_copy) {
+    return;
+  }
+  PT_TOWL_DEBUG("copy.multiple.finished ", tag);
+  size_t copies = std::size_t(std::distance(locked->begin(), locked->end()));
+  for (size_t i = 0; i < copies; ++i) {
+    emitCopyFinished(
+        tag,
+        nullptr,
+        reinterpret_cast<void*>(locked->at(i + copies)));
+  }
 }
 
 } // namespace towl::impl

@@ -16,6 +16,7 @@
 #include <hl_logger/hllog.hpp>
 #include <cstdint>
 #include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/device_types.h"
 #include "logging.h"
 namespace towl {
 
@@ -38,11 +39,18 @@ void emitRecipeLaunch(
     const std::vector<synLaunchTensorInfo>& tensors);
 void emitRecipeFinished(
     const synapse_helpers::graph::recipe_handle* recipe_handle);
-void collectiveLaunch(const std::string& info);
-void collectiveFinished(const std::string& info);
+void emitCollectiveLaunch(const std::string& info);
+void emitCollectiveFinished(const std::string& info);
 void emitPythonString(const std::string& s);
 
 void emitDeviceMemorySummary(const char* tag);
+
+void emitCopyLaunch(const char* tag, void* src, void* dst, size_t bytes);
+void emitCopyFinished(const char* tag, void* src, void* dst);
+
+void emitCopyMultipleLaunch(const char* tag, const uint64_t* srcs, const uint64_t* dsts, const uint64_t* sizes, size_t num_copies);
+void emitCopyMultipleFinished(const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked);
+
 } // namespace impl
 
 /*
@@ -74,10 +82,23 @@ _MAKE_TOWL_ENTRYPOINT(
     emitRecipeFinished,
     (const synapse_helpers::graph::recipe_handle* recipe_handle),
     (recipe_handle));
-_MAKE_TOWL_ENTRYPOINT(collectiveLaunch, (const std::string& info), (info));
-_MAKE_TOWL_ENTRYPOINT(collectiveFinished, (const std::string& info), (info));
+_MAKE_TOWL_ENTRYPOINT(emitCollectiveLaunch, (const std::string& info), (info));
+_MAKE_TOWL_ENTRYPOINT(emitCollectiveFinished, (const std::string& info), (info));
 _MAKE_TOWL_ENTRYPOINT(emitPythonString, (const std::string& s), (s));
 _MAKE_TOWL_ENTRYPOINT(emitDeviceMemorySummary, (const char* tag), (tag));
+
+_MAKE_TOWL_ENTRYPOINT(emitCopyLaunch, (const char* tag, void* src, void* dst, size_t bytes), (tag, src, dst, bytes));
+_MAKE_TOWL_ENTRYPOINT(emitCopyFinished, (const char* tag, void* src, void* dst), (tag, src, dst));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitCopyMultipleLaunch,
+    (const char* tag, const uint64_t* srcs, const uint64_t* dsts, const uint64_t* sizes, size_t num_copies),
+    (tag, srcs, dsts, sizes, num_copies));
+_MAKE_TOWL_ENTRYPOINT(
+    emitCopyMultipleFinished,
+    (const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked),
+    (tag, locked));
+
 } // namespace
 
 void configure(bool enable, std::string config);

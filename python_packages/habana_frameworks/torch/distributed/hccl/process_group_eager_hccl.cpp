@@ -533,10 +533,10 @@ void Collective_Execute_Task(
         [resource_holder, &recipe_counter]() mutable {
           resource_holder.reset();
           recipe_counter.decrease_and_notify();
-          towl::collectiveFinished("eager");
+          towl::emitCollectiveFinished("eager");
         });
 
-    towl::collectiveLaunch("eager");
+    towl::emitCollectiveLaunch("eager");
 
     if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_SYNC)) {
       // each rank should wait `output_storage_ptr` mapping shared_event done

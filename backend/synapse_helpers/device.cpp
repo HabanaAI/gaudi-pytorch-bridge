@@ -36,6 +36,7 @@
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "backend/synapse_helpers/util.h"
 #include "common/utils.h"
+#include "habana_helpers/towl.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/fallback_helper.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
@@ -1244,8 +1245,10 @@ inline bool device::copy_data_to_device_(
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
         done_cb();
+        towl::emitCopyFinished("h2", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
         locked = nullptr;
       });
+  towl::emitCopyLaunch("h2d", mapped_cpu_data, reinterpret_cast<void*>(locked->at(0)), total_bytes);
   return true;
 }
 
@@ -1404,8 +1407,10 @@ synapse_error device::copy_data_to_device(
       [this, host_mem_ptr, unref_cb, locked]() mutable {
         host_memory_.free((void*)host_mem_ptr);
         unref_cb();
+        towl::emitCopyMultipleFinished("h2d", locked);
         locked = nullptr;
       });
+  towl::emitCopyMultipleLaunch("h2d", mapped_srcs.data(), locked_dsts.data(), lens.data(), transfers.size());
   return {};
 }
 
@@ -1501,9 +1506,11 @@ synapse_error device::copy_data_to_host(
           host_memory_.free((void*)dst_ptr);
         }
         done_cb();
+        towl::emitCopyFinished("d2h", reinterpret_cast<void*>(locked->at(0)), dst_ptr);
         locked = nullptr;
       });
 
+  towl::emitCopyLaunch("d2h", reinterpret_cast<void*>(locked->at(0)), mapped_destination, total_bytes);
   return {};
 }
 
@@ -1532,10 +1539,11 @@ synapse_error device::copy_data_within_device(
   }
   auto done_cb = [unref_cb, locked]() mutable {
     unref_cb();
+    towl::emitCopyFinished("d2d", reinterpret_cast<void*>(locked->at(0)), reinterpret_cast<void*>(locked->at(1)));
     locked = nullptr;
   };
   sem_.add_producer({dst_event_addr}, stream_handle, std::move(done_cb));
-
+  towl::emitCopyLaunch("d2d", reinterpret_cast<void*>(locked->at(0)), reinterpret_cast<void*>(locked->at(1)), total_bytes);
   return {};
 }
 
@@ -1581,6 +1589,7 @@ synapse_error device::copy_data_within_device(
   }
   auto done_cb = [unref_cb, locked]() mutable {
     unref_cb();
+    towl::emitCopyMultipleFinished("d2d", locked);
     locked = nullptr;
   };
 
@@ -1593,6 +1602,7 @@ synapse_error device::copy_data_within_device(
     record_and_wait_for_event(
         stream_handle, *next_operation_stream, std::move(done_cb));
   }
+  towl::emitCopyMultipleLaunch("d2d", locked_srcs.data(), locked_dsts.data(), lens.data(), transfers.size());
   return {};
 } // namespace synapse_helpers
 
