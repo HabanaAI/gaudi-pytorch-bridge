@@ -69,6 +69,7 @@ max_pool2d_with_indices                  Yes      Yes      Yes     No    torch.n
 max_pool3d                               Yes      Yes      Yes     No    torch.nn.functional
 max_pool3d_with_indices                  Yes      Yes      Yes     No    torch.nn.functional
 max_unpool2d                             Yes      Yes      Yes     No    torch.nn.functional
+max_unpool3d                             Yes      Yes      Yes     No    torch.nn.functional
 mish                                     Yes      Yes      Yes     No    torch.nn.functional
 mish\_                                   Yes      Yes      Yes     No    torch.nn.functional
 mse_loss                                 Yes      Yes      Yes     No    torch.nn.functional
@@ -546,6 +547,7 @@ MSELoss                                  Yes      Yes      Yes     No    torch.n
 MaxPool2d                                Yes      Yes      Yes     No    torch.nn
 MaxPool3d                                Yes      Yes      Yes     No    torch.nn
 MaxUnpool2d                              Yes      Yes      Yes     No    torch.nn
+MaxUnpool3d                              Yes      Yes      Yes     No    torch.nn
 Mish                                     Yes      Yes      Yes     No    torch.nn
 MultiLabelMarginLoss                     Yes      Yes      Yes     No    torch.nn
 MultiMarginLoss                          Yes      Yes      Yes     No    torch.nn
@@ -988,6 +990,7 @@ max_pool2d_with_indices                   No       No        No        No       
 max_pool3d                                No       No        No        No       No     torch.nn.functional
 max_pool3d_with_indices                   No       No        No        No       No     torch.nn.functional
 max_unpool2d                              No       No        No        No       No     torch.nn.functional
+max_unpool3d                              No       No        No        No       No     torch.nn.functional
 mish                                      No       No        No        No       No     torch.nn.functional
 mish\_                                    No       No        No        No       No     torch.nn.functional
 mse_loss                                  No       No        No        No       No     torch.nn.functional
@@ -1465,6 +1468,7 @@ MSELoss                                   No       No        No        No       
 MaxPool2d                                 No       No        No        No       No     torch.nn
 MaxPool3d                                 No       No        No        No       No     torch.nn
 MaxUnpool2d                               No       No        No        No       No     torch.nn
+MaxUnpool3d                               No       No        No        No       No     torch.nn
 Mish                                      No       No        No        No       No     torch.nn
 MultiLabelMarginLoss                      No       No        No        No       No     torch.nn
 MultiMarginLoss                           No       No        No        No       No     torch.nn

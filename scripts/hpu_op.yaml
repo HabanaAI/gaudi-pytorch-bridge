@@ -4348,6 +4348,19 @@ max_unpool2d.out:
   guid: max_unpool_2d_fwd
   op_validator: check-node-with-shared-layer
 
+max_unpool3d:
+  custom_fill_params: FillMaxUnpool3DParams
+  output_meta: MaxUnpool3DMeta
+  guid: max_unpool_3d_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+max_unpool3d.out:
+  custom_fill_params: FillMaxUnpool3DParams
+  output_meta: MaxUnpool3DMeta
+  guid: max_unpool_3d_fwd
+  op_validator: check-node-with-shared-layer
+
 mean:
   output_meta: ReductionOpMeta
   guid: reduce_mean_multi_dim_fwd
