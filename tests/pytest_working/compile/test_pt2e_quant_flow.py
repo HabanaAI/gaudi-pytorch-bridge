@@ -26,8 +26,12 @@ from habana_frameworks.torch.core.quantizer import (
     _mark_nodes_as_annotated,
     _update_input_qspec_map,
     habana_quant_config_symmetric,
-    habana_quantizer,
 )
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
+
+if is_pytorch_older_than("2.7.0"):
+    from habana_frameworks.torch.core.quantizer import habana_quantizer
+
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import (
     fga_assert_helper,
@@ -115,6 +119,49 @@ def verify_nodes(ops_summary, expected_op_count):
             fga_assert_helper(ops_summary=ops_summary, op=op, count_list=count_list)
 
 
+class custom_quantizer(Quantizer):
+
+    def __init__(self, quantization_config):
+        super().__init__()
+        self.global_config: QuantizationConfig = quantization_config
+
+    def validate(self, model: torch.fx.GraphModule) -> None:
+        pass
+
+    def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
+
+        def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+            module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
+            if len(module_partitions) == 0:
+                return
+
+            act_qspec = get_input_act_qspec(quantization_config)
+            weight_qspec = get_weight_qspec(quantization_config)
+            for module_or_fn_type, partitions in module_partitions.items():
+                if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
+                    for p in partitions:
+                        act_node = p.input_nodes[0]
+                        weight_node = None
+                        for node in p.params:
+                            weight_or_bias = getattr(gm, node.target, None)
+                            if weight_or_bias is None:
+                                continue
+                            if weight_or_bias.ndim == 2:
+                                weight_node = node
+
+                        if weight_node is None:
+                            continue
+
+                        _update_input_qspec_map(p, act_node, act_qspec)
+                        _update_input_qspec_map(p, weight_node, weight_qspec)
+
+                        nodes_to_mark_annotated = list(p.nodes)
+                        _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
+        _annotate_linear(model, self.global_config)
+        return model
+
+
 def use_pt2e_quant_flow(
     test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
 ):
@@ -148,26 +195,42 @@ def use_pt2e_quant_flow(
     inputs0 = inputs0.to(HPU)
     inputs1 = inputs1.to(HPU)
     inputs2 = inputs2.to(HPU)
-    example_inputs0 = [
-        inputs0,
-    ]
-    example_inputs1 = [
-        inputs1,
-    ]
-    example_inputs2 = [
-        inputs2,
-    ]
+    if is_pytorch_older_than("2.7.0"):
+        example_inputs0 = [
+            inputs0,
+        ]
+        example_inputs1 = [
+            inputs1,
+        ]
+        example_inputs2 = [
+            inputs2,
+        ]
+    else:
+        example_inputs0 = (inputs0,)
+        example_inputs1 = (inputs1,)
+        example_inputs2 = (inputs2,)
 
     model.to(device=HPU)
     model.eval()
 
     with torch.no_grad():
-        from torch._export import capture_pre_autograd_graph
+        if is_pytorch_older_than("2.7.0"):
+            from torch._export import capture_pre_autograd_graph
 
-        if pass_input_during_export:
-            model = capture_pre_autograd_graph(model, example_inputs0)
+            if pass_input_during_export:
+                model = capture_pre_autograd_graph(model, example_inputs0)
+            else:
+                model = capture_pre_autograd_graph(model)
         else:
-            model = capture_pre_autograd_graph(model)
+            from torch.export import export_for_training
+
+            if pass_input_during_export:
+                model = export_for_training(model, example_inputs0)
+            else:
+                model = export_for_training(model)
+
+            if isinstance(model, torch.export.exported_program.ExportedProgram):
+                model = model.module()
 
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
             from torch.ao.quantization.quantize_pt2e import prepare_pt2e
@@ -204,9 +267,13 @@ def test_pt2e_quant_float(
     set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture
 ):
 
-    quantizer = habana_quantizer()
-    quant_config = habana_quant_config_symmetric(quant_dtype)
-    quantizer.set_global(quant_config)
+    if is_pytorch_older_than("2.7.0"):
+        quantizer = habana_quantizer()
+        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quantizer.set_global(quant_config)
+    else:
+        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quantizer = custom_quantizer(quant_config)
 
     expected_op_count = {
         "after_prepare_pt2e": {
@@ -236,46 +303,6 @@ def test_pt2e_quant_float(
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
 def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
-
-    class custom_quantizer(Quantizer):
-
-        def __init__(self, quantization_config):
-            super().__init__()
-            self.global_config: QuantizationConfig = quantization_config
-
-        def validate(self, model: torch.fx.GraphModule) -> None:
-            pass
-
-        def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
-
-            def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
-                module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
-                if len(module_partitions) == 0:
-                    return
-
-                act_qspec = get_input_act_qspec(quantization_config)
-                weight_qspec = get_weight_qspec(quantization_config)
-                for module_or_fn_type, partitions in module_partitions.items():
-                    if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
-                        for p in partitions:
-                            act_node = p.input_nodes[0]
-                            weight_node = None
-                            for node in p.params:
-                                weight_or_bias = getattr(gm, node.target)
-                                if weight_or_bias.ndim == 2:
-                                    weight_node = node
-
-                            if weight_node is None:
-                                continue
-
-                            _update_input_qspec_map(p, act_node, act_qspec)
-                            _update_input_qspec_map(p, weight_node, weight_qspec)
-
-                            nodes_to_mark_annotated = list(p.nodes)
-                            _mark_nodes_as_annotated(nodes_to_mark_annotated)
-
-            _annotate_linear(model, self.global_config)
-            return model
 
     def custom_quant_config_symmetric(quant_dtype):
         quant_min = int(torch.iinfo(quant_dtype).min)

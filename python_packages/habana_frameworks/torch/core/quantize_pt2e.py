@@ -27,6 +27,7 @@ from typing import Any
 
 import functorch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 from torch._dynamo.backends.common import aot_autograd
@@ -477,7 +478,10 @@ def export(
         habana_pt2e_quant_context = None
         if kwargs is not None and "graph_break_present" in kwargs:
             kwargs.pop("graph_break_present")
-        model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
+        if is_pytorch_older_than("2.7.0"):
+            model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
+        else:
+            model = _native_pt2e_quantization_interface("export")(f, args, kwargs)
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
         model.multi_graph = False
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
