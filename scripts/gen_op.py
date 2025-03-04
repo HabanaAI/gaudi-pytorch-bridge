@@ -2265,7 +2265,9 @@ def generate_check_kernel_support_sigs(fgen):
 def get_cp_type_check(cptype):
     cp_type_check_map = {
         "Scalar": "isScalar",
+        "at::Scalar": "isScalar",
         "Tensor": "isTensor",
+        "at::Tensor": "isTensor",
         "double": "isDouble",
         "bool": "isBool",
         "int64_t": "isInt",
