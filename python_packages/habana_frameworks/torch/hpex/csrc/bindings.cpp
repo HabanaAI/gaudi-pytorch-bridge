@@ -13,8 +13,6 @@
  * limitations under the License.
  */
 #include <torch/extension.h>
-
-#include "bindings.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 
 // Wrappers to match signatures
@@ -175,8 +173,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "embedding_bag_sum_bwd",
       &embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap,
       "embedding bag sum bwd");
-  m.def(
-      "embedding_bag_preproc", &embedding_bag_preproc, "embedding bag preproc");
   m.def(
       "roi_align_forward",
       &vision::ops::roi_align_fwd_wrap,

@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-add_habana_library(_hpex_C SHARED bindings.cpp embedding_bag_preproc.cpp embedding_bag_preproc_main.cpp)
+add_habana_library(_hpex_C SHARED bindings.cpp)
 target_compile_definitions(_hpex_C PRIVATE TORCH_EXTENSION_NAME=_hpex_C)
 
 set_target_properties(_hpex_C PROPERTIES PREFIX "")
