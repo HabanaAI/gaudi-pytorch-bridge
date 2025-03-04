@@ -135,6 +135,16 @@ SharedMetaDataVector TriluSharedMeta(
   return Input0SharedMeta(stack, "matrix_band_part_fwd");
 }
 
+SharedMetaDataVector TrilTriuIndicesSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto dtype =
+      stack.at(3).toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
+  SharedMetaData triluIndicesMeta{"trilu_indices"};
+  triluIndicesMeta.outputs_data.emplace_back(2, dtype);
+  return {triluIndicesMeta};
+}
+
 void TriluIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

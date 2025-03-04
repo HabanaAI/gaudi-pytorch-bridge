@@ -6450,6 +6450,7 @@ tril_indices:
   guid: trilu_indices
   out_ids: [0]
   op_backend: TriluIndices
+  op_validator: TrilTriuIndicesSharedMeta
 
 triu_indices:
   custom_fill_params: FillTriuIndicesParams
@@ -6457,6 +6458,7 @@ triu_indices:
   guid: trilu_indices
   out_ids: [0]
   op_backend: TriluIndices
+  op_validator: TrilTriuIndicesSharedMeta
 
 trunc:
   guid: trunc_fwd
