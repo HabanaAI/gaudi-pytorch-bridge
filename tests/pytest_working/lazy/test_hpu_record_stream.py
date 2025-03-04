@@ -22,7 +22,7 @@ import torch
 
 def test_record_stream():
     # exp._reset_device_memory()
-    t = torch.FloatTensor([1.0, 2.0, 3.0, 4.0]).pin_memory(device="hpu")
+    t = torch.FloatTensor([1.0, 2.0, 3.0, 4.0]).pin_memory()
     result = torch.FloatTensor(t.size()).to("hpu")
     stream = ht.hpu.Stream()
     ptr = [None]
