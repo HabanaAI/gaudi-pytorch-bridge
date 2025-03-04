@@ -57,9 +57,6 @@ use_weight_broadcastable_weight = [(False, False), (True, False), (True, True)]
 @pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
 def test_hpu_binary_cross_entropy_fwd(size, reduction, dtype, use_weight, broadcastable_weight):
 
-    if not is_pytest_mode_eager() and reduction == "none" and use_weight and broadcastable_weight:
-        pytest.skip("Handling under SW-204408, bug already in regression")
-
     with use_eager_fallback():
 
         binary_cross_entropy_fwd_test(
@@ -90,8 +87,6 @@ def test_hpu_binary_cross_entropy_fwd_dynamic(
         pytest.skip(
             "Due to improper handling of SymInts in PT 2.1, test fails on cpu when weights are used. Used to work on PT 2.0 - [SW-165520]"
         )
-    if not is_pytest_mode_eager() and reduction == "none" and use_weight and broadcastable_weight:
-        pytest.skip("Handling under SW-204408, bug already in regression")
 
     with use_eager_fallback():
 
@@ -111,9 +106,6 @@ def test_hpu_binary_cross_entropy_fwd_dynamic(
 @pytest.mark.parametrize("dtype", dtype, ids=format_tc)
 @pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
 def test_hpu_binary_cross_entropy_with_logits_fwd(size, reduction, dtype, use_weight, broadcastable_weight):
-
-    if not is_pytest_mode_eager() and reduction == "none" and use_weight and broadcastable_weight:
-        pytest.skip("Handling under SW-204408, bug already in regression")
 
     with use_eager_fallback():
 
@@ -140,9 +132,6 @@ def test_hpu_binary_cross_entropy_with_logits_fwd(size, reduction, dtype, use_we
 def test_hpu_binary_cross_entropy_with_logits_fwd_dynamic(
     size, reduction, dtype, use_weight, broadcastable_weight, setup_teardown_env_fixture
 ):
-
-    if not is_pytest_mode_eager() and reduction == "none" and use_weight and broadcastable_weight:
-        pytest.skip("Handling under SW-204408, bug already in regression")
 
     with use_eager_fallback():
 
