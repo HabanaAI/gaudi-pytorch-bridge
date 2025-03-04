@@ -232,13 +232,13 @@ def hpu_initialize(
         if getenv("PT_HPU_LAZY_MODE", "1") != "0":
             _mark_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
             _check_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
-            _read_min_max_overwrite()
-            _set_quantization_attributes(model)
-            with _e_handler():
-                _handle_quant_stats(model)
         else:
             hpu.set_mark_scale_const(mark_only_scales)
             hpu.set_mark_non_scale_const(mark_non_scales)
+        _read_min_max_overwrite()
+        _set_quantization_attributes(model)
+        with _e_handler():
+            _handle_quant_stats(model)
 
 
 def hpu_inference_initialize(
@@ -270,13 +270,13 @@ def hpu_inference_initialize(
         if getenv("PT_HPU_LAZY_MODE", "1") != "0":
             _mark_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
             _check_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
-            _read_min_max_overwrite()
-            _set_quantization_attributes(model)
-            with _e_handler():
-                _handle_quant_stats(model)
         else:
             hpu.set_mark_scale_const(mark_only_scales)
             hpu.set_mark_non_scale_const(mark_non_scales)
+        _read_min_max_overwrite()
+        _set_quantization_attributes(model)
+        with _e_handler():
+            _handle_quant_stats(model)
 
 
 def hpu_reset_env():
