@@ -25,6 +25,7 @@ from torch._dynamo.utils import count_calls
 from torch._functorch.partitioners import (
     default_partition,
     min_cut_rematerialization_partition,
+    reordering_to_mimic_autograd_engine,
 )
 
 from .passes import is_view_node
@@ -107,6 +108,8 @@ def hpu_partition(
         joint_module = remove_unnecessary_clone(joint_module)
 
     try:
-        return default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
+        fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
+        bw_module = reordering_to_mimic_autograd_engine(bw_module)
+        return fw_module, bw_module
     except AssertionError as e:
         return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
