@@ -5091,11 +5091,12 @@ void HabanaLaunchOpPT::run(
           op_strs_,
           graph_symint_hash_,
           graph_perm_hash_);
-      auto context = habana_lazy::get_device_lazy_execution_context();
 
-      if ((context->getCapturing() &&
-           (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK)))) {
-        context->saveRecipeArgSpec(cur_rargpsh_);
+      if (execution_mode_ == habana_helpers::HabanaFrontendTypes::LAZY &&
+          GET_ENV_FLAG_NEW(PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK)) {
+        auto context = habana_lazy::get_device_lazy_execution_context();
+        if (context->getCapturing())
+          context->saveRecipeArgSpec(cur_rargpsh_);
       }
     } else {
       cur_rargpsh_ = cached_rarg_psh;
