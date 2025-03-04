@@ -548,14 +548,38 @@ void Collective_Execute_Task(
 }
 
 void ProcessGroupEagerHCCL::groupStart() {
-  initComms();
-  TORCH_CHECK(
+  auto _groupStart = [this]() {
+    initComms();
+    TORCH_CHECK(
       hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+  };
+
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  if (pipeline_flag) {
+    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(_groupStart);
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    _groupStart();
+  }
 }
 
 void ProcessGroupEagerHCCL::groupEnd() {
-  TORCH_CHECK(
+  auto _groupEnd = [this]() {
+    TORCH_CHECK(
       hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+  };
+
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  if (pipeline_flag) {
+    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(_groupEnd);
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    _groupEnd();
+  }
 }
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
