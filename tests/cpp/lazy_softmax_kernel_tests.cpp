@@ -61,7 +61,7 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest4D) {
   EXPECT_EQ(allclose(hout1, cout), true);
 }
 
-TEST_F(LazySoftmaxKernelTest, DISABLED_CrossEntropyTest) {
+TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
   torch::Tensor input_tensor =
       torch::rand({16, 32, 12, 10}, torch::requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
