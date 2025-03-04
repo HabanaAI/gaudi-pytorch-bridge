@@ -17,6 +17,7 @@
 
 
 import numpy
+import numpy as np
 import pytest
 import torch
 from test_utils import (
@@ -27,6 +28,21 @@ from test_utils import (
 from torch.fx import symbolic_trace
 
 torch.manual_seed(0)
+
+serial_path = "/tmp/const_section_test/"
+
+
+@pytest.fixture(scope="function")
+def const_section_fixture():
+    import shutil
+
+    import habana_frameworks.torch.core as htorch
+
+    htorch.hpu.enable_const_section_serialization(serial_path, True, True)
+    yield
+    htorch.hpu.disable_const_section_serialization()
+    # clear config
+    shutil.rmtree(serial_path)
 
 
 batch_norm_test_case_list_2d = [
@@ -174,3 +190,43 @@ def test_hpu_const_marking(inference_env_fixture):
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1)
+
+
+def test_hpu_const_serialization(inference_env_fixture, const_section_fixture):
+    torch.manual_seed(123456)
+
+    class Net(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.fc1 = torch.nn.Linear(2048, 1024)
+            self.fc2 = torch.nn.Linear(1024, 2)
+
+        def forward(self, x):
+            x = self.fc1(x)
+            x = self.fc2(x)
+            x = torch.mean(x, dim=1)
+            return x
+
+    model = Net()
+    model = model.to("hpu")
+    import habana_frameworks.torch.core as htcore
+
+    htcore.hpu_initialize(model)
+
+    X = torch.randn((3, 3, 2048)).to("hpu")
+
+    @torch._inductor.config.patch("freezing", True)
+    def raw_function(tensor):
+        return model(tensor)
+
+    compiled_function = compile_function_if_compile_mode(raw_function)
+    with torch.no_grad():
+        out = compiled_function(X)
+        out_serialize = out.to("cpu")
+
+    # run from serialization
+    with torch.no_grad():
+        out = compiled_function(X)
+        out_deserialize = out.to("cpu")
+
+    np.array_equal(out_serialize.detach().numpy(), out_deserialize.detach().numpy(), equal_nan=True)

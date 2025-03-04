@@ -92,6 +92,7 @@ using namespace std::literals;
 
 constexpr const auto CONST_SECTION_DATA_PREFIX = "const_tensor_"sv;
 constexpr const auto CONST_SECTION_DATA_SUFFIX = ".data"sv;
+constexpr const auto CONST_SECTION_COMPRESSION_CHUNK_SIZE = 32768;
 } // namespace
 
 std::string ConstSectionDataSerialize::getSerializedFullPath(int const_id) {
@@ -199,7 +200,7 @@ void ConstSectionDataSerialize::compress_and_serialize(
   zs.avail_in = data_size;
 
   int ret;
-  absl::FixedArray<char> outbuffer(data_size);
+  absl::FixedArray<char> outbuffer(CONST_SECTION_COMPRESSION_CHUNK_SIZE);
 
   do { // NOLINT(cppcoreguidelines-avoid-do-while)
     zs.next_out = reinterpret_cast<Bytef*>(outbuffer.data());
