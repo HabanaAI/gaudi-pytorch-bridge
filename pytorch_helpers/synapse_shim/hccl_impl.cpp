@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ hcclResult_t hcclReduce(
     hcclRedOp_t op,
     int root,
     hcclComm_t comm,
-    synStreamHandle stream_handle) {
+    void* stream_handle) {
   return hccl_api->hcclReduce(
       sendbuff, recvbuff, count, datatype, op, root, comm, stream_handle);
 }
@@ -94,7 +94,7 @@ hcclResult_t hcclBroadcast(
     hcclDataType_t datatype,
     int root,
     hcclComm_t comm,
-    synStreamHandle stream_handle) {
+    void* stream_handle) {
   return hccl_api->hcclBroadcast(
       sendbuff, recvbuff, count, datatype, root, comm, stream_handle);
 }
@@ -106,7 +106,7 @@ hcclResult_t hcclAllReduce(
     hcclDataType_t datatype,
     hcclRedOp_t op,
     hcclComm_t comm,
-    synStreamHandle stream_handle) {
+    void* stream_handle) {
   return hccl_api->hcclAllReduce(
       sendbuff, recvbuff, count, datatype, op, comm, stream_handle);
 }
@@ -118,7 +118,7 @@ hcclResult_t hcclReduceScatter(
     hcclDataType_t datatype,
     hcclRedOp_t op,
     hcclComm_t comm,
-    synStreamHandle stream_handle) {
+    void* stream_handle) {
   return hccl_api->hcclReduceScatter(
       sendbuff, recvbuff, recvcount, datatype, op, comm, stream_handle);
 }
@@ -129,7 +129,7 @@ hcclResult_t hcclAllGather(
     size_t sendcount,
     hcclDataType_t datatype,
     hcclComm_t comm,
-    synStreamHandle stream_handle) {
+    void* stream_handle) {
   return hccl_api->hcclAllGather(
       sendbuff, recvbuff, sendcount, datatype, comm, stream_handle);
 }
@@ -140,7 +140,7 @@ hcclResult_t hcclAlltoAll(
     size_t count,
     hcclDataType_t datatype,
     hcclComm_t comm,
-    synStreamHandle stream_handle) {
+    void* stream_handle) {
   return hccl_api->hcclAlltoAll(
       sendbuff, recvbuff, count, datatype, comm, stream_handle);
 }
@@ -151,7 +151,7 @@ hcclResult_t hcclSend(
     hcclDataType_t datatype,
     int peer,
     hcclComm_t comm,
-    synStreamHandle stream) {
+    void* stream) {
   return hccl_api->hcclSend(sendbuff, count, datatype, peer, comm, stream);
 }
 
@@ -161,7 +161,7 @@ hcclResult_t hcclRecv(
     hcclDataType_t datatype,
     int peer,
     hcclComm_t comm,
-    synStreamHandle stream) {
+    void* stream) {
   return hccl_api->hcclRecv(recvbuff, count, datatype, peer, comm, stream);
 }
 

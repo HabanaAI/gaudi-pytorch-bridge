@@ -14,13 +14,14 @@
  */
 
 #include "const_section.h"
+#include <absl/container/fixed_array.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
 #include <string>
 #include "backend/helpers/runtime_config.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "habana_helpers/logging.h"
 #include "recipe_cache_config.h"
 
@@ -43,7 +44,7 @@ void ConstSectionFileHandler::internal_mkdir(std::string path) {
   // no checking of retval, the dir is queried below regardless
   PT_CONST_SECTION_DEBUG("Creating const section cache dir: ", path);
   mkdir(path.c_str(), S_IRWXU | S_IRWXG);
-  struct stat info {};
+  struct stat info{};
   if (stat(path.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
     PT_CONST_SECTION_FATAL("Cannot create const cache directory: ", path);
   } else {
@@ -130,7 +131,7 @@ bool ConstSectionDataSerialize::fileExists(int const_id) {
   bool exists = (stat(getSerializedFullPath(const_id).c_str(), &buffer) == 0);
   if (exists) {
     PT_CONST_SECTION_DEBUG(
-        __func__, " file alredy exists: ", getSerializedFullPath(const_id));
+        __func__, " file already exists: ", getSerializedFullPath(const_id));
   }
   return exists;
 }
@@ -198,15 +199,15 @@ void ConstSectionDataSerialize::compress_and_serialize(
   zs.avail_in = data_size;
 
   int ret;
-  char outbuffer[data_size];
+  absl::FixedArray<char> outbuffer(data_size);
 
-  do {
-    zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
-    zs.avail_out = sizeof(outbuffer);
+  do { // NOLINT(cppcoreguidelines-avoid-do-while)
+    zs.next_out = reinterpret_cast<Bytef*>(outbuffer.data());
+    zs.avail_out = outbuffer.memsize();
 
     ret = deflate(&zs, Z_FINISH);
 
-    outputFile.write(outbuffer, zs.total_out - outputFile.tellp());
+    outputFile.write(outbuffer.data(), zs.total_out - outputFile.tellp());
   } while (ret == Z_OK);
 
   deflateEnd(&zs);
@@ -226,7 +227,7 @@ void ConstSectionDataSerialize::serialize(
       getSerializedFullPath(const_id), std::ios::out | std::ios::binary);
   if (!outputFile) {
     PT_CONST_SECTION_FATAL(
-        "Cannot open const section file ectory for writing: ",
+        "Cannot open const section file for writing: ",
         getSerializedFullPath(const_id));
     return;
   }
@@ -268,7 +269,7 @@ void ConstSectionDataSerialize::decompress_and_deserialize(
 
   int ret;
 
-  do {
+  do { // NOLINT(cppcoreguidelines-avoid-do-while)
     ret = inflate(&zs, Z_NO_FLUSH);
   } while (ret == Z_OK);
 

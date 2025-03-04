@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,13 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <sstream>
-#include "common/utils.h"
-
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
-
+#include <sstream>
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "common/utils.h"
+#include "habana_eager/graph_dynamic.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
 
@@ -109,10 +107,10 @@ std::string GetRangeInfoExprFromInput(
       value =
           std::to_string(static_cast<int64_t>(input->node()->i(value_attr)));
     } catch (std::exception& e) {
-      // Sometimes when value in prim::Constant node should have 0 as value_attr
-      // set but seems its coming as NoneType =
-      // prim::Constant[deterministic=0]() in some case  which we are internally
-      // treating as 0
+      // Sometimes when value in prim::Constant node should have 0 as
+      // value_attr set but seems its coming as NoneType =
+      // prim::Constant[deterministic=0]() in some case  which we are
+      // internally treating as 0
       PT_DYNAMIC_SHAPE_WARN(
           "Node ",
           in_name,
@@ -259,15 +257,16 @@ void UpdateShapeTensorSize(
     std::vector<int64_t>& stack_idxs,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
-  c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(stack_idxs.size(), 1);
+  std::vector<int64_t> new_shape(stack_idxs.size(), 1);
 
   for (size_t idx = 0; idx < stack_idxs.size(); ++idx) {
-    auto stack_index = stack_idxs[idx];
+    const auto stack_index = stack_idxs[idx];
     if (stack_index == LONG_MAX) {
       new_shape[idx] = dtensor.sizes()[idx];
     } else if (stack_index < 0) {
-      // add support for negative consts.. empty the shape tensor and COS in Sif
-      new_shape.set_size(0);
+      // add support for negative consts.. empty the shape tensor and COS in
+      // Sif
+      new_shape.resize(0);
       break;
     } else {
       new_shape[idx] =
@@ -276,9 +275,8 @@ void UpdateShapeTensorSize(
   }
 
   PT_EAGER_DEBUG("Updated dynamic shape tensor size:", dtensor.sizes());
-  std::vector<int64_t> cast_shapes(new_shape.begin(), new_shape.end());
   launch_shapes.ds_tensors.push_back(dtensor);
-  launch_shapes.patch_values.push_back(cast_shapes);
+  launch_shapes.patch_values.emplace_back(std::move(new_shape));
 }
 
 void UpdateH2DPatchingData(

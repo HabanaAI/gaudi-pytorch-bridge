@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  */
 #pragma once
 
+#include <cstdint>
 #include <ios>
 #include <ostream>
-#include <unordered_map>
 
 namespace synapse_helpers {
 
@@ -38,7 +38,8 @@ class ostream_flag_guard {
   explicit ostream_flag_guard(std::ostream& stream)
       : stream_{stream}, flags_{stream.flags()} {}
 
-  std::ostream& stream_;
+  std::ostream&
+      stream_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
   std::ios_base::fmtflags flags_;
 };
 

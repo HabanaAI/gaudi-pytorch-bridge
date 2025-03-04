@@ -14,8 +14,6 @@
  */
 #pragma once
 
-#include <atomic>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -27,8 +25,8 @@
 
 namespace habana {
 
-class RecipeHolder;
-class RecipeArgumentSpec;
+struct RecipeHolder;
+struct RecipeArgumentSpec;
 
 struct RecipeArgumentSpecHash {
  public:
@@ -148,7 +146,7 @@ class RecipeCacheLRU {
   serialization::RecipeCacheConfig recipe_cache_config_;
 };
 
-class RecipeValueSpec;
+struct RecipeValueSpec;
 
 class TemporaryRecipeStore {
  public:

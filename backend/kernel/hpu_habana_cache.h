@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,16 @@
 
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/jit.h>
-#include <atomic>
 #include <functional>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include "backend/habana_operator.h"
 #include "backend/helpers/collective_kernel_info.h"
-#include "backend/helpers/symbolic_expression.h"
 #include "backend/helpers/tensor_info.h"
-#include "backend/kernel/hpu_shape_inference.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/graph.h"
-
 #include "backend/kernel/hpu_recipe_cache.h"
+#include "backend/kernel/hpu_shape_inference.h"
+#include "backend/synapse_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "synapse_common_types.h"
 
@@ -194,19 +190,16 @@ struct RecipeArgumentSpec {
   }
 
  private:
-  void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
-  void ComputeH2DHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
-
   HbCas cas;
   std::string opstrs;
-  size_t hash_code{0};
   size_t graph_hash_code{0};
+  uint64_t token_{0};
   size_t offset_hash_code{0};
+  size_t hash_code{0};
   size_t h2d_hash_code{0};
   size_t cargspec_hash_code{0};
   size_t dynamic_hash_code{0};
   size_t graph_with_permute_hash_code{0};
-  uint64_t token_{0};
 };
 
 // Hash functor for RecipeArgumentSpec
@@ -219,10 +212,8 @@ struct RecipeValueSpec {
   RecipeValueSpec(std::shared_ptr<torch::jit::Graph> g = nullptr)
       : collective_kernels_info(
             std::make_shared<habana_helpers::CollectiveKernelInfos>()),
-        jit_graph_(g) {
-    count++;
-    id = count;
-  }
+        id(++count),
+        jit_graph_(g) {}
 
   RecipeValueSpec(std::istream& is);
 

@@ -102,6 +102,11 @@ performance-*,
 -performance-unnecessary-copy-initialization,
 -performance-unnecessary-value-param,
 '
+
+CheckOptions:
+    - key: cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage
+      value: true
+
 FormatStyle: file
 HeaderFilterRegex: 'habana|hpu|pt_ver|pytorch_helpers|python_packages|tests/'
 # WarningsAsErrors: '*'

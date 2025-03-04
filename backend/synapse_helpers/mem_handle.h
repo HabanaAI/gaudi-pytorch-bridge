@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@
 
 namespace synapse_helpers {
 enum bucket_type {
-  _BEGIN = 0,
+  BEGIN_ = 0,
   BUCKET_TYPE_SMALL = 0,
   BUCKET_TYPE_MEDIUM = 1,
   BUCKET_TYPE_BIG = 2,
-  _END = 3
+  END_ = 3
 };
 
 // Handle - Total of 64 bit, 2 bits are used  for Bucket
@@ -39,8 +39,10 @@ static const uint64_t medium_offset_bits = 32;
 static const uint64_t big_offset_bits = 42;
 
 struct HandleBucketInfo {
-  const uint64_t offset_bits;
-  const uint64_t handle_bits;
+  const uint64_t
+      offset_bits; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+  const uint64_t
+      handle_bits; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
   uint64_t max_offsets;
   uint64_t max_handles;
 };
@@ -137,10 +139,10 @@ class HandlesMap {
         size_t handleIndex)
         : handle_set_(handle_set),
           bucketIndex_(bucketIndex),
-          handleIndex_(handleIndex) {
-      id_ = create_memhandle_from_bucket_index_and_handle_index(
-          (bucket_type)bucketIndex_, handleIndex_);
-    }
+          handleIndex_(handleIndex),
+          id_(create_memhandle_from_bucket_index_and_handle_index(
+              (bucket_type)bucketIndex_,
+              handleIndex_)) {}
 
     const MemoryRecord operator*() const {
       return {
@@ -163,17 +165,22 @@ class HandlesMap {
           (a.handleIndex_ != b.handleIndex_);
     };
 
+    mem_handle::id_t id() const {
+      return id_;
+    }
+
    private:
-    const HandlesMap& handle_set_;
+    const HandlesMap&
+        handle_set_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
     size_t bucketIndex_ = 0;
     size_t handleIndex_ = 0;
     mem_handle::id_t id_;
   };
   Iterator begin() const {
-    return Iterator(*this, 0, 0);
+    return {*this, 0, 0};
   };
   Iterator end() const {
-    return Iterator(*this, this->handles_.size(), size());
+    return {*this, this->handles_.size(), size()};
   };
 
   std::size_t size() const;
@@ -190,8 +197,8 @@ class HandlesMap {
   };
   void CheckId(uint64_t handle_index, bucket_type index) const;
 
-  std::array<std::deque<Record>, _END> handles_;
-  std::array<std::queue<mem_handle::id_t>, _END> free_handles_;
+  std::array<std::deque<Record>, END_> handles_;
+  std::array<std::queue<mem_handle::id_t>, END_> free_handles_;
 };
 
 } // namespace synapse_helpers
