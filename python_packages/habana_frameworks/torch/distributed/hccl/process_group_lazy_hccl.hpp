@@ -144,6 +144,13 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
 
+  void setSequenceNumberForGroup() override{
+      /* HCCL just starts sequence numbers at 0. */};
+
+  uint64_t getSequenceNumberForGroup() override {
+    return seq_;
+  };
+
   // Provides an API to abort the ProcessGroup (hcclCommAbort)
   // instead of relying on ProcessGroupHCCL destructor.
   // return true if abort is successful, otherwise false
@@ -194,6 +201,7 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   std::string group_name_;
   bool emulate_distributed_;
   bool is_destroyed_ = false;
+  uint64_t seq_{0};
 
  protected:
   std::shared_ptr<habana::HcclCommunicator> comm_;

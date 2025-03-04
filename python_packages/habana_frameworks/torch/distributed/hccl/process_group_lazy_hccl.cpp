@@ -832,10 +832,78 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
-    [[maybe_unused]] std::vector<at::Tensor>& outputTensors,
-    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& inputTensors,
-    [[maybe_unused]] const ScatterOptions& opts) {
-  throw std::runtime_error("scatter is currently not supported with HCCL");
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<std::vector<at::Tensor>>& inputTensors,
+    const ScatterOptions& opts) {
+  bool change = false;
+  size_t tensor_size = inputTensors.empty() ? 0 : inputTensors[0].size();
+  std::vector<std::unique_ptr<bool[]>> changed(tensor_size);
+  std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
+  std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
+  for (size_t i = 0; i < inputTensors.size(); i++) {
+    changed[i] = std::make_unique<bool[]>(inputTensors[i].size());
+    sizeList[i].resize(inputTensors[i].size());
+    strideList[i].resize(inputTensors[i].size());
+    change |= resizeOddTensor(
+        inputTensors[i], changed[i], sizeList[i], strideList[i]);
+  }
+  size_t out_tensor_size = outputTensors.size();
+  std::unique_ptr<bool[]> out_changed(new bool[out_tensor_size]);
+  std::vector<std::vector<int64_t>> out_sizeList(out_tensor_size);
+  std::vector<std::vector<int64_t>> out_strideList(out_tensor_size);
+  change |=
+      resizeOddTensor(outputTensors, out_changed, out_sizeList, out_strideList);
+  HOST_SYNC()
+
+  static auto invalidArgument = [](const std::string& msg) {
+    C10_THROW_ERROR(ValueError, "ProcessGroupLazyHCCL::scatter: " + msg);
+  };
+
+  std::vector<at::Tensor> inputs;
+  c10::intrusive_ptr<Work> work;
+  if (getRank() == opts.rootRank) {
+    TORCH_CHECK(inputTensors.size() == 1, "Requires a single element list");
+    TORCH_CHECK(
+        inputTensors[0].size() == static_cast<size_t>(getSize()),
+        "Input list should be same size as process group");
+    assertTypeAndSizesMatch(
+        invalidArgument,
+        inputTensors[0],
+        outputTensors[0].options(),
+        outputTensors[0].sizes());
+    inputs = inputTensors[0];
+    int numRanks = getSize();
+    for (int r = 0; r < numRanks; r++) {
+      if (r == getRank()) {
+        outputTensors[0].copy_(inputs[r]);
+        work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputs);
+      } else {
+        std::vector<at::Tensor> sendTensor;
+        sendTensor.push_back(inputs[r]);
+        work = send(sendTensor, r, 0 /*tag*/);
+      }
+    }
+  } else {
+    TORCH_CHECK(inputTensors.size() == 0, "Requires empty input on non-root");
+    work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
+  }
+
+  if (change) {
+    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::scatter");
+    habana_lazy::HbLazyTensor::StepMarker();
+    for (size_t i = 0; i < inputTensors.size(); i++) {
+      restoreOddTensorsize(
+          inputTensors[i], changed[i], sizeList[i], strideList[i]);
+    }
+
+    restoreOddTensorsize(
+        outputTensors, out_changed, out_sizeList, out_strideList);
+  }
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputs);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
