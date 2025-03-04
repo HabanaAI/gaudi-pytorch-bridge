@@ -550,7 +550,8 @@ SharedMetaDataVector PadBwdSharedMeta(
 
 SharedMetaDataVector MatrixMulWithAddSharedMeta(
     const at::Stack& stack,
-    const std::string& guid) {
+    const std::string& guid,
+    bool activation_variant) {
   const auto& input = stack_tensor(stack, 0);
   const auto& mat1 = stack_tensor(stack, 1);
   const auto& mat2 = stack_tensor(stack, 2);
@@ -573,7 +574,22 @@ SharedMetaDataVector MatrixMulWithAddSharedMeta(
     matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
     matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
   }
-  return {matrixMulSharedMeta};
+  SharedMetaDataVector metaVec{matrixMulSharedMeta};
+
+  const bool append_activation = !(alpha_val == 0 && beta_val == 0);
+  if (append_activation && activation_variant) {
+    const bool use_gelu = stack.at(5).toBool();
+
+    SharedMetaData geluReluSharedMeta{use_gelu ? "gelu_fwd" : "relu_fwd"};
+    geluReluSharedMeta.inputs_data = matrixMulSharedMeta.outputs_data;
+    geluReluSharedMeta.outputs_data = geluReluSharedMeta.inputs_data;
+
+    if (use_gelu)
+      geluReluSharedMeta.outputs_data.push_back(
+          geluReluSharedMeta.outputs_data[0]);
+    metaVec.push_back(geluReluSharedMeta);
+  }
+  return metaVec;
 }
 
 SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(

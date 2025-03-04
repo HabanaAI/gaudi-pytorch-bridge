@@ -60,7 +60,7 @@ OutputMetaDataVector AddMVMeta(const at::Stack& stack) {
 SharedMetaDataVector AddMVSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  return MatrixMulWithAddSharedMeta(stack, "addmv");
+  return MatrixMulWithAddSharedMeta(stack, "addmv", false);
 }
 
 void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

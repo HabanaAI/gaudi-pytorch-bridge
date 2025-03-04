@@ -32,6 +32,10 @@
   SharedMetaDataVector name##SharedMeta( \
       const at::Stack& stack, const std::string& guid);
 
+#define SHARED_META_GUID_CONDITIONAL(name) \
+  SharedMetaDataVector name##SharedMeta(   \
+      const at::Stack& stack, const std::string& guid, bool);
+
 namespace habana {
 
 SHARED_META_GUID(Input0)
@@ -51,7 +55,7 @@ SHARED_META_GUID(BinaryWithAlpha)
 SHARED_META_GUID(BitwiseLogical)
 SHARED_META(Topk)
 SHARED_META_GUID(RandomSeedTensorInput)
-SHARED_META_GUID(MatrixMulWithAdd)
+SHARED_META_GUID_CONDITIONAL(MatrixMulWithAdd)
 SHARED_META(PadBwd)
 SHARED_META_GUID(MaxPoolWithIndicesFwd)
 SHARED_META_GUID(MaxPoolWithIndicesBwd)

@@ -1318,22 +1318,16 @@ addmm.out:
 
 _addmm_activation.out:
   output_meta: AddMMMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: addmm
   op_backend: AddMMActivation
+  op_validator: AddMMActivationSharedMeta
 
 _addmm_activation:
   output_meta: AddMMMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
   guid: addmm
   op_backend: AddMMActivation
+  op_validator: AddMMActivationSharedMeta
 
 addmv:
   output_meta: AddMVMeta

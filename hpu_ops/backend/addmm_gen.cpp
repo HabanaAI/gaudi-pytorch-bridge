@@ -71,7 +71,13 @@ OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
 SharedMetaDataVector AddMMSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  return MatrixMulWithAddSharedMeta(stack, "addmm");
+  return MatrixMulWithAddSharedMeta(stack, "addmm", false);
+}
+
+SharedMetaDataVector AddMMActivationSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MatrixMulWithAddSharedMeta(stack, "addmm", true);
 }
 
 OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
