@@ -17,17 +17,21 @@
 
 import pytest
 import torch
+import torch.nn as nn
 from binary_cross_entropy_utils import (
     binary_cross_entropy_bwd_test,
     binary_cross_entropy_fwd_test,
     binary_cross_entropy_with_logits_fwd_test,
+    gen_bce_inputs,
 )
 from compile.test_dynamo_utils import use_eager_fallback
 from test_utils import (
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
+    is_pytest_mode_lazy,
     setup_teardown_env_fixture,  # noqa F401
 )
 
@@ -183,3 +187,33 @@ def test_hpu_binary_cross_entropy_bwd_dynamic(size, reduction, dtype, use_weight
         binary_cross_entropy_bwd_test(
             size, reduction, dtype, use_weight, is_dynamic=True, is_compile=is_pytest_mode_compile()
         )
+
+
+# <--- Misc --->
+
+
+@pytest.mark.skipif(is_pytest_mode_lazy(), reason="Policy: fixes for lazy regression if necessary")
+@pytest.mark.parametrize(
+    "size",
+    [
+        (2, 3, 0, 4),
+        (128, 0, 54),
+    ],
+    ids=format_tc,
+)
+@pytest.mark.parametrize("reduction", reduction, ids=format_tc)
+@pytest.mark.parametrize("dtype", dtype, ids=format_tc)
+@pytest.mark.parametrize("use_weight", [False, True], ids=format_tc)
+def test_hpu_bce_with_logits_module_empty_tensor(size, reduction, dtype, use_weight):
+
+    cpu_tensors, hpu_tensors = gen_bce_inputs(size, dtype, use_weight)
+
+    BCEWithLogitsLoss = compile_function_if_compile_mode(nn.BCEWithLogitsLoss)
+
+    loss = nn.BCEWithLogitsLoss(cpu_tensors["weight"], reduction=reduction)
+    cpu_output = loss(cpu_tensors["input"], cpu_tensors["target"])
+
+    loss_h = BCEWithLogitsLoss(hpu_tensors["weight"], reduction=reduction)
+    hpu_output = loss_h(hpu_tensors["input"], hpu_tensors["target"])
+
+    assert torch.allclose(cpu_output, hpu_output.cpu(), equal_nan=True)
