@@ -585,7 +585,7 @@ def _native_pt2e_quantization_interface(name):
     ):
         overwrite_native_pt2e_quantization_interface()
     if NativeFunctions.org_export is None:
-        overwrite_export_for_training()
+        overwrite_export_function()
     if name == "export":
         return NativeFunctions.org_export
     elif name == "prepare_pt2e":
