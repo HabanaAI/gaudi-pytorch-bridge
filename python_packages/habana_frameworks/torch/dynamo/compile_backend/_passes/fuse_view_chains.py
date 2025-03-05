@@ -77,6 +77,8 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         ) or node.op == "getitem":
             users = list(node.users.keys())
             cluster_output_contiguity = node.meta["output_contiguous"]
+            if len(cluster_output_contiguity) != len(users) and len(cluster_output_contiguity) == 1:
+                cluster_output_contiguity = cluster_output_contiguity * len(users)
 
             # Needed to update strides of outputs which are noncontiguous acording to dynamo
             # but are in fact contiguous due to being calculated on HPU
