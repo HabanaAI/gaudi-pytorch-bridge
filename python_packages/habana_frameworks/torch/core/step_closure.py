@@ -34,7 +34,7 @@ def _get_device_context(device=None):
         device = htcore._hb_get_default_device()
 
     with _DEVICE_CONTEXTS_LOCK:
-        devctx = _DEVICE_CONTEXTS.get(device, None)
+        devctx = _DEVICE_CONTEXTS.get(device)
         if devctx is None:
             devctx = _DeviceContext(device)
             _DEVICE_CONTEXTS[device] = devctx

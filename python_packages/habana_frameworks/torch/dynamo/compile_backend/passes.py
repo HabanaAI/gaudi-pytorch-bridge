@@ -554,7 +554,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
     """
 
     def is_hints_wrapper_node(node: torch.fx.Node) -> bool:
-        return node.op == "call_function" and "hints_wrapper" == node.target.__name__
+        return node.op == "call_function" and node.target.__name__ == "hints_wrapper"
 
     def get_schedule_policy(hints: dict) -> SchedulePolicy:
         if "schedule_policy" not in hints:
@@ -1536,9 +1536,8 @@ class resolve_negative_dim:
                 return False
             else:
                 meta_val = node.args[0].meta.get("val", node.meta.get("tensor_meta", None))
-                idx = 0
                 new_args1 = list(meta_val.size())
-                for arg in list(meta_val.size()):
+                for idx, arg in enumerate(list(meta_val.size())):
                     new_args1[idx] = arg
                     if isinstance(arg, py_sym_types):
                         new_node = cls.py_node_manager.get_or_create(arg, int)
@@ -1546,7 +1545,6 @@ class resolve_negative_dim:
                         new_node.meta["placement"] = "eager"
                         new_node.meta["output_device"] = torch.device("cpu")
                         new_args1[idx] = new_node
-                    idx += 1
             # handle negative end values
             end = sys.maxsize if len(node.args) == 3 else node.args[3]
             end = new_args1[node.args[1]] if end == sys.maxsize else node.args[3]
@@ -1577,9 +1575,8 @@ class resolve_negative_dim:
                 return
             else:
                 meta_val = node.args[0].meta.get("val", node.meta.get("tensor_meta", None))
-                idx = 0
                 new_args1 = list(meta_val.size())
-                for arg in list(meta_val.size()):
+                for idx, arg in enumerate(list(meta_val.size())):
                     new_args1[idx] = arg
                     if isinstance(arg, py_sym_types):
                         new_node = cls.py_node_manager.get_or_create(arg, int)
@@ -1587,7 +1584,6 @@ class resolve_negative_dim:
                         new_node.meta["placement"] = "eager"
                         new_node.meta["output_device"] = torch.device("cpu")
                         new_args1[idx] = new_node
-                    idx += 1
             # replace call_function and recompile the graph
             val = 0 if len(node.args) == 2 else node.args[2]
             with ctx.graph_module.graph.inserting_before(node):
@@ -1677,7 +1673,7 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
             for arg in args:
                 if arg.meta["placement"] == "hpu_cluster":
                     node_target = arg.target.__name__.split(".")[0]
-                    if is_view_node(arg):
+                    if is_view_node(arg):  # noqa SIM114
                         arg.meta["pass_meta_color"] = "red"
                     # getitem is special-cased here since it may have view args and break the view ops chain
                     elif node_target == "getitem" and is_view_node(arg.args[0]):

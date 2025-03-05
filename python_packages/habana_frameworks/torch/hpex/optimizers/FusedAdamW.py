@@ -42,7 +42,7 @@ class FusedAdamW(Optimizer):
             raise ValueError(f"Invalid beta parameter: {betas[0]} - should be in [0.0, 1.0[")
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError(f"Invalid beta parameter: {betas[1]} - should be in [0.0, 1.0[")
-        if not 0.0 <= eps:
+        if not eps >= 0.0:
             raise ValueError(f"Invalid epsilon value: {eps} - should be >= 0.0")
         defaults = {
             "lr": lr,

@@ -68,7 +68,7 @@ def test_const_serialization_cache(inference_env_fixture, const_section_fixture)
 
     # check for 4 const weights serialized files
     num_files = len(os.listdir(os.path.join(serial_path, "0")))
-    assert 4 == num_files
+    assert num_files == 4
 
     # run from serialization
     with torch.no_grad():

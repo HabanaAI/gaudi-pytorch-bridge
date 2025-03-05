@@ -24,5 +24,5 @@ os.environ["PT_HPU_STOCHASTIC_ROUNDING_MODE"] = "0"
 
 
 def setup_teardown_env():
-    if 0 == int(os.environ.get("PT_HPU_LAZY_MODE", 1)):
+    if int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 0:
         pytest.skip("This test requires PT_HPU_LAZY_MODE=1")

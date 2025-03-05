@@ -77,7 +77,7 @@ class SSDDataLoader(torch.utils.data.DataLoader):
         manifest = kwargs.get("manifest", "manifest.cfg")
         drop_last = kwargs.get("drop_last", False)
         self.encoder = None
-        distributed = kwargs.get("sampler", None) is not None
+        distributed = kwargs.get("sampler") is not None
         channels_last = kwargs.get("channels_last", False)
 
         self.configurator = AeonSSDConfigurator(

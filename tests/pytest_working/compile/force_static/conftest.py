@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import pytest
 
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
-    if 1 == int(os.environ.get("PT_HPU_LAZY_MODE", 1)):
+    if int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1:
         pytest.skip("This test requires PT_HPU_LAZY_MODE=0")
 
     ds_org_status = bc.get_pt_hpu_enable_refine_dynamic_shapes()

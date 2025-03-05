@@ -103,11 +103,7 @@ def _patch_file(f):
         result = 1
     script_header = []  # shebang or other stuff that goes above the copyright definition.
     for l in contents[:3]:
-        if l[:2] == "#!":
-            script_header.append(l)
-        elif l == "# coding: utf-8\n":
-            script_header.append(l)
-        elif l == "\n":
+        if l[:2] == "#!" or l == "# coding: utf-8\n" or l == "\n":
             script_header.append(l)
         else:
             break

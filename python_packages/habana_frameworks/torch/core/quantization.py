@@ -110,11 +110,11 @@ def _mark_params_as_const(model=None, mark_scales=False, mark_non_scales=False, 
             print(f"Tensor '{param}' is_const '{is_const}' id '{id}'")
 
     for param, param_t in model.state_dict().items():
-        if mark_scales and mark_non_scales:
-            perform_const_marking(param, param_t)
-        elif mark_scales and "scale" in param:
-            perform_const_marking(param, param_t)
-        elif mark_non_scales and "scale" not in param:
+        if (
+            (mark_scales and mark_non_scales)
+            or (mark_scales and "scale" in param)
+            or (mark_non_scales and "scale" not in param)
+        ):
             perform_const_marking(param, param_t)
 
 
@@ -134,11 +134,11 @@ def _check_params_as_const(model=None, mark_scales=False, mark_non_scales=False)
         is_const = param_t_meta_copy.is_const_tensor
 
     for param, param_t in model.state_dict().items():
-        if mark_scales and mark_non_scales:
-            check_constant_mark(param, param_t)
-        elif mark_scales and "scale" in param:
-            check_constant_mark(param, param_t)
-        elif mark_non_scales and "scale" not in param:
+        if (
+            (mark_scales and mark_non_scales)
+            or (mark_scales and "scale" in param)
+            or (mark_non_scales and "scale" not in param)
+        ):
             check_constant_mark(param, param_t)
 
 

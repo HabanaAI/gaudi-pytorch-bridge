@@ -240,7 +240,7 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
 def env_var_in_scope(vars=None):
     def set_flag_in_env(name: str, value):
         assert (
-            "PT_HPU_LAZY_MODE" != name
+            name != "PT_HPU_LAZY_MODE"
         ), "Setting PT_HPU_LAZY_MODE during test is forbidden. Use python3 -m pytest --mode argument instead"
         if value is None:
             os.environ[name] = ""
@@ -439,11 +439,7 @@ class TcLimitedFormatter:
             return ret
         elif val is None:
             return "_None_"
-        elif isinstance(val, types.MethodDescriptorType):
-            return val.__name__
-        elif isinstance(val, types.BuiltinMethodType):
-            return val.__name__
-        elif isinstance(val, types.FunctionType):
+        elif isinstance(val, types.MethodDescriptorType | types.BuiltinMethodType | types.FunctionType):
             return val.__name__
         else:
             s = str(val)

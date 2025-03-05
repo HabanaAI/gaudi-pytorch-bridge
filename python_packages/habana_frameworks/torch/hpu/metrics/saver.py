@@ -188,7 +188,7 @@ class MetricSaver:
             use_env = True
             self._metric_file_base_name = self._get_env(self.METRIC_FILE_ENV_VAR, self.METRIC_FILE_ENV_VAR_ALT, None)
 
-        self._saver_enabled = True if self._metric_file_base_name else False
+        self._saver_enabled = self._metric_file_base_name
 
         self._metric_dump_triggers = []
         self._metric_writer = MetricNullWriter()

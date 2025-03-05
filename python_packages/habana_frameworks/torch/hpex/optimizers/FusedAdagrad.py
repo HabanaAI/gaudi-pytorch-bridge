@@ -36,15 +36,15 @@ class FusedAdagrad(Optimizer):
         initial_accumulator_value: float = 0,
         eps: float = 1e-10,
     ):
-        if not 0.0 <= lr:
+        if not lr >= 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
-        if not 0.0 <= lr_decay:
+        if not lr_decay >= 0.0:
             raise ValueError(f"Invalid lr_decay value: {lr_decay}")
-        if not 0.0 <= weight_decay:
+        if not weight_decay >= 0.0:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
-        if not 0.0 <= initial_accumulator_value:
+        if not initial_accumulator_value >= 0.0:
             raise ValueError(f"Invalid initial_accumulator_value value: {initial_accumulator_value}")
-        if not 0.0 <= eps:
+        if not eps >= 0.0:
             raise ValueError(f"Invalid epsilon value: {eps}")
 
         defaults = {

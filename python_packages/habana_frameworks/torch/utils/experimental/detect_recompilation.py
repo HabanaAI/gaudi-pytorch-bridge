@@ -392,9 +392,7 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
 def get_shape(item):
     if type(item) is type(torch.tensor([])):
         return tuple(item.shape)
-    elif type(item) is type([]):
-        return tuple([get_shape(k) for k in item])
-    elif type(item) is type(()):
+    elif type(item) in [type([]), type(())]:
         return tuple([get_shape(k) for k in item])
     elif isinstance(item, dict):
         return tuple((get_shape(k), get_shape(v)) for k, v in item.items())

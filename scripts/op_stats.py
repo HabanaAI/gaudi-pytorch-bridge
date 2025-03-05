@@ -422,10 +422,7 @@ def get_manual_ops_with_overrides_in_yaml(f_yaml):
 
 
 def is_op_overridden_in_yaml(op_name, ops_override_list):
-    for op in ops_override_list:
-        if op_name == op:
-            return True
-    return False
+    return any(op == op_name for op in ops_override_list)
 
 
 def load_excluded_ops():

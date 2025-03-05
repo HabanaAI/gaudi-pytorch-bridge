@@ -184,17 +184,11 @@ def strToList(val):
 
 
 def check_list_min(list1, list2):
-    for i in range(len(list1)):
-        if list1[i] < list2[i]:
-            return True
-    return False
+    any(list1[i] < list2[i] for i in range(len(list1)))
 
 
 def check_list_max(list1, list2):
-    for i in range(len(list1)):
-        if list1[i] > list2[i]:
-            return True
-    return False
+    any(list1[i] > list2[i] for i in range(len(list1)))
 
 
 def reasonMismatch(range_dict, shapes, bucket, compile):

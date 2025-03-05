@@ -64,7 +64,7 @@ def split_embedding_codegen_lookup_function(
     for t in range(T):
         D = D_offsets[t + 1] - D_offsets[t]
 
-        assert D == previous_D, f"HPU supports only constant D_offsets' distances, but they're {D} and {previous_D}"
+        assert previous_D == D, f"HPU supports only constant D_offsets' distances, but they're {D} and {previous_D}"
 
         t_weights_from = weights_offsets[t]
         if t + 1 < T:

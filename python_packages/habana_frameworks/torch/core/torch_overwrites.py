@@ -197,7 +197,7 @@ def overwrite_torch_functions():
     def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
-        hpu_backend_invoke = True if backend is None or "hccl" in backend else False
+        hpu_backend_invoke = backend is None or "hccl" in backend
 
         if cache_enable and hpu_backend_invoke:
             nonlocal ranks_cache
@@ -229,7 +229,7 @@ def overwrite_torch_functions():
     ):
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
-        hpu_backend_invoke = True if backend is None or "hccl" in backend else False
+        hpu_backend_invoke = backend is None or "hccl" in backend
         if cache_enable and hpu_backend_invoke:
             ranks_cache[backend] = {}
             if len(ranks_cache[backend]) == 0:

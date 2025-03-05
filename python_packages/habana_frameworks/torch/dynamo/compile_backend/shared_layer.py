@@ -323,10 +323,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
         conditional_eager_fallback = check_for_conditional_eager_fallback(node, op_name, is_dynamic)
         conditional_add_to_graph = op_name in hpu_conditional_fallback_op_list and not conditional_eager_fallback
 
-        if check_for_default_fallback(op_name, node, is_dynamic):
-            do_fallback = True
-            logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
-        elif conditional_eager_fallback:
+        if check_for_default_fallback(op_name, node, is_dynamic) or conditional_eager_fallback:
             do_fallback = True
             logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
         elif not check_for_default_op_support(op_name, node, is_dynamic) or conditional_add_to_graph:

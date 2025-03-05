@@ -155,10 +155,7 @@ def _is_node_output_symbolic(node: torch.fx.node.Node) -> bool:
 
 
 def is_graph_module_dynamic(gm: torch.fx.GraphModule) -> bool:
-    for node in gm.graph.nodes:
-        if _is_node_output_symbolic(node):
-            return True
-    return False
+    return any(_is_node_output_symbolic(node) for node in gm.graph.nodes)
 
 
 def check_node_and_args(node: torch.fx.node.Node, predicate):

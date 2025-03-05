@@ -39,13 +39,13 @@ class FusedSGD(Optimizer):
         dampening: float = 0,
         nesterov: bool = False,
     ):
-        if not 0.0 <= lr:
+        if not lr >= 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
-        if not 0.0 <= momentum:
+        if not momentum >= 0.0:
             raise ValueError(f"Invalid momentum value: {momentum}")
-        if not 0.0 <= weight_decay:
+        if not weight_decay >= 0.0:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
-        if not 0.0 <= dampening:
+        if not dampening >= 0.0:
             raise ValueError(f"Invalid dampening value: {dampening}")
 
         defaults = {

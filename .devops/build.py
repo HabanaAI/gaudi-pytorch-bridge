@@ -279,7 +279,7 @@ def prepare_env(venv_dir):
         return None
     env = {}
     env.update(os.environ)
-    venv = env.get("VIRTUAL_ENV", None)
+    venv = env.get("VIRTUAL_ENV")
 
     #  ordinary venv activate/deactivate use _OLD_VIRTUAL_* variables to
     #  restore the original env, but these variables aren't exported. This

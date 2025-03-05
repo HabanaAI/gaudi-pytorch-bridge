@@ -46,7 +46,7 @@ def test_searchsorted_input(right, out_int32, is_out, seq_dtype, val_dtype, sequ
     sorted_sequence, _ = torch.sort(torch.randn(sequence_shape))
     sorted_sequence = sorted_sequence.to(seq_dtype)
 
-    scalar_value = True if values_shape == () else False
+    scalar_value = values_shape == ()
     values_name = "self" if scalar_value else "input"
     values = torch.randn(1).item() if scalar_value else torch.randn(values_shape).to(val_dtype)
 

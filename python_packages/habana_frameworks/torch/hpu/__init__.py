@@ -451,13 +451,13 @@ def _create_tensor_alias(name, dtype):
     class TypeFabric(torch.Tensor):
         @staticmethod
         def __new__(cls, *args, **kwargs):  # no __init__ due torch.Tensor is C object
-            input_device = kwargs.get("device", None)
+            input_device = kwargs.get("device")
             if input_device is not None and input_device != target_device:
                 raise RuntimeError(
                     f"legacy constructor expects device type: {target_device} but device type: {input_device} was passed"
                 )
 
-            input_dtype = kwargs.get("dtype", None)
+            input_dtype = kwargs.get("dtype")
             if input_dtype is not None and input_dtype != dtype:
                 raise RuntimeError(f"legacy constructor expects dtype: {dtype} but dtype: {input_dtype} was passed")
 

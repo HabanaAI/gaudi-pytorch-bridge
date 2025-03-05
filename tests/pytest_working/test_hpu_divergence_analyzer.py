@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -61,11 +61,11 @@ def _test_hpu_ops():
 def predict_status(train_cmd, do_train, do_compare, to_csv, do_split, enable_parallel, outdir, exit_on_first_mismatch):
     if outdir == "":
         return 512  # error: argument --outdir: expected one argument
-    elif do_train == 1 and train_cmd == "":
-        return 256  # AssertionError
-    elif do_train == 1 and enable_parallel == 1 and do_split == 0:
-        return 256  # AssertionError
-    elif do_compare == 0 and to_csv == 1:
+    elif (
+        (do_train == 1 and train_cmd == "")
+        or (do_train == 1 and enable_parallel == 1 and do_split == 0)
+        or (do_compare == 0 and to_csv == 1)
+    ):
         return 256  # AssertionError
     else:
         return 0

@@ -184,13 +184,13 @@ class GraphVisualizer:
 
             cls.graph_dir.mkdir(parents=True, exist_ok=True)
 
-            if "svg" == mode and SvgVisualizer.is_available():
+            if mode == "svg" and SvgVisualizer.is_available():
                 cls.strategy = SvgVisualizer()
 
-            if "graphml" == mode and GraphmlVisualizer.is_available():
+            if mode == "graphml" and GraphmlVisualizer.is_available():
                 cls.strategy = GraphmlVisualizer()
 
-            if "pbtxt" == mode and PbtxtVisualizer.is_available():
+            if mode == "pbtxt" and PbtxtVisualizer.is_available():
                 cls.strategy = PbtxtVisualizer()
 
         cls.visualizer_init_done = True

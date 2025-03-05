@@ -23,7 +23,6 @@ import logging
 import os
 import sys
 import tempfile
-from typing import Any
 
 import packaging.version
 import requests
@@ -59,7 +58,7 @@ class Version(packaging.version.Version):
         else:
             raise TypeError(f"Version must be a string or a sys.version_info: {version}")
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         try:
             rhs = Version(other) if isinstance(other, str) else other
             return super().__eq__(rhs)

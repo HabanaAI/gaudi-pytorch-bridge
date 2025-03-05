@@ -446,9 +446,9 @@ class SampleDatasetComplex(SampleDataset):
 
 @pytest.mark.skip
 def test_dataloader_basic_fns():
-    assert (2,) == get_shape(torch.tensor([1, 2]))
-    assert ((2,), (3,)) == get_shape([torch.tensor([1, 2]), torch.tensor([1, 2, 3])])
-    assert ((2,), ((1, 3),)) == get_shape([torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}])
+    assert get_shape(torch.tensor([1, 2])) == (2,)
+    assert get_shape([torch.tensor([1, 2]), torch.tensor([1, 2, 3])]) == ((2,), (3,))
+    assert get_shape([torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}]) == ((2,), ((1, 3),))
 
 
 def test_dataloader_simple():

@@ -474,15 +474,13 @@ class SymbolicShapeEvaluator:
         Returns:
             Calculated output size.
         """
-        idx = 0
         concrete_size = [None] * out_shape_meta[3]
         output_shape_sympy = out_shape_meta[0]
-        for sz in output_shape_sympy:
+        for idx, sz in enumerate(output_shape_sympy):
             value = sz
             if out_shape_meta[2][idx] is not sys.maxsize:
                 value = self.calculate_symbol_size(sz, out_shape_meta[1][idx], out_shape_meta[2][idx], input_stack)
             concrete_size[idx] = value
-            idx += 1
 
         return concrete_size
 

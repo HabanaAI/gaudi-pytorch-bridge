@@ -26,7 +26,7 @@ from test_utils import _kernel_copy_to_device, compare_tensors
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.fc1 = nn.Linear(784, 128)
         self.fc2 = nn.Linear(128, 10)
         self.dropout = nn.Dropout(0.5)
@@ -100,7 +100,7 @@ def testCaptureWithSingleStream():
 
 class ModelPropNet(torch.nn.Module):
     def __init__(self):
-        super(ModelPropNet, self).__init__()
+        super().__init__()
         self.Linear1 = torch.nn.Linear(20, 25)
         self.relu = torch.nn.ReLU()
         self.Linear2 = torch.nn.Linear(25, 3)
@@ -170,7 +170,7 @@ def test_module_cacher_propnet():
 
 class ModelHpu(torch.nn.Module):
     def __init__(self, inp_size, out_size):
-        super(ModelHpu, self).__init__()
+        super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
 
     def forward(self, inp, m):
@@ -206,12 +206,12 @@ def test_graph_capture_scalar(asynchronous=False, disable_tensor_cache=False):
         loss = loss_fn(tmp[:], target)
         return loss
 
-    for data, data2, target in zip(real_inputs_hpu, real_inputs_hpu_scalar, real_targets_hpu):
+    for data, data2, target in zip(real_inputs_hpu, real_inputs_hpu_scalar, real_targets_hpu, strict=False):
         loss_hpu = wrapped_func_scalar(data, data2, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
 
-    for data, data2, target in zip(real_inputs_cpu, real_inputs_cpu_scalar, real_targets_cpu):
+    for data, data2, target in zip(real_inputs_cpu, real_inputs_cpu_scalar, real_targets_cpu, strict=False):
         loss_cpu = wrapped_func_scalar(data, data2, target, module1_cpu, loss_fn)
         loss_cpu_vec.append(loss_cpu)
 

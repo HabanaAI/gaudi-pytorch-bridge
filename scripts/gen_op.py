@@ -25,7 +25,7 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from enum import Enum
 from functools import wraps
 from typing import Any
@@ -55,7 +55,7 @@ def get_execution_mode_from_string(execution_mode: str) -> HabanaExecutionMode:
 
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
-    ntuple = collections.namedtuple(typename, field_names)
+    ntuple = namedtuple(typename, field_names)
     ntuple.__new__.__defaults__ = (None,) * len(ntuple._fields)
     if isinstance(default_values, collections.abc.Mapping):
         prototype = ntuple(**default_values)
@@ -1288,9 +1288,7 @@ def handle_validator_generator(
 
         check_per_tensor = False
         if isinstance(dtypes, dict):
-            if any(p in dtypes.keys() for p in param_vars):
-                check_per_tensor = True
-            elif any(isinstance(x, dict) for x in dtypes.values()):
+            if any(p in dtypes.keys() for p in param_vars) or any(isinstance(x, dict) for x in dtypes.values()):
                 check_per_tensor = True
         code += fallback_if_unsupported(
             tinputs,
@@ -1570,9 +1568,7 @@ def is_eager_op(ctxop):
 
 def get_eager_op_info(opname, ns):
     type = "eager::eagerOpKind::"
-    if opname.endswith("_out"):
-        type += "InplaceOut"
-    elif opname.endswith("_grad_input"):
+    if opname.endswith("_out") or opname.endswith("_grad_input"):
         type += "InplaceOut"
     elif opname.endswith("_"):
         if opname.endswith("resize_"):

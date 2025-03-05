@@ -130,7 +130,7 @@ def test_foreach_binary_list(op, k):
     self_dtypes = random.choices(dtypes, k=k)
     other_dtypes = random.choices(dtypes, k=k)
 
-    non_negative = True if op == torch._foreach_pow else False
+    non_negative = op == torch._foreach_pow
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
     other_cpu, other_hpu = generate_tensor_list(other_shapes, other_dtypes, non_negative=non_negative)
 
@@ -268,7 +268,7 @@ def test_foreach_binary_list_inplace(op, k):
             self_dtypes[i] = torch.float32
         self_dtypes[i] = torch.promote_types(self_dtypes[i], other_dtypes[i])
 
-    non_negative = True if op == torch._foreach_pow_ else False
+    non_negative = op == torch._foreach_pow_
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
     other_cpu, other_hpu = generate_tensor_list(other_shapes, other_dtypes, non_negative=non_negative)
 

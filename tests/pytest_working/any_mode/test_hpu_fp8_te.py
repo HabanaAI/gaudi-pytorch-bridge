@@ -1103,24 +1103,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 
                 for m, my_linear in enumerate(my_linears):
                     suffix = f"at iter {iter}, input {i}, module {m}"
-                    if not manual and my_linear.run_cnt < interval:
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_fwd"].scale,
-                            refs[m]["fwd_scale"],
-                        ), f"wrong fwd scale computed {suffix}"
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_fwd"].scale_inv,
-                            refs[m]["fwd_scale_inv"],
-                        ), f"wrong fwd scale_inv computed {suffix}"
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_bwd"].scale,
-                            refs[m]["bwd_scale"],
-                        ), f"wrong bwd scale computed {suffix}"
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_bwd"].scale_inv,
-                            refs[m]["bwd_scale_inv"],
-                        ), f"wrong bwd scale_inv computed {suffix}"
-                    elif manual:
+                    if not manual and my_linear.run_cnt < interval or manual:
                         assert torch.equal(
                             my_linear.fp8_meta["scaling_fwd"].scale,
                             refs[m]["fwd_scale"],

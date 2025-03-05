@@ -211,7 +211,7 @@ def test_multiple_sdpa_impls(
         run_hpu_sdpa = run_sdpa_with_hints_once
         with_slice = True
 
-    if "lazy_cguid" == kernel_type:
+    if kernel_type == "lazy_cguid":
         assert pytest.mode == "lazy", "CGUID SDPA kernel is expected to be used with lazy mode"
         run_hpu_sdpa = run_sdpa_cguid_once
 

@@ -1333,9 +1333,8 @@ def test_shape_agnostic_helper():
 def test_sag_cat_node_params():
     params = [0, 2]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for dim in params:
+    for iteration, dim in enumerate(params):
         input1 = torch.randn((2, 3, 4), dtype=torch.bfloat16)
         input1_hpu = input1.to("hpu")
 
@@ -1350,8 +1349,6 @@ def test_sag_cat_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1361,9 +1358,8 @@ def test_sag_cat_node_params():
 def test_sag_topk_node_params_2():
     params = [3, 5]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for _ in params:
+    for iteration, _ in enumerate(params):
         input = torch.randn((10), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1375,8 +1371,6 @@ def test_sag_topk_node_params_2():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1386,9 +1380,8 @@ def test_sag_topk_node_params_2():
 def test_sag_arange_node_params():
     params = [1, 2]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for step in params:
+    for iteration, step in enumerate(params):
         input = torch.randn((10, 20, 30), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1400,8 +1393,6 @@ def test_sag_arange_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1411,9 +1402,8 @@ def test_sag_arange_node_params():
 def test_sag_upsample_nearest_2d_node_params():
     params = [2, 3]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for scale in params:
+    for iteration, scale in enumerate(params):
         input = torch.randn((1, 1, 2, 3), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1426,8 +1416,6 @@ def test_sag_upsample_nearest_2d_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1437,9 +1425,8 @@ def test_sag_upsample_nearest_2d_node_params():
 def test_sag_upsample_nearest_1d_node_params():
     params = [2, 3]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for scale in params:
+    for iteration, scale in enumerate(params):
         input = torch.randn((1, 1, 1, 3), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1452,8 +1439,6 @@ def test_sag_upsample_nearest_1d_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1463,9 +1448,8 @@ def test_sag_upsample_nearest_1d_node_params():
 def test_sag_upsample_nearest_3d_node_params():
     params = [2, 3]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for scale in params:
+    for iteration, scale in enumerate(params):
         input = torch.randn((1, 2, 2, 3), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1478,8 +1462,6 @@ def test_sag_upsample_nearest_3d_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1489,9 +1471,8 @@ def test_sag_upsample_nearest_3d_node_params():
 def test_sag_upsample_bilinear_2d_node_params():
     params = [2, 3]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for scale in params:
+    for iteration, scale in enumerate(params):
         input = torch.randn((1, 1, 2, 3), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1504,8 +1485,6 @@ def test_sag_upsample_bilinear_2d_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1515,9 +1494,8 @@ def test_sag_upsample_bilinear_2d_node_params():
 def test_sag_upsample_bicubic_2d_node_params():
     params = [2, 3]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for scale in params:
+    for iteration, scale in enumerate(params):
         input = torch.randn((1, 1, 2, 3), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
 
@@ -1530,8 +1508,6 @@ def test_sag_upsample_bicubic_2d_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1542,9 +1518,8 @@ def test_sag_upsample_linear_1d_node_params():
     pytest.xfail("[SW-198691] Param agnostic flow disabled for UpsampleLinear1D, needs correction")
     params = [2, 3]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for scale in params:
+    for iteration, scale in enumerate(params):
         input = torch.randn((1, 1, 3))
         input_hpu = input.to("hpu")
 
@@ -1557,8 +1532,6 @@ def test_sag_upsample_linear_1d_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1568,9 +1541,8 @@ def test_sag_upsample_linear_1d_node_params():
 def test_sag_upsample_bilinear_2d_backward_node_params():
     params = [True, False]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for align_corners in params:
+    for iteration, align_corners in enumerate(params):
         grad_output = torch.randn((1, 1, 4, 6), dtype=torch.bfloat16)
         grad_output_hpu = grad_output.to("hpu")
 
@@ -1591,8 +1563,6 @@ def test_sag_upsample_bilinear_2d_backward_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1602,9 +1572,8 @@ def test_sag_upsample_bilinear_2d_backward_node_params():
 def test_sag_upsample_bicubic_2d_backward_node_params():
     params = [True, False]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for align_corners in params:
+    for iteration, align_corners in enumerate(params):
         grad_output = torch.randn((1, 1, 4, 6), dtype=torch.bfloat16)
         grad_output_hpu = grad_output.to("hpu")
 
@@ -1625,8 +1594,6 @@ def test_sag_upsample_bicubic_2d_backward_node_params():
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
 
-        iteration += 1
-
         num_cache_entries_end = htdebug._get_jit_cache_size()
         assert num_cache_entries_end == num_cache_entries_start
 
@@ -1636,9 +1603,8 @@ def test_sag_upsample_bicubic_2d_backward_node_params():
 def test_empty_resize_node_params():
     params = [10, 20]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for size in params:
+    for iteration, size in enumerate(params):
         hpu_tensor = torch.empty([], device="hpu")
         hpu_tensor.resize_(size)
         cpu_tensor = hpu_tensor.to("cpu")
@@ -1646,8 +1612,6 @@ def test_empty_resize_node_params():
 
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
-
-        iteration += 1
 
         num_cache_entries_end = htdebug._get_jit_cache_size()
         assert num_cache_entries_end == num_cache_entries_start
@@ -1659,9 +1623,8 @@ def test_scatter_node_params():
     params = [0, 1]
 
     index = [[1, 0], [0, 1]]
-    iteration = 0
     htdebug._clear_jit_cache()
-    for dim in params:
+    for iteration, dim in enumerate(params):
         index_tensor = torch.Tensor(index).type(torch.int64)
         index_tensor_hpu = index_tensor.to("hpu")
         src_tensor = torch.randn((2, 2), dtype=torch.bfloat16)
@@ -1675,8 +1638,6 @@ def test_scatter_node_params():
 
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
-
-        iteration += 1
 
         num_cache_entries_end = htdebug._get_jit_cache_size()
         assert num_cache_entries_end == num_cache_entries_start
@@ -1767,14 +1728,12 @@ def test_sag_masked_fill_node_params():
     mask = torch.tensor([[True, False, False], [True, True, False]])
     mask_hpu = mask.to("hpu")
     n = 5
-    iteration = 0
-    for x in range(1, n + 1):
+    for iteration, x in enumerate(range(1, n + 1)):
         output = a.masked_fill(mask, x)
         output_hpu = a_hpu.masked_fill(mask_hpu, x)
         assert torch.equal(output, output_hpu.cpu())
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
-        iteration += 1
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
 
@@ -1784,9 +1743,8 @@ def test_sag_masked_fill_node_params():
 def test_efficientzerotensor_node_params():
     params = [(10), (20)]
 
-    iteration = 0
     htdebug._clear_jit_cache()
-    for size in params:
+    for iteration, size in enumerate(params):
         hpu_tensor = torch._efficientzerotensor(size, device="hpu")
         cpu_tensor = torch._efficientzerotensor(size)
 
@@ -1794,8 +1752,6 @@ def test_efficientzerotensor_node_params():
 
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()
-
-        iteration += 1
 
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
