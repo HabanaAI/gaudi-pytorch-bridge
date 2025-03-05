@@ -2386,9 +2386,40 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
 # because it will make bmm op consume non-3D input tensors and cause "batch1
 # must be a 3D tensor" error.
 def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
+    """
+    This pass remove the view ops which are the neightbors of bmm op
+    In fx graph, bmm args will change to 4d tensor but output tensor shape will show as
+    3d, internally in synapse we are handling and creating 4d tensor[ref jira: SW-191200]
+    we can easily understand to see the fx graph below.
+    before :
+    def forward(self, arg0_1: "bf16[2, 3, 5, 4]", arg1_1: "bf16[2, 3, 4, 5]"):
+         # File: /home/pradas/qnpu/pt/src/pytorch-integration/tests/pytest_working/any_mode/test_hpu_mytest.py:1873 in matmul_4d, code: return torch.matmul(A, B)* 0.2
+        expand: "bf16[2, 3, 4, 5]" = torch.ops.aten.expand.default(arg1_1, [2, 3, 4, 5]);  arg1_1 = None
+        view: "bf16[6, 4, 5]" = torch.ops.aten.view.default(expand, [6, 4, 5]);  expand = None
+        expand_1: "bf16[2, 3, 5, 4]" = torch.ops.aten.expand.default(arg0_1, [2, 3, 5, 4]);  arg0_1 = None
+        view_1: "bf16[6, 5, 4]" = torch.ops.aten.view.default(expand_1, [6, 5, 4]);  expand_1 = None
+        bmm: "bf16[6, 4, 4]" = torch.ops.aten.bmm.default(view, view_1);  view = view_1 = None
+        view_2: "bf16[2, 3, 4, 4]" = torch.ops.aten.view.default(bmm, [2, 3, 4, 4]);  bmm = None
+        mul: "bf16[2, 3, 4, 4]" = torch.ops.aten.mul.Tensor(view_2, 0.2);  view_2 = None
+        return (mul,)
+
+    after :
+    def forward(self, arg0_1: "bf16[2, 3, 5, 4]", arg1_1: "bf16[2, 3, 4, 5]"):
+         # File: /home/pradas/qnpu/pt/src/pytorch-integration/tests/pytest_working/any_mode/test_hpu_mytest.py:1873 in matmul_4d, code: return torch.matmul(A, B)* 0.2
+        bmm: "bf16[6, 4, 4]" = torch.ops.aten.bmm.default(arg1_1, arg0_1);  arg1_1 = arg0_1 = None
+        mul: "bf16[2, 3, 4, 4]" = torch.ops.aten.mul.Tensor(bmm, 0.2);  bmm = None
+        return (mul,)
+    So here, though the bmm output is 3d but mul is working on 4d tensor and give the result as 4d.
+    Note: It is really dangerous, we need to be very carefull about this pass.
+    """
+
     def is_view_node(node):
         view_ops = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
         return node.target in view_ops
+
+    def is_permute_node(node):
+        permute_ops = {torch.ops.aten.permute.default}
+        return node.target in permute_ops
 
     def get_node_dim(node):
         tensor_meta = node.meta.get("tensor_meta", None)
@@ -2405,6 +2436,26 @@ def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
             bmm_output = list(node.users.keys())[0]
 
             if all(map(is_view_node, [bmm_input_left, bmm_input_right, bmm_output])):
+                neighbor_nodes_for_view = (
+                    bmm_input_left.all_input_nodes + bmm_input_right.all_input_nodes + list(bmm_output.users.keys())
+                )
+                if any(map(is_permute_node, neighbor_nodes_for_view)):
+                    """
+                    here we are checking the view nodes `args` which appears before the bmm and view nodes `outputs` which appears after
+                    the bmm are `permute op` or not, if yes we simply skip this bmm node as this is unsafe.
+                    for example below fx graph should not be impacted for this pass:
+                    def forward(self, arg0_1: "bf16[1, 128, 108, 1, 108]", arg1_1: "bf16[1, 1, 1, 512, 108]"):
+                        permute_2: "bf16[128, 108, 108, 1, 1]" = torch.ops.aten.permute.default(arg0_1, [1, 2, 4, 0, 3]);  permute = None
+                        view: "bf16[1, 13824, 108]" = torch.ops.aten.view.default(permute_2, [1, 13824, 108]);  permute_2 = None
+                        permute_3: "bf16[108, 1, 512, 1, 1]" = torch.ops.aten.permute.default(arg1_1, [4, 0, 3, 1, 2]);  permute_1 = None
+                        view_1: "bf16[1, 108, 512]" = torch.ops.aten.view.default(permute_3, [1, 108, 512]);  permute_3 = None
+                        bmm: "bf16[1, 13824, 512]" = torch.ops.aten.bmm.default(view, view_1);  view = view_1 = None
+                        view_2: "bf16[128, 108, 1, 1, 512]" = torch.ops.aten.view.default(bmm, [128, 108, 1, 1, 512]);  bmm = None
+                        permute_4: "bf16[1, 128, 108, 512, 1]" = torch.ops.aten.permute.default(view_2, [3, 0, 1, 4, 2]);  view_2 = None
+                        return (permute_4,)
+                    """
+                    continue
+
                 left_dim = get_node_dim(bmm_input_left.args[0])
                 right_dim = get_node_dim(bmm_input_right.args[0])
 
