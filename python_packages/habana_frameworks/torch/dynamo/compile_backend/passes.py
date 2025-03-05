@@ -1747,9 +1747,9 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
 
     from torch.fx.node import Node, map_arg
 
-    graph_inputs: List[Node] = []
+    graph_inputs: list[Node] = []
     arg_to_last_user: dict[Node, Node] = {}
-    user_to_last_used_args: dict[Node, List[Node]] = {}
+    user_to_last_used_args: dict[Node, list[Node]] = {}
 
     def register_last_uses(arg: Node, user: Node):
         if arg not in arg_to_last_user:
@@ -1811,7 +1811,7 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
             continue
 
         last_used_args = user_to_last_used_args[user]
-        is_reusables: List[bool] = []
+        is_reusables: list[bool] = []
         for arg in user.args:
             is_last_use = arg in last_used_args
             not_graph_input = arg not in graph_inputs
@@ -1900,7 +1900,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
             submod = ctx.graph_module.get_submodule(n.target)
 
-            is_reusables: List[bool] = []
+            is_reusables: list[bool] = []
             if "is_reusables" in submod.meta:
                 is_reusables = submod.meta["is_reusables"]
 

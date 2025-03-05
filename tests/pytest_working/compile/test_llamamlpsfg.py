@@ -177,11 +177,11 @@ class ColumnParallelLinear(torch.nn.Module):
         input_parallel = copy_to_model_parallel_region(input_)
         # Matrix multiply.
         output_parallel = F.linear(input_parallel, self.weight, self.bias)
-        if self.gather_output:
-            # All-gather across the partitions.
-            output = gather_from_model_parallel_region(output_parallel)
-        else:
-            output = output_parallel
+        # if self.gather_output:
+        #     # All-gather across the partitions.
+        #     output = gather_from_model_parallel_region(output_parallel)
+        # else:
+        output = output_parallel
         return output
 
 
@@ -248,10 +248,10 @@ class RowParallelLinear(torch.nn.Module):
 
     def forward(self, input_: torch.Tensor) -> torch.Tensor:  # type:ignore
         # Set up backprop all-reduce.
-        if self.input_is_parallel:
-            input_parallel = input_
-        else:
-            input_parallel = scatter_to_model_parallel_region(input_)
+        # if self.input_is_parallel:
+        #     input_parallel = input_
+        # else:
+        #     input_parallel = scatter_to_model_parallel_region(input_)
         output_parallel = F.linear(input_, self.weight)
         output_ = reduce_from_model_parallel_region(output_parallel)
         if self.bias is not None:

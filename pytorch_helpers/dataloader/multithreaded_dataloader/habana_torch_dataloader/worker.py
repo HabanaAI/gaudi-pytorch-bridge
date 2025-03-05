@@ -205,7 +205,7 @@ def _worker_loop(
         while watchdog.is_alive():
             try:
                 r = index_queue.get(timeout=MP_STATUS_CHECK_INTERVAL)
-            except (queue.Empty, EOFError) as e:
+            except (queue.Empty, EOFError):
                 continue
             if isinstance(r, _ResumeIteration):
                 # Acknowledge the main process
@@ -246,7 +246,7 @@ def _worker_loop(
             # TODO: need to resolve this for now just boycotting
             try:
                 data_queue.put((idx, data))
-            except AssertionError as error:
+            except AssertionError:
                 pass
             del data, idx, index, r  # save memory
     except KeyboardInterrupt:

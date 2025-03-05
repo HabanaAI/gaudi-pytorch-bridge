@@ -192,7 +192,7 @@ def get_testname(item: pytest.Function | str) -> str:
     try:
         if "::" in testname:
             testname = testname.split("::")[1]
-    except Exception as e:
+    except Exception:
         import warnings
 
         warnings.warn(f"unable to parse testname: {testname}")

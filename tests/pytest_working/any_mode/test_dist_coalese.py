@@ -60,7 +60,7 @@ def coalescing_manager_no_device_init_test(rank, world_size, kwargs):
         cs = pg._end_coalescing(torch.device(device))
         cs.wait()
         assert 0, "Check HPUinit is done before _start_coalescing"
-    except RuntimeError as e:
+    except RuntimeError:
         pass
 
 
@@ -74,7 +74,7 @@ def coalescing_manager_no_start_coalese_test(rank, world_size, kwargs):
         cs = pg._end_coalescing(torch.device(device))
         cs.wait()
         assert 0, "Check _start_coalescing is done before _end_coalescing"
-    except RuntimeError as e:
+    except RuntimeError:
         pass
 
 

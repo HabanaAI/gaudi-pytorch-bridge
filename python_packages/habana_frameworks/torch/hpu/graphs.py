@@ -469,7 +469,6 @@ def make_graphed_callables(
                         return graphed(*user_args)
                     else:
                         return orig_fwd(*user_args)
-                    return new_fw
 
                 return new_fwd
 

@@ -143,11 +143,11 @@ def perf_cmp_fsdpa_vs_vanilla_attn(g_hpu, q_hpu, k_hpu, v_hpu, attn_mask=None, d
     if check_dbg_env_var("FSDPA_DBG_PERF_CMP_RUN_FSDPA"):
         vb_print("Perf cmp run: FSDPA")
         os.environ["FSDPA_DBG_USE_DROPOUT_STUB"] = "0"
-        O_hpu = FusedSDPA.apply(q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p, is_causal)
+        O_hpu = FusedSDPA.apply(q_hpu, k_hpu, v_hpu, attn_mask, dropout_p, is_causal)
     elif check_dbg_env_var("FSDPA_DBG_PERF_CMP_RUN_VANILLA"):
         vb_print("Perf cmp run: Vanilla")
         O_hpu = vanilla_attention_impl_for_test(
-            q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p=dropout_p, is_causal=is_causal
+            q_hpu, k_hpu, v_hpu, attn_mask, dropout_p=dropout_p, is_causal=is_causal
         )
     else:
         is_perf_run = False

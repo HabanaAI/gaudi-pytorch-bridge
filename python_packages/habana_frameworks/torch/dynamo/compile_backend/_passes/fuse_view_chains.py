@@ -73,7 +73,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         # Output of an HPU clustered node can come from node itself
         # or be extracted in case of tuple by getitem nodes
         if (
-            "fused" in node.name and not node.meta.get("val", None) is None and not isinstance(node.meta["val"], tuple)
+            "fused" in node.name and node.meta.get("val", None) is not None and not isinstance(node.meta["val"], tuple)
         ) or node.op == "getitem":
             users = list(node.users.keys())
             cluster_output_contiguity = node.meta["output_contiguous"]

@@ -350,17 +350,6 @@ class DataLoader(Generic[T_co]):
                         "multiprocessing_context relies on Python >= 3.4, with " "support for different start methods"
                     )
 
-                if isinstance(multiprocessing_context, string_classes):
-                    valid_start_methods = multiprocessing.get_all_start_methods()
-                    if multiprocessing_context not in valid_start_methods:
-                        raise ValueError(
-                            "multiprocessing_context option "
-                            f"should specify a valid start method in {valid_start_methods!r}, but got "
-                            f"multiprocessing_context={multiprocessing_context!r}"
-                        )
-                    # error: Argument 1 to "get_context" has incompatible type "Union[str, bytes]"; expected "str"  [arg-type]
-                    multiprocessing_context = multiprocessing.get_context(multiprocessing_context)  # type: ignore
-
                 if not isinstance(multiprocessing_context, python_multiprocessing.context.BaseContext):
                     raise TypeError(
                         "multiprocessing_context option should be a valid context "

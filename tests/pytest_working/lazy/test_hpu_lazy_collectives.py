@@ -56,7 +56,7 @@ def no_device_init_test(rank, world_size, coalescing):
         cs = pg._end_coalescing(torch.device(device_hpu))
         cs.wait()
         assert 0, "Check HPUinit is done before _start_coalescing"
-    except Exception as e:
+    except Exception:
         pass
 
     dist.barrier()
@@ -74,7 +74,7 @@ def no_start_coalese_test(rank, world_size, coalescing):
         cs = pg._end_coalescing(torch.device(device_hpu))
         cs.wait()
         assert 0, "Check _start_coalescing is done before _end_coalescing"
-    except Exception as e:
+    except Exception:
         dist.barrier()
         cleanup()
 

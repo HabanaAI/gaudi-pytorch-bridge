@@ -76,7 +76,7 @@ def is_habana_available():
         result = check_output(cmd, stderr=STDOUT, shell=True).decode()
         if result.find("Habana") != -1:
             status = True
-    except Exception as e:
+    except Exception:
         # Workaround to mitigate hl-smi usage on simulators
         if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ["true", "True", "1"]:
             print("Enabling Gaudi Simulator As Habana Device !!")

@@ -27,7 +27,7 @@ from habana_frameworks.torch.utils import _experimental_C
 def _e_handler():
     try:
         yield
-    except Exception as e:
+    except Exception:
         pass
 
 

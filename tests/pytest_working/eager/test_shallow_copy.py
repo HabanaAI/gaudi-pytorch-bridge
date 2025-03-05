@@ -161,11 +161,6 @@ def test_shallow_copy_param_free():
         param.data = torch.empty(0, dtype=torch.float, device=dev)
         return dst_tensor
 
-        y = x.add(1.0)
-        x.data = torch.empty(0, dtype=x.dtype).to(dev)
-        z = y.add(1.0)
-        return y
-
     a = torch.randn([2, 3])
     ha = a.to("hpu")
     dst_a = torch.randn([2, 3])

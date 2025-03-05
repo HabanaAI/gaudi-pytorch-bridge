@@ -111,5 +111,5 @@ def hpu_partition(
         fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
         bw_module = reordering_to_mimic_autograd_engine(bw_module)
         return fw_module, bw_module
-    except AssertionError as e:
+    except AssertionError:
         return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
