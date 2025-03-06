@@ -38,6 +38,11 @@ from torch.fx.passes.utils.source_matcher_utils import (
 )
 
 from .pattern_matcher import PatternMatchAndReplacer, get_dequant_node, is_node
+from .quantize_kvcache import (
+    handle_kvcache_quantization,
+    prepare_for_inference,
+    verify_kvcache_quant_effect,
+)
 from .torch_overwrites import _native_pt2e_quantization_interface
 
 logger = get_compile_backend_logger()
@@ -47,6 +52,7 @@ export_model_record = {}
 habana_pt2e_quant_context = None
 param_id = 0
 hash_counter = 0
+json_counter = 0
 
 
 def calculate_hash(fx_graph_module):
@@ -74,6 +80,15 @@ def reset_hash_counter():
     hash_counter = 0
 
 
+def get_scale_filename(key):
+    filename = f"{key}.json"
+    if os.getenv("PT_HPU_PT2EQ_KVCQ", "0") != "0":
+        global json_counter
+        filename = f"_{json_counter}_.json"
+        json_counter = json_counter + 1
+    return filename
+
+
 # ======================================================================================
 # Habana's model level context manager for multi-graph PT2E-Quantization
 # ======================================================================================
@@ -96,7 +111,34 @@ class HabanaPT2EQuantContext:
         self._prepared_gm = []
         self._converted_gm = []
         self._running_gm_cnt = 0
+        self._kvcache_quant_details = {}
         self._convert_settings = {}
+
+    def set_kvcache_quant_details(
+        self,
+        kvcache_quant_details=None,
+        kvcache_allocation=None,
+        kvcache_size=None,
+        kvcache_size_prefill=None,
+        kvcache_orig_dtype=None,
+        kvcache_quant_dtype=None,
+    ):
+        if kvcache_quant_details:
+            self._kvcache_quant_details = kvcache_quant_details
+        else:
+            if kvcache_allocation:
+                self._kvcache_quant_details["kvcache_allocation"] = kvcache_allocation
+            if kvcache_size:
+                self._kvcache_quant_details["kvcache_size"] = kvcache_size
+            if kvcache_size_prefill:
+                self._kvcache_quant_details["kvcache_size_prefill"] = kvcache_size_prefill
+            if kvcache_orig_dtype:
+                self._kvcache_quant_details["kvcache_orig_dtype"] = kvcache_orig_dtype
+            if kvcache_quant_dtype:
+                self._kvcache_quant_details["kvcache_quant_dtype"] = kvcache_quant_dtype
+
+    def get_kvcache_quant_details(self):
+        return self._kvcache_quant_details
 
     def record_graphs(self, modified_fx_graph_module):
         self._graphs = self._graphs + "\n\n" + f"{modified_fx_graph_module.graph}"
@@ -110,8 +152,8 @@ class HabanaPT2EQuantContext:
             use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
             # get scales per fx graph for pt2e_save flow not using export program
             if not use_export_program:
-                scales = dump_scale(transformed_gm, False)
-                self._quantized_fx_graph_args_scales_list.append([None, None, scales])
+                scale_info_json = dump_scale(transformed_gm, False)
+                self._quantized_fx_graph_args_scales_list.append([None, None, scale_info_json])
             self._converted_gm.append(transformed_gm)
 
     def replace_transformed_gm(self, old_transformed_gm, new_transformed_gm, prepared=False, converted=False):
@@ -239,9 +281,12 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         self._converted_module = None
         self._pre_converted_module = None
         self._pt2e_quant_context = pt2e_quant_context
+        self._kvcache_input_quantized = False
 
     def preprocess(self, *args):
-        discover_and_materialize_params(self._fx_module, *args)
+        self._kvcache_input_quantized = discover_and_materialize_params(
+            self._pt2e_quant_context, self._fx_module, *args
+        )
         self._fx_graph_hash = calculate_hash(self._fx_module)
         self._preprocessed = True
 
@@ -289,15 +334,20 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         elif queue_element["task"] == "convert_pt2e":
             if not self._converted:
                 if not self._prepared:
-                    logger.error(
-                        "Attempt to convert an unprepared module!. Please use PT2E quant flow, i.e."
-                        "Export -> prepare_pt2e -> calibrate -> convert_pt2e -> Ref_Quantized_Model, as recommended in"
-                        "https://pytorch.org/tutorials/prototype/quantization_in_pytorch_2_0_export_tutorial.html"
+                    if not self._kvcache_input_quantized:
+                        logger.error(
+                            "Attempt to convert an unprepared module!. Please use PT2E quant flow, i.e."
+                            "Export -> prepare_pt2e -> calibrate -> convert_pt2e -> Ref_Quantized_Model, as recommended in"
+                            "https://pytorch.org/tutorials/prototype/quantization_in_pytorch_2_0_export_tutorial.html"
+                        )
+                        raise
+                    # Apply prepare_pt2e + convert_pt2e + kvcq pattern matching
+                    self._converted_module = prepare_for_inference(
+                        self._pt2e_quant_context, self._fx_module, update_scale=True
                     )
-                    raise
-
-                # Get already converted fx graph
-                self._converted_module = self._pt2e_quant_context.get_transformed_gm(converted=True)
+                else:
+                    # Get already converted fx graph
+                    self._converted_module = self._pt2e_quant_context.get_transformed_gm(converted=True)
                 assert self._converted_module is not None
 
                 if os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "") != "":
@@ -342,23 +392,12 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 if use_export_program:
                     self._converted_module = self._pt2e_quant_context.get_ep(key).module()
                 else:
-                    # Apply pytorch prepare_pt2e on each fx graph
-                    prepared_module = _native_pt2e_quantization_interface("prepare_pt2e")(
-                        self._fx_module, self._pt2e_quant_context.get_quantizer()
-                    )
-
-                    # Apply pytorch convert_pt2e on each fx graph
-                    convert_settings = self._pt2e_quant_context.get_convert_settings()
-                    self._converted_module = _native_pt2e_quantization_interface("convert_pt2e")(
-                        prepared_module,
-                        convert_settings["use_reference_representation"],
-                        convert_settings["fold_quantize"],
-                    )
+                    # Apply prepare_pt2e + convert_pt2e + kvcq pattern matching
+                    self._converted_module = prepare_for_inference(self._pt2e_quant_context, self._fx_module)
 
                     # Load scales from json file on each fx graph
-                    queue_element["dir_path"]
-                    extra_file = os.path.join(queue_element["dir_path"], f"{key}.json")
-                    load_scale(self._converted_module, extra_file)
+                    extra_file = os.path.join(queue_element["dir_path"], get_scale_filename(key))
+                    load_scale(self._converted_module, extra_file=extra_file)
 
                     if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
                         replacer = PatternMatchAndReplacer(self._converted_module)
@@ -565,6 +604,10 @@ def convert_pt2e(
                 )
                 habana_pt2e_quant_context.record_transformed_gm(converted_module, converted=True)
 
+        # Try to use kv-cache quantization.
+        # This takes effect only if kv-cache allocation is done as part of model forward method.
+        handle_kvcache_quantization(habana_pt2e_quant_context)
+
         habana_pt2e_quant_context.clear_graphs()
         habana_pt2e_quant_context.set_model(model)
         habana_pt2e_quant_context.set_convert_settings(use_reference_representation, False)
@@ -596,6 +639,15 @@ def convert_to_module_name(input_str):
         output_str = output_str.replace("model.", "")
 
     return output_str
+
+
+def create_kvcache_module_name(input_str, annotation):
+    assert input_str != "" and annotation != ""
+    string_array = input_str.split(".")
+    assert len(string_array) >= 3
+
+    kvcache_module_name = ".".join(string_array[:3]) + ".self_attn." + annotation
+    return kvcache_module_name
 
 
 def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str | None = None):
@@ -645,12 +697,22 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     "inputs": [dump_info[0].item()],
                     "params": {"weight": dump_info[1].item()},
                 }
-            elif is_node(node, "bmm.default"):
+            if is_node(node, "bmm.default"):
                 input0_dequant_node = get_dequant_node(node.args[0])
                 input1_dequant_node = get_dequant_node(node.args[1])
                 if input0_dequant_node and input1_dequant_node:
-                    dump_input0_scale_attr = torch.tensor(input0_dequant_node.args[1], device="hpu")
-                    dump_input1_scale_attr = torch.tensor(input1_dequant_node.args[1], device="hpu")
+                    input0_node = (
+                        input0_dequant_node.args[0]
+                        if is_node(input0_dequant_node.args[0], "quantize_per_tensor.default")
+                        else input0_dequant_node
+                    )
+                    input1_node = (
+                        input1_dequant_node.args[0]
+                        if is_node(input1_dequant_node.args[0], "quantize_per_tensor.default")
+                        else input1_dequant_node
+                    )
+                    dump_input0_scale_attr = torch.tensor(input0_node.args[1], device="hpu")
+                    dump_input1_scale_attr = torch.tensor(input1_node.args[1], device="hpu")
                     dump_info = [dump_input0_scale_attr, dump_input1_scale_attr]
                     dump_key = list(nn_module_stack.values())[-1][0]
                     dump_key = convert_to_module_name(dump_key)
@@ -658,8 +720,70 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                         "inputs": [dump_info[0].item(), dump_info[1].item()],
                         "params": {},
                     }
-            else:
-                continue
+            if is_node(node, "full.default"):
+                logger.debug(f"Found full.default node: {node.name}")
+                from .quantize_kvcache import search_node
+
+                assert len(node.users) == 1
+                full_user_node = next(iter(node.users), None)
+                if is_node(full_user_node, "copy.default") and is_node(
+                    full_user_node.args[1], "quantize_per_tensor.default"
+                ):
+                    copy_src_quant_node = full_user_node.args[1]
+                    nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
+
+                    result = search_node(copy_src_quant_node.args[0], "rotary_pos_embedding.default")
+                    if not nn_module_stack:
+                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+
+                    dump_key = list(nn_module_stack.values())[-1][0]
+                    dump_key = convert_to_module_name(dump_key)
+                    dump_key = create_kvcache_module_name(
+                        dump_key, "prompt.k_cache" if result["found"] else "prompt.v_cache"
+                    )
+
+                    dump_input1_scale_attr = torch.tensor(copy_src_quant_node.args[1], device="hpu")
+                    dump_input0_scale_attr = torch.ones_like(dump_input1_scale_attr)
+                    dump_info = [dump_input0_scale_attr, dump_input1_scale_attr]
+                    dump_json_output["Nodes"][dump_key] = {
+                        "inputs": [dump_info[0].item(), dump_info[1].item()],
+                        "params": {},
+                    }
+            if is_node(node, "index_copy.default"):
+                logger.debug(f"Found index_copy.default node: {node.name}")
+                from .quantize_kvcache import search_node
+
+                result = search_node(node.args[3], "quantize_per_tensor.default")
+                if result["found"]:
+                    input3_quant_node = result["fx_node"]
+                    nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
+
+                    result = search_node(input3_quant_node.args[0], "rotary_pos_embedding.default")
+                    if not nn_module_stack:
+                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+
+                    dump_key = list(nn_module_stack.values())[-1][0]
+                    dump_key = convert_to_module_name(dump_key)
+                    dump_key = create_kvcache_module_name(dump_key, "k_cache" if result["found"] else "v_cache")
+
+                    dump_input3_scale_attr = torch.tensor(input3_quant_node.args[1], device="hpu")
+                    dump_inputs_scale_attr = torch.ones_like(dump_input3_scale_attr)
+                    dump_info = [
+                        dump_inputs_scale_attr,
+                        dump_inputs_scale_attr,
+                        dump_inputs_scale_attr,
+                        dump_input3_scale_attr,
+                    ]
+                    dump_json_output["Nodes"][dump_key] = {
+                        "inputs": [dump_info[0].item(), dump_info[1].item(), dump_info[2].item(), dump_info[3].item()],
+                        "params": {},
+                    }
+                    for user_node in node.users:
+                        if is_node(user_node, "dequantize_per_tensor.default"):
+                            dump_output_scale_attr = torch.tensor(user_node.args[1], device="hpu")
+                            output_dump_info = [dump_output_scale_attr]
+                            dump_json_output["Nodes"][dump_key]["outputs"] = [output_dump_info[0].item()]
+                            break
 
     graph.lint()
     if save_to_file:
@@ -671,17 +795,20 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
         with open(file_path, "w") as json_file:
             json.dump(dump_json_output, json_file, indent=4)
         logger.debug(f"PT2E scale info dumped to file: {file_path}")
+
     return dump_json_output
 
 
-def load_scale(module: torch.fx.GraphModule, extra_file: str | None = None):
+def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: str | None = None):
     graph = module.graph
 
-    file_path = os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "0")
-    if extra_file is not None:
-        file_path = extra_file
-    with open(file_path) as file:
-        scale_info_json = json.load(file)
+    if not scale_info_json:
+        file_path = os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "0")
+        if extra_file is not None:
+            file_path = extra_file
+        assert file_path is not None
+        with open(file_path) as file:
+            scale_info_json = json.load(file)
 
     count = 0
     with torch.no_grad():
@@ -705,13 +832,15 @@ def load_scale(module: torch.fx.GraphModule, extra_file: str | None = None):
                     input0_dequant_node.args = tuple(input0_dequant_node_args)
                     input1_dequant_node.args = tuple(input1_dequant_node_args)
                     input0_quant_node = input0_dequant_node.args[0]
+                    if is_node(input0_quant_node, "quantize_per_tensor.default"):
+                        input0_quant_node_args = list(input0_quant_node.args)
+                        input0_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
+                        input0_quant_node.args = tuple(input0_quant_node_args)
                     input1_quant_node = input1_dequant_node.args[0]
-                    input0_quant_node_args = list(input0_quant_node.args)
-                    input1_quant_node_args = list(input1_quant_node.args)
-                    input0_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
-                    input1_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
-                    input0_quant_node.args = tuple(input0_quant_node_args)
-                    input1_quant_node.args = tuple(input1_quant_node_args)
+                    if is_node(input1_quant_node, "quantize_per_tensor.default"):
+                        input1_quant_node_args = list(input1_quant_node.args)
+                        input1_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
+                        input1_quant_node.args = tuple(input1_quant_node_args)
             if is_node(node, "mm.default") or is_node(node, "addmm.default"):
                 gemm_node = node
                 is_addmm_node = is_node(gemm_node, "addmm.default")
@@ -762,6 +891,59 @@ def load_scale(module: torch.fx.GraphModule, extra_file: str | None = None):
                 weight_dequant_node_args = list(weight_dequant_node.args)
                 weight_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
                 weight_dequant_node.args = tuple(weight_dequant_node_args)
+            if is_node(node, "full.default"):
+                logger.debug(f"Found full.default node: {node.name}")
+                from .quantize_kvcache import search_node
+
+                assert len(node.users) == 1
+                full_user_node = next(iter(node.users), None)
+                if is_node(full_user_node, "copy.default") and is_node(
+                    full_user_node.args[1], "quantize_per_tensor.default"
+                ):
+                    copy_src_quant_node = full_user_node.args[1]
+                    nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
+
+                    result = search_node(copy_src_quant_node.args[0], "rotary_pos_embedding.default")
+                    if not nn_module_stack:
+                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+
+                    load_key = list(nn_module_stack.values())[-1][0]
+                    load_key = convert_to_module_name(load_key)
+                    load_key = create_kvcache_module_name(
+                        load_key, "prompt.k_cache" if result["found"] else "prompt.v_cache"
+                    )
+
+                    count = count + 1
+                    input1_quant_node_args = list(copy_src_quant_node.args)
+                    input1_quant_node_args[1] = scale_info_json["Nodes"][load_key]["inputs"][1]
+                    copy_src_quant_node.args = tuple(input1_quant_node_args)
+            if is_node(node, "index_copy.default"):
+                logger.debug(f"Found index_copy.default node: {node.name}")
+                from .quantize_kvcache import search_node
+
+                result = search_node(node.args[3], "quantize_per_tensor.default")
+                if result["found"]:
+                    input3_quant_node = result["fx_node"]
+                    nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
+
+                    result = search_node(input3_quant_node.args[0], "rotary_pos_embedding.default")
+                    if not nn_module_stack:
+                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+
+                    load_key = list(nn_module_stack.values())[-1][0]
+                    load_key = convert_to_module_name(load_key)
+                    load_key = create_kvcache_module_name(load_key, "k_cache" if result["found"] else "v_cache")
+
+                    count = count + 1
+                    input3_quant_node_args = list(input3_quant_node.args)
+                    input3_quant_node_args[1] = scale_info_json["Nodes"][load_key]["inputs"][3]
+                    input3_quant_node.args = tuple(input3_quant_node_args)
+
+                    for user_node in list(node.users):
+                        if is_node(user_node, "dequantize_per_tensor.default"):
+                            output_dequant_node_args = list(user_node.args)
+                            output_dequant_node_args[1] = scale_info_json["Nodes"][load_key]["outputs"][0]
+                            user_node.args = tuple(output_dequant_node_args)
 
         assert count == len(scale_info_json["Nodes"])
         module.graph.lint()
@@ -829,10 +1011,11 @@ def save_pt2e(
             else:
                 # Expected value[2] i.e. scales dict
                 assert value[2] is not None
-                # torch.save(value[2], f"fx_{key}.pt2")
-                with open(os.path.join(dir_name, f"{key}.json"), "w") as json_file:
+                scale_filename = os.path.join(dir_name, get_scale_filename(key))
+                # torch.save(value[2], scale_filename)
+                with open(scale_filename, "w") as json_file:
                     json.dump(value[2], json_file, indent=4)
-                logger.debug(f"export dump scale: {key}.json")
+                logger.debug(f"export dump scale: {scale_filename}")
 
         if use_export_program:
             # save hashkeys
@@ -1154,10 +1337,12 @@ def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
 # ======================================================================================
 # Change FX graph so that it resembles one that would be generated by torch.export()
 # ======================================================================================
-def discover_and_materialize_params(model: torch.fx.GraphModule, *args):
+def discover_and_materialize_params(pt2eq_context, model: torch.fx.GraphModule, *args):
     """
     This function changes FX graph so that it resembles one that would be generated by torch.export().
     """
+    kvcache_input_quantized = verify_kvcache_quant_effect(pt2eq_context, model)
+
     # Get placeholder map from FX graph.
     placeholder_map = {}
     placeholder_count = 0
@@ -1198,3 +1383,5 @@ def discover_and_materialize_params(model: torch.fx.GraphModule, *args):
 
     preprocess_linears(placeholder_map, model, tupled_args, *args)
     preprocess_convs(placeholder_map, model, tupled_args)
+
+    return kvcache_input_quantized

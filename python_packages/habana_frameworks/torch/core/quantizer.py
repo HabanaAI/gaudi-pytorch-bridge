@@ -26,6 +26,7 @@ This module implements Habana quantizers that can be used in PT2E-Quantization.
 # However, they have been renamed and amended as per the present need.
 
 import itertools
+import os
 from typing import Any
 
 from habana_frameworks.torch.core.observer import AbsMaxObserver
@@ -132,13 +133,56 @@ class habana_quantizer(Quantizer):
     def annotate_symmetric_config(
         self, model: torch.fx.GraphModule, config: QuantizationConfig
     ) -> torch.fx.GraphModule:
+
+        if os.getenv("PT_HPU_PT2EQ_KVCQ", "1") != "0":
+            self._annotate_kvcache(model, config)
+
+        self._annotate_conv2d(model, config)
         self._annotate_linear(model, config)
         self._annotate_matmul(model, config)
-        self._annotate_conv2d(model, config)
         self._annotate_maxpool2d(model, config)
-        # self._annotate_softmax(model, config)
 
         return model
+
+    def _annotate_kvcache(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+        from .pattern_matcher import is_node
+
+        for node in gm.graph.nodes:
+            # For prefill / prompt stage
+            # full --> copy
+            if is_node(node, "full.default"):
+                logger.debug(f"Found full.default node: {node.name}")
+                assert len(node.users) == 1
+                full_user_node = next(iter(node.users), None)
+
+                if is_node(full_user_node, "copy.default"):
+                    logger.debug(f"Found copy.default node: {node.name}")
+
+                    input_qspec_map = {}
+                    input_src = full_user_node.args[1]
+                    assert isinstance(input_src, Node)
+                    input_qspec_map[input_src] = get_input_act_qspec(quantization_config)
+
+                    full_user_node.meta["quantization_annotation"] = QuantizationAnnotation(
+                        input_qspec_map=input_qspec_map,
+                        output_qspec=None,
+                        _annotated=True,
+                    )
+
+            # For token generation stage
+            # index_copy --> copy_
+            if is_node(node, "index_copy.default"):
+                logger.debug(f"Found index_copy.default node: {node.name}")
+                input_qspec_map = {}
+                input_3 = node.args[3]
+                assert isinstance(input_3, Node)
+                input_qspec_map[input_3] = get_input_act_qspec(quantization_config)
+
+                node.meta["quantization_annotation"] = QuantizationAnnotation(
+                    input_qspec_map=input_qspec_map,
+                    output_qspec=get_input_act_qspec(quantization_config),
+                    _annotated=True,
+                )
 
     def _annotate_conv2d(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
         conv_partitions = get_source_partitions(gm.graph, [torch.nn.Conv2d, torch.nn.functional.conv2d])
