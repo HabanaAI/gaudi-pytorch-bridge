@@ -105,6 +105,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_remove_unnecessary_expand,
             pass_remove_unnecessary_bmm_view,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
+            pass_fix_arange_device,
             pass_reinplace_inplaceable_ops,
             pass_mark_collective_input,
             pass_mark_placement,
@@ -2556,3 +2557,82 @@ def pass_make_boxed_graph(ctx: OptimizerContext) -> bool:
     ctx.graph_module.graph.lint()
     ctx.graph_module.recompile()
     return True
+
+
+def pass_fix_arange_device(ctx: OptimizerContext):
+    """
+    Eager supports:
+
+        aten.index(hpu_tensor, torch.arange(..., device="cpu"))
+
+    But this results in an implicit host-device-copy and breaks graphs. Rewrite the arange to use hpu.
+    Refer the fx graph without and with this pass for the test case at following location:
+
+    Test File: ~/qnpu/pt/src/pytorch-integration/tests/pytest_working/compile/test_passes_fix_arange_device.py
+    Before (without this pass):
+    def forward(self, arg0_1: "f32[64, 64]"):
+        # File: ~/qnpu/pt/src/pytorch-integration/tests/pytest_working/compile/test_passes_fix_arange_device.py:34 in func, code: return x[torch.arange(32)]
+        arange: "i64[32]" = torch.ops.aten.arange.start_step(0, 32, layout = torch.strided, device = device(type='cpu'), pin_memory = False)
+        index: "f32[32, 64]" = torch.ops.aten.index.Tensor(arg0_1, [arange]);  arg0_1 = arange = None
+        return (index,)
+
+    After (with this pass):
+    def forward(self, arg0_1: "f32[64, 64]"):
+        # File: ~/qnpu/pt/src/pytorch-integration/tests/pytest_working/compile/test_passes_fix_arange_device.py:34 in func, code: return x[torch.arange(32)]
+        arange_start_step: "i64[32]" = torch.ops.aten.arange.start_step(0, 32, layout = torch.strided, device = device(type='hpu', index=0), pin_memory = False)
+        index: "f32[32, 64]" = torch.ops.aten.index.Tensor(arg0_1, [arange_start_step]);  arg0_1 = arange_start_step = None
+        return index
+    """
+    replace_node_list = []
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "call_function" and node.target in (
+            torch.ops.aten.arange,
+            torch.ops.aten.arange.start,
+            torch.ops.aten.arange.start_step,
+        ):
+            replace_node_list.append(node)
+
+    graph_changed = False
+    for node in replace_node_list:
+        valid_node = True
+        user_devices: set[torch.device] = set()
+        for user in node.users:
+            if (
+                user.op == "call_function"
+                and user.target in (torch.ops.aten.index.Tensor, torch.ops.aten.index_put.default)
+                and hasattr(user.meta.get("val"), "device")
+            ):
+                user_devices.add(user.meta["val"].device)  # type: ignore[union-attr]
+            else:
+                valid_node = False
+                break  # bail out
+
+        if valid_node and len(user_devices) == 1 and "val" in node.meta:
+            node_device = node.meta["val"].device
+            (user_device,) = user_devices
+            if node_device.type != user_device.type:
+                repl_kwargs = {}
+                for k, v in node.kwargs.items():
+                    repl_kwargs[k] = v
+                repl_kwargs["device"] = user_device
+
+                with ctx.graph_module.graph.inserting_before(node):
+                    repl = ctx.graph_module.graph.call_function(
+                        node.target,
+                        node.args,
+                        repl_kwargs,
+                    )
+                    repl.meta.update(node.meta)
+                    repl.meta["val"] = repl.meta["val"].to(user_device)
+                    repl.meta["output_device"] = user_device
+                    repl.val_args = node.args
+                    repl.val_kwargs = repl_kwargs
+                    node.replace_all_uses_with(repl)
+
+                ctx.graph_module.graph.erase_node(node)
+                graph_changed = True
+
+    if graph_changed:
+        logger.debug("####### Pass to fix arange op device")
+        ctx.graph_module.graph.lint()
+        ctx.graph_module.recompile()
