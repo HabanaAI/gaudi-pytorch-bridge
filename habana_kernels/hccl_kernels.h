@@ -43,6 +43,16 @@ class CollectiveOperator : public habana::HabanaOperator {
   c10::ScalarType GetScalarType() const {
     return scalar_type_;
   };
+  static int64_t GetNumel(PtTensorInfoShared ti) {
+    int64_t count = ti->get_numel();
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE)) {
+      auto numel = ti->get_external_numel();
+      if (numel != (uint64_t)-1) {
+        count = numel;
+      }
+    }
+    return count;
+  }
 
   virtual void Serialize(std::ostream& os) const = 0;
   virtual void Deserialize(std::istream& is) = 0;
