@@ -2262,6 +2262,7 @@ def get_cp_type_check(cptype):
         "int64_t": "isInt",
         "ITensorListRef": "isTensorList",
         "TensorList": "isTensorList",
+        "at::TensorList": "isTensorList",
         "c10::optional<ArrayRef>": "isList",
         "IntArrayRef": "isList",
     }
