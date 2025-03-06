@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import F
 from test_utils import (
     _is_simulator,
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_gaudi2,
     is_gaudi3,
@@ -129,10 +129,7 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
 
         return casted, upcasted
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, dynamic=False, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     with use_eager_fallback():
         casted, upcasted = fn(input_data, meta, format)
@@ -241,9 +238,7 @@ def wrap_in_compile_if_needed(fn, eager_fallbacks=None):
     if not is_pytest_mode_compile():
         return fn
 
-    clear_t_compile_logs()
-    torch._dynamo.reset()
-    fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     # #### TODO remove this after solving index_put eager fallback issue SW-188040 and SW-169434
     if eager_fallbacks is not None:
@@ -415,6 +410,9 @@ def _verify_executed_ops(fp8_format):
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
+
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
 
     inp_size, weight_size, _ = _get_inp_weigth_bias_size(size_B, size_A, size_A)
@@ -471,6 +469,8 @@ def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
 def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     device = torch.device("hpu:0")
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
@@ -654,6 +654,8 @@ def test_longer_history_size():
 def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
 
@@ -691,7 +693,8 @@ def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
 def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torch.float32):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    import habana_frameworks.torch as ht
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     # Prepare te linear module
     torch.manual_seed(12345)
@@ -750,6 +753,8 @@ def test_te_multiple_fwd_multiple_bwd(
 ):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     def is_first_microbatch(i):
         if not microbatches_approach:
@@ -815,7 +820,7 @@ def test_te_multiple_fwd_multiple_bwd(
         assert torch.equal(ref_outputs[i], test_outputs[i]), f"output mismatch at i: {i}"
         assert torch.equal(ref_grads[i], test_grads[i]), f"grad mismatch at i: {i}"
 
-    assert torch.equal(ref_linear.weight.grad.cpu(), test_linear.weight.grad.cpu()), f"weight gradient mismatch"
+    assert torch.equal(ref_linear.weight.grad.cpu(), test_linear.weight.grad.cpu()), "weight gradient mismatch"
 
     _verify_executed_ops(fp8_format)
 
@@ -825,7 +830,8 @@ def test_te_multiple_fwd_multiple_bwd(
 def test_linear_weight_caching_in_microbatches_case(fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    import habana_frameworks.torch as ht
+    if fp8_format == Format.HYBRID and is_gaudi3():
+        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     torch.manual_seed(12345)
     device = torch.device("hpu:0")
@@ -911,7 +917,7 @@ def test_measurement_interval_auto_mode(interval):
     fp8_recipe = DelayedScaling(interval=interval)
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        assert FP8GlobalStateManager.get_manual_measurement_mode() == None
+        assert FP8GlobalStateManager.get_manual_measurement_mode() is None
 
 
 def test_force_measurement_mode():
@@ -949,7 +955,7 @@ def test_auto_measurement_after_force_mode():
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         FP8GlobalStateManager.set_measurement_mode(True, False)
         FP8GlobalStateManager.set_measurement_mode(False)
-        assert FP8GlobalStateManager.get_manual_measurement_mode() == None
+        assert FP8GlobalStateManager.get_manual_measurement_mode() is None
 
 
 # We need to be able to check if amax measure is enabled after we go out of the fp8 context
@@ -966,7 +972,7 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         pass
 
-    assert FP8GlobalStateManager.get_manual_measurement_mode() == None
+    assert FP8GlobalStateManager.get_manual_measurement_mode() is None
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
@@ -990,7 +996,6 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
         pytest.skip(reason="No need to run this long-running test on simulator")
     if amax_history_len > interval:
         pytest.skip(reason="amax_history_len must be <= interval")
-    import habana_frameworks.torch as ht
 
     torch.manual_seed(12345)
     device = torch.device("hpu:0")
@@ -1367,21 +1372,21 @@ def vanilla_attention_impl_for_test(
 
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
-    if scale == None:
+    if scale is None:
         scores = scores / sqrt_dim_head
     else:
         scores = scores * scale
 
     if attn_mask is not None:
         if attn_mask.dtype == torch.bool:
-            scores.masked_fill_(attn_mask == False, -float("inf"))
+            scores.masked_fill_(attn_mask == 0, -float("inf"))
         else:
             scores = scores + attn_mask
     elif is_causal:
         seq_len_N_t = query.shape[-2]
         seq_len_N_s = key.shape[-2]
         attn_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=torch.bool).tril(diagonal=0)
-        scores.masked_fill_(attn_mask == False, LNEG)
+        scores.masked_fill_(attn_mask == 0, LNEG)
 
     weight = torch.nn.functional.softmax(scores, dim=-1)
     weight = quantize(weight, fp8_format)
@@ -1483,7 +1488,7 @@ def test_te_fused_sdpa(
         pytest.skip(reason="FP8 not supported on Gaudi1")
     if is_causal and use_attn_mask:
         pytest.skip(reason="is_causal and use_attn_mask not supported together")
-    if softmax_mode == "fast" and is_causal == False:
+    if softmax_mode == "fast" and is_causal is False:
         pytest.skip(reason="In training, fast softmax is supported only in Triangular mask case")
     if fp8_format == Format.E5M2:
         pytest.xfail(reason="SW-189599 sdpa_fp8 support for E5M2")
@@ -1578,7 +1583,7 @@ def test_te_fused_sdpa(
         attn_mask_hpu = None
 
     if use_attn_mask:
-        assert is_causal == False, " use_attn_mask and is_causal can not be True at the same time"
+        assert is_causal is False, " use_attn_mask and is_causal can not be True at the same time"
 
     # ------------------------------- Vanilla SDPA implementation on CPU for test----------------------------
 
@@ -1631,7 +1636,7 @@ def test_te_fused_sdpa(
         print("bwd scale_inv       ", fp8_meta["scaling_bwd"].scale_inv)
 
     def compare_fp8_meta(fp8_meta, fp8_meta_ref, fp8_format):
-        if fp8_format == None:
+        if fp8_format is None:
             return
         assert torch.equal(fp8_meta["scaling_fwd"].amax_history, fp8_meta_ref["scaling_fwd"].amax_history)
         assert torch.equal(fp8_meta["scaling_fwd"].amax_history_index, fp8_meta_ref["scaling_fwd"].amax_history_index)
@@ -1979,7 +1984,7 @@ def test_save_load_te_module_indirectly(
                         assert loaded_extra_state[key][k] == saved_extra_state[key][k]
 
     def print_extra_state(state_dict):
-        if not torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in state_dict.keys():
+        if torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX not in state_dict.keys():
             return None
         extra_state = state_dict[f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX}"]
 
@@ -2109,4 +2114,4 @@ def test_te_amax_measure_state_perf(
     is_current_faster = compare_performance(
         function_=output_linear.module.get_amax_measure_state, linear=output_linear, reference_time=avg_time_old
     )
-    assert is_current_faster, f"Current implementation is slower than previous"
+    assert is_current_faster, "Current implementation is slower than previous"

@@ -40,8 +40,14 @@ void habana::RefinementEngine::Initialize() {
 
 void habana::RefinementEngine::Refine() {
   PT_BRIDGE_BEGIN;
-  habana_lazy::get_habana_lazy_executor().setExecutionMode(
-      LazyExecutionMode::kLOWERING);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+    habana_lazy::get_habana_lazy_executor().setExecutionMode(
+        LazyExecutionMode::kLOWERING);
+  }
+
+  PT_DYNAMIC_SHAPE_DEBUG("Bucket refinement thread started... ");
+
   while (m_refineFlag) {
     std::unique_lock<std::mutex> mutex_lock(m_mutex);
     m_refineCV.wait(mutex_lock, [&]() { return !m_readyQueue.empty(); });
@@ -54,14 +60,16 @@ void habana::RefinementEngine::Refine() {
     }
 
     auto qentry{m_readyQueue.front()};
+    torch::jit::Stack stack = m_stackQueue.front();
     m_readyQueue.pop_front();
+    m_stackQueue.pop_front();
     mutex_lock.unlock();
 
     auto graph_key{qentry.value()};
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD)) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "Refinement thread : received graph hash ", graph_key);
-      habana::RefineBucketDS(graph_key);
+      habana::RefineBucketDS(graph_key, stack);
     } else {
       PT_DYNAMIC_SHAPE_DEBUG("Refinement disabled");
     }
@@ -80,6 +88,9 @@ void habana::RefinementEngine::Shutdown() {
     while (!m_readyQueue.empty()) {
       m_readyQueue.pop_back();
     }
+    while (!m_stackQueue.empty()) {
+      m_stackQueue.pop_back();
+    }
 
     m_readyQueue.emplace_back(absl::nullopt);
   }
@@ -92,7 +103,9 @@ void habana::RefinementEngine::Shutdown() {
   }
 }
 
-void habana::RefinementEngine::AddGraphKey(size_t key) {
+void habana::RefinementEngine::AddGraphKey(
+    size_t key,
+    torch::jit::Stack& stack) {
   PT_BRIDGE_BEGIN;
   if (!m_threads.empty()) {
     std::unique_lock<std::mutex> mutex_lock(m_mutex);
@@ -109,6 +122,7 @@ void habana::RefinementEngine::AddGraphKey(size_t key) {
     }
     if (!key_found) {
       m_readyQueue.emplace_back(key);
+      m_stackQueue.emplace_back(stack);
     }
     m_refineCV.notify_one();
   }

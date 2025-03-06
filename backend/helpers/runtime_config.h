@@ -27,6 +27,11 @@ void EnableQuantization();
 void DisableQuantization();
 bool IsQuantizationEnabled();
 
+void SetMarkScaleConst(bool);
+bool IsMarkScaleConst();
+void SetMarkNonScaleConst(bool);
+bool IsMarkNonScaleConst();
+
 void EnableConstSectionSerialization(
     const char* path,
     bool clear_path,

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compare_tensors
+from test_utils import compare_tensors, compile_function_if_compile_mode
 
 dtypes = [torch.float32, torch.bfloat16]
 
@@ -38,8 +38,7 @@ def test_binary_op_0D_view(op, dtype):
 
     result_cpu = fn(input_cpu, other_cpu, factors_cpu)
 
-    if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result_hpu = fn(input_hpu, other_hpu, factors_hpu)
 

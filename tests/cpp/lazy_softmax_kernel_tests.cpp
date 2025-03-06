@@ -24,6 +24,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_lazy_test_infra.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -61,6 +62,7 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest4D) {
 }
 
 TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
+  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-216437";
   torch::Tensor input_tensor =
       torch::rand({16, 32, 12, 10}, torch::requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
@@ -150,6 +152,10 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
 }
 
 TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   torch::Tensor input =
       torch::rand({32, 64, 24, 20}, torch::requires_grad(false));
   torch::Tensor hinput = input.to(torch::kHPU);

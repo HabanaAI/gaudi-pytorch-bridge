@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
@@ -38,7 +38,7 @@ def test_hpu_convolution(dtype):
     hpu_weight = cpu_weight.to("hpu")
     cpu_bias = torch.rand(bias_shape, dtype=dtype)
     hpu_bias = cpu_bias.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_weight, cpu_bias)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)
@@ -57,8 +57,7 @@ def test_hpu_convolution_grad_with_view():
             return m(x)
 
         if device == "hpu":
-            backend = "hpu_backend"
-            fn = torch.compile(fn, backend=backend)
+            fn = compile_function_if_compile_mode(fn)
 
         x = torch.arange(1.0 * 120).reshape([10, 3, 4]).to(device)
         x.requires_grad_()

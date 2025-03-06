@@ -104,6 +104,8 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
   }
 }
 
+#if IS_PYTORCH_AT_LEAST(2, 6)
+#else
 static C10_UNUSED int hasContiguousSubspace(
     c10::ArrayRef<c10::IValue> indices_ival) {
   bool explicit_indices_together = false;
@@ -168,6 +170,7 @@ transposeToFront(const at::Stack& stack) {
   }
   return std::make_tuple(self.permute(dims), std::move(transposedIndices));
 }
+#endif
 
 static std::tuple<at::Tensor, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack) {

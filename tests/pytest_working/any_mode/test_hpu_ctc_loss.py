@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     env_var_in_scope,
     hpu,
     is_pytest_mode_compile,
@@ -74,11 +75,7 @@ def execute_test(input, target, input_lengths, target_lengths, blank, reduction)
     input_lengths_hpu = input_lengths.to(hpu)
     target_lengths_hpu = target_lengths.to(hpu)
 
-    ctc_loss_fwd = CTCLoss.apply
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        ctc_loss_fwd = torch.compile(CTCLoss.apply, backend="hpu_backend")
+    ctc_loss_fwd = compile_function_if_compile_mode(CTCLoss.apply)
 
     loss_hpu = ctc_loss_fwd(input_hpu, target_hpu, input_lengths_hpu, target_lengths_hpu, blank, reduction)
     if reduction == "none":

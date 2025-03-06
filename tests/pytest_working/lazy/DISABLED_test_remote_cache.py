@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-# Env Flags: PT_ENABLE_INTER_HOST_CACHING=1 PT_RECIPE_CACHE_PATH="/tmp/MyCache" LOG_LEVEL_HOSTSTAT=0 PT_HPU_ENABLE_EXECUTION_THREAD=0 PT_CACHE_FOLDER_SIZE_MB=1
+# Env Flags: PT_ENABLE_INTER_HOST_CACHING=1 PT_HPU_RECIPE_CACHE_CONFIG="/tmp/MyCache,false,1" LOG_LEVEL_HOSTSTAT=0 PT_HPU_ENABLE_EXECUTION_THREAD=0
 # Pytest flags: --capture=fd --log-cli-level=INFO
 
 import logging
@@ -175,8 +175,7 @@ class TestRemoteCache:
 
                 dim = dim + 1
 
-    # Basic eviction test that assumes small PT_CACHE_FOLDER_SIZE_MB
-    # i.e. PT_CACHE_FOLDER_SIZE_MB=1
+    # Basic eviction test that assumes small recipe cache max size (1MB)
     def test_eviction_basic(rank, world_size, network, optimizer):
         _ITER = 50
         dim = 99 + (rank * _ITER)
@@ -187,5 +186,5 @@ class TestRemoteCache:
 
             dim = dim + 1
 
-        files_count = len(list(os.scandir(os.environ["PT_RECIPE_CACHE_PATH"])))
+        files_count = len(list(os.scandir(os.environ["PT_HPU_RECIPE_CACHE_CONFIG"].split(",")[0])))
         assert files_count < world_size * _ITER * 2

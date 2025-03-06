@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_pytest_mode_compile,
 )
@@ -37,17 +38,13 @@ def fn_out(mean_input, stddev_input, out_tensor):
     return torch.normal(mean=mean_input, std=stddev_input, generator=None, out=out_tensor)
 
 
-def get_hpu_fn(fn):
-    return torch.compile(fn, backend="hpu_backend", dynamic=False) if is_pytest_mode_compile() else fn
-
-
 def check_zeros(mean, stddev, shape, dtype, out):
     if out:
-        hpu_fn = get_hpu_fn(fn_out)
+        hpu_fn = compile_function_if_compile_mode(fn_out, dynamic=False)
         output = torch.empty(shape).to(dtype).to("hpu")
         output = hpu_fn(mean, stddev, output)
     else:
-        hpu_fn = get_hpu_fn(fn)
+        hpu_fn = compile_function_if_compile_mode(fn, dynamic=False)
         output = hpu_fn(mean, stddev)
     # Given mean = 0 and stddev = 0 all output values should be zeros
     compare_tensors(torch.zeros(shape), output.cpu(), atol=0, rtol=0)
@@ -55,11 +52,11 @@ def check_zeros(mean, stddev, shape, dtype, out):
 
 def check_distribution(mean, stddev, shape, dtype, out):
     if out:
-        hpu_fn = get_hpu_fn(fn_out)
+        hpu_fn = compile_function_if_compile_mode(fn_out, dynamic=False)
         output = torch.empty(shape).to(dtype).to("hpu")
         output = hpu_fn(mean, stddev, output)
     else:
-        hpu_fn = get_hpu_fn(fn)
+        hpu_fn = compile_function_if_compile_mode(fn, dynamic=False)
         output = hpu_fn(mean, stddev)
     # Verify if distribution is normal. There should be:
     # ~68% elements within 1 stddev

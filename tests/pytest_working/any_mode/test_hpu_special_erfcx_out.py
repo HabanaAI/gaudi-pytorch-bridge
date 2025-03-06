@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import clear_t_compile_logs, compare_tensors, format_tc, is_pytest_mode_compile
+from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shape", [[2, 2]], ids=format_tc)
@@ -32,10 +32,7 @@ def test_hpu_special_erfcx_out(shape, dtype):
     hpu_output = torch.empty_like(hpu_input)
     fn(cpu_input, cpu_output)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     fn(hpu_input, hpu_output)
     compare_tensors(cpu_output, hpu_output.cpu().to(torch.float), 0.005, 0.03)

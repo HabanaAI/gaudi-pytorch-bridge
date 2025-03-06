@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from test_utils import setup_teardown_env_fixture  # noqa F401
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_gaudi3,
     is_pytest_mode_compile,
-    setup_teardown_env_fixture,
 )
 
 
@@ -41,16 +41,6 @@ from test_utils import (
     indirect=True,
 )
 class TestHpuMaskedMixedDevices:
-    @classmethod
-    def setup_class(self):
-        # For scalar tensor there is a fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
-
     @staticmethod
     def test_hpu_masked_mixed_devices(shape, value, scalar_value, dynamic, dtype, setup_teardown_env_fixture):
         if dynamic and (is_gaudi3() or not pytest.mode == "compile"):
@@ -59,7 +49,7 @@ class TestHpuMaskedMixedDevices:
         def fn(input, mask, value):
             input.masked_fill_(mask, value)
 
-        wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+        wrapped_fn = compile_function_if_compile_mode(fn)
         iters = 3 if dynamic else 1
         for i in range(iters):
             modified_shape = [(dim * (i + 1)) for dim in shape]
@@ -87,10 +77,7 @@ def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype, setup_t
     def fn(self, mask, value):
         return self.masked_fill(mask, value)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     self = torch.randint(low=-50, high=50, size=self_shape).to(dtype)
     mask = torch.randint(low=0, high=2, size=mask_shape, dtype=torch.bool)
@@ -127,10 +114,7 @@ def test_masked_fill_float8(dtype, setup_teardown_env_fixture):
     mask = torch.randint(0, 2, (1000, 1000)).to(torch.bool)
     result = fn(input_c, mask, mask_val).to(dtype).to(torch.bfloat16)
 
-    if pytest.mode == "compile":
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     # HPU
     input_hpu = input_c.to("hpu").to(dtype)

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,10 +16,8 @@
 ###############################################################################
 
 
-import copy
 import os
 import random
-import sys
 
 import numpy as np
 import pytest
@@ -31,7 +29,7 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper, is_gaudi1
+from test_utils import fga_assert_helper, inference_env_fixture, is_gaudi1
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer
@@ -116,10 +114,6 @@ def verify_nodes(ops_summary, expected_op_count):
 def use_pt2e_quant_flow(
     test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
 ):
-    import habana_frameworks.torch.core as htcore
-
-    htcore.hpu_set_env()
-
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
     random.seed(0xDEADDEAD)
@@ -179,7 +173,7 @@ def use_pt2e_quant_flow(
             calibrate_result = model(*example_inputs0)
             calibrate_result = model(*example_inputs1)
 
-        if use_graph_break == True:
+        if use_graph_break:
             verify_nodes(fga.get_ops_summary(), expected_op_count["after_prepare_pt2e"])
 
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -190,13 +184,11 @@ def use_pt2e_quant_flow(
             hpu_result2 = model(*example_inputs2)
             print(hpu_result2)
 
-        if use_graph_break == True:
+        if use_graph_break:
             verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
         else:
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
-
-    htcore.hpu_reset_env()
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
@@ -204,7 +196,9 @@ def use_pt2e_quant_flow(
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export):
+def test_pt2e_quant_float(
+    set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture
+):
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(quant_dtype)
@@ -215,7 +209,7 @@ def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_br
             "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
             "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
             "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
+            "torch.ops.aten.copy_.default": [(4, 0), (4, 0)],
             "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
             "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
@@ -237,7 +231,7 @@ def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_br
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export):
+def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
 
     class custom_quantizer(Quantizer):
 
@@ -321,7 +315,7 @@ def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_duri
             "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
             "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
             "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
+            "torch.ops.aten.copy_.default": [(4, 0), (4, 0)],
             "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
             "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@ import functools
 
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from packaging.version import Version
 from torch._dynamo import compiled_autograd
 
 logger = get_compile_backend_logger()
 
 
-def enable_compiled_autograd(**kwargs):
+def enable_compiled_autograd(is_dynamic=False, **kwargs):
     """
     Helper function to enable compiled_autograd for hpu backend. For more
     info on compiled autograd see:
@@ -31,14 +32,20 @@ def enable_compiled_autograd(**kwargs):
 
     This should be called before any invocations of torch.compile
     """
+
     logger.warn("Enabling CompiledAutograd for hpu_backend with torch.compile")
 
     def compiler_fn(gm):
         return torch.compile(gm, backend="hpu_backend", options={"inference": False}, **kwargs)
 
-    torch._C._dynamo.compiled_autograd.set_autograd_compiler(
-        functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn)
-    )
+    if Version(Version(torch.__version__).base_version) >= Version("2.6.0"):
+        torch._C._dynamo.compiled_autograd.set_autograd_compiler(
+            functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn), is_dynamic
+        )
+    else:
+        torch._C._dynamo.compiled_autograd.set_autograd_compiler(
+            functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn)
+        )
 
     torch._dynamo.reset()
     torch._dynamo.config.optimize_ddp = "python_reducer"

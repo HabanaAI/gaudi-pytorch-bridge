@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, hpu
+from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, hpu
 
 
 @pytest.mark.parametrize("shape", [[10, 20]], ids=format_tc)
@@ -31,9 +31,8 @@ def test_hpu_masked_scatter(shape, is_inplace):
 
     cpu_args = [cpu_tensor, mask, cpu_source, is_inplace]
     hpu_args = [cpu_tensor.to(hpu), mask.to(hpu), cpu_source.to(hpu), is_inplace]
-    torch._dynamo.reset()
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     cpu_result = fn(*cpu_args)
     hpu_result = hpu_wrapped_fn(*hpu_args)

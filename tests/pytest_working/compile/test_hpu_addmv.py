@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shapes", [([2], [2, 3], [3]), ([4], [4, 9], [9])])
@@ -34,7 +34,7 @@ def test_hpu_addmv(shapes, alpha, beta, dtype):
     hpu_mat = cpu_mat.to("hpu")
     cpu_vec = torch.rand(vec_shape, dtype=dtype)
     hpu_vec = cpu_vec.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_mat, cpu_vec)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mat, hpu_vec).cpu()

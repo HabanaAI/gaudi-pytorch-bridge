@@ -1,29 +1,27 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/op_backend.h"
 #include <c10/core/ScalarType.h>
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/cast_sequence.h"
 #include "backend/helpers/create_tensor.h"
-#include "backend/helpers/runtime_config.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
-#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/common/scalar_dtype_range.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -155,6 +153,32 @@ OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
     return meta;
   }
   return {};
+}
+
+/* Use one of DefaultSTMetaFn or DefaultSTMetaFnOneOutputShapeUpdate
+ * as a value of the st_meta attribute in hpu_op.yaml for an operator.
+ * The DefaultSTMetaFn is used when the operator needs to handle only
+ * its scalar inputs. DefaultSTMetaFnOneOutputShapeUpdate takes care of
+ * just updating the ST value of its (one) output in the backend
+ * that it received from the symbolic inference step. For everything else,
+ * use an operator specific STMeta function defined in its respective
+ * <op>_gen.cpp file.
+ * */
+bool OpBackend::DefaultSTMetaFn(
+    [[maybe_unused]] habana_helpers::IShapeList& inputs,
+    [[maybe_unused]] habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("DefaultSTMetaFn");
+  return true;
+}
+
+bool OpBackend::DefaultSTMetaFnOneOutputShapeUpdate(
+    [[maybe_unused]] habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  std::vector<int64_t> out_shape = outputs[0].getTensorShape();
+  PT_BRIDGE_DEBUG(
+      "DefaultSTMetaFnOneOutputShapeUpdate output shape ", out_shape);
+  habana_helpers::UpdateSTShapeInfo(out_shape);
+  return true;
 }
 
 void OpBackend::HandleScalarToTensorSTMeta(
@@ -564,7 +588,8 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
   m_output_inf_mode = true;
   auto& device = habana::HPUDeviceContext::get_device(0);
-  auto graph = sh::graph::create(device, {}, true);
+  auto graph =
+      sh::graph::create(device, {}, synapse_helpers::graph::DryRun::Enabled);
 
   PopulateMetadata(stack, GetOutputMetaData());
 
@@ -963,9 +988,8 @@ sh::tensor OpBackend::BuildCast(
     const at::ScalarType& to,
     c10::optional<int> final_result_index) {
   PT_BRIDGE_DEBUG("Performing cast from:\t", from, "\t\tto:\t", to);
-  bool handle_from_bool =
-      from == at::kBool && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0;
-  if (!(handle_from_bool || to == at::kBool))
+
+  if (!(from == at::kBool || to == at::kBool))
     return OpBackend::BuildRegularCast(
         op, graph, syn_in, sizes, from, to, final_result_index);
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -109,20 +109,34 @@ def fp8_sdpa_fwd_wrapper(
 ):
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
+
+    # Handle zero sized tensors(for now only in inference) by returning a dummy output.
+    if requires_backward is False:
+        if q.numel() == 0 or k.numel() == 0 or v.numel() == 0:
+            out_shape = list(q.shape)
+            out_shape[-1] = v.shape[-1]
+            dtype = torch.bfloat16
+            if q_scale_o:
+                dtype = q.dtype
+            dummy_out = q.new_empty(out_shape, dtype=dtype, requires_grad=requires_backward, layout=q.layout)
+            return dummy_out
+
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()
-    if scale == None:
+    if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
+
+    assert softmax_mode != "fp32", "softmax_mode == fp32 is not supported in fp8 flow"
 
     # Check if recompute variant is enabled
     if recompute is None:
         recompute = ht.recompute_sdp_enabled()
 
     if requires_backward:
-        assert is_causal == True, "Fp8 FusedSDPA in trining only supports Triangular mask"
+        assert is_causal, "Fp8 FusedSDPA in trining only supports Triangular mask"
     if valid_seq_len is not None:
         assert (
-            is_causal and (requires_backward == False) and (attn_mask == None)
+            is_causal and (requires_backward is False) and (attn_mask is None)
         ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
 
     gqa = is_gqa(q, k)
@@ -193,7 +207,7 @@ def fp8_sdpa_fwd_wrapper(
     ctx.gqa = gqa
 
     if recompute:
-        return out, amax_s, amax_o
+        return out, m, linv, seed, amax_s, amax_o
 
     if not dbg_env_var_fsdpa:
         return out, amax_s, amax_o
@@ -385,7 +399,7 @@ def fp8_fused_sdpa(
         seq_padding_type,
         recompute,
     )
-    out, amax_s, amax_o = Fp8FusedSDPA.apply(
+    outputs = Fp8FusedSDPA.apply(
         q,
         k,
         v,
@@ -407,4 +421,4 @@ def fp8_fused_sdpa(
         recompute,
     )
 
-    return out, amax_s, amax_o
+    return outputs

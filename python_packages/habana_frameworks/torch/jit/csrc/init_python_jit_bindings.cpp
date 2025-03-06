@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 // todo cleanup https://jira.habana-labs.com/browse/SW-199903
 // probably should be moved to other place, optionally change file name
@@ -21,6 +21,7 @@
 
 #include <pybind11/stl.h>
 
+#include <ATen/core/jit_type.h>
 #include <ATen/core/symbol.h>
 #include <c10/core/MemoryFormat.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
@@ -128,9 +129,9 @@ namespace detail {
     }                                                                                     \
   }
 
-// CREATE_UNWRAPPING_CASTER(Node);
+CREATE_UNWRAPPING_CASTER(Node);
 CREATE_UNWRAPPING_CASTER(Value);
-// CREATE_UNWRAPPING_CASTER(Block);
+CREATE_UNWRAPPING_CASTER(Block);
 
 #undef CREATE_UNWRAPPING_CASTER
 
@@ -264,7 +265,6 @@ Node* addNodeToBlock(Block* block, Symbol kind, ArrayRef<Value*> inputs) {
 
 void defineGraphClass(pybind11::module& m) {
 #define GS(name) def(#name, &Graph ::name)
-
   py::class_<Graph, std::shared_ptr<Graph>>(m, "Graph", py::module_local())
       .def(py::init<>())
       .def(
@@ -474,7 +474,10 @@ void defineGraphClass(pybind11::module& m) {
           })
       .GS(lint)
       .def("block", [](Graph& g) { return g.block(); })
-      .GS(insertNode);
+      .GS(insertNode)
+      .def("copyToUpstreamGraph", [](Graph& g) {
+        return g.copyToUpstreamGraph();
+      });
 #undef GS
 }
 
@@ -703,7 +706,7 @@ void defineNodeClass(pybind11::module& m) {
           [](Node& n, const char* name) { return n.t(Symbol::attr(name)); })
       .def(
           "ty_",
-          [](Node& n, const char* name, const TypeWrapper& type) {
+          [](Node& n, const char* name, const TypePtr& type) {
             return n.ty_(Symbol::attr(name), type);
           })
       .def(
@@ -711,7 +714,7 @@ void defineNodeClass(pybind11::module& m) {
           [](Node& n, const char* name) { return n.ty(Symbol::attr(name)); })
       .def(
           "tys_",
-          [](Node& n, const char* name, const std::vector<TypeWrapper>& types) {
+          [](Node& n, const char* name, const std::vector<TypePtr>& types) {
             return n.tys_(Symbol::attr(name), types);
           })
       .def(
@@ -744,8 +747,7 @@ void defineValueClass(pybind11::module& m) {
             return ss.str();
           })
       .VS(type)
-      .def("setType", py::overload_cast<TypePtr>(&Value::setType))
-      .def("setType", py::overload_cast<const TypeWrapper&>(&Value::setType))
+      .VS(setType)
       .def(
           "inferTypeFrom",
           py::overload_cast<const at::Tensor&>(&Value::inferTypeFrom))

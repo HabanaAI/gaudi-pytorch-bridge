@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ input_types_map = {
     "bool?": "c10::optional<bool>",
     "float": "double",
     "float?": "c10::optional<double>",
+    "float[]": "ArrayRef<double>",
     "float[]?": "c10::optional<ArrayRef<double>>",
     "int": "int64_t",
     "int?": "c10::optional<int64_t>",

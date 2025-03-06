@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -29,13 +29,13 @@ from .internal import optimize_post_partitioner, optimize_pre_partitioner, optim
 
 
 def _gen_graph_name():
-    current_ordinal = getattr(_gen_graph_name, "ordinal")
+    current_ordinal = _gen_graph_name.ordinal
     graph_name = f"fx_graph_{current_ordinal:04d}"
-    setattr(_gen_graph_name, "ordinal", current_ordinal + 1)
+    _gen_graph_name.ordinal = current_ordinal + 1
     return graph_name
 
 
-setattr(_gen_graph_name, "ordinal", 0)
+_gen_graph_name.ordinal = 0
 
 
 @log_function_start_end
@@ -158,7 +158,7 @@ def hpu_inference_compiler(
     """
     Just passthrough for forward inference compilation.
     """
-    if hpu_backend_config.use_graph_freezing:
+    if torch._inductor.config.freezing:
         return hpu_freezing_compiler_inner(graph_module, dyn_graph_module, example_inputs, False, False)
     else:
         return hpu_compiler_inner(graph_module, example_inputs, False, False)

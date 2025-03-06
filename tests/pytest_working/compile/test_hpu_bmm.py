@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shapes", [([10, 4, 5], [10, 5, 3]), ([3, 1, 5], [3, 5, 7])])
@@ -36,8 +37,9 @@ def test_hpu_bmm(shapes, dtype):
     cpu_mat2 = torch.rand(mat2_shape, dtype=dtype)
     hpu_mat2 = cpu_mat2.to("hpu")
 
+    torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = cpu_compiled_fn(cpu_input, cpu_mat2)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mat2).cpu()

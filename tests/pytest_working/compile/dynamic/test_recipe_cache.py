@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 ###############################################################################
 
 import os
-from contextlib import contextmanager
 
 import pytest
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from test_utils import compile_function_if_compile_mode
 
 
 # Fixture to set the environment variable
@@ -29,17 +28,14 @@ from habana_frameworks.torch.dynamo.compile_backend.config import configuration_
 def set_env(request, arg=False):
     os.environ["PT_HPU_RECIPE_CACHE_CONFIG"] = "/tmp/cache,false,8192"
     print("Enabled serialization of recipe on disk")
-    is_eager_fallback = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
     # Yield to provide the value for the test
     yield "1"
 
     os.environ["PT_HPU_RECIPE_CACHE_CONFIG"] = ""
-    configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 
 def test_recipe_cache1(set_env):
-    import habana_frameworks.torch.core as htcore
+    import habana_frameworks.torch.core as htcore  # noqa
 
     input_shapes = [
         [(3, 6, 4), (3, 24)],
@@ -55,7 +51,7 @@ def test_recipe_cache1(set_env):
         t3 = torch.add(t2, x2)
         return t3
 
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+    compiled_fn = compile_function_if_compile_mode(raw_function, dynamic=True)
 
     def execute_model(input_shapes):
         for s in input_shapes:

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2020-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_helpers/logging.h"
@@ -172,7 +172,6 @@ at::Tensor get_tensor_for_scalar(double, const at::TensorOptions&) {
 }
 
 void flush_op(
-    size_t,
     std::shared_ptr<HbLazyFrontEndInfoToBackend>,
     std::vector<HbLazyTensor>) {
   EAGER_NOT_SUPPORTED;
@@ -290,22 +289,6 @@ at::Tensor& recv_hpu_lazy_(
   EAGER_NOT_SUPPORTED;
 }
 
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
-    [[maybe_unused]] bool stochastic_rounding,
-    [[maybe_unused]] at::Tensor& out,
-    [[maybe_unused]] at::Tensor& amax) {
-  EAGER_NOT_SUPPORTED;
-}
-
-at::Tensor cast_from_fp8_lazy(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
-    [[maybe_unused]] at::ScalarType out_dtype) {
-  EAGER_NOT_SUPPORTED;
-}
-
 } // namespace habana_lazy
 
 void optimizer_adagrad_hpu_wrap(
@@ -417,13 +400,6 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     [[maybe_unused]] const Tensor& offsets,
     [[maybe_unused]] const Tensor& valid_count,
     [[maybe_unused]] int64_t kernel_mode) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor habana_cast_to_fp8_wrap(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] bool stochastic_rounding,
-    [[maybe_unused]] int seed) {
   EAGER_NOT_SUPPORTED;
 }
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 from torch.ao.quantization.observer import PlaceholderObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer.x86_inductor_quantizer import (
-    OperatorConfig,
     QuantizationAnnotation,
     QuantizationConfig,
     QuantizationSpec,
@@ -42,6 +41,7 @@ from torch.ao.quantization.quantizer.x86_inductor_quantizer import (
     SharedQuantizationSpec,
 )
 from torch.ao.quantization.quantizer.xnnpack_quantizer_utils import (
+    OperatorConfig,
     _annotate_input_qspec_map,
     _annotate_output_qspec,
     get_bias_qspec,

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ def generate_bindings(dictionary, flag):
     cpp_binding_line = cpp_bindings_get
     python_binding_line = python_bindings_get
 
-    if "settable" in dictionary[flag] and dictionary[flag]["settable"] == True:
+    if "settable" in dictionary[flag] and dictionary[flag]["settable"] is True:
         cpp_bindings_set, python_bindings_set = generate_bindings_set(dictionary, flag)
         cpp_binding_line += cpp_bindings_set
         python_binding_line += python_bindings_set

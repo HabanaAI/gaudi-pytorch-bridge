@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -56,7 +56,12 @@ hpu_supported_op_list = {
     "in_place_interleave",
     "kv_reorder",
     "mixture_of_experts",
-    "plain_index",
+    "mixture_of_experts_fp8_measurement",
+    "mixture_of_experts_fwd",
+    "mixture_of_experts_recomp_fwd",
+    "mixture_of_experts_bwd",
+    "mixture_of_experts_recomp_bwd",
+    "one_hot",
     "rms_norm",
     "rms_norm_fast",
     "rms_norm_backward",
@@ -68,7 +73,6 @@ hpu_supported_op_list = {
     "scaled_triangular_softmax",
     "scaled_triangular_softmax_retain",
     "softmax_fp8",
-    "sum_fp8",
     # Torchvision
     "roi_align",
     "_roi_align_backward",
@@ -91,6 +95,7 @@ hpu_supported_op_list = {
     "fp8_sdpa_fwd_non_dropout",
     "fp8_sdpa_fwd_dropout_seed",
     "fp8_sdpa_bwd",
+    "fp8_sdpa_recomp_bwd",
     "fp8_sdpa_recomp_fwd",
     "fp8_sdpa_recomp_fwd_dropout",
     "fp8_sdpa_recomp_fwd_non_dropout",
@@ -143,11 +148,14 @@ hpu_fallback_op_list = {
     # Other
     "slice_backward",  # SW-146680
     "addcmul",
-    "index",  # SW-146773
     # Non-inferable
     "nonzero",
     "_unique2",
     "bincount",
+}
+
+hpu_conditional_fallback_op_list = {
+    "index",  # SW-146773
 }
 
 # List of ops that do not support dynamic shape in torch.compile
@@ -166,10 +174,37 @@ hpu_ds_fallback_list = {
     "sdpa_recomp_fwd_dropout_seed",
     "sdpa_recomp_bwd",
     "fp8_sdpa_recomp_fwd",
+    "fp8_sdpa_bwd",
+    "fp8_sdpa_recomp_bwd",
 }
 
 
 META_SHAPE_CHANGED = "Meta output shape changed."
+
+
+# Returns True when the index.hacked_twin op needs to fallback to eager
+def check_for_conditional_eager_fallback(node, op_name, is_dynamic):
+    if op_name != "index":
+        return False
+    eager_fallback = False
+    if is_dynamic:
+        eager_fallback = True
+    t = node.args[0]
+    indices = node.args[1]
+    for i, index in enumerate(indices):
+        # None indices are not supported inside graph
+        if index is None:
+            eager_fallback = True
+            break
+        index_dtype = index.meta["output_dtypes"]
+        # Only HPU indices are supported
+        if not (
+            index.meta["output_device"] == torch.device("hpu") or index.meta["output_device"] == torch.device("hpu:0")
+        ):
+            eager_fallback = True
+            break
+        # Long and Bool indices mix are supported
+    return eager_fallback
 
 
 # Returns False when the index_put op needs to fallback to eager
@@ -271,18 +306,24 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     This function is supposed to ask shared layer whether specific
     node is supported by the device.
     """
-
     do_fallback = False
     assert node.op == "call_function"
     if node.meta["output_device"].type == "hpu":
         args, kwargs = node.val_args, node.val_kwargs
         arg_types = []
         op_name = node.target.__name__.split(".")[0]
+        # some ops execute in eager mode, but if some conditions are satisfied
+        # they can be part of the larger graph
+        conditional_eager_fallback = check_for_conditional_eager_fallback(node, op_name, is_dynamic)
+        conditional_add_to_graph = op_name in hpu_conditional_fallback_op_list and not conditional_eager_fallback
 
         if check_for_default_fallback(op_name, node, is_dynamic):
             do_fallback = True
             logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
-        elif not check_for_default_op_support(op_name, node, is_dynamic):
+        elif conditional_eager_fallback:
+            do_fallback = True
+            logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
+        elif not check_for_default_op_support(op_name, node, is_dynamic) or conditional_add_to_graph:
             for arg in args:
                 arg_types.append(type(arg))
             normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
@@ -350,7 +391,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     logger.debug("Node: %s requires fallback: %s", node, do_fallback)
 
     assert (
-        hpu_backend_config.use_eager_fallback or do_fallback == False
+        hpu_backend_config.use_eager_fallback or do_fallback is False
     ), f"Node: {node} requires fallback: {do_fallback}"
 
     return do_fallback

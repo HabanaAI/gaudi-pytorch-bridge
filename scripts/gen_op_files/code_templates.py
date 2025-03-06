@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -195,8 +195,10 @@ namespace hpu_wrap {{
 """
 
 _STACK_POP_CODE_FORMAT_ = """
-    {}
-      torch::jit::pop(stack{});
+      {}
+
+      {}
+
       auto is_supported = impl({}, is_dynamic);
       return is_supported;
     }}

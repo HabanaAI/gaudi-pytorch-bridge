@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -55,18 +55,18 @@ class HabanaParameterWrapper(torch.nn.Parameter):
             kwargs = {}
         else:
             for k, v in kwargs.items():
-                if type(v) == HabanaParameterWrapper:
+                if type(v) is HabanaParameterWrapper:
                     kwargs[k] = HabanaParameterWrapper.db[id(v)]
         new_args = [None] * len(args)
         for i in range(len(args)):
             arg = args[i]
             if type(arg) is list:
                 new_args[i] = [
-                    HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) == HabanaParameterWrapper else inner_arg
+                    HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) is HabanaParameterWrapper else inner_arg
                     for inner_arg in arg
                 ]
             else:
-                new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) == HabanaParameterWrapper else arg
+                new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) is HabanaParameterWrapper else arg
         if func.__name__ == "__set__":
             if hasattr(new_args[0], "device") and hasattr(new_args[1], "device"):
                 if new_args[0].device != new_args[1].device:
@@ -82,7 +82,7 @@ class HabanaParameterWrapper(torch.nn.Parameter):
 
 
 def update_habana_parameter(result):
-    if type(result) == torch.nn.Parameter:
+    if type(result) is torch.nn.Parameter:
         result.__class__ = HabanaParameterWrapper
         HabanaParameterWrapper.db[id(result)] = result
 
@@ -90,11 +90,11 @@ def update_habana_parameter(result):
 def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
     result = self.original__get_attr__(name)
     try:
-        if not name in self.checked_parameters:
+        if name not in self.checked_parameters:
             update_habana_parameter(result)
             self.checked_parameters.add(name)
     except:
-        self.checked_parameters = set(["name"])
+        self.checked_parameters = {"name"}
         update_habana_parameter(result)
     return result
 

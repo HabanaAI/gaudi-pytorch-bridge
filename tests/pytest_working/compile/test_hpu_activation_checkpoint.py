@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import torch
 from habana_frameworks.torch.dynamo.compile_backend.random_utils import HABANA_CHECKPOINT_OPS
 from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from test_dynamo_utils import use_eager_fallback
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compile_function_if_compile_mode
 
 
 def bernoulli(x):
@@ -66,7 +66,7 @@ def three_ops(x):
 OPS = [bernoulli, poisson, rand, randn, randint, multinomial, randperm, native_dropout]
 
 
-class TestModel(torch.nn.Module):
+class Model(torch.nn.Module):
     def __init__(self, op, is_checkpoint):
         super().__init__()
         self.op = op
@@ -74,18 +74,20 @@ class TestModel(torch.nn.Module):
 
     def forward(self, input):
         add = input + 10
-        rand = torch.utils.checkpoint.checkpoint(self.op, add) if self.is_checkpoint else self.op(add)
+        rand = (
+            torch.utils.checkpoint.checkpoint(self.op, add, use_reentrant=False) if self.is_checkpoint else self.op(add)
+        )
         relu = torch.relu(rand)
         return torch.randint_like(relu, 3, 10, dtype=torch.int) + relu
 
 
-class TestModelAllOps(torch.nn.Module):
+class ModelAllOps(torch.nn.Module):
     def __init__(self, is_checkpoint):
         super().__init__()
         self.is_checkpoint = is_checkpoint
 
     def maybe_checkpoint(self, op, input):
-        return torch.utils.checkpoint.checkpoint(op, input) if self.is_checkpoint else op(input)
+        return torch.utils.checkpoint.checkpoint(op, input, use_reentrant=False) if self.is_checkpoint else op(input)
 
     def forward(self, input):
         res1 = self.maybe_checkpoint(poisson, input) + randn(input)
@@ -96,21 +98,49 @@ class TestModelAllOps(torch.nn.Module):
         return res5
 
 
-def run_model_common(model):
+class ModelDropout(torch.nn.Module):
+    def __init__(self, is_checkpoint):
+        super().__init__()
+        self.is_checkpoint = is_checkpoint
+
+    def maybe_checkpoint(self, op, input):
+        return torch.utils.checkpoint.checkpoint(op, input, use_reentrant=False) if self.is_checkpoint else op(input)
+
+    def function(self, input):
+        input = torch.relu(input)
+        input = torch.nn.functional.dropout(input, p=0.5, training=True)
+        input = torch.sin(input)
+        return input
+
+    def forward(self, input):
+        res1 = self.maybe_checkpoint(self.function, input)
+        return torch.sin(res1)
+
+
+def run_model(model, shape=(12, 16)):
     torch.manual_seed(2137)
-    input = torch.rand((12, 16)).to("hpu").requires_grad_(True)
-    model = torch.compile(model, backend="hpu_backend")
+    input = torch.rand(shape).to("hpu").requires_grad_(True)
+    model = compile_function_if_compile_mode(model)
     out = model(input)
     out.sum().backward()
     return out.cpu(), input.grad.cpu()
 
 
-def run_model_small(op, is_checkpoint):
-    return run_model_common(TestModel(op, is_checkpoint))
+def run_model_with_deterministic_algorithms(model, shape=(12, 16), deterministic_flag=True):
+    torch.use_deterministic_algorithms(deterministic_flag)
+    out, grad = run_model(model, shape)
+    torch.use_deterministic_algorithms(False)
+    return out, grad
 
 
-def run_model_all_ops(is_checkpoint):
-    return run_model_common(TestModelAllOps(is_checkpoint))
+def get_habana_op_names(op_names):
+    return {f"habana_{op_name.__name__}" for op_name in op_names}
+
+
+def get_habana_checkpoint_op_names(op_names):
+    checkpoint_op_names = {f"habana_{op_name.__name__}_checkpoint" for op_name in op_names}
+    checkpoint_op_names.update({f"habana_{op_name.__name__}_checkpoint_backward" for op_name in op_names})
+    return checkpoint_op_names
 
 
 @pytest.mark.parametrize("op", OPS)
@@ -119,9 +149,8 @@ def test_checkpoint(op, disable_compile):
     torch._dynamo.reset()
     clear_t_compile_logs()
 
-    op_name = op.__name__
-    habana_op_name = f"habana_{op_name}"
-    checkpoint_op_name = f"{habana_op_name}_checkpoint"
+    habana_op_name = get_habana_op_names([op])
+    checkpoint_op_name = get_habana_checkpoint_op_names([op])
 
     forbidden_ops = set()
     checkpoint_ops = set()
@@ -130,16 +159,17 @@ def test_checkpoint(op, disable_compile):
         original_op = op
         op = torch.compiler.disable(op)
         no_checkpoint_ops = {"habana_randint"}
-        forbidden_ops = {checkpoint_op_name}
+        forbidden_ops = checkpoint_op_name
     else:
-        no_checkpoint_ops = {habana_op_name, "habana_randint"}
-        checkpoint_ops = {habana_op_name, checkpoint_op_name}
+        no_checkpoint_ops = habana_op_name.union({"habana_randint"})
+        checkpoint_ops = checkpoint_op_name
 
-    out, grad = run_model_small(op, False)
+    out, grad = run_model_with_deterministic_algorithms(Model(op, False), deterministic_flag=not disable_compile)
+
     check_ops_executed_in_jit_ir(no_checkpoint_ops)
     clear_t_compile_logs()
 
-    out_checkpoint, grad_checkpoint = run_model_small(op, True)
+    out_checkpoint, grad_checkpoint = run_model(Model(op, True))
     check_ops_executed_in_jit_ir(checkpoint_ops, forbidden_ops=forbidden_ops)
 
     if disable_compile:
@@ -152,18 +182,39 @@ def test_checkpoint(op, disable_compile):
 CHECKPOINT_OPS = [bernoulli, native_dropout, poisson, rand, randperm]
 
 
+def test_checkpoint_dropout():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    op = native_dropout
+    habana_op_names = get_habana_op_names([op])
+    checkpoint_op_names = get_habana_checkpoint_op_names([op])
+
+    out, grad = run_model_with_deterministic_algorithms(ModelDropout(False), (120, 160))
+    check_ops_executed_in_jit_ir(habana_op_names)
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    out_checkpoint, grad_checkpoint = run_model(ModelDropout(True), (120, 160))
+    check_ops_executed_in_jit_ir(checkpoint_op_names)
+
+    assert torch.equal(out, out_checkpoint)
+    assert torch.equal(grad, grad_checkpoint)
+
+
 def test_checkpoint_all_ops():
     torch._dynamo.reset()
     clear_t_compile_logs()
 
-    habana_op_names = {f"habana_{op_name.__name__}" for op_name in OPS}
-    checkpoint_op_names = {f"habana_{op_name.__name__}_checkpoint" for op_name in CHECKPOINT_OPS}
+    habana_op_names = get_habana_op_names(OPS)
+    checkpoint_op_names = get_habana_checkpoint_op_names(CHECKPOINT_OPS)
 
-    out, grad = run_model_all_ops(False)
+    out, grad = run_model_with_deterministic_algorithms(ModelAllOps(False))
+
     check_ops_executed_in_jit_ir(habana_op_names)
     clear_t_compile_logs()
 
-    out_checkpoint, grad_checkpoint = run_model_all_ops(True)
+    out_checkpoint, grad_checkpoint = run_model(ModelAllOps(True))
     check_ops_executed_in_jit_ir(checkpoint_op_names)
 
     assert torch.equal(out, out_checkpoint)
@@ -184,18 +235,18 @@ def test_checkpoint_all_eager_fallback(eager_op):
     eager_op_name = eager_op.__name__
     aten_op = f"aten.{eager_op_name}.default"
 
-    habana_op_names = {f"habana_{op_name.__name__}" for op_name in compile_ops}
-    checkpoint_op_names = {f"habana_{op_name.__name__}_checkpoint" for op_name in checkpoint_ops}
+    habana_op_names = get_habana_op_names(compile_ops)
+    checkpoint_op_names = get_habana_checkpoint_op_names(checkpoint_ops)
 
     checkpoint_op_bckp = HABANA_CHECKPOINT_OPS.pop(aten_op)
     hpu_fallback_op_list.add(eager_op_name)
 
     with use_eager_fallback():
-        out, grad = run_model_all_ops(False)
+        out, grad = run_model_with_deterministic_algorithms(ModelAllOps(False))
         check_ops_executed_in_jit_ir(habana_op_names, allowed_fallbacks={eager_op_name})
         clear_t_compile_logs()
 
-        out_checkpoint, grad_checkpoint = run_model_all_ops(True)
+        out_checkpoint, grad_checkpoint = run_model(ModelAllOps(True))
         check_ops_executed_in_jit_ir(
             checkpoint_op_names, allowed_fallbacks={"run_with_rng_state", "run_and_save_rng_state"}
         )

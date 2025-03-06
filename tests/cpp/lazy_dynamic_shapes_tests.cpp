@@ -34,6 +34,7 @@
 #include "utils/device_type_util.h"
 
 using namespace habana_lazy;
+using namespace habana;
 
 // In this class both the pass fallback and compilation fallback are disabled
 class LazyDynamicShapesTest : public habana_lazy_test::LazyDynamicTest {
@@ -720,8 +721,8 @@ TEST_F(LazyDynamicShapesTest, ProdDimIntTest) {
     auto input = torch::randn(input_shape);
     auto input_h = input.to(torch::kHPU);
 
-    torch::Tensor hOut = at::empty_like(input_h, dtype);
-    torch::Tensor out_cpu = at::empty_like(input, dtype);
+    torch::Tensor hOut = torch::randn({0}, dtype).to("hpu");
+    torch::Tensor out_cpu = torch::randn({0}, dtype);
     torch::prod_outf(input, dim, keepdim, dtype, out_cpu);
     torch::prod_outf(input_h, dim, keepdim, dtype, hOut);
 
@@ -741,8 +742,8 @@ TEST_F(LazyDynamicShapesTest, AllDimTest) {
         auto input = torch::randn(input_shape).to(dtype);
         auto input_h = input.to(torch::kHPU);
 
-        torch::Tensor hOut = at::empty_like(input_h);
-        torch::Tensor out_cpu = at::empty_like(input);
+        torch::Tensor hOut = torch::randn({0}, torch::dtype(dtype)).to("hpu");
+        torch::Tensor out_cpu = torch::randn({0}, torch::dtype(dtype));
         torch::all_out(out_cpu, input, dim, keepdim);
         torch::all_out(hOut, input_h, dim, keepdim);
 
@@ -950,13 +951,16 @@ void runWeightNormTest() {
   }
 }
 TEST_F(LazyDynamicShapesTest, WeightNormTest) {
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "/tmp/WeightNormTest_dumps", 1);
+  std::string org_recipe_cache_path =
+      HPUDeviceContext::recipe_cache().get_cache_path();
+  HPUDeviceContext::recipe_cache().UpdateCachePath("/tmp/WeightNormTest_dumps");
+  HPUDeviceContext::recipe_cache().ResetDiskCache();
   runWeightNormTest();
 
   // Rerun using disk caching
   runWeightNormTest();
-  SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, recipe_cache_path, 1);
+  HPUDeviceContext::recipe_cache().DeleteDiskCache();
+  HPUDeviceContext::recipe_cache().UpdateCachePath(org_recipe_cache_path);
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
@@ -2214,7 +2218,8 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
   std::vector<int> in_sizes{6, 8, 10, 20, 50};
   int rounds{2};
 
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  const char* recipe_cache_path =
+      HPUDeviceContext::recipe_cache().get_cache_path().c_str();
   uint32_t initial_host_mem_threshold =
       GET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
   habana::RecipeCacheLRU::SetHostMemoryThreshold(100);

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import habana_frameworks.torch as hftorch
 
 def _check_hftorch_path():
     if not isinstance(hftorch.__path__, list) or len(hftorch.__path__) != 1:
-        assert (False, "Bad __path__ of habana_frameworks.torch, expecting list with 1 element")
+        assert False, "Bad __path__ of habana_frameworks.torch, expecting list with 1 element"
 
 
 def get_include_dir():

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,6 +20,15 @@ from collections.abc import Iterable
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+from ..random_utils import (
+    backward_random_op_inputs,
+    is_backward_checkpoint_op,
+    is_multi_output_op,
+    is_random_op,
+    random_op_inputs,
+)
+from ..symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
 
 logger = get_compile_backend_logger()
 
@@ -165,14 +174,30 @@ def get_node_users(node):
     return node_list
 
 
+def is_symbolic_shape(shape):
+    """
+    This function checks if the shape is symbolic.
+    """
+    from torch.fx.experimental.symbolic_shapes import is_symbolic
+
+    if isinstance(shape, torch.Size):
+        return any(is_symbolic(dim) for dim in shape)
+    return False
+
+
 def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
     """
     This function takes out basic information from propagated fake tensor, like
     dtype, layout and device and puts it to the node that created it.
     """
-    # just skip for get_attr node since it's not necessary
-    if node.op == "get_attr":
-        return
+    if not bc.get_pt_hpu_use_jit_fork():
+        # todo - cleanup [SW-199903]
+        # just skip for get_attr node since it's not necessary
+        if node.op == "get_attr":
+            return
+
+    if node.meta.get("val") is None:
+        node.meta["val"] = result
 
     result = handle_noncontiguous_output(node, result)
 
@@ -215,10 +240,10 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         device = torch.device("cpu")
         dtypes = [None]
         layouts = [None]
-        output_shapes = [None]
-        output_strides = [None]
+        output_shapes = [()]
+        output_strides = [()]
         output_contiguous = [None]
-        output_offset = [None]
+        output_offset = [()]
         node.type = result_type_to_node_type[type(result)]
     elif str(node.target) == "inductor.accumulate_grad_.default":
         device = torch.device("hpu")
@@ -245,7 +270,9 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
             if hasattr(res, "shape"):
                 output_shapes.append(res.shape)
                 output_contiguous.append(res.is_contiguous())
-                output_strides.append(res.storage_offset())
+                # todo https://jira.habana-labs.com/browse/SW-199903:
+                #  this must be a bug!
+                # output_strides.append(res.storage_offset())
                 output_offset.append(res.storage_offset())
                 output_strides.append(res.stride())
                 logger.debug("    result shape: %s", res.shape)
@@ -289,13 +316,359 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
             assert node.meta["output_device"] == device
         assert node.meta["output_dtypes"] == dtypes
         assert node.meta["output_layouts"] == layouts
-        assert node.meta["output_shapes"] == output_shapes
+        if not any(is_symbolic_shape(shape) for shape in output_shapes):
+            assert node.meta["output_shapes"] == output_shapes
         assert node.meta["output_offset"] == output_offset
 
     node.meta["output_device"] = device
-    node.meta["output_dtypes"] = dtypes
-    node.meta["output_layouts"] = layouts
-    node.meta["output_shapes"] = output_shapes
-    node.meta["output_strides"] = output_strides
-    node.meta["output_contiguous"] = output_contiguous
-    node.meta["output_offset"] = output_offset
+    node.meta["output_dtypes"] = dtypes  # list expected
+    node.meta["output_layouts"] = layouts  # list expected
+    node.meta["output_shapes"] = output_shapes  # list expected
+    node.meta["output_strides"] = output_strides  # list expected
+    node.meta["output_contiguous"] = output_contiguous  # list expected
+    node.meta["output_offset"] = output_offset  # list expected
+
+    if bc.get_pt_hpu_use_jit_fork() and (type(result) not in [torch.SymInt, torch.SymBool, torch.SymFloat]):
+        logger.debug('Filling metadata "val" for Lowering pass')
+        meta_output_vals = []
+        for i in range(len(dtypes)):
+            meta_output_vals.append(  # output_strides consists of storage_offset, strides, acccess only strides
+                torch.empty_strided(
+                    output_shapes[i],
+                    output_strides[i],
+                    dtype=dtypes[i],
+                    device=device,
+                )
+            )
+        node.meta["val"] = meta_output_vals[0] if len(meta_output_vals) == 1 else tuple(meta_output_vals)
+
+
+def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
+    """
+    This function will remove those outputs which are duplicated with inputs in
+    the fx graph. So that the generated JIT graph won't have duplicated output.
+    This function run before we convert fx graph to jit graph.
+
+    For example, the add_1 output in following graph will be removed. def
+    forward(self, mm: "bf16[4,4]", relu: "bf16[4,4]", _to_copy_1: "bf16[4,4]"):
+        add: "bf16[4, 4]" = torch.ops.aten.add_.Tensor(mm, relu) relu_1:
+        "bf16[4, 4]" = torch.ops.aten.relu.default(_to_copy_1) add_1: "bf16[4,
+        4]" = torch.ops.aten.add_.Tensor(add, relu_1) relu_2: "bf16[4, 4]" =
+        torch.ops.aten.relu.default(add_1) return (add_1, relu_2)
+    """
+    in_to_out_dups = input_module.meta.get("in_to_out_dups", None)
+    if in_to_out_dups is None:
+        return
+
+    duplicated_out_indexes = list(in_to_out_dups.values())
+    for node in input_module.graph.nodes:
+        if node.op == "output":
+            output_node = node
+            break  # expect only one output node per fx graph
+
+    # remove the duplicated outputs
+    outs = list(output_node.args[0]) if type(output_node.args[0]) is tuple else [output_node.args[0]]
+    duplicated_out_indexes.sort()
+    for idx in reversed(duplicated_out_indexes):
+        outs.remove(outs[idx])
+
+    # create a new output node
+    input_module.graph.output(outs[0] if len(outs) == 1 else tuple(outs))
+    input_module.graph.erase_node(output_node)
+    input_module.graph.lint()
+    return
+
+
+def remove_no_effect_inplace_add(graph_module: torch.fx.GraphModule):
+    """
+    This function will convert some reinpalced add_ ops back to out-of-place
+    version if they don't cause partition input/output duplications. This is a
+    WA since those add_ ops will be converted back to out-of-place version
+    during generating jit graph by _jit_pass_remove_mutation, and that jit pass
+    will change the ops order inside the graph, and make the
+    jit_node_shape_propagation failed.
+    """
+    for node in graph_module.graph.nodes:
+        if not (node.op == "call_function" and node.target == torch.ops.aten.add_.Tensor):
+            continue
+
+        src0 = node.args[0]
+        if not (src0.op == "placeholder" or src0.target.__name__.split(".")[0].endswith("_")):
+            # this inplace add_ op doesn't have possbility to change the arg, so
+            # convert it to out-of-place version.
+            node.target = torch.ops.aten.add.Tensor
+    return
+
+
+def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
+    """
+    This function dynamicity per graph module.
+    """
+
+    from torch._subclasses.fake_tensor import FakeTensor
+    from torch.fx.experimental.proxy_tensor import py_sym_types
+    from torch.fx.passes.shape_prop import TensorMetadata
+
+    is_dynamic = False
+    for node in input_module.graph.nodes:
+        if node.op == "placeholder":
+            meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
+            if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+                meta_val, py_sym_types
+            ):
+                is_dynamic = True
+                break
+
+    logger.debug("Module dynamicity %s", is_dynamic)
+    return is_dynamic
+
+
+def wrap_random_ops(input_module: torch.fx.GraphModule):
+    """
+    This pass goes through habana cluster and:
+    - replaces run_and_save_rng_state ops with habana wrappers,
+    - replaces run_with_rng_state ops with habana checkpoint wrappers,
+    - replaces random ops with habana wrappers,
+    - creates seed and counter tensor for habana_seed_generator,
+    - feeds habana wrappers with generated seed tensors.
+    """
+
+    random_ops = [node for node in input_module.graph.nodes if is_random_op(node)]
+    backward_random_ops = [node for node in input_module.graph.nodes if is_backward_checkpoint_op(node)]
+
+    # run_with_rng_state op is replaced with the actual random op with seed acquired from
+    # the run_with_rng_state's first input.
+    if len(backward_random_ops) > 0:
+        for node in backward_random_ops:
+            with input_module.graph.inserting_before(node):
+                random_node = input_module.graph.call_function(*backward_random_op_inputs(node))
+                node.replace_all_uses_with(random_node, propagate_meta=True)
+                random_node.meta.update(node.meta)
+                input_module.graph.erase_node(node)
+
+        input_module.recompile()
+
+    if len(random_ops) == 0:
+        return
+
+    with input_module.graph.inserting_before():
+        counter_pl = input_module.graph.placeholder("counter_pl")
+        seed_pl = input_module.graph.placeholder("seed_pl")
+
+    with input_module.graph.inserting_after(counter_pl):
+        seeds = input_module.graph.call_function(
+            torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, len(random_ops)), {}
+        )
+        _ = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, len(random_ops)), {})
+
+    multi_output_ops = []
+
+    for i, node in enumerate(random_ops):
+        with input_module.graph.inserting_before(node):
+            seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
+            random_node = input_module.graph.call_function(*random_op_inputs(node, seed))
+            node.replace_all_uses_with(random_node, propagate_meta=True)
+            random_node.meta.update(node.meta)
+            if is_multi_output_op(node):
+                multi_output_ops.append(random_node)
+            input_module.graph.erase_node(node)
+
+    for node in multi_output_ops:
+        for getitem in list(node.users):
+            if getitem.args[1] == 1:
+                for selector in list(getitem.users):
+                    idx = selector.args[1]
+                    selector.args = (node, idx + 1)
+
+    input_module.recompile()
+
+
+def jit_node_annotation_propagation(jit_ir, fx_module):
+    """
+    This pass aims to directly manipulate JIT IR to set hints to node's
+    attribute.
+    """
+
+    # Filter inputs/output and getitem nodes from fx graph, as they are not
+    # present in jit
+    fx_nodes = list(
+        filter(
+            lambda x: ((x.op == "call_function") and ("getitem" not in x.target.__name__)),
+            fx_module.graph.nodes,
+        )
+    )
+
+    if bc.get_pt_hpu_use_jit_fork():
+        jit_graph = jit_ir
+    else:
+        jit_graph = jit_ir.graph
+    # Filter prim nodes, as they are not present in fx
+    jit_graph_nodes = list(
+        filter(
+            lambda x: ("prim::" not in x.kind()),
+            jit_graph.nodes(),
+        )
+    )
+
+    if len(fx_nodes) != len(jit_graph_nodes):
+        logger.debug("Jit graph and FX graph should have same number of nodes: ")
+        logger.debug("FX nodes: ", fx_nodes)
+        logger.debug("JIT graph nodes: ", jit_graph_nodes)
+        return
+
+    is_annotated_graph = False
+    for jit_node, fx_node in zip(jit_graph_nodes, fx_nodes):
+        fx_node_name = fx_node.target.__name__.split(".")[0]
+        if fx_node_name not in jit_node.kind():
+            logger.debug("FX node {} doesn't match with Jit node {}".format(fx_node_name, jit_node.kind()))
+            break
+
+        # extract hints from FX node metadata
+        context_hints = fx_node.meta.get("context_hints", None)
+        if context_hints:
+            logger.debug("node {} has context hints {}".format(fx_node_name, context_hints))
+            # combine hints into a single string in format "name1:value1;[name2:value2;]"
+            hints_str = ""
+            for k, v in context_hints.items():
+                hints_str += "".join([k, ":", str(v), ";"])
+            jit_node.s_("hints", hints_str)
+            logger.debug("set hints for jit node", jit_node)
+            is_annotated_graph = True
+
+        if "sfg" in fx_node.meta:
+            jit_node.s_("sfg", "true")
+            logger.debug("sfg marked for jit node", jit_node)
+            is_annotated_graph = True
+
+    if is_annotated_graph:
+        logger.debug(
+            "####Annotated JIT IR graph for this HPU graph:####\n%s",
+            jit_graph,
+        )
+
+    return
+
+
+def get_dynamic_config_value():
+    """
+    This function return the is_dynamic=True if user configured
+    the same while calling torch.compile. Otherwise return is_dynamic=False
+    """
+
+    is_dynamic = False
+    from torch._dynamo import config
+
+    # TODO: It is a W/A for discovering dynamic models. In final implementation
+    # is should read this info from tensors.
+    is_dynamic = not config.assume_static_by_default
+
+    return is_dynamic
+
+
+# It seems that this pass assumes that the fx graph and the jit graph must
+# have same ops order. Otherwise, the shape propagation may fail. However,
+# the _jit_pass_remove_mutation pass has possiblity to change the jit graph
+# ops order, and may break the assumption.
+def jit_node_shape_propagation(jit_ir, fx_module):
+    if bc.get_pt_hpu_use_jit_fork():
+        Jit_graph = jit_ir
+    else:
+        Jit_graph = jit_ir.graph
+    logger.debug("JIT processing shape propagation JIT graph:", Jit_graph)
+    logger.debug("JIT processing shape propagation FX graph:", fx_module.print_readable(False))
+    fx_nodes = list(fx_module.graph.nodes)
+    jit_node_skip_list = ["prim::Constant", "prim::ListConstruct"]
+
+    fx_count = 0
+    for node in fx_module.graph.nodes:
+        if node.op == "placeholder":
+            fx_count += 1
+        else:
+            break
+
+    def get_fx_subname(jit_node_name):
+        changed_name = jit_node_name.replace("::", ".")
+        return changed_name.split(".")[1]
+
+    def get_matched_fx_node(fx_nodes, fx_idx, jit_node_name):
+        size = len(fx_nodes)
+        next_fx_idx = None
+        curr_fx_node = None
+        logger.debug("Matching Jit node:", jit_node_name, "from FX node index:", fx_idx)
+        while fx_idx < size:
+            fx_node = fx_nodes[fx_idx]
+            if fx_node.op == "placeholder" or fx_node.op == "output":
+                fx_idx += 1
+                continue
+            if fx_node.target.__name__.count(jit_node_name) > 0:
+                fx_idx += 1
+                next_fx_idx = fx_idx
+                curr_fx_node = fx_node
+                break
+            else:
+                fx_idx += 1
+        return next_fx_idx, curr_fx_node
+
+    def create_output_size(tensor_size):
+        from ..symbolic_execution import PythonPrinter
+
+        pexpr = PythonPrinter().doprint
+        pexpr_output_shape = HPUExprPrinter().doprint
+
+        def convert_tsize_to_str(tsize):
+            shape = tsize
+            dims = len(shape)
+            tsize_str = "["
+            for dim, sz in enumerate(shape):
+                sz_str = pexpr(sz)
+                sz_str_sympy = sympify_expression(sz_str)
+                sz_str_sympy = substitute_sympyfn(sz_str_sympy)
+                logger.debug("pexpr_output_shape input sz_str_sympy:", sz_str_sympy)
+                sz_str = pexpr_output_shape(sz_str_sympy)
+                tsize_str = tsize_str + str(sz_str)
+                if dim < dims - 1:
+                    tsize_str += ","
+            tsize_str += "]"
+            return tsize_str
+
+        output_len = len(tensor_size)
+        output_size_str = "["
+        for idx, tsize in enumerate(tensor_size):
+            tsize_str = convert_tsize_to_str(tsize)
+            logger.debug("create_output_size tsize_str:", tsize_str)
+            output_size_str = output_size_str + tsize_str
+            if idx < output_len - 1:
+                output_size_str += ";"
+
+        output_size_str += "]"
+        logger.debug("create_output_size output_size_str:", output_size_str)
+        return output_size_str
+
+    for node in Jit_graph.nodes():
+        if node.kind() in jit_node_skip_list:
+            continue
+
+        fx_subname = get_fx_subname(node.kind())
+        backup_fx_count = fx_count
+        next_fx_idx, fx_node = get_matched_fx_node(fx_nodes, fx_count, fx_subname)
+        fx_count = next_fx_idx
+        # If a Jit node didnot find in the FX, then the move to next
+        # Jit node and start from next FX node index.
+        if fx_count is None:
+            fx_count = backup_fx_count + 1
+
+        if fx_node is None:
+            logger.debug("Not found a matching FX node for node name: %s !!!", fx_subname)
+            continue
+
+        output_size_str = "[[]]"
+        if "output_shapes" in fx_node.meta:
+            logger.debug(
+                "Matched nodes, Jit node name formated: %s FX node: %s fx_count: %d, output_shapes:%s",
+                fx_subname,
+                fx_node,
+                fx_count,
+                fx_node.meta["output_shapes"],
+            )
+            output_size_str = create_output_size(fx_node.meta["output_shapes"])
+        node.s_("output_shapes", output_size_str)

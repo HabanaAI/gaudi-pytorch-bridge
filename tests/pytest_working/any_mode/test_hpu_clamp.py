@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@
 ###############################################################################
 from enum import Enum
 
-import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch
-from test_utils import compare_tensors, is_gaudi1
+from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
 
 
 class Mode(Enum):
@@ -92,17 +91,15 @@ def test_clamp(shape, min_mode, max_mode, dtype):
 
     if dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
         input = input.float()
-        if type(min) == torch.Tensor:
+        if type(min) is torch.Tensor:
             min = min.float()
-        if type(max) == torch.Tensor:
+        if type(max) is torch.Tensor:
             max = max.float()
 
     def fn(input, min, max):
         return torch.clamp(input, min, max)
 
-    if pytest.mode == "compile":
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result_cpu = torch.clamp(input, min, max)
     result_hpu = fn(input_h, min_h, max_h)

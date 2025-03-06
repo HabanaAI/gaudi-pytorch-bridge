@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <synapse_api_types.h>
@@ -44,10 +44,15 @@ class graph {
   graph(graph&&) noexcept;
   graph& operator=(graph&&) = delete;
 
+  enum class DryRun : bool {
+    Disabled = false,
+    Enabled = true,
+  };
+
   static graph create(
       device& device,
       std::string name,
-      bool dry_run = false,
+      DryRun dry_run = DryRun::Disabled,
       bool eager_mode = false);
 
   static graph create_for_refinement(device& device, std::string name);
@@ -254,7 +259,7 @@ class graph {
   }
 
   bool is_dry_run() const {
-    return dry_run_;
+    return DryRun::Enabled == dry_run_;
   }
 
   uint32_t get_num_of_tensors() const {
@@ -359,7 +364,7 @@ class graph {
   EdgeContainer control_edges_container_;
   EdgeContainer data_edges_container_;
   absl::optional<std::string> current_op_name_;
-  bool dry_run_{false};
+  DryRun dry_run_{DryRun::Disabled};
   bool dynamic_graph_{false};
   bool enable_optim_output_sif_{false};
   uint32_t numTensors = 0;

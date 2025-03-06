@@ -14,6 +14,7 @@
 */
 
 #include <perf_lib_layer_params.h>
+#include "backend/helpers/habana_types.h"
 #include "backend/helpers/runtime_config.h"
 #include "generated/backend/_native_batch_norm_legit.h"
 #include "generated/backend/_native_batch_norm_legit_no_training.h"
@@ -286,7 +287,8 @@ bool is_batch_norm_functional(const OpBackend& op) {
 
 bool is_no_reshape_op(const OpBackend& op) {
   return op.GetGuid().find("batch_norm_inf_reshape") != std::string::npos ||
-      op.GetGuid().find("_native_batch_norm_legit.no_stats") != std::string::npos;
+      op.GetGuid().find("_native_batch_norm_legit.no_stats") !=
+      std::string::npos;
 }
 
 std::vector<sh::tensor> handle_batch_norm_training_fwd(
@@ -301,6 +303,10 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     const size_t params_size,
     const sizes_vec& out_shapes) {
   using namespace BNFwd;
+
+  bool is_lazy_or_eager =
+      ((op.GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) ||
+       (op.GetExecutionMode() == habana_helpers::HabanaFrontendTypes::LAZY));
 
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
   std::optional<sh::tensor> weightStorageOpt;
@@ -346,7 +352,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   bool is_functional = is_batch_norm_functional(op);
 
   std::vector<sh::tensor> bn_out;
-  if (is_no_reshape_op(op)) {
+  if (is_lazy_or_eager || is_no_reshape_op(op)) {
     auto input_4d_shape = input.pt_t.sizes().vec();
     bn_out = OpBackend::BuildNode(
         &op,
@@ -363,7 +369,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
               ? NodeAttr::
                     NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
               : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
+                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx},
           is_functional
               ? NodeAttr::
                     NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
@@ -670,6 +676,26 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto params = FillBatchNormFwdParams(stack, paramsSize);
   const auto outShapes = BatchNormFwdOutputShape(stack);
 
+  bool is_lazy_or_eager =
+      ((GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) ||
+       (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::LAZY));
+
+  auto inOutLayout = is_lazy_or_eager
+      ? getSynapseLayout(input.pt_t.dim())
+      : synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
+
+  SetSynapseLayouts(
+      {inOutLayout,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
+      {inOutLayout,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+
   std::vector<sh::tensor> bnOut =
       (is_training(training, runningMeanOpt.has_value())
            ? handle_batch_norm_training_fwd
@@ -685,17 +711,12 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           paramsSize,
           outShapes);
 
-  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
+  if (!is_lazy_or_eager) {
+    reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
+  }
 
   if (isOutputInfMode()) {
     moveLastOutputTensorAtFront(*this);
-  }
-
-  // [SW-176505] Set allowPermutation=False as GC cannot handle
-  // the case transpose -> reshape -> batchnorm
-  // If not set, GC will add an extra transpose on batchnorm output
-  if (input.pt_t.sizes().size() != 4) {
-    bnOut[0].set_dont_allow_permute(true);
   }
 
   syn_out(0) = std::move(bnOut[0]);
@@ -799,13 +820,6 @@ void BatchNormNoStatsOpBackend::AddNode(
           params,
           paramsSize,
           outShapes);
-
-  // [SW-176505] Set allowPermutation=False as GC cannot handle
-  // the case transpose -> reshape -> batchnorm
-  // If not set, GC will add an extra transpose on batchnorm output
-  if (input.pt_t.sizes().size() != 4) {
-    bnOut[0].set_dont_allow_permute(true);
-  }
 
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);
@@ -945,13 +959,6 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       meta[INPUT_GRAD_IDX].shape,
       bn_out[INPUT_GRAD_IDX],
       meta[INPUT_GRAD_IDX].dtype);
-
-  // [SW-176505] Set allowPermutation=False as GC cannot handle
-  // the case transpose -> reshape -> batchnorm
-  // If not set, GC will add an extra transpose on batchnorm output
-  if ((meta[INPUT_GRAD_IDX].shape).size() != 4) {
-    bn_out[INPUT_GRAD_IDX].set_dont_allow_permute(true);
-  }
 
   syn_out(INPUT_GRAD_IDX) = std::move(bn_out[0]);
   syn_out(WEIGHT_GRAD_IDX) = std::move(bn_out[2]);

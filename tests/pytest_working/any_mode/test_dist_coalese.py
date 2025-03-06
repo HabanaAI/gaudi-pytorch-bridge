@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,21 +16,15 @@
 ###############################################################################
 
 
-import argparse
-import numbers
 import os
-from typing import Any, Callable, Dict
+from typing import Callable
 
 import habana_frameworks.torch
-import habana_frameworks.torch as ht
-import pytest
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import torch.testing
+from test_utils import compile_function_if_compile_mode
 
 device = torch.device("hpu")
 WORLD_SIZE = habana_frameworks.torch.hpu.device_count()
@@ -48,8 +42,6 @@ def setup(rank, world_size=1):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
     os.environ["RANK"] = str(rank)
-
-    import habana_frameworks.torch.distributed.hccl
 
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
 
@@ -174,7 +166,7 @@ def dynamo_coalescing_manager_test(rank, world_size, kwargs):
         return t
 
     counter = CompileCounter()
-    compiled = torch.compile(func, backend=counter)
+    compiled = compile_function_if_compile_mode(func, backend=counter)
     out = compiled(inputs, **get_world_trs())
     for t in out:
         torch.testing.assert_close(t.to("cpu"), torch.ones(1) * world_size)
@@ -191,7 +183,7 @@ def dynamo_trace_allgather_coalesced_test(rank, world_size, kwargs):
 
     inputs = [torch.ones(4, 4, device="hpu"), torch.ones(6, 6, device="hpu")]
     counter = CompileCounter()
-    compiled = torch.compile(func, backend=counter)
+    compiled = compile_function_if_compile_mode(func, backend=counter)
     out = compiled(inputs, **get_world_trs())
     assert counter.frame_count == 1
     assert counter.op_count == 3  # It generates 2 getattr to unpack the array
@@ -220,6 +212,17 @@ def batch_isend_irecv_hccl_test(rank, world_size, kwargs):
         req.wait()
 
 
+def pg_shutdown_test(rank, world_size, kwargs):
+    tensors1 = [torch.ones(1, device=device), torch.ones(1, device=device)]
+    comm_ranks = list(range(world_size))
+    pg = dist.new_group(ranks=comm_ranks)
+    pg.allreduce(tensors1)
+    for tensor in tensors1:
+        torch.testing.assert_close(tensor.to("cpu"), torch.ones(1) * world_size)
+    backend = pg._get_backend(torch.device("hpu"))
+    backend._shutdown()
+
+
 def run_test(rank: int, world_size: int, test_func: Callable, kwargs):
     setup(rank, world_size)
     if rank == 0:
@@ -241,6 +244,7 @@ def run_tests():
         {"func": dynamo_coalescing_manager_test, "kwargs": {}},
         {"func": dynamo_trace_allgather_coalesced_test, "kwargs": {}},
         {"func": batch_isend_irecv_hccl_test, "kwargs": {}},
+        {"func": pg_shutdown_test, "kwargs": {}},
     ]
     for config in test_configs:
         mp.spawn(run_test, args=(WORLD_SIZE, config["func"], config["kwargs"]), nprocs=WORLD_SIZE, join=True)

@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <torch/jit.h>
 #include <algorithm>
 #include <functional>
 #include <future>
@@ -33,7 +34,8 @@ at::Tensor CreateEmptyTensor(
 torch::jit::Stack CreateInputStack(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
     std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata,
-    habana_helpers::TensorShapes& input_shapes);
+    habana_helpers::TensorShapes& input_shapes,
+    torch::jit::Stack& input_stack);
 void PrintStack(torch::jit::Stack& st);
 
 bool CompileGraphWithRange(
@@ -43,8 +45,9 @@ bool CompileGraphWithRange(
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key,
     std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
-    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh,
+    torch::jit::Stack& stack);
 
-bool RefineBucketDS(size_t graph_key);
+bool RefineBucketDS(size_t graph_key, torch::jit::Stack& stack);
 
 } // namespace habana

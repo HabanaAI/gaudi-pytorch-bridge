@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,13 +17,12 @@
 
 from contextlib import contextmanager
 
+import pytest
 import torch
 import torch.distributed as dist
 import torch.distributed._functional_collectives as fcol
-from habana_frameworks.torch.dynamo.compile_backend import config
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper
-from torch.distributed.distributed_c10d import _get_default_group
+from test_utils import fga_assert_helper, force_op_eager_fallback, use_eager_fallback
 
 
 @contextmanager
@@ -36,7 +35,7 @@ def fuse_ddp_setter():
         torch._inductor.config._fuse_ddp_communication = fuse_ddp_saved
 
 
-@torch.compile(backend="hpu_backend")
+@torch.compile(backend="hpu_backend", options={"use_inplace_allreduce": False})
 def fn(x, y, pg):
     x0 = fcol.all_reduce(x, "sum", pg)
     y0 = fcol.all_reduce(y, "sum", pg)
@@ -98,3 +97,36 @@ def test_allreduce_graph_split():
             fn1(t1, t2, pg)
             part_num = fga.get_partition_num()
             assert part_num == 2, "intentionally splited partitions are merged unexpectedly"
+
+
+@torch.compile(backend="hpu_backend")
+def allreduce_upstreams_surrounding_fused_node(x, y, pg):
+    parallel_path = x * 2
+    parallel_path = parallel_path * 2
+    x0 = fcol.all_reduce(x, "sum", pg)
+    y0 = fcol.all_reduce(y, "sum", pg)
+    fused = x0 * 2
+    fused = fused - 1
+    nonfused = fused + x0
+    x1 = fcol.all_reduce(nonfused, "sum", pg)
+    y1 = fcol.all_reduce(y0, "sum", pg)
+    x2 = fcol.all_reduce(x1, "sum", pg)
+    y2 = fcol.all_reduce(y1, "sum", pg)
+    return x2, y2, parallel_path
+
+
+@pytest.mark.parametrize(
+    "fn_shape_fallbackop_tuple", [(allreduce_upstreams_surrounding_fused_node, [[6, 6], [2, 6]], "add")]
+)
+def test_allreduce_reordering(fn_shape_fallbackop_tuple):
+    import habana_frameworks.torch.distributed.hccl
+
+    fn, in_shapes, fallback_op = fn_shape_fallbackop_tuple
+    with allreduce_graph_split_setter(), force_op_eager_fallback(fallback_op), use_eager_fallback():
+        if not dist.is_initialized():
+            dist.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
+
+        pg = dist.new_group(ranks=[0], backend="hpu:hccl")
+        with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            args = map(lambda shape: torch.ones(shape, device="hpu"), in_shapes)
+            fn(*args, pg)

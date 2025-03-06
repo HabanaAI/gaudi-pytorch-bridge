@@ -4,7 +4,7 @@
 
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -25,14 +25,9 @@ from typing import List, Optional, Tuple, Union
 import torch
 from packaging.version import Version
 from torch import Tensor
-
-if Version(torch.__version__) >= Version("2.1.2"):
-    from torch.optim.optimizer import ParamsT
-else:
-    from torch.optim.optimizer import params_t as ParamsT
-
 from torch.optim.optimizer import (
     Optimizer,
+    ParamsT,
     _capturable_doc,
     _default_to_fused_or_foreach,
     _differentiable_doc,

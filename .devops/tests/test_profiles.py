@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ def test_get_args_for_profile():
 
 
 def test_get_available_versions():
-    assert [x.version for x in sorted(profiles.get_available_versions())] == sorted(["1.0.0", "1.2.3"])
+    assert [x.version for x in sorted(profiles.get_available_versions())] == sorted(["1.0.0", "1.2.3", "1.4.0"])
 
 
 def test_get_required_pt():
@@ -121,3 +121,20 @@ def test_get_wheel_install_requires():
         == "pytorch >= 1.0.3, <= 2.2.4rc2"
     )
     assert profiles.get_wheel_install_requires([Version("1.2.3"), Version("9.9.9", label="nightly")]) == ""
+
+
+def test_get_pt_version_id():
+    assert profiles.get_pt_version_id("1.2.3") == "current"
+    assert profiles.get_pt_version_id("1.0.0") == "previous"
+    assert profiles.get_pt_version_id("1.4.0") == "next"
+
+    with pytest.raises(KeyError, match=r'.*pt_version "1.3.3.7" is not present in profiles.json'):
+        profiles.get_pt_version_id("1.3.3.7")
+
+
+def test_get_cpu_index_url():
+    assert profiles.get_cpu_index_url("current") == "default"
+    assert profiles.get_cpu_index_url("next") == "none"
+
+    with pytest.raises(KeyError):
+        profiles.get_cpu_index_url("nonexistent")

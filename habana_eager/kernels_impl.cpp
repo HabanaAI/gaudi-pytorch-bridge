@@ -76,19 +76,15 @@ Tensor hpu_wrap::_reshape_alias(
       " stride",
       to_string(stride));
   auto result = habana::eager::alias_with_sizes_and_strides(self, size, stride);
-  auto pipeline_or_direct_reshape_alias = [](const at::Tensor& self,
-                                             const at::Tensor& result) {
-    habana::eager::view_propagate_permutation(self, result);
-  };
   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
   auto dst_backend =
       habana::eager::HbEagerTensorPool::get_backend_tensor(result);
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
   dst_hb_tmeta->set_tensor_pipelined();
-  habana::eager::pipeline_or_direct_generic(
-      pipeline_or_direct_reshape_alias,
-      std::move(src_backend),
-      std::move(dst_backend));
+  habana::eager::PipelineOrExecuteTask(
+      [self = std::move(src_backend), result = std::move(dst_backend)]() {
+        habana::eager::view_propagate_permutation(self, result);
+      });
   return result;
 }
 
@@ -150,7 +146,8 @@ at::Tensor hpu_wrap::repeat_interleave(
     ::std::optional<SymInt> output_size) {
   PT_EAGER_TRACE;
   PT_OP_INFO("repeat_interleave:", DUMP_2ARGS(self, output_size));
-
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      repeat_interleave, PARAMS1(self), PARAMS2(self, output_size), Tensor)
   // If output_size is not provided in optional, it must be calculated on
   // frontend to get the actual output size.
   if (!output_size) {
@@ -199,7 +196,11 @@ at::Tensor& hpu_wrap::_index_put_impl_(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
   }
-
+  if (self.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, indices, values, accumulate, unsafe));
+  }
   return habana::eager::_index_put_impl_eager(
       self, indices, values, accumulate, unsafe);
 }
@@ -208,6 +209,13 @@ at::Tensor& hpu_wrap::_index_put_impl_(
     const at::Tensor& self,
     bool sorted,
     bool return_inverse) {
+  FALLBACK_IF_UNSUPPORTED_OP(
+      _unique, PARAMS1(self), PARAMS2(self, sorted, return_inverse))
+  if (self.dim() > 4) {
+    return dispatch_fallback<ATEN_OP(_unique)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, sorted, return_inverse));
+  }
   return habana::eager::_unique_eager(self, sorted, return_inverse);
 }
 
@@ -275,6 +283,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
     bool sorted,
     bool return_inverse,
     bool return_counts) {
+  FALLBACK_IF_UNSUPPORTED_OP(
+      _unique2,
+      PARAMS1(self),
+      PARAMS2(self, sorted, return_inverse, return_counts))
+  if (self.dim() > 4) {
+    return dispatch_fallback<ATEN_OP(_unique2)>::call(
+        OpSupportLevel::Value::unsupported_rank,
+        PARAMS2(self, sorted, return_inverse, return_counts));
+  }
   return habana::eager::_unique2_eager(
       self, sorted, return_inverse, return_counts);
 }

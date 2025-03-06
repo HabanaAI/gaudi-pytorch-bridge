@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 dtypes = [torch.bfloat16, torch.float, torch.int]
 
@@ -54,7 +54,7 @@ def test_hpu_lerp(shape, scalar_weight, dtype):
         cpu_end = cpu_end.to(torch.float32)
         cpu_weight = cpu_weight if scalar_weight else cpu_weight.to(torch.float32)
 
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_start, cpu_end, cpu_weight)
     hpu_output = hpu_compiled_fn(hpu_start, hpu_end, hpu_weight).cpu()

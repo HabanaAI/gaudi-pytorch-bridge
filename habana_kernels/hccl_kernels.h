@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include "backend/habana_operator.h"
 
@@ -33,8 +33,10 @@ class CollectiveOperator : public habana::HabanaOperator {
         scalar_type_(scalar_type){};
   virtual void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const = 0;
+      synapse_helpers::event_done_callback cleanup_callback) const = 0;
 
   int GetDeviceId() const {
     return device_id_;
@@ -67,8 +69,10 @@ class HcclBroadcastOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   int64_t comm_id_;
@@ -91,8 +95,10 @@ class HcclAllreduceOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   uint8_t reduce_op_;
@@ -115,8 +121,10 @@ class HcclReduceOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   int64_t dst_rank_;
@@ -140,8 +148,10 @@ class HcclAllToAllOutOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   int64_t comm_id_;
@@ -166,8 +176,10 @@ class HcclAllgatherOutOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   int64_t comm_id_;
@@ -189,8 +201,10 @@ class HcclReduceScatterOutOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   uint8_t reduce_op_;
@@ -212,8 +226,10 @@ class HcclSendOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   int64_t dst_rank_;
@@ -236,8 +252,10 @@ class HcclRecvOperator : public CollectiveOperator {
 
   void RunCollective(
       const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<at::Tensor>& pt_inputs,
+      std::vector<at::Tensor>& pt_outputs,
       bool async,
-      synapse_helpers::event_done_callback done_cb) const override;
+      synapse_helpers::event_done_callback cleanup_callback) const override;
 
  private:
   int64_t src_rank_;

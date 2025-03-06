@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ def _is_inference():
 
 
 def _names_hook_already_registered(module):
-    if hasattr(module, "names_hook") and module.names_hook == True:
+    if hasattr(module, "names_hook") and module.names_hook is True:
         return True
     return False
 
@@ -197,11 +197,11 @@ def overwrite_torch_functions():
         if cache_enable and hpu_backend_invoke:
             nonlocal ranks_cache
             ranks_cache[backend] = {}
-            if ranks == None:
+            if ranks is None:
                 actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-                ranks_tuple = tuple(list(range(0, actual_world_size)))
+                ranks_tuple = tuple(range(0, actual_world_size))
             else:
-                ranks_tuple = tuple(sorted(tuple(ranks)))
+                ranks_tuple = tuple(sorted(ranks))
             if ranks_tuple in ranks_cache[backend]:
                 return ranks_cache[backend][ranks_tuple]
             else:
@@ -220,6 +220,7 @@ def overwrite_torch_functions():
         store=None,
         group_name="",
         pg_options=None,
+        device_id=None,
     ):
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
@@ -228,17 +229,10 @@ def overwrite_torch_functions():
             ranks_cache[backend] = {}
             if len(ranks_cache[backend]) == 0:
                 init_process_group_orig(
-                    backend,
-                    init_method,
-                    timeout,
-                    world_size,
-                    rank,
-                    store,
-                    group_name,
-                    pg_options,
+                    backend, init_method, timeout, world_size, rank, store, group_name, pg_options, device_id
                 )
             actual_world_size = torch.distributed.distributed_c10d.get_world_size()
-            ranks_tuple = tuple(list(range(0, actual_world_size)))
+            ranks_tuple = tuple(range(0, actual_world_size))
             if ranks_tuple not in ranks_cache[backend]:
                 ranks_cache[backend][ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
         else:
@@ -294,7 +288,7 @@ def overwrite_torch_functions():
                 irecv_aux.dummy_mode_seq = 0  # it doesn't exist yet, so initialize it
 
             dummy_folder_path = (
-                environ.get("P2P_DUMMY_MODE_PATH") if environ.get("P2P_DUMMY_MODE_PATH") != None else "./"
+                environ.get("P2P_DUMMY_MODE_PATH") if environ.get("P2P_DUMMY_MODE_PATH") is not None else "./"
             )
             tensor_file = (
                 dummy_folder_path + str(distributed_c10d.get_rank()) + "_" + str(irecv_aux.dummy_mode_seq) + ".pt"
@@ -630,15 +624,14 @@ def overwrite_native_pt2e_quantization_interface():
     # calling this function more than one time makes the wrappers wrap themselves, causing infinite recursion, hence the guard to make sure it doesn't happen
     if NativeFunctions._did_overwrite_native_pt2e_quantization_interface:
         return
+
     NativeFunctions._did_overwrite_native_pt2e_quantization_interface = True
     import torch.ao.quantization.quantize_pt2e as quantize_pt2e
-    from packaging.version import Version, parse
 
     # PT 2.5 changes add torch.ao.quantization.observer for dynamo tracing
     from torch._dynamo.trace_rules import MOD_INLINELIST
 
-    if Version(parse(torch.__version__).base_version) >= Version("2.5"):
-        MOD_INLINELIST.add("torch.ao.quantization.observer")
+    MOD_INLINELIST.add("torch.ao.quantization.observer")
 
     # This is to make sure the native funcitons implementations are saved in NativeFunctions before overwriting them
     NativeFunctions.org_convert_pt2e = quantize_pt2e.convert_pt2e

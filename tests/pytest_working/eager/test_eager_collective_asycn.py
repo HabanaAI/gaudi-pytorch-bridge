@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 
 import argparse
 import os
-from copy import deepcopy
-from typing import List
 
 import habana_frameworks.torch.hpu
 
@@ -27,14 +25,6 @@ import habana_frameworks.torch.hpu
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.nn import Linear
-from torch.optim import SGD
-from torch.optim.lr_scheduler import StepLR
-from torchvision import datasets, transforms
 
 """
 schedule = torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1)
@@ -53,7 +43,6 @@ profiler = torch.profiler.profile(
 def setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
-    import habana_frameworks.torch.distributed.hccl
 
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
     # profiler.start()

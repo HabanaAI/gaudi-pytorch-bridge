@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 ###############################################################################
 
 import os
-from contextlib import contextmanager
 
 import numpy
 import pytest
 import torch
 import torch.nn as nn
+from test_utils import inference_env_fixture
 
 
 # Fixture to set the environment variable
@@ -69,7 +69,7 @@ def set_env_variable(request, arg=False):
 
 
 @pytest.mark.parametrize("set_env_variable", [False], indirect=True)
-def test_same_graph_with_diff_const(set_env_variable):
+def test_same_graph_with_diff_const(set_env_variable, inference_env_fixture):
     # Define the input tensor
     input_tensor = torch.randn(1, 3, 32, 32)  # Assuming input size of (batch_size, channels, height, width)
 
@@ -97,8 +97,6 @@ def test_same_graph_with_diff_const(set_env_variable):
         output2 = conv2(input_tensor)
 
     import habana_frameworks.torch.core as htcore
-
-    htcore.hpu_set_inference_env()
 
     # Run test on HPU
     hpu = torch.device("hpu")
@@ -128,11 +126,9 @@ def test_same_graph_with_diff_const(set_env_variable):
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
 
-    htcore.hpu_teardown_inference_env()
-
 
 @pytest.mark.parametrize("set_env_variable", [False], indirect=True)
-def test_same_const_across_recipes(set_env_variable):
+def test_same_const_across_recipes(set_env_variable, inference_env_fixture):
     # Define input tensors
     input_tensor1 = torch.randn(1, 3, 64, 64)
     input_tensor2 = torch.randn(1, 3, 32, 32)
@@ -160,8 +156,6 @@ def test_same_const_across_recipes(set_env_variable):
     cpu = torch.device("cpu")
 
     import habana_frameworks.torch.core as htcore
-
-    htcore.hpu_set_inference_env()
 
     input_tensor1_hpu = input_tensor1.to(hpu)
     input_tensor2_hpu = input_tensor2.to(hpu)
@@ -194,11 +188,9 @@ def test_same_const_across_recipes(set_env_variable):
         output1_repeat_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001
     )
 
-    htcore.hpu_teardown_inference_env()
-
 
 @pytest.mark.parametrize("set_env_variable", [False], indirect=True)
-def test_user_access_to_modified_tensor(set_env_variable):
+def test_user_access_to_modified_tensor(set_env_variable, inference_env_fixture):
     # Define input tensors
     input_tensor = torch.randn(1, 3, 32, 32)
 
@@ -217,8 +209,6 @@ def test_user_access_to_modified_tensor(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_inference_env()
-
     input_tensor_hpu = input_tensor.to(hpu)
     conv_layer_hpu = conv_layer.to(hpu)
 
@@ -235,12 +225,11 @@ def test_user_access_to_modified_tensor(set_env_variable):
     htcore.mark_step()
     weight_hpu_cpu = conv_layer_hpu.weight.to(cpu)
     numpy.testing.assert_allclose(weight_hpu_cpu.detach().numpy(), weight_copy.detach().numpy(), atol=0.001, rtol=0.001)
-    htcore.hpu_teardown_inference_env()
 
 
 # Define the parameterized fixture using pytest.mark.parametrize
 @pytest.mark.parametrize("set_env_variable", [True], indirect=True)
-def test_zero_sized_tensor(set_env_variable):
+def test_zero_sized_tensor(set_env_variable, inference_env_fixture):
     class Model(nn.Module):
         def __init__(self):
             super(Model, self).__init__()
@@ -276,8 +265,6 @@ def test_zero_sized_tensor(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_inference_env()
-
     input_tensor_hpu = input_tensor.to(hpu)
     model_hpu = model.to(hpu)
 
@@ -297,11 +284,10 @@ def test_zero_sized_tensor(set_env_variable):
     numpy.testing.assert_allclose(
         output_repeat_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
     )
-    htcore.hpu_teardown_inference_env()
 
 
 @pytest.mark.parametrize("set_env_variable", [False], indirect=True)
-def test_same_param_two_models(set_env_variable):
+def test_same_param_two_models(set_env_variable, inference_env_fixture):
     random_weights = torch.rand(32, 3, 3, 3)
     # First convolutional layer with 16 filters and a different bias
     conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)
@@ -326,8 +312,6 @@ def test_same_param_two_models(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_inference_env()
-
     conv1_hpu = conv1.to(hpu)
     conv2_hpu = conv2.to(hpu)
     from habana_frameworks.torch.core.quantization import _check_params_as_const
@@ -350,4 +334,3 @@ def test_same_param_two_models(set_env_variable):
 
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
-    htcore.hpu_teardown_inference_env()

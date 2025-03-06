@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
@@ -180,6 +180,8 @@ template <typename Fn>
 void collective(
     std::vector<PtTensorInfoShared>& inputs,
     std::vector<PtTensorInfoShared>& outputs,
+    std::vector<at::Tensor>& pt_inTensor,
+    std::vector<at::Tensor>& pt_outTensor,
     std::vector<int64_t> devices,
     std::vector<int64_t> communicator_ids,
     bool async,
@@ -191,6 +193,26 @@ void collective(
         "All tensors are expected to be assigned to device with id 0");
     if (inputs.at(i)->get_numel() == 0) {
       continue;
+    }
+    at::Tensor in_tensor;
+    at::Tensor out_tensor;
+
+    if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
+      for (auto& tensor : pt_inTensor) {
+        if (inputs.at(i)->get_buffer_start() ==
+            tensor.storage().data_ptr().get()) {
+          in_tensor = tensor;
+          break;
+        }
+      }
+
+      for (auto& tensor : pt_outTensor) {
+        if (outputs.at(i)->get_buffer_start() ==
+            tensor.storage().data_ptr().get()) {
+          out_tensor = tensor;
+          break;
+        }
+      }
     }
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
     auto deviceCtxt = comm->getDeviceCtxt();
@@ -226,13 +248,15 @@ void collective(
     auto func = [fn = fn,
                  input = std::make_shared<PtTensorInfo>(*inputs.at(i)),
                  output = std::make_shared<PtTensorInfo>(*outputs.at(i)),
+                 in_tensor = std::move(in_tensor),
+                 out_tensor = std::move(out_tensor),
                  comm = comm,
                  collective_stream = collective_stream,
                  async = async,
+                 done_cb = done_cb,
                  deviceCtxt = deviceCtxt,
                  event_lists = event_lists,
                  output_storage_ptr = output_storage_ptr,
-                 done_cb = done_cb,
                  pr = pr]() mutable {
       PT_LAZY_DEBUG(
           "Collective call. input = ",
@@ -253,9 +277,11 @@ void collective(
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
       struct ResourceHolder {
+        std::vector<at::Tensor> tensors_;
         std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
       };
       auto resource_holder = std::make_shared<ResourceHolder>();
+      resource_holder->tensors_ = {in_tensor, out_tensor};
 
       void* input_address;
       void* output_address;
@@ -346,8 +372,8 @@ void pointToPoint(
                  collective_stream = collective_stream,
                  peerRank = peerRank,
                  async = async,
-                 deviceCtxt = deviceCtxt,
                  done_cb = done_cb,
+                 deviceCtxt = deviceCtxt,
                  tensor_storage_ptr = tensor_storage_ptr,
                  pr = pr]() mutable {
       PT_LAZY_DEBUG(
@@ -383,7 +409,7 @@ void pointToPoint(
           tensor_storage_ptr,
           [resource_holder = std::move(resource_holder),
            &recipe_counter,
-           done_cb = done_cb]() mutable {
+           done_cb]() mutable {
             resource_holder.reset();
             recipe_counter.decrease_and_notify();
             done_cb();
@@ -444,12 +470,16 @@ void HcclBroadcastOperator::Deserialize(std::istream& is) {
 
 void HcclBroadcastOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   collective(
       tensor_inputs,
       tensor_inputs,
+      pt_inputs,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -503,6 +533,8 @@ void HcclAllreduceOperator::Deserialize(std::istream& is) {
 
 void HcclAllreduceOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   HABANA_ASSERT(
@@ -513,6 +545,8 @@ void HcclAllreduceOperator::RunCollective(
   collective(
       tensor_inputs,
       tensor_inputs,
+      pt_inputs,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -584,6 +618,8 @@ void HcclReduceOperator::Deserialize(std::istream& is) {
 
 void HcclReduceOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   HABANA_ASSERT(
@@ -594,6 +630,8 @@ void HcclReduceOperator::RunCollective(
   collective(
       tensor_inputs,
       tensor_inputs,
+      pt_inputs,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -678,6 +716,8 @@ void HcclAllToAllOutOperator::Deserialize(std::istream& is) {
 
 void HcclAllToAllOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -687,6 +727,8 @@ void HcclAllToAllOutOperator::RunCollective(
     collective(
         tensor_inputs,
         tensor_outputs,
+        pt_inputs,
+        pt_outputs,
         {device_id_},
         {comm_id_},
         async,
@@ -716,10 +758,12 @@ void HcclAllToAllOutOperator::RunCollective(
     collective(
         tensor_inputs,
         tensor_outputs,
+        p_context_->pt_inputs_,
+        p_context_->pt_outputs_,
         {device_id_},
         {comm_id_},
         async,
-        done_cb,
+        done_cb = done_cb,
         [scalar_type = scalar_type_,
          input_t = p_context_->pt_inputs_[0],
          output_t = p_context_->pt_outputs_[0],
@@ -819,6 +863,8 @@ void HcclAllgatherOutOperator::Deserialize(std::istream& is) {
 
 void HcclAllgatherOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -826,6 +872,8 @@ void HcclAllgatherOutOperator::RunCollective(
   collective(
       tensor_inputs,
       tensor_outputs,
+      pt_inputs,
+      pt_outputs,
       {device_id_},
       {comm_id_},
       async,
@@ -884,6 +932,8 @@ void HcclReduceScatterOutOperator::Deserialize(std::istream& is) {
 
 void HcclReduceScatterOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -891,6 +941,8 @@ void HcclReduceScatterOutOperator::RunCollective(
   collective(
       tensor_inputs,
       tensor_outputs,
+      pt_inputs,
+      pt_outputs,
       {device_id_},
       {comm_id_},
       async,
@@ -958,13 +1010,15 @@ void HcclSendOperator::Deserialize(std::istream& is) {
 
 void HcclSendOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
 
   pointToPoint(
       tensor_inputs,
-      p_context_->pt_inputs_,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -1021,13 +1075,15 @@ void HcclRecvOperator::Deserialize(std::istream& is) {
 
 void HcclRecvOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
+    std::vector<at::Tensor>& pt_inputs,
+    [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
 
   pointToPoint(
       tensor_inputs,
-      p_context_->pt_inputs_,
+      pt_inputs,
       {device_id_},
       {comm_id_},
       async,
@@ -1051,7 +1107,6 @@ void HcclRecvOperator::RunCollective(
       },
       src_rank_);
 }
-
 } // namespace habana
 
 static auto& HCCLKernelsKernelRegistry =

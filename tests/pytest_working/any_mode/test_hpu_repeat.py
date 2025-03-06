@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 #
 ###############################################################################
 
-import numpy as np
 import pytest
 import torch
-from test_utils import compare_tensors, is_gaudi1
+from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
@@ -47,8 +46,7 @@ def test_hpu_repeat(shape, repeats, dtype):
     def fn(self, repeats):
         return self.repeat(repeats)
 
-    if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="hpu_backend", dynamic=False)
+    fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     result_h = fn(self_h, repeats)
 

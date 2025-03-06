@@ -633,8 +633,9 @@ TEST_F(LazyNormKernelTest, BatchNormBackwardAdd) {
 TEST_F(LazyNormKernelTest, FrobNormDimTest) {
   torch::Tensor A = torch::randn({2, 3, 4, 5}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
-  torch::Tensor hOut = torch::frobenius_norm(hA, {1, 3}, false);
-  torch::Tensor Out = torch::frobenius_norm(A, {1, 3}, false);
+  auto frobenius_norm = 2.0;
+  torch::Tensor hOut = torch::linalg_vector_norm(hA, frobenius_norm, {1, 3});
+  torch::Tensor Out = torch::linalg_vector_norm(A, frobenius_norm, {1, 3});
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
 
@@ -793,7 +794,7 @@ TEST_F(LazyNormKernelTest, NormScalarDimDtypeOutTest) {
   torch::Tensor A = torch::randn({2, 2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   std::vector<int64_t> dimarr{1, 0};
-  torch::Tensor Out = torch::empty({});
+  torch::Tensor Out = torch::empty({2});
   torch::Tensor hOut = Out.to(torch::kHPU);
   c10::IntArrayRef dims(dimarr.data(), dimarr.size());
   torch::norm_out(hOut, hA, 1, dimarr, false, at::kFloat);

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,12 +16,10 @@
 ###############################################################################
 
 
-import habana_frameworks.torch.dynamo.compile_backend
-import numpy as np
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 all_dtypes = [
     torch.bfloat16,
@@ -37,16 +35,6 @@ all_dtypes = [
 
 @pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
 class TestHpuIndexPutSelect:
-
-    @classmethod
-    def setup_class(self):
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
-
     @staticmethod
     def test_index_put_torch_compile(dtype):
         if is_gaudi1() and dtype == torch.half:
@@ -61,8 +49,7 @@ class TestHpuIndexPutSelect:
         cpu_values = torch.ones(2, dtype=dtype, device="cpu")
         hpu_values = torch.ones(2, dtype=dtype, device="hpu")
 
-        torch._dynamo.reset()
-        hpu_torch_compile_func = torch.compile(fn, backend="hpu_backend")
+        hpu_torch_compile_func = compile_function_if_compile_mode(fn)
         cpu_result = fn(cpu_input, index, cpu_values)
         hpu_result = hpu_torch_compile_func(hpu_input, index, hpu_values)
 

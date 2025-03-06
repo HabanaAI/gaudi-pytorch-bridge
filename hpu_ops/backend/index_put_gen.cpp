@@ -358,8 +358,7 @@ void IndexPutEager::AddNode(
   std::vector<synapse_helpers::tensor> cat_input_tensor;
   std::vector<std::vector<int64_t>> cat_input_index;
 
-  const auto expanded_size_dim0 =
-      indices[0].dim() ? indices[0].sizes().vec()[0] : 1;
+  const auto expanded_size_dim0 = indices[0].dim() ? indices[0].numel() : 1;
 
   for (size_t i = 0; i < indices.size(); i++) {
     std::vector<int64_t> expanded_size = {expanded_size_dim0, 1};

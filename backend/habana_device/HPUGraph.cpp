@@ -134,12 +134,6 @@ void HPUGraph::mark_step() {
     return;
   }
   auto stream = c10::hpu::getCurrentHPUStream();
-
-  if (stream != capture_stream_) {
-    PT_DEVICE_FATAL("GRAPH:: Capture must end on the same stream it began on.");
-    return;
-  }
-
   habana_lazy::HbExecutionContext* context =
       habana_lazy::get_device_lazy_execution_context();
 
@@ -155,7 +149,8 @@ void HPUGraph::mark_step() {
         context->getSeedTensorMap(),
         context->getHash(),
         context->getGraphKey(),
-        context->getOpStrs());
+        context->getOpStrs(),
+        stream);
     captured_graphs.push_back(captured_graph);
     auto user_inp_match = context->getUserInputMatchIndices();
     user_input_match_indices_.insert(
@@ -475,6 +470,10 @@ void SingleHPUGraph::replayGraph(
   if (dynamic_env_) {
     habana_helpers::DisableRefineDynamicShape();
   }
+  auto old_stream = c10::hpu::getCurrentHPUStream();
+  auto new_stream = capture_stream_;
+  c10::hpu::setCurrentHPUStream(new_stream);
+
   habana_lazy::HbExecutionContext* context =
       habana_lazy::get_device_lazy_execution_context();
 
@@ -529,7 +528,8 @@ void SingleHPUGraph::replayGraph(
             hblazy_tensors_out_,
             prev_graph_interdep_out_t_list_,
             seed_tensors_generator_,
-            launch_jobid);
+            launch_jobid,
+            new_stream);
   } else {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
         cached_rarg_psh,
@@ -541,7 +541,8 @@ void SingleHPUGraph::replayGraph(
         hblazy_tensors_out_,
         prev_graph_interdep_out_t_list_,
         seed_tensors_generator_,
-        launch_jobid);
+        launch_jobid,
+        new_stream);
   }
 
   auto num_inputs = input_vals.size();
@@ -551,6 +552,8 @@ void SingleHPUGraph::replayGraph(
       input_vals_[i] = habana_lazy::ir::Value();
     }
   }
+
+  c10::hpu::setCurrentHPUStream(old_stream);
 
   // Not enabling DS back once HPU graph detected
   /*if (dynamic_env_) {

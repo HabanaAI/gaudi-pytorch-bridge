@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ def test_divergence_tool(
     test_status = os.system(cmd)
 
     assert expected_status == test_status
-    assert os.path.exists(os.path.join(outdir, "dumps", "mismatch.txt")) == False
+    assert os.path.exists(os.path.join(outdir, "dumps", "mismatch.txt")) is False
 
 
 if __name__ == "__main__":

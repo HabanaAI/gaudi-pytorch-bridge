@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 dtypes = [torch.bfloat16, torch.float, torch.int, torch.short]
 dtypes_bwd = [torch.bfloat16, torch.float]
@@ -64,8 +63,7 @@ def check(padding, shape, dtype, reflection_pad, backward=False):
     else:
         fn = fn_fwd
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(reflection_pad, cpu_input, padding)
     hpu_output = hpu_compiled_fn(reflection_pad, hpu_input, padding).cpu()

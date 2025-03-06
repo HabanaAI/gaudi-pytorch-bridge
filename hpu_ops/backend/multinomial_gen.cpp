@@ -124,38 +124,37 @@ OutputMetaDataVector HabanaMultinomialCheckpointMeta(const at::Stack& stack) {
   return {SeedOutputMeta(), HabanaMultinomialMetaCommon(stack)};
 }
 
-HabanaMultinomial::HabanaMultinomial(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
+HabanaMultinomialBase::HabanaMultinomialBase(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
           device_id,
           "random_multinomial_pt_fwd",
           scalar_type,
           {1},
-          {},
-          {},
-          false) {
+          is_deterministic) {
   SetOutputMetaFn(HabanaMultinomialMeta);
   SetFillParams(FillHabanaMultinomialParams);
   kernel_meta_data_.tpc_input_order = {1, 0};
 }
 
-void HabanaMultinomial::CustomHandler(
-    synapse_helpers::graph&,
-    at::Stack& stack) {
+void HabanaMultinomialBase::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   SetGuid(get_guid_with_precision(
       "random_multinomial_pt_fwd", stack_tensor(stack, 1).scalar_type()));
+  OpBackend::AddNode(graph, stack);
 }
 
 HabanaMultinomialCheckpoint::HabanaMultinomialCheckpoint(
     int device_id,
     c10::ScalarType scalar_type)
-    : OpBackend(
+    : HabanaRandCheckpointBase(
           device_id,
           "random_multinomial_pt_fwd",
           scalar_type,
-          {0, 1},
-          {},
-          {},
-          false) {
+          {0, 1}) {
   SetOutputMetaFn(HabanaMultinomialCheckpointMeta);
   SetFillParams(FillHabanaMultinomialParams);
 }
@@ -186,4 +185,6 @@ void HabanaMultinomialCheckpoint::AddNode(
 } // namespace habana
 
 static const auto& HabanaMultinomialKernelRegistry =
-    habana::KernelRegistry().REGISTER_RANDOM_OP(multinomial, Multinomial);
+    habana::KernelRegistry().REGISTER_RANDOM_CHECKPOINT_OP(
+        multinomial,
+        Multinomial);

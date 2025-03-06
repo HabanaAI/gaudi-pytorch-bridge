@@ -319,6 +319,25 @@ void ResolveNegativeSTSizes(
   }
 }
 
+void ReplaceInUseH2D(torch::jit::Stack& ds_stack, int index) {
+  PT_EAGER_TRACE;
+  auto old_dtensor = ds_stack[index].toTensor();
+  auto old_tmeta{habana::get_tensor_extra_meta(old_dtensor)};
+  if (old_tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+    at::Tensor new_h2d_tensor = habana::createDynamicTensor(
+        old_dtensor.sizes().vec(), HOST_TO_DEVICE_TENSOR);
+    auto new_tmeta{habana::get_tensor_extra_meta(new_h2d_tensor)};
+    new_tmeta->set_h2d_data<uint64_t>(old_tmeta->get_h2d_data());
+    new_tmeta->set_host_size(old_tmeta->get_host_size());
+    new_tmeta->set_host_el_size(old_tmeta->get_host_el_size());
+    new_tmeta->set_host_dt_type(old_tmeta->get_host_dt_type());
+    new_tmeta->set_host_total_elem(old_tmeta->get_host_total_elem());
+    if (old_tmeta->peek_H2D_data_for_bucketing())
+      new_tmeta->set_H2D_data_for_bucketing();
+    ds_stack[index] = torch::jit::IValue(new_h2d_tensor);
+  }
+}
+
 void HandleDynamicInputPatching(
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
@@ -327,7 +346,7 @@ void HandleDynamicInputPatching(
   PT_EAGER_TRACE;
 
   PT_EAGER_DEBUG(
-      "Number of dynamic input to be patched:",
+      "Number of dynamic Ops to be patched:",
       dmeta->ds_input_patching_list.size());
   // Combine the original input stack and dynamic stack created at the runtime
   // into a single stack.
@@ -346,6 +365,7 @@ void HandleDynamicInputPatching(
     tensor_list.clear();
     mixed_list.clear();
     for (auto it : dtensor_indexes) {
+      ReplaceInUseH2D(dmeta->ds_stack, it);
       stack.emplace_back(dmeta->ds_stack[it]);
       dtensor_list.emplace_back(&(dmeta->ds_stack[it]));
       scalar_list.emplace_back(dmeta->ds_tensor_to_scalar_map[it]);

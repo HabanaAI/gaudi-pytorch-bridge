@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,16 +17,11 @@
 
 import argparse
 import os
-from typing import List
 
 import habana_frameworks.torch
-import habana_frameworks.torch as ht
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 
 device_hpu = torch.device("hpu")
 
@@ -34,7 +29,6 @@ device_hpu = torch.device("hpu")
 def setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
-    import habana_frameworks.torch.distributed.hccl
 
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
 
@@ -56,7 +50,7 @@ def simple(rank, world_size, args):
     dist.scatter(output_tensor, scatter_list)
     result_cmp = torch.ones(3, 3, device="hpu") * rank
     result = torch.all(output_tensor.eq(result_cmp))
-    assert result.item() == True
+    assert result.item() is True
     print("DONE for rank :: ", rank)
     cleanup()
 

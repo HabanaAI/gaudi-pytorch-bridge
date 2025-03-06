@@ -20,6 +20,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -225,35 +226,6 @@ at::Tensor _copy_from_d2h(
   return dst;
 }
 
-void Execute_Copy(
-    const at::Tensor& src,
-    const at::Tensor& dst,
-    bool non_blocking,
-    c10::hpu::HPUStream stream,
-    void* host_ptr = nullptr) {
-  habana_helpers::copy_data_to_device(
-      std::move(src), std::move(dst), non_blocking, stream, host_ptr);
-}
-
-void Copy_Compile_Empty_Task(
-    const at::Tensor& src,
-    const at::Tensor& dst,
-    bool non_blocking,
-    c10::hpu::HPUStream stream,
-    void* host_ptr) {
-  HPUDeviceContext::execute_thread().enqueue(
-      Execute_Copy,
-      std::move(src),
-      std::move(dst),
-      std::move(non_blocking),
-      std::move(stream),
-      std::move(host_ptr));
-
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    HPUDeviceContext::execute_thread().waitWorkComplete();
-  }
-}
-
 static void clear_permutation_info(const at::Tensor& tensor) {
   if (not GET_ENV_FLAG_NEW(PT_HPU_CLEAR_PERM_INFO)) {
     return;
@@ -269,33 +241,9 @@ static void clear_permutation_info(const at::Tensor& tensor) {
   }
 }
 
-void Copy_Empty_Lowering_Task(
-    const at::Tensor& src,
-    const at::Tensor& dst,
-    bool non_blocking,
-    c10::hpu::HPUStream stream,
-    void* host_ptr) {
-  // Note: Here we clear the permutation info in lowering thread when the
-  // pipeline is enabled, to avoid race condition.
-  // Because src tensor is always not permuted and we will directly copy src
-  // data to dst. So if dst is permuted, we need to clear the permutation info
-  // in dst.
-  clear_permutation_info(dst);
-  HPUDeviceContext::compile_thread().enqueue(
-      Copy_Compile_Empty_Task,
-      std::move(src),
-      std::move(dst),
-      non_blocking,
-      std::move(stream),
-      std::move(host_ptr));
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    HPUDeviceContext::compile_thread().waitWorkComplete();
-  }
-}
-
 void Register_Copy_In_Pipeline(
-    const at::Tensor& src,
-    const at::Tensor& dst,
+    at::Tensor&& src,
+    at::Tensor&& dst,
     bool non_blocking,
     c10::hpu::HPUStream stream) {
   // Set pipeline metadata on the dst hpu tensor
@@ -323,13 +271,26 @@ void Register_Copy_In_Pipeline(
         reinterpret_cast<uint8_t*>(host_ptr));
   }
 
-  habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
-      Copy_Empty_Lowering_Task,
-      std::move(src),
-      std::move(dst),
-      non_blocking,
-      std::move(stream),
-      std::move(host_ptr));
+  struct ResourceHolder {
+    at::Tensor src;
+    at::Tensor dst;
+    bool non_blocking;
+    c10::hpu::HPUStream stream;
+    void* host_ptr;
+  } rs = {std::move(src), std::move(dst), non_blocking, stream, host_ptr};
+
+  PipelineTaskAllThreads(
+      std::move(rs),
+      [](ResourceHolder& rs) { clear_permutation_info(rs.dst); },
+      [](ResourceHolder&) {},
+      [](ResourceHolder& rs) {
+        habana_helpers::copy_data_to_device(
+            std::move(rs.src),
+            std::move(rs.dst),
+            rs.non_blocking,
+            rs.stream,
+            rs.host_ptr);
+      });
 }
 
 void Pipeline_Or_Direct_Copy(
@@ -350,8 +311,8 @@ void Pipeline_Or_Direct_Copy(
     auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
 
     Register_Copy_In_Pipeline(
-        src_backend,
-        dst_backend,
+        std::move(src_backend),
+        std::move(dst_backend),
         non_blocking,
         c10::hpu::getCurrentHPUStream());
   } else {
@@ -360,7 +321,8 @@ void Pipeline_Or_Direct_Copy(
     // data to dst. So if dst is permuted, we need to clear the permutation info
     // in dst.
     clear_permutation_info(dst);
-    Execute_Copy(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+    habana_helpers::copy_data_to_device(
+        src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
   }
 }
 

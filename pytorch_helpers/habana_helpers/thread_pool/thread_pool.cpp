@@ -16,33 +16,94 @@
 #include <iostream>
 
 #include "backend/synapse_helpers/env_flags.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "thread_pool.h"
 
 namespace habana_helpers {
 
-template <template <typename> typename Queue, typename Task>
-ThreadPoolBase<Queue, Task>::ThreadPoolBase(bool propagate_exception)
+namespace {
+#if defined(__linux__)
+#include <sched.h>
+
+uint64_t GetAvailableThreads() {
+  cpu_set_t cpuSet;
+  CPU_ZERO(&cpuSet);
+
+  // Get the affinity mask for the current process
+  auto result = sched_getaffinity(getpid(), sizeof(cpu_set_t), &cpuSet);
+  HABANA_ASSERT(result == 0)
+
+  int threads_count = 0;
+  for (int i = 0; i < CPU_SETSIZE; ++i) {
+    if (CPU_ISSET(i, &cpuSet)) {
+      ++threads_count;
+    }
+  }
+
+  return threads_count;
+}
+#else
+uint64_t GetAvailableThreads() {
+  auto num_threads = std::thread::hardware_concurrency();
+  return num_threads == 0 ? 1 : num_threads;
+}
+#endif
+} // namespace
+
+uint64_t MultiThreadPolicy::GetNumThreads() {
+  return GetAvailableThreads();
+}
+
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+ThreadPoolBase<Queue, Task, ThreadPolicy>::ThreadPoolBase(
+    bool propagate_exception,
+    uint64_t queue_capacity,
+    const std::function<void()>& init_thread)
     : stop_(false),
       ex_ptr_(nullptr),
-      propagate_exception_(propagate_exception) {
-  thread_ = std::thread(&ThreadPoolBase<Queue, Task>::main_loop, this);
+      propagate_exception_(propagate_exception),
+      queue_capacity_(queue_capacity) {
+  for (uint64_t i = 0; i < ThreadPolicy::GetNumThreads(); i++) {
+    threads_.emplace_back([this, init_thread]() {
+      if (init_thread)
+        init_thread();
+      this->main_loop();
+    });
+  }
   original_pid_ = getpid();
 }
 
-template <template <typename> typename Queue, typename Task>
-ThreadPoolBase<Queue, Task>::~ThreadPoolBase() {
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+ThreadPoolBase<Queue, Task, ThreadPolicy>::~ThreadPoolBase() {
   // set flag to true to break main loop in the thread
-  ++active_task_count_;
-  tasks_.push(Task{[this]() { stop_ = true; }});
+  stop_ = true;
+  active_task_count_ += threads_.size();
+  for (size_t i = 0; i < threads_.size(); ++i)
+    tasks_.push(Task{[this]() {}});
+
   try {
-    thread_.join();
+    for (auto& thread : threads_)
+      thread.join();
   } catch (const std::exception& ex) {
     PT_BRIDGE_WARN("Exception in pool destructor: ", ex.what());
   }
 }
 
-template <template <typename> typename Queue, typename Task>
-void ThreadPoolBase<Queue, Task>::executePendingTask(Task&& task) {
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+void ThreadPoolBase<Queue, Task, ThreadPolicy>::executePendingTask(
+    Task&& task) {
   try {
     task();
   } catch (const std::exception& e) {
@@ -60,8 +121,30 @@ void ThreadPoolBase<Queue, Task>::executePendingTask(Task&& task) {
   }
 }
 
-template <template <typename> typename Queue, typename Task>
-void ThreadPoolBase<Queue, Task>::RethrowIfException() {
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+void ThreadPoolBase<Queue, Task, ThreadPolicy>::throttleIfNeeded() {
+  if (queue_capacity_ > 0 && active_task_count_ >= queue_capacity_) {
+    // throttle only when queue capacity is limited
+    // and active tasks exceeds the configured capacity
+    auto throttle_limit = queue_capacity_ / 2;
+    // Release GIL if going to wait (remove once SW-160978 is fixed)
+    habana_helpers::AutoNoGIL gil_release;
+    while (active_task_count_ > throttle_limit) {
+      std::this_thread::yield();
+    }
+  }
+}
+
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+void ThreadPoolBase<Queue, Task, ThreadPolicy>::RethrowIfException() {
   if (ex_ptr_) {
     auto ex_ptr = ex_ptr_;
     ex_ptr_ = nullptr;
@@ -69,18 +152,37 @@ void ThreadPoolBase<Queue, Task>::RethrowIfException() {
   }
 }
 
-template <template <typename> typename Queue, typename Task>
-std::string ThreadPoolBase<Queue, Task>::ToString() const {
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+std::string ThreadPoolBase<Queue, Task, ThreadPolicy>::ToString() const {
   return std::string("ThreadPool m_tasks size: ") +
       std::to_string(tasks_.size());
 }
 
-template <template <typename> typename Queue, typename Task>
-uint64_t ThreadPoolBase<Queue, Task>::get_active_task_count() const {
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+uint64_t ThreadPoolBase<Queue, Task, ThreadPolicy>::get_active_task_count()
+    const {
   return active_task_count_.load();
 }
 
-template class ThreadPoolBase<BlockingQueue, move_only_function_void>;
-template class ThreadPoolBase<BlockingQueue, std::packaged_task<void()>>;
+template class ThreadPoolBase<
+    BlockingQueue,
+    move_only_function_void,
+    SingleThreadPolicy>;
+template class ThreadPoolBase<
+    BlockingQueue,
+    move_only_function_void,
+    MultiThreadPolicy>;
+template class ThreadPoolBase<
+    BlockingQueue,
+    std::packaged_task<void()>,
+    SingleThreadPolicy>;
 
 } // namespace habana_helpers

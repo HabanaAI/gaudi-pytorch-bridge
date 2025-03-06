@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_pytest_mode_compile,
 )
@@ -35,12 +35,7 @@ if not is_gaudi1():
 @pytest.mark.parametrize("shifts, dims", [(4, None), (12, -2), ((2, 0), (0, 2)), ((-3, 4, -1), (1, -1, 0))])
 @pytest.mark.parametrize("dtype", dtypes)
 def test_roll(shape, shifts, dims, dtype):
-    fn = torch.roll
-
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(torch.roll)
 
     input = torch.randn(shape).to(dtype)
     input_hpu = input.to("hpu")

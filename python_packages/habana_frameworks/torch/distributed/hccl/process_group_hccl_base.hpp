@@ -158,6 +158,8 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
 
   virtual void destroy() = 0;
 
+  virtual void shutdown(std::optional<std::string> reason) = 0;
+
   class CoalescedWorkHCCL
       : public Work,
         public std::enable_shared_from_this<CoalescedWorkHCCL> {
@@ -232,6 +234,8 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
 
   // Counting for the sequential number of HCCL collective call.
   uint64_t seqCollective_{0};
+
+  bool is_destroyed_ = false;
 };
 
 } // namespace c10d

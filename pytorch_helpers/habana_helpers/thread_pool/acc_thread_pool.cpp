@@ -87,15 +87,7 @@ bool AccNoThread::inAccThreadContext() const {
 
 AccThreadPool::AccThreadPool()
     : stop_(false), task_count_(0), ex_ptr_(nullptr) {
-  auto init_thread = []() {
-    c10::setThreadName("AccThreadPool");
-    at::init_num_threads();
-  };
-
-  thread_ = std::thread([this, init_thread]() {
-    init_thread();
-    this->main_loop();
-  });
+  thread_ = std::thread(&AccThreadPool::main_loop, this);
 }
 
 AccThreadPool::~AccThreadPool() {
@@ -164,6 +156,7 @@ void AccThreadPool::discardPendingTasks() {
 }
 
 void AccThreadPool::main_loop() {
+  c10::setThreadName("AccThreadPool");
   while (!stop_) {
     // wait until there are available tasks in the queue or
     // accumulation thread pool is destructured

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/backend_meta.h"
 #include <memory>
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -31,8 +31,12 @@ TensorExtraMeta::~TensorExtraMeta() {
   if (!HPUDeviceContext::is_device_acquired())
     return;
 
-  if (get_host_ptr()) {
-    auto& device = HPUDeviceContext::get_device();
+  auto& device = HPUDeviceContext::get_device();
+  if (get_alloc_ptr()) {
+    if (get_alloc_ptr() == get_host_ptr()) {
+      device.get_host_memory().uncached_free(get_alloc_ptr());
+    }
+  } else if (get_host_ptr()) {
     device.get_host_memory().free(get_host_ptr());
     device.get_host_memory().free(get_compile_host_ptr());
   }
@@ -94,7 +98,7 @@ std::shared_ptr<serialization::ConstSectionDataSerialize> TensorExtraMeta::
   return const_section_data_;
 }
 
-void TensorExtraMeta::set_const_tensor(
+void TensorExtraMeta::prepare_const_tensor(
     const at::Tensor& tensor,
     bool is_const_tensor,
     bool relax) {
@@ -109,7 +113,9 @@ void TensorExtraMeta::set_const_tensor(
       " size: ",
       tensor.numel() * tensor.itemsize(),
       " is_const_tensor_ : ",
-      is_const_tensor);
+      is_const_tensor,
+      " const id:",
+      tmeta->get_const_id());
   if (is_const_tensor && (tmeta->get_host_ptr() == nullptr)) {
     auto& device = HPUDeviceContext::get_device();
     void* host_ptr{};

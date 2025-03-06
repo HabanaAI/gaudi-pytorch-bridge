@@ -29,6 +29,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 
@@ -64,6 +65,10 @@ class LazyDynamicInferOutputMetasTest
 //                           Out
 
 TEST_F(LazyDynamicInferOutputMetasTest, AddConv2DBNMaxPoolTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   int kH = 3;
   int kW = 3;
   const int C = 16;

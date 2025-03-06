@@ -16,6 +16,7 @@
 #include "hpu_ops/shared_meta_common.h"
 #include <unordered_set>
 #include "backend/helpers/runtime_config.h"
+
 namespace habana {
 
 // if all integers are not supported enter only torch::kInt32
@@ -405,7 +406,20 @@ SharedMetaDataVector BinaryWithAlphaSharedMeta(
   at::ScalarType outputType;
   if (other.isTensor()) {
     const at::Tensor& otherTensor = other.toTensor();
-    outputType = at::result_type(selfTensor, otherTensor);
+
+    if (!otherTensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+      outputType = at::result_type(selfTensor, otherTensor);
+    } else {
+      // create a new dummy scalar with default type, and
+      // then call result_type(Tensor, Scalar) variant
+      at::Scalar newOtherScalar;
+      if (at::is_floating_point(otherTensor)) {
+        newOtherScalar = at::Scalar((float)1.0);
+      } else {
+        newOtherScalar = at::Scalar((int64_t)1);
+      }
+      outputType = at::result_type(selfTensor, newOtherScalar);
+    }
   } else {
     const auto& otherScalar = other.toScalar();
     outputType = at::result_type(selfTensor, otherScalar);
@@ -502,6 +516,47 @@ SharedMetaDataVector RandomSeedTensorInputSharedMeta(
 
   randomSharedMeta.outputs_data.emplace_back(self.dim(), computeDtype);
   return {randomSharedMeta};
+}
+
+SharedMetaDataVector PadBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  auto grad = stack_tensor(stack, 0);
+  auto self = stack_tensor(stack, 1);
+  auto dtype = self.scalar_type();
+
+  SharedMetaData padBwdSharedMeta{"pad_bwd"};
+  padBwdSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
+  padBwdSharedMeta.outputs_data.emplace_back(self.dim(), dtype);
+  return {padBwdSharedMeta};
+}
+
+SharedMetaDataVector MatrixMulWithAddSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& input = stack_tensor(stack, 0);
+  const auto& mat1 = stack_tensor(stack, 1);
+  const auto& mat2 = stack_tensor(stack, 2);
+  const bool isAddMM = guid == "addmm";
+  const auto outputRank = isAddMM ? 2 : 1;
+  const auto precisionType = mat1.scalar_type();
+
+  SharedMetaData matrixMulSharedMeta{guid};
+  matrixMulSharedMeta.inputs_data = {
+      {input.dim(), precisionType},
+      {mat1.dim(), precisionType},
+      {mat2.dim(), precisionType}};
+  matrixMulSharedMeta.outputs_data.emplace_back(outputRank, precisionType);
+
+  const float beta_val = stack.at(3).toScalar().toFloat();
+  const float alpha_val = stack.at(4).toScalar().toFloat();
+  const bool shouldUseParams = beta_val == 0.0 || beta_val == 1.0 ||
+      alpha_val == 1.0 || (isAddMM && alpha_val == 0.0);
+  if (shouldUseParams) {
+    matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
+    matrixMulSharedMeta.inputs_data.emplace_back(1, precisionType);
+  }
+  return {matrixMulSharedMeta};
 }
 
 SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(
@@ -660,6 +715,21 @@ SharedMetaDataVector StridedViewSharedMeta(
   stridedViewSharedMeta.outputs_data.emplace_back(outputRank, dtype);
 
   return {stridedViewSharedMeta};
+}
+
+SharedMetaDataVector InstanceNormSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  auto rank = self.dim() > 3 ? self.dim() : 4;
+  const auto dtype = self.scalar_type();
+
+  SharedMetaData instanceNormSharedMeta{"instance_norm_fwd"};
+  instanceNormSharedMeta.inputs_data = {
+      {rank, dtype}, {1, c10::ScalarType::Float}, {1, c10::ScalarType::Float}};
+  instanceNormSharedMeta.outputs_data = {
+      {rank, dtype}, {2, c10::ScalarType::Float}, {2, c10::ScalarType::Float}};
+  return {instanceNormSharedMeta};
 }
 
 } // namespace habana

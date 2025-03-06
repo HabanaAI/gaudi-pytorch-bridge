@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import shutil
 import habana_frameworks.torch.utils.debug as htdebug
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 def test_force_static_compile():
@@ -51,10 +52,8 @@ def test_force_static_compile():
                 result = t6 * 10
                 return result
 
-            torch._dynamo.reset()
-            compiled_fn = torch.compile(
+            compiled_fn = compile_function_if_compile_mode(
                 raw_function,
-                backend="hpu_backend",
                 dynamic=True,
                 options={"force_static_compile": self.force_static_compile},
             )

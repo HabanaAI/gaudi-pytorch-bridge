@@ -1,22 +1,24 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "op_validator.h"
+#include <shared_layer_api.hpp>
 #include <syn_sl_api.h>
 #include <unistd.h>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_kernels/index_kernels.h"
@@ -385,46 +387,32 @@ bool CheckNodeWithSharedLayerValidator::Validate(
   }
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
-    if (validation_result ==
-        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
-      guidValidator.m_valid_shape_tensor = false;
-      guidValidator.m_valid_h2d_tensor = true;
-      validation_result = guidValidator.ValidateGuid();
-      if (validation_result !=
-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
-        m_require_h2d = true;
-      }
-    } else if (
-        validation_result ==
-        SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
-      m_require_st = true;
-    } else {
-      // This log line is used by the logging analysis tool. Please be cautious
-      // when changing.
-      PT_OP_INFO(
-          "Shared layer rejected op: ",
-          m_opname,
-          ":  guid=",
-          m_guid,
-          " inputlist=",
-          ToDebugString(inputs),
-          " outputlist=",
-          ToDebugString(outputs),
-          " values=",
-          ToDebugString(values),
-          " is_dynamic=",
-          ToDebugString(is_dynamic),
-          " reason=",
-          ToDebugString(validation_result));
-      PT_OP_INFO("Fallback for op: ", m_opname);
-      return false;
+    // This log line is used by the logging analysis tool. Please be cautious
+    // when changing.
+    PT_OP_INFO(
+        "Shared layer rejected op: ",
+        m_opname,
+        ":  guid=",
+        m_guid,
+        " inputlist=",
+        ToDebugString(inputs),
+        " outputlist=",
+        ToDebugString(outputs),
+        " values=",
+        ToDebugString(values),
+        " is_dynamic=",
+        ToDebugString(is_dynamic),
+        " reason=",
+        ToDebugString(validation_result));
+    PT_OP_INFO("Fallback for op: ", m_opname);
+    return false;
+  } else if (check_st_h2d) {
+    unsigned resultBitMap = 0;
+    if (guidValidator.QueryGuid(&resultBitMap)) {
+      // bit 1: query failed, don't require shape/h2d.
+      m_require_st = !(resultBitMap & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
+      m_require_h2d = !(resultBitMap & SharedLayer::QUERY_H2D_TENSOR_REQ);
     }
-  } else {
-    m_require_st = true;
-    m_require_h2d = true;
-  }
-
-  if (check_st_h2d) {
     PT_OP_INFO(
         "Shared layer op: ",
         m_opname,
@@ -458,52 +446,41 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
     auto validation_result = guidValidator.ValidateGuid();
 
     if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
-      if (validation_result ==
-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
-        guidValidator.m_valid_shape_tensor = false;
-        guidValidator.m_valid_h2d_tensor = true;
-        validation_result = guidValidator.ValidateGuid();
-        if (validation_result !=
-            SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
-          m_require_h2d = true;
-        }
-      } else if (
-          validation_result ==
-          SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
-        m_require_st = true;
-      } else {
-        // This log line is used by the logging analysis tool. Please be
-        // cautious when changing.
-        PT_OP_INFO(
-            "Shared layer rejected complex op: ",
-            m_opname,
-            ":  guid=",
-            meta.guid,
-            " inputlist=",
-            ToDebugString(inputs),
-            " outputlist=",
-            ToDebugString(outputs),
-            " is_dynamic=",
-            ToDebugString(is_dynamic),
-            " reason=",
-            ToDebugString(validation_result));
-        PT_OP_INFO("Fallback for op: ", m_opname);
-        return false;
+      // This log line is used by the logging analysis tool. Please be
+      // cautious when changing.
+      PT_OP_INFO(
+          "Shared layer rejected complex op: ",
+          m_opname,
+          ":  guid=",
+          meta.guid,
+          " inputlist=",
+          ToDebugString(inputs),
+          " outputlist=",
+          ToDebugString(outputs),
+          " is_dynamic=",
+          ToDebugString(is_dynamic),
+          " reason=",
+          ToDebugString(validation_result));
+      PT_OP_INFO("Fallback for op: ", m_opname);
+      return false;
+    } else if (check_st_h2d && !m_require_h2d && !m_require_st) {
+      unsigned resultBitMap = 0;
+      if (guidValidator.QueryGuid(&resultBitMap)) {
+        // bit 1: query failed, don't require shape/h2d.
+        // we only need to update if m_require_st/m_require_h2d is false.
+        m_require_st = m_require_st ||
+            !(resultBitMap & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
+        m_require_h2d = m_require_h2d ||
+            !(resultBitMap & SharedLayer::QUERY_H2D_TENSOR_REQ);
       }
-    } else {
-      m_require_st = true;
-      m_require_h2d = true;
+      PT_OP_INFO(
+          "Shared layer complex op: ",
+          m_opname,
+          " require_shape_tensor=",
+          m_require_st,
+          " require_h2d_tensor=",
+          m_require_h2d);
     }
-  }
-
-  if (check_st_h2d) {
-    PT_OP_INFO(
-        "Shared layer complex op: ",
-        m_opname,
-        " require_shape_tensor=",
-        m_require_st,
-        " require_h2d_tensor=",
-        m_require_h2d);
   }
 
   return true;
@@ -578,11 +555,8 @@ bool SharedLayerGuidValidator::fillGuidParamInfo(
   return true;
 }
 
-/*
- * This function is a wrapper for shared layer query interface.
- */
-SharedLayer::Return_t SharedLayerGuidValidator::ValidateGuid() {
-  SharedLayer::ParamsV2_t params{};
+template <typename T>
+bool SharedLayerGuidValidator::fillParam(T& params) {
   params.apiVersion = 1;
   auto deviceId = getDeviceType();
   params.deviceId = deviceId;
@@ -595,40 +569,76 @@ SharedLayer::Return_t SharedLayerGuidValidator::ValidateGuid() {
   // params.nodeParams.nodeParamsSize - not used in lower layer
 
   const size_t input_count = m_input_values.size();
-  const size_t output_count = m_output_values.size();
-
-  HABANA_ASSERT(
-      input_count <= SharedLayer::MAX_TENSOR_NR,
-      "Input count passed to Shared Layer exceeds limit");
-
-  HABANA_ASSERT(
-      output_count <= SharedLayer::MAX_TENSOR_NR,
-      "Output count passed to Shared Layer exceeds limit");
-
-  SharedLayer::Tensor input_tensors[input_count];
-  SharedLayer::Tensor output_tensors[output_count];
-
   for (auto i = 0u; i < input_count; ++i) {
-    if (not fillGuidParamInfo(input_tensors[i], m_input_values[i])) {
-      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    if (not fillGuidParamInfo(params.inputTensors[i], m_input_values[i])) {
+      return false;
     }
   }
-  params.inputTensorNr = input_count;
 
+  const size_t output_count = m_output_values.size();
   for (auto i = 0u; i < output_count; ++i) {
-    if (not fillGuidParamInfo(output_tensors[i], m_output_values[i])) {
-      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    if (not fillGuidParamInfo(params.outputTensors[i], m_output_values[i])) {
+      return false;
     }
   }
-  params.outputTensorNr = output_count;
 
-  params.inputTensors = input_tensors;
-  params.outputTensors = output_tensors;
   params.supportsDynamicShapes = m_is_dynamic;
-  params.requiresShapeTensor = m_valid_shape_tensor;
-  params.requiresH2DTensor = m_valid_h2d_tensor;
 
+  if constexpr (std::is_same_v<T, SharedLayer::ParamsV2_t>) {
+    params.requiresShapeTensor = 0;
+    params.requiresH2DTensor = 0;
+  } else if constexpr (std::is_same_v<T, SharedLayer::QueryParams_t>) {
+    params.requiresShapeTensor = m_valid_shape_tensor;
+    params.requiresH2DTensor = m_valid_h2d_tensor;
+    params.queryBitMap |= SharedLayer::QUERY_SHAPE_TENSOR_REQ;
+    params.queryBitMap |= SharedLayer::QUERY_H2D_TENSOR_REQ;
+  }
+
+  return true;
+}
+
+// input/output tensors will be freed automatically after request
+#define PREPARE_IN_OUT_TENSORS()                            \
+  const size_t input_count = m_input_values.size();         \
+  const size_t output_count = m_output_values.size();       \
+  HABANA_ASSERT(                                            \
+      input_count <= SharedLayer::MAX_TENSOR_NR,            \
+      "Input count passed to Shared Layer exceeds limit");  \
+  HABANA_ASSERT(                                            \
+      output_count <= SharedLayer::MAX_TENSOR_NR,           \
+      "Output count passed to Shared Layer exceeds limit"); \
+  SharedLayer::Tensor input_tensors[input_count];           \
+  SharedLayer::Tensor output_tensors[output_count];         \
+  params.inputTensorNr = input_count;                       \
+  params.outputTensorNr = output_count;                     \
+  params.inputTensors = input_tensors;                      \
+  params.outputTensors = output_tensors;
+
+/*
+ * This function is a wrapper for shared layer validation interface.
+ */
+SharedLayer::Return_t SharedLayerGuidValidator::ValidateGuid() {
+  SharedLayer::ParamsV2_t params{};
+  PREPARE_IN_OUT_TENSORS();
+  if (!fillParam(params)) {
+    return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+  }
   return synSharedLayerValidateGuidV2(&params);
+}
+
+/*
+ * This function is a wrapper for shared layer query interface.
+ */
+SharedLayer::Return_t SharedLayerGuidValidator::QueryGuid(
+    unsigned* resultBitMap) {
+  SharedLayer::QueryParams_t params{};
+  PREPARE_IN_OUT_TENSORS();
+  // synSharedLayerQueryParams will fill this resultBitMap.
+  params.resultBitMap = resultBitMap;
+  if (!fillParam(params)) {
+    return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+  }
+  return synSharedLayerQueryParams(&params);
 }
 
 } // namespace habana

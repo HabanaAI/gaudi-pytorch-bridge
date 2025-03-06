@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shape", [(2, 6, 5), (2, 3, 4)])
@@ -34,8 +34,7 @@ def test_empty_permute(shape, perm):
         t.fill_(100)
         return t + input
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
     cpu_compiled_fn = torch.compile(fn)
 
     cpu_input = torch.rand([1])

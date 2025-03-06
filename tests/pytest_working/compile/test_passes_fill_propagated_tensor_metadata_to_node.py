@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 
 import torch
-from habana_frameworks import torch as _
+from test_utils import compile_function_if_compile_mode
 
 
 class MyModule(torch.nn.Module):
@@ -29,9 +29,8 @@ class MyModule(torch.nn.Module):
 
 
 def test_fill_propagated_tensor_metadata_to_node():
-
     model = MyModule().to("hpu")
-    compiled_model = torch.compile(model, backend="hpu_backend", dynamic=True)
+    compiled_model = compile_function_if_compile_mode(model, dynamic=True)
     # forced dynamic compilation forces occurence of SymBool in this mini example as internal output type
     retval = compiled_model(2, 3)
-    assert retval == False
+    assert retval is False

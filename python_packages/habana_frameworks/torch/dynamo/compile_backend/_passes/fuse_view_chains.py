@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         return is_view_node(node) and node.target.__name__.split(".")[0] in supported_view_ops
 
     if ctx.is_dynamic:
-        logger.warn(f"Pass fuse view chains doesn't support dynamic graphs")
+        logger.warn("Pass fuse view chains doesn't support dynamic graphs")
         return False
 
     view_chains = {}
@@ -89,7 +89,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         view_chains[node] = []
         current_node = node
         reached_end_of_chain = False
-        while reached_end_of_chain == False:
+        while reached_end_of_chain is False:
             current_node.meta["visited"] = True
             view_chains[node].append(current_node)
             if len(current_node.users) != 1:  # node.users is a dict
@@ -129,7 +129,7 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         )
 
         with ctx.graph_module.graph.inserting_before(chain[0]):
-            fused_node = ctx.graph_module.graph.call_function(torch.as_strided, as_strided_args)
+            fused_node = ctx.graph_module.graph.call_function(torch.ops.aten.as_strided.default, as_strided_args)
             input_tensor = chain[0].meta["val"]
             as_strided_inputs = [input_tensor] + list(as_strided_args[1:])
             as_strided_result = fused_node.target(*as_strided_inputs)

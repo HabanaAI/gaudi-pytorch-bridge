@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
-import numpy as np
 import pytest
 import torch
-from test_utils import compare_tensors, hpu, is_gaudi1
+from test_utils import compare_tensors, compile_function_if_compile_mode, hpu, is_gaudi1
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
@@ -45,8 +43,7 @@ def test_hpu_index_select(shape, dim, index, dtype):
         torch._dynamo.reset()
         return torch.index_select(input, dim, index)
 
-    if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     result_hpu = fn(input_hpu, dim, index_hpu)
     result_cpu = torch.index_select(input_cpu, dim, index_cpu)

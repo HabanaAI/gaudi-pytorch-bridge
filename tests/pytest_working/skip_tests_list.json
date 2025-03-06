@@ -35,6 +35,22 @@
             "pytest_working/eager/test_shallow_copy.py::test_view_with_strides",
             "pytest_working/eager/test_shallow_copy.py::test_view_with_strides2",
             "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-E5M2-True-2-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-E5M2-True-2-3-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-E5M2-True-3-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-E5M2-True-3-3-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-HYBRID-True-2-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-HYBRID-True-2-3-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-HYBRID-True-3-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-bf16-device0-HYBRID-True-3-3-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-E5M2-True-2-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-E5M2-True-2-3-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-E5M2-True-3-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-E5M2-True-3-3-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-HYBRID-True-2-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-HYBRID-True-2-3-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-HYBRID-True-3-2-None]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf[8-4-1-fp32-device0-HYBRID-True-3-3-None]",
             "pytest_working/any_mode/test_hpu_index_copy.py::test_hpu_index_copy[dtype0-True-0-shape0]",
             "pytest_working/any_mode/test_hpu_index_copy.py::test_hpu_index_copy[dtype0-True-0-shape1]",
             "pytest_working/any_mode/test_hpu_index_copy.py::test_hpu_index_copy[dtype0-True-1-shape0]",
@@ -216,6 +232,12 @@
         "lazy": [
             "pytest_working/any_mode/test_hpu_scaled_triangular_softmax.py::test_scaled_triangular_softmax_retain[dtype0-1.3-shape2]",
             "pytest_working/any_mode/test_hpu_scaled_triangular_softmax.py::test_scaled_triangular_softmax_retain[dtype0-0.75-shape2]"
+        ],
+        "compile": [
+            "pytest_working/compile/test_compile_conv_bn.py::test_hpu_const_marking",
+            "pytest_working/compile/test_hpu_convolution.py::test_hpu_convolution_grad_with_view",
+            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[float32-[4x3x8]]",
+            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]"
         ]
     },
     "gaudi3": {
@@ -433,7 +455,11 @@
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-True-True]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-True-False]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-True]",
-            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-False]"
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-False]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid[False-True-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid[False-True-dtype1]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid[False-False-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_hybrid_scales[True-False]"
         ],
         "compile": [
             "pytest_working/compile/test_compile_conv_bn.py::test_hpu_conv_and_batch_norm_2d_fwd_compile_only[16-224-224-3]",
@@ -481,7 +507,11 @@
             "pytest_working/compile/test_hpu_arange.py::test_arange[40-1-10-layout1-dtype1]",
             "pytest_working/compile/test_hpu_arange.py::test_arange[40-1-10-layout1-dtype2]",
             "pytest_working/compile/test_hpu_arange.py::test_arange[40-20-0-None-dtype1]",
-            "pytest_working/compile/test_hpu_arange.py::test_arange[40-20-0-None-dtype2]"
+            "pytest_working/compile/test_hpu_arange.py::test_arange[40-20-0-None-dtype2]",
+            "pytest_working/compile/test_compile_conv_bn.py::test_hpu_const_marking",
+            "pytest_working/compile/test_hpu_convolution.py::test_hpu_convolution_grad_with_view",
+            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[float32-[4x3x8]]",
+            "pytest_working/compile/test_hpu_native_batch_norm.py::test_hpu_native_batch_norm_bwd[bfloat16-[4x3x8]]"
         ],
         "lazy": [
             "pytest_working/lazy/test_hpu_adaptive_avg_pool.py::test_hpu_pool_fwd_bwd[True-dtype0-0.001-64-7-7-50-1-1]",

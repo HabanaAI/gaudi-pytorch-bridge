@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -54,8 +54,7 @@ def test_hpu_copy_(shape, dtype):
         self.copy_(src)
         return self
 
-    if is_pytest_mode_compile():
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     fn(self_h, src_h)
 
@@ -114,10 +113,7 @@ def test_hpu_view_copy_(dtype, view_mode, op):
 
     fn_op_cpu = fn_op
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn_op = torch.compile(fn_op, backend="hpu_backend")
+    fn_op = compile_function_if_compile_mode(fn_op)
 
     for fn, tensors in zip([fn_op_cpu, fn_op], [cpu_tensors, hpu_tensors]):
         dst_view = make_view(tensors["dst"])
@@ -138,7 +134,8 @@ def test_hpu_view_copy_(dtype, view_mode, op):
             compare_tensors(hpu_tensors[key], cpu_tensors[key], atol=0.0, rtol=0.0)
 
     if is_pytest_mode_compile():
-        expected_ops = {op}
+        # because copy+copy_ will be rewriten to copy_
+        expected_ops = {op} if op != "copy" else {"copy_"}
         if os.getenv("PT_HPU_KEEP_INPUT_MUTATIONS", "0") != "0":
             expected_ops.add("copy_")
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,10 +19,7 @@
 import copy
 import inspect
 import itertools
-import json
 import os
-from enum import Enum
-from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
 
 import habana_frameworks.torch.utils.experimental as htexp
@@ -30,8 +27,6 @@ import torch.distributed as dist
 import torch.utils.data
 import torchvision.datasets
 
-from .aeon_config import get_aeon_config
-from .aeon_manifest import generate_aeon_manifest
 from .aeon_ssd_configurator import AeonSSDConfigurator
 
 
@@ -81,7 +76,7 @@ class SSDDataLoader(torch.utils.data.DataLoader):
         manifest = kwargs.get("manifest", "manifest.cfg")
         drop_last = kwargs.get("drop_last", False)
         self.encoder = None
-        distributed = kwargs.get("sampler", None) != None
+        distributed = kwargs.get("sampler", None) is not None
         channels_last = kwargs.get("channels_last", False)
 
         self.configurator = AeonSSDConfigurator(
@@ -181,11 +176,11 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         self.shuffle = kwargs.get("shuffle")
 
         sampler = kwargs.get("sampler", None)
-        if self.shuffle == False:
-            if isinstance(sampler, torch.utils.data.distributed.DistributedSampler) and (sampler.shuffle == True):
+        if self.shuffle is False:
+            if isinstance(sampler, torch.utils.data.distributed.DistributedSampler) and (sampler.shuffle is True):
                 self.shuffle = True
                 print("Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
-        if sampler != None:
+        if sampler is not None:
             print("Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ", sampler)
 
         self._enforce_value_for_arg(kwargs, "batch_sampler", None)
@@ -200,12 +195,12 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
 
         if "drop_last" in kwargs:
             self.drop_last = kwargs.get("drop_last")
-            if (self.drop_last == False) and (self.is_train == True):
+            if (self.drop_last is False) and (self.is_train):
                 print("Warning: MediaDataLoader got drop_last: False, round up of last batch will be done for train")
             else:
                 print("MediaDataLoader got drop_last: ", self.drop_last)
         else:
-            if self.is_train == True:
+            if self.is_train:
                 print("Warning: MediaDataLoader using drop_last: False, round up of last batch will be done for train")
             else:
                 print("MediaDataLoader using drop_last: False")
@@ -405,7 +400,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
     def __len__(self):
         if self.fallback_activated:
             return super().__len__()
-        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
+        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
             return len(self.aeon)
         elif isGaudi2(self.DeviceType):
             return len(self.iterator)
@@ -415,7 +410,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
     def __iter__(self):
         if self.fallback_activated:
             return super().__iter__()
-        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
+        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
             return iter(self.aeon)
         elif isGaudi2(self.DeviceType):
             return iter(self.iterator)
@@ -456,14 +451,14 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
             is_shuffle_default = True
 
         sampler = kwargs.get("sampler", None)
-        if is_shuffle_default == True:
+        if is_shuffle_default:
             if isinstance(sampler, torch.utils.data.RandomSampler):
                 self.shuffle = True
                 print("Warning: Updated shuffle to True as sampler is RandomSampler")
-            elif isinstance(sampler, torch.utils.data.distributed.DistributedSampler) and (sampler.shuffle == True):
+            elif isinstance(sampler, torch.utils.data.distributed.DistributedSampler) and (sampler.shuffle is True):
                 self.shuffle = True
                 print("Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
-        if sampler != None:
+        if sampler is not None:
             print("Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ", sampler)
 
         self._enforce_value_for_arg(kwargs, "batch_sampler", None)
@@ -478,7 +473,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
 
         if "drop_last" in kwargs:
             self.drop_last = kwargs.get("drop_last")
-            if self.drop_last == False:
+            if self.drop_last is False:
                 print("Warning: MediaDataLoader got drop_last: False, round up of last batch will be done")
             else:
                 print("MediaDataLoader got drop_last: ", self.drop_last)
@@ -526,7 +521,7 @@ def _is_coco_dataset(dataset):
 
 def _is_hpumediapipe_available():
     try:
-        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
+        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe  # noqa
 
         return True
     except ImportError as e:
@@ -549,16 +544,16 @@ class HabanaDataLoader:
                 self.aeon_fallback_activated = os.getenv("PT_HPU_MEDIA_PIPE").lower() in ("false", "0", "f")
 
             media_multi = False
-            if (self.aeon_fallback_activated == False) and ("PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD" in os.environ):
+            if (self.aeon_fallback_activated is False) and ("PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD" in os.environ):
                 media_multi = os.getenv("PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD").lower() in ("true", "1", "t")
 
             # Try aeon when HPUMediaPipe is not available
             if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 num_instances = _get_world_size()
-                if _is_hpumediapipe_available() == False:
+                if _is_hpumediapipe_available() is False:
                     print("Fallback to aeon dataloader")
                     self.aeon_fallback_activated = True
-                elif (media_multi == False) and (num_instances > 1):
+                elif (media_multi is False) and (num_instances > 1):
                     print("Fallback to aeon dataloader as world_size is ", num_instances)
                     self.aeon_fallback_activated = True
 

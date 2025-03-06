@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <synapse_api.h>
 #include <synapse_common_types.h>
 #include <iterator>
@@ -93,6 +93,46 @@ synStatus host_memory::free(void* ptr) {
     free_memory(&device_, ptr);
     blocks.erase(it);
   }
+  return synSuccess;
+}
+
+synStatus host_memory::uncached_malloc(void** ptr, size_t size) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  *ptr = nullptr;
+  /* allocate a new block*/
+  auto err = synHostMalloc(device_.id(), size, 0, ptr);
+  /* release the cache and retry malloc if the error is OOM */
+  if (err == synOutOfHostMemory) {
+    PT_SYNHELPER_WARN(
+        "SynHostMalloc Failed OOM, Retrying by dropping cache.", err);
+    dropCache();
+    err = synHostMalloc(device_.id(), size, 0, ptr);
+  }
+  if (err != synSuccess) {
+    return err;
+  }
+
+  blocks.insert({*ptr, Block(size, *ptr, true)});
+  return synSuccess;
+}
+
+synStatus host_memory::uncached_free(void* ptr) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!ptr) {
+    return synSuccess;
+  }
+
+  auto it = blocks.find(ptr);
+  HABANA_ASSERT(it != blocks.end());
+
+  Block& block = it->second;
+  HABANA_ASSERT(block.allocated);
+
+  block.allocated = false;
+  free_memory(&device_, ptr);
+  blocks.erase(it);
   return synSuccess;
 }
 

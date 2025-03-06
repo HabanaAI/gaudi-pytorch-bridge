@@ -77,6 +77,7 @@ target_link_libraries(
   npu::hllogger
   npu::fmt
   $<TARGET_NAME_IF_EXISTS:npu::specs_embedded>
+  npu::specs_external
   PRIVATE
   Python::Python
   torch

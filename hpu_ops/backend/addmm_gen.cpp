@@ -17,6 +17,7 @@
 #include "generated/backend/addbmm.h"
 #include "generated/backend/addmm.h"
 #include "hpu_ops/backend/reduction_template.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -65,6 +66,12 @@ OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
       output_type);
   meta.shape = AddMMOutshape(stack)[0];
   return {meta};
+}
+
+SharedMetaDataVector AddMMSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MatrixMulWithAddSharedMeta(stack, "addmm");
 }
 
 OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 import pytest
 import torch
 import torch.nn.functional as F
+from test_utils import compile_function_if_compile_mode
 
 
 def test_hpu_multilevel_noncontiguous_views():
@@ -33,7 +34,7 @@ def test_hpu_multilevel_noncontiguous_views():
     result1, result2 = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult1, hresult2 = compiled_fn(hx)
     assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
@@ -54,7 +55,7 @@ def test_hpu_multilevel_noncontiguous_views_inplace():
     result1, result2 = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult1, hresult2 = compiled_fn(hx)
     assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
@@ -76,7 +77,7 @@ def test_hpu_multilevel_noncontiguous_views2():
     result1, result2 = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult1, hresult2 = compiled_fn(hx)
     hresult1_cpu = hresult1.cpu()
@@ -99,7 +100,7 @@ def test_hpu_multilevel_views_inplace():
     res = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hres = compiled_fn(hx)
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
@@ -125,7 +126,7 @@ def test_hpu_leaf_views_test():
 
         return tmp20.to("cpu"), tmp21.to("cpu"), tmp22.to("cpu")
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     x = torch.randn([5, 5])
     y = torch.randn([5, 5])
@@ -152,7 +153,7 @@ def test_hpu_eagerize_split_getitem():
     res = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hres = compiled_fn(hx)
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
@@ -173,7 +174,7 @@ def test_hpu_t_with_1D_input():
     res = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hres = compiled_fn(hx)
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
@@ -189,7 +190,7 @@ def test_hpu_multilevel_view_dtype():
     res_ref = fn(y)
 
     y_hpu = y.to("hpu")
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     res_hpu = compiled_fn(y_hpu)
 
     assert torch.allclose(res_ref, res_hpu.cpu(), atol=0.001, rtol=0.001)
@@ -284,7 +285,7 @@ def test_hpu_non_contiguous_outputs(func):
 
     aot_backend = aot_autograd(fw_compiler=inner_compiler)
 
-    compiled_func_hpu = torch.compile(func, backend="hpu_backend")
+    compiled_func_hpu = compile_function_if_compile_mode(func)
     compiled_func_cpu = torch.compile(func, backend=aot_backend)
 
     x = torch.randn([2, 3])
@@ -339,7 +340,7 @@ def test_hpu_non_contiguous_more_outputs(func):
 
     aot_backend = aot_autograd(fw_compiler=inner_compiler)
 
-    compiled_func_hpu = torch.compile(func, backend="hpu_backend")
+    compiled_func_hpu = compile_function_if_compile_mode(func)
     compiled_func_cpu = torch.compile(func, backend=aot_backend)
 
     x = torch.randn([2, 3])
@@ -370,7 +371,7 @@ def test_t_compilation(shape, dtype):
         else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
     )
     hpu_input = cpu_input.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input)
@@ -392,7 +393,7 @@ def test_inplace_add_with_view_inputs_keepinputmutations(shape, dtype):
         else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
     )
     hpu_input = cpu_input.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend", options={"keep_input_mutations": True})
+    hpu_compiled_fn = compile_function_if_compile_mode(fn, options={"keep_input_mutations": True})
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input)
@@ -407,7 +408,7 @@ def test_output_alias_of_intermidate_base_tensor():
         y = torch.nn.AvgPool1d(kernel_size=[5], stride=[5], padding=0, ceil_mode=False, count_include_pad=True)(x)
         return y
 
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
+    compiled_fn = compile_function_if_compile_mode(raw_function)
 
     a = torch.randn(input_shape, dtype=torch.bfloat16, requires_grad=True)
 
@@ -441,8 +442,8 @@ def test_leaf_views_post_fx_partitions():
     # cpu
     ref_out = raw_function(t1, t2)
 
-    ## hpu
-    hpu_model = torch.compile(raw_function, backend="hpu_backend", options={"use_eager_fallback": True})
+    # hpu
+    hpu_model = compile_function_if_compile_mode(raw_function, options={"use_eager_fallback": True})
     hpu_out = hpu_model(t1.to("hpu"), t2.to("hpu"))
 
     assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)

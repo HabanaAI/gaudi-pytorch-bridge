@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ def parse_yaml(f_yaml):
     # print(op_dict)
 
     with open("parsed_hpu_ops_yaml.csv", "w", newline="") as op_csv:
-        header = ["op_name"] + sorted(list(keyset))
+        header = ["op_name"] + sorted(keyset)
         writer = csv.DictWriter(op_csv, fieldnames=header, delimiter="|")
         writer.writeheader()
         for k in op_dict.keys():
@@ -71,7 +71,7 @@ def parse_yaml(f_yaml):
 
 
 def main(args):
-    if args.pt_integ_path == None:
+    if args.pt_integ_path is None:
         pt_integ_path = os.environ["PYTORCH_MODULES_ROOT_PATH"]
     else:
         pt_integ_path = args.pt_integ_path

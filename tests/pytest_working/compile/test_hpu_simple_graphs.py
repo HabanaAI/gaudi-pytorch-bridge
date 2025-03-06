@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 ###############################################################################
 
 import numpy as np
-import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 def test_relu_cpuinput():
     def raw_function(x):
         return torch.relu(x)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
 
@@ -38,7 +38,7 @@ def test_relu_hpuinput():
     def raw_function(x):
         return torch.relu(x)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -53,7 +53,7 @@ def test_relu_hpuinput_mixed():
         tmp1 = x * 2 - 1
         return torch.relu(tmp1)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -72,7 +72,7 @@ def test_output_middle_node():
         tmp3 = torch.relu(tmp2)
         return tmp2
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -90,7 +90,7 @@ def test_output_first_and_last_node():
         tmp3 = torch.relu(tmp2)
         return tmp1, tmp3
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -109,7 +109,7 @@ def test_output_reverse_order_node():
         tmp3 = torch.relu(tmp2)
         return tmp3, tmp2, tmp1
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -131,7 +131,7 @@ def test_multiple_runs():
         x = x / 3
         return F.relu(x)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     for _ in range(10):
         input_tensor = torch.rand(8, 8).to("hpu")
@@ -145,7 +145,7 @@ def test_create_tensor():
         out = torch.ones([2, 4], requires_grad=False, device=torch.device("hpu"))
         return out
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     result_nocompile = raw_function()
     result_compile = compiled_function()
@@ -168,7 +168,7 @@ def test_relu_than_maxpool():
     def raw_function(x):
         return model(x)
 
-    compiled_fnc = torch.compile(raw_function, backend="hpu_backend")
+    compiled_fnc = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.rand(8, 16, 10, 10, device="cpu").to("hpu")
 
@@ -197,7 +197,7 @@ def test_relu_then_maxpool_ignore_first_output():
     def raw_function(x):
         return model(x)
 
-    compiled_fnc = torch.compile(raw_function, backend="hpu_backend")
+    compiled_fnc = compile_function_if_compile_mode(raw_function)
 
     tensor = torch.rand(8, 16, 10, 10, device="cpu").to("hpu")
 
@@ -216,7 +216,7 @@ def test_remove_detach():
         x = x / 3
         return F.relu(x)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
     input_tensor = torch.rand(2, 2).to("hpu")
     tensor_raw = raw_function(input_tensor)
     tensor_compiled = compiled_function(input_tensor)
@@ -232,7 +232,7 @@ def test_split_with_sizes():
         x = torch.split(x, [1, 4])
         return x
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     input_tensor = torch.arange(10).reshape(5, 2).to(device="hpu")
 

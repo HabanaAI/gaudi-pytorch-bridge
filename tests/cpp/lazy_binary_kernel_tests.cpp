@@ -847,7 +847,7 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorOut0dTest) {
 TEST_F(LazyBinaryKernelTest, RemainderTensorResizeOutTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
   torch::Tensor B = torch::tensor(3);
-  torch::Tensor out = torch::empty({1}, torch::dtype(torch::kInt32));
+  torch::Tensor out = torch::empty({2}, torch::dtype(torch::kInt32));
 
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);
@@ -866,7 +866,7 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorResizeOutTest) {
 TEST_F(LazyBinaryKernelTest, RemainderScalarResizeOutTest) {
   torch::Tensor A = torch::tensor({4, 2, 6}, torch::dtype(torch::kInt32));
   Scalar B = 3;
-  torch::Tensor out = torch::empty({1}, torch::dtype(torch::kInt32));
+  torch::Tensor out = torch::empty({3}, torch::dtype(torch::kInt32));
 
   auto hA = A.to(torch::kHPU);
   auto hOut = out.to(torch::kHPU);

@@ -507,7 +507,7 @@ class MemMap:
         """
 
         def get_watch_collisions():
-            return list(sorted(self.collisions(*self.watch, trim=True), key=lambda x: x[0])) if self.watch else None
+            return sorted(self.collisions(*self.watch, trim=True), key=lambda x: x[0]) if self.watch else None
 
         def print_collision(colls):
             for idx, (adr, s, ag) in enumerate(colls):
@@ -819,22 +819,20 @@ class Log:
             tss |= set([e["end_ts"] for e in graph.events() if "end_ts" in e])
             return tss
 
-        test_op_list = set(
-            [
-                "synStreamCreateGeneric",
-                "synStreamDestroy",
-                # "synStreamSynchronize",
-                # "synWorkspaceGetSize",
-                "synConfigurationSet",
-                "synDeviceMalloc",
-                "synDeviceGetMemoryInfo",
-                "synDeviceFree",
-                "synDeviceRelease",
-                "synDestroy",
-                "synInitialize",
-                "synDeviceAcquireByDeviceType",
-            ]
-        )
+        test_op_list = {
+            "synStreamCreateGeneric",
+            "synStreamDestroy",
+            # "synStreamSynchronize",
+            # "synWorkspaceGetSize",
+            "synConfigurationSet",
+            "synDeviceMalloc",
+            "synDeviceGetMemoryInfo",
+            "synDeviceFree",
+            "synDeviceRelease",
+            "synDestroy",
+            "synInitialize",
+            "synDeviceAcquireByDeviceType",
+        }
 
         selected_tss = collect_tss()
 

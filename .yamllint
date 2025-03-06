@@ -1,0 +1,16 @@
+---
+
+extends: default
+
+rules:
+  document-start:
+    present: false
+  indentation:
+    indent-sequences: consistent
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: true
+  line-length:
+    max: 160
+    level: warning
+    allow-non-breakable-inline-mappings: true

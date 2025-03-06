@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 #include <ATen/ExpandUtils.h>
@@ -270,12 +270,6 @@ at::Tensor& normal_hpu_lazy(
     double mean = 0,
     double std = 1,
     c10::optional<at::Generator> gen = c10::nullopt);
-#if IS_PYTORCH_OLDER_THAN(2, 1)
-at::Tensor& randperm_hpu_lazy(
-    int64_t n,
-    c10::optional<at::Generator> gen,
-    at::Tensor& output);
-#else
 at::Tensor& randperm_hpu_lazy(
     c10::SymInt n,
     c10::optional<at::Generator> gen,
@@ -286,7 +280,6 @@ at::Tensor randperm_nogen_hpu_lazy(
     c10::optional<at::Layout> layout,
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory);
-#endif
 at::Tensor repeat_hpu(const at::Tensor& self, c10::SymIntArrayRef repeats);
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
@@ -542,48 +535,6 @@ at::Tensor& recv_hpu_lazy_(
     int64_t src_rank,
     int64_t tag,
     int64_t comm_id);
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& amax);
-std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    at::ScalarType dtype,
-    OptionalIntArrayRef scale_shape);
-std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
-    const at::Tensor& input,
-    double scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    at::ScalarType dtype,
-    OptionalIntArrayRef scale_shape);
-std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
-    const at::Tensor& input,
-    c10::ArrayRef<double> scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    at::ScalarType dtype,
-    OptionalIntArrayRef scale_shape);
-at::Tensor cast_from_fp8_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    at::ScalarType out_dtype,
-    OptionalIntArrayRef scale_shape);
-at::Tensor cast_from_fp8_scalar_lazy(
-    const at::Tensor& input,
-    double scale,
-    at::ScalarType out_dtype,
-    OptionalIntArrayRef scale_shape);
-at::Tensor cast_from_fp8_scalar_list_lazy(
-    const at::Tensor& input,
-    c10::ArrayRef<double> scale,
-    at::ScalarType out_dtype,
-    OptionalIntArrayRef scale_shape);
 at::Tensor convert_from_int4_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
@@ -594,54 +545,6 @@ at::Tensor convert_from_uint4_lazy(
     const at::Tensor& scale,
     const c10::optional<at::Tensor>& zero_point,
     at::ScalarType out_dtype);
-at::Tensor& fp8_gemm_lazy(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const at::Tensor& D,
-    at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    at::Tensor& out);
-at::Tensor fp8_gemm_v2_lazy(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const c10::optional<at::Tensor>& D,
-    at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    OptionalIntArrayRef B_scale_shape);
-at::Tensor fp8_gemm_v2_lazy_scalar(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const c10::optional<at::Tensor>& D,
-    at::ScalarType out_dtype,
-    double A_scale_inv,
-    double B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    OptionalIntArrayRef B_scale_shape);
-at::Tensor fp8_gemm_v2_lazy_scalar_list(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const c10::optional<at::Tensor>& D,
-    at::ScalarType out_dtype,
-    c10::ArrayRef<double> A_scale_inv,
-    c10::ArrayRef<double> B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    OptionalIntArrayRef B_scale_shape);
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,
@@ -670,43 +573,12 @@ at::Tensor habana_expand_into_jagged_permute_lazy(
     const at::Tensor& input_offsets,
     const at::Tensor& output_offsets,
     int64_t output_size);
-at::Tensor mixture_of_experts_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
-at::Tensor mixture_of_experts_fused_weights_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const c10::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max);
 at::Tensor habana_split_permute_cat_lazy(
     const at::Tensor& input,
     const at::Tensor& indices,
     int64_t batch_size,
     int64_t num_features,
     int64_t dims);
-at::Tensor _ragged_softmax(
-    const at::Tensor& self,
-    int64_t dim,
-    bool half_to_float,
-    const at::Tensor& valid_count);
-at::Tensor scaled_masked_softmax_lazy(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    double scale);
-at::Tensor custom_softmax_lazy(const at::Tensor& input, int64_t flavor);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_lazy(
     at::Tensor& indices,
@@ -715,46 +587,6 @@ habana_bounds_check_indices_lazy(
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
     const c10::optional<at::Tensor>& weights);
-at::Tensor rotary_pos_embedding_lazy(
-    const at::Tensor& input,
-    const at::Tensor& sin,
-    const at::Tensor& cos,
-    const c10::optional<at::Tensor>& position_ids,
-    const int64_t offset,
-    const int64_t mode);
-at::Tensor rotary_pos_embedding_backward_lazy(
-    const at::Tensor& grad_in,
-    const at::Tensor& sin,
-    const at::Tensor& cos,
-    const c10::optional<at::Tensor>& position_ids,
-    const int64_t offset,
-    const int64_t mode);
-std::tuple<at::Tensor, at::Tensor> ctc_loss_custom_lazy(
-    const at::Tensor& log_probs,
-    const at::Tensor& targets,
-    const at::Tensor& input_lengths,
-    const at::Tensor& target_lengths,
-    int64_t blank,
-    int64_t reduction,
-    bool zero_infinity);
-at::Tensor ctc_loss_custom_backward_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& log_probs,
-    const at::Tensor& targets,
-    const at::Tensor& input_lengths,
-    const at::Tensor& target_lengths,
-    const at::Tensor& neg_log_likelihood,
-    const at::Tensor& log_alpha,
-    int64_t blank,
-    int64_t reduction,
-    bool zero_infinity);
-at::Tensor masked_batch_gemm_lazy(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    const at::Tensor& mask_a,
-    const at::Tensor& mask_b,
-    bool trans_a,
-    bool trans_b);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
@@ -807,6 +639,31 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
     const bool is_causal,
     const double p,
     const double scale,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const c10::optional<at::Tensor>& d_scale_do,
+    const c10::optional<at::Tensor>& d_scale_ds,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_ds,
+    const bool is_amax_ds,
+    const at::Tensor& fwd_out);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+fp8_sdpa_recomp_bwd_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const at::Tensor& m,
+    const at::Tensor& linv,
+    const c10::optional<at::Tensor>& seed,
+    const bool is_causal,
+    const double p,
+    const double scale,
+    c10::string_view softmax_mode,
     const c10::optional<at::Tensor>& d_scale_q,
     const c10::optional<at::Tensor>& d_scale_k,
     const c10::optional<at::Tensor>& d_scale_v,
@@ -900,28 +757,4 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const double scale,
     const c10::string_view softmax_mode,
     const at::Tensor& fwd_out);
-at::Tensor scaled_triangular_softmax_lazy(
-    const at::Tensor& self,
-    double inv_scale_attn,
-    const c10::optional<at::Tensor>& exp_sum_recpr,
-    const c10::optional<at::Tensor>& max);
-std::tuple<at::Tensor, at::Tensor, at::Tensor>
-scaled_triangular_softmax_retain_lazy(
-    const at::Tensor& self,
-    double inv_scale_attn);
-at::Tensor& kv_reorder_lazy(
-    at::Tensor& self,
-    const at::Tensor start,
-    const at::Tensor end,
-    const at::Tensor beam_idx);
-at::Tensor& in_place_interleave_lazy(at::Tensor& self);
-at::Tensor scaled_masked_triangular_softmax_lazy(
-    const at::Tensor& self,
-    const at::Tensor& start_end,
-    double inv_scale_attn,
-    int64_t grouped_batch_size,
-    bool use_max,
-    int64_t mode,
-    c10::optional<at::ScalarType> out_dtype);
-
 } // namespace habana_lazy

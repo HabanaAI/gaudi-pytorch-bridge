@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -47,9 +47,6 @@ use_compiled_recipes = _get_bool_from_env("PT_HPU_COMPILE_USE_RECIPES", "1")
 decomposition_mode = _get_decomp_mode("PT_HPU_COMPILE_DECOMPOSITION_MODE", "habana")
 keep_input_mutations = _get_bool_from_env("PT_HPU_KEEP_INPUT_MUTATIONS", "1")
 use_eager_fallback = _get_bool_from_env("PT_HPU_USE_EAGER_FALLBACK", "1")
-# enables graph freezing and constant folding for inference
-# based on the method present in torch/_inductor/freezing.py
-use_graph_freezing = _get_bool_from_env("PT_HPU_COMPILE_GRAPH_FREEZE", "0")
 # enables discarding the module parameters for memory efficiency
 # note that it does not work if module needs to be recompiled
 discard_frozen_params = _get_bool_from_env("PT_HPU_COMPILE_DISCARD_FROZEN_PARAMS", "0")
@@ -64,6 +61,7 @@ enable_sfg = _get_bool_from_env("PT_HPU_ENABLE_SFG", "0")
 # enables native implementation of the propose partitions pass
 use_cpp_partitioner = _get_bool_from_env("PT_HPU_USE_CPP_PARTITIONER", "1")
 enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT", "1")
+enable_waittensor_graph_split = _get_bool_from_env("PT_HPU_ENABLE_WAITTENSOR_GRAPH_SPLIT", "1")
 # when set to 1, the compiled recipe is always static
 # even if the fx graph traced by torch dynamic has symbols
 force_static_compile = _get_bool_from_env("PT_HPU_FORCE_STATIC_COMPILE", "0")
@@ -72,6 +70,7 @@ reassign_full_copy = _get_bool_from_env("PT_HPU_REASSIGN_FULL_COPY", "1")
 reassign_copy_ = _get_bool_from_env("PT_HPU_REASSIGN_COPY_", "1")
 # use boxed input to enable input reuse
 use_boxed_input = _get_bool_from_env("PT_HPU_USE_BOXED_INPUT", "1")
+use_generic_reinplacer = _get_bool_from_env("PT_HPU_USE_GENERIC_REINPLACER", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

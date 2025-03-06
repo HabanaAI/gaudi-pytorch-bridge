@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Union
 import habana_frameworks.torch as htorch
 import torch
 from habana_frameworks.torch import _hpu_C
-from torch._streambase import _EventBase, _StreamBase
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 from ._utils import _get_device_index
 
@@ -52,100 +52,199 @@ class _device:
 
 _device_t = Union[_device, str, int, None]
 
+if is_pytorch_older_than("2.6.0"):
 
-class Stream(_hpu_C._HpuStreamBase, _StreamBase):
-    r"""Wrapper around a HPU stream.
+    from torch._streambase import _StreamBase
 
-    A HPU stream is a linear sequence of execution that belongs to a specific
-    device, independent from other streams.  See :ref:`HPU-semantics` for
-    details.
+    class Stream(_hpu_C._HpuStreamBase, _StreamBase):
+        r"""Wrapper around a HPU stream.
 
-    Args:
-        device: Unused parameter as HPU as only 1 device per process is supported
-        priority: Unused parameter as only low priority streams are supported
-
-    """
-
-    def __new__(cls, device=None, priority=0, **kwargs):
-        if not htorch.hpu.is_initialized():
-            htorch.hpu.init()
-        if "device_index" in kwargs and not isinstance(kwargs["device_index"], int):
-            kwargs["device_index"] = _get_device_index(kwargs["device_index"])
-        return super(Stream, cls).__new__(cls, priority=priority, **kwargs)
-
-    def wait_event(self, event):
-        r"""Makes all future work submitted to the stream wait for an event.
+        A HPU stream is a linear sequence of execution that belongs to a specific
+        device, independent from other streams.  See :ref:`HPU-semantics` for
+        details.
 
         Args:
-            event (htorch.hpu.Event): an event to wait for.
+            device: Unused parameter as HPU as only 1 device per process is supported
+            priority: Unused parameter as only low priority streams are supported
 
-           This function returns without waiting for :attr:`event`: only future
-           operations are affected.
         """
-        event.wait(self)
 
-    def wait_stream(self, stream):
-        r"""Synchronizes with another stream.
+        def __new__(cls, device=None, priority=0, **kwargs):
+            if not htorch.hpu.is_initialized():
+                htorch.hpu.init()
+            if "device_index" in kwargs and not isinstance(kwargs["device_index"], int):
+                kwargs["device_index"] = _get_device_index(kwargs["device_index"])
+            return super(Stream, cls).__new__(cls, priority=priority, **kwargs)
 
-        All future work submitted to this stream will wait until all kernels
-        submitted to a given stream at the time of call complete.
+        def wait_event(self, event):
+            r"""Makes all future work submitted to the stream wait for an event.
+
+            Args:
+                event (htorch.hpu.Event): an event to wait for.
+
+            This function returns without waiting for :attr:`event`: only future
+            operations are affected.
+            """
+            event.wait(self)
+
+        def wait_stream(self, stream):
+            r"""Synchronizes with another stream.
+
+            All future work submitted to this stream will wait until all kernels
+            submitted to a given stream at the time of call complete.
+
+            Args:
+                stream (Stream): a stream to synchronize.
+
+            .. note:: This function returns without waiting for currently enqueued
+            kernels in :attr:`stream`: only future operations are affected.
+            """
+            self.wait_event(stream.record_event())
+
+        def record_event(self, event=None):
+            r"""Records an event.
+
+            Args:
+                event (htorch.hpu.Event, optional): event to record. If not given, a new one
+                    will be allocated.
+
+            Returns:
+                Recorded event.
+            """
+            if event is None:
+                event = htorch.hpu.Event()
+            event.record(self)
+            return event
+
+        def query(self):
+            r"""Checks if all the work submitted  on the stream has been completed.
+
+            Returns:
+                A boolean indicating if all kernels in this stream are completed."""
+
+            return super().query()
+
+        def synchronize(self):
+            r"""Wait for all the kernels in this stream to complete."""
+            super().synchronize()
+
+        @property
+        def _as_parameter_(self):
+            return ctypes.c_void_p(self.hpu_stream)
+
+        def __eq__(self, o):
+            if isinstance(o, Stream):
+                return super().__eq__(o)
+            return False
+
+        def __hash__(self):
+            return hash((self.hpu_stream, self.device))
+
+        def __repr__(self):
+            return f"<torch.hpu.Stream device={self.device} hpu_stream={self.hpu_stream:#x}>"
+
+        @property
+        def device_index(self):
+            return self.device
+
+        def id(self):
+            return self.stream_id
+
+else:
+
+    class Stream(_hpu_C._HpuStreamBase):
+        r"""Wrapper around a HPU stream.
+
+        A HPU stream is a linear sequence of execution that belongs to a specific
+        device, independent from other streams.  See :ref:`HPU-semantics` for
+        details.
 
         Args:
-            stream (Stream): a stream to synchronize.
+            device: Unused parameter as HPU as only 1 device per process is supported
+            priority: Unused parameter as only low priority streams are supported
 
-        .. note:: This function returns without waiting for currently enqueued
-           kernels in :attr:`stream`: only future operations are affected.
         """
-        self.wait_event(stream.record_event())
 
-    def record_event(self, event=None):
-        r"""Records an event.
+        def __new__(cls, device=None, priority=0, **kwargs):
+            if not htorch.hpu.is_initialized():
+                htorch.hpu.init()
+            if "device_index" in kwargs and not isinstance(kwargs["device_index"], int):
+                kwargs["device_index"] = _get_device_index(kwargs["device_index"])
+            return super(Stream, cls).__new__(cls, priority=priority, **kwargs)
 
-        Args:
-            event (htorch.hpu.Event, optional): event to record. If not given, a new one
-                will be allocated.
+        def wait_event(self, event):
+            r"""Makes all future work submitted to the stream wait for an event.
 
-        Returns:
-            Recorded event.
-        """
-        if event is None:
-            event = htorch.hpu.Event()
-        event.record(self)
-        return event
+            Args:
+                event (htorch.hpu.Event): an event to wait for.
 
-    def query(self):
-        r"""Checks if all the work submitted  on the stream has been completed.
+            This function returns without waiting for :attr:`event`: only future
+            operations are affected.
+            """
+            event.wait(self)
 
-        Returns:
-            A boolean indicating if all kernels in this stream are completed."""
+        def wait_stream(self, stream):
+            r"""Synchronizes with another stream.
 
-        return super().query()
+            All future work submitted to this stream will wait until all kernels
+            submitted to a given stream at the time of call complete.
 
-    def synchronize(self):
-        r"""Wait for all the kernels in this stream to complete."""
-        super().synchronize()
+            Args:
+                stream (Stream): a stream to synchronize.
 
-    @property
-    def _as_parameter_(self):
-        return ctypes.c_void_p(self.hpu_stream)
+            .. note:: This function returns without waiting for currently enqueued
+            kernels in :attr:`stream`: only future operations are affected.
+            """
+            self.wait_event(stream.record_event())
 
-    def __eq__(self, o):
-        if isinstance(o, Stream):
-            return super().__eq__(o)
-        return False
+        def record_event(self, event=None):
+            r"""Records an event.
 
-    def __hash__(self):
-        return hash((self.hpu_stream, self.device))
+            Args:
+                event (htorch.hpu.Event, optional): event to record. If not given, a new one
+                    will be allocated.
 
-    def __repr__(self):
-        return f"<torch.hpu.Stream device={self.device} hpu_stream={self.hpu_stream:#x}>"
+            Returns:
+                Recorded event.
+            """
+            if event is None:
+                event = htorch.hpu.Event()
+            event.record(self)
+            return event
 
-    @property
-    def device_index(self):
-        return self.device
+        def query(self):
+            r"""Checks if all the work submitted  on the stream has been completed.
 
-    def id(self):
-        return self.stream_id
+            Returns:
+                A boolean indicating if all kernels in this stream are completed."""
+
+            return super().query()
+
+        def synchronize(self):
+            r"""Wait for all the kernels in this stream to complete."""
+            super().synchronize()
+
+        @property
+        def _as_parameter_(self):
+            return ctypes.c_void_p(self.hpu_stream)
+
+        def __eq__(self, o):
+            if isinstance(o, Stream):
+                return super().__eq__(o)
+            return False
+
+        def __hash__(self):
+            return hash((self.hpu_stream, self.device))
+
+        def __repr__(self):
+            return f"<torch.hpu.Stream device={self.device} hpu_stream={self.hpu_stream:#x}>"
+
+        @property
+        def device_index(self):
+            return self.device
+
+        def id(self):
+            return self.stream_id
 
 
 class StreamContext:

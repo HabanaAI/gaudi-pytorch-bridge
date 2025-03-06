@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 ###############################################################################
 
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("norm_type", [0.0, 1.0, 2.0, float("inf"), float("-inf"), 1.342, 3.423, -4.234])
@@ -37,7 +36,7 @@ def test_embedding_renorm(norm_type, max_norm, shape):
     input_hpu = input_cpu.to("hpu")
     indices_hpu = indices_cpu.to("hpu")
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     result_cpu = fn(input_cpu, indices_cpu)
     result_hpu = compiled_fn(input_hpu, indices_hpu)

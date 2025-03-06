@@ -347,6 +347,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("enable_quantization", []() { habana_helpers::EnableQuantization(); });
   m.def(
       "disable_quantization", []() { habana_helpers::DisableQuantization(); });
+  m.def("set_mark_scale_const", [](bool mark) {
+    habana_helpers::SetMarkScaleConst(mark);
+  });
+  m.def("set_mark_non_scale_const", [](bool mark) {
+    habana_helpers::SetMarkNonScaleConst(mark);
+  });
   m.def(
       "record_stream",
       [](at::Tensor tensor,

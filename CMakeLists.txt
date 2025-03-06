@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -34,21 +34,26 @@ option(MANYLINUX "build for manylinux configuration, synapse shim will be used" 
 option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
 
 if(MANYLINUX)
-  message("Building with shim layer")
+  message(STATUS "Building with shim layer")
   set(PYTORCH_SYNAPSE_UTILS_LIB pytorch_synapse_utils_shim)
 else()
-  message("Building without shim layer")
+  message(STATUS "Building without shim layer")
   set(PYTORCH_SYNAPSE_UTILS_LIB SynapseUtils)
 endif()
 
 if(UPSTREAM_COMPILE)
-  message("Building with upstream torch")
+  message(STATUS "Building with upstream torch")
   add_definitions(-DUPSTREAM_COMPILE)
   set(CMAKE_SHARED_LIBRARY_SUFFIX
     .upstream${CMAKE_SHARED_LIBRARY_SUFFIX})
-  set(CMAKE_CXX_FLAGS "-fabi-version=11")
   set(CMAKE_EXECUTABLE_SUFFIX "_upstream")
 endif(UPSTREAM_COMPILE)
+
+
+message(STATUS "USE_CXX11_ABI is ${USE_CXX11_ABI}")
+if (NOT USE_CXX11_ABI)
+  set(CMAKE_CXX_FLAGS "-fabi-version=11")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -141,6 +146,7 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_kernels/hccl_kernels.cpp
   habana_kernels/index_kernels.cpp
   habana_kernels/instance_norm_utils.cpp
+  habana_kernels/mixture_of_experts.cpp
   habana_kernels/nonzero_kernel.cpp
   habana_kernels/kernel_input_checks.cpp
   habana_kernels/kernels_register.cpp
@@ -185,8 +191,6 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_lazy/lazy_arg_spec.cpp
   habana_lazy/lazy_executor.cpp
   habana_lazy/permute_tensors.cpp
-  habana_lazy/sbs_debug.cpp
-  habana_lazy/sbs_runner.cpp
   habana_lazy/lazy_storage.cpp
   habana_lazy/lazy_graph_hash_builder.cpp
   habana_lazy/view_utils.cpp
@@ -288,11 +292,8 @@ add_habana_library(habana_pytorch2_plugin SHARED
   habana_lazy/passes/replace_inplace_ops.cpp
   habana_lazy/passes/replace_views_with_reshapes.cpp
   habana_lazy/passes/transform_graph.cpp
-  habana_lazy/sbs_debug.cpp
-  habana_lazy/sbs_runner.cpp
   habana_lazy/tensor_impl.cpp
   habana_lazy/view_utils.cpp
-  hpu_ops/lazy/binarycrossentropy_gen.cpp
   hpu_ops/lazy/binaryscalar2tensor.cpp
   hpu_ops/lazy/bitwise_gen.cpp
   hpu_ops/lazy/bitwise_shift_gen.cpp
@@ -465,6 +466,7 @@ if(BUILD_PKGS)
     habana_frameworks/torch/utils/experimental/distributed_emulation.py
     habana_frameworks/torch/utils/lib_utils.py
     habana_frameworks/torch/utils/library_loader.py
+    habana_frameworks/torch/utils/version_checker.py
     habana_frameworks/torch/utils/profiler/__init__.py
     habana_frameworks/torch/utils/profiler/csrc/bindings.cpp
     LICENSE.txt

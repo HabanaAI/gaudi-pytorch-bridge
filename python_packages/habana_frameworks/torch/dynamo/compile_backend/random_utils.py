@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
-from packaging.version import Version, parse
 
 HABANA_RANDOM_OPS_LIST = [
     "aten.bernoulli.default",
@@ -43,6 +42,10 @@ HABANA_RANDOM_OPS.update(
     }
 )
 HABANA_RANDOM_OPS = HABANA_RANDOM_OPS if bc.get_pt_hpu_wrap_random_ops_compile() else {}
+
+HABANA_CHECKPOINT_OPS_BACKWARD = HABANA_RANDOM_OPS.copy()
+for op in HABANA_RANDOM_OPS_LIST:
+    HABANA_CHECKPOINT_OPS_BACKWARD[op] = getattr(torch.ops.hpu, "habana_" + op.split(".")[1] + "_checkpoint_backward")
 
 # Supported habana checkpoint wrappers for random ops to proper handling in torch.compile activation checkpoint
 HABANA_CHECKPOINT_OPS = (
@@ -80,7 +83,7 @@ def random_op_inputs(node, seed):
 
 
 def backward_random_op_inputs(node):
-    op = HABANA_RANDOM_OPS[str(node.args[1])]
+    op = HABANA_CHECKPOINT_OPS_BACKWARD[str(node.args[1])]
     args = (node.args[0],) + node.args[2:]
     kwargs = node.kwargs.copy()
     kwargs.pop("generator", None)
@@ -110,10 +113,7 @@ def is_hpu(args, kwargs):
     return any(dev == "hpu" for dev in devices)
 
 
-if Version(parse(torch.__version__).base_version) >= Version("2.5"):
-    old_fn = run_and_save_rng_state.python_key_table.pop(FakeTensorMode)
-else:
-    old_fn = run_and_save_rng_state.python_key_mode_table.pop(FakeTensorMode)
+old_fn = run_and_save_rng_state.python_key_table.pop(FakeTensorMode)
 
 
 @run_and_save_rng_state.py_impl(FakeTensorMode)

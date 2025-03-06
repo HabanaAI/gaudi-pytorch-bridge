@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -129,7 +129,6 @@ cat_op_list_fwd_bwd = [
 
 @pytest.mark.parametrize("cat_op, kernel_params_fwd", cat_op_list)
 def test_hpu_cat(cat_op, kernel_params_fwd):
-    # import pudb; pudb.set_trace()
     [print(t.shape) for t in kernel_params_fwd["tensors"]]
     print(kernel_params_fwd["dim"])
     evaluate_fwd_kernel(kernel=cat_op, kernel_params=kernel_params_fwd)

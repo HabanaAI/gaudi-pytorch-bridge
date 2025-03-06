@@ -1,19 +1,21 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "lazy_optimizer_kernels.h"
+#include "generated/backend/cast_from_fp8.h"
+#include "generated/backend/cast_to_fp8_v2.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/optimizer.h"
@@ -120,7 +122,7 @@ static void CastMomentToFp8WithScale(
   at::Tensor sf = at::pow(2.0, exp);
   at::where_out(scale, amax > 0.0, sf, scale);
 
-  auto cast_results = cast_to_fp8_v2_lazy(
+  auto cast_results = cast_to_fp8_v2(
       scaled_moment, scale, true, false, fp8_moment.scalar_type(), {1});
   copy_hpu_lazy_(fp8_moment, std::get<0>(cast_results), true);
 }
@@ -192,12 +194,12 @@ void optimizer_adamw_hpu_lazy(
     std::vector<at::Tensor> exp_avg_scaled;
     std::vector<at::Tensor> exp_avg_sq_scaled;
     for (size_t i = 0; i < exp_avg_scales_v.size(); i++) {
-      exp_avg_scaled.push_back(cast_from_fp8_lazy(
+      exp_avg_scaled.push_back(cast_from_fp8(
           exp_avg_v[i],
           exp_avg_scales_v[i],
           gradients_v[i].scalar_type(),
           c10::nullopt));
-      exp_avg_sq_scaled.push_back(cast_from_fp8_lazy(
+      exp_avg_sq_scaled.push_back(cast_from_fp8(
           exp_avg_sq_v[i],
           exp_avg_sq_scales_v[i],
           gradients_v[i].scalar_type(),

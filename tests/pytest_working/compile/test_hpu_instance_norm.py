@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
@@ -31,7 +31,7 @@ def test_instance_norm(dtype, is_inference_mode):
         return m
 
     with torch.inference_mode(is_inference_mode):
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(fn)
         result = compiled_fn(input_tensor)
         expected = compiled_fn(input_tensor.to("cpu"))
 
@@ -53,7 +53,7 @@ def test_instance_norm_fwd_bwd(dtype):
         m = torch.nn.functional.instance_norm(input_tensor)
         return m
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
     result = compiled_fn(input_tensor_hpu)
     expected = compiled_fn(input_tensor)
 

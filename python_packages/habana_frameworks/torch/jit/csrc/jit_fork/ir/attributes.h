@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -30,6 +30,7 @@
 #include <ATen/core/symbol.h>
 
 #include <torch/csrc/Export.h>
+#include <torch/csrc/jit/ir/attributes.h>
 
 #include "habana_helpers/logging.h"
 #include "jit_fork/ir/type_wrapper.h"
@@ -40,8 +41,9 @@ namespace jit {
 using ::c10::Symbol;
 
 constexpr int max_tensor_display_size = 10;
-
 enum class AttributeKind {
+  b,
+  bs,
   f,
   fs,
   c,
@@ -61,10 +63,12 @@ enum class AttributeKind {
 static inline const char* toString(AttributeKind kind) {
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
   static const char* names[] = {
+      "b",
+      "bs",
       "f",
+      "fs",
       "c",
       "cs",
-      "fs",
       "i",
       "is",
       "s",
@@ -135,6 +139,8 @@ using ComplexAttr =
     ScalarAttributeValue<c10::complex<double>, AttributeKind::c>;
 using ComplexValsAttr =
     VectorAttributeValue<c10::complex<double>, AttributeKind::cs>;
+using BoolAttr = ScalarAttributeValue<bool, AttributeKind::b>;
+using BoolsAttr = VectorAttributeValue<bool, AttributeKind::bs>;
 using FloatAttr = ScalarAttributeValue<double, AttributeKind::f>;
 using FloatsAttr = VectorAttributeValue<double, AttributeKind::fs>;
 using IntAttr = ScalarAttributeValue<int64_t, AttributeKind::i>;
@@ -143,8 +149,8 @@ using StringAttr = ScalarAttributeValue<std::string, AttributeKind::s>;
 using StringsAttr = VectorAttributeValue<std::string, AttributeKind::ss>;
 using TensorAttr = ScalarAttributeValue<at::Tensor, AttributeKind::t>;
 using TensorsAttr = VectorAttributeValue<at::Tensor, AttributeKind::ts>;
-using TypeAttr = ScalarAttributeValue<TypeWrapper, AttributeKind::ty>;
-using TypesAttr = VectorAttributeValue<TypeWrapper, AttributeKind::tys>;
+using TypeAttr = ScalarAttributeValue<c10::TypePtr, AttributeKind::ty>;
+using TypesAttr = VectorAttributeValue<c10::TypePtr, AttributeKind::tys>;
 using IValueAttr = ScalarAttributeValue<at::IValue, AttributeKind::ival>;
 
 struct Graph;

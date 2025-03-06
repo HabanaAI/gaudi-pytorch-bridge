@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 ###############################################################################
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("dtype", [torch.int8, torch.int, torch.uint8, torch.int16])
@@ -33,7 +34,7 @@ def test_bitwise_tensor(dtype, op_code):
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, hy)
 
@@ -56,7 +57,7 @@ def test_bitwise_scalar(dtype, op_code):
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, hy)
 
@@ -80,7 +81,7 @@ def test_bitwise_scalar_tensor(dtype, op_code):
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, hy)
 
@@ -99,7 +100,7 @@ def test_bitwise_not(dtype):
     result = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx)
 

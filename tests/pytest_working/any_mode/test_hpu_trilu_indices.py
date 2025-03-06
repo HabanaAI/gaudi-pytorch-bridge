@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,13 @@
 
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, hpu, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    hpu,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("output_dtype", [torch.long, torch.int], ids=lambda val: f"dtype={val}")
@@ -32,10 +38,7 @@ def test_trilu_indices(op, row, col, offset, output_dtype):
 
     result_cpu = trilu_indices(op, row, col, offset)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        trilu_indices = torch.compile(trilu_indices, backend="hpu_backend", dynamic=False)
+    trilu_indices = compile_function_if_compile_mode(trilu_indices, dynamic=False)
 
     result_hpu = trilu_indices(op, row, col, offset, device=hpu)
 

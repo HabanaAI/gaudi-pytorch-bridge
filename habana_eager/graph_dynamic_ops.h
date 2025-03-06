@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -34,7 +34,8 @@ void GetValueAndScalarIndexFromInput(
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
-    int64_t& index);
+    int64_t& index,
+    const bool setIndexWhenNegativeConstant = true);
 void GetValuesAndScalarIndexesFromListConst(
     torch::jit::Node* node,
     std::vector<int64_t>& values,
@@ -95,7 +96,7 @@ void UpdateH2DPatchingData(
 
 template <typename T>
 void UpdateH2DTensorData(at::Tensor& dtensor, std::vector<T>& data) {
-  PT_EAGER_DEBUG("Input data for updating H2D tensor:", data);
+  PT_EAGER_DEBUG("UpdateH2DTensorData for updating H2D tensor:", data);
   auto tmeta{get_tensor_extra_meta(dtensor)};
   tmeta->update_host_data(data.data(), data.size(), sizeof(T), true);
   PT_EAGER_DEBUG("Updated dynamic H2D tensor sizes:", dtensor.sizes());
@@ -120,20 +121,13 @@ void SetH2DTensorHostData(
       dt_type,
       ", type size:",
       sizeof(T));
-  tmeta->set_host_data(h2d_data.data(), h2d_data.size(), sizeof(T), dt_type);
+  tmeta->set_h2d_data<T>(h2d_data);
+  tmeta->set_host_size(h2d_data.size());
+  tmeta->set_host_el_size(sizeof(T));
+  tmeta->set_host_dt_type(dt_type);
+  tmeta->set_host_total_elem(2 * h2d_data.size() * sizeof(T));
   tmeta->set_H2D_data_for_bucketing();
 }
-
-template void SetH2DTensorHostData<int32_t>(
-    at::Tensor&,
-    std::vector<int32_t>&,
-    HostDataType,
-    bool);
-template void SetH2DTensorHostData<uint32_t>(
-    at::Tensor&,
-    std::vector<uint32_t>&,
-    HostDataType,
-    bool);
 
 template <typename T>
 int64_t CreateH2DAndInsertToDSStack(

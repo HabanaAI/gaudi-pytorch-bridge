@@ -1,19 +1,20 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
+#include <c10/util/Backtrace.h>
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
 #include "backend/helpers/dynamic_graph_utils.h"
@@ -89,36 +90,43 @@ class PassException : public std::exception {
 
 class PermutationInfoSaver {
  public:
-  PermutationInfoSaver(
-      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph)
-      : jit_graph_(jit_graph){};
-  void add_permutation(
+  virtual void add_permutation(
+      const at::Tensor& tensor,
       uint64_t index,
-      synapse_helpers::layouts::MemoryPermutation permutation) {
+      synapse_helpers::layouts::MemoryPermutation permutation) = 0;
+  virtual ~PermutationInfoSaver() = default;
+};
+class PermutationSetAndSave final : public PermutationInfoSaver {
+ public:
+  PermutationSetAndSave(
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
+      bool is_dynamic_recipe = false)
+      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe){};
+  void add_permutation(
+      const at::Tensor& tensor,
+      uint64_t index,
+      synapse_helpers::layouts::MemoryPermutation permutation) override {
+    habana_helpers::set_tensor_memory_permutations(tensor, permutation);
     permutation_info_.push_back({index, permutation});
   }
-  ~PermutationInfoSaver() {
-    jit_graph_->store_permutation_info(std::move(permutation_info_));
+  ~PermutationSetAndSave() {
+    jit_graph_->store_permutation_info(
+        std::move(permutation_info_), is_dynamic_recipe_);
   }
 
  private:
   OptimizedJITGraphAndMetaData::PermutationInfo permutation_info_;
   std::shared_ptr<OptimizedJITGraphAndMetaData> jit_graph_;
+  bool is_dynamic_recipe_ = false;
 };
 
-struct ExecutionControl {
-  std::optional<size_t> graph_key_with_perm_{};
-  bool is_shape_agnostic_cache_hit_ = false;
-  bool no_compile_ = false;
-  void cached_task(size_t graph_key_with_perm) {
-    graph_key_with_perm_ = graph_key_with_perm;
-    no_compile_ = true;
-  }
-  void sag_cache_hit() {
-    is_shape_agnostic_cache_hit_ = true;
-  }
-  void no_compile() {
-    no_compile_ = true;
+class PermutationIgnore final : public PermutationInfoSaver {
+ public:
+  void add_permutation(
+      const at::Tensor&,
+      uint64_t,
+      synapse_helpers::layouts::MemoryPermutation) override {
+    PT_BRIDGE_DEBUG("Permutation setting is ignored");
   }
 };
 
@@ -127,7 +135,8 @@ class HabanaLaunchOpPT;
 namespace HabanaLaunchOpPipeline {
 
 class PipelineCallBase;
-extern PipelineCallBase NoPipeline;
+extern PipelineCallBase
+    NoPipeline; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 void LoweringTask(
     std::unique_ptr<HabanaLaunchOpPT>&& launch_op,
@@ -188,8 +197,7 @@ class HabanaLaunchOpPT {
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution =
           HabanaLaunchOpPipeline::NoPipeline);
 
-  void ProcessIntermediateSymbolicShapes(
-      std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void ProcessIntermediateSymbolicShapes(torch::jit::Graph& jit_graph);
   void CreateORUpdateExprSymbolicTable(RecipeValueSpec* rv = nullptr);
   void CreateIValueForNodeInputs(
       torch::jit::Node* node,
@@ -201,8 +209,7 @@ class HabanaLaunchOpPT {
       torch::jit::Node* rv_node,
       const torch::jit::Stack& input_stack,
       OutputMetaDataVector& meta_vec);
-  void CreateValueToIShapeMapForInputs(
-      std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void CreateValueToIShapeMapForInputs(torch::jit::Graph& jit_graph);
   void UpdateValueIShapeMapForListUnpack(
       torch::jit::Node* node,
       RecipeValueSpec& rv);
@@ -216,20 +223,24 @@ class HabanaLaunchOpPT {
   bool is_hccl_send_mark_step();
   void CompileSynapse();
   std::shared_ptr<RecipeValueSpec> CompileSynapseGraphAndPatchTable();
+  std::shared_ptr<RecipeValueSpec> CreateRVSAndPatchTable(
+      const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   std::shared_ptr<synapse_helpers::graph::recipe_handle> CompileSynapseGraph();
+  void CompileLazyGraphInParallel();
   void ConstructPatchingTableAndAtenOutputs(
       RecipeValueSpec& rv,
       const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
   void UpdateSynapsePermutations(
       RecipeValueSpec& rvs,
-      const synapse_helpers::graph::recipe_handle& recipe);
-  void ApplyOutputPermutationsFromCache();
+      const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
+  void ApplyOutputPermutationsFromCache(bool is_dynamic_recipe = false);
   void StoreCompiledInformation(std::shared_ptr<RecipeValueSpec>& rvs);
   void ExecuteSynapse();
   void ExecuteSynapseGraph();
-  void ExecuteSynapseCache(size_t graph_key_with_perm);
+  void ExecuteSynapseCache();
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
+  void RemoveDuplicateGraph();
 
   bool get_enable_shape_agnostic_caching_() {
     return enable_shape_agnostic_caching_;
@@ -381,7 +392,7 @@ class HabanaLaunchOpPT {
   // dma_inputs_-------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // syn_launch_info_--------------------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
   // external_tensor_info_indexes_-------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
-  // permutation_info_saver_-------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
+  // permutation_saver_-------------------///----------------------------------------///---------------Write---------------///----------------Write--------------///------------NA
   // hpu_op_recipe_----------------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   // is_shape_agnostic_supported_--------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // jit_graph_cache_hit_count_----------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
@@ -446,9 +457,7 @@ class HabanaLaunchOpPT {
   // If true, static recipe_arg_spec will be evaluated
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
-  // Is true if symbol value hash changes from the
-  // previous run of the same recipe
-  bool is_symval_changed_from_prev_ = true;
+  std::string compile_stats_path_ = "";
   std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;
@@ -567,7 +576,7 @@ class HabanaLaunchOpPT {
   // We only use it in normal flow, because we need to set output permutation
   // in lowering thread in order to have ability execute compile and execution
   // in another threads
-  std::unique_ptr<PermutationInfoSaver> permutation_info_saver_;
+  std::unique_ptr<PermutationInfoSaver> permutation_saver_;
   std::shared_ptr<synapse_helpers::graph::recipe_handle> hpu_op_recipe_{
       nullptr};
   bool is_shape_agnostic_supported_ = false;
@@ -581,9 +590,55 @@ class HabanaLaunchOpPT {
   // 2. Input Stack
   // Currently this funciton is used for shape inference as well
   void BuildSynapseGraph(
-      std::shared_ptr<synapse_helpers::graph>& syn_graph,
-      SynBuildCache& syn_build_cache,
+      std::shared_ptr<synapse_helpers::graph>&,
+      SynBuildCache&,
       bool is_shape_inference = false);
+
+  void BuildSynapseGraphReset(SynBuildCache&);
+
+  struct BuildSynapseGraphNodesMainLoopRT {
+    std::vector<size_t> inputs_shape_tensors_vec;
+    std::vector<size_t> intermediate_shape_tensors_vec;
+    std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
+        memory_reuse_pairs;
+  };
+
+  BuildSynapseGraphNodesMainLoopRT BuildSynapseGraphNodesMainLoop(
+      synapse_helpers::graph&,
+      SynBuildCache&,
+      bool is_shape_inference,
+      torch::jit::graph_node_list&,
+      torch::jit::graph_node_list::iterator);
+
+  bool MainLoopHandledSpecialCase(
+      SynBuildCache&,
+      torch::jit::Node*,
+      const std::string& opname);
+
+  HabanaOperatorPtr GetConfiguredHabanaKernel(
+      synDeviceId,
+      torch::jit::Node*,
+      const c10::OperatorName&,
+      const std::string& opname);
+
+  void DebugCountOps(HabanaOperatorPtr&, const std::string& opname);
+
+  void HandleMetaAttr(
+      torch::jit::Stack&,
+      torch::jit::Node*,
+      const std::string& opname);
+
+  void GeneratePatchingInfoForGraphInputsDuringFastSif();
+
+  void GeneratePatchingInfoForInputsShapeTensorsDuringFastSif(
+      const std::vector<size_t>& shape_tensors_vec,
+      std::string_view label);
+
+  void AllowPermutationOnlyForOutputTensors(
+      const IValPtrSharedToTesorInfoMap& tensorinfo_map);
+
+  torch::jit::graph_node_list::iterator BuildSgGetItrRvNode(
+      synapse_helpers::graph& syn_graph);
 
   void BuildSynapseGraphLite(
       std::shared_ptr<synapse_helpers::graph>& syn_graph,
@@ -626,6 +681,9 @@ class HabanaLaunchOpPT {
       std::shared_ptr<torch::jit::Graph>& jit_graph);
   void ResetIShapeUpdateStatus(RecipeValueSpec& rv);
   void InitiateSynlaunchTimeCapture(RecipeLauncher& rv);
+  void UpdateRanges(
+      habana_helpers::ResultShapes& ranges,
+      DynamicShapeInfo& graph_input_info);
   void ProcessHabanaFusedOpWithDS(
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution);
   void CreateFirstDynamicBucket(
@@ -651,6 +709,14 @@ class HabanaLaunchOpPT {
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
+  void GetSynapseInputsForTensors(
+      const HabanaOperatorPtr& habana_op,
+      CValPtr value_in,
+      bool isTensor,
+      const std::string& scope_string);
+  void GetSynapseInputsPopulateSeed(
+      const HabanaOperatorPtr&,
+      torch::jit::Node*);
   const std::string& GetSynapseGraphName() {
     return SetAndGetSynapseGraphName(name_, graph_index_);
   }
@@ -917,7 +983,5 @@ class HabanaLaunchOpPT {
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map,
       std::shared_ptr<std::vector<InferNodeParams>> node_params_ptr = nullptr);
   // --------------------
-
-  ExecutionControl execution_control_;
 };
 } // namespace habana

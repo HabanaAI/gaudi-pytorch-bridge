@@ -72,15 +72,11 @@ void PermuteWeightTensor::PermuteIfNeeded() {
     }
 
     habana::eager::_copy_from(weight_cpu, m_weight, false);
-    auto pipeline_or_direct_set_memory_permutation =
-        [](MemoryPermutation new_permutation,
-           habana::StorageExtraMeta* m_storage_meta) {
-          m_storage_meta->set_memory_permutation(new_permutation);
-        };
-    habana::eager::pipeline_or_direct_generic(
-        pipeline_or_direct_set_memory_permutation,
-        std::move(new_permutation),
-        m_storage_meta);
+    habana::eager::PipelineOrExecuteTask(
+        [new_permutation = std::move(new_permutation),
+         storage_meta = m_storage_meta]() {
+          storage_meta->set_memory_permutation(new_permutation);
+        });
   }
 }
 

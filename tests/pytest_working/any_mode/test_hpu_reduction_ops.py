@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_lazy,
@@ -60,10 +60,7 @@ def test_hpu_reduction(op_name, shape, dtype):
 
     cpu_input, hpu_input = generate_inputs(shape, dtype)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     cpu_output = op(cpu_input, dtype=dtype)
     hpu_output = fn(hpu_input, dtype)
@@ -93,10 +90,7 @@ def test_hpu_reduction_dim(op_name, shape_and_dim, keepdim, dtype):
 
     cpu_input, hpu_input = generate_inputs(shape, dtype)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     if op_name in ["amax", "amin"]:
         cpu_output = op(cpu_input, dim=dim, keepdim=keepdim)
@@ -125,10 +119,7 @@ def test_hpu_prod(shape, dtype):
     def fn(input):
         return torch.prod(input, dtype=dtype)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     cpu_input, hpu_input = generate_inputs(shape, dtype)
 
@@ -150,10 +141,7 @@ def test_hpu_prod_dim(shape, dtype, dim, keepdim):
     def fn(input):
         return torch.prod(input, dim, keepdim=keepdim, dtype=dtype)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     cpu_input, hpu_input = generate_inputs(shape, dtype)
 
@@ -184,10 +172,7 @@ def test_hpu_prod_out(shape, dtype, dim, keepdim):
         cpu_output = cpu_output.unsqueeze(dim)
         hpu_output = hpu_output.unsqueeze(dim)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     # inplace op for cpu
     torch.ops.aten.prod.int_out(cpu_input, dim, keepdim=keepdim, dtype=dtype, out=cpu_output)

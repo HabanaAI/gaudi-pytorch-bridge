@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <absl/container/inlined_vector.h>
 #include <shared_layer_api.hpp>
 #include "backend/helpers/habana_types.h"
@@ -177,6 +177,8 @@ struct SharedLayerGuidValidator {
         m_is_dynamic(is_dynamic) {}
 
   SharedLayer::Return_t ValidateGuid();
+  // please check SharedLayer::Queries_t for bit definition.
+  SharedLayer::Return_t QueryGuid(unsigned* resultBitMap);
 
   bool m_valid_shape_tensor;
   bool m_valid_h2d_tensor;
@@ -193,6 +195,8 @@ struct SharedLayerGuidValidator {
   bool fillGuidParamInfo(
       SharedLayer::Tensor& tensor,
       const detail::TensorDescr& tensor_descr);
+  template <typename T>
+  bool fillParam(T& params);
 };
 
 } // namespace habana

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from test_utils import inference_env_fixture
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer
@@ -131,10 +132,6 @@ def verify_nodes(ops_summary, expected_op_count):
 def use_pt2e_quant_flow_with_separate_calibration(
     test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load="save"
 ):
-    import habana_frameworks.torch.core as htcore
-
-    htcore.hpu_set_env()
-
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
     random.seed(0xDEADDEAD)
@@ -196,7 +193,7 @@ def use_pt2e_quant_flow_with_separate_calibration(
                 calibrate_result = model(*example_inputs0)
                 calibrate_result = model(*example_inputs1)
 
-            if use_graph_break == True:
+            if use_graph_break:
                 verify_nodes(fga.get_ops_summary(), expected_op_count["after_prepare_pt2e"])
 
             with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -211,7 +208,21 @@ def use_pt2e_quant_flow_with_separate_calibration(
                 torch.export.save(model, "./mymodel.pt2")
 
         elif save_or_load == "load":
-            model = torch.export.load("./mymodel.pt2")
+            # Since PT2.6, torch.load (called in a torch.export.load function) has a 'weights_only' parameter set to True by default.
+            # Therefore, to load the model with custom functions/classes, they must be added to the list of safe_globals beforehand.
+            with torch.serialization.safe_globals(
+                [
+                    SimpleModelWithMultipleGraphs,
+                    SimpleModel,
+                    custom_quantizer,
+                    QuantizationConfig,
+                    QuantizationSpec,
+                    MinMaxObserver,
+                    torch.nn.Linear,
+                    torch.nn.ReLU,
+                ]
+            ):
+                model = torch.export.load("./mymodel.pt2")
             model = model.module()
 
             with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -222,13 +233,11 @@ def use_pt2e_quant_flow_with_separate_calibration(
         else:
             pass
 
-        if use_graph_break == True:
+        if use_graph_break:
             verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
         else:
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
-
-    htcore.hpu_reset_env()
 
 
 @pytest.mark.skip("SW-203403 To Do Enable it once FP8 data type is added at torch.export serialization")
@@ -238,7 +247,13 @@ def use_pt2e_quant_flow_with_separate_calibration(
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
 @pytest.mark.parametrize("save_or_load", test_mode)
 def test_pt2e_quant_float(
-    set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export, save_or_load
+    set_env_variable,
+    test_case,
+    quant_dtype,
+    use_graph_break,
+    pass_input_during_export,
+    save_or_load,
+    inference_env_fixture,
 ):
 
     quantizer = habana_quantizer()
@@ -269,87 +284,90 @@ def test_pt2e_quant_float(
     )
 
 
+class custom_quantizer(Quantizer):
+
+    def __init__(self, quantization_config):
+        super().__init__()
+        self.global_config: QuantizationConfig = quantization_config
+
+    def validate(self, model: torch.fx.GraphModule) -> None:
+        pass
+
+    def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
+
+        def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+            module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
+            if len(module_partitions) == 0:
+                return
+
+            act_qspec = get_input_act_qspec(quantization_config)
+            weight_qspec = get_weight_qspec(quantization_config)
+            for module_or_fn_type, partitions in module_partitions.items():
+                if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
+                    for p in partitions:
+                        act_node = p.input_nodes[0]
+                        weight_node = None
+                        for node in p.params:
+                            weight_or_bias = getattr(gm, node.target)
+                            if weight_or_bias.ndim == 2:
+                                weight_node = node
+
+                        if weight_node is None:
+                            continue
+
+                        _update_input_qspec_map(p, act_node, act_qspec)
+                        _update_input_qspec_map(p, weight_node, weight_qspec)
+
+                        nodes_to_mark_annotated = list(p.nodes)
+                        _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
+        _annotate_linear(model, self.global_config)
+        return model
+
+
+def custom_quant_config_symmetric(quant_dtype):
+    quant_min = int(torch.iinfo(quant_dtype).min)
+    quant_max = int(torch.iinfo(quant_dtype).max)
+
+    act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+    act_quantization_spec = QuantizationSpec(
+        dtype=quant_dtype,
+        quant_min=quant_min,
+        quant_max=quant_max,
+        qscheme=torch.per_tensor_symmetric,
+        is_dynamic=False,
+        observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
+    )
+
+    weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+    weight_quantization_spec = QuantizationSpec(
+        dtype=quant_dtype,
+        quant_min=quant_min,
+        quant_max=quant_max,
+        qscheme=torch.per_tensor_symmetric,
+        ch_axis=0,
+        is_dynamic=False,
+        observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
+    )
+
+    quantization_config = QuantizationConfig(
+        act_quantization_spec,
+        None,
+        weight_quantization_spec,
+        None,
+    )
+
+    return quantization_config
+
+
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
 @pytest.mark.parametrize("save_or_load", test_mode)
-def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export, save_or_load):
-
-    class custom_quantizer(Quantizer):
-
-        def __init__(self, quantization_config):
-            super().__init__()
-            self.global_config: QuantizationConfig = quantization_config
-
-        def validate(self, model: torch.fx.GraphModule) -> None:
-            pass
-
-        def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
-
-            def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
-                module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
-                if len(module_partitions) == 0:
-                    return
-
-                act_qspec = get_input_act_qspec(quantization_config)
-                weight_qspec = get_weight_qspec(quantization_config)
-                for module_or_fn_type, partitions in module_partitions.items():
-                    if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
-                        for p in partitions:
-                            act_node = p.input_nodes[0]
-                            weight_node = None
-                            for node in p.params:
-                                weight_or_bias = getattr(gm, node.target)
-                                if weight_or_bias.ndim == 2:
-                                    weight_node = node
-
-                            if weight_node is None:
-                                continue
-
-                            _update_input_qspec_map(p, act_node, act_qspec)
-                            _update_input_qspec_map(p, weight_node, weight_qspec)
-
-                            nodes_to_mark_annotated = list(p.nodes)
-                            _mark_nodes_as_annotated(nodes_to_mark_annotated)
-
-            _annotate_linear(model, self.global_config)
-            return model
-
-    def custom_quant_config_symmetric(quant_dtype):
-        quant_min = int(torch.iinfo(quant_dtype).min)
-        quant_max = int(torch.iinfo(quant_dtype).max)
-
-        act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-        act_quantization_spec = QuantizationSpec(
-            dtype=quant_dtype,
-            quant_min=quant_min,
-            quant_max=quant_max,
-            qscheme=torch.per_tensor_symmetric,
-            is_dynamic=False,
-            observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
-        )
-
-        weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-        weight_quantization_spec = QuantizationSpec(
-            dtype=quant_dtype,
-            quant_min=quant_min,
-            quant_max=quant_max,
-            qscheme=torch.per_tensor_symmetric,
-            ch_axis=0,
-            is_dynamic=False,
-            observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
-        )
-
-        quantization_config = QuantizationConfig(
-            act_quantization_spec,
-            None,
-            weight_quantization_spec,
-            None,
-        )
-
-        return quantization_config
-
+def test_pt2e_quant_int(
+    test_case, quant_dtype, use_graph_break, pass_input_during_export, save_or_load, inference_env_fixture
+):
     quant_config = custom_quant_config_symmetric(quant_dtype)
     quantizer = custom_quantizer(quant_config)
 

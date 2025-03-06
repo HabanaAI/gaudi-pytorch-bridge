@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -196,7 +196,8 @@ class HabanaGraphModule(torch.nn.Module):
         self._has_randoms = False
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
         self._outputs_batch_data = []
-        self._hash_key = 0
+        self._symval_recipe_id_map = {}
+        self._symval_output_size_map = {}
         if self._ds_output_prealloc:
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData((), md[1], md[2]))
@@ -204,10 +205,14 @@ class HabanaGraphModule(torch.nn.Module):
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData(md[0], md[1], md[2]))
 
+        self._get_pt_hpu_use_jit_fork = bc.get_pt_hpu_use_jit_fork()
+
         # We won't allocate tensors for outputs who duplicate inputs
         if self._in_to_out_dups is not None:
             self._out_to_in_dups = {v: k for k, v in self._in_to_out_dups.items()}
-            for idx in self._out_to_in_dups.keys():
+            duplicated_out_indexes = list(self._out_to_in_dups.keys())
+            duplicated_out_indexes.sort()
+            for idx in reversed(duplicated_out_indexes):
                 self._outputs_batch_data.remove(self._outputs_batch_data[idx])
                 self._outputs_metadata.remove(self._outputs_metadata[idx])
 
@@ -235,35 +240,68 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = []
         inputs = tuple(args)
 
-        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_hash_code, graph_compile, graph_launch
+        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_symval_hashcode, graph_compile, graph_launch
+
+        curr_symval_hash = (
+            calculate_symval_hashcode(inputs, self._pholder_symbolic_dict) if self._pholder_symbolic_dict else None
+        )
 
         if self._ds_output_prealloc:
-            self._symbol_evaluator.clear_symbolic_value_dict()
-            for output, metadata in zip(self._outputs_batch_data, self._outputs_metadata):
-                size = self._symbol_evaluator.calculate_shape(metadata[0], inputs)
-                output.size = size
+            if curr_symval_hash not in self._symval_output_size_map:
+                self._symbol_evaluator.clear_symbolic_value_dict()
+                output_sizes = [
+                    self._symbol_evaluator.calculate_shape(metadata[0], inputs) for metadata in self._outputs_metadata
+                ]
+                for output, size in zip(self._outputs_batch_data, output_sizes):
+                    output.size = size
+                if curr_symval_hash is not None:
+                    self._symval_output_size_map[curr_symval_hash] = output_sizes
+            else:
+                for output, size in zip(self._outputs_batch_data, self._symval_output_size_map[curr_symval_hash]):
+                    output.size = size
 
         outputs = batch_empty(self._outputs_batch_data)
 
-        # If dynamic recipe compilation is disabled
-        # recompilation will happen everytime
-        # except for static cache hit scenario
+        # If force_static_compile enabled, recipe will
+        # compile in static flow, even if fx-graph is dynamic
         if self._force_static_compile:
-            new_hash_key = calculate_hash_code(inputs)
-            if self._hash_key != new_hash_key:
-                self._hash_key = new_hash_key
+            if self._pholder_symbolic_dict:
+                if curr_symval_hash in self._symval_recipe_id_map:
+                    self._recipe_id = self._symval_recipe_id_map[curr_symval_hash]
+                else:
+                    self._recipe_id = None
+            elif self._dynamic:
+                # If symbols not properly captured (pholder_symbolic_dict is empty)
+                # even though graph is dynamic, Recompilation is needed
+                # to avoid false negative cases of symbols not changing
                 self._recipe_id = None
+            self._dynamic = False
+
+        if self._get_pt_hpu_use_jit_fork:
+            # insert the inputs into the out stack
+            if self._in_to_out_dups is not None:
+                out_idxes = list(self._out_to_in_dups.keys())
+                for out_idx in out_idxes:
+                    outputs.insert(out_idx, args[self._out_to_in_dups[out_idx]])
 
         if self._recipe_id is None:
-            self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
             self.check_for_random_ops()
+            if self._dynamic:
+                self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
+                if self._has_randoms:
+                    self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
+                    self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
+
             if self._has_randoms:
                 inputs = (None, None) + inputs
-                self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
-                self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
+
+            if self._get_pt_hpu_use_jit_fork:
+                graph = self._jit_ir
+            else:
+                graph = self._jit_ir.graph
 
             self._recipe_id = graph_compile(
-                graph=self._jit_ir.graph,
+                graph=graph,
                 inputs=inputs,
                 dynamic=self._dynamic,
                 inference=self._inference,
@@ -273,7 +311,12 @@ class HabanaGraphModule(torch.nn.Module):
                 range_infos=self._range_list,
                 mark_dynamic=self._mark_dynamic,
             )
-            dump_fx_graph(self._fx_module, self._jit_ir.graph, self._recipe_id)
+
+            if curr_symval_hash is not None:
+                self._symval_recipe_id_map[curr_symval_hash] = self._recipe_id
+
+            dump_fx_graph(self._fx_module, graph, self._recipe_id)
+
         elif self._has_randoms:
             inputs = (None, None) + inputs
 
@@ -283,15 +326,16 @@ class HabanaGraphModule(torch.nn.Module):
             outputs=outputs,
         )
 
-        # insert the inputs into the out stack
-        if self._in_to_out_dups is not None:
-            out_stack = (
-                list(out_stack) if type(out_stack) == tuple else ([out_stack] if out_stack is not None else list())
-            )
-            out_idxes = list(self._out_to_in_dups.keys())
-            for out_idx in out_idxes:
-                out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
-            out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
+        if not self._get_pt_hpu_use_jit_fork:
+            # insert the inputs into the out stack
+            if self._in_to_out_dups is not None:
+                out_stack = (
+                    list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else list())
+                )
+                out_indexes = self._out_to_in_dups.keys()
+                for out_idx in out_indexes:
+                    out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
+                out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
 
         return out_stack
 
@@ -464,7 +508,7 @@ def get_outputs_metadata_dynamic(graph_module):
                             sz_sympy = substitute_sympyfn(sz_sympy)
                             dynamic_shape_sympy.append(sz_sympy)
                             dynamic_shape_str.append(sz_str)
-                            if not sz_str in sym_expr_list:
+                            if sz_str not in sym_expr_list:
                                 sym_expr_list.append(sz_str)
 
                             sym_expr_token = sym_expr_list.index(sz_str)

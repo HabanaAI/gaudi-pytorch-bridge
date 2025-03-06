@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
 #
 ###############################################################################
 
-import inspect
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 
 import torch
-from torch._streambase import _EventBase, _StreamBase
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 get_hpu_stream: Optional[Callable[[int], int]]
 
@@ -34,96 +33,191 @@ caching_worker_device_properties: Dict[str, Any] = {}
 caching_worker_current_devices: Dict[str, int] = {}
 
 
-class DeviceInterfaceMeta(type):
-    def __new__(metacls, *args, **kwargs):
-        class_member = args[2]
-        if "Event" in class_member:
-            assert inspect.isclass(class_member["Event"]) and issubclass(
-                class_member["Event"], _EventBase
-            ), "DeviceInterface member Event should be inherit from _EventBase"
-        if "Stream" in class_member:
-            assert inspect.isclass(class_member["Stream"]) and issubclass(
-                class_member["Stream"], _StreamBase
-            ), "DeviceInterface member Stream should be inherit from _StreamBase"
-        return super().__new__(metacls, *args, **kwargs)
+if is_pytorch_older_than("2.6.0"):
+    import inspect
 
+    from torch._streambase import _EventBase, _StreamBase
 
-class DeviceInterface(metaclass=DeviceInterfaceMeta):
-    """
-    This is a device runtime interface for registering to pytorch.
-    """
+    class DeviceInterfaceMeta(type):
+        def __new__(metacls, *args, **kwargs):
+            class_member = args[2]
+            if "Event" in class_member:
+                assert inspect.isclass(class_member["Event"]) and issubclass(
+                    class_member["Event"], _EventBase
+                ), "DeviceInterface member Event should be inherit from _EventBase"
+            if "Stream" in class_member:
+                assert inspect.isclass(class_member["Stream"]) and issubclass(
+                    class_member["Stream"], _StreamBase
+                ), "DeviceInterface member Stream should be inherit from _StreamBase"
+            return super().__new__(metacls, *args, **kwargs)
 
-    class device:
-        def __new__(cls, device: _device_t):
-            raise NotImplementedError()
-
-    class Worker:
+    class DeviceInterface(metaclass=DeviceInterfaceMeta):
         """
-        Worker API to query device properties that will work in multi processing
-        workers that cannot use the GPU APIs (due to processing fork() and
-        initialization time issues). Properties are recorded in the main process
-        before we fork the workers.
+        This is a device runtime interface for registering to pytorch.
         """
 
+        class device:
+            def __new__(cls, device: _device_t):
+                raise NotImplementedError()
+
+        class Worker:
+            """
+            Worker API to query device properties that will work in multi processing
+            workers that cannot use the GPU APIs (due to processing fork() and
+            initialization time issues). Properties are recorded in the main process
+            before we fork the workers.
+            """
+
+            @staticmethod
+            def set_device(device: int):
+                raise NotImplementedError()
+
+            @staticmethod
+            def current_device() -> int:
+                raise NotImplementedError()
+
+            @staticmethod
+            def get_device_properties(device: _device_t = None):
+                raise NotImplementedError()
+
         @staticmethod
-        def set_device(device: int):
+        def current_device():
             raise NotImplementedError()
 
         @staticmethod
-        def current_device() -> int:
+        def set_device(device: _device_t):
+            raise NotImplementedError()
+
+        @staticmethod
+        def device_count():
+            raise NotImplementedError()
+
+        @staticmethod
+        def is_available() -> bool:
+            raise NotImplementedError()
+
+        @staticmethod
+        def stream(stream: torch.Stream):
+            raise NotImplementedError()
+
+        @staticmethod
+        def current_stream():
+            raise NotImplementedError()
+
+        @staticmethod
+        def set_stream(stream: torch.Stream):
+            raise NotImplementedError()
+
+        @staticmethod
+        def _set_stream_by_id(stream_id: int, device_index: int, device_type: int):
+            raise NotImplementedError()
+
+        @staticmethod
+        def get_raw_stream():
+            raise NotImplementedError()
+
+        @staticmethod
+        def synchronize(device: _device_t = None):
             raise NotImplementedError()
 
         @staticmethod
         def get_device_properties(device: _device_t = None):
             raise NotImplementedError()
 
-    @staticmethod
-    def current_device():
-        raise NotImplementedError()
+        @staticmethod
+        def get_compute_capability(device: _device_t = None):
+            raise NotImplementedError()
 
-    @staticmethod
-    def set_device(device: _device_t):
-        raise NotImplementedError()
+else:
 
-    @staticmethod
-    def device_count():
-        raise NotImplementedError()
+    class DeviceInterface:
+        """
+        This is a device runtime interface for registering to pytorch.
+        """
 
-    @staticmethod
-    def is_available() -> bool:
-        raise NotImplementedError()
+        class device:
+            def __new__(cls, device: _device_t):
+                raise NotImplementedError()
 
-    @staticmethod
-    def stream(stream: torch.Stream):
-        raise NotImplementedError()
+        class Event:
+            def __new__(cls, *args, **kwargs):
+                raise NotImplementedError(
+                    "Event should be inherited from torch.Event, otherwise, it couldn't be captured by dynamo."
+                )
 
-    @staticmethod
-    def current_stream():
-        raise NotImplementedError()
+        class Stream:
+            def __new__(cls, *args, **kwargs):
+                raise NotImplementedError(
+                    "Stream should be inherited from torch.Stream, otherwise, it couldn't be captured by dynamo."
+                )
 
-    @staticmethod
-    def set_stream(stream: torch.Stream):
-        raise NotImplementedError()
+        class Worker:
+            """
+            Worker API to query device properties that will work in multi processing
+            workers that cannot use the GPU APIs (due to processing fork() and
+            initialization time issues). Properties are recorded in the main process
+            before we fork the workers.
+            """
 
-    @staticmethod
-    def _set_stream_by_id(stream_id: int, device_index: int, device_type: int):
-        raise NotImplementedError()
+            @staticmethod
+            def set_device(device: int):
+                raise NotImplementedError()
 
-    @staticmethod
-    def get_raw_stream():
-        raise NotImplementedError()
+            @staticmethod
+            def current_device() -> int:
+                raise NotImplementedError()
 
-    @staticmethod
-    def synchronize(device: _device_t = None):
-        raise NotImplementedError()
+            @staticmethod
+            def get_device_properties(device: _device_t = None):
+                raise NotImplementedError()
 
-    @staticmethod
-    def get_device_properties(device: _device_t = None):
-        raise NotImplementedError()
+        @staticmethod
+        def current_device():
+            raise NotImplementedError()
 
-    @staticmethod
-    def get_compute_capability(device: _device_t = None):
-        raise NotImplementedError()
+        @staticmethod
+        def set_device(device: _device_t):
+            raise NotImplementedError()
+
+        @staticmethod
+        def device_count():
+            raise NotImplementedError()
+
+        @staticmethod
+        def is_available() -> bool:
+            raise NotImplementedError()
+
+        @staticmethod
+        def stream(stream: torch.Stream):
+            raise NotImplementedError()
+
+        @staticmethod
+        def current_stream():
+            raise NotImplementedError()
+
+        @staticmethod
+        def set_stream(stream: torch.Stream):
+            raise NotImplementedError()
+
+        @staticmethod
+        def _set_stream_by_id(stream_id: int, device_index: int, device_type: int):
+            raise NotImplementedError()
+
+        @staticmethod
+        def get_raw_stream():
+            raise NotImplementedError()
+
+        @staticmethod
+        def synchronize(device: _device_t = None):
+            raise NotImplementedError()
+
+        @staticmethod
+        def get_device_properties(device: _device_t = None):
+            raise NotImplementedError()
+
+        @staticmethod
+        def get_compute_capability(device: _device_t = None):
+            raise NotImplementedError()
 
 
 class HpuInterface(DeviceInterface):
@@ -135,7 +229,11 @@ class HpuInterface(DeviceInterface):
     from habana_frameworks.torch.hpu.streams import Stream
 
     # register Event and Stream class into the backend interface
+    # PyTorch 2.5.1
     # make sure Event and Stream are implemented and inherited from the _EventBase and _StreamBase
+    # PyTorch 2.6.0
+    # make sure Event and Stream are implemented and inherited from the torch.Event and torch.Stream
+
     Event = torch.hpu.Event
     Stream = torch.hpu.Stream
 

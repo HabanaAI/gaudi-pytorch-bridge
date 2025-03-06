@@ -22,6 +22,8 @@
 #include "dynamic_bucket_info.h"
 #include "dynamic_bucket_info_utils.h"
 
+using InputSymbolMap = std::unordered_map<std::string, std::shared_ptr<double>>;
+
 namespace habana_helpers {
 
 /**
@@ -106,6 +108,8 @@ class CompilationStatistics {
       ResultShapes ranges,
       bool refine_candidate,
       uint64_t step = 0);
+
+  virtual void LogSymbols(InputSymbolMap& symbol_value_map, uint64_t step = 0);
 
   virtual void LogFallback(
       std::string,

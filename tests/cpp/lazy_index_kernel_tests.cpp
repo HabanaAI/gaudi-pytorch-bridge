@@ -333,6 +333,53 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
   EXPECT_EQ(allclose(h_cout, a), true);
 }
 
+TEST_F(LazyIndexKernelTest, IndexAddInplaceTest2) {
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+    GTEST_SKIP();
+  }
+  torch::Tensor a = torch::randn({8, 2, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 1;
+  // size of index tensor is greater than the self tensor size along the dim
+  auto index = torch::tensor({0, 0, 1}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHPU);
+  auto source = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  auto h_source = source.to(torch::kHPU);
+
+  h_a.index_add_(dim, h_index, h_source);
+  auto h_temp = torch::zeros({8, 2, 28, 28}).to(torch::kHPU);
+  auto out = torch::add(h_a, h_temp);
+
+  auto h_cout = out.to(torch::kCPU);
+
+  a.index_add_(dim, index, source);
+
+  EXPECT_EQ(allclose(h_cout, a, 0.001, 0.001), true);
+}
+
+TEST_F(LazyIndexKernelTest, IndexAddRepeatedIndicesInplaceTest) {
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+    GTEST_SKIP();
+  }
+  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 1;
+  auto index = torch::tensor({0, 0, 1}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHPU);
+  auto source = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  auto h_source = source.to(torch::kHPU);
+
+  h_a.index_add_(dim, h_index, h_source);
+  auto h_temp = torch::zeros({8, 3, 28, 28}).to(torch::kHPU);
+  auto out = torch::add(h_a, h_temp);
+
+  auto h_cout = out.to(torch::kCPU);
+
+  a.index_add_(dim, index, source);
+
+  EXPECT_EQ(allclose(h_cout, a, 0.001, 0.001), true);
+}
+
 TEST_F(LazyIndexKernelTest, IndexAddOutTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
@@ -612,12 +659,12 @@ TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse0D) {
 }
 
 TEST_F(LazyIndexKernelTest, NonZeroOutTestMixValues) {
-  torch::Tensor input_cpu =
-      torch::randint(0, 7, {5, 7}, torch::dtype(torch::kInt64));
+  auto dtype = torch::dtype(torch::kInt64);
+  torch::Tensor input_cpu = torch::randint(0, 7, {5, 7}, dtype);
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
-  torch::Tensor hOut = at::empty_like(input_hpu);
-  torch::Tensor out_cpu = at::empty_like(input_cpu);
+  torch::Tensor hOut = torch::randn({0}, dtype).to("hpu");
+  torch::Tensor out_cpu = torch::randn({0}, dtype);
   torch::nonzero_outf(input_cpu, out_cpu);
   torch::nonzero_outf(input_hpu, hOut);
   auto out_hpu = hOut.to(torch::kCPU);
@@ -697,7 +744,7 @@ TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
   torch::Scalar start = -100.0f;
   torch::Scalar end = -100.0f;
   int64_t step = 100; // wrong value
-  torch::Tensor out = torch::randn({10}, torch::requires_grad(false));
+  torch::Tensor out = torch::randn({100}, torch::requires_grad(false));
   auto hOut = out.to(torch::kHPU);
 
   auto h_a = torch::linspace_outf(start, end, step, hOut);

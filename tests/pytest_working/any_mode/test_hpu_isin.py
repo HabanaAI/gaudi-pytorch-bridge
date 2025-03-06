@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 import pytest
 import torch
-from test_utils import format_tc, is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode, format_tc
 
 dtypes = [torch.float, torch.long, torch.int, torch.short, torch.int8]
 
@@ -40,7 +40,7 @@ def test_isin(elements_shape, test_elements_shape, dtype, invert, out):
     test_elements_cpu = torch.randn(test_elements_shape).to(dtype) if test_elements_shape else 3
     test_elements_hpu = test_elements_cpu.to("hpu") if test_elements_shape else 3
 
-    hpu_op = torch.compile(torch.isin, backend="hpu_backend") if is_pytest_mode_compile() else torch.isin
+    hpu_op = compile_function_if_compile_mode(torch.isin)
 
     if out:
         output_shape = elements_shape if elements_shape else []
@@ -68,7 +68,7 @@ def test_isin_different_dtypes(elements_dtype, test_elements_dtype2):
     test_elements_cpu = torch.randn(test_elements_shape).to(test_elements_dtype2)
     test_elements_hpu = test_elements_cpu.to("hpu")
 
-    hpu_op = torch.compile(torch.isin, backend="hpu_backend") if is_pytest_mode_compile() else torch.isin
+    hpu_op = compile_function_if_compile_mode(torch.isin)
 
     result_cpu = torch.isin(elements_cpu, test_elements_cpu, invert=invert)
     result_hpu = hpu_op(elements_hpu, test_elements_hpu, assume_unique=False, invert=invert)

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 # Exponential op on HPU and CPU devices will always give different results.
 # This test checks if:
@@ -33,8 +32,7 @@ def test_exponential(shape, lambd, dtype):
     def fn(input):
         return input.exponential_(lambd)
 
-    torch._dynamo.reset()
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input_1 = cpu_input.to("hpu")

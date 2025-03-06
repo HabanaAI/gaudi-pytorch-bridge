@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@ import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
 import torch
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from packaging.version import Version
 
 hpu = torch.device("hpu")
@@ -276,7 +278,7 @@ def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable]
     print("Reset env.")
 
 
-# fixutre that can be used for indirect initialization
+# fixture that can be used for indirect initialization
 @pytest.fixture
 def setup_teardown_env_fixture(request):
     yield from generic_setup_teardown_env(request.param)
@@ -440,6 +442,8 @@ class TcLimitedFormatter:
             return val.__name__
         elif isinstance(val, types.BuiltinMethodType):
             return val.__name__
+        elif isinstance(val, types.FunctionType):
+            return val.__name__
         else:
             s = str(val)
 
@@ -477,18 +481,34 @@ def is_pytest_mode_lazy():
 
 
 def clear_t_compile_logs():
+    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import logger as helpers_logger
     from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
     from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
 
+    helpers_logger.set_store_data(True)
     graph_logger.set_store_data(True)
     fallback_logger.set_store_data(True)
 
 
-def compile_function_if_compile_mode(function):
+def compile_function_if_compile_mode(
+    function,
+    backend="hpu_backend",
+    dynamic=None,
+    options=None,
+    mode=None,
+    fullgraph=False,
+):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        return torch.compile(function, backend="hpu_backend")
+        return torch.compile(
+            function,
+            backend=backend,
+            dynamic=dynamic,
+            options=options,
+            mode=mode,
+            fullgraph=fullgraph,
+        )
     else:
         return function
 
@@ -632,22 +652,29 @@ def is_dtype_floating_point(dtype):
     return torch.is_floating_point(torch.tensor((), dtype=dtype))
 
 
-def print_tensors_internal(tensors, index=[]):
+def print_tensors_internal(tensors, atol, rtol, index=[]):
     if isinstance(tensors[0], Iterable):
         for i, (tensors_sub) in enumerate(zip(*tensors)):
-            print_tensors_internal(tensors_sub, index + [i])
+            print_tensors_internal(tensors_sub, atol, rtol, index + [i])
     else:
-        len = 22
-        s = ""
-        for v in tensors:
-            s += f"{v:{len}}"
-        print(f"{index} {s}")
+        tolerance_ok = False
+        if atol is not None and rtol is not None and len(tensors) == 2:
+            a = tensors[0]
+            b = tensors[1]
+            tolerance_ok = abs(a - b) <= (atol + rtol * abs(b))
+
+        if not tolerance_ok:
+            l = 22
+            s = ""
+            for v in tensors:
+                s += f"{v:{l}}"
+            print(f"{index} {s}")
 
 
-def print_tensors(labels, tensors):
+def print_tensors(labels, tensors, atol=None, rtol=None):
     for l, t in zip(labels, tensors):
         print(f"{l} : {t.shape}")
-    print_tensors_internal([t.tolist() for t in tensors])
+    print_tensors_internal([t.tolist() for t in tensors], atol, rtol)
 
 
 def fga_assert_helper(ops_summary, op, count_list):
@@ -661,3 +688,35 @@ def fga_assert_helper(ops_summary, op, count_list):
                 assert op in single_graph_summary
                 assert single_graph_summary[op].graph_count == graph_count
                 assert single_graph_summary[op].eager_count == eager_count
+
+
+@contextmanager
+def use_eager_fallback():
+    original = configuration_flags["use_eager_fallback"]
+    configuration_flags["use_eager_fallback"] = True
+    try:
+        yield
+    finally:
+        configuration_flags["use_eager_fallback"] = original
+
+
+@contextmanager
+def force_op_eager_fallback(op):
+    revert = False
+    if op and op not in hpu_fallback_op_list:
+        revert = True
+        hpu_fallback_op_list.add(op)
+    try:
+        yield
+    finally:
+        if revert:
+            hpu_fallback_op_list.remove(op)
+
+
+@pytest.fixture(scope="function")
+def inference_env_fixture():
+    import habana_frameworks.torch.core as htcore
+
+    htcore.hpu_set_inference_env()
+    yield
+    htcore.hpu_teardown_inference_env()

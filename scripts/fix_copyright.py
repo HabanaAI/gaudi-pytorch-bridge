@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # coding: utf-8
-
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -28,35 +27,37 @@ import click
 
 current_year = datetime.date.today().year
 
-formats = {"cpp": ("*", " *", "/*", " */"), "script": ("#", "#", "#", "")}
+formats = {"cpp": ("", " * ", " *", "/**", " */", None), "script": ("#", "#  ", "#", "#", "#", "#")}
 
 
 def prepare_copyright(created, modified, formatting):
-    linefill, prefix, comment, close = formatting
+    linefill, prefix, prefix_empty_line, first_line, last_line, extra_line = formatting
     copyright = [
-        " Copyright (c) {dates} Intel Corporation",
+        "Copyright (c) {dates} Intel Corporation",
         "",
-        ' Licensed under the Apache License, Version 2.0 (the "License");',
-        " you may not use this file except in compliance with the License.",
-        " You may obtain a copy of the License at",
-        "     http://www.apache.org/licenses/LICENSE-2.0",
+        'Licensed under the Apache License, Version 2.0 (the "License");',
+        "you may not use this file except in compliance with the License.",
+        "You may obtain a copy of the License at",
+        "    http://www.apache.org/licenses/LICENSE-2.0",
         "",
-        " Unless required by applicable law or agreed to in writing, software",
-        ' distributed under the License is distributed on an "AS IS" BASIS,',
-        " WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.",
-        " See the License for the specific language governing permissions and",
-        " limitations under the License.",
-        "",
+        "Unless required by applicable law or agreed to in writing, software",
+        'distributed under the License is distributed on an "AS IS" BASIS,',
+        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.",
+        "See the License for the specific language governing permissions and",
+        "limitations under the License.",
     ]
+
+    def get_prefix(line):
+        return prefix if len(line) > 0 else prefix_empty_line
+
     dates = str(modified) if created == modified else f"{created}-{modified}"
     cpr = [(prefix + copyright[0].format(dates=dates))]
-    cpr += [f"{prefix}{c}" for c in copyright[1:]]
-    maxl = max(len(c) for c in cpr)
-    bar = linefill * (maxl - len(prefix))
-    cpr = [comment + bar] + cpr + [prefix + bar]
-    if close:
-        cpr.append(close)
+    cpr += [f"{get_prefix(c)}{c}" for c in copyright[1:]]
+    bar = linefill * 78
+    extra_line_list = [extra_line] if extra_line else []
+    cpr = [first_line + bar] + extra_line_list + cpr + extra_line_list + [last_line + bar]
     cpr.append("")
+
     return "\n".join(cpr)
 
 
@@ -115,18 +116,20 @@ def _patch_file(f):
 
     if "#" in contents[0]:
         formatting = formats["script"]
+        intel_ref = contents[2]
     elif "/*" in contents[0] or "//" in contents[0]:
         formatting = formats["cpp"]
+        intel_ref = contents[1]
     else:
-        raise PatchError(f, f"unknown header in file")
-    i = contents[1].split(" ")
+        raise PatchError(f, "unknown header in file")
+    i = intel_ref.split(" ")
 
-    if not "Habana" in contents[1]:
+    if "Intel Corporation" not in intel_ref:
         raise NoCopyrightError(f, f"Unexpected start of file {f}, not a Habana header")
     try:
-        p = i.index("(C)")
+        p = i.index("(c)")
     except ValueError:
-        raise PatchError(f, f"Unexpected start of file {f}, expected copyright sign '(C)'")
+        raise PatchError(f, f"Unexpected start of file {f}, expected copyright sign '(c)'")
     years = i[p + 1]
     if "-" in years:
         created, modified = years.split("-")
@@ -206,9 +209,9 @@ def patch_files(file_names, prefix, verbose, git):
     """
     Simple, stupid and effective tool to help with copyright header update.
     \b
-    (1) It will open file(s) and assume that Habana copyright is in at the top.
+    (1) It will open file(s) and assume that Intel copyright is in at the top.
     (2) It will capture the creation year.
-    (3) It will then update the file with the new Habana copyright header with year range starting with the original creation year and current year.
+    (3) It will then update the file with the new Intel copyright header with year range starting with the original creation year and current year.
 
     Don't fully trust this tool. Make sure to always review that the updates were correct.
 

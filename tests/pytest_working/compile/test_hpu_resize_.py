@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("dest_shape", [[1, 2], [4, 1, 2]], ids=format_tc)
@@ -29,8 +28,7 @@ def test_hpu_resize_(dest_shape, dtype):
     cpu_input = torch.rand([2, 3, 4], dtype=dtype)
     hpu_input = cpu_input.to("hpu")
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     fn(cpu_input, dest_shape)
     hpu_compiled_fn(hpu_input, dest_shape)

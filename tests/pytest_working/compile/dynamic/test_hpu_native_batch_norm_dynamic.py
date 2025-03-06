@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
 import numpy as np
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
@@ -41,8 +40,7 @@ def test_hpu_native_batch_norm_legit_functional_3d_dynamic(dtype, shape, params)
             eps=params["eps"],
         )
 
-    torch._dynamo.reset()
-    compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=None)
+    compiled_fn = compile_function_if_compile_mode(fn, dynamic=None)
 
     atol, rtol = (1e-2, 1e-2) if dtype == torch.bfloat16 else (1e-6, 1e-6)
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_propose_partitions,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import _is_simulator
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
+from test_utils import _is_simulator, compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 from torch.fx import symbolic_trace
 from torch.fx.experimental.proxy_tensor import make_fx
@@ -73,7 +74,11 @@ def compiler_fn(gm):
 def test_propose_partitions():
     torch.manual_seed(123)
 
-    with compiled_autograd.enable(compiler_fn):
+    _compiled_autograd_enable = (
+        compiled_autograd.enable if is_pytorch_older_than("2.6.0") else compiled_autograd._enable
+    )
+
+    with _compiled_autograd_enable(compiler_fn):
         input_dim = 100
         input = torch.rand((8, input_dim), dtype=torch.float, device="hpu")
         input_c = input.clone().detach()
@@ -82,7 +87,7 @@ def test_propose_partitions():
 
         hpu_backend_config.use_cpp_partitioner = True
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model = torch.compile(model, backend="hpu_backend", options={"keep_input_mutations": True}).to(
+            model = compile_function_if_compile_mode(model, options={"keep_input_mutations": True}).to(
                 torch.device("hpu")
             )
             optim = Adam(model.parameters())
@@ -93,7 +98,7 @@ def test_propose_partitions():
 
         hpu_backend_config.use_cpp_partitioner = False
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model_c = torch.compile(model_c, backend="hpu_backend", options={"keep_input_mutations": True}).to(
+            model_c = compile_function_if_compile_mode(model_c, options={"keep_input_mutations": True}).to(
                 torch.device("hpu")
             )
             optim = Adam(model_c.parameters())

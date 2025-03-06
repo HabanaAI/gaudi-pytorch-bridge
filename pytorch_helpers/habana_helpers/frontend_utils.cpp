@@ -108,6 +108,11 @@ void habana_helpers::copy_scalar_to_host(
     c10::hpu::HPUStream hpu_stream) {
   std::atomic<bool> copyDone{false};
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
+  auto tmeta{habana::get_tensor_extra_meta(src)};
+  if (tmeta->has_valid_const_id() && (tmeta->get_host_ptr() != nullptr)) {
+    std::memcpy(dst_ptr, tmeta->get_host_ptr(), size);
+    return;
+  }
 
   habana::HPUDeviceContext::copy_data_to_host(
       reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
@@ -166,12 +171,6 @@ at::Tensor habana_helpers::hpu_cast_tensor(
     const at::Tensor& Input,
     caffe2::TypeMeta type) {
   PT_KERNEL_BEGIN;
-
-  // At times we get 0-D tensor which cannot be handled by Synapse. Convert it
-  // 1-D tensor before proceeding further.
-  if (Input.dim() == 0) {
-    SET_SIZE_STRIDE_1D(Input);
-  }
 
   // Determine cast node_type to use based on src & dst dtypes
   std::pair<c10::ScalarType, c10::ScalarType> type_key{

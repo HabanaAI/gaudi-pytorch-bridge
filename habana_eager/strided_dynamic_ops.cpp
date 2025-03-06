@@ -266,7 +266,7 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
     int64_t step_idx = LONG_MAX;
     int64_t step_value = 1;
     GetValueAndScalarIndexFromInput(
-        step, org_stack, org_stack_index_map, step_value, step_idx);
+        step, org_stack, org_stack_index_map, step_value, step_idx, false);
     auto step_expr =
         GetRangeInfoExprFromInput(step, org_stack_index_map, m_range_infos);
     scalar_indexes.push_back(step_idx);
@@ -276,7 +276,7 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
     int64_t end_idx = LONG_MAX;
     int64_t end_value = 1;
     GetValueAndScalarIndexFromInput(
-        end, org_stack, org_stack_index_map, end_value, end_idx);
+        end, org_stack, org_stack_index_map, end_value, end_idx, false);
     auto end_expr =
         GetRangeInfoExprFromInput(end, org_stack_index_map, m_range_infos);
     scalar_indexes.push_back(end_idx);
@@ -286,7 +286,7 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
     int64_t start_idx = LONG_MAX;
     int64_t start_value = 0;
     GetValueAndScalarIndexFromInput(
-        start, org_stack, org_stack_index_map, start_value, start_idx);
+        start, org_stack, org_stack_index_map, start_value, start_idx, false);
     auto start_expr =
         GetRangeInfoExprFromInput(start, org_stack_index_map, m_range_infos);
     scalar_indexes.push_back(start_idx);
@@ -371,32 +371,24 @@ void ArangeOperatorDS::UpdateDynamicInputs(
     [[maybe_unused]] std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   // patch Start
-  int64_t start = 0;
   auto symint_idx = mixed_list[1].at(0).first;
   auto symint_val = mixed_list[1].at(0).second;
-  if ((symint_idx == LONG_MAX) || (symint_val < 0)) {
-    start = symint_val;
-  } else {
-    start = GetSymintValue(orig_stack, symint_idx);
-  }
+  int64_t start = symint_idx == LONG_MAX
+      ? symint_val
+      : GetSymintValue(orig_stack, symint_idx);
+
   // patch End
-  int64_t end = 0;
   symint_idx = mixed_list[1].at(1).first;
   symint_val = mixed_list[1].at(1).second;
-  if ((symint_idx == LONG_MAX) || (symint_val < 0)) {
-    end = symint_val;
-  } else {
-    end = GetSymintValue(orig_stack, symint_idx);
-  }
+  int64_t end = symint_idx == LONG_MAX ? symint_val
+                                       : GetSymintValue(orig_stack, symint_idx);
+
   // patch Step
-  int64_t step = 0;
   symint_idx = mixed_list[1].at(2).first;
   symint_val = mixed_list[1].at(2).second;
-  if ((symint_idx == LONG_MAX) || (symint_val < 0)) {
-    step = symint_val;
-  } else {
-    step = GetSymintValue(orig_stack, symint_idx);
-  }
+  int64_t step = symint_idx == LONG_MAX
+      ? symint_val
+      : GetSymintValue(orig_stack, symint_idx);
 
   // modify H2D Tensor
   auto dtensorH2D = dtensor_list[0]->toTensor();

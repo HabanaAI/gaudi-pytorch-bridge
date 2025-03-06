@@ -82,7 +82,7 @@ class GraphExec {
   void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
   std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
   void UpdateSeedTensors(torch::jit::Stack& stack);
-  bool HasInvalidDynanmicSymbols();
+  bool HasInvalidDynamicSymbols();
 
   struct SeedTensors {
     std::optional<at::Tensor> seed;

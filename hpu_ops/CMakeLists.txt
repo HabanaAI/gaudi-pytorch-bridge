@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 ###############################################################################
-
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 add_custom_command(OUTPUT
@@ -161,10 +160,10 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/convolution_overrideable_gen.cpp
   backend/count_nonzero_gen.cpp
   backend/ctc_loss_backward_gen.cpp
-  backend/ctc_loss_custom.cpp
+  backend/ctc_loss_custom_gen.cpp
   backend/ctc_loss_gen.cpp
   backend/cumsum_gen.cpp
-  backend/custom_softmax.cpp
+  backend/custom_softmax_gen.cpp
   backend/deform_conv2d_gen.cpp
   backend/diag_gen.cpp
   backend/div_gen.cpp
@@ -181,7 +180,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/expand_gen.cpp
   backend/exponential_gen.cpp
   backend/eye_gen.cpp
-  backend/fake_quant_fp4_gen.cpp
   backend/fbgemm.cpp
   backend/fill_gen.cpp
   backend/flip_gen.cpp
@@ -189,7 +187,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/foreach_gen.cpp
   backend/fp8_ops.cpp
   backend/fp8_ops_gen.cpp
-  backend/frac_gen.cpp
   backend/frexp_gen.cpp
   backend/full_gen.cpp
   backend/fused_clip_norm_gen.cpp
@@ -198,6 +195,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/gelu_gen.cpp
   backend/geometric_gen.cpp
   backend/glu_gen.cpp
+  backend/glu_jvp_gen.cpp
   backend/grid_sampler3d_gen.cpp
   backend/grid_sampler_gen.cpp
   backend/habana_random_ops.cpp
@@ -209,7 +207,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/index_reduce_gen.cpp
   backend/index_fill_gen.cpp
   backend/index_gen.cpp
-  backend/plain_index_gen.cpp
   backend/index_put_gen.cpp
   backend/index_select_gen.cpp
   backend/instance_norm_backward_gen.cpp
@@ -225,6 +222,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/leakyrelu_gen.cpp
   backend/lerp_gen.cpp
   backend/linalg_cross_gen.cpp
+  backend/linalg_qr_gen.cpp
   backend/linear_backward_gen.cpp
   backend/linear_gen.cpp
   backend/linspace_gen.cpp
@@ -235,7 +233,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/logsigmoid_gen.cpp
   backend/logsoftmax_gen.cpp
   backend/logspace_gen.cpp
-  backend/masked_batch_gemm.cpp
+  backend/masked_batch_gemm_gen.cpp
   backend/masked_fill_gen.cpp
   backend/_masked_scale_gen.cpp
   backend/matmul.cpp
@@ -276,7 +274,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/prelu_gen.cpp
   backend/put_gen.cpp
   backend/quant_dequant_gen.cpp
-  backend/ragged_softmax.cpp
   backend/random_gen.cpp
   backend/randperm_gen.cpp
   backend/reduce_std_var_gen.cpp
@@ -291,13 +288,13 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/rms_norm_gen.cpp
   backend/roi_align.cpp
   backend/roll_gen.cpp
-  backend/rotary_pos_embedding.cpp
+  backend/rotary_pos_embedding_gen.cpp
   backend/round_gen.cpp
   backend/roundingfunc_gen.cpp
   backend/rrelu_with_noise_gen.cpp
   backend/scalar_tensor_gen.cpp
-  backend/scaled_masked_softmax.cpp
-  backend/scaled_triangular_softmax.cpp
+  backend/scaled_masked_softmax_gen.cpp
+  backend/scaled_triangular_softmax_gen.cpp
   backend/scaled_mm_gen.cpp
   backend/scatter_add_gen.cpp
   backend/scatter_gen.cpp
@@ -392,7 +389,6 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/arange_gen.cpp
           lazy/bernoulli_gen.cpp
           lazy/binary_gen.cpp
-          lazy/binarycrossentropy_gen.cpp
           lazy/binaryscalar2tensor.cpp
           lazy/bitwise_gen.cpp
           lazy/bitwise_shift_gen.cpp

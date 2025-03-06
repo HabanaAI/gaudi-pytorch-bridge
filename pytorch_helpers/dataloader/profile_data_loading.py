@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 
 import argparse
 import cProfile
-import json
 import os
 import pathlib
 import pstats
@@ -33,7 +32,6 @@ import sys
 import time
 
 import torch
-import torch.utils.data as torch_data
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 

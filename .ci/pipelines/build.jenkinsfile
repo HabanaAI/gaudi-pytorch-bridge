@@ -14,8 +14,7 @@ def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLE
 String releaseVersion = extractReleaseVersion()
 def testBuildOsMap = [
     "rh86" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:rhel8.6-${releaseVersion}",
-    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}",
-    "a2" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:amzn2-${releaseVersion}"
+    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}"
 ]
 
 if (testBuildOsMap.keySet().contains(env.OS_SHORT_NAME)) {
@@ -35,6 +34,7 @@ def preCommitValidation = [
             Integer precommitResult = util.runShellCommandWrapper("""
                 set -xe
                 pushd \${PYTORCH_MODULES_ROOT_PATH}
+                git fetch \$(git remote) ${GIT_TARGET_BRANCH}
                 pre-commit run --color never --show-diff-on-failure --from \$(git remote)/${GIT_TARGET_BRANCH} --to HEAD
                 popd
             """, null, false, true)
@@ -77,8 +77,12 @@ if((env.GIT_PROJECT == 'lightning-habana-fork' ) && !isPromote) {
 }
 preBuildStages =  preBuildStages + lightningHabanaFork + ccacheStats
 def buildCommands = [
-    'Pytorch vision': 'build_pytorch_vision -c',
-    'Pytorch modules': 'build_pytorch_modules -c'
+    'Pytorch vision': [
+        'command': 'build_pytorch_vision -c'
+    ],
+    'Pytorch modules': [
+        'command': 'build_pytorch_modules -c'
+    ]
 ]
 
 genericBuilder(

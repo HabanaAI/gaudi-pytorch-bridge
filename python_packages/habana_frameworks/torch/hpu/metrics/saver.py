@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ class MetricTextWriter(MetricWriter):
             f"Metric name: {name}\n",
             f"Triggered by: {dump_trigger}\n",
             f"Generated on: {timestamp}\n",
-            f"Statistics:\n",
+            "Statistics:\n",
             *[f"\t{stat_name}: {stat_value}\n" for stat_name, stat_value in stats],
             "\n",
         ]
@@ -162,8 +162,6 @@ class MetricDumpFormat(str, Enum):
 
 class MetricDumpTrigger(str, Enum):
     process_exit = "process_exit"
-    mark_step = "mark_step"
-    metric_change = "metric_change"
     user = "user"
 
 

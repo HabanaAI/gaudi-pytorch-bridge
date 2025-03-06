@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,7 +20,14 @@ import os
 import pytest
 import torch
 from habana_frameworks.torch.hpex.normalization import FusedRMSNorm, RmsNormBwdMode
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, cpu, hpu, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    cpu,
+    hpu,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 rms_norm_test_case_list = [
     # Input shape, eps
@@ -67,11 +74,7 @@ def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, 
     gamma_hpu = gamma.clone().to(gamma_dtype).to(hpu)
     gamma_hpu.retain_grad()
 
-    output_fwd = FusedRMSNorm.apply
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        output_fwd = torch.compile(FusedRMSNorm.apply, backend="hpu_backend")
+    output_fwd = compile_function_if_compile_mode(FusedRMSNorm.apply)
 
     root_mean_square_norm = output_fwd(data_in_hpu, gamma_hpu, eps, use_stages, bwd_mode.value, fast_math)
     root_mean_square_norm.backward(grad_in.to(data_in_dtype).to(hpu))

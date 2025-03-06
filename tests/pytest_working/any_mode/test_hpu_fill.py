@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, hpu, is_pytest_mode_compile
+from test_utils import compare_tensors, compile_function_if_compile_mode, hpu
 
 test_case_list = [
     # N, C, fill_val,
@@ -71,9 +71,7 @@ def test_hpu_fill(N, C, fill_val, is_masked, is_inplace, fill_with_scalar):
 
     expected_result = ref_fn(*cpu_args)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        hpu_fn = torch.compile(hpu_fn, backend="hpu_backend")
+    compile_function_if_compile_mode(hpu_fn)
 
     real_result = hpu_fn(*hpu_args)
 

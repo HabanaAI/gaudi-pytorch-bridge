@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shape_and_dim", [((2, 3, 4), -1), ((2, 3, 4), -2)])
@@ -36,8 +36,7 @@ def test_hpu_gather(shape_and_dim, dtype):
     cpu_indices = torch.randint(low=0, high=max_index, size=shape, dtype=torch.int64)
     hpu_indices = cpu_indices.to("hpu")
 
-    torch._dynamo.reset()
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_indices)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_indices).cpu()

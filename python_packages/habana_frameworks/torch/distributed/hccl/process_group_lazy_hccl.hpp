@@ -146,6 +146,14 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
 
+  // Provides an API to abort the ProcessGroup (hcclCommAbort)
+  // instead of relying on ProcessGroupHCCL destructor.
+  // return true if abort is successful, otherwise false
+  bool abort(std::optional<std::string> abortReason);
+
+  // Shutdown the processgroup. Invokes abort asynchronously
+  void shutdown(std::optional<std::string> reason);
+
   void destroy();
 
   void startCoalescing() override;
@@ -187,6 +195,7 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   size_t barrier_cnt_;
   std::string group_name_;
   bool emulate_distributed_;
+  bool is_destroyed_ = false;
 
  protected:
   std::shared_ptr<habana::HcclCommunicator> comm_;

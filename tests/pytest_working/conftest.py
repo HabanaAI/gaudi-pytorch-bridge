@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -62,6 +62,10 @@ backup_env = pytest.StashKey[Mapping]()
 
 def pytest_runtest_setup(item):
 
+    from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+
+    configuration_flags["use_eager_fallback"] = False
+
     if (
         pytest.mode == "compile"
         and pytest.chip in pytest.eager_fallback_tests.keys()
@@ -72,8 +76,6 @@ def pytest_runtest_setup(item):
         and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
     ):
         import warnings
-
-        from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 
         configuration_flags["use_eager_fallback"] = True
         warnings.warn(
@@ -93,7 +95,7 @@ def pytest_runtest_teardown(item):
     ):
         from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 
-        configuration_flags["use_eager_fallback"] = os.getenv("PT_HPU_USE_EAGER_FALLBACK", "0") == "1"
+        configuration_flags["use_eager_fallback"] = False
 
 
 def pytest_configure(config):

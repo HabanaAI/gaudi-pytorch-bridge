@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 from enum import Enum
 
-import habana_frameworks.torch.core as htcore
 import pytest
 import torch
 from test_utils import compare_tensors, format_tc, is_gaudi1
@@ -61,7 +60,7 @@ def test_hpu_to(shape_strides, device_mode, dst_format, dtype):
         ref_input = torch.rand(shape, dtype=dtype, device="cpu")
 
     # if strides are set then view input will be created with regards to strides
-    if strides != None:
+    if strides is not None:
         ref_input = ref_input.as_strided(shape, strides)
     else:
         ref_input = ref_input.to(memory_format=src_format)

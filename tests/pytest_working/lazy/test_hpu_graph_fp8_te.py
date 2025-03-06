@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -162,13 +162,13 @@ def test_te_linear_module_cacher(
             out_test.cpu().to(torch.float).detach().numpy(),
             out_ref.cpu().to(torch.float).detach().numpy(),
             equal_nan=True,
-        ), f"Out data mismatch at init run"
+        ), "Out data mismatch at init run"
         assert np.array_equal(
             grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-        ), f"Grad weight data mismatch at init run"
+        ), "Grad weight data mismatch at init run"
         assert np.array_equal(
             grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-        ), f"Grad bias data mismatch at init run"
+        ), "Grad bias data mismatch at init run"
         if zero_grad:
             my_linear_ref.zero_grad(set_to_none=False)
             my_linear_test.zero_grad(set_to_none=False)
@@ -191,11 +191,11 @@ def test_te_linear_module_cacher(
             assert np.array_equal(
                 my_linear_test.fp8_meta["scaling_fwd"].scale.cpu().to(torch.float).detach().numpy(),
                 my_linear_ref.fp8_meta["scaling_fwd"].scale.cpu().to(torch.float).detach().numpy(),
-            ), f"fp8_meta scaling_fwd data mismatch at init run"
+            ), "fp8_meta scaling_fwd data mismatch at init run"
             assert np.array_equal(
                 my_linear_test.fp8_meta["scaling_bwd"].scale.cpu().to(torch.float).detach().numpy(),
                 my_linear_ref.fp8_meta["scaling_bwd"].scale.cpu().to(torch.float).detach().numpy(),
-            ), f"fp8_meta scaling_bwd data mismatch at init run"
+            ), "fp8_meta scaling_bwd data mismatch at init run"
 
         # Run recorded graph n times
         for i in range(0, 11):

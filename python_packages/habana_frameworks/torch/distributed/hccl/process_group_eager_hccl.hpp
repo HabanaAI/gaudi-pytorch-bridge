@@ -69,6 +69,14 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
 
   c10::intrusive_ptr<Work> barrier(const BarrierOptions& opts) override;
 
+  // Provides an API to abort the ProcessGroup (hcclCommAbort)
+  // instead of relying on ProcessGroupHCCL destructor.
+  // return true if abort is successful, otherwise false
+  bool abort(std::optional<std::string> abortReason);
+
+  // Shutdown the processgroup. Invokes abort asynchronously
+  void shutdown(std::optional<std::string> reason);
+
   void destroy() override;
 
   void restoreOddSizeSendTensors(std::vector<at::Tensor>& tensors);

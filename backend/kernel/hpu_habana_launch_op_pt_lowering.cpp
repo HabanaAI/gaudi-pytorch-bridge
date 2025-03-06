@@ -105,8 +105,9 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
   }
 }
 
-void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache() {
-  for (auto& el : jit_graph_and_meta_data_->get_permute()) {
+void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache(
+    bool is_dynamic_recipe) {
+  for (auto& el : jit_graph_and_meta_data_->get_permute(is_dynamic_recipe)) {
     auto oit =
         value_to_ivalue_.find(jit_ir_graph_->outputs().at(el.output_index));
     HABANA_ASSERT(oit != value_to_ivalue_.end());
@@ -124,7 +125,7 @@ void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache() {
  */
 void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     RecipeValueSpec& rvs,
-    const synapse_helpers::graph::recipe_handle& recipe) {
+    const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe) {
   PT_LAZY_TRACE;
 
   if (syn_graph_ptr_->is_empty()) {
@@ -138,8 +139,6 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     return;
   }
 
-  auto permutation_info_saver = std::move(permutation_info_saver_);
-
   std::function<void(
       const at::Tensor&, synapse_helpers::layouts::MemoryPermutation, uint64_t)>
       set_memory_permutations =
@@ -149,19 +148,13 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
             habana_helpers::set_tensor_memory_permutations(tensor, permutation);
           };
 
-  if (jit_graph_and_meta_data_->is_permute_set()) {
-    set_memory_permutations = [](const at::Tensor&,
-                                 synapse_helpers::layouts::MemoryPermutation,
-                                 uint64_t) {};
-  }
-
-  if (permutation_info_saver) {
+  auto permutation_saver = std::move(permutation_saver_);
+  if (permutation_saver) {
     set_memory_permutations =
         [&](const at::Tensor& tensor,
             synapse_helpers::layouts::MemoryPermutation permutation,
             uint64_t output_index) {
-          permutation_info_saver->add_permutation(output_index, permutation);
-          habana_helpers::set_tensor_memory_permutations(tensor, permutation);
+          permutation_saver->add_permutation(tensor, output_index, permutation);
         };
   }
 
@@ -173,6 +166,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+    HABANA_ASSERT(recipe, "Recipe must not be empty");
     std::map<uint64_t, uint64_t> persistent_to_tensor_id;
     std::vector<synRetrievedLaunchTensorInfo> tensor_info_vec;
     // creating a map of tensor id to tinfo
@@ -197,7 +191,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
       }
     }
     // querying synapse output tensors permutations:
-    synapse_helpers::graph::query_recipe_tensor_info(recipe, tensor_info_vec);
+    synapse_helpers::graph::query_recipe_tensor_info(*recipe, tensor_info_vec);
 
     // updating the BE tensor and the cache record with the permutation
     for (auto& info : tensor_info_vec) {
@@ -363,7 +357,7 @@ void habana::HabanaLaunchOpPT::HandleChecksum(
         (char*)data_ptr,
         old_size,
         device_id);
-  } else if (constant_information.GetChecksumForId(const_id) == checksum) {
+  } else if (constant_information.GetDeviceChecksum(const_id) == checksum) {
     HandleTensorWithChecksumOnDevice(
         const_id,
         checksum,
@@ -384,12 +378,12 @@ void habana::HabanaLaunchOpPT::DeserializeConstSection(
     return;
   }
   auto tmeta{habana::get_tensor_extra_meta(tensor)};
-  TensorExtraMeta::set_const_tensor(tensor, true);
+  TensorExtraMeta::prepare_const_tensor(tensor, true);
   auto const_serializer = tmeta->get_const_section_data_serializer();
   auto file_path =
       const_serializer->getSerializedRecipeFullPath(tmeta->get_const_id(), key);
   std::uintmax_t file_size = fs::file_size(file_path);
-  TensorExtraMeta::set_const_tensor(tensor, false);
+  TensorExtraMeta::prepare_const_tensor(tensor, false);
   if (file_size == 0) {
     HandleTensorWithZeroSize(tensor, ConstantInformation::key_t{key});
     return;
@@ -406,7 +400,7 @@ void habana::HabanaLaunchOpPT::DeserializeConstSection(
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   auto& constant_information = ConstantInformationValue();
   auto checksum_found =
-      constant_information.DoesCheckSumExist(const_id, checksum);
+      constant_information.IsCheckSumExistInAnyConstInfo(const_id, checksum);
   HandleChecksum(
       tensor,
       file_size,
@@ -439,7 +433,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
   auto old_size = tmeta->get_host_size();
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   auto& constant_information = ConstantInformationValue();
-  auto checksum_if_exists = constant_information.GetChecksumForId(const_id);
+  auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);
   tmeta->set_nbytes_inference(old_size);
   ConstantInformation::checksum_t checksum{0};
   constant_information.Insert(const_id, checksum);
@@ -499,7 +493,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
   // or if old_size is same as section_size but checksum is new
   auto& constant_information = ConstantInformationValue();
   ConstantInformation::checksum_t host_checksum{tmeta->get_host_checksum()};
-  auto checksum_if_exists = constant_information.GetChecksumForId(const_id);
+  auto checksum_if_exists = constant_information.GetDeviceChecksum(const_id);
 
   if (checksum_if_exists.has_value() or (checksum != host_checksum)) {
     // Reallocation is required
@@ -585,97 +579,106 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     synapse_helpers::graph::recipe_handle& recipe) {
   std::vector<synSectionId> constSectionIds;
   uint32_t numOfTensors = 0;
+  std::unordered_set<int> handled_ids_set;
+  if (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) {
+    return;
+  }
   synStatus status =
       synTensorRetrieveLaunchAmount(recipe.syn_recipe_handle_, &numOfTensors);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   auto tensorInfos =
       getRecipeTensorInfos(recipe.syn_recipe_handle_, numOfTensors);
-  for (auto iter = pt_to_synapse_tensors_.begin();
-       iter != pt_to_synapse_tensors_.end();
-       ++iter) {
-    auto& src = iter->first->toTensor();
-    // PT_BRIDGE_DEBUG("tensor ", src, " has_storage: ", src.has_storage());
-    if (src.has_storage()) {
-      auto tmeta{get_tensor_extra_meta(src)};
-      for (synapse_helpers::tensor& tensor : *(iter->second)) {
-        if (tmeta->is_const_tensor()) {
-          PT_BRIDGE_DEBUG(
-              "const tensor name:: ",
-              tensor.name(),
-              " const id: ",
-              tmeta->get_const_id());
-          // habana_helpers::handle_const_section_tensor(src, tensor);
-          // remove the const marking to avoid copy more than once
-          TensorExtraMeta::set_const_tensor(src, false);
-          uint64_t section_size = 0, section_data = 0;
-          synSectionId tensorSectionId;
-          bool isInput;
-          getTensorSectionId(
-              tensor.get(),
-              tensorSectionId,
-              tensorInfos,
-              numOfTensors,
-              isInput);
-          if (!isInput) {
-            PT_BRIDGE_DEBUG("non-input tensor section ID:  ", tensorSectionId);
-            continue;
-          }
-          HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);
-          synStatus status;
-          status = synRecipeSectionGetProp(
-              recipe.syn_recipe_handle_,
-              tensorSectionId,
-              SECTION_SIZE,
-              &section_size);
-          HABANA_ASSERT(
-              status == synStatus::synSuccess, Logger::synStatusToStr(status));
-          PT_BRIDGE_DEBUG(
-              "section ID: ",
-              tensorSectionId,
-              " section_size:: ",
-              section_size,
-              " , size (bridge) :: ",
-              tensor.get_host_ptr_size());
-          if (section_size) {
-            auto device_id = tensor.device_id();
-            HABANA_ASSERT(
-                status == synStatus::synSuccess,
-                Logger::synStatusToStr(status));
+  for (size_t input_index = 0; input_index < pt_stack_sh_.size();
+       input_index++) {
+    auto& ivpsh = pt_stack_sh_[input_index];
+    if (ivpsh.get()->isTensor()) {
+      auto& src = ivpsh.get()->toTensor();
+      if (src.has_storage()) {
+        auto tmeta{get_tensor_extra_meta(src)};
+        if (tmeta->is_const_tensor() &&
+            (handled_ids_set.count(tmeta->get_const_id()) == 0)) {
+          auto syn_tensor_input = pt_to_synapse_tensors_.find(ivpsh);
+          for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
+            PT_BRIDGE_DEBUG(
+                "New const tensor name:: ",
+                tensor.name(),
+                " const id: ",
+                tmeta->get_const_id());
+
+            // habana_helpers::handle_const_section_tensor(src, tensor);
+            handled_ids_set.insert(tmeta->get_const_id());
+            uint64_t section_size = 0, section_data = 0;
+            synSectionId tensorSectionId;
+            bool isInput;
+            getTensorSectionId(
+                tensor.get(),
+                tensorSectionId,
+                tensorInfos,
+                numOfTensors,
+                isInput);
+            if (!isInput) {
+              PT_BRIDGE_DEBUG(
+                  "non-input tensor section ID:  ", tensorSectionId);
+              continue;
+            }
+            HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);
+            synStatus status;
             status = synRecipeSectionGetProp(
                 recipe.syn_recipe_handle_,
                 tensorSectionId,
-                SECTION_DATA,
-                &section_data);
-            char* section_data_ptr = (char*)section_data;
+                SECTION_SIZE,
+                &section_size);
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
-            ConstantInformation::checksum_t checksum{
-                GetDataChecksum(section_data_ptr, section_size)};
-            HABANA_ASSERT(
-                tmeta->has_valid_const_id(),
-                "Constant tensor can not have constant id as -1");
-            [[maybe_unused]] auto& device =
-                HPUDeviceContext::get_device(device_id);
-            status = synHostMap(device_id, section_size, section_data_ptr);
-            HABANA_ASSERT(
-                status == synStatus::synSuccess,
-                Logger::synStatusToStr(status));
-            ConstantInformation::id_t const_id{tmeta->get_const_id()};
-            auto& constant_information = ConstantInformationValue();
-            auto checksum_found =
-                constant_information.DoesCheckSumExist(const_id, checksum);
             PT_BRIDGE_DEBUG(
-                "const_id: ",
-                const_id,
-                " checksum_found: ",
-                checksum_found,
-                " checksum: ",
-                checksum);
+                "section ID: ",
+                tensorSectionId,
+                " section_size:: ",
+                section_size,
+                " , size (bridge) :: ",
+                tensor.get_host_ptr_size());
+            if (section_size) {
+              auto device_id = tensor.device_id();
+              HABANA_ASSERT(
+                  status == synStatus::synSuccess,
+                  Logger::synStatusToStr(status));
+              status = synRecipeSectionGetProp(
+                  recipe.syn_recipe_handle_,
+                  tensorSectionId,
+                  SECTION_DATA,
+                  &section_data);
+              char* section_data_ptr = (char*)section_data;
+              HABANA_ASSERT(
+                  status == synStatus::synSuccess,
+                  Logger::synStatusToStr(status));
+              ConstantInformation::checksum_t checksum{
+                  GetDataChecksum(section_data_ptr, section_size)};
+              HABANA_ASSERT(
+                  tmeta->has_valid_const_id(),
+                  "Constant tensor can not have constant id as -1");
+              [[maybe_unused]] auto& device =
+                  HPUDeviceContext::get_device(device_id);
+              status = synHostMap(device_id, section_size, section_data_ptr);
+              HABANA_ASSERT(
+                  status == synStatus::synSuccess,
+                  Logger::synStatusToStr(status));
+              ConstantInformation::id_t const_id{tmeta->get_const_id()};
+              auto& constant_information = ConstantInformationValue();
+              auto checksum_found =
+                  constant_information.IsCheckSumExistInAnyConstInfo(
+                      const_id, checksum);
+              PT_BRIDGE_DEBUG(
+                  "const_id: ",
+                  const_id,
+                  " checksum_found: ",
+                  checksum_found,
+                  " checksum: ",
+                  checksum);
               auto old_size = tensor.get_host_ptr_size();
               HandleChecksum(
-                  iter->first->toTensor(),
+                  ivpsh.get()->toTensor(),
                   section_size,
                   checksum_found,
                   checksum,
@@ -684,8 +687,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   old_size,
                   device_id);
               UpdateTensorInfoMap(
-                  iter->first,
-                  (void*)(iter->first->toTensor().storage().data_ptr().get()));
+                  ivpsh,
+                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
 
               constSectionIds.emplace_back(tensorSectionId);
               SerializeConstSection(
@@ -698,15 +701,27 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               HABANA_ASSERT(
                   status == synStatus::synSuccess,
                   Logger::synStatusToStr(status));
-          } else {
-            HandleTensorWithZeroSize(
-                iter->first->toTensor(),
-                ConstantInformation::key_t{cur_rargpsh_->hashCode()});
-            SerializeConstSection(
-                src, section_size, nullptr, cur_rargpsh_->hashCode());
-            UpdateTensorInfoMap(
-                iter->first,
-                (void*)(iter->first->toTensor().storage().data_ptr().get()));
+            } else {
+              HandleTensorWithZeroSize(
+                  ivpsh.get()->toTensor(),
+                  ConstantInformation::key_t{cur_rargpsh_->hashCode()});
+              SerializeConstSection(
+                  src, section_size, nullptr, cur_rargpsh_->hashCode());
+              UpdateTensorInfoMap(
+                  ivpsh,
+                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
+            }
+
+            // Assuming all the tensors with numel=1 are scale constant tensors.
+            // TODO: Proper detection scale constant tensor must perform here
+            if (src.numel() == 1) {
+              auto& constant_information = ConstantInformationValue();
+              auto scale_index = ConstantInformation::scaleIndex_t{input_index};
+              constant_information.StoreRecipeScaleConstInput(
+                  ConstantInformation::key_t(cur_rargpsh_->hashCode()),
+                  scale_index,
+                  ConstantInformation::id_t(tmeta->get_const_id()));
+            }
           }
         }
       }

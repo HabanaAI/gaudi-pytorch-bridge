@@ -68,8 +68,8 @@ TEST_F(LazyReductionKernelTest, SumDimIntOut) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
 
-  torch::Tensor hOut = at::empty_like(hA);
-  torch::Tensor Out = at::empty_like(A);
+  torch::Tensor Out = torch::randn({2});
+  torch::Tensor hOut = Out.to("hpu");
 
   torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, c10::nullopt, Out);
   torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, c10::nullopt, hOut);
@@ -82,8 +82,8 @@ TEST_F(LazyReductionKernelTest, AllDimOut) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
   torch::Tensor hA = A.to(torch::kHPU);
 
-  torch::Tensor hOut = at::empty_like(hA);
-  torch::Tensor Out = at::empty_like(A);
+  torch::Tensor Out = torch::randint(-10, 10, {2}) > 0;
+  torch::Tensor hOut = Out.to("hpu");
 
   torch::Tensor out_cpu = torch::all_outf(A, 0, false, Out);
   torch::Tensor out_hpu = torch::all_outf(hA, 0, false, hOut);
@@ -125,7 +125,7 @@ TEST_F(LazyReductionKernelTest, AnyDimTest) {
 TEST_F(LazyReductionKernelTest, AnyDimOutTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
   torch::Tensor hA = A.to(torch::kHPU);
-  torch::Tensor A_out = torch::randn({3, 2}) > 0;
+  torch::Tensor A_out = torch::randint(-10, 10, {3, 1}) > 0;
   torch::Tensor hA_out = A_out.to(torch::kHPU);
 
   torch::Tensor out = torch::any_outf(hA, 1, true, hA_out);

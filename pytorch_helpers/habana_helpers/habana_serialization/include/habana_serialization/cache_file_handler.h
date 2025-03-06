@@ -49,9 +49,9 @@ class CacheFileHandler {
 
  private:
   int local_rank, rank;
-  // Updated once during Construction using env: PT_RECIPE_CACHE_PATH
+  // Updated once during Construction using env: PT_HPU_RECIPE_CACHE_CONFIG
   std::string cache_path;
-  // Updated once during Construction using env: PT_CACHE_FOLDER_SIZE_MB
+  // Updated once during Construction using env: PT_HPU_RECIPE_CACHE_CONFIG
   uint64_t maxFolderSize;
 
   std::mutex mtx;
@@ -60,8 +60,8 @@ class CacheFileHandler {
   std::optional<uint64_t> getMaxFolderSize() {
     // Due to the fact that eviction is performed after recipe storing, there is
     // a chance to exceed the disk cache size defined by user via
-    // PT_CACHE_FOLDER_SIZE_MB. In order to avoid such a scenario the max size
-    // is limited to the 99% of defined threshold.
+    // PT_HPU_RECIPE_CACHE_CONFIG. In order to avoid such a scenario the max
+    // size is limited to the 99% of defined threshold.
     constexpr double threshold_prescaler = 0.99;
 
     // If set to 0 then recipe cache eviction is disabled.

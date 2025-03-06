@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/kernel/hpu_habana_cache.h"
 #include <algorithm>
@@ -1698,11 +1698,17 @@ void RecipeLauncher::Launch(
       auto cleanup_callback = [resource_holder]() mutable {
         resource_holder.reset();
       };
-
-      device.register_producer_on_stream(
-          std::move(outDevPtr), stream_handle, cleanup_callback);
+      if (recipe_) {
+        device.register_producer_on_stream(
+            std::move(outDevPtr), stream_handle, cleanup_callback);
+      }
       // Launch collective ops
-      collective_kernels_info_->Launch(true, cleanup_callback);
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
+        collective_kernels_info_->Launch(
+            ptRefs, outPtRefs, true, cleanup_callback);
+      } else {
+        collective_kernels_info_->Launch(ptRefs, outPtRefs, true, [] {});
+      }
     } else {
       // Use wrapper for resources that must survive async part of the compute.
       struct ResourceHolder {
@@ -1746,9 +1752,10 @@ void RecipeLauncher::Launch(
       auto cleanup_callback = [resource_holder]() mutable {
         resource_holder.reset();
       };
-
-      device.register_producer_on_stream(
-          std::move(outDevPtr), stream_handle, cleanup_callback);
+      if (recipe_) {
+        device.register_producer_on_stream(
+            std::move(outDevPtr), stream_handle, cleanup_callback);
+      }
       for (auto data_ptr : inDevPtr) {
         device.get_device_memory().recordStream(
             // NOLINTNEXTLINE(performance-no-int-to-ptr)
@@ -1761,8 +1768,13 @@ void RecipeLauncher::Launch(
             reinterpret_cast<void*>(data_ptr),
             hpu_stream);
       }
-      // Launch collective ops
-      collective_kernels_info_->Launch(true, cleanup_callback);
+      // Launch collective opis
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
+        collective_kernels_info_->Launch(
+            ptRefs, outPtRefs, true, cleanup_callback);
+      } else {
+        collective_kernels_info_->Launch(ptRefs, outPtRefs, true, [] {});
+      }
     }
 
   } else {
@@ -1802,7 +1814,7 @@ void RecipeLauncher::Launch(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 
     // Launch collective ops
-    collective_kernels_info_->Launch(false, [] {});
+    collective_kernels_info_->Launch(ptRefs, outPtRefs, false, [] {});
 
     if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
       auto& device = HPUDeviceContext::get_device();
@@ -1952,11 +1964,13 @@ void DynamicBucketInfoMap::add(
   map_.emplace(key, val);
 }
 
-void DynamicBucketInfoMap::refine_graph(size_t graph_key) {
+void DynamicBucketInfoMap::refine_graph(
+    size_t graph_key,
+    torch::jit::Stack& stack) {
   for (auto& p : map_) {
     auto dbipsh = p.second;
     if (dbipsh->GetGraphKey() == graph_key) {
-      dbipsh->CheckForSplitBucket(dbipsh);
+      dbipsh->CheckForSplitBucket(dbipsh, stack);
       return;
     }
   }

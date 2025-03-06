@@ -33,3 +33,6 @@
 #define DUMP_17ARGS(a1, ...) DUMP_ARG(a1), DUMP_16ARGS(__VA_ARGS__)
 #define DUMP_18ARGS(a1, ...) DUMP_ARG(a1), DUMP_17ARGS(__VA_ARGS__)
 #define DUMP_19ARGS(a1, ...) DUMP_ARG(a1), DUMP_18ARGS(__VA_ARGS__)
+#define DUMP_20ARGS(a1, ...) DUMP_ARG(a1), DUMP_19ARGS(__VA_ARGS__)
+#define DUMP_21ARGS(a1, ...) DUMP_ARG(a1), DUMP_20ARGS(__VA_ARGS__)
+#define DUMP_22ARGS(a1, ...) DUMP_ARG(a1), DUMP_21ARGS(__VA_ARGS__)

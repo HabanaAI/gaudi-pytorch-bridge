@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ def setup_teardown_env():
     pytest.stats_path = stats_path
 
     yield
-    if ds_org_status == False:
+    if ds_org_status is False:
         bc.set_pt_hpu_enable_refine_dynamic_shapes(False)
 
     bc.set_pt_compilation_stats_path(org_stats_path)

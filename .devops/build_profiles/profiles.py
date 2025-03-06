@@ -44,19 +44,17 @@ class VersionLiteralAndSource:
 def get_profiles_json():
     """Returns a JSON object with the contents of the profiles.json file"""
     if hasattr(get_profiles_json, "PROFILES_JSON"):
-        return getattr(get_profiles_json, "PROFILES_JSON")
+        return get_profiles_json.PROFILES_JSON
 
     if not hasattr(get_profiles_json, "JSON_PATH"):
-        setattr(
-            get_profiles_json,
-            "JSON_PATH",
-            os.path.join(os.getenv("PYTORCH_MODULES_ROOT_PATH"), ".devops/build_profiles/profiles.json"),
+        get_profiles_json.JSON_PATH = os.path.join(
+            os.getenv("PYTORCH_MODULES_ROOT_PATH"), ".devops/build_profiles/profiles.json"
         )
 
-    with open(getattr(get_profiles_json, "JSON_PATH"), mode="r", encoding="utf-8") as profiles_fp:
-        setattr(get_profiles_json, "PROFILES_JSON", json.load(profiles_fp))
+    with open(get_profiles_json.JSON_PATH, mode="r", encoding="utf-8") as profiles_fp:
+        get_profiles_json.PROFILES_JSON = json.load(profiles_fp)
 
-    return getattr(get_profiles_json, "PROFILES_JSON")
+    return get_profiles_json.PROFILES_JSON
 
 
 def get_version_literal_and_source(version_name: str, strict: bool = False) -> Optional[VersionLiteralAndSource]:
@@ -217,3 +215,25 @@ def get_extras_version(package_name: str, pt_version_id: str) -> str:
         return node["extras"][package_name]
     except KeyError as exc:
         raise KeyError(f'{package_name} version for "{pt_version_id}" is not defined') from exc
+
+
+def get_cpu_index_url(pt_version_id: str) -> str:
+    profiles_json = get_profiles_json()
+    available_pt_versions = profiles_json["pt_versions"]
+    node = available_pt_versions[pt_version_id]
+    if not node:
+        raise KeyError(f'pt_version "{pt_version_id}" is not defined')
+    try:
+        return str(node["cpu_index_url"])
+    except KeyError:
+        return "default"
+
+
+def get_pt_version_id(pt_version: str) -> str:
+    profiles_json = get_profiles_json()
+    available_pt_versions = profiles_json["pt_versions"]
+    for version_id, version_spec in available_pt_versions.items():
+        if version_spec["version"] and version_spec["version"] in pt_version:
+            return version_id
+
+    raise KeyError(f'pt_version "{pt_version}" is not present in profiles.json')

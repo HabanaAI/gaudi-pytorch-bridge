@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import shutil
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 def graphs_visualization_cleanup(path):
@@ -76,8 +77,7 @@ def test_multinode_graph_visualization(rank="37"):
         mat2_in_hpu = mat2.to(device_hpu)
 
         # Process
-        if pytest.mode == "compile":
-            fn = torch.compile(fn, backend="hpu_backend")
+        fn = compile_function_if_compile_mode(fn)
         res = fn(mat1_in_hpu, mat2_in_hpu)
 
         # Get result back to CPU

@@ -131,14 +131,6 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
-  sbs:
-    devices:
-      gaudi2:
-        hwType:
-          asic:
-      gaudi:
-        hwType:
-          asic:
   lightning_habana_uts:
     devices:
       gaudi2:

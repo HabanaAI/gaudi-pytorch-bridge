@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ def replace_with_dur(matched_sequence):
             if e["ph"] == "E":
                 continue
             if e["ph"] == "B":
-                if not "end_ts" in e:
+                if "end_ts" not in e:
                     continue
                 e["ph"] = "X"
                 e["dur"] = e["end_ts"] - e["ts"]

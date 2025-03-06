@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 2, 7]], ids=format_tc)
@@ -32,8 +31,7 @@ def test_hpu_avg_pool1d(shape, kernel_size_and_padding, stride, dtype):
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -52,8 +50,7 @@ def test_hpu_adaptive_avg_pool1d(shape, output_size, dtype):
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     torch._dynamo.reset()
     cpu_output = fn(cpu_input)
@@ -84,8 +81,7 @@ def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -103,8 +99,7 @@ def test_hpu_avg_pool2d(shape, kernel_size_and_padding, stride, dtype):
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -127,8 +122,7 @@ def test_hpu_avg_pool2d_bwd(shape, kernel_size_and_padding, stride, dtype):
     hpu_input = cpu_input.to("hpu")
     cpu_input.requires_grad = True
     hpu_input.requires_grad = True
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -145,7 +139,7 @@ def test_hpu_adaptive_avg_pool3d(shape, output_size, dtype):
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
 
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).to("cpu")
@@ -167,8 +161,7 @@ def test_hpu_adaptive_avg_pool3d_bwd(shape, output_size, dtype):
     cpu_input.requires_grad = True
     hpu_input.requires_grad = True
 
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input)
@@ -189,8 +182,7 @@ def test_hpu_adaptive_avg_pool2d_bwd(shape, output_size, dtype):
     hpu_input = cpu_input.to("hpu")
     cpu_input.requires_grad = True
     hpu_input.requires_grad = True
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -206,9 +198,8 @@ def test_hpu_adaptive_avg_pool2d(shape, output_size, dtype):
 
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
-    torch._dynamo.reset()
 
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).to("cpu")

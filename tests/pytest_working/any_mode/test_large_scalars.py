@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 test_params = [
     (torch.mul, torch.bfloat16, [-1.0, -0.5, 0, 0.5, 1.0], torch.finfo(torch.float32).max),
@@ -40,8 +40,7 @@ def test_large_scalar(op, dtype, input_data, scalar):
     result_cpu = op(t, scalar)
 
     t = t.to("hpu")
-    if is_pytest_mode_compile():
-        op = torch.compile(op, backend="hpu_backend")
+    op = compile_function_if_compile_mode(op)
     result_hpu = op(t, scalar).cpu()
 
     torch.testing.assert_close(result_cpu, result_hpu)
@@ -60,8 +59,7 @@ def test_large_scalar_out(op, dtype, input_data, scalar):
     op(t, scalar, out=result_cpu)
 
     t = t.to("hpu")
-    if is_pytest_mode_compile():
-        op = torch.compile(op, backend="hpu_backend")
+    op = compile_function_if_compile_mode(op)
     result_hpu = torch.empty_like(t, device="hpu")
     op(t, scalar, out=result_hpu)
 
@@ -86,8 +84,7 @@ def test_large_scalar_inplace(op, dtype, input_data, scalar):
     tensor_hpu = tensor_cpu.to("hpu")
 
     op(tensor_cpu, scalar)
-    if is_pytest_mode_compile():
-        op = torch.compile(op, backend="hpu_backend")
+    op = compile_function_if_compile_mode(op)
     op(tensor_hpu, scalar)
 
     torch.testing.assert_close(tensor_cpu, tensor_hpu.cpu())
@@ -109,8 +106,7 @@ def test_foreach_large_scalar(op, dtype, input_data, scalar):
     result_cpu = op([t], scalar)[0]
 
     t = t.to("hpu")
-    if is_pytest_mode_compile():
-        op = torch.compile(op, backend="hpu_backend")
+    op = compile_function_if_compile_mode(op)
     result_hpu = op([t], scalar)[0].cpu()
 
     torch.testing.assert_close(result_cpu, result_hpu)

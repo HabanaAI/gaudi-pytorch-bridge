@@ -1,3 +1,20 @@
+###############################################################################
+#
+#  Copyright (c) 2021-2024 Intel Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+###############################################################################
+
 import os
 from typing import Tuple
 
@@ -145,10 +162,13 @@ def _disallow_collectives_in_graph():
         "scatter",
         "send",
     ]
+    deprecated_list = ["reduce_op"]
 
     try:
         for dist_func in [
-            getattr(dist, dist_member) for dist_member in dir(dist) if inspect.isfunction(getattr(dist, dist_member))
+            getattr(dist, dist_member)
+            for dist_member in dir(dist)
+            if dist_member not in deprecated_list and inspect.isfunction(getattr(dist, dist_member))
         ]:
             for coll_name in COLLECTIVE_BASE_NAMES:
                 if coll_name in dist_func.__name__:

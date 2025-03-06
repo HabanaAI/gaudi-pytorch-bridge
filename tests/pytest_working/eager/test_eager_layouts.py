@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ torch.manual_seed(0)
 
 # Test case to simulate the writes to gradient bucket views similar to what happens in DDP all reduce
 def test_hpu_simulate_allreduce_bucket_views():
-    import habana_frameworks.torch.core as htcore
+    import habana_frameworks.torch.core as htcore  # noqa
 
     def fn(dev, a, g1, g2):
 

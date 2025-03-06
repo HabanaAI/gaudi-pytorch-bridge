@@ -1,0 +1,145 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: check-added-large-files
+        exclude: ^scripts/tests/files/
+      - id: check-executables-have-shebangs
+        exclude: ^topologies/
+      - id: trailing-whitespace
+        exclude: ^(LICENSE|topologies/|.devops/patches/)
+        # TODO: fix issues and enable when time allows:
+        # https://jira.habana-labs.com/browse/SW-121821
+        # - id: end-of-file-fixer
+        #   exclude: ^(LICENSE.txt|topologies/|.devops/patches/)
+        # TODO: fix issues and enable when time allows:
+        # https://jira.habana-labs.com/browse/SW-121813
+        # - repo: https://github.com/cheshirekow/cmake-format-precommit
+        #   rev: v0.6.13
+        #   hooks:
+        #       - id: cmake-format
+        #         additional_dependencies: ["pyyaml"]
+        #       - id: cmake-lint
+        #         additional_dependencies: ["pyyaml"]
+  - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
+    rev: v10.0.1
+    hooks:
+      - id: git-clang-format
+        exclude: ^(scripts/tests/files/|.devops/patches/)
+  - repo: local
+    hooks:
+      - id: check-bash-syntax
+        name: Check shell scripts syntax
+        entry: bash -n
+        language: system
+        files: \.(ba)?sh$
+      - id: ensure-new-cpp-files-are-added-to-cmake
+        name: Ensure new C++ files are added to CMake
+        entry: scripts/ensure_new_cpp_files_are_added_to_cmake.sh
+        language: script
+        types: [c++]
+        # TODO: https://jira.habana-labs.com/browse/SW-120634: remove files
+        # from this ticket from `exclude:` below once they're fixed
+        #
+        # exclude files handled by setup.py's and PT_VER-specific
+        exclude: "^python_packages/habana_frameworks/torch/|\
+          ^pytorch_helpers/dataloader/habana_dataloader/|\
+          ^pt_ver/|\
+          ^tests/test_(autodiff|utils|base).cpp$|\
+          ^tests/user_custom_op/|\
+          ^pytorch_helpers/habana_helpers/tensor_comparator/synapse/src/infra/(float16|sim_fp16).cpp$|\
+          ^habana_bridge/register/compiler.cpp$|\
+          ^hpu_ops/op_validator.cpp|\
+          ^scripts/tests/files/"
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: forbid-binary
+        exclude: ^topologies/
+      # - id: git-check  # hopefully to be added once we fix whitespace issues
+      - id: script-must-have-extension
+        exclude: ^topologies/
+  - repo: https://github.com/psf/black
+    rev: 24.2.0
+    hooks:
+      - id: black
+        exclude: ^topologies/
+  # TODO: fix issues from https://jira.habana-labs.com/browse/SW-121808
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        args: ["--ignore=E203,E402,E722,E741,F401,F403,F405,F811,F821,F841,W503,W504,W605,B001,B006,\
+          B007,B008,B011,B023,B028,C400,C403,C408,C409,C416,C417,C419"] # Too many issues to handle at once
+        additional_dependencies:
+          - flake8-bugbear==24.10.31
+          - flake8-comprehensions==3.16.0
+          # - flake8-executable==2.1.3
+          # - flake8-pyi==24.9.0
+          # - mccabe==0.7.0
+        exclude: ^topologies/
+      - id: flake8
+        name: flake8-tests
+        args: ["--select=F401"]
+        files: pytorch_helpers/
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        exclude: ^topologies/
+  # TODO: fix issues and enable when time allows:
+  # https://jira.habana-labs.com/browse/SW-121807
+  # - repo: https://github.com/PyCQA/pylint
+  #   rev: v2.15.10
+  #   hooks:
+  #       - id: pylint
+  #         exclude: ^topologies/
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: insert-license
+        name: Handle copyright headers in scripts
+        files: \.(ba|z)?sh$|CMakeLists.txt$|\.cmake$|(?<!__init__)\.py$
+        args:
+          - --allow-past-years
+          - --use-current-year
+          # yamllint disable rule:line-length
+          - --comment-style
+          - |-
+            ###############################################################################|#|###############################################################################
+          # yamllint enable rule:line-length
+        exclude: ^topologies
+  # TODO: fix issues and enable when time allows:
+  # https://jira.habana-labs.com/browse/SW-121816
+  #       - id: insert-license
+  #         name: Handle copyright headers in C++ files
+  #         files: \.c(pp)?$|\.h(pp)?$
+  #         args:
+  # yamllint disable rule:line-length
+  #             - --comment-style
+  #             - |-
+  #               /*******************************************************************************| *| *******************************************************************************
+  #                */
+  # yamllint enable rule:line-length
+  #             - --fuzzy-match-generates-todo
+  #             - --use-current-year
+  #         exclude: ^topologies/
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.29.0
+    hooks:
+      - id: yamllint
+        files: \.ya?ml$
+        # TODO: fix issues and stop excluding .ci when time allows:
+        # https://jira.habana-labs.com/browse/SW-121821
+        exclude: ^(.ci|topologies)/
+# TODO: fix issues and reenable: https://jira.habana-labs.com/browse/SW-178463
+# - repo: https://github.com/pre-commit/mirrors-mypy
+#   rev: v0.910
+#   hooks:
+#     - id: mypy
+#       additional_dependencies:
+#         - types-protobuf==3.19.13
+#         - types-setuptools==57.4.11
+#         - types-PyYAML==6.0.8
+#       exclude: ^(pytorch_helpers|topologies|pytorch_helpers)/.*

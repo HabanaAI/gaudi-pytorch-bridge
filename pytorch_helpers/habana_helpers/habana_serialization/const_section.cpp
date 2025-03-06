@@ -22,6 +22,7 @@
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
+#include "recipe_cache_config.h"
 
 #if !defined __GNUC__ || __GNUC__ >= 8
 #include <filesystem>
@@ -96,8 +97,10 @@ std::string ConstSectionDataSerialize::getSerializedFullPath(int const_id) {
 std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
     int const_id,
     const size_t key) {
-  std::string path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  auto full_path = path + "/" + std::to_string(key) + "_" +
+  std::vector<std::string> split_config = RecipeCacheConfig::split_params(
+      GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
+  std::string cache_path = split_config.size() > 0 ? split_config[0] : "";
+  auto full_path = cache_path + "/" + std::to_string(key) + "_" +
       CONST_SECTION_DATA_PREFIX + std::to_string(const_id) +
       CONST_SECTION_DATA_SUFFIX;
   return full_path;

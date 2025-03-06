@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,20 +16,16 @@
 ###############################################################################
 
 
-import functools
-import logging
 import os
 import time
-from importlib import reload
 
 import habana_frameworks.torch as ht
-import multiprocess
 import torch
 import torch._dynamo
 import torch._dynamo as dynamo
 import torch.nn as nn
-from torch.autograd import Variable
-from torch.nn.parallel import DistributedDataParallel as DDP
+
+from tests.pytest_working.test_utils import compile_function_if_compile_mode
 
 try:
     import os
@@ -181,12 +177,12 @@ def print_config(
     print(f"Iterations = {iterations}")
 
     if do_one_shard:
-        print(f"Running in 1 shard without SFG")
+        print("Running in 1 shard without SFG")
     else:
         print(f"Running in {num_shards} shards with SFG")
 
     if do_hpu_graph:
-        print(f"HPU graph is enabled")
+        print("HPU graph is enabled")
 
     if do_host_profile:
         print("Host profile is enabled from script")
@@ -263,9 +259,6 @@ def run_single_node(rank, *arguments):
             print("Set PT_HPU_ENABLE_LAZY_COLLECTIVES=1 before running. Exiting...")
             return
 
-    import habana_frameworks.torch.core as htcore
-    import habana_frameworks.torch.distributed.hccl
-
     torch._inductor.config._fuse_ddp_communication = False
 
     torch.manual_seed(12345)
@@ -286,9 +279,8 @@ def run_single_node(rank, *arguments):
     model.to(device)
 
     os.environ["TORCH_COMPILE_DEBUG"] = "0"
-    dynamo.reset()
 
-    model = torch.compile(model, backend="hpu_backend")
+    model = compile_function_if_compile_mode(model)
 
     x = 0
     start = time.time()

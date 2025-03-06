@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,19 +15,12 @@
 #
 ###############################################################################
 
-import os
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import (
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-    format_tc,
-    is_pytest_mode_compile,
-    setup_teardown_env_fixture,
-)
+from test_utils import setup_teardown_env_fixture  # noqa F401
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, format_tc, is_pytest_mode_compile
 
 
 @pytest.mark.parametrize(
@@ -63,18 +56,17 @@ def test_hpu_maxpool2d_bwd(
         results_wrap.backward(grad)
 
     maxpool2d = torch.nn.MaxPool2d(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
-    hpu_wrapped_fn = fn
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     for shape in shapes:
         cpu_input = torch.rand(shape, dtype=dtype)
         hpu_input = cpu_input.to("hpu")
         cpu_input.requires_grad = True
         hpu_input.requires_grad = True
+
+        if is_pytest_mode_compile():
+            torch._dynamo.reset()
 
         fn(maxpool2d, cpu_input)
         hpu_wrapped_fn(maxpool2d, hpu_input)

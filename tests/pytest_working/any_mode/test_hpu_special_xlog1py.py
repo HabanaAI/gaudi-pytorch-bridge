@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,31 +15,21 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from test_utils import format_tc, is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shapes", [([2, 2], []), ([], [2, 2]), ([2, 2], [2, 2])], ids=format_tc)
 @pytest.mark.parametrize("in_place_out", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 class TestHpuSpecialXlog1py:
-    @classmethod
-    def setup_class(self):
-        # For scalar_tensor (coming from decomposition) there is expected fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
 
     @staticmethod
     def test_hpu_special_xlog1py(shapes, in_place_out, dtype):
         def fn(input, other, out=None):
-            if out == None:
+            if out is None:
                 return torch.special.xlog1py(input, other)
             else:
                 torch.special.xlog1py(input, other, out=out)
@@ -66,8 +56,7 @@ class TestHpuSpecialXlog1py:
             else:
                 cpu_out = torch.empty_like(cpu_input)
                 hpu_out = torch.empty_like(hpu_input)
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
-        torch._dynamo.reset()
+        hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
         cpu_output = fn(cpu_input, cpu_other, cpu_out)
         hpu_output = hpu_wrapped_fn(hpu_input, hpu_other, hpu_out)

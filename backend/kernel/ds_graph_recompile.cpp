@@ -35,8 +35,7 @@ at::Tensor habana::CreateEmptyTensor(
     habana::ShapeTensorStruct& tensor_data,
     const std::vector<int64_t>& tshape) {
   if (ti.tensor_type() == SHAPE_TENSOR) {
-    auto pt_tensor = habana_lazy::empty_hpu_lazy(
-        tshape, ti.get_topts(), ti.get_mf(), false, SHAPE_TENSOR);
+    auto pt_tensor = habana::createDynamicTensor(tshape, SHAPE_TENSOR);
     if (tensor_data.has_shape_tensor_data()) {
       auto new_tmeta{get_tensor_extra_meta(pt_tensor)};
       HABANA_ASSERT(new_tmeta);
@@ -52,7 +51,8 @@ at::Tensor habana::CreateEmptyTensor(
 torch::jit::Stack habana::CreateInputStack(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
     std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata,
-    habana_helpers::TensorShapes& input_shapes) {
+    habana_helpers::TensorShapes& input_shapes,
+    torch::jit::Stack& input_stack) {
   PT_BRIDGE_BEGIN;
   torch::jit::Stack new_input_stack;
 
@@ -73,10 +73,13 @@ torch::jit::Stack habana::CreateInputStack(
     if (input_metadata.count(tidx)) {
       tensor_data = input_metadata[tidx];
     }
-
-    auto pt_input = habana::CreateEmptyTensor(
-        *ti, tensor_data, input_shapes.at(tidx).get_dims());
-    new_input_stack.push_back(torch::jit::IValue(pt_input));
+    if (ti->tensor_type() == HOST_TO_DEVICE_TENSOR) {
+      new_input_stack.push_back(input_stack.at(tidx));
+    } else {
+      auto pt_input = habana::CreateEmptyTensor(
+          *ti, tensor_data, input_shapes.at(tidx).get_dims());
+      new_input_stack.push_back(torch::jit::IValue(pt_input));
+    }
   }
   PT_BRIDGE_END;
   return new_input_stack;
@@ -89,9 +92,9 @@ void habana::PrintStack(torch::jit::Stack& st) {
   }
 }
 
-bool habana::RefineBucketDS(size_t graph_key) {
+bool habana::RefineBucketDS(size_t graph_key, torch::jit::Stack& stack) {
   bool is_refined{true};
-  DynamicBucketInfoMap::get_instance().refine_graph(graph_key);
+  DynamicBucketInfoMap::get_instance().refine_graph(graph_key, stack);
   return is_refined;
 }
 
@@ -102,15 +105,17 @@ bool habana::CompileGraphWithRange(
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key,
     std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
-    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh) {
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh,
+    torch::jit::Stack& stack) {
+  static_cast<void>(input_metadata);
   bool ret{true};
 
   PT_DYNAMIC_SHAPE_DEBUG(
       "BucketRefinement: Will use the following recipe for compilation",
       rvpsh->header_str());
 
-  torch::jit::Stack input_stack =
-      habana::CreateInputStack(rvpsh, input_metadata, input_ranges.min_shapes);
+  torch::jit::Stack input_stack = habana::CreateInputStack(
+      rvpsh, input_metadata, input_ranges.min_shapes, stack);
   PrintStack(input_stack);
 
   auto mp_g_ = rvpsh->jit_graph_;

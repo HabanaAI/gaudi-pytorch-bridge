@@ -57,22 +57,38 @@ std::vector<at::Tensor> batch_empty(const std::vector<EmptyBatchData>& batch) {
   return result;
 }
 
-std::size_t calculate_hash_code(const py::tuple& inputs) {
-  torch::jit::Stack stack;
-  stack.reserve(inputs.size());
-  for (auto& obj : inputs)
-    stack.push_back(torch::jit::toTypeInferredIValue(obj));
-
+std::size_t calculate_symval_hashcode(
+    const py::tuple& inputs,
+    InputSymbolIndexMap& symbol_idx_map) {
   size_t hash_code = 0;
-  for (const auto& input : stack) {
-    if (!input.isTensor())
-      continue;
-    const auto& tensor = input.toTensor();
-    if (!tensor.defined())
-      continue;
-    size_t tensor_hash = c10::get_hash(tensor.sizes(), tensor.strides());
-    hash_code = c10::hash_combine(hash_code, tensor_hash);
-  }
+  std::for_each(
+      symbol_idx_map.begin(),
+      symbol_idx_map.end(),
+      [&](const std::pair<std::string, int64_t>& p) {
+        int64_t scalar_index = p.second;
+        HABANA_ASSERT(
+            scalar_index >= 0 ||
+                static_cast<size_t>(scalar_index) < inputs.size(),
+            "Symbol index received is out of bounds!!",
+            scalar_index);
+        const auto& obj = inputs[scalar_index];
+        HABANA_ASSERT(
+            py::isinstance<py::float_>(obj) || py::isinstance<py::int_>(obj),
+            "Expected scalar but got non-scalar object!!",
+            scalar_index);
+        double value;
+        if (py::isinstance<py::float_>(obj)) {
+          value = obj.cast<double>(); // Cast directly to double if it's a float
+        } else {
+          value = static_cast<double>(
+              obj.cast<int64_t>()); // Cast to double if it's an int
+        }
+
+        auto symbol_hash = c10::get_hash(p.first);
+        hash_code = c10::hash_combine(hash_code, symbol_hash);
+        auto value_hash = c10::get_hash(value);
+        hash_code = c10::hash_combine(hash_code, value_hash);
+      });
   return hash_code;
 }
 }; // namespace
@@ -168,7 +184,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .def_readwrite("expr_strides", &habana_helpers::RangeInfo::expr_strides)
       .def_readwrite("index", &habana_helpers::RangeInfo::index);
   m.def(
-      "calculate_hash_code",
-      &calculate_hash_code,
+      "calculate_symval_hashcode",
+      &calculate_symval_hashcode,
       "Calculate hash key of graph input tensor shapes and strides");
 }

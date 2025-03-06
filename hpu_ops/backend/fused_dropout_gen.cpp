@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/_fused_dropout.h"
 #include "generated/backend/native_dropout.h"
@@ -182,34 +182,20 @@ void NativeDropoutBackward::AddNode(sh::graph& graph, const at::Stack& stack) {
 //===----------------------------------------------------------------------===//
 // This is the implementation of custom native dropout op in `torch.compile`
 //===----------------------------------------------------------------------===//
-void HabanaNativeDropoutOp::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  size_t size = 0;
-  auto params = FillFusedNativeDropoutParams(stack, size);
-  auto metas = FusedNativeDropoutMeta(stack);
-
-  std::vector<synTensor> inputTensors = {syn_in(1), syn_in(0)};
-  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors, size);
-  syn_out(0) = std::move(dropout[0]);
-  syn_out(1) = std::move(dropout[1]);
-}
-
-HabanaNativeDropoutOp::HabanaNativeDropoutOp(
+HabanaNativeDropoutBase::HabanaNativeDropoutBase(
     int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
           device_id,
           "native_dropout",
           scalar_type,
           {1, 1},
-          {},
-          {},
-          false) {
+          is_deterministic) {
   SetOutputMetaFn(FusedNativeDropoutMeta);
 }
 
-void HabanaNativeDropoutOpCheckpoint::AddNode(
+void HabanaNativeDropoutCheckpoint::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto seed =
@@ -227,22 +213,33 @@ void HabanaNativeDropoutOpCheckpoint::AddNode(
   syn_out(2) = std::move(dropout[1]);
 }
 
-HabanaNativeDropoutOpCheckpoint::HabanaNativeDropoutOpCheckpoint(
+HabanaNativeDropoutCheckpoint::HabanaNativeDropoutCheckpoint(
     int device_id,
     c10::ScalarType scalar_type)
-    : OpBackend(
+    : HabanaRandCheckpointBase(
           device_id,
           "native_dropout",
           scalar_type,
-          {0, 1, 1},
-          {},
-          {},
-          false) {
+          {0, 1, 1}) {
   SetOutputMetaFn(FusedNativeDropoutCheckpointMeta);
 }
+
+void HabanaNativeDropoutBase::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size = 0;
+  auto params = FillFusedNativeDropoutParams(stack, size);
+  auto metas = FusedNativeDropoutMeta(stack);
+
+  std::vector<synTensor> inputTensors = {syn_in(1), syn_in(0)};
+  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors, size);
+  syn_out(0) = std::move(dropout[0]);
+  syn_out(1) = std::move(dropout[1]);
+}
+
 } // namespace habana
 
 static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry().REGISTER_RANDOM_OP(
+    habana::KernelRegistry().REGISTER_RANDOM_CHECKPOINT_OP(
         native_dropout,
-        NativeDropoutOp);
+        NativeDropout);

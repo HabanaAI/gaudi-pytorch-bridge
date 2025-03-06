@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ from typing import Optional
 
 import torch
 import torch._prims_common as utils
-from packaging.version import Version, parse
 from torch._decomp import core_aten_decompositions, get_decompositions
 from torch._ops import DispatchKey
 
@@ -30,6 +29,7 @@ aten = torch.ops.aten
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 logger = get_compile_backend_logger()
 
@@ -64,6 +64,8 @@ hpu_backend_decompositions_list = [
     aten.cudnn_batch_norm.out,
     aten.cudnn_batch_norm_backward.default,
     aten.cudnn_batch_norm_backward.out,
+    aten.deg2rad.default,
+    aten.deg2rad_.default,
     aten.detach.default,
     aten.diag_embed.default,
     aten.diag_embed.out,
@@ -82,15 +84,15 @@ hpu_backend_decompositions_list = [
     aten.eye.m_out,
     aten.fill.Scalar,
     aten.fill.Tensor,
-    aten.frac.default,
+    aten.frac,
+    aten.frac_.default,
     aten.frac.out,
+    aten._fused_moving_avg_obs_fq_helper,
     aten.gelu.out,
     aten.gelu_backward.grad_input,
     aten.glu_backward.default,
     aten.glu_backward.grad_input,
-    aten.grid_sampler_2d.out,
     aten.hardshrink.out,
-    aten.hardshrink_backward.grad_input,
     aten.hardsigmoid.out,
     aten.hardsigmoid_backward.grad_input,
     aten.hardswish.default,
@@ -109,9 +111,6 @@ hpu_backend_decompositions_list = [
     aten.im2col,
     aten.im2col.default,
     aten.im2col.out,
-    aten.index_add.out,
-    aten.index_add.dimname,
-    aten.index_add_.default,
     aten.index_select.out,
     aten.index_select.dimname,
     aten.index_select.dimname_out,
@@ -226,6 +225,7 @@ hpu_backend_decompositions_list = [
     aten.stack.default,
     aten.stack.out,
     aten.std_mean,
+    aten.std.correction,  # needed due to strip_overload in passes
     aten.t,
     aten.tanh_backward.default,
     aten.tanh_backward.grad_input,
@@ -251,11 +251,6 @@ hpu_backend_decompositions_list = [
     aten.zeros_like.default,
     aten.zeros_like.out,
 ]
-
-# aten._safe_softmax decomposition is available since PT2.5. As this change must be compatible also
-# with earlier versions of pytorch, following condition must be added.
-if Version(parse(torch.__version__).base_version) >= Version("2.5"):
-    hpu_backend_decompositions_list.append(aten._safe_softmax.default)
 
 hpu_backend_decompositions_common = get_decompositions(hpu_backend_decompositions_list)
 
@@ -300,10 +295,16 @@ def override_function(dispatch_key, aten_op, hpu_override, original_decomp=None)
     return internal
 
 
+def override_one_hot(*args):
+    if args[0].device.type == "hpu":
+        return torch.ops.hpu.one_hot.default(*args)
+
+
 @contextmanager
 def override_composite_ops():
     ops = [
         (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.instance_norm.default, override_instance_norm),
+        (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.one_hot.default, override_one_hot),
     ]
 
     # When below flag is enabled, aten.linear and aten.matmul decompositions
@@ -413,14 +414,22 @@ def diagonal(
 
 @register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
 def bernoulli(input, p, *, generator=None):
+    p_dtype = input.dtype if input.dtype.is_floating_point else torch.float32
     p_like_input = torch.full(
         [],
         p,
-        dtype=input.dtype,
+        dtype=p_dtype,
         layout=input.layout,
         device=input.device,
     ).expand(input.shape)
     return torch.bernoulli(p_like_input, generator=generator)
+
+
+@register_custom_decomposition(aten.bernoulli.Tensor, hpu_backend_decompositions_common)
+def bernoulli_Tensor(input, p, *, generator=None):
+    p_expanded = p.expand_as(input)
+
+    return torch.bernoulli(p_expanded, generator=generator)
 
 
 @register_custom_decomposition(aten.randn.generator, hpu_backend_decompositions_common)
@@ -449,6 +458,28 @@ def randngen(
         pin_memory=pin_memory,
     ).expand(size)
     return torch.normal(mean, stddev, generator=generator)
+
+
+@torch.ops.hpu.mixture_of_experts.default.py_impl(DispatchKey.Autograd)
+def mixture_of_experts(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_compile(*args, **kwargs)
+
+
+@torch.ops.hpu.mixture_of_experts.fused_weights.py_impl(DispatchKey.Autograd)
+def mixture_of_experts(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_compile(*args, **kwargs)
+
+
+@register_custom_decomposition(
+    torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights, hpu_backend_decompositions_common
+)
+def mixture_of_experts_fp8_measurement_fused_weights(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_fp8_measurement(*args, **kwargs)
+
+
+@register_custom_decomposition(torch.ops.hpu.mixture_of_experts.fp8_measurement, hpu_backend_decompositions_common)
+def mixture_of_experts_fp8_measurement(*args, **kwargs):
+    return torch.ops.hpu.mixture_of_experts_fp8_measurement(*args, **kwargs)
 
 
 @register_custom_decomposition(aten.sort.default, hpu_backend_decompositions_common)
@@ -697,10 +728,10 @@ def split(self, split_size, dim=0):
     assert dim < self.dim() and dim >= 0, " given dimension value is out of range"
     cur_size = self.size(dim)
     assert (
-        type(split_size) == int or type(split_size) == list or type(split_size) == torch.SymInt
+        type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt
     ), "split_size_or_sections is not a int value or list"
     # create a new list based on split_size(int)
-    if type(split_size) != list:
+    if type(split_size) is not list:
         split_size = [split_size] * (cur_size // split_size)
         if cur_size != sum(split_size):
             split_size.append(cur_size - sum(split_size))
@@ -719,6 +750,28 @@ def split(self, split_size, dim=0):
     return tuple(result)
 
 
+if not is_pytorch_older_than("2.6.0"):
+
+    @register_custom_decomposition(aten.rrelu_with_noise_functional, hpu_backend_decompositions_common)
+    def rrelu_with_noise_functional(
+        self: torch.Tensor,
+        noise: torch.Tensor,
+        lower: float = 0.125,
+        upper: float = 0.3333333333333333,
+        training: bool = False,
+        generator: Optional[torch.Generator] = None,
+    ) -> utils.Tuple[torch.Tensor, torch.Tensor]:
+        if training:
+            not_positive = self <= 0
+            r = aten.uniform(self, lower, upper, generator=generator)
+            output = torch.where(not_positive, self * r, self)
+            noise_out = torch.where(not_positive, r, 1)
+            return output, noise_out
+        else:
+            negative_slope = (lower + upper) / 2
+            return aten.leaky_relu(self, negative_slope), torch.Tensor()
+
+
 def get_hpu_decompositions():
     if hpu_backend_config.decomposition_mode == "habana":
         return {
@@ -728,3 +781,85 @@ def get_hpu_decompositions():
         return {**core_aten_decompositions()}
     else:
         return None
+
+
+@register_custom_decomposition(aten.index_add, hpu_backend_decompositions_common)
+def index_add(
+    x_in: utils.Tensor,
+    dim: int,
+    index_in: utils.Tensor,
+    tensor_in: utils.Tensor,
+    *,
+    alpha: int = 1,
+):
+    x = x_in
+    tensor = tensor_in
+    index = index_in
+    if (
+        index_in.dtype == torch.int32
+        or index_in.dtype == torch.short
+        or index_in.dtype == torch.uint8
+        or index_in.dtype == torch.int8
+    ):
+        index = index_in.to(torch.long)
+    dim = utils.canonicalize_dims(x.ndim, dim)
+    torch._check(
+        index.ndim <= 1,
+        lambda: f"Index should have dimension 1 or 0 (got {index.ndim})",
+    )
+    index_size = index.size(0) if index.ndim == 1 else 1
+    tensor_size = tensor.size(dim) if tensor.ndim > 0 else 1
+    torch._check(
+        tensor_size == index_size,
+        lambda: f"Number of indices ({index_size}) should be equal to tensor.size(dim) ({tensor_size}), for {dim=}",
+    )
+    if alpha != 1:
+        python_type = utils.dtype_to_type(x.dtype)
+        torch._check(
+            python_type == bool or utils.is_weakly_lesser_type(type(alpha), python_type),
+            lambda: f"alpha argument of type {type(alpha)} cannot be safely cast to type {python_type}!",
+        )
+        tensor = tensor_in * alpha
+
+    if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
+        x = x_in.to(torch.float)
+    if (
+        tensor_in.dtype == torch.int32
+        or tensor_in.dtype == torch.uint8
+        or tensor_in.dtype == torch.int8
+        or tensor_in.dtype == torch.bool
+    ):
+        tensor = tensor.to(torch.float)
+    zero_dim = x.ndim == 0
+    x1 = x.unsqueeze(0) if zero_dim else x
+    # Follow the implementation used in HPU Lazy mode
+    dim_size = x.numel()
+    if dim_size:
+        # for non-scalar tensor case
+        dim_size = x1.shape[dim]
+    # Implementation to take care of duplicate entries in index tensor and
+    # also the case where index tensor size can be greater than the self
+    # tensor size at the relevant dim.
+    sorted_index = torch.ops.aten.sort(index, stable=True)
+    # Note: sorted_index[0] = actual indices sorted. sorted_index_pos = orted_index[1] = original positions of the sorted indices in index
+    sorted_index_pos = sorted_index[1]
+    sorted_index_pos_reshape_shape = [1] * tensor.dim()
+    if len(sorted_index_pos.shape):
+        sorted_index_pos_reshape_shape[dim] = sorted_index_pos.shape[0]
+    else:
+        sorted_index_pos_reshape_shape[dim] = 1
+    sorted_index_pos_reshaped = torch.ops.aten.reshape(sorted_index[1], sorted_index_pos_reshape_shape).expand(
+        tensor.shape
+    )
+    gathered_values = torch.ops.aten.gather(tensor, dim, sorted_index_pos_reshaped)
+    index_expand_shape = [1] * gathered_values.dim()
+    if len(sorted_index[0].shape):
+        index_expand_shape[dim] = sorted_index[0].shape[0]
+    else:
+        index_expand_shape[dim] = 1
+    index_expanded = torch.ops.aten.reshape(sorted_index[0], index_expand_shape).expand(gathered_values.shape)
+    ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, gathered_values)
+    if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
+        return ret.to(x_in.dtype)
+    else:
+        return ret

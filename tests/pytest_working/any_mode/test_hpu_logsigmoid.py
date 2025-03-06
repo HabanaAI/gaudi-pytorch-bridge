@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("shape", [(4), (2, 2), (2, 3, 4)], ids=format_tc)
@@ -36,8 +35,7 @@ def test_hpu_logsigmoid(shape, bwd, dtype):
     hpu_input = cpu_input.to("hpu")
     wrapped_fn = backward if bwd else forward
 
-    torch._dynamo.reset()
-    hpu_wrapped_fn = torch.compile(wrapped_fn, backend="hpu_backend") if pytest.mode == "compile" else wrapped_fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(wrapped_fn)
 
     cpu_output = wrapped_fn(cpu_input)
     hpu_output = hpu_wrapped_fn(hpu_input).cpu()

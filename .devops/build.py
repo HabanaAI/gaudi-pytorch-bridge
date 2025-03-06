@@ -35,7 +35,7 @@ from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Se
 
 import op_stats_generator
 from build_profiles import profiles
-from build_profiles.profiles import VersionLiteralAndSource
+from build_profiles.profiles import VersionLiteralAndSource, get_cpu_index_url, get_pt_version_id
 from build_profiles.version import Version, is_official_stable_cpu_version, is_wheel_version
 
 log = logging.getLogger(__file__)
@@ -105,7 +105,7 @@ build_py = os.path.realpath(__file__)
 
 build_root = os.environ.get("BUILD_ROOT", None)
 if not build_root:
-    log.fatal(f"$BUILD_ROOT not set or is empty.")
+    log.fatal("$BUILD_ROOT not set or is empty.")
     sys.exit(1)
 
 build_dir_suffix = "pytorch_modules_multi_build"
@@ -807,7 +807,7 @@ def prepare_build_dirs(
 
 
 def create_ctest_target(pmake):
-    pmake(f"ctest: $(addsuffix /ctest,$(SUBNAMES))")
+    pmake("ctest: $(addsuffix /ctest,$(SUBNAMES))")
 
 
 def target_reldir(py_ver, pt_ver, cmake_config, target=None):
@@ -1083,6 +1083,22 @@ class CMakeFlags:
         return stored_flag[2:].split("=")[0] == flag_name
 
 
+def append_cmake_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFlags:
+    if is_official_stable_cpu_version(build_env.pt_ver_and_src.version):
+        cmake_flags.insert("UPSTREAM_COMPILE", "ON")
+    is_cxx11_abi = (
+        outof(
+            get_python_exec(build_env),
+            "-c",
+            "'import torch; print(torch.compiled_with_cxx11_abi())'",
+            venv=build_env.venv_dir,
+        ).strip()
+        == "True"
+    )
+    cmake_flags.insert("USE_CXX11_ABI", "ON" if is_cxx11_abi else "OFF")
+    return cmake_flags
+
+
 def prepare_single_build_directory(
     pt_modules_root,
     clean,
@@ -1093,6 +1109,7 @@ def prepare_single_build_directory(
     current_ver_build_dir,
     cmake_flags: CMakeFlags,
 ):
+    cmake_flags = append_cmake_flags(cmake_flags, build_env)
 
     log.debug(
         f"Preparing single build directory for {build_env.pt_ver_and_src.version}, "
@@ -1563,9 +1580,9 @@ def parse_args():
         help="(experimental) run CTest on every build",
     )
     parser.add_argument(
-        "--noupstream-compile",
+        "--upstream-compile",
         action="store_true",
-        help="Don't compile with upstream fork",
+        help="Additionally compile with upstream fork",
     )
 
     args = parser.parse_args()
@@ -1914,7 +1931,7 @@ def install_wheels_in_venvs(selected_wheel_configs):
         # else: checked in log_produced_wheels_and_dump_manifest
 
 
-def add_upstream_versions(wheel_specs: List[WheelSpec]):
+def add_upstream_versions(wheel_specs: List[WheelSpec], cpu_index_url: Optional[str]) -> List[WheelSpec]:
     for ws in wheel_specs:
         new_pt_versions: Set[VersionAndSource] = set()
         for pt_ver in ws.pt_versions:
@@ -1926,7 +1943,7 @@ def add_upstream_versions(wheel_specs: List[WheelSpec]):
                 continue
 
             new_version = Version(str(version) + "+cpu")
-            new_source = "https://download.pytorch.org/whl/"
+            new_source = cpu_index_url if cpu_index_url != "default" else "https://download.pytorch.org/whl/"
             new_pt_versions.add(VersionAndSource(new_version, new_source))
         ws.pt_versions = new_pt_versions
 
@@ -1942,7 +1959,7 @@ def main():
         ensure_icecc_setup()
 
     if args.manylinux:  # TODO
-        raise NotImplemented("Manylinux builds not yet supported for PT")
+        raise NotImplementedError("Manylinux builds not yet supported for PT")
         ManylinuxRunner(with_icecc=args.use_icecc).run(raw_args)
         exit()
 
@@ -1961,8 +1978,10 @@ def main():
 
         current_pt_version, wheel_specs = prepare_wheel_specs(args.wheel_spec, args.pt_versions, current_pt_version)
 
-        if not args.noupstream_compile:
-            wheel_specs = add_upstream_versions(wheel_specs)
+        pt_version_id = get_pt_version_id(str(current_pt_version))
+        cpu_index_url = get_cpu_index_url(pt_version_id)
+        if cpu_index_url != "none" and args.upstream_compile:
+            wheel_specs = add_upstream_versions(wheel_specs, cpu_index_url)
 
         selected_pt_versions = set([item for sublist in wheel_specs for item in sublist.pt_versions])
         log.debug(f"Selected PyTorch versions: {selected_pt_versions}")

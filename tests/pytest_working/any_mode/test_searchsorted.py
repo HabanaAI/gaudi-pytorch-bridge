@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
+    compile_function_if_compile_mode,
     evaluate_fwd_kernel,
     format_tc,
     is_gaudi1,
@@ -50,11 +50,7 @@ def test_searchsorted_input(right, out_int32, is_out, seq_dtype, val_dtype, sequ
     values_name = "self" if scalar_value else "input"
     values = torch.randn(1).item() if scalar_value else torch.randn(values_shape).to(val_dtype)
 
-    fn = torch.searchsorted
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(torch.searchsorted)
 
     kernel_params = {
         "sorted_sequence": sorted_sequence,
@@ -98,11 +94,7 @@ def test_searchsorted_side(right, side):
     sorted_sequence = sorted_sequence.to(torch.int)
     input = torch.randn(shape).to(torch.int)
 
-    fn = torch.searchsorted
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(torch.searchsorted)
 
     kernel_params = {
         "sorted_sequence": sorted_sequence,
@@ -137,11 +129,7 @@ def test_searchsorted_sorter(name, value, shape):
     _, sorter = torch.sort(sorted_sequence)
     sorted_sequence = sorted_sequence.to(torch.int)
 
-    fn = torch.searchsorted
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(torch.searchsorted)
 
     kernel_params = {
         "sorted_sequence": sorted_sequence,

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,17 +15,16 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import setup_teardown_env_fixture  # noqa F401
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_gaudi3,
     is_pytest_mode_compile,
-    setup_teardown_env_fixture,
 )
 
 
@@ -56,11 +55,7 @@ def test_hpu_channel_shuffle(shape_and_groups, dynamic, dtype, setup_teardown_en
     shape, groups = shape_and_groups
     cpu_model = torch.nn.ChannelShuffle(groups)
     hpu_model = cpu_model.to("hpu")
-    hpu_wrapped_fn = fn
-    if is_pytest_mode_compile():
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
-        clear_t_compile_logs()
-        torch._dynamo.reset()
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     iters = [1, 3, 2] if dynamic else [1]
     for i in iters:

@@ -63,22 +63,17 @@ PT_HPU_DYNAMIC_MAX_POLICY_ORDER:
   default: "2,4,5,3,1"
 
 PT_HPU_RECIPE_CACHE_CONFIG:
-  default: ""
-  doc: "It replaces PT_RECIPE_CACHE_PATH, PT_CACHE_FOLDER_DELETE and\n
-PT_CACHE_FOLDER_SIZE_MB. PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
+  default: ",false,1024"
+  doc: "PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
 where params are encoded in the following way:\n
 - 1st param: recipe cache directory path, if empty then disk cache is\n
-disabled\n
+disabled. If proper path is set, disk cache is enabled for all compiled recipes.\n
 - 2nd param: delete recipe cache one init, if set to true then PT bridge\n
 clears recipe cache on init\n
 - 3rd param: recipe cache max size in MB, if set to value > 0, PT bridge\n
 keeps the size of cache dir under defined threshold.\n
+1GB per worker to save recipes to the disk.\n
 Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024"
-
-PT_RECIPE_CACHE_PATH:
-  default: ""
-  doc: "Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.\n
-If proper path is set, disk cache is enabled for all compiled recipes."
 
 PT_HPU_LAZY_MODE:
   type: unsigned
@@ -135,6 +130,7 @@ PT_HPU_LAZY_EAGER_VIEW_HANDLING:
 PT_HPU_ENABLE_CACHE_METRICS:
   type: bool
   default: false
+  settable: true
 
 PT_HPU_ENABLE_COMPILE_THREAD:
   type: bool
@@ -160,6 +156,14 @@ PT_HPU_INFERENCE_MODE:
   type: bool
   default: false
 
+PT_HPU_INFERENCE_MARK_SCALES_AS_CONST:
+  type: bool
+  default: false
+
+PT_HPU_INFERENCE_MARK_NON_SCALES_AS_CONST:
+  type: bool
+  default: false
+
 PT_HPU_INFERENCE_SYNAPSE_DATA_TYPE_SELECTION:
   type: bool
   default: false
@@ -182,7 +186,7 @@ PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT:
 
 PT_HPU_THREAD_POOL_QUEUE_CAPACITY:
   type: unsigned long
-  default: 200000
+  default: 20000
 
 PT_ENABLE_INTER_HOST_CACHING:
   type: bool
@@ -356,13 +360,13 @@ PT_HPU_ENABLE_LAZY_COLLECTIVES:
   type: bool
   default: false
 
-PT_HPU_ENABLE_SFG:
+PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS:
   type: bool
   default: false
 
-PT_SBS:
-  type: unsigned
-  default: 0
+PT_HPU_ENABLE_SFG:
+  type: bool
+  default: false
 
 PT_HPU_FORCE_TANH_FOR_GELU:
   type: bool
@@ -417,6 +421,12 @@ PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF:
 PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH:
   type: bool
   default: false
+
+PT_HPU_USE_JIT_FORK:
+  type: bool
+  default: false
+  settable: true
+  doc: "Experimental enablement of forked jit lowering"
 
 PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR:
   type: bool
@@ -500,7 +510,7 @@ PT_RECIPE_CACHE_DUMP_DEBUG:
   type: bool
   default: false
   doc: "Option to dump additional debug information to disk cache directory.\n
-This works only with PT_RECIPE_CACHE_PATH set.\n
+This works only with recipe cache directory path set via PT_HPU_RECIPE_CACHE_CONFIG.\n
 In the disk cache folder for every recipe, '<hash>.hash_content' files are\n
 dumped. These files contain all the information that contribute to hash of a\n
 given recipe and can be used i.e. in cases when graphs are expected to\n
@@ -599,7 +609,7 @@ PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT:
 
 PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT:
   type: bool
-  default: true
+  default: false
   doc: "Allow permutations on all reduce gradient bucket view outputs for PT2.0. This\n
 is to improve multinode performance"
 
@@ -711,16 +721,6 @@ solution for accumulation thread\n
 CPU time\n
  2 - accumulation thread with spinning and mutexes is not used,\n
  the fastest solution, but could consume more CPU time"
-
-PT_CACHE_FOLDER_SIZE_MB:
-  type: unsigned
-  default: 1024
-  doc: "clang-format on\n
-1GB per worker to save recipes to the disk"
-
-PT_CACHE_FOLDER_DELETE:
-  type: bool
-  default: false
 
 PT_COMPILE_ONLY_MODE:
   type: bool

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 
 import habana_frameworks.torch.core as htcore
-import pytest
 import torch
 
 
@@ -188,7 +187,7 @@ def test_shallow_copy_param_free():
     module.eval()
     h_module = test_module(tensor=ha)
     h_module.eval()
-    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import _mark_params_as_const
 
     _mark_params_as_const(h_module)
 

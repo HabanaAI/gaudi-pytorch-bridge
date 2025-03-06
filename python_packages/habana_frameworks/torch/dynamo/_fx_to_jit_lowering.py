@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ class FxToJitLowering(torch.fx.Interpreter):
     # from the arguments passed by the interpreter.
     ##############################################################
 
-    def _insert_list_from_jit_vals(self, jit_vals: List[jit.Value]) -> jit.Value:
+    def _insert_list_from_jit_vals(self, jit_vals: List[jit.Value], parameter) -> jit.Value:
         element_type = None
         optional_type = False
 
@@ -144,25 +144,20 @@ class FxToJitLowering(torch.fx.Interpreter):
                 types.remove(jit.NoneType)
                 optional_type = True
 
-        if len(types) == 2:
-            # In FX graph can be a situation where a list contains mixed
-            # symbolic and fixed elements.
-            if jit.IntType in types and jit.SymIntType in types:
-                types.remove(jit.IntType)
-                element_type = jit.SymIntType.get()
-            elif jit.FloatType in types and jit.SymFloatType in types:
-                types.remove(jit.FloatType)
-                element_type = jit.SymFloatType.get()
-            elif jit.BoolType in types and jit.SymBoolType in types:
-                types.remove(jit.BoolType)
-                element_type = jit.SymBoolType.get()
-        else:
-            if jit.TensorType in types:
+        for elem in jit_vals:
+            # If we are dealing with a situation in which the element type is
+            # an optional type, we omit JIT values of the NoneType type.
+            if optional_type and elem.type().kind() == "NoneType":
+                continue
+
+            element_type = elem.type()
+            if element_type.kind() == "TensorType":
                 # If the type of a list element refers to an exact tensor type,
                 # it makes it impossible to find a suitable match to the op schema.
                 element_type = jit.TensorType.get()
-            else:
-                element_type = next(iter(types)).get()
+
+            # We got the expected type of the list item.
+            break
 
         if len(types) > 1:
             type_kinds = [jit_type.get().kind() for jit_type in types]
@@ -170,6 +165,14 @@ class FxToJitLowering(torch.fx.Interpreter):
 
         if optional_type:
             element_type = jit.OptionalType(element_type)
+
+        # Special cases for no elem list when stride/dim/size=[]
+        # Get the element type from the parameter type
+        if len(types) == 0 and hasattr(parameter, "type"):
+            if parameter.type.kind() == "ListType":
+                element_type = parameter.type.getElementType()
+            elif parameter.type.kind() == "OptionalType":
+                element_type = parameter.type.getElementType().getElementType()
 
         list_node = self.jit_ir.createList(element_type, jit_vals)
         return self.jit_ir.insertNode(list_node).output()
@@ -188,19 +191,19 @@ class FxToJitLowering(torch.fx.Interpreter):
         tuple_node = self.jit_ir.createTuple(jit_vals, tuple_type)
         return self.jit_ir.insertNode(tuple_node).output()
 
-    def _get_jit_val_from_iterable(self, iterable_arg) -> jit.Value:
+    def _get_jit_val_from_iterable(self, iterable_arg, parameter) -> jit.Value:
         collected_vals = []
         for elem in iterable_arg:
             collected_vals.append(self._get_jit_val(elem))
 
         if isinstance(iterable_arg, list):
-            return self._insert_list_from_jit_vals(collected_vals)
+            return self._insert_list_from_jit_vals(collected_vals, parameter)
         elif isinstance(iterable_arg, tuple):
             return self._insert_tuple_from_jit_vals(collected_vals)
         elif isinstance(iterable_arg, namedtuple):
             return self._insert_namedtuple_from_jit_vals(iterable_arg, collected_vals)
 
-    def _get_jit_val(self, arg: Any) -> jit.Value:
+    def _get_jit_val(self, arg: Any, parameter=None) -> jit.Value:
         from collections.abc import Iterable
 
         if isinstance(arg, jit.Value):
@@ -209,10 +212,6 @@ class FxToJitLowering(torch.fx.Interpreter):
         cache_key = (type(arg), tuple(arg) if isinstance(arg, list) else arg)
         if cache_key in self.const_cache:
             return self.const_cache[cache_key]
-
-        # Convert empty list and tuples to None
-        if isinstance(arg, Iterable) and not isinstance(arg, torch.Tensor) and len(list(arg)) == 0:
-            return self._get_jit_val(None)
 
         converter = TYPE_TO_JIT_TYPE.find(type(arg))
         if converter:
@@ -223,7 +222,7 @@ class FxToJitLowering(torch.fx.Interpreter):
                 return new_const
 
         if isinstance(arg, (list, tuple, namedtuple)):
-            return self._get_jit_val_from_iterable(arg)
+            return self._get_jit_val_from_iterable(arg, parameter)
 
         raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. " "Please report a bug.")
 
@@ -237,13 +236,13 @@ class FxToJitLowering(torch.fx.Interpreter):
 
         for i, parameter in enumerate(schema.arguments):
             if i < len(args):
-                jit_args.append(self._get_jit_val(args[i]))
+                jit_args.append(self._get_jit_val(args[i], parameter))
             elif parameter.name in kwargs:
-                jit_args.append(self._get_jit_val(kwargs[parameter.name]))
+                jit_args.append(self._get_jit_val(kwargs[parameter.name], parameter))
             else:
                 if not parameter.has_default_value():
                     raise RuntimeError(f"The parameter {i} is not present in the argument list " f"for {schema.name}.")
-                jit_args.append(self._get_jit_val(parameter.default_value))
+                jit_args.append(self._get_jit_val(parameter.default_value, parameter))
 
         return schema.name, jit_args
 
@@ -265,6 +264,9 @@ class FxToJitLowering(torch.fx.Interpreter):
         # corresponding operation in the JIT graph.
         if isinstance(target, TorchOpOverload):
             schema = target._schema
+            jit_op_name, jit_args = self._handle_schema(schema, args, kwargs)
+        elif hasattr(target, "default") and isinstance(target.default, TorchOpOverload):
+            schema = target.default._schema
             jit_op_name, jit_args = self._handle_schema(schema, args, kwargs)
         # Python-only operators that are unrepresentable in TorchScript.
         # Examples: cond, while loop, triton wrapper, etc.
@@ -381,13 +383,11 @@ class FxToJitLowering(torch.fx.Interpreter):
 
         if jit_type:
             if isinstance(meta_val, torch.Tensor):
-                shape = [str(elem.node) if isinstance(elem, torch.SymInt) else elem for elem in meta_val.shape]
-                strides = [str(elem.node) if isinstance(elem, torch.SymInt) else elem for elem in meta_val.stride()]
-                input_type = jit.TypeWrapper(meta_val, shape, strides)
+                input_type = jit.TensorType.get()
             elif isinstance(meta_val, (torch.SymBool, torch.SymInt, torch.SymFloat)):
-                input_type = jit.TypeWrapper(jit_type, str(meta_val.node))
+                input_type = jit_type
             else:
-                input_type = jit.TypeWrapper(jit_type)
+                input_type = jit_type
         else:
             raise NotImplementedError(
                 f"The metadata contains unsupported type: {type(meta_val)}. " "Please report a bug."

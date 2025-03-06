@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -377,9 +377,6 @@ def Floyd_Warshall(casts, device):
                     w.min_int_mant,
                     w.num_identities,
                     w.max_mant_inc_after_sign_change,
-                    w.mant_bits_begin_end[0],
-                    w.mant_bits_begin_end[1],
-                    w.next,
                 )
             )
 

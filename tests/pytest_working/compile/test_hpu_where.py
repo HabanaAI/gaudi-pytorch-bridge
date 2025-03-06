@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,12 +16,9 @@
 ###############################################################################
 
 
-import habana_frameworks.torch.dynamo.compile_backend
-import numpy as np
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
-from torch.testing._internal.common_dtype import integral_types_and
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 all_dtypes = [
     torch.bfloat16,
@@ -47,7 +44,7 @@ class TestHpuWhere:
 
         cpu_x = torch.randn(
             3, 2, device="cpu", dtype=torch.float32
-        )  ## since aten::gt.Scalar_out is not yet supported on HPU
+        )  # since aten::gt.Scalar_out is not yet supported on HPU
         cpu_input = torch.ones([3, 2], device="cpu", dtype=dtype)
         cpu_other = torch.zeros([3, 2], device="cpu", dtype=dtype)
 
@@ -55,7 +52,7 @@ class TestHpuWhere:
         hpu_input = cpu_input.to("hpu")
         hpu_other = cpu_other.to("hpu")
 
-        hpu_torch_compile_func = torch.compile(fn, backend="hpu_backend")
+        hpu_torch_compile_func = compile_function_if_compile_mode(fn)
         cpu_torch_compile_func = torch.compile(fn, backend="eager")
 
         hpu_result = hpu_torch_compile_func(hpu_x, hpu_input, hpu_other)

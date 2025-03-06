@@ -45,16 +45,16 @@ testsMap:
   Test_pytorch_modules_gaudi_sim_cpp_suite:
     stages:
       Run CPP tests gaudi sim:
-        filter: -t cpp_tests
+        filter: -t cpp_tests -r
   Test_pytorch_modules_gaudi2_sim_cpp_suite:
     dependencies:
       - TPC_LLVM
     stages:
       Run CPP tests gaudi2 sim:
-        filter: -t cpp_tests --dut gaudi2
+        filter: -t cpp_tests --dut gaudi2 -r
   Test_pytorch_modules_gaudi3_sim_cpp_suite:
     dependencies:
       - TPC_LLVM
     stages:
       Run CPP tests gaudi3 sim:
-        filter: -t cpp_tests --dut gaudi3
+        filter: -t cpp_tests --dut gaudi3 -r

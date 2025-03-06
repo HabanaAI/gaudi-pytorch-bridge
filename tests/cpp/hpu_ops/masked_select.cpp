@@ -67,8 +67,8 @@ TEST_F(HpuOpTest, masked_select_out_all_true) {
   auto maskh = mask.to("hpu");
 
   torch::ScalarType dtype = torch::kBFloat16;
-  auto expected = torch::empty({1, 1}, dtype); // out tensor with non-empty size
-  auto result = torch::empty({1, 1}, torch::TensorOptions(dtype).device("hpu"));
+  auto expected = torch::empty({1024}, dtype); // out tensor with non-empty size
+  auto result = torch::empty({1024}, torch::TensorOptions(dtype).device("hpu"));
 
   torch::masked_select_outf(GetCpuInput(0), mask, expected);
   torch::masked_select_outf(GetHpuInput(0), maskh, result);
@@ -82,10 +82,8 @@ TEST_F(HpuOpTest, masked_select_out_all_false) {
   auto maskh = mask.to("hpu");
 
   torch::ScalarType dtype = torch::kInt32;
-  auto expected =
-      torch::empty({2, 3, 4, 5, 6}, dtype); // out tensor with non-empty size
-  auto result =
-      torch::empty({2, 3, 4, 5, 6}, torch::TensorOptions(dtype).device("hpu"));
+  auto expected = torch::empty({0}, dtype); // out tensor with non-empty size
+  auto result = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
 
   torch::masked_select_outf(GetCpuInput(0), mask, expected);
   torch::masked_select_outf(GetHpuInput(0), maskh, result);

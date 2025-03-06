@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,13 @@
 
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.float, torch.bfloat16, torch.int]
 if not is_gaudi1():
@@ -31,10 +37,7 @@ def test_uniform(shape, low, high, dtype):
     def fn(input, low, high):
         input.uniform_(low, high)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     input = torch.empty(shape, dtype=dtype, device="hpu")
 

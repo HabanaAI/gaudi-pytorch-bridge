@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
 import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long])
@@ -36,8 +36,7 @@ def test_arange(dtype, layout, start, step, end):
         else:
             return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
 
-    torch._dynamo.reset()
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     expected = fn(start, layout, step, end, "cpu")
     result = compiled_fn(start, layout, step, end, "hpu").cpu()
@@ -63,7 +62,7 @@ def test_arange_rounding_issue(dtype, layout, start, step, end):
         else:
             return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     expected = fn(start, layout, step, end, "cpu")
     result = compiled_fn(start, layout, step, end, "hpu").cpu()

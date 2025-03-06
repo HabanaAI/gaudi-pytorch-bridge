@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_eager/graph_exec.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -54,11 +54,39 @@ void PrintRangeInfos(std::vector<habana_helpers::RangeInfo>& range_infos) {
 void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
   size_t num_tensors = launch_shapes.ds_tensors.size();
   PT_DYNAMIC_SHAPE_DEBUG("Num DS tensors to be patched = ", num_tensors);
+
+  // Figure out the total H2D size required bu this graph
+  size_t h2d_memory_required = 0;
+  for (size_t i = 0; i < num_tensors; i++) {
+    auto tensor = launch_shapes.ds_tensors[i];
+    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+      h2d_memory_required += 2 * tmeta->get_host_total_elem();
+    }
+  }
+
+  // Allocate the total H2D required in single chunk
+  void* alloc_pointer{nullptr};
+  if (h2d_memory_required > 0) {
+    auto& device = HPUDeviceContext::get_device();
+    device.get_host_memory().uncached_malloc(
+        &alloc_pointer, h2d_memory_required);
+  }
+  void* h2d_pointer{alloc_pointer};
+
   for (size_t i = 0; i < num_tensors; i++) {
     auto tensor = launch_shapes.ds_tensors[i];
     std::vector<int64_t> patch_data = launch_shapes.patch_values[i];
     auto tmeta{habana::get_tensor_extra_meta(tensor)};
     if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+      // Set the host and compile pointer from allocated chunk and
+      // increment the h2d_pointer to point to end of current H2D
+      tmeta->set_alloc_ptr(alloc_pointer);
+      tmeta->set_host_ptr(h2d_pointer);
+      char* ptr =
+          static_cast<char*>(h2d_pointer) + tmeta->get_host_total_elem();
+      tmeta->set_compile_host_ptr(ptr);
+      h2d_pointer = static_cast<char*>(ptr + tmeta->get_host_total_elem());
       habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
       if (h2d_dt_type == habana::HostDataType::INT32_T) {
         std::vector<int32_t> h2d_data(patch_data.begin(), patch_data.end());
@@ -198,16 +226,17 @@ GraphExec::GraphExec(
       m_mark_dynamic(mark_dynamic && dynamic) {
   PT_EAGER_TRACE;
 
-  habana::eager::JoinPendingPipelineThreads();
-
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
-  bool ds_refine = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD);
-
-  m_is_pipeline_supported =
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && !ds_refine;
+  m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 
   UpdateSeedTensors(example_inputs);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+    // we need sync because graph pass HandleInputViews uses permutation info
+    HPUDeviceContext::join_lowering_thread();
+  }
   RunGraphPasses(example_inputs);
+
   LogRecipeInfo(example_inputs);
 
   torch::jit::Stack in_stack = example_inputs;
@@ -224,7 +253,7 @@ GraphExec::GraphExec(
 
     // Check if any of the symbols where replaced with concrete values.
     // If then, make the m_sym_expr_hash invalid.
-    bool invalid_symbols = HasInvalidDynanmicSymbols();
+    bool invalid_symbols = HasInvalidDynamicSymbols();
     if (invalid_symbols) {
       m_sym_expr_hash = ULONG_MAX;
       PT_DYNAMIC_SHAPE_DEBUG(
@@ -620,15 +649,20 @@ void GraphExec::UpdateSeedTensors(torch::jit::Stack& stack) {
   }
 }
 
-bool GraphExec::HasInvalidDynanmicSymbols() {
+bool GraphExec::HasInvalidDynamicSymbols() {
   bool invalid_symbol = false;
 
   for (auto it = m_in_symbol_idx_map.begin(); it != m_in_symbol_idx_map.end();
        ++it) {
     if (std::isdigit(it->first[0])) {
-      PT_DYNAMIC_SHAPE_DEBUG("key:", it->first, ", value:", it->second);
-      invalid_symbol = true;
-      break;
+      size_t pos = 0;
+      std::stod(it->first, &pos);
+      // invalid symbol if it's completely numeric
+      if (pos == it->first.size()) {
+        PT_DYNAMIC_SHAPE_DEBUG("key:", it->first, ", value:", it->second);
+        invalid_symbol = true;
+        break;
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,10 +14,8 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
-import pytest
 import torch
+from test_utils import compile_function_if_compile_mode
 
 
 def test_remainder_tensor():
@@ -33,7 +31,7 @@ def test_remainder_tensor():
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, hy)
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
@@ -51,7 +49,7 @@ def test_remainder_scalar():
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, y)
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
@@ -69,7 +67,7 @@ def test_remainder_scalar_tensor():
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(x, hy)
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)

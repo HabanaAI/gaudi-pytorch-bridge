@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "hpu_lazy_tensors.h"
 #include <torch/csrc/jit/ir/ir.h>
 #include "backend/habana_device/HPUDevice.h"
@@ -29,7 +29,6 @@
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/lazy_graph_hash_disabler.h"
 #include "habana_lazy/ops/hpu_input.h"
-#include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/visualize/visualize.h"
@@ -989,8 +988,6 @@ void PostLaunch(
   auto snapshot = StaleLazyTensorKeeper::getInstance().extract_snapshot();
   snapshot.reset();
 
-  SBSDebug::getInstance().CompareTensors(*tensors);
-
   if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
       !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
     PT_LAZY_EAGER_DEBUG(
@@ -1502,7 +1499,8 @@ void HbLazyTensor::ExecuteCachedGraph(
     std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
     const std::unordered_map<int64_t, c10::optional<at::Generator>>&
         seed_tensors_generator_map,
-    uint64_t launch_jobid) {
+    uint64_t launch_jobid,
+    c10::hpu::HPUStream capture_stream [[maybe_unused]]) {
   PT_LAZY_TRACE;
   get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLOWERING);
   bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
@@ -1557,7 +1555,7 @@ void HbLazyTensor::ExecuteCachedGraph(
   hlexec.set_opstrs(opStrs);
 
   // Launch the execution
-  hlexec.Launch(stack, cached_rarg_psh, c10::hpu::getCurrentHPUStream());
+  hlexec.Launch(stack, capture_stream, cached_rarg_psh, false);
 
   HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
   for (const auto& in : hblazy_tensors_in) {

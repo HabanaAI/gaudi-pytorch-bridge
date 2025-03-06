@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
-import habana_frameworks.torch.utils.experimental as htexp
 import pytest
 import torch
 from test_utils import format_tc, is_gaudi1
@@ -83,7 +81,7 @@ def test_hpu_floor_divide_tensor_scalar_mode(input_shape, other_scalar, dtype):
     cpu_input = torch.rand(input_shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
 
-    if other_scalar == None:
+    if other_scalar is None:
         cpu_other = torch.rand(input_shape, dtype=dtype)
         hpu_other = cpu_other.to("hpu")
     else:

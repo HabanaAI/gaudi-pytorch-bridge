@@ -1,0 +1,69 @@
+{
+    "fork": {
+        "repos": [
+            "3rd-parties",
+            "automation",
+            "pytorch-fork",
+            "pytorch-integration",
+            "pytorch-training-tests",
+            "specs_external",
+            "synapse",
+            "synapse_profiler",
+            "kineto",
+            "hcl"
+        ],
+        "env": {
+            "CMAKE_ROOT": "",
+            "CMAKE_BUILD": ""
+        },
+        "cmd": "unset CMAKE_ROOT ; unset CMAKE_BUILD ; build_pytorch_fork --dist ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "vision": {
+        "cmd": "build_pytorch_vision ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "vision_next": {
+        "cmd": "build_pytorch_vision --next ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "modules": {
+        "env": {
+            "DATA_LOADER_AEON_LIB_PATH": "${AEON_RELEASE_BUILD}/lib/libaeon.so"
+        },
+        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --upstream-compile --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j 8"
+    },
+    "modules_next": {
+        "env": {
+            "DATA_LOADER_AEON_LIB_PATH": "${AEON_RELEASE_BUILD}/lib/libaeon.so"
+        },
+        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "plugin": {
+        "cmd": "build_pytorch_tb_plugin --dist ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "gpu_migration": {
+        "cmd": "echo ${RELEASE_VERSION}.${RELEASE_BUILD_NUMBER} > ${GPU_MIGRATION_ROOT_PATH}/VERSION ; build_gpu_migration"
+    },
+    "audio": {
+        "cmd": "build_pytorch_audio ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "audio_next": {
+        "cmd": "build_pytorch_audio --pt-audio-version $(jq -rj '.pt_versions.next.extras.torchaudio' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "text": {
+        "cmd": "build_pytorch_text ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "text_next": {
+        "cmd": "build_pytorch_text --pt-text-version $(jq -rj '.pt_versions.next.extras.torchtext' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "data": {
+        "cmd": "build_pytorch_data ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "data_next": {
+        "cmd": "build_pytorch_data --pt-data-version $(jq -rj '.pt_versions.next.extras.torchdata' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+    },
+    "inc": {
+        "cmd": "build_inc -w"
+    },
+    "hte": {
+        "cmd": "build_pytorch_te -w"
+    }
+}

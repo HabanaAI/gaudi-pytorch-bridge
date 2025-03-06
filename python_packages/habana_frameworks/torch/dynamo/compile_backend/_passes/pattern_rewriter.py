@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ class PatternRewriter:
     def __init__(self, pattern_replace_cls):
         self.patternGraph = symbolic_trace(pattern_replace_cls.pattern).graph
         self.replaceGraph = symbolic_trace(pattern_replace_cls.replace).graph
-        if hasattr(pattern_replace_cls, "filter") and callable(getattr(pattern_replace_cls, "filter")):
+        if hasattr(pattern_replace_cls, "filter") and callable(pattern_replace_cls.filter):
             self.filter = pattern_replace_cls.filter
         else:
             self.filter = generic_filter
@@ -87,37 +87,18 @@ class replace_rewrite_floor_divide:
         return x
 
 
-class replace_rewrite_plain_index:
-    def pattern(tensor_input, list_indexes):
-        x = torch.ops.aten.index.Tensor(tensor_input, list_indexes)
-        return x
+class replace_rewrite_copy_copy_:
+    def pattern(self_tensor, src_tensor):
+        x = torch.ops.aten.copy.default(self_tensor, src_tensor)
+        y = torch.ops.aten.copy_.default(self_tensor, x)
+        return y
 
-    def replace(tensor_input, list_indexes):
-        x = torch.ops.hpu.plain_index(tensor_input, list_indexes)
+    def replace(self_tensor, src_tensor):
+        x = torch.ops.aten.copy_.default(self_tensor, src_tensor)
         return x
 
     def filter(match, *args, **kwargs):
-        """
-        It checks if all tensors are on hpu and there is no nope or fake tensor in indices list,
-        so this rules out advance indexing and dynamic shapes.
-        """
-        src = match.placeholder_nodes[0]
-        if not (isinstance(src, torch.fx.node.Node) and src.meta.get("val").device.type == "hpu"):
-            return False
-        indices = match.placeholder_nodes[1]
-        if isinstance(indices, list):
-            for index in indices:
-                if index is None or (
-                    isinstance(index, torch.fx.node.Node)
-                    and (
-                        index.meta.get("val") is None
-                        or index.meta.get("val").device.type != "hpu"
-                        or any(isinstance(dim, torch.SymInt) for dim in index.meta.get("val").size())
-                    )
-                ):
-                    return False
-            return True
-        return False
+        return isinstance(match.placeholder_nodes[0], torch.fx.node.Node)
 
 
 # Register pattern rewriters
@@ -126,7 +107,7 @@ pattern_rewriters.append(PatternRewriter(replace_rewrite_div))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_floor))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_trunc))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_floor_divide))
-pattern_rewriters.append(PatternRewriter(replace_rewrite_plain_index))
+pattern_rewriters.append(PatternRewriter(replace_rewrite_copy_copy_))
 
 
 def pass_pattern_rewriter(ctx: OptimizerContext):

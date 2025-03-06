@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/kernel/control_edges_processing.h"
 #include "backend/jitgraph_utils.h"
 
@@ -89,8 +89,8 @@ bool IsValidBlockingOrBlockedNode(const torch::jit::Node* const blocking_node) {
   auto node_str = std::string_view{blocking_node->kind().toQualString()};
   auto c_edge = NodeRequiresControlEdge(blocking_node);
   return not(
-      (c_edge == ControlEdgeType::Default) ||
-      (node_str == "prim::Param"sv) || (node_str == "prim::Return"sv));
+      (c_edge == ControlEdgeType::Default) || (node_str == "prim::Param"sv) ||
+      (node_str == "prim::Return"sv));
 }
 
 /**
@@ -739,7 +739,7 @@ void ProcessStridedInsertAtOutput(
     torch::jit::Node* node,
     HabanaOperatorPtr habana_kernel,
     torch::jit::Stack& input_stack,
-    std::shared_ptr<synapse_helpers::graph>& syn_graph,
+    synapse_helpers::graph& syn_graph,
     const OutputMetaDataVector& outputs_metadata,
     std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
         memory_reuse_pairs,
@@ -781,7 +781,7 @@ void ProcessStridedInsertAtOutput(
   if (is_reuse_input == false) {
     OutputMetaDataVector md(1, outputs_metadata.at(0));
     md.at(0).persistent = true;
-    habana_kernel->AllocateAndAddSynapseNode(*syn_graph, input_stack, md);
+    habana_kernel->AllocateAndAddSynapseNode(syn_graph, input_stack, md);
   } else {
     TORCH_CHECK(
         value_to_ivalue.count(val_ins[0]),
@@ -793,7 +793,7 @@ void ProcessStridedInsertAtOutput(
 
     input_stack.insert(input_stack.end(), *ivalue);
     habana_kernel->ReuseMemoryAndAddSynapseNode(
-        *syn_graph,
+        syn_graph,
         input_stack,
         *pt_to_synapse_tensors.at(ivalue),
         outputs_metadata);

@@ -62,7 +62,6 @@ set(lazy_tests_src
   lazy_upsample_kernel_tests.cpp
   lazy_where_kernel_tests.cpp
   post_order_tests.cpp
-  sbs_tests.cpp
   dry_run_test.cpp
 )
 
@@ -270,6 +269,7 @@ list(APPEND misc_tests_src
   utils/device_type_util.cpp
   utils/dtype_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
+  utils/rerun_failures.cpp
   view_utils_tests.cpp
   common_tests.cpp
 )

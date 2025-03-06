@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -99,9 +99,18 @@ def sdpa_fwd_wrapper(
     return_attn_probs=False,
 ):
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
+
+    # Handle zero sized tensors(for now only in inference) by returning a dummy output.
+    if requires_backward is False:
+        if q.numel() == 0 or k.numel() == 0 or v.numel() == 0:
+            out_shape = list(q.shape)
+            out_shape[-1] = v.shape[-1]
+            dummy_out = q.new_empty(out_shape, requires_grad=requires_backward, layout=q.layout)
+            return dummy_out
+
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()
-    if scale == None:
+    if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
     # Check if recompute variant is enabled
@@ -111,21 +120,27 @@ def sdpa_fwd_wrapper(
         recompute = ht.recompute_sdp_enabled()
 
     if return_attn_probs:
-        assert requires_backward == False, "return_attn_probs is supported only for inference mode"
+        assert requires_backward is False, "return_attn_probs is supported only for inference mode"
         recompute = False
 
     if recompute and requires_backward and softmax_mode == "fast":
         assert (
-            is_causal == True
+            is_causal
         ), "Optimized softmax mode is supported in recompute training mode only in causal(triangular) mask case"
 
     if valid_seq_len is not None:
         assert (
-            is_causal and (requires_backward == False) and (attn_mask == None)
+            is_causal and (requires_backward is False) and (attn_mask is None)
         ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
 
     if recompute:
-        assert return_dropout_mask == False, "Return_dropout_mask is not supported in recompute mode"
+        assert return_dropout_mask is False, "Return_dropout_mask is not supported in recompute mode"
+
+    if softmax_mode == "fp32":
+        q_dtype = q.dtype
+        assert (
+            requires_backward is False and q_dtype == torch.bfloat16
+        ), "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
 
     gqa = is_gqa(q, k)
     if gqa:

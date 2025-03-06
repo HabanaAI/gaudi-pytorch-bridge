@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     hpu,
     is_gaudi1,
@@ -47,10 +47,7 @@ def test_bucketize(input_shape, boundaries_size, out_int32, right, dtype):
     boundaries_cpu = torch.linspace(0, 1, boundaries_size, dtype=dtype)
     result_cpu = fn(input_cpu, boundaries_cpu, out_int32=out_int32, right=right)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn = torch.compile(fn, backend="hpu_backend", dynamic=False)
+    fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     input_hpu = input_cpu if input_shape == () else input_cpu.to(hpu)
     boundaries_hpu = boundaries_cpu.to(hpu)

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 #  - schema_args - overriden signature of the op. Used with op_frontend.
 #  - dtypes - dtypes supported by the operator. Not needed if op_validator used.
 #  - output_meta - function for output tensors metadata calculation.
+#  - st_meta - attribute to add an op to the optimized output sif flow for dynamic cache hit scenarios
 #  - custom_fill_params - function filling params structure for kernel/cguid. Not needed if op_backend used.
 #  - promote_to_common_type - names of inputs to execute type promotion on.
 #  - promote_int_to_float - names of inputs casted automatically to float.
@@ -570,14 +571,16 @@ _foreach_floor_:
   op_backend: Foreach
 
 _foreach_frac:
-  op_backend: ForeachFrac
+  guid: frac_fwd
+  op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_frac_:
+  guid: frac_fwd
   inplace_ids: [0]
-  op_backend: ForeachFrac
+  op_backend: Foreach
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_lerp.Scalar:
@@ -1156,7 +1159,7 @@ add.Tensor:
   broadcast: true
   custom_fill_params: FillBinaryAddParams
   guid: binary_with_alpha_fwd
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -1170,7 +1173,7 @@ add.Scalar:
   custom_fill_params: FillBinaryAddParams
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -1201,7 +1204,7 @@ add.out:
   broadcast: true
   custom_fill_params: FillBinaryAddParams
   guid: binary_with_alpha_fwd
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaAddSharedMeta
@@ -1211,7 +1214,7 @@ add.Scalar_out:
   broadcast: true
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaAddSharedMeta
@@ -1296,32 +1299,23 @@ addcmul.out:
 
 addmm:
   output_meta: AddMMMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: addmm
   op_backend: AddMM
   out_ids: [0]
+  op_validator: AddMMSharedMeta
 
 addmm_:
   output_meta: AddMMMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: addmm
   op_backend: AddMM
   inplace_ids: [0]
+  op_validator: AddMMSharedMeta
 
 addmm.out:
   output_meta: AddMMMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: addmm
   op_backend: AddMM
+  op_validator: AddMMSharedMeta
 
 _addmm_activation.out:
   output_meta: AddMMMeta
@@ -1344,35 +1338,27 @@ _addmm_activation:
 
 addmv:
   output_meta: AddMVMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
   guid: addmv
   op_backend: AddMV
+  op_validator: AddMVSharedMeta
 
 addmv_:
   output_meta: AddMVMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   inplace_ids: [0]
   guid: addmv
   op_backend: AddMV
+  op_validator: AddMVSharedMeta
 
 addmv.out:
   output_meta: AddMVMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: addmv
   op_backend: AddMV
+  op_validator: AddMVSharedMeta
 
 addr:
   output_meta: AddRMeta
+  st_meta: DefaultSTMetaFn
   guid: addr_fwd
   custom_fill_params: FillAddrParams
   out_ids: [0]
@@ -1387,6 +1373,7 @@ addr_:
 
 addr.out:
   output_meta: AddRMeta
+  st_meta: DefaultSTMetaFn
   guid: addr_fwd
   custom_fill_params: FillAddrParams
   op_validator: check-node-with-shared-layer
@@ -1520,6 +1507,7 @@ any.out:
 
 arange:
   output_meta: ArangeDefaultEndMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: ArangeDefaultEnd
   guid: range
   custom_fill_params: FillArangeDefaultEndParams
@@ -1528,6 +1516,7 @@ arange:
 
 arange.start:
   output_meta: ArangeDefaultStartEndMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: ArangeDefaultStartEnd
   guid: range
   custom_fill_params: FillArangeDefaultStartEndParams
@@ -1536,6 +1525,7 @@ arange.start:
 
 arange.start_step:
   output_meta: ArangeDefaultStartEndStepMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: ArangeDefaultStartEndStep
   op_frontend: LazyArange
   guid: range
@@ -1549,6 +1539,7 @@ arange.start_out:
   op_frontend: ArangeFE
   guid: range
   output_meta: ArangeStartOutMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   custom_fill_params: FillArangeParams
   schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
   op_validator: ArangeDefaultStartOutSharedMeta
@@ -1677,6 +1668,7 @@ _adaptive_avg_pool2d_backward:
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd
   output_meta: Avgpool2dMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: avg_pool_2d_fwd
   out_ids: [0]
   op_backend: Avgpool2dFwd
@@ -1685,6 +1677,7 @@ avg_pool2d:
 avg_pool2d.out:
   custom_fill_params: Fillavgpool2dParamsFwd
   output_meta: Avgpool2dMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: avg_pool_2d_fwd
   op_backend: Avgpool2dFwd
   op_validator: AvgPool2dFwdSharedMeta
@@ -1692,12 +1685,14 @@ avg_pool2d.out:
 avg_pool2d_backward.grad_input:
   custom_fill_params: Fillavgpool2dParamsBwd
   output_meta: Avgpool2dBwdMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: Avgpool2dBwd
   op_validator: AvgPool2dBwdSharedMeta
 
 avg_pool2d_backward:
   custom_fill_params: Fillavgpool2dParamsBwd
   output_meta: Avgpool2dBwdMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   op_backend: Avgpool2dBwd
   out_ids: [0]
   op_validator: AvgPool2dBwdSharedMeta
@@ -1720,6 +1715,7 @@ avg_pool3d.out:
 avg_pool3d_backward:
   custom_fill_params: FillAvgPool3dParamsBwd
   output_meta: AvgPool3dBwdMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: avg_pool_3d_bwd
   op_backend: AvgPool3dBwd
   out_ids: [0]
@@ -1811,6 +1807,7 @@ bernoulli:
   op_backend: Bernoulli
   out_ids: [0]
   op_validator: BernoulliSharedMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, *, Tensor? seed=None) -> Tensor"
 
 bernoulli_.float:
@@ -1847,6 +1844,7 @@ bernoulli.out:
   op_frontend: GeneratorToSeedOut
   op_backend: BernoulliOut
   op_validator: BernoulliSharedMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 bernoulli.float_out:
@@ -1859,6 +1857,7 @@ bernoulli.float_out:
   op_frontend: BernoulliOutFE
   op_backend: BernoulliWithP
   op_validator: BernoulliWithPSharedMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, float p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 binary_cross_entropy:
@@ -1906,7 +1905,6 @@ binary_cross_entropy_with_logits:
     Gaudi2: [Float, BFloat16, Half]
     Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyWithLogitsFwd
-  fallback_check: [BCELogitsFallbackCheck, self]
   out_ids: [0]
   #op_validator: BinaryCrossEntropyWithLogitsFwdSharedMeta SW-163929
 
@@ -2156,7 +2154,7 @@ bucketize.Tensor_out:
 cat:
   promote_to_common_type: [tensors]
   output_meta: CatMeta
-  st_meta: CatSTMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: concat
   op_backend: CatHabanaOperator
   out_ids: [0]
@@ -2165,7 +2163,7 @@ cat:
 cat.out:
   promote_to_common_type: [tensors]
   output_meta: CatMeta
-  st_meta: CatSTMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: concat
   op_backend: CatHabanaOperator
   op_validator: CatSharedMeta
@@ -2343,13 +2341,10 @@ clone:
   op_validator: check-node-with-shared-layer
 
 lift_fresh_copy:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: identity
   out_ids: [0]
   no_compute_flag: true
+  op_validator: check-node-with-shared-layer
 
 complex:
   override_fn: complex_hpu
@@ -2377,6 +2372,7 @@ convolution_overrideable:
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionOverrideableFE
   op_backend: ConvolutionOverrideable
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   out_ids: [0]
   op_validator: ConvolutionSharedMeta
 
@@ -2388,6 +2384,7 @@ convolution:
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionOverrideableFE
   op_backend: ConvolutionOverrideable
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   out_ids: [0]
   op_validator: ConvolutionSharedMeta
 
@@ -2399,11 +2396,13 @@ convolution_backward_overrideable:
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
+  st_meta: ConvBwdDSSTMeta
   out_ids: [0, 0, 0]
   op_validator: ConvolutionBwdOverrideableSharedMeta
 
 convolution_backward:
   output_meta: ConvolutionOverrideableMetaBwd
+  st_meta: ConvBwdDSSTMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -2549,12 +2548,9 @@ cumsum_:
 
 diag.out:
   output_meta: DiagMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   custom_fill_params: FillDiagParams
   op_backend: Diag
+  op_validator: DiagSharedMeta
 
 div.out:
   broadcast: true
@@ -2699,39 +2695,19 @@ elu_backward.grad_input:
   op_validator: check-node-with-shared-layer
 
 embedding:
-  dtypes:
-    Gaudi:
-      weight: [BFloat16, Float, Int, Char, Short, Byte]
-      indices: [Int, Long]
-    Gaudi2:
-      weight: [BFloat16, Float, Half, Int, Char, Short, Byte, Float8_e5m2, Float8_e4m3fn]
-      indices: [Int, Long]
-    Gaudi3:
-      weight: [BFloat16, Float, Half, Int, Char, Short, Byte, Float8_e5m2, Float8_e4m3fn]
-      indices: [Int, Long]
   fallback_check: [EmbeddingFallbackCheck, scale_grad_by_freq, sparse]
   output_meta: EmbeddingMeta
   guid: embedding_pt_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer - disabled due to [SW-205212]
+  op_validator: check-node-with-shared-layer
 
 embedding_dense_backward:
   custom_fill_params: FillEmbeddingDenseBackwardParams
-  dtypes:
-    Gaudi:
-      grad_output: [BFloat16, Float]
-      indices: [Int, Long]
-    Gaudi2:
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
-    Gaudi3:
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
   output_meta: EmbeddingDenseBwdMeta
   guid: embedding_dense_pt_bwd
   op_backend: EmbeddingDenseBwd
   out_ids: [0]
-  #op_validator: EmbeddingDenseBwdSharedMeta - disabled due to [SW-205212]
+  op_validator: EmbeddingDenseBwdSharedMeta
 
 embedding_renorm_:
   custom_fill_params: FillEmbeddingRenormFwdParams
@@ -2918,6 +2894,7 @@ exponential:
   op_backend: ExponentialSeedTensorInput
   out_ids: [0]
   output_meta: ExponentialMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
   op_validator: ExponentialSharedMeta
 
@@ -2926,6 +2903,7 @@ exponential_:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
   op_validator: ExponentialSharedMeta
 
@@ -2934,6 +2912,7 @@ exponential.out:
   op_frontend: GeneratorToSeedOut
   op_backend: ExponentialSeedTensorInput
   output_meta: ExponentialMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
   op_validator: ExponentialSharedMeta
 
@@ -3041,18 +3020,18 @@ floor_divide.Scalar_out:
   op_validator: check-node-with-shared-layer
 
 frac:
-  op_backend: Frac
+  guid: frac_fwd
   out_ids: [0]
-  op_validator: FracSharedMeta
+  op_validator: check-node-with-shared-layer
 
 frac_:
-  op_backend: Frac
+  guid: frac_fwd
   inplace_ids: [0]
-  op_validator: FracSharedMeta
+  op_validator: check-node-with-shared-layer
 
 frac.out:
-  op_backend: Frac
-  op_validator: FracSharedMeta
+  guid: frac_fwd
+  op_validator: check-node-with-shared-layer
 
 frexp.Tensor:
   output_meta: FrexpMeta
@@ -3241,6 +3220,13 @@ glu_backward.grad_input:
   output_meta: GluBwdMeta
   custom_fill_params: FillGluBwdParams
   guid: glu_bwd
+  op_validator: check-node-with-shared-layer
+
+glu_jvp:
+  output_meta: GluJvpMeta
+  custom_fill_params: FillGluJvpParams
+  guid: glu_jvp
+  out_ids: [0]
   op_validator: check-node-with-shared-layer
 
 grid_sampler_2d:
@@ -3597,21 +3583,9 @@ kthvalue.values:
   op_validator: check-node-with-shared-layer
 
 index_add_:
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int]
-      index: [Int]
-      source: [BFloat16, Float, Int]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int]
-      source: [BFloat16, Float, Int, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int]
-      source: [BFloat16, Float, Int, Half]
   override_fn: index_add_hpu_lazy_
   acc_thread: true
+  op_validator: IndexAddSharedMeta
 
 index_copy:
   guid: index_copy_fwd
@@ -3663,13 +3637,11 @@ index_reduce.out:
   custom_fill_params: IndexReduceFillParams
   guid: index_reduce_fwd
   op_validator: check-node-with-shared-layer
-  fallback_check: [IndexReduceFallbackCheck, dim, reduce, include_self]
 
 index_reduce:
   custom_fill_params: IndexReduceFillParams
   guid: index_reduce_fwd
   op_validator: check-node-with-shared-layer
-  fallback_check: [IndexReduceFallbackCheck, dim, reduce, include_self]
   out_ids: [0]
 
 index_select:
@@ -3894,6 +3866,19 @@ linalg_cholesky_ex.L:
   dtypes: [Float]
   guid: cholesky_fwd
   op_backend: Cholesky
+
+linalg_qr:
+  custom_fill_params: FillQrParams
+  output_meta: QrMeta
+  guid: qr_fwd
+  out_ids: [0, 0]
+  op_validator: check-node-with-shared-layer
+
+linalg_qr.out:
+  custom_fill_params: FillQrParams
+  output_meta: QrMeta
+  guid: qr_fwd
+  op_validator: check-node-with-shared-layer
 
 linear:
   output_meta: LinearMeta
@@ -4285,7 +4270,7 @@ masked_fill_.Tensor:
   guid: masked_fill_fwd
   op_backend: MaskedFill
   op_validator: MaskedFillSharedMeta
-  st_meta: MaskedFillSTMeta
+  st_meta: DefaultSTMetaFn
   inplace_ids: [0]
 
 masked_fill.Scalar:
@@ -4294,7 +4279,7 @@ masked_fill.Scalar:
   guid: masked_fill_fwd
   op_backend: MaskedFill
   op_validator: MaskedFillSharedMeta
-  st_meta: MaskedFillSTMeta
+  st_meta: DefaultSTMetaFn
   scalar_ids: [2]
   out_ids: [0]
 
@@ -4304,7 +4289,7 @@ masked_fill.Tensor:
   guid: masked_fill_fwd
   op_backend: MaskedFill
   op_validator: MaskedFillSharedMeta
-  st_meta: MaskedFillSTMeta
+  st_meta: DefaultSTMetaFn
   out_ids: [0]
 
 max.dim:
@@ -4401,6 +4386,7 @@ max_pool3d_with_indices:
 max_pool3d_with_indices_backward:
   custom_fill_params: FillSpatialReduction3DParamsBwd
   output_meta: MaxPoolMetaBwd
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: maxpool_3d_bwd
   op_backend: MaxPool3DWithIndicesBwd
   op_validator: MaxPool3DWithIndicesBwdSharedMeta
@@ -4421,36 +4407,27 @@ max_pool3d_with_indices_backward:
 
 mean:
   output_meta: ReductionOpMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
   op_backend: ReductionOp
   promote_to_common_type: [self]
   out_ids: [0]
   acc_thread: true
+  op_validator: ReductionOpMeanSharedMeta
 
 mean.dim:
   output_meta: ReductionOpListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
   op_backend: ReductionOpList
   promote_to_common_type: [self]
   out_ids: [0]
+  op_validator: ReductionOpMeanListSharedMeta
 
 mean.out:
   output_meta: ReductionOpListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
   op_backend: ReductionOpList
   promote_to_common_type: [self]
+  op_validator: ReductionOpMeanListSharedMeta
 
 median:
   output_meta: MedianOutputMeta
@@ -4539,8 +4516,8 @@ mish.out:
   op_validator: check-node-with-shared-layer
 
 mish_backward:
-  dtypes: [BFloat16, Float]
   op_backend: Mishbackward
+  op_validator: MishBackwardSharedMeta
   out_ids: [0]
 
 mm:
@@ -4589,46 +4566,40 @@ mse_loss_backward.grad_input:
   op_validator: check-node-with-shared-layer
 
 mul.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Short, Int]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
-  st_meta: BinarySTMeta
   output_meta: MulMeta
+  st_meta: DefaultSTMetaFn
   out_ids: [0]
   broadcast: true
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
+  op_validator: MulBinarySharedMeta
 
 mul.Scalar:
   guid: mult_fwd
   out_ids: [0]
   scalar_ids: [1]
-  st_meta: BinarySTMeta
   output_meta: MulMeta
+  st_meta: DefaultSTMetaFn
   promote_to_common_type: [self, other]
   op_validator: check-node-with-shared-layer
 
 mul.Scalar_out:
   broadcast: true
   guid: mult_fwd
-  st_meta: BinarySTMeta
   output_meta: MulMeta
+  st_meta: DefaultSTMetaFn
   promote_to_common_type: [self, other]
   scalar_ids: [1]
   op_validator: check-node-with-shared-layer
 
 mul_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   output_meta: MulMeta
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
+  op_validator: MulBinarySharedMeta
 
 mul_.Scalar:
   guid: mult_fwd
@@ -4640,15 +4611,12 @@ mul_.Scalar:
 
 mul.out:
   broadcast: true
-  dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Int, Short, Long]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   output_meta: MulMeta
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_frontend: BinaryScalarFE
   promote_to_common_type: [self, other]
+  op_validator: MulBinarySharedMeta
 
 multilabel_margin_loss_forward.output:
   custom_fill_params: FillMultilabelMarginLossParams
@@ -4727,35 +4695,29 @@ mv.out:
   op_validator: check-node-with-shared-layer
 
 nan_to_num:
-  dtypes: [Float, Int, BFloat16]
   op_backend: NantoNum
   out_ids: [0]
+  op_validator: NanToNumSharedMeta
 
 nan_to_num_:
-  dtypes: [Float, Int, BFloat16]
   op_backend: NantoNum
   inplace_ids: [0]
+  op_validator: NanToNumSharedMeta
 
 nan_to_num.out:
-  dtypes: [Float, Int, BFloat16]
   op_backend: NantoNum
+  op_validator: NanToNumSharedMeta
 
 nansum:
   output_meta: NanSumIntListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   op_backend: NansumList
   out_ids: [0]
+  op_validator: NanSumSharedMeta
 
 nansum.out:
   output_meta: NanSumIntListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   op_backend: NansumList
+  op_validator: NanSumSharedMeta
 
 _native_batch_norm_legit:
   custom_fill_params: FillBatchNormFwdParams
@@ -4781,9 +4743,6 @@ _native_batch_norm_legit:
       running_var: [Float]
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0]
-  synapse_layouts:
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
 _native_batch_norm_legit_no_training:
   custom_fill_params: FillBatchNormNoTrainingFwdParams
@@ -4856,9 +4815,6 @@ _native_batch_norm_legit_functional:
   guid: _native_batch_norm_legit_functional
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0, 0, 0]
-  synapse_layouts:
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
 native_batch_norm:
   custom_fill_params: FillBatchNormFwdParams
@@ -4884,9 +4840,6 @@ native_batch_norm:
       running_var: [Float]
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0]
-  synapse_layouts:
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   lazy:
     acc_thread: true
     override_fn: batch_norm_hpu_lazy
@@ -4923,9 +4876,6 @@ native_batch_norm.out:
       save_mean: [Float]
       save_invstd: [Float]
   op_backend: BatchNormOpBackend
-  synapse_layouts:
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
 native_batch_norm_backward:
   custom_fill_params: FillBatchNormBwdParams
@@ -5051,6 +5001,7 @@ nextafter.out:
 nll_loss_backward:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLossBwd
   op_validator: NllLossBwdSharedMeta
@@ -5066,6 +5017,7 @@ nll_loss_forward:
 nll_loss2d_backward:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
   op_validator: NllLoss2DBwdSharedMeta
@@ -5088,6 +5040,7 @@ nll_loss2d_forward:
 nll_loss_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLossBwd
   op_validator: NllLossBwdSharedMeta
@@ -5101,6 +5054,7 @@ nll_loss_forward.output:
 nll_loss2d_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
+  st_meta: NllLossDSSTMeta
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
   op_validator: NllLoss2DBwdSharedMeta
@@ -5235,12 +5189,10 @@ _weight_norm_interface_backward:
   out_ids: [0, 0]
 
 one_hot:
+  custom_fill_params: FillOneHotParams
   output_meta: OneHotMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
-  op_backend: OneHot
+  guid: one_hot_fwd
+  op_validator: OneHotSharedMeta
   out_ids: [0]
 
 permute:
@@ -5345,36 +5297,27 @@ _prelu_kernel_backward:
 
 prod:
   output_meta: ReductionOpMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
-    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_backend: ReductionOp
   promote_to_common_type: [self]
+  op_validator: ReductionOpProdSharedMeta
 
 prod.dim_int:
   output_meta: ReductionOpListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
-    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_backend: ReductionOpList
   promote_to_common_type: [self]
+  op_validator: ReductionOpProdListSharedMeta
 
 prod.int_out:
   output_meta: ReductionOpListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
-    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   op_backend: ReductionOpList
   promote_to_common_type: [self]
   safe_cast_check: false
+  op_validator: ReductionOpProdListSharedMeta
 
 put_:
   inplace_ids: [0]
@@ -5494,7 +5437,7 @@ reflection_pad1d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
   out_ids: [0]
 
@@ -5502,7 +5445,7 @@ reflection_pad1d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
 
 reflection_pad2d:
@@ -5522,7 +5465,7 @@ reflection_pad2d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
   out_ids: [0]
 
@@ -5530,7 +5473,7 @@ reflection_pad2d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
 
 reflection_pad3d:
@@ -5550,7 +5493,7 @@ reflection_pad3d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
   out_ids: [0]
 
@@ -5558,7 +5501,7 @@ reflection_pad3d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPadBwd
-  dtypes: [BFloat16, Float, Int, Short]
+  op_validator: PadBwdSharedMeta
   guid: pad_bwd
 
 remainder.Tensor:
@@ -5611,11 +5554,9 @@ remainder.Scalar_out:
 repeat:
   custom_fill_params: FillRepeatFwdParams
   output_meta: RepeatMeta
+  st_meta: DefaultSTMetaFnOneOutputShapeUpdate
   guid: repeat_pt_fwd
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
+  op_validator: RepeatSharedMeta
   lazy:
     override_fn: repeat_hpu
   acc_thread: true
@@ -5663,53 +5604,55 @@ replication_pad3d.out:
 replication_pad1d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
-  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad1dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad1d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
-  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad1dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad2d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
-  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad2dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad2d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
-  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad2dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad3d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
-  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad3dBwdOp
+  op_validator: PadBwdSharedMeta
 
 replication_pad3d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
-  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad3dBwdOp
+  op_validator: PadBwdSharedMeta
 
 resize_:
   output_meta: ResizeOutputMeta
   guid: memcpy
   inplace_ids: [0]
   op_backend: ResizeOpBackend
+  op_validator: ResizeSharedMeta
 
 _resize_output_:
   output_meta: ResizeOutputMeta
   guid: memcpy
   inplace_ids: [0]
   op_backend: ResizeOutputOpBackend
+  op_validator: ResizeSharedMeta
 
 roll:
   dtypes:
@@ -5718,6 +5661,7 @@ roll:
     Gaudi3: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
   op_backend: RollHabanaOperator
+  #op_validator: RollSharedMeta -temporarily disabled due to [SW-168611]
   custom_fill_params: FillRollParams
   guid: roll
 
@@ -5759,20 +5703,20 @@ rrelu_with_noise:
   op_frontend: GeneratorToSeed
   op_backend: Rrelu_with_noise
   out_ids: [0]
-  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
+  schema_args: "(Tensor self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
   op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise_:
   op_frontend: GeneratorToSeed
   op_backend: Rrelu_with_noise
   inplace_ids: [0]
-  schema_args: "(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
   op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise.out:
   op_frontend: GeneratorToSeedOut
   op_backend: Rrelu_with_noise
-  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  schema_args: "(Tensor self, Tensor(b!) noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
   op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise_backward:
@@ -5804,7 +5748,7 @@ rsub.Tensor:
   custom_fill_params: FillBinaryRSubParams
   out_ids: [0]
   scalar_ids: [2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   op_validator: BinaryWithAlphaRSubSharedMeta
 
@@ -5814,7 +5758,7 @@ rsub.Scalar:
   guid: binary_with_alpha_fwd
   out_ids: [0]
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   op_validator: BinaryWithAlphaRSubSharedMeta
 
@@ -6143,6 +6087,15 @@ _softmax:
   out_ids: [0]
   # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-196893
 
+_safe_softmax:
+  custom_fill_params: FillSafeSoftmaxForwardParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: softmax_fwd
+  out_ids: [0]
+
 _softmax.out:
   custom_fill_params: FillSoftmaxForwardParams
   dtypes:
@@ -6297,12 +6250,9 @@ squeeze.dim:
 
 squeeze.dims:
   output_meta: SqueezeDimsMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   guid: squeeze
   op_backend: SqueezeDims
+  op_validator: SqueezeDimsSharedMeta
   out_ids: [0]
   lazy:
     acc_thread: true
@@ -6341,7 +6291,7 @@ sub.Tensor:
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
   out_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
@@ -6353,7 +6303,7 @@ sub.Scalar:
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   out_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
@@ -6362,7 +6312,7 @@ sub_.Tensor:
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
   inplace_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
@@ -6373,7 +6323,7 @@ sub_.Scalar:
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   inplace_ids: [0]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
@@ -6383,7 +6333,7 @@ sub.Scalar_out:
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
@@ -6392,42 +6342,33 @@ sub.out:
   broadcast: true
   custom_fill_params: FillBinarySubParams
   guid: binary_with_alpha_fwd
-  st_meta: BinarySTMeta
+  st_meta: DefaultSTMetaFn
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
   op_validator: BinaryWithAlphaSubSharedMeta
 
 sum:
   output_meta: ReductionOpMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Char, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: ReductionOp
   promote_to_common_type: [self]
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
+  op_validator: ReductionOpSumSharedMeta
 
 sum.dim_IntList:
   output_meta: ReductionOpListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Char, Int]
-    Gaudi2: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   op_backend: ReductionOpList
   promote_to_common_type: [self]
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
+  op_validator: ReductionOpSumListSharedMeta
 
 sum.IntList_out:
   output_meta: ReductionOpListMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Long]
-    Gaudi2: [BFloat16, Float, Int, Char, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Char, Long, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: ReductionOpList
   promote_to_common_type: [self]
   guid: reduce_sum_multi_dim_fwd
+  op_validator: ReductionOpSumListSharedMeta
 
 t:
   override_fn: t_hpu_lazy
@@ -6509,12 +6450,9 @@ threshold.out:
 threshold_backward:
   output_meta: ThresholdBwdMeta
   custom_fill_params: FillThresholdBwdParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: relu_bwd
   op_backend: ThresholdBackward
+  op_validator: ThresholdBackwardSharedMeta
   out_ids: [0]
 
 threshold_backward.grad_input:
@@ -6645,7 +6583,7 @@ uniform_:
 unique_dim:
   override_fn: unique_dim_hpu_lazy
   fallback_check: [UniqueFallbackCheck, sorted]
-  dtypes: [BFloat16, Float, Int]
+  op_validator: UniqueDimSharedMeta
 
 unsqueeze_:
   override_fn: unsqueeze_hpu_lazy_
@@ -6752,6 +6690,34 @@ upsample_bilinear2d.vec:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+
+_upsample_bilinear2d_aa:
+  custom_fill_params: FillBilinearFwdParamsAA
+  output_meta: UpsampleBilinear2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+_upsample_bilinear2d_aa.out:
+  custom_fill_params: FillBilinearFwdParamsAA
+  output_meta: UpsampleBilinear2DFwdMeta
+  guid: resize_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
+_upsample_bilinear2d_aa_backward.grad_input:
+  custom_fill_params: FillBilinearBwdParamsAA
+  output_meta: UpsampleBilinear2DBwdMeta
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d_backward:
   custom_fill_params: FillBilinearBwdParams
@@ -7361,6 +7327,60 @@ is_pinned:
   hpu_wrap_all_versions: true
 
 # Custom ops
+ctc_loss_custom:
+  custom_op_schema: "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)"
+  output_meta: CTCLossCustomMeta
+  guid: ctc_loss_fwd
+  op_backend: CTCLossCustom
+  out_ids: [0, 0]
+
+ctc_loss_custom_backward:
+  custom_op_schema: "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor"
+  output_meta: CTCLossCustomBackwardMeta
+  guid: ctc_loss_bwd
+  op_backend: CTCLossCustomBackward
+  out_ids: [1]
+
+cast_from_fp8:
+  custom_op_schema: "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
+  output_meta: CastFromFp8Meta
+  op_backend: CastFromFp8
+  out_ids: [0]
+
+cast_from_fp8.scalar:
+  custom_op_schema: "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
+  output_meta: CastFromFp8Meta
+  op_backend: CastFromFp8
+  out_ids: [0]
+
+cast_from_fp8.scalar_list:
+  custom_op_schema: "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor"
+  output_meta: CastFromFp8Meta
+  op_backend: CastFromFp8
+  out_ids: [0]
+
+cast_to_fp8:
+  custom_op_schema: "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))"
+  op_backend: CastToFp8
+  is_custom_op_out_variant: true
+
+cast_to_fp8_v2:
+  custom_op_schema: "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
+  output_meta: CastToFp8V2Meta
+  op_backend: CastToFp8V2
+  out_ids: [0, 0]
+
+cast_to_fp8_v2.scalar:
+  custom_op_schema: "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
+  output_meta: CastToFp8V2Meta
+  op_backend: CastToFp8V2
+  out_ids: [0, 0]
+
+cast_to_fp8_v2.scalar_list:
+  custom_op_schema: "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
+  output_meta: CastToFp8V2Meta
+  op_backend: CastToFp8V2
+  out_ids: [0, 0]
 
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
@@ -7390,11 +7410,98 @@ conv2d_fp8.scalar:
   - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN]
 
-fake_quant_fp4:
-  custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
-  custom_fill_params: FillFakeQuantFp4Params
-  guid: fake_quantize_fp4
+custom_softmax:
+  custom_op_schema: "hpu::custom_softmax(Tensor input, int flavor) -> Tensor"
+  guid: custom_softmax_fwd
+  op_backend: CustomSoftmax
   out_ids: [0]
+
+fp8_gemm:
+  custom_op_schema: "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)"
+  output_meta: Fp8GemmV2Meta
+  op_backend: Fp8Gemm
+  is_custom_op_out_variant: true
+
+fp8_gemm_v2:
+  custom_op_schema: "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv=None, Tensor? B_scale_inv=None, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
+  output_meta: Fp8GemmV2Meta
+  op_backend: Fp8GemmV2
+  out_ids: [0]
+
+fp8_gemm_v2.scalar:
+  custom_op_schema: "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
+  output_meta: Fp8GemmV2Meta
+  op_backend: Fp8GemmV2
+  out_ids: [0]
+
+fp8_gemm_v2.scalar_list:
+  custom_op_schema: "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
+  output_meta: Fp8GemmV2Meta
+  op_backend: Fp8GemmV2
+  out_ids: [0]
+
+in_place_interleave_:
+  custom_op_schema: "hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))"
+  output_meta: InPlaceInterleaveMeta
+  guid: in_place_interleave_fwd
+  inplace_ids: [0]
+
+fp8_sdpa_bwd:
+  custom_op_schema: "hpu::fp8_sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds, Tensor fwd_out) -> (Tensor, Tensor, Tensor, Tensor)"
+  output_meta: Fp8SDPABwdMeta
+  op_backend: Fp8SDPABwd
+  out_ids: [0, 0, 0, 0]
+
+kv_reorder_:
+  custom_op_schema: "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))"
+  guid: kv_reorder_
+  op_backend: KvReorderCommon
+  inplace_ids: [0]
+
+masked_batch_gemm:
+  custom_op_schema: "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor"
+  custom_fill_params: FillMaskedBatchGemmParams
+  output_meta: MaskedBatchGemmMeta
+  guid: masked_batch_gemm
+  out_ids: [0]
+
+ragged_softmax:
+  custom_op_schema: "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor"
+  custom_fill_params: FillSoftmaxForwardParams
+  guid: ragged_softmax_fwd
+  out_ids: [0]
+
+scaled_masked_softmax:
+  custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
+  custom_fill_params: FillScaledMaskedSoftmaxParams
+  guid: scaled_masked_softmax_fwd
+  out_ids: [0]
+
+scaled_masked_triangular_softmax:
+  custom_op_schema: "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor"
+  output_meta: ScaledMaskedTriangularSoftmaxMeta
+  guid: scaled_masked_triangular_softmax_fwd
+  op_backend: ScaledMaskedTriangularSoftmax
+  out_ids: [0]
+
+scaled_triangular_softmax:
+  custom_op_schema: "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor"
+  guid: scaled_masked_triangular_softmax_fwd
+  op_backend: ScaledTriangularSoftmax
+  out_ids: [0]
+
+scaled_triangular_softmax_retain:
+  custom_op_schema: "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)"
+  custom_fill_params: FillScaledTriangularSoftmaxParams
+  output_meta: ScaledTriangularSoftmaxRetainMeta
+  guid: scaled_masked_triangular_softmax_fwd
+  out_ids: [0, 0, 0]
+
+sdpa_recomp_bwd:
+  custom_op_schema: "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
+  output_meta: SDPARecompBwdMeta
+  op_backend: SDPARecompBwd
+  out_ids: [0, 0, 0]
 
 softmax_fp8:
   custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
@@ -7445,19 +7552,31 @@ rms_norm_fast_backward:
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
 
+rotary_pos_embedding:
+  custom_op_schema: "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"
+  op_backend: RotaryPosEmbedding
+  guid: rotary_pos_embedding_fwd
+  out_ids: [0]
+
+rotary_pos_embedding_backward:
+  custom_op_schema: "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"
+  op_backend: RotaryPosEmbeddingBackward
+  guid: rotary_pos_embedding_bwd
+  out_ids: [0]
+
 sum_fp8:
   custom_op_schema: "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor"
   custom_fill_params: FillSumFp8Params
   output_meta: SumFp8Meta
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
-plain_index:
-  custom_op_schema: "hpu::plain_index(Tensor self, Tensor[] indices) -> Tensor"
-  output_meta: PlainIndexMeta
-  guid: plain_index
-  op_backend: PlainIndexHabanaOperator
-  out_ids: [0]
+sdpa_bwd:
+  custom_op_schema: "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
+  output_meta: SDPABwdMeta
+  op_backend: SDPABwd
+  out_ids: [0, 0, 0]
 
 exp_fast_math:
   custom_op_schema: "hpu::exp_fast_math(Tensor self) -> Tensor"
@@ -7474,5 +7593,11 @@ sqrt_fast_math:
 rsqrt_fast_math:
   custom_op_schema: "hpu::rsqrt_fast_math(Tensor self) -> Tensor"
   guid: rsqrt_fast_math_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+reciprocal_fast_math:
+  custom_op_schema: "hpu::reciprocal_fast_math(Tensor self) -> Tensor"
+  guid: reciprocal_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer

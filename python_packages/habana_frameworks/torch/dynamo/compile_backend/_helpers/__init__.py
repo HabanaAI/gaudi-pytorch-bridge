@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,25 +19,39 @@
 from .helpers import (
     calculate_default_strides,
     fill_propagated_tensor_metadata_to_node,
+    get_dynamic_config_value,
     get_node_args,
     get_node_users,
     handle_noncontiguous_output,
     is_compute_node,
     is_decomposed_from_inplace_node,
+    is_module_dynamic,
     is_node_supported,
     is_view_node,
+    jit_node_annotation_propagation,
+    jit_node_shape_propagation,
     post_pass_finalize,
+    remove_duplicated_outputs,
+    remove_no_effect_inplace_add,
+    wrap_random_ops,
 )
 
 __all__ = [
-    "is_view_node",
+    "calculate_default_strides",
+    "fill_propagated_tensor_metadata_to_node",
+    "get_dynamic_config_value",
     "get_node_args",
     "get_node_users",
-    "is_compute_node",
-    "is_node_supported",
-    "post_pass_finalize",
-    "calculate_default_strides",
     "handle_noncontiguous_output",
+    "is_compute_node",
     "is_decomposed_from_inplace_node",
-    "fill_propagated_tensor_metadata_to_node",
+    "is_module_dynamic",
+    "is_node_supported",
+    "is_view_node",
+    "jit_node_annotation_propagation",
+    "jit_node_shape_propagation",
+    "post_pass_finalize",
+    "remove_duplicated_outputs",
+    "remove_no_effect_inplace_add",
+    "wrap_random_ops",
 ]

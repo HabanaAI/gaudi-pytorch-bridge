@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
 
 import os
 
-import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as hthpu
-import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
+from test_utils import compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 
 device = "hpu"
@@ -83,7 +83,7 @@ def test_reuse_bwd_input_tensors():
     orig_eager_fallback = hpu_backend_config.use_eager_fallback
     hpu_backend_config.use_eager_fallback = True
 
-    model_to_train = torch.compile(model, backend=backend_compiler)
+    model_to_train = compile_function_if_compile_mode(model, backend=backend_compiler)
 
     # compile without reuse
     hthpu.reset_peak_memory_stats()
@@ -137,8 +137,12 @@ def test_reuse_bwd_inputs_with_compiled_autograd():
     hthpu.reset_peak_memory_stats()
     hpu_backend_config.use_boxed_input = False
     loss = model(input)
-    with compiled_autograd.enable(compiler_fn):
-        loss.backward()
+    if is_pytorch_older_than("2.6.0"):
+        with compiled_autograd.enable(compiler_fn):
+            loss.backward()
+    else:
+        with compiled_autograd._enable(compiler_fn):
+            loss.backward()
     compile_wo_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 25 MB
     zero_grad(model)
     torch._dynamo.reset()  # clear the cached compiled function
@@ -148,8 +152,12 @@ def test_reuse_bwd_inputs_with_compiled_autograd():
     hthpu.reset_peak_memory_stats()
     hpu_backend_config.use_boxed_input = True
     loss = model(input)
-    with compiled_autograd.enable(compiler_fn):
-        loss.backward()
+    if is_pytorch_older_than("2.6.0"):
+        with compiled_autograd.enable(compiler_fn):
+            loss.backward()
+    else:
+        with compiled_autograd._enable(compiler_fn):
+            loss.backward()
     compile_w_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 21 MB
     zero_grad(model)
     torch._dynamo.reset()  # clear the cached compiled function

@@ -41,6 +41,7 @@
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
+#include "habana_lazy/view_utils.h"
 #include "process_group_registry.hpp"
 #include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_lazy_hccl.hpp"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
@@ -162,6 +163,41 @@ ProcessGroupHCCL::ProcessGroupHCCL(
       size,
       ", rank:",
       rank);
+}
+
+// Abort all communicators on this rank
+bool ProcessGroupHCCL::abort(std::optional<std::string> abortReason) {
+  PT_DISTRIBUTED_DEBUG(
+      "Launching ProcessGroupHCCL abort asynchrounously. Abort Reason: ",
+      abortReason.value_or(""));
+  if (!this->emulate_distributed_) {
+    for (auto& it : hccl_communicator_) {
+      PT_DISTRIBUTED_DEBUG(
+          "hcclCommAbort initiated deviceId: ",
+          it.first,
+          " commId:",
+          it.second.get());
+      // Note: HCCL doesnt support abort operation. Once Hccl Supports, This can
+      // be enabled
+      //  it.second->hcclCommAbort(abortReason);
+    }
+  }
+
+  return true;
+}
+
+void ProcessGroupHCCL::shutdown(std::optional<std::string> reason) {
+  // Don't join threads here since the purpose of this method is to abort all
+  // communicators and signal the threads to exit. Joining on the threads could
+  // potentially block and hence avoid it in this method.
+
+  // lauch abort asynchrounously and wait for it to complete or timeout
+  PT_DISTRIBUTED_DEBUG("Launching ProcessGroupHCCL abort asynchrounously.");
+
+  std::future<bool> fut = std::async(
+      std::launch::async, [this, &reason]() { return this->abort(reason); });
+
+  PT_DISTRIBUTED_DEBUG("ProcessGroupHCCL aborts successfully.");
 }
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
@@ -634,6 +670,7 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
   habana_lazy::NoAccThread no_acc_thread;
   bool has_tensors_to_dense = false;
   for (auto& tensor : tensors) {
+    habana_lazy::HbLazyTensorViews::HandleViewsPermutedSend(tensor);
     auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
     auto self_internal_tensor = self_hb_tensor.EvaluateTensorData();
     std::vector<uint8_t> permutation;
@@ -726,4 +763,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupHCCL>::create));
+
+  processGroupHccl.def(
+      "_shutdown",
+      [](const c10::intrusive_ptr<::c10d::ProcessGroupHCCL>& self) {
+        return self->shutdown(std::nullopt);
+      });
 };

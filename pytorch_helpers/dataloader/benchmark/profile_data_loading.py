@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,15 +16,12 @@
 ###############################################################################
 
 
-import os
 import pathlib
 import time
 
 import habana_torch_dataloader
 import matplotlib
-import matplotlib.pyplot as plt
 import torch
-import torch.utils.data as torch_data
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
@@ -47,7 +44,7 @@ def profile_dataloader(s, dataloader, dl_type, workers, num_iterations):
         t = time.time()
         t_diff = t - last_time
         t_sum += t_diff
-        ##save_points(t_diff, t_sum)
+        # save_points(t_diff, t_sum)
         save_points(i, t_diff)
         last_time = t
 

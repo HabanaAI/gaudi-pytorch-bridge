@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,13 +14,12 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_pytest_mode_compile,
 )
@@ -45,15 +44,14 @@ def test_hpu_norm(shape, dim, keepdim, p, dtype):
         else:
             return torch.norm(input, p=p, dim=dim, keepdim=keepdim, dtype=dtype)
 
-    input_dtype = dtype if dtype != None else torch.bfloat16
+    input_dtype = dtype if dtype is not None else torch.bfloat16
     if p == "nuc":
         input_dtype = torch.float
 
     cpu_input = torch.tensor(2, dtype=input_dtype) if len(shape) == 0 else torch.rand(shape, dtype=input_dtype)
     hpu_input = cpu_input.to("hpu")
-    torch._dynamo.reset()
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_wrapped_fn(hpu_input).cpu()
@@ -79,11 +77,7 @@ def test_hpu_zero_sized_group_norm(shape, dtype):
     weight_hpu.requires_grad_(True)
     bias_hpu.requires_grad_(True)
 
-    hpu_wrapped_fn = fn
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
     output_cpu = fn(input, 1, weight, bias)
     output_hpu = hpu_wrapped_fn(input_hpu, 1, weight_hpu, bias_hpu)
 
@@ -116,15 +110,11 @@ def test_hpu_zero_sized_batch_norm(shape):
     weight_hpu.requires_grad_(True)
     bias_hpu.requires_grad_(True)
 
-    hpu_wrapped_fn = fn
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
     output_cpu = fn(input, running_mean, running_var, weight, bias)
     output_hpu = hpu_wrapped_fn(input_hpu, running_mean_hpu, running_var_hpu, weight_hpu, bias_hpu)
 
     compare_tensors(output_hpu, output_cpu, atol=0, rtol=0)
     if is_pytest_mode_compile():
         # batch norm is decomposed
-        check_ops_executed_in_jit_ir({"sum", "full", "select_scatter", "mul", "full"})
+        check_ops_executed_in_jit_ir({"sum", "full", "select_scatter", "mul"})

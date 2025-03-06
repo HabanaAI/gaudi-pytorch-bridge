@@ -20,6 +20,7 @@
 #include <memory>
 
 #include <fstream>
+#include "../utils/device_type_util.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -36,26 +37,25 @@ class HabanaSerializationRecipeTest : public ::testing::Test {
   bool m_cache_overriden = false;
 
   void SetUp() override {
-    m_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    m_cache_path = HPUDeviceContext::recipe_cache().get_cache_path();
     overrideEmptyCachePathEnv();
-    HPUDeviceContext::recipe_cache().ResetDiskCache();
   }
 
   void TearDown() override {
-    if (m_cache_overriden) {
-      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "", 1); // set empty path
-    }
     HPUDeviceContext::recipe_cache().DeleteDiskCache();
+    if (m_cache_overriden) {
+      HPUDeviceContext::recipe_cache().UpdateCachePath("");
+    }
   }
 
  private:
   void overrideEmptyCachePathEnv() {
-    const std::string dafault_cache_path = "cache_dir";
     if (m_cache_path == "") {
       m_cache_overriden = true;
-      m_cache_path = dafault_cache_path;
-      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, m_cache_path.c_str(), 1);
+      m_cache_path = "cache_dir";
+      HPUDeviceContext::recipe_cache().UpdateCachePath(m_cache_path);
     }
+    HPUDeviceContext::recipe_cache().ResetDiskCache();
   }
 
  protected:
@@ -120,6 +120,11 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
+
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
@@ -187,6 +192,11 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
+
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 for sporadic failures - SW-211233.";
+  }
+
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());

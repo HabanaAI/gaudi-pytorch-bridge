@@ -1,0 +1,64 @@
+---
+
+version: 1
+
+sourceControl:
+  repos:
+    - 3rd-parties
+    - automation
+    - devops/cd_release
+    - embedded-specs
+    - habana-transformer-engine
+    - hcl
+    - huda
+    - media
+    - neural-compressor-fork
+    - neural-compressor-fork-cicd
+    - pytorch-fork
+    - pytorch-integration
+    - pytorch-training-tests
+    - specs_external
+    - swtools_sdk
+    - synapse
+    - synapse_profiler
+    - synapse_utils
+    - kineto
+    - tpc_kernels
+
+steps:
+  preBuild:
+    - name: install build dependencies
+      cmd: cd ${BUILD_DIR} && make init-sw-deps RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: init Python
+      cmd: cd ${BUILD_DIR} && make init-python RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: collect components versions
+      cmd: cd ${BUILD_DIR} && make collect-pt-versions RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+  build:
+    - name: pytorch Fork
+      cmd: cd ${BUILD_DIR} && make build-fork RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: install pytorch fork
+      cmd: cd ${BUILD_DIR} && make install-fork RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: modules
+      cmd: cd ${BUILD_DIR} && make build-modules RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: plugin
+      cmd: cd ${BUILD_DIR} && make build-plugin RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: GPU Migration
+      cmd: cd ${BUILD_DIR} && make build-gpu_migration RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: inc
+      cmd: cd ${BUILD_DIR} && make build-inc RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: hte
+      cmd: cd ${BUILD_DIR} && make build-hte RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+  postBuild:
+    - name: archive PT
+      cmd: cd ${BUILD_DIR} && make archive RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+  test:
+    - name: torch nda
+      cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=torch-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: dataloader nda
+      cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=habana_torch_dataloader-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: plugin nda
+      cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=habana_torch_plugin-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: gpu migration nda
+      cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=habana_gpu_migration-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: tb profiler nda
+      cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=torch_tb_profiler-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}

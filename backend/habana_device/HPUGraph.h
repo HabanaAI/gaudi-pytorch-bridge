@@ -14,6 +14,7 @@
 */
 #pragma once
 #include "HPUStream.h"
+#include "backend/habana_device/HPUStream.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -33,7 +34,8 @@ struct SingleHPUGraph {
           seed_tensors_generator,
       size_t hash,
       size_t graphKey,
-      std::string opStrs)
+      std::string opStrs,
+      c10::hpu::HPUStream capture_stream)
       : cached_rarg_psh_{cached_rarg_psh},
         graph_{graph},
         input_vals_{input_vals},
@@ -43,7 +45,8 @@ struct SingleHPUGraph {
         seed_tensors_generator_{seed_tensors_generator},
         hash_{hash},
         graphKey_{graphKey},
-        opStrs_{opStrs} {}
+        opStrs_{opStrs},
+        capture_stream_{capture_stream} {}
 
   ~SingleHPUGraph();
   void replay(bool async = false);
@@ -113,6 +116,7 @@ struct SingleHPUGraph {
   size_t hash_{0};
   size_t graphKey_{0};
   std::string opStrs_ = "";
+  c10::hpu::HPUStream capture_stream_;
 };
 
 struct HPUGraph {

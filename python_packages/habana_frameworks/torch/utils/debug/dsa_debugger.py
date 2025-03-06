@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -331,9 +331,9 @@ class DivergenceAnalyzer:
         idx_data = column_indices[3]
         idx_iter = column_indices[4]
 
-        cursor1.execute(f"SELECT * FROM TENSORS")
+        cursor1.execute("SELECT * FROM TENSORS")
         tensors_static = cursor1.fetchall()
-        cursor2.execute(f"SELECT * FROM TENSORS")
+        cursor2.execute("SELECT * FROM TENSORS")
         tensors_dynamic = cursor2.fetchall()
 
         compare_len = len(tensors_dynamic)
@@ -349,7 +349,7 @@ class DivergenceAnalyzer:
         tensor_names_dynamic = [item[idx_tensor_name] for item in tensors_dynamic[:compare_len]]
         if not tensor_names_static == tensor_names_dynamic:
             self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing.")
-            if self.cfg.cache == True:
+            if self.cfg.cache:
                 self.log("[ERROR] Check with --cache 0.")
             exit(0)
 
@@ -543,7 +543,7 @@ class DivergenceAnalyzer:
             data_static = data_dict["Static"]
             data_dynamic = data_dict["Dynamic"]
             assert len(set(data_static) - set(data_dynamic)) == 0
-            graph_names = list(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
+            graph_names = sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1]))
 
             for graph_name in graph_names:
                 self.compare_databases(data_static[graph_name]["db"], data_dynamic[graph_name]["db"])
@@ -560,8 +560,8 @@ class DivergenceAnalyzer:
         valid_files_count = min(len(data_static), len(data_dynamic))
         if not is_final:
             valid_files_count -= 1
-        static_files = set(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
-        dynamic_files = set(sorted(data_dynamic.keys(), key=lambda item: int(item.split("_")[-1])))
+        static_files = set(data_static.keys(), key=lambda item: int(item.split("_")[-1]))
+        dynamic_files = set(data_dynamic.keys(), key=lambda item: int(item.split("_")[-1]))
         common_files = sorted(static_files.intersection(dynamic_files))
         graph_names = list(common_files)[:valid_files_count]
         self.log(f"[INFO] Comparing Graphs: {graph_names}", console=False)

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-import math  # for ceil etc
 import os
 import sys
 import time
@@ -27,13 +26,10 @@ hpu_backend_config.use_eager_fallback = True
 # FIXME: remove unused packages
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
-import numpy as np
 import pytest
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA, PySDPA, PySDPAHinted
-from test_utils import compare_tensors
+from test_utils import compile_function_if_compile_mode
 
 
 # below are utility functions #
@@ -221,8 +217,8 @@ def test_multiple_sdpa_impls(
         assert pytest.mode == "lazy", "CGUID SDPA kernel is expected to be used with lazy mode"
         run_hpu_sdpa = run_sdpa_cguid_once
 
-    if pytest.mode == "compile" and "compile" in kernel_type:
-        run_hpu_sdpa = torch.compile(run_hpu_sdpa, backend="hpu_backend", dynamic=False)
+    if "compile" in kernel_type:
+        run_hpu_sdpa = compile_function_if_compile_mode(run_hpu_sdpa, dynamic=False)
 
     dtype = torch.float32
     grad_dtype = torch.float32
@@ -289,8 +285,6 @@ def test_multiple_sdpa_impls(
             profile_api.profiler_stop(trace_type, profile_dev_id)
             profile_api.profiler_get_trace_json(trace_type, profile_dev_id)
         else:
-            import torch_tb_profiler
-
             # use pytorch profiler and tensorboard for viewing
             activities = [torch.profiler.ProfilerActivity.HPU]
             with torch.profiler.profile(

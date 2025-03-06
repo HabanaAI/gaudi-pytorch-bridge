@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
@@ -110,6 +110,21 @@ static std::vector<synapse_helpers::tensor> NllLoss(
        {{meta.shape, meta.dtype, final_index}},
        params.get(),
        size});
+}
+
+bool NllLossDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("NllLossDSSTMeta called ");
+
+  // If the 3rd input is a scalar, then the weight is None
+  if (inputs.at(3).isScalar()) {
+    std::vector<int64_t> out_shape = outputs[0].getTensorShape();
+    PT_BRIDGE_DEBUG("NllLossDSSTMeta output shape ", out_shape);
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+    return true;
+  }
+  return false;
 }
 
 static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
@@ -218,7 +233,7 @@ SharedMetaDataVector NllLoss2DFwdSharedMeta(
   nllLossFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
   nllLossFwdSharedMeta.inputs_data = {
       {self.dim(), dtype}, {target.dim(), target.scalar_type()}};
-  if (weight.has_value()) {
+  if (weight.has_value() && weight->defined()) {
     nllLossFwdSharedMeta.inputs_data.emplace_back(weight.value().dim(), dtype);
     nllLossFwdSharedMeta.inputs_data.emplace_back(1, dtype);
 

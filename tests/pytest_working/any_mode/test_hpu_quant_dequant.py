@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import torch
 import torch.ao.quantization.fx._decomposed
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -81,13 +81,7 @@ def test_quantize_per_tensor(is_scale_tensor, is_quant_tensor, dtype, out_dtype)
         quant_min_hpu = quant_min
         quant_max_hpu = quant_max
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(
-            fn,
-            backend="hpu_backend",
-        )
+    fn = compile_function_if_compile_mode(fn)
 
     result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, quant_min_hpu, quant_max_hpu, out_dtype)
     result_cpu = fn_ref(input, scale, zero_point, quant_min, quant_max, out_dtype)
@@ -126,13 +120,7 @@ def test_dequantize_per_tensor(is_scale_tensor, dtype, orig_dtype):
         scale_hpu = scale
         zero_point_hpu = zero_point
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(
-            fn,
-            backend="hpu_backend",
-        )
+    fn = compile_function_if_compile_mode(fn)
 
     result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, orig_dtype)
     result_cpu = fn_ref(input, scale, zero_point)
@@ -189,13 +177,7 @@ def test_quantize_per_channel(axis, dtype, out_dtype):
     zero_points_hpu = zero_points.to("hpu")
     zero_points = zero_points.to(dtype)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(
-            fn,
-            backend="hpu_backend",
-        )
+    fn = compile_function_if_compile_mode(fn)
 
     result_hpu = fn(input_hpu, scales_hpu, zero_points_hpu, axis, quant_min, quant_max, out_dtype)
     result_cpu = fn_ref(input, scales, zero_points, axis, quant_min, quant_max, out_dtype)
@@ -234,13 +216,7 @@ def test_dequantize_per_channel(axis, dtype, orig_dtype):
     scales_hpu = scales.to("hpu")
     zero_points_hpu = zero_points.to("hpu")
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(
-            fn,
-            backend="hpu_backend",
-        )
+    fn = compile_function_if_compile_mode(fn)
 
     result_hpu = fn(input_hpu, scales_hpu, zero_points_hpu, axis, orig_dtype)
     result_cpu = fn_ref(input, scales, zero_points, axis, orig_dtype)

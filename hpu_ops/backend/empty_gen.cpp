@@ -153,21 +153,25 @@ void EmptyLike::AddNode(
 Empty::Empty(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(EmptyMeta);
+  SetSTMetaFn(DefaultSTMetaFnOneOutputShapeUpdate);
 }
 
 EmptyStrided::EmptyStrided(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(EmptyStridedMeta);
+  SetSTMetaFn(DefaultSTMetaFnOneOutputShapeUpdate);
 }
 
 EmptyLike::EmptyLike(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(EmptyLikeMeta);
+  SetSTMetaFn(DefaultSTMetaFnOneOutputShapeUpdate);
 }
 
 EmptyBackendDs::EmptyBackendDs(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(EmptyMeta);
+  SetSTMetaFn(DefaultSTMetaFnOneOutputShapeUpdate);
 }
 
 void EmptyBackendDs::AddNode(

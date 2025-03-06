@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "collective_kernel_info.h"
 #include "habana_serialization/deserializers.h"
@@ -73,8 +73,10 @@ size_t CollectiveKernelInfos::Info::Size() const {
 }
 
 void CollectiveKernelInfos::Launch(
+    std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_outputs,
     bool async,
-    synapse_helpers::event_done_callback cleanup_callback) const {
+    synapse_helpers::event_done_callback done_cb) const {
   HABANA_ASSERT(
       infos_.empty() || GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
   for (const auto& kernel_info : infos_) {
@@ -82,7 +84,7 @@ void CollectiveKernelInfos::Launch(
     habana::CollectiveOperator& collective = *kernel_info.kernel;
     PT_BRIDGE_DEBUG("Running collective op ", collective.GetGuid());
     collective.RunCollective(
-        kernel_info.input_tensor_infos, async, cleanup_callback);
+        kernel_info.input_tensor_infos, pt_inputs, pt_outputs, async, done_cb);
   }
 }
 void CollectiveKernelInfos::ClearAllPtAndSynTensors() {

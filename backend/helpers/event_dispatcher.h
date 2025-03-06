@@ -16,6 +16,7 @@
 #pragma once
 
 #include <chrono>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -29,6 +30,43 @@
 namespace habana_helpers {
 
 class EventDispatcherHandle;
+
+class Subscribers {
+ public:
+  std::pair<uint64_t, uint64_t> UpdateIndexes(int64_t sub_id, uint64_t index);
+  void Insert(int64_t sub_id, uint64_t pos);
+  void Delete(int64_t sub_id);
+  void DecreasePos();
+
+ private:
+  struct Subscriber {
+    Subscriber(int64_t index, uint64_t pos) : index_(index), pos_(pos) {}
+    int64_t index_;
+    uint64_t pos_;
+  };
+  std::vector<Subscriber> subscribers_;
+};
+
+using EventParam = std::pair<std::string, std::string>;
+using EventParams = std::vector<EventParam>;
+using EventTsType = std::chrono::time_point<std::chrono::system_clock>;
+using EventCallbackFuncType = void(const EventParams&);
+using EventCallback = std::function<EventCallbackFuncType>;
+
+class TopicQueue {
+ public:
+  void Process(int64_t sub_id, const EventCallback& precess_func);
+  void AddSubscriber(int64_t sub_id);
+  void RemoveSubscriber(int64_t sub_id);
+  void PushEvent(const EventParams& params);
+  void Reset(int64_t sub_id);
+
+ private:
+  static constexpr size_t max_events_ = 10000;
+  std::deque<EventParams> events_;
+  Subscribers subscribers_;
+};
+
 class EventDispatcher {
  public:
   enum class Topic {
@@ -48,29 +86,20 @@ class EventDispatcher {
     static EventDispatcher instance;
     return instance;
   }
-
-  using EventParam = std::pair<std::string, std::string>;
-  using EventParams = std::vector<EventParam>;
-  using EventTsType = std::chrono::time_point<std::chrono::system_clock>;
-  using EventCallbackFuncType = void(EventTsType timestamp, const EventParams&);
-  using EventCallback = std::function<EventCallbackFuncType>;
-  using EventCallbackWithSubId =
-      std::pair<int64_t, std::shared_ptr<EventCallback>>;
-
-  std::shared_ptr<EventDispatcherHandle> subscribe(
-      Topic topic,
+  void process(
+      const std::shared_ptr<EventDispatcherHandle>& handle,
       const EventCallback& callback);
+  void reset(const std::shared_ptr<EventDispatcherHandle>& handle);
+
+  std::shared_ptr<EventDispatcherHandle> subscribe(Topic topic);
   void unsubscribe(Topic topic, int64_t subscribe_id);
   void unsubscribe(const std::shared_ptr<EventDispatcherHandle>& handle);
-  void publish(
-      Topic topic,
-      const EventParams& params,
-      EventTsType timestamp = std::chrono::system_clock::now());
+  void publish(Topic topic, const EventParams& params);
   void unsubscribe_all();
 
  private:
   EventDispatcher();
-  std::unordered_map<Topic, std::vector<EventCallbackWithSubId>> subscribers_;
+  std::unordered_map<Topic, TopicQueue> topic_queues_;
   std::mutex mutex_;
   int64_t next_subscribe_id_;
 
@@ -82,9 +111,6 @@ class EventDispatcherHandle
  public:
   const EventDispatcher::Topic topic;
   const int64_t sub_id;
-  std::shared_ptr<EventDispatcherHandle> getptr() {
-    return shared_from_this();
-  }
 
   [[nodiscard]] static std::shared_ptr<EventDispatcherHandle> create(
       EventDispatcher::Topic topic,
@@ -100,10 +126,8 @@ class EventDispatcherHandle
 
 inline void EmitEvent(
     EventDispatcher::Topic event_id,
-    const EventDispatcher::EventParams& params =
-        habana_helpers::EventDispatcher::EventParams(),
-    EventDispatcher::EventTsType timestamp = std::chrono::system_clock::now()) {
-  EventDispatcher::Instance().publish(event_id, params, timestamp);
+    const EventParams& params = habana_helpers::EventParams()) {
+  EventDispatcher::Instance().publish(event_id, params);
 }
 
 inline std::ostream& operator<<(

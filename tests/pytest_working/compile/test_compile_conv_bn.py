@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import numpy
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import env_var_in_scope
+from test_utils import compile_function_if_compile_mode, env_var_in_scope, inference_env_fixture
 from torch.fx import symbolic_trace
 
 torch.manual_seed(0)
@@ -37,7 +37,7 @@ from torch import _dynamo as torchdynamo
 
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
-def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
+def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C, inference_env_fixture):
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
@@ -91,7 +91,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     def raw_function(tensor):
         return model_hpu(tensor)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function = compile_function_if_compile_mode(raw_function)
 
     with torch.no_grad():
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
@@ -108,10 +108,9 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1)
-    htcore.hpu_teardown_inference_env()
 
 
-def test_hpu_const_marking():
+def test_hpu_const_marking(inference_env_fixture):
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
@@ -156,10 +155,11 @@ def test_hpu_const_marking():
 
     print("Infer on HPU....................................", flush=True)
 
+    @torch._inductor.config.patch("freezing", True)
     def raw_function(tensor):
         return model_hpu(tensor)
 
-    compiled_function = torch.compile(raw_function, backend="hpu_backend", options={"use_graph_freezing": True})
+    compiled_function = compile_function_if_compile_mode(raw_function)
     with env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}):
         with torch.no_grad():
             with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
@@ -177,4 +177,3 @@ def test_hpu_const_marking():
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1)
-    htcore.hpu_teardown_inference_env()

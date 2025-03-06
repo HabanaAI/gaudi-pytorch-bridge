@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ from enum import Enum
 
 import habana_frameworks.torch.utils._activity_profiler_C as hpu_profiler
 import torch
+from habana_frameworks.torch.utils.internal import is_lazy
 
 
 class DebugActivity(Enum):
@@ -87,16 +88,27 @@ def register_habana_activity_profiler():
                 return original_activity.CUDA
 
         def _get_mandatory_events(self):
-            return [
-                "SyncTensorsGraphInternal",
-                "ExecuteCachedGraph",
-                "LaunchSyncTensorsGraph",
-                "synEventRecord",
-                "synEventSynchronize",
-                "synLaunchWithExternalEvents",
-                "hpu_lazy",
-                "synMemCopyAsync",
-            ]
+            if is_lazy():
+                mandatory_events = [
+                    "SyncTensorsGraphInternal",
+                    "ExecuteCachedGraph",
+                    "LaunchSyncTensorsGraph",
+                    "hpu_lazy",
+                ]
+            else:
+                mandatory_events = ["LaunchRecipeTask", "add_new_recipe", "launch_recipe", "launch"]
+
+            mandatory_events.extend(
+                [
+                    "synEventRecord",
+                    "synEventSynchronize",
+                    "synLaunchWithExternalEvents",
+                    "synMemCopyAsync",
+                    "synGraphCompile",
+                ]
+            )
+
+            return mandatory_events
 
         def start_trace(self):
             if self.hpu_profiling_active:

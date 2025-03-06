@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -48,12 +47,7 @@ def test_hpu_repeat_interleave(size, repeats, dim, dtype, output_size):
     def fn(input, repeats, dim, output_size):
         return torch.repeat_interleave(input=input, repeats=repeats, dim=dim, output_size=output_size)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn_hpu = torch.compile(fn, backend="hpu_backend")
-    else:
-        fn_hpu = fn
+    fn_hpu = compile_function_if_compile_mode(fn)
 
     output_cpu = fn(input_cpu, repeats_cpu, dim, None)
     out_size_hpu = output_cpu.size()[dim] if output_size else None
@@ -76,12 +70,7 @@ def test_hpu_repeat_interleave_repeats_only(repeats, dtype):
     def fn(input):
         return torch.repeat_interleave(input)
 
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        fn_hpu = torch.compile(fn, backend="hpu_backend")
-    else:
-        fn_hpu = fn
+    fn_hpu = compile_function_if_compile_mode(fn)
 
     output_cpu = fn(repeats_cpu)
     output_hpu = fn_hpu(repeats_hpu)

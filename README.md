@@ -95,10 +95,9 @@ export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 
 2. Build the Intel Gaudi PyTorch bridge:
 ```bash
-"$PYTORCH_MODULES_ROOT_PATH"/.devops/build.py --noupstream-compile -cir
+"$PYTORCH_MODULES_ROOT_PATH"/.devops/build.py -cir
 ```
 **Notes:**
 - The `-i` flag installs the wheels after they are built.
 - It is recommended to leverage CCache and Icecream for faster compilation. Icecream (icecc) allows using a much larger parallel job count (`-j N`). The `N` depends on your compute cluster size.
 - Sometimes the final build command is interrupted while preparing the environment. In this case you can add `--recreate-venv force` to resolve any potential issues.
-

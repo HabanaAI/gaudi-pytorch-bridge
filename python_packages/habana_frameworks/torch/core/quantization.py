@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 ###############################################################################
 
 import contextlib
+import operator
 from os import environ, getenv
 
 import torch
@@ -89,12 +90,11 @@ def _handle_quant_stats(model=None):
 _const_id = -1
 
 
-def _mark_params_as_const(model=None, only_scales=False, console_prints=False) -> None:
+def _mark_params_as_const(model=None, mark_scales=False, mark_non_scales=False, console_prints=False) -> None:
     if model is None:
         return
-    for param, param_t in model.state_dict().items():
-        if only_scales and "scale" not in param:
-            continue
+
+    def perform_const_marking(param, param_t):
         try:
             param_t_meta = _core_C.get_new_tensor_extra_meta(param_t)
         except RuntimeError:
@@ -103,7 +103,7 @@ def _mark_params_as_const(model=None, only_scales=False, console_prints=False) -
                 param_t_meta.is_const_tensor = True
                 if console_prints:
                     print("Metadata already exists, const_id '{}'".format(param_t_meta.const_id))
-                continue
+                return
         global _const_id
         _const_id = _const_id + 1
         param_t_meta.is_const_tensor = True
@@ -114,6 +114,14 @@ def _mark_params_as_const(model=None, only_scales=False, console_prints=False) -
         if console_prints:
             print("Tensor '{}' is_const '{}' id '{}'".format(param, is_const, id))
 
+    for param, param_t in model.state_dict().items():
+        if mark_scales and mark_non_scales:
+            perform_const_marking(param, param_t)
+        elif mark_scales and "scale" in param:
+            perform_const_marking(param, param_t)
+        elif mark_non_scales and "scale" not in param:
+            perform_const_marking(param, param_t)
+
 
 def _get_marked_const_count() -> int:
     global _const_id
@@ -122,14 +130,21 @@ def _get_marked_const_count() -> int:
     return count
 
 
-def _check_params_as_const(model=None, only_scales=False) -> None:
+def _check_params_as_const(model=None, mark_scales=False, mark_non_scales=False) -> None:
     if model is None:
         return
-    for param, param_t in model.state_dict().items():
-        if only_scales and "scale" not in param:
-            continue
+
+    def check_constant_mark(param, param_t):
         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
         is_const = param_t_meta_copy.is_const_tensor
+
+    for param, param_t in model.state_dict().items():
+        if mark_scales and mark_non_scales:
+            check_constant_mark(param, param_t)
+        elif mark_scales and "scale" in param:
+            check_constant_mark(param, param_t)
+        elif mark_non_scales and "scale" not in param:
+            check_constant_mark(param, param_t)
 
 
 def check_env_flag(name, default=""):
@@ -140,7 +155,7 @@ def _set_quantization_attributes(model):
     if (
         "HB_QUANTIZATION" in model._buffers
         and "quantization" in model._buffers["HB_QUANTIZATION"]
-        and model._buffers["HB_QUANTIZATION"]["quantization"] == True
+        and model._buffers["HB_QUANTIZATION"]["quantization"] is True
     ):
         hpu.enable_quantization()
 
@@ -158,6 +173,7 @@ def hpu_set_env(model=None):
     global _set_env
     hpu.enable_inference_mode()
     hpu.enable_matmul3d_2d_reshape()
+
     _set_env = 0
     if check_env_flag("PT_HPU_WEIGHT_SHARING", "1") and check_env_flag("EXPERIMENTAL_WEIGHT_SHARING", "1"):
         print(
@@ -179,6 +195,7 @@ def hpu_set_inference_env(model=None):
     global _set_env
     hpu.enable_inference_mode()
     hpu.enable_matmul3d_2d_reshape()
+
     _set_env = 0
     if check_env_flag("PT_HPU_WEIGHT_SHARING", "1") and check_env_flag("EXPERIMENTAL_WEIGHT_SHARING", "1"):
         print(
@@ -190,45 +207,81 @@ def hpu_set_inference_env(model=None):
         return modified_model
 
 
-def hpu_initialize(model=None, mark_only_scales_as_const=False, optimizer=None, args=None):
+def hpu_initialize(
+    model=None, mark_only_scales_as_const=False, mark_scales=True, mark_non_scales=True, optimizer=None, args=None
+):
     """
     [TO BE DEPRECATED] Please use hpu_inference_initialize instead
     Mark params of the model on HPU as const
     To be called after moving tensors/model to hpu
     To be called after model.to(hpu)
+    Note: 'mark_only_scales_as_const' will be removed in future, please use 'mark_scales'
     """
+    print(
+        """WARNING: The argument 'mark_only_scales_as_const' will be removed soon. Please use 'mark_scales' instead.
+        If mark_only_scales_as_const=True or mark_scales=True, then only scales are marked as const.
+        If mark_non_scales=True, then non scale tensors are marked as constants.
+        By default mark_only_scales_as_const=False, mark_scales=True, mark_non_scales=True
+        """
+    )
     global _set_env
     if _set_env == 1:
         hpu.enable_inference_mode()
         hpu.enable_matmul3d_2d_reshape()
+
+    mark_only_scales = mark_only_scales_as_const or mark_scales
+    if mark_only_scales_as_const:
+        mark_non_scales = False
+
     if model is not None:
         if getenv("PT_HPU_LAZY_MODE", "1") != "0":
-            _mark_params_as_const(model=model, only_scales=mark_only_scales_as_const)
-            _check_params_as_const(model=model, only_scales=mark_only_scales_as_const)
-        _read_min_max_overwrite()
-        _set_quantization_attributes(model)
-        with _e_handler():
-            _handle_quant_stats(model)
+            _mark_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
+            _check_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
+            _read_min_max_overwrite()
+            _set_quantization_attributes(model)
+            with _e_handler():
+                _handle_quant_stats(model)
+        else:
+            hpu.set_mark_scale_const(mark_only_scales)
+            hpu.set_mark_non_scale_const(mark_non_scales)
 
 
-def hpu_inference_initialize(model=None, mark_only_scales_as_const=False, optimizer=None, args=None):
+def hpu_inference_initialize(
+    model=None, mark_only_scales_as_const=False, mark_scales=True, mark_non_scales=True, optimizer=None, args=None
+):
     """
     Mark params of the model on HPU as const
     To be called after moving tensors/model to hpu
     To be called after model.to(hpu)
+    Note: 'mark_only_scales_as_const' will be removed in future, please use 'mark_scales'
     """
+    print(
+        """WARNING: The argument 'mark_only_scales_as_const' will be removed soon. Please use 'mark_scales' instead.
+        If mark_only_scales_as_const=True or mark_scales=True, then only scales are marked as const.
+        If mark_non_scales=True, then non scale tensors are marked as constants.
+        By default mark_only_scales_as_const=False, mark_scales=True, mark_non_scales=True
+        """
+    )
     global _set_env
     if _set_env == 1:
         hpu.enable_inference_mode()
         hpu.enable_matmul3d_2d_reshape()
+
+    mark_only_scales = mark_only_scales_as_const or mark_scales
+    if mark_only_scales_as_const:
+        mark_non_scales = False
+
     if model is not None:
         if getenv("PT_HPU_LAZY_MODE", "1") != "0":
-            _mark_params_as_const(model=model, only_scales=mark_only_scales_as_const)
-            _check_params_as_const(model=model, only_scales=mark_only_scales_as_const)
-        _read_min_max_overwrite()
-        _set_quantization_attributes(model)
-        with _e_handler():
-            _handle_quant_stats(model)
+            _mark_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
+            _check_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
+            _read_min_max_overwrite()
+            _set_quantization_attributes(model)
+            with _e_handler():
+                _handle_quant_stats(model)
+        else:
+            hpu.set_mark_scale_const(mark_only_scales)
+            hpu.set_mark_non_scale_const(mark_non_scales)
 
 
 def hpu_reset_env():

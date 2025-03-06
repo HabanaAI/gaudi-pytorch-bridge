@@ -29,6 +29,7 @@
 #include <vector>
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/event_dispatcher.h"
+#include "backend/kernel/hpu_habana_cache.h"
 #include "backend/kernel/refinement_engine.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/session.h"
@@ -208,14 +209,13 @@ void dumpEnvSettings() {
     // Make sure to update the user docs, if new flag is added.
     // NOTE: Only flags represented in env_flags.h are logged.
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_MODE)
-    PRINT_ENV_FLAG_DEFAULT(PT_RECIPE_CACHE_PATH)
-    PRINT_ENV_FLAG_DEFAULT(PT_CACHE_FOLDER_DELETE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_RECIPE_CACHE_CONFIG)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_MAX_COMPOUND_OP_SIZE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_ACC_PAR_MODE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_EAGER_PIPELINE_ENABLE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE)
+    PRINT_ENV_FLAG_DEFAULT(PT_HPU_ENABLE_LAZY_COLLECTIVES)
 
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
       HABANA_ASSERT(
@@ -600,6 +600,10 @@ void device::cleanup() {
   // it might be in the process of compiling a new recipe.
   // The compilation is allowed to complete for graceful termination.
   habana::RefinementEngine::GetEngine().Shutdown();
+
+  // Cleaning up the DynamicBucketInfoMap so that the events gets cleared
+  // before destroying the cached event handle
+  habana::DynamicBucketInfoMap::get_instance().clear();
 
   // Wait for all futures to finish.
   // NOTE: If GIL is acquired by any other thread, there is a good chance that

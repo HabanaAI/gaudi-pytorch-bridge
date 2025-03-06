@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 ###############################################################################
 
 import numpy as np
-import pytest
 import torch
 from habana_frameworks.torch.hpex.kernels import CustomSoftmax
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, hpu, is_pytest_mode_compile
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, hpu, is_pytest_mode_compile
 
 
 def test_custom_softmax():
@@ -36,11 +35,7 @@ def test_custom_softmax():
         dtype=torch.float32,
     )
 
-    op = CustomSoftmax.apply
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        op = torch.compile(CustomSoftmax.apply, backend="hpu_backend")
+    op = compile_function_if_compile_mode(CustomSoftmax.apply)
 
     out = op(torch.clone(input).detach().to(hpu), 0)
     out_cpu = out.cpu().to(torch.float32)

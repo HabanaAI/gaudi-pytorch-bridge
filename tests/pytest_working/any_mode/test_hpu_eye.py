@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("n", [8, 16])
@@ -33,9 +32,8 @@ def test_hpu_eye(n, m, dtype):
     shape = (n, n) if m is None else (n, m)
     cpu_output = torch.empty(shape, dtype=dtype)
     hpu_output = cpu_output.to("hpu")
-    torch._dynamo.reset()
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 
     fn(cpu_output)
     hpu_wrapped_fn(hpu_output)

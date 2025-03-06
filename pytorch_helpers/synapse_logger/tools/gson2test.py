@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,18 +18,13 @@
 
 
 import argparse
-import json
 import logging
 import os
-import sys
-from collections import OrderedDict, defaultdict
-from collections.abc import Mapping
+from collections import defaultdict
 from enum import Enum
 from io import StringIO
-from shutil import copy2
 
-from browse_log import is_call
-from gson_parsing import func_def_from_pretty_function, gson_iterator, hcl_collective_ops, hcl_ops, syn_types
+from gson_parsing import gson_iterator, hcl_collective_ops, hcl_ops, syn_types
 
 log = logging.getLogger("synapse_logger.gson2test")
 
@@ -292,7 +287,7 @@ class Flow:
 
         def set_tid(self, tid):
             self.tid = tid
-            if not tid in self.threads:
+            if tid not in self.threads:
                 self.threads[tid] = StringIO()
 
         def out(self, *args, **kwargs):
@@ -662,13 +657,13 @@ class Flow:
                         fields["m_sizes"] = f"dims{no}"
                         if "const" in args:
                             if "data_offset" in args:
-                                fields["m_ptr"] = f"data_adr + " + str(args["data_offset"])
+                                fields["m_ptr"] = "data_adr + " + str(args["data_offset"])
                             else:
                                 out(f"std::vector<uint8_t> tensor_descriptor_{no}_buffer({args['byte_size']}, 0);")
                                 out(f"uint8_t* tensor_descriptor_{no}_data = tensor_descriptor_{no}_buffer.data();")
                                 fields["m_ptr"] = f"tensor_descriptor_{no}_data"
                         else:
-                            fields["m_ptr"] = f"nullptr"
+                            fields["m_ptr"] = "nullptr"
                         fields = ", ".join(f"/*.{k}*/{v}" for k, v in fields.items())
                         v = space.memory.add(
                             args["at"],

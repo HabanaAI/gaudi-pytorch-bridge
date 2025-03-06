@@ -18,5 +18,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 namespace habana::HabanaLaunchOpPipeline {
-void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op);
+void CompileSynapseTaskWrapper(
+    habana::HabanaLaunchOpPT& launch_op,
+    absl::AnyInvocable<void(habana::HabanaLaunchOpPT&)>&& func);
 }

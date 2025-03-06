@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,21 +15,15 @@
 #
 ###############################################################################
 
-import os
 import unittest
 
 import habana_frameworks.torch as htorch
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 import torch._dynamo.test_case
 import torch._dynamo.testing
 import torch.onnx.operators
-from packaging.version import Version, parse
-from torch._dynamo.testing import EagerAndRecordGraphs, normalize_gm, same
-from torch._streambase import _StreamBase
-from torch.nn import functional as F
+from torch._dynamo.testing import same
 
 # def setup_distributed(rank, world_size):
 #     os.environ['MASTER_ADDR'] = 'localhost'
@@ -245,9 +239,6 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnts.frame_count, 2)
         self.assertEqual(ref0, res0)
 
-    @unittest.skipIf(
-        Version(parse(torch.__version__).base_version) < Version("2.4.0"), "Need patch pytorch/pull/123487"
-    )  # version < 2.4 need patch https://github.com/pytorch/pytorch/pull/123487
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
     def test_hpu_event_method_create_stream_outside_of_compile(self):
         def fn(x, cur_stream, new_stream):
@@ -331,245 +322,10 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
 skip_if_no_hpu = pytest.mark.skipif(not torch.hpu.is_available(), reason="hpu required")
 
 
-import time
 from contextlib import contextmanager
-from typing import Generator, List, Union, cast
+from typing import Generator
 
 import habana_frameworks.torch as htorch
-
-if Version(parse(torch.__version__).base_version) < Version("2.4.0"):
-    from torch.distributed.pipeline.sync.stream import CPUStream, record_stream
-
-    class CPUStreamType:
-        pass
-
-    AbstractStream = Union[torch.hpu.Stream, CPUStreamType]
-
-    def is_hpu(stream) -> bool:
-        """Returns ``True`` if the given stream is a valid HPU stream."""
-        return stream is not CPUStream
-
-    def as_hpu(stream: AbstractStream) -> torch.hpu.Stream:
-        """Casts the given stream as :class:`torch.hpu.Stream`."""
-        return cast(torch.hpu.Stream, stream)
-
-    def get_device(stream: AbstractStream) -> torch.device:
-        """Gets the device from CPU or HPU stream."""
-        if is_hpu(stream):
-            return as_hpu(stream).device
-        return torch.device("cpu")
-
-    def new_stream(device: torch.device) -> AbstractStream:
-        """Creates a new stream for either CPU or HPU device."""
-        if device.type != "hpu":
-            return CPUStream
-        return torch.hpu.Stream(device)
-
-    def current_stream(device: torch.device) -> AbstractStream:
-        """:func:`torch.hpu.current_stream` for either CPU or HPU device."""
-        if device.type != "hpu":
-            return CPUStream
-        return torch.hpu.current_stream(device)
-
-    def default_stream(device: torch.device) -> AbstractStream:
-        """:func:`torch.hpu.default_stream` for either CPU or HPU device."""
-        if device.type != "hpu":
-            return CPUStream
-        return torch.hpu.default_stream(device)
-
-    @contextmanager
-    def use_stream(stream: AbstractStream) -> Generator[None, None, None]:
-        """:func:`torch.hpu.stream` for either CPU or HPU stream."""
-        if not is_hpu(stream):
-            yield
-            return
-
-        with torch.hpu.stream(as_hpu(stream)):
-            yield
-
-    def wait_stream(source: AbstractStream, target: AbstractStream) -> None:
-        """:meth:`torch.hpu.Stream.wait_stream` for either CPU or HPU stream. It
-        makes the source stream wait until the target stream completes work queued.
-        """
-        if is_hpu(target):
-            if is_hpu(source):
-                # A HPU stream waits another HPU stream.
-                as_hpu(source).wait_stream(as_hpu(target))
-            else:
-                # CPU waits a HPU stream.
-                as_hpu(target).synchronize()
-
-        # If the target is CPU, synchronization is not required.
-
-    def _sleep(cycles):
-        time.sleep(cycles / 1000000)
-
-    @pytest.fixture(scope="session")
-    def hpu_sleep():
-        # Warm-up HPU.
-        torch.empty(1, device="hpu")
-
-        # From test/test_hpu.py in PyTorch.
-        start = torch.hpu.Event(enable_timing=True)
-        end = torch.hpu.Event(enable_timing=True)
-        start.record()
-        _sleep(1000000)
-        end.record()
-        end.synchronize()
-        cycles_per_ms = 1000000 / start.elapsed_time(end)
-
-        def hpu_sleep(seconds):
-            _sleep(int(seconds * cycles_per_ms * 1000))
-
-        return hpu_sleep
-
-    class TestNewStream:
-        def test_new_stream_cpu(self):
-            stream = new_stream(torch.device("cpu"))
-            assert stream is CPUStream
-
-        @skip_if_no_hpu
-        def test_new_stream_hpu(self):
-            stream = new_stream(torch.device("hpu"))
-            assert isinstance(stream, torch.hpu.Stream)
-            assert stream != torch.hpu.default_stream()
-
-    class TestCurrentStream:
-        def test_current_stream_cpu(self):
-            stream = current_stream(torch.device("cpu"))
-            assert stream is CPUStream
-
-        @skip_if_no_hpu
-        def test_current_stream_hpu(self):
-            stream = current_stream(torch.device("hpu"))
-            assert isinstance(stream, torch.hpu.Stream)
-            assert stream == torch.hpu.current_stream()
-
-    class TestDefaultStream:
-        def test_default_stream_cpu(self):
-            stream = default_stream(torch.device("cpu"))
-            assert stream is CPUStream
-
-        @skip_if_no_hpu
-        def test_default_stream_hpu(self):
-            stream = default_stream(torch.device("hpu"))
-            assert isinstance(stream, torch.hpu.Stream)
-            assert stream == torch.hpu.default_stream()
-
-    class TestUseStream:
-        def test_use_stream_cpu(self):
-            with use_stream(CPUStream):
-                pass
-
-        @skip_if_no_hpu
-        def test_use_stream_hpu(self):
-            stream = new_stream(torch.device("hpu"))
-            with use_stream(stream):
-                assert current_stream(torch.device("hpu")) == stream
-
-    class TestGetDevice:
-        def test_get_device_cpu(self):
-            assert get_device(CPUStream).type == "cpu"
-
-        @skip_if_no_hpu
-        def test_get_device_hpu(self):
-            stream = current_stream(torch.device("hpu"))
-            assert get_device(stream).type == "hpu"
-
-    class TestWaitStream:
-        def _test_wait_stream(self, source, target, hpu_sleep=None):
-            with use_stream(target):
-                if is_hpu(target):
-                    hpu_sleep(0.5)
-                x = torch.ones(100, 100, device=get_device(target))
-
-            wait_stream(source, target)
-
-            with use_stream(source):
-                assert x.sum().item() == 10000
-
-        def test_wait_stream_cpu_cpu(self):
-            source = CPUStream
-            target = CPUStream
-            self._test_wait_stream(source, target)
-
-        @skip_if_no_hpu
-        def test_wait_stream_cpu_hpu(self, hpu_sleep):
-            source = CPUStream
-            target = new_stream(torch.device("hpu"))
-            self._test_wait_stream(source, target, hpu_sleep)
-
-        @skip_if_no_hpu
-        def test_wait_stream_hpu_cpu(self, hpu_sleep):
-            source = new_stream(torch.device("hpu"))
-            target = CPUStream
-            self._test_wait_stream(source, target, hpu_sleep)
-
-        @skip_if_no_hpu
-        def test_wait_stream_hpu_hpu(self, hpu_sleep):
-            source = current_stream(torch.device("hpu"))
-            target = new_stream(torch.device("hpu"))
-            self._test_wait_stream(source, target, hpu_sleep)
-
-    class TestRecordStream:
-        def test_record_stream_cpu(self):
-            # It should silently ignore CPU tensors.
-            x = torch.rand(1, device=torch.device("cpu"))
-            record_stream(x, CPUStream)
-
-        @skip_if_no_hpu
-        def test_record_stream_hpu(self, hpu_sleep):
-            # This test detects unexpected block reallocation. For reliable test,
-            # the stream to allocate tensors is isolated. The allocator will not
-            # reuse free blocks which were allocated from another stream.
-            stream_alloc = new_stream(torch.device("hpu"))
-            with torch.hpu.stream(stream_alloc):
-                x = torch.rand(1, device=torch.device("hpu"))
-
-            stream = new_stream(torch.device("hpu"))
-            record_stream(x, stream)
-            with use_stream(stream):
-                hpu_sleep(0.5)
-
-            # 'x' is deleted at Python's perspective. But the block of 'x' is still
-            # required for 'stream'. 'y' shouldn't be allocated to the block.
-            data_ptr = x.data_ptr()
-            del x
-            stream_alloc.synchronize()
-            with torch.hpu.stream(stream_alloc):
-                y = torch.rand(1, device=torch.device("hpu"))
-            assert y.data_ptr() != data_ptr
-
-            # Pause Python until 'stream' finishes tasks queued. Now the block of
-            # 'x' is free to be reallocated.
-            # wait_stream(CPUStream, stream)
-            # with torch.hpu.stream(stream_alloc):
-            #     z = torch.rand(1, device=torch.device("hpu"))
-            # assert z.data_ptr() == data_ptr
-
-        @skip_if_no_hpu
-        def test_record_stream_shifted_view(self, hpu_sleep):
-            # Issue: https://github.com/pytorch/pytorch/issues/27366
-            stream_alloc = new_stream(torch.device("hpu"))
-            with torch.hpu.stream(stream_alloc):
-                x = torch.rand(2, device=torch.device("hpu"))
-
-            y = x[1:]
-            assert y.data_ptr() > x.data_ptr()
-
-            stream = new_stream(torch.device("hpu"))
-            with use_stream(stream):
-                hpu_sleep(1)
-            record_stream(y, stream)
-
-            data_ptr = x.data_ptr()
-            del x, y
-
-            stream_alloc.synchronize()
-            with torch.hpu.stream(stream_alloc):
-                z = torch.rand(2, device=torch.device("hpu"))
-            stream_alloc.synchronize()
-            assert z.data_ptr() != data_ptr
 
 
 @contextmanager

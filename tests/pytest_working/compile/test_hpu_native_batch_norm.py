@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
@@ -37,7 +36,7 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
         return torch._native_batch_norm_legit_no_training(input, weight, bias, running_mean, running_var, momentum, eps)
 
     torch._dynamo.reset()
-    aot_hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    aot_hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     input = torch.randn(*params["dims"], dtype=dtype)
     weight = torch.randn(params["dims"][1])
@@ -92,7 +91,7 @@ def test_hpu_native_batch_norm_bwd(shape, dtype):
     hpu_running_var = cpu_running_var.to("hpu")
     torch._dynamo.reset()
 
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+    hpu_compiled_fn = compile_function_if_compile_mode(fn)
 
     cpu_output = fn(cpu_input, cpu_weight, cpu_bias, cpu_running_mean, cpu_running_var)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias, hpu_running_mean, hpu_running_var).cpu()

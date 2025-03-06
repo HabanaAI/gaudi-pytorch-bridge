@@ -56,6 +56,19 @@ OutputMetaDataVector ResizeOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector ResizeSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  auto dtype = self.scalar_type();
+  auto rank = stack.at(1).toIntVector().size();
+
+  SharedMetaData memcpySharedMeta{"memcpy"};
+  memcpySharedMeta.inputs_data.emplace_back(self.dim(), dtype);
+  memcpySharedMeta.outputs_data.emplace_back(rank, dtype);
+  return {memcpySharedMeta};
+}
+
 void ResizeOpBackend::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -78,7 +91,8 @@ void ResizeOutputOpBackend::AddNode(
   const auto device = stack.at(2).toDevice();
 
   TORCH_CHECK(
-      self.device() == device, "Tensor doesn't have the correct device set");
+      self.device().type() == device.type(),
+      "Tensor doesn't have the correct device set");
 
   resizeTensor(this, graph, stack, self, self.suggest_memory_format());
   if (isOutputInfMode()) {

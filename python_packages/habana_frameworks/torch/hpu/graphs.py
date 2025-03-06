@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -494,13 +494,13 @@ def input_hash(obj):
     elif torch.is_tensor(obj):
         return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()]))
     elif isinstance(obj, collections.UserDict):
-        return hash(tuple((k, tuple(v)) for k, v in obj.items()))
+        return hash(tuple((k, tuple(input_hash(v_el) for v_el in v)) for k, v in obj.items()))
     else:
         return hash((obj, torch.hpu.is_autocast_hpu_enabled()))
 
 
 def copy_to(dst, src):
-    assert type(dst) == type(src)
+    assert type(dst) is type(src)
     if isinstance(dst, dict):
         for (dk, dv), (sk, sv) in zip(dst.items(), src.items()):
             assert dk == sk
@@ -594,8 +594,9 @@ def wrapped_hpugraph_forward(
     env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
     disable_tensor_cache = disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
 
-    # Enable dry run if tensor cache is disabled
-    dry_run = True if disable_tensor_cache else dry_run
+    # Enable dry run if disable_tensor_cache is enabled and model has not provided
+    dry_run = disable_tensor_cache if dry_run is None else dry_run
+
     if cached is None:
         if max_graphs is not None and len(cache) == max_graphs:
             return orig_fwd(*args, **kwargs)
@@ -659,7 +660,7 @@ def wrapped_hpugraph_forward(
     return out
 
 
-def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
+def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=None, max_graphs=None):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -669,7 +670,11 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
             Defaults to False.
         disable_tensor_cache (bool, optional): Specifies whether to use tensor cache during graph replay.
             Defaults to False.
-        dry_run (bool): Enable dry run, which helps to run model without allocating memory.
+        dry_run (bool): Enables dry run mode, allowing the model to run without allocating memory. If set to
+            None, dry run will be enabled when disable_tensor_cache=True. Note that dry run does not evaluate
+            graphs while capturing, and in cases with multiple graphs, it may cause accuracy issues if the input shapes of the
+            current graph depend on the outputs of previous graphs. For example, this can happen with a Nonzero
+            operation that processes boolean inputs is fed as the input of next hpugraph.
         max_graphs: maximum graphs which will be cached
 
     Returns:
@@ -699,7 +704,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
     return forward
 
 
-def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
+def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=None, max_graphs=None):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -709,7 +714,11 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
             Defaults to False.
         disable_tensor_cache (bool, optional): Specifies whether to cache tensors during graph replay.
             Defaults to False.
-        dry_run (bool): Enable dry run, which helps to run model without allocating memory.
+        dry_run (bool): Enables dry run mode, allowing the model to run without allocating memory. If set to
+            None, dry run will be enabled when disable_tensor_cache=True. Note that dry run does not evaluate
+            graphs while capturing, and in cases with multiple graphs, it may cause accuracy issues if the input shapes of the
+            current graph depend on the outputs of previous graphs. For example, this can happen with a Nonzero
+            operation that processes boolean inputs is fed as the input of next hpugraph.
         max_graphs: maximum graphs which will be cached
 
     Returns:

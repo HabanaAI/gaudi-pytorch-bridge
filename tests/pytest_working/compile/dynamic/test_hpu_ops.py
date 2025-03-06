@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
 
 import os
 
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 import torch.nn as nn
+from compile.test_dynamo_utils import use_eager_fallback
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import (
     check_ops_executed_in_jit_ir,
@@ -353,7 +353,6 @@ def test_op_view_static():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.skip(reason="https://github.com/pytorch/pytorch/issues/104025")
 def test_op_topk():
     sizes = [5, 10, 15, 18, 16]
 
@@ -365,12 +364,13 @@ def test_op_topk():
 
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
-    for s in sizes:
-        t = torch.randn(s)
-        result = raw_function(t)
-        t_h = t.to("hpu")
-        h_result = compiled_fn(t_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+    with use_eager_fallback():  # to allow floordiv (//) to fallback to eager
+        for s in sizes:
+            t = torch.randn(s)
+            result = raw_function(t)
+            t_h = t.to("hpu")
+            h_result = compiled_fn(t_h)
+            assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
 def test_op_topk_static_k():
@@ -674,6 +674,54 @@ def test_op_bernoulli_half():
         t_hpu = t_half.to("hpu")
         h_result = compiled_fn(t_hpu)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_bernoulli_st_meta():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    input_shapes = [(2, 3), (2, 4), (2, 6), (2, 7)]
+
+    def fn(input_a, input_b):
+        a = torch.bernoulli(input_a)
+        b = torch.bernoulli(input_b)
+        c = torch.mul(a, b)
+        return c
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    for shape in input_shapes:
+        input_a = torch.empty(shape, dtype=torch.float).uniform_(0, 1).to("hpu")
+        input_b = torch.empty(shape, dtype=torch.float).uniform_(0, 1).to("hpu")
+
+        result_1 = compiled_fn(input_a, input_b).cpu()
+        result_2 = compiled_fn(input_a, input_b).cpu()
+        assert not torch.equal(result_1, result_2)
+
+        results = torch.tensor((0.0, 1.0), dtype=torch.float)
+        assert torch.equal(result_1.unique(), results)
+        assert torch.equal(result_2.unique(), results)
+
+    check_ops_executed_in_jit_ir("habana_bernoulli")
+
+    # test bernoulli_with_p
+
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    def fn(input):
+        result = torch.bernoulli(input, 0.5)
+        return result
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    for shape in input_shapes:
+        input = torch.empty(shape, dtype=torch.float).uniform_(0, 1).to("hpu")
+        torch.manual_seed(12345)
+        result_1 = compiled_fn(input).cpu()
+        torch.manual_seed(12346)
+        result_2 = compiled_fn(input).cpu()
+        assert not torch.equal(result_1, result_2)
 
 
 def test_op_adaptiveAvgPool2d():
@@ -989,7 +1037,6 @@ def test_conv_ds_default():
         output = model(x)
 
     # hpu
-    import habana_frameworks.torch.core as htcore
     import numpy
 
     model_hpu = model.to("hpu")
@@ -1050,8 +1097,6 @@ def test_op_square_inplace_output():
     # This test is to validate the dynamic shape arguments which
     # used to create as_strided node when graph output is an inplace
     # op output.
-    is_eager_fallback = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
 
     sizes = [(3, 32, 32), (1303, 32, 48), (2440, 32, 51)]
 
@@ -1070,7 +1115,6 @@ def test_op_square_inplace_output():
         t_h = t.to("hpu")
         h_result1 = compiled_fn(t_h)
         assert torch.allclose(h_result1.to("cpu"), result1, atol=0.001, rtol=0.001)
-    configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 
 @pytest.mark.parametrize("split_dim", [0, 1, 2, -1, -2, -3])
@@ -1314,7 +1358,7 @@ test_data = [
 
 @pytest.mark.parametrize("dtype, fill_value", test_data)
 def test_full(dtype, fill_value):
-    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() == False:
+    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() is False:
         pytest.skip(reason="fill_value exceed int32 range which is unsupported")
 
     input_shapes = [(8, 2), (16, 3), (20, 2), (24, 3), (28, 3)]
@@ -1381,6 +1425,135 @@ def test_backend_st_test2():
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_backend_st_test3():
+    input_shapes = [
+        (3, 12, 1),
+        (3, 13, 2),
+        (3, 14, 3),
+        (3, 15, 4),
+    ]
+
+    def raw_function(start, end, step, device):
+        out = torch.arange(start, end, device=device)
+        return out
+
+    torch._dynamo.reset()
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for start, end, step in input_shapes:
+        result = raw_function(start, end, step, "cpu")
+        h_result = compiled_fn(start, end, step, "hpu")
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_backend_st_test4():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    input_shapes = [(4, 7), (14, 7), (23, 7), (15, 7)]
+
+    def raw_function(input):
+        out = input.exponential_(1.0)
+        return out
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    torch.manual_seed(2)
+    for s in input_shapes:
+        t = torch.rand(s, requires_grad=False)
+        t_h = t.to("hpu")
+        result = raw_function(t)
+        h_result = compiled_fn(t_h)
+        assert h_result.to("cpu").shape == result.shape
+    check_ops_executed_in_jit_ir({"exponential"})
+
+
+def test_backend_st_test5():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    input_shapes = [
+        (16, 2048, 7, 7),
+        (26, 2048, 7, 8),
+        (27, 2048, 7, 8),
+        (28, 2048, 7, 8),
+    ]
+
+    def raw_function(input):
+        out = torch.ops.aten.avg_pool2d(input, kernel_size=(2, 2))
+        grad = torch.ones_like(out)
+        out.backward(grad)
+        return input.grad
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for s in input_shapes:
+        t = torch.rand(s)
+        t_h = t.to("hpu")
+        t.requires_grad = True
+        t_h.requires_grad = True
+        result = raw_function(t)
+        h_result = compiled_fn(t_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir({"avg_pool2d", "avg_pool2d_backward"})
+
+
+def test_backend_st_test6():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    input_shapes = [(4, 7), (14, 7), (23, 7), (15, 7)]
+
+    def raw_function(input):
+        sorted, indices = input.sort(stable=True)
+        return sorted
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for s in input_shapes:
+        t = torch.rand(s, requires_grad=False)
+        t_h = t.to("hpu")
+        result = raw_function(t)
+        h_result = compiled_fn(t_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir({"sort"})
+
+
+def test_backend_st_test7():
+    # test for torch.ops.aten.convolution_overrideable DS STMeta
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    C, H, W, K, R, stride, padding, bias = 3, 28, 28, 16, 2, 1, 1, False
+    input_shapes = [
+        (2, C, H, W),
+        (4, C, H, W),
+        (7, C, H, W),
+        (8, C, H, W),
+    ]
+
+    from copy import deepcopy
+
+    def raw_function(conv_fn, input):
+        out = conv_fn(input)
+        out = torch.relu(out)
+        return out
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for s in input_shapes:
+        kernel = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias)
+        kernel_hpu = deepcopy(kernel).to("hpu")
+        t = torch.rand(s, dtype=torch.float, requires_grad=True)
+        t_h = t.to("hpu")
+        # Conv forward through t.compile
+        result = raw_function(kernel, t)
+        h_result = compiled_fn(kernel_hpu, t_h)
+        # Now do backward
+        bwd_in = torch.randn(result.shape)
+        result.backward(bwd_in)
+        h_result.backward(bwd_in.to("hpu"))
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir({"convolution_backward"})
 
 
 def test_dynamicity_with_fx_recompilations():
@@ -1510,3 +1683,122 @@ def test_complex_symbolic_input():
             assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
     execute_model(input_shapes)
+
+
+def test_dynamic_strided():
+    from habana_frameworks.torch.hpex.kernels import RotaryPosEmbeddingHelperV2 as FusedRoPE
+
+    torch.manual_seed(12345)
+
+    cos = 2 * (torch.rand((15, 128), dtype=torch.float).to("hpu") - 0.5)
+    sin = 2 * (torch.rand((15, 128), dtype=torch.float).to("hpu") - 0.5)
+    pos = torch.rand((1, 15)).to("hpu")
+
+    def func(in1, shape, stride, c, s, p):
+        in1 = torch.as_strided(in1, shape, stride)
+
+        with torch.autocast(device_type="hpu", dtype=torch.bfloat16):
+            if in1.device.type == "hpu" and FusedRoPE:
+                out1 = FusedRoPE.apply(in1, c.unsqueeze(0).unsqueeze(0), s.unsqueeze(0).unsqueeze(0), p)
+                return out1
+            else:
+                pass
+
+    compiled_static_func = torch.compile(func, backend="hpu_backend", dynamic=False)
+    compiled_dynamic_func = torch.compile(func, backend="hpu_backend", dynamic=None)
+
+    shapes = [(1, 32, 15, 128), (1, 8, 15, 128), (1, 32, 15, 128), (1, 8, 15, 128)]
+    strides = [(61440, 128, 4096, 1), (15360, 128, 1024, 1), (61440, 128, 4096, 1), (15360, 128, 1024, 1)]
+    for shape, stride in zip(shapes, strides):
+        inp1 = torch.randn(shape).to("hpu")
+        static_res = compiled_static_func(inp1, shape, stride, cos, sin, pos)
+        dynamic_res = compiled_dynamic_func(inp1, shape, stride, cos, sin, pos)
+        torch.testing.assert_close(static_res.cpu(), dynamic_res.cpu())
+
+
+def test_bucket_refinement():
+    A = 50
+    C = 30
+
+    input_sizes = [34, 16, 32, 22, 17, 18, 16]
+    test_rounds = [1, 1, 1, 1, 1, 2, 30]
+
+    def raw_function(t0, t1):
+        t4 = torch.add(t0, t1)
+        t5 = torch.mul(t0, t1)
+        t6 = torch.mul(t4, t5)
+        t7 = torch.relu(t6)
+        return t7
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for i, B in enumerate(input_sizes):
+        for j in range(1, test_rounds[i] + 1):
+            t0 = torch.randn((C, B, A), requires_grad=False)
+            t1 = torch.randn((C, B, A), requires_grad=False)
+            result = raw_function(t0, t1)
+            t0_h = t0.to("hpu")
+            t1_h = t1.to("hpu")
+            result_h = compiled_fn(t0_h, t1_h)
+            assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_backend_st_test_empty():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    input_shapes = [(3, 1, 2), (4, 7, 6), (14, 32, 3), (23, 16, 3), (5, 14, 6)]
+
+    # 1. torch.ops.aten.empty.memory_format
+    def raw_function(s, dut):
+        t1 = torch.empty(s, device=dut)
+        return t1
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for s in input_shapes:
+        result = raw_function(s, "cpu")
+        h_result = compiled_fn(s, "hpu:0")
+        h_result.to("cpu")  # dummy copy to skip optimization
+        assert h_result.shape == result.shape
+    check_ops_executed_in_jit_ir({"empty"})
+
+    # 2. torch.ops.aten.empty_like
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    def raw_function(t):
+        t1 = torch.empty_like(t)
+        return t1
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    with use_eager_fallback():
+        for s in input_shapes:
+            t = torch.randn(s, requires_grad=False)
+            t_h = t.to("hpu")
+            result = raw_function(t)
+            h_result = compiled_fn(t_h)
+            h_result.to("cpu")  # dummy copy to skip optimization
+            assert h_result.shape == result.shape
+    check_ops_executed_in_jit_ir({"empty"})
+
+    # 3. torch.ops.aten.empty_strided
+    sizes = (20, 20), (20, 1), (1, 20), (1, 1)
+    strides = (20, 20), (30, 1), (1, 30), (1, 1)
+
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    def raw_function(size, stride, device):
+        x = torch.empty_strided(size, stride, device=device)
+        return x
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    with use_eager_fallback():
+        for size, stride in zip(sizes, strides):
+            result = raw_function(size, stride, "cpu")
+            h_result = compiled_fn(size, stride, "hpu:0")
+            h_result.to("cpu")  # dummy copy to skip optimization
+            assert h_result.shape == result.shape
+    check_ops_executed_in_jit_ir({"empty_strided"})

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,15 +14,13 @@
 #  limitations under the License.
 #
 ###############################################################################
-import os
 
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
@@ -56,10 +54,7 @@ def test_hpu_amax_amin(op, shape, dim, keepdim, dtype):
 
     cpu_output = fn(cpu_input, dim, keepdim)
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(fn)
 
     hpu_output = fn(hpu_input, dim, keepdim)
 

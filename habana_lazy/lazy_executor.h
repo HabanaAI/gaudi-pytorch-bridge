@@ -55,7 +55,7 @@ class SingleTonExecThreadPool {
     return *instance_;
   }
 
-  static habana_helpers::ThreadPoolWithFutures& getInstance() {
+  static habana_helpers::SingleThreadPoolWithFutures& getInstance() {
     return Get().thread_pool_obj_;
   }
 
@@ -66,7 +66,7 @@ class SingleTonExecThreadPool {
   static std::unique_ptr<SingleTonExecThreadPool> instance_;
   static std::once_flag initialize_once_flag_;
   static void CreateInstance();
-  habana_helpers::ThreadPoolWithFutures thread_pool_obj_;
+  habana_helpers::SingleThreadPoolWithFutures thread_pool_obj_;
 };
 
 class HbExecutionContext {
@@ -447,10 +447,10 @@ class HbExecutionContext {
 
 class HbExecutionContextArena {
  public:
-   static HbExecutionContextArena *Get() {
-     std::call_once(initialize_once_flag_, CreateInstance);
-     return instance_.get();
-   }
+  static HbExecutionContextArena* Get() {
+    std::call_once(initialize_once_flag_, CreateInstance);
+    return instance_.get();
+  }
 
   HbExecutionContext* getDeviceExecutionContext();
   HbExecutionContextArena() = default;

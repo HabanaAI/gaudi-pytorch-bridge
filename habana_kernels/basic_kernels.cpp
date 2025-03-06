@@ -180,6 +180,7 @@ void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
     cast_supported = true;
 
   if (cast_supported) { // if supported src->dst mapping
+    CONVERT_0D_TO_1D(src);
     dst = habana_helpers::hpu_cast_tensor(
         src, at::scalarTypeToTypeMeta(dst_scalar_type));
 
@@ -334,9 +335,6 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
 InferOutputMetaRetType IdentityOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
   auto output = inputs[(inputs.size() == 2) ? 1 : 0].toTensor();
   InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
@@ -353,9 +351,6 @@ void IdentityOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
   at::Tensor output;
 
   if (inputs.size() == 2) {
@@ -874,6 +869,15 @@ void SliceScatterOperatorDSUtil::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(slicescatterOp->GetOutputs()[0]);
 
 }
+
+bool SliceScatterOperator::STMeta(
+    [[maybe_unused]] habana_helpers::IShapeList& inputs,
+    [[maybe_unused]] habana_helpers::IShapeList& outputs) {
+  // Handle scalar inputs only
+  PT_BRIDGE_DEBUG("SliceScatterOperator STMeta");
+  return true;
+}
+
 // slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None, SymInt?
 // end=None, SymInt step=1) -> Tensor
 void SliceScatterOperator::AllocateAndAddSynapseNode(
@@ -890,6 +894,14 @@ void SliceScatterOperator::AllocateAndAddSynapseNode(
   Stack inputs_mod = {inputs[0], inputs[1], IValue(params)};
   SliceInsertOperator::AllocateAndAddSynapseNode(
       graph, inputs_mod, output_metadata);
+}
+
+bool SelectScatterOperator::STMeta(
+    [[maybe_unused]] habana_helpers::IShapeList& inputs,
+    [[maybe_unused]] habana_helpers::IShapeList& outputs) {
+  // Handle scalar inputs only
+  PT_BRIDGE_DEBUG("SelectScatterOperator STMeta");
+  return true;
 }
 
 // func: select_scatter(Tensor self, Tensor src, SymInt? dim, SymInt index) -> Tensor

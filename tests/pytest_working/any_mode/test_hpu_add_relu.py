@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     hpu,
     is_gaudi1,
@@ -50,10 +50,7 @@ def _test_add_relu(input, other, alpha, is_scalar):
     alpha = torch.tensor(alpha, dtype=input.dtype).item()
 
     result_cpu = add_relu_cpu(input, other, alpha)
-    if is_pytest_mode_compile():
-        torch._dynamo.reset()
-        clear_t_compile_logs()
-        add_relu = torch.compile(add_relu, backend="hpu_backend", dynamic=False)
+    add_relu = compile_function_if_compile_mode(add_relu, dynamic=False)
 
     other = other if is_scalar else other.to(hpu)
     result_hpu = add_relu(input.to(hpu), other, alpha)

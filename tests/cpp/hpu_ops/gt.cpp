@@ -45,7 +45,7 @@ TEST_P(GTDTypeSupportTest, GTScalarOut) {
   auto dtype = GetParam();
   auto options = torch::TensorOptions().dtype(dtype).device(torch::kHPU);
   auto input = torch::tensor({1, 2, 3, 4}, options);
-  auto output = torch::empty({}, options);
+  auto output = torch::empty({4}, options);
 
   torch::gt_out(output, input, 2);
 

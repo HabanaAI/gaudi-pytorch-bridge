@@ -26,6 +26,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
+#include "habana_lazy/view_utils.h"
 #include "process_group_registry.hpp"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
@@ -241,6 +242,35 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
   return work;
 }
 
+// Abort all communicators on this rank
+bool ProcessGroupLazyHCCL::abort(std::optional<std::string> abortReason) {
+  PT_DISTRIBUTED_DEBUG(
+      "Launching ProcessGroupLazyHCCL abort asynchrounously. Abort Reason: ",
+      abortReason.value_or(""));
+  if (comm_) {
+    PT_DISTRIBUTED_DEBUG("hcclCommAbort initiated commId:", comm_.get());
+    // Note: HCCL doesnt support abort operation. Once Hccl Supports, This can
+    // be enabled
+    //  it.second->hcclCommAbort(abortReason);
+  }
+
+  return true;
+}
+
+void ProcessGroupLazyHCCL::shutdown(std::optional<std::string> reason) {
+  // Don't join threads here since the purpose of this method is to abort all
+  // communicators and signal the threads to exit. Joining on the threads could
+  // potentially block and hence avoid it in this method.
+
+  // lauch abort asynchrounously and wait for it to complete or timeout
+  PT_DISTRIBUTED_DEBUG("Launching ProcessGroupLazyHCCL abort asynchrounously.");
+
+  std::future<bool> fut = std::async(
+      std::launch::async, [this, &reason]() { return this->abort(reason); });
+
+  PT_DISTRIBUTED_DEBUG("ProcessGroupLazyHCCL aborts successfully.");
+}
+
 ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
   PT_DISTRIBUTED_DEBUG(
       "~ProcessGroupLazyHCCL name:",
@@ -251,10 +281,12 @@ ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
       rank_);
   habana_helpers::AutoNoGIL gil_release;
   destroy();
-  destroyHandshake();
 };
 
 void ProcessGroupLazyHCCL::destroy() {
+  if (is_destroyed_)
+    return;
+
   PT_DISTRIBUTED_DEBUG(
       "Destroy ProcessGroupLazyHCCL name:",
       group_name_,
@@ -270,6 +302,8 @@ void ProcessGroupLazyHCCL::destroy() {
     comm_->flush_stream();
     comm_.reset();
   }
+  destroyHandshake();
+  is_destroyed_ = true;
 }
 
 ProcessGroupLazyHCCL::WorkLazy::WorkLazy(const std::vector<at::Tensor>& outputs)
@@ -863,6 +897,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_reduce_scatter_base(
 };
 
 void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
+  habana_lazy::HbLazyTensorViews::HandleViewsPermutedSend(tensor);
   auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
   auto self_internal_tesor = self_hb_tensor.EvaluateTensorData();
   std::vector<uint8_t> permutation;
@@ -1022,4 +1057,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupLazyHCCL>::create));
+
+  processGroupHccl.def(
+      "_shutdown",
+      [](const c10::intrusive_ptr<::c10d::ProcessGroupLazyHCCL>& self) {
+        return self->shutdown(std::nullopt);
+      });
 };

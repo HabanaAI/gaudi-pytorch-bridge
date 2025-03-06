@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper
+from test_utils import compile_function_if_compile_mode, fga_assert_helper
 
 
 class MyModule(torch.nn.Module):
@@ -43,17 +43,17 @@ class MyModule(torch.nn.Module):
 def func(x: torch.Tensor, m: torch.nn.Module, device: str, freeze: bool = False):
     m.eval()
     if device == "hpu":
-        if freeze:
-            m = torch.compile(m, backend="hpu_backend", options={"use_graph_freezing": True})
-        else:
-            m = torch.compile(m, backend="hpu_backend")
-        m = m.to(torch.device(device))
+        m = torch.compile(m.to(torch.device(device)), backend="hpu_backend")
+        x = x.to(device=torch.device(device))
     else:
-        m = torch.compile(m, backend="eager")
+        m = compile_function_if_compile_mode(m, backend="eager")
 
     with torch.no_grad(), torch.autocast(device_type=device, dtype=torch.bfloat16, enabled=True):
-        x = x.to(device=torch.device(device))
-        output = m(x)
+        if freeze:
+            with torch._inductor.config.patch({"freezing": True}):
+                output = m(x)
+        else:
+            output = m(x)
         return output
 
 
@@ -89,7 +89,6 @@ operations on the param input to the FX graph
 """
 
 
-@pytest.mark.xfail(reason="https://jira.habana-labs.com/browse/SW-203883")
 def test_graph_freeze():
     torch.manual_seed(123)
     x = torch.randn((5, 4), dtype=torch.float, device=torch.device("cpu"))
@@ -97,6 +96,7 @@ def test_graph_freeze():
     m = MyModule()
     m_c = copy.deepcopy(m)
 
+    torch._dynamo.reset_code_caches()
     with FxGraphAnalyzer(reset_dynamo=False) as fga:
         out_hpu_no_freeze = func(x=x, m=m, device="hpu", freeze=False)
 

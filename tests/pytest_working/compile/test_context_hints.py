@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@
 from functools import partial
 from typing import Union
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import clear_t_compile_logs
+from test_utils import clear_t_compile_logs, compile_function_if_compile_mode
 from torch.testing._internal.common_utils import TestCase
 
 skip_test = False
@@ -41,7 +42,7 @@ def check_hints_in_jit_ir(op_name: str, expected_hints: Union[list, dict], op_id
     """
     import re
 
-    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
+    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import logger as graph_logger
 
     op_found = False
     pattern = r"::(\w+)(\[|\()"
@@ -68,10 +69,10 @@ def check_hints_in_jit_ir(op_name: str, expected_hints: Union[list, dict], op_id
                     if "hints" not in line:
                         continue
                     # format is lilke: [hints="name1:value1;name2:value2;"]
-                    start_pos = line.find("[")
-                    end_pos = line.find("]")
+                    start_pos = line.find("hints=")
+                    end_pos = line.find('"]')
                     # only keep hint str -> name1:value1;name2:value2;
-                    real_hints_str = line[start_pos + 8 : end_pos - 1]
+                    real_hints_str = line[start_pos + 7 : end_pos]
                     real_hints = {}
                     for h in real_hints_str.split(";"):
                         if not h:
@@ -606,7 +607,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -636,7 +637,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -669,7 +670,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -704,7 +705,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -726,7 +727,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -755,7 +756,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -782,7 +783,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -810,7 +811,7 @@ class ContextHintsTests(TestCase):
         model = ToyModelFunctionalLinearWithHints().to("hpu")
         criterion = torch.nn.CrossEntropyLoss()
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.rand(5, 10).to("hpu")
@@ -833,7 +834,7 @@ class ContextHintsTests(TestCase):
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.5)
 
-        model = torch.compile(model, backend="hpu_backend")
+        model = compile_function_if_compile_mode(model)
 
         x = torch.rand(4, 10).to("hpu")
         y = torch.ones(4, dtype=torch.long).to("hpu")
@@ -866,7 +867,7 @@ class ContextHintsTests(TestCase):
         x = torch.randn(2, 5, dtype=torch.float).to("hpu")
         y = 1
 
-        compiled_fn = torch.compile(hinted_func, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(hinted_func)
         res = compiled_fn(x, y)
 
         check_hints_in_jit_ir("topk", ["preserve_order", "exec_order", "group_id"])
@@ -887,7 +888,7 @@ class ContextHintsTests(TestCase):
 
             return hints_wrapper(func, (), {}, hints={"preserve_order": "True", "group_id": 99})
 
-        compiled_fn = torch.compile(hinted_func, backend="hpu_backend")
+        compiled_fn = compile_function_if_compile_mode(hinted_func)
         res = compiled_fn()
 
         check_hints_in_jit_ir("arange", ["preserve_order", "exec_order", "group_id"])

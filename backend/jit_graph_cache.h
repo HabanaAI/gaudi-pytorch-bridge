@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <synapse_api.h>
 #include <torch/csrc/jit/ir/ir.h>
@@ -42,7 +42,9 @@ void ComputeGraphHashCode(
     uint64_t unique_graph_cntr = 0,
     std::vector<bool> node_bcast_details = {},
     bool dynamic_graph = false,
-    const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {});
+    const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
+    habana_helpers::HabanaFrontendTypes frontend_type =
+        habana_helpers::HabanaFrontendTypes::INVALID);
 
 size_t GetDataChecksum(void* data, size_t dataSize);
 
@@ -60,7 +62,7 @@ class SynBuildCache {
 
     if (!is_complete_) {
       HABANA_ASSERT(index == (this->*member).size())
-      (this->*member).emplace_back(comp_func());
+      (this->*member).emplace_back(std::forward<Func>(comp_func)());
     }
     return (this->*member).at(index);
   }
@@ -73,7 +75,7 @@ class SynBuildCache {
 
     if (!is_complete_) {
       HABANA_ASSERT(index == (this->*member).size())
-      (this->*member).emplace_back(comp_func());
+      (this->*member).emplace_back(std::forward<Func>(comp_func)());
     }
     return (this->*member).at(index);
   }
@@ -146,9 +148,10 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::upsample_bicubic2d_backward"),
         c10::Symbol::fromQualString("aten::upsample_bilinear2d"),
         c10::Symbol::fromQualString("aten::upsample_bilinear2d_backward"),
-        // TODO: [SW-198691] investigate and try to reenable, or remove from the list
-        //c10::Symbol::fromQualString("aten::upsample_linear1d"),
-        //c10::Symbol::fromQualString("aten::upsample_linear1d_backward"),
+        // TODO: [SW-198691] investigate and try to reenable, or remove from the
+        // list
+        // c10::Symbol::fromQualString("aten::upsample_linear1d"),
+        // c10::Symbol::fromQualString("aten::upsample_linear1d_backward"),
         c10::Symbol::fromQualString("aten::upsample_nearest1d"),
         c10::Symbol::fromQualString("aten::upsample_nearest1d_backward"),
         c10::Symbol::fromQualString("aten::upsample_nearest2d_backward"),
@@ -156,8 +159,10 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::upsample_nearest3d"),
         c10::Symbol::fromQualString("aten::upsample_nearest3d_backward"),
         c10::Symbol::fromQualString("aten::resize_"),
+        c10::Symbol::fromQualString("aten::masked_fill"),
         c10::Symbol::fromQualString("aten::masked_fill_"),
-        c10::Symbol::fromQualString("aten::_efficientzerotensor")};
+        c10::Symbol::fromQualString("aten::_efficientzerotensor"),
+        c10::Symbol::fromQualString("aten::scatter")};
     return ops_list;
   }
 
@@ -193,8 +198,9 @@ struct OptimizedJITGraphAndMetaData {
       std::vector<bool> node_bcast_details = {},
       const std::string& id = "",
       const bool dynamic = false,
-      const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes =
-          {});
+      const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
+      habana_helpers::HabanaFrontendTypes frontend_type =
+          habana_helpers::HabanaFrontendTypes::INVALID);
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
@@ -390,17 +396,30 @@ struct OptimizedJITGraphAndMetaData {
 
   using PermutationInfo = std::vector<PermutationWithOutputPosition>;
 
-  const PermutationInfo& get_permute() const {
-    HABANA_ASSERT(permutation_info_.has_value());
-    return permutation_info_.value();
+  const PermutationInfo& get_permute(bool is_dynamic_recipe = false) const {
+    if (is_dynamic_recipe) {
+      HABANA_ASSERT(permutation_info_dynamic_.has_value());
+      return permutation_info_dynamic_.value();
+    }
+    HABANA_ASSERT(permutation_info_static_.has_value());
+    return permutation_info_static_.value();
   }
 
-  bool is_permute_set() const {
-    return permutation_info_.has_value();
+  bool is_permute_set(bool is_dynamic_recipe = false) const {
+    if (is_dynamic_recipe) {
+      return permutation_info_dynamic_.has_value();
+    }
+    return permutation_info_static_.has_value();
   }
 
-  void store_permutation_info(PermutationInfo&& permutation_info) {
-    permutation_info_ = std::move(permutation_info);
+  void store_permutation_info(
+      PermutationInfo&& permutation_info,
+      bool is_dynamic_recipe = false) {
+    if (is_dynamic_recipe) {
+      permutation_info_dynamic_ = std::move(permutation_info);
+    } else {
+      permutation_info_static_ = std::move(permutation_info);
+    }
   }
 
   SynBuildCache syn_build_cache_;
@@ -482,7 +501,8 @@ struct OptimizedJITGraphAndMetaData {
   bool enable_optim_output_sif_ = false;
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
-  std::optional<PermutationInfo> permutation_info_{};
+  std::optional<PermutationInfo> permutation_info_static_{};
+  std::optional<PermutationInfo> permutation_info_dynamic_{};
   bool is_param_agnostic_supported_ = false;
   CValPtrMap param_jit_val_map_{};
   CValPtrtoIValueMap param_jit_val_to_ivalue_map_{};
@@ -615,7 +635,7 @@ class OptimizedJitGraphCache {
  private:
   explicit OptimizedJitGraphCache();
 
-  void swap(OptimizedJitGraphCache& cache) {
+  void swap(OptimizedJitGraphCache& cache) noexcept {
     std::swap(m_cache_map, cache.m_cache_map);
   }
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ def add_mdef(file, ln, ns, line):
         if m > b + 1 and e > m + 1:
             mdef = MdefData(name=line[b + 1 : m], schema=line[b + 1 : e], file=file, ln=ln)
             if ns in mdefs and mdef in mdefs[ns]:
-                mdefs_list = list(sorted(mdefs[ns]))
+                mdefs_list = sorted(mdefs[ns])
                 prev_mdef = mdefs_list[mdefs_list.index(mdef)]
                 err = errormsg(file, ln, f'mdef from line "{line}" repeated')
                 err += f"\nPrevious definition was in {prev_mdef.file}:{prev_mdef.ln}"

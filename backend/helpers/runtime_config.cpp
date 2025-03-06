@@ -20,6 +20,10 @@
 
 namespace habana_helpers {
 bool enable_inference_mode{GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)};
+bool enable_mark_scale_constant{
+    GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MARK_SCALES_AS_CONST)};
+bool enable_mark_non_scale_constant{
+    GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MARK_NON_SCALES_AS_CONST)};
 
 bool enable_quantization = false;
 // if a proper path is set,const section serialization will be enabled.
@@ -50,6 +54,22 @@ void DisableQuantization() {
 
 bool IsQuantizationEnabled() {
   return enable_quantization;
+}
+
+void SetMarkScaleConst(bool mark) {
+  enable_mark_scale_constant = mark;
+}
+
+bool IsMarkScaleConst() {
+  return enable_mark_scale_constant;
+}
+
+void SetMarkNonScaleConst(bool mark) {
+  enable_mark_non_scale_constant = mark;
+}
+
+bool IsMarkNonScaleConst() {
+  return enable_mark_non_scale_constant;
 }
 
 void EnableConstSectionSerialization(

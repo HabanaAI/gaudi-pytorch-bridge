@@ -51,10 +51,13 @@ SHARED_META_GUID(BinaryWithAlpha)
 SHARED_META_GUID(BitwiseLogical)
 SHARED_META(Topk)
 SHARED_META_GUID(RandomSeedTensorInput)
+SHARED_META_GUID(MatrixMulWithAdd)
+SHARED_META(PadBwd)
 SHARED_META_GUID(MaxPoolWithIndicesFwd)
 SHARED_META_GUID(MaxPoolWithIndicesBwd)
 SHARED_META(Empty)
 SHARED_META(Matmul)
 SHARED_META(StridedView)
+SHARED_META(InstanceNorm)
 
 } // namespace habana

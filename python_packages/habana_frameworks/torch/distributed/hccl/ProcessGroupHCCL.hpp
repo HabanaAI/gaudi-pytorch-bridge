@@ -91,6 +91,14 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
 
+  // Provides an API to abort the ProcessGroup (hcclCommAbort)
+  // instead of relying on ProcessGroupHCCL destructor.
+  // return true if abort is successful, otherwise false
+  bool abort(std::optional<std::string> abortReason);
+
+  // Shutdown the processgroup. Invokes abort asynchronously
+  void shutdown(std::optional<std::string> reason);
+
   // Helper function that is called by the destructor
   void destroy() override;
 
@@ -149,8 +157,6 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
   std::map<int, std::shared_ptr<hccl_integration::device_context>>
       device_contexts_;
   std::map<int, synStreamHandle> comm_streams_;
-
-  bool is_destroyed_ = false;
 };
 
 } // namespace c10d

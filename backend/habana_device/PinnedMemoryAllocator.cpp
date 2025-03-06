@@ -34,16 +34,16 @@ PinnedMemoryAllocator::PinnedMemoryAllocator() = default;
 PinnedMemoryAllocator::~PinnedMemoryAllocator() = default;
 
 void PinnedMemoryAllocator::deleter(void* ptr) {
-  auto& device = HPUDeviceContext::get_device(
-      habana::PinnedMemoryAllocator::allocator_active_device_id);
+  if (!HPUDeviceContext::is_device_acquired())
+    return;
+  auto& device = HPUDeviceContext::get_device();
   device.get_host_memory().free(ptr);
 }
 
 at::DataPtr PinnedMemoryAllocator::allocate(size_t size) {
   void* ptr = nullptr;
   if (size != 0) {
-    auto& device = HPUDeviceContext::get_device(
-        habana::PinnedMemoryAllocator::allocator_active_device_id);
+    auto& device = HPUDeviceContext::get_device();
     auto status = device.get_host_memory().malloc(&ptr, size);
     TORCH_HABANA_CHECK(
         status, "synHostMalloc failed to allocate ", size, " bytes");

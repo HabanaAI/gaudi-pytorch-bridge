@@ -603,7 +603,8 @@ size_t DynamicBucketInfo::GetBucketId(
 }
 
 absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
-    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh) {
+    std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh,
+    torch::jit::Stack& stack) {
   PT_DYNAMIC_SHAPE_DEBUG("Checking buckets for refinement");
   if (refine_enabled_ == false) {
     PT_DYNAMIC_SHAPE_DEBUG("Refinement is not enabled");
@@ -632,10 +633,6 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   }
 
   size_t curr_mfu_id = mfu_bucket_id;
-  if (curr_mfu_id == 0) {
-    PT_DYNAMIC_SHAPE_DEBUG("Can not refine static bucket");
-    return {};
-  }
 
   statistics_->SetCurrentParentBucketID(curr_mfu_id);
   statistics_->SetCurrentParentLastStep(
@@ -649,7 +646,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   bool isRuntimeImproved{buckets_[curr_mfu_id].IsRuntimeImproved()};
 
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Current mfu bucket %d is eligible for refinement", curr_mfu_id);
+      "Current mfu bucket is eligible for refinement ", curr_mfu_id);
   auto rvpsh = buckets_[curr_mfu_id].GetSynapseRecipePtr();
   if (nullptr == rvpsh) {
     PT_DYNAMIC_SHAPE_DEBUG("Recipe for mfu bucket is null");
@@ -695,7 +692,8 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
         new_bucket_candidate,
         new_recipe_key,
         statistics_,
-        dbipsh);
+        dbipsh,
+        stack);
   } catch (std::exception& e) {
     PT_DYNAMIC_SHAPE_WARN(
         "Recipe compilation failed with exception '", e.what(), "'");

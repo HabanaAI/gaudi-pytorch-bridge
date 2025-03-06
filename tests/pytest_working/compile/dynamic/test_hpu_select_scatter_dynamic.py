@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,9 +18,8 @@
 # torch.compile Dynamic Shapes test code for select_scatter op
 # Set environment variable PT_HPU_LAZY_MODE to 0
 
-import pytest
 import torch
-from test_utils import cpu, hpu
+from test_utils import compile_function_if_compile_mode, cpu, hpu
 
 torch._dynamo.config.specialize_int = False
 
@@ -44,7 +43,7 @@ def test_select_scatter():
         t3 = t2.mul(5)
         return t3
 
-    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
+    f_hpu = compile_function_if_compile_mode(wrapper_fn)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
@@ -52,5 +51,34 @@ def test_select_scatter():
 
         y_cpu = wrapper_fn(input_tensor, src_tensor, shape[2], shape[3])
         y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), shape[2], shape[3])
+
+        assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)
+
+
+def test_select_scatter_st_meta():
+    # (input_shape, shape_src, index)
+    input_shapes = [
+        ((16, 16, 1, 2, 3), (16, 1, 2, 3), 0),
+        ((17, 17, 1, 2, 3), (17, 1, 2, 3), 1),
+        ((18, 18, 1, 2, 3), (18, 1, 2, 3), 2),
+        ((19, 19, 1, 2, 3), (19, 1, 2, 3), 0),
+        ((20, 20, 1, 2, 3), (20, 1, 2, 3), 1),
+    ]
+
+    # Created a mini graph for testing
+    # add op -> select_scatter op -> mul op
+    def wrapper_fn(t, t_src, indices):
+        t2 = t.select_scatter(t_src, 0, indices)
+        return t2
+
+    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
+
+    for shape in input_shapes:
+        print("Input shape: ", shape)
+        input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
+        src_tensor = torch.rand(shape[1], requires_grad=False, device=cpu)
+
+        y_cpu = wrapper_fn(input_tensor, src_tensor, shape[2])
+        y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), shape[2])
 
         assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)

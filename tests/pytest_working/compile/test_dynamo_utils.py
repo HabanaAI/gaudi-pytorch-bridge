@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,37 +15,13 @@
 #
 ###############################################################################
 
-from contextlib import contextmanager
 
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper
+from test_utils import fga_assert_helper, force_op_eager_fallback, use_eager_fallback
 
 
-@contextmanager
-def use_eager_fallback():
-    original = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
-    try:
-        yield
-    finally:
-        configuration_flags["use_eager_fallback"] = original
-
-
-@contextmanager
-def use_randint_eager_fallback():
-    revert = False
-    if "randint" not in hpu_fallback_op_list:
-        revert = True
-        hpu_fallback_op_list.add("randint")
-    yield
-    if revert:
-        hpu_fallback_op_list.remove("randint")
-
-
-@torch.compile(backend="hpu_backend")
+@torch.compile(backend="hpu_backend", options={"reinplace_add": False})
 def fn(x, y, device):
     res = x + y
     eager_fallback_res = torch.randint(high=100, size=[1], device=device, dtype=torch.int32)
@@ -61,7 +37,7 @@ def fn2(x, y):
 
 def test_simple():
     with use_eager_fallback():
-        with use_randint_eager_fallback():
+        with force_op_eager_fallback("randint"):
             with FxGraphAnalyzer(reset_dynamo=True) as fga:
                 t1 = torch.tensor([6], device="hpu")
                 t2 = torch.tensor([2], device="hpu")
@@ -108,7 +84,7 @@ def test_multiple():
 
 
 def test_bulitin():
-    @torch.compile(backend="hpu_backend")
+    @torch.compile(backend="hpu_backend", options={"reinplace_add": False})
     def clone_fn(x):
         return x.add_(x)
 

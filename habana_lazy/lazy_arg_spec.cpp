@@ -134,7 +134,23 @@ void LazyArgumentSpec::GetArgSpecKey(
           at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));
       if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {
         auto const_id = habana::get_tensor_const_id(in_tensor);
-        mf_hash_code = at::hash_combine(mf_hash_code, const_id);
+        if (in_tensor.numel() == 1) {
+          float const_value = in_tensor.item<float>();
+          auto tmeta{habana::get_tensor_extra_meta(in_tensor)};
+          PT_BRIDGE_DEBUG(
+              "Lazy arg spec hash const_value:",
+              const_value,
+              ", const_id:",
+              const_id,
+              ", host pointer size:",
+              tmeta->get_host_size())
+          auto const_hash = c10::hash<float>()(const_value);
+          mf_hash_code = at::hash_combine(mf_hash_code, const_hash);
+          auto const_size_hash = c10::hash<size_t>()(tmeta->get_host_size());
+          mf_hash_code = at::hash_combine(mf_hash_code, const_size_hash);
+        } else {
+          mf_hash_code = at::hash_combine(mf_hash_code, const_id);
+        }
       }
       if (in_tensor.has_storage()) {
         auto hb_tensor = GetHbInternalTensorImpl(in_tensor);

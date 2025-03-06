@@ -4,7 +4,6 @@ config:
   sharedCCacheEnabled: true
   osBuild:
     ubuntu18.04: "off"
-    amzn2: "off"
   dependantComponents:
     - component: deepspeed_fork
     - component: pt_next

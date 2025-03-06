@@ -24,6 +24,63 @@
 
 namespace habana {
 
+// broadcast index tensor shape and get the correct shape and size
+static std::vector<int64_t> broadcast_size(at::TensorList indices) {
+  std::vector<int64_t> size;
+  int max = 1;
+  int max_dim = 0;
+  int i = 0;
+  for (auto t : indices) {
+    if ((t.dim() > max) && (t.scalar_type() != c10::ScalarType::Bool)) {
+      max_dim = i;
+      max = t.dim();
+    }
+    i++;
+  }
+  auto isz = indices[max_dim].sizes().vec();
+  if ((indices[max_dim].dim() == 1) ||
+      (indices[max_dim].scalar_type() == c10::ScalarType::Bool)) {
+    std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
+                                     // rows indicates broadcast size
+    size = sz;
+  } else {
+    size = isz;
+  }
+  for (size_t i = 1; i < indices.size(); i++) {
+    size = at::infer_size(size, indices[i].sizes());
+  }
+  return size;
+}
+
+static std::vector<int64_t> CalcCatOutSize(
+    const std::vector<std::vector<int64_t>>* tensors,
+    int64_t* dim_inp) {
+  auto tensor_count = tensors->size();
+
+  if (tensor_count == 0) // if tensor is empty or its first element is empty,
+                         // then concatenate out size is 0
+    return {0};
+
+  int64_t dim =
+      at::maybe_wrap_dim(*dim_inp, tensors->at(0).size(), /*wrap_scalar=*/true);
+
+  CatOperator::validate_cat_tensor_dim_sizes(tensors, *dim_inp);
+
+  if (dim != *dim_inp) {
+    *dim_inp = dim;
+  }
+
+  // out tensor size should match along all dimensions for input tensors except
+  // along the dim in which to cat
+  auto out_size = tensors->at(0);
+  if (out_size.size() != 0) {
+    out_size[dim] = 0;
+    for (unsigned i = 0; i < tensor_count; i++)
+      out_size[dim] += tensors->at(i)[dim];
+  }
+  return out_size;
+}
+
 static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   at::Tensor self = stack_tensor(stack, 0);
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
@@ -752,4 +809,58 @@ std::vector<int64_t> ComputeGatherOperatorOutputShape(
   return shape;
 }
 
+struct SimpleIndexCompileOperator : OpBackend {
+  SimpleIndexCompileOperator(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
+SimpleIndexCompileOperator::SimpleIndexCompileOperator(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
+
+static std::shared_ptr<void> FillSimpleIndexParams(
+    size_t num_index_tensors,
+    size_t& size) {
+  PARAMS_STUB(ns_IndexKernel::Params);
+  assert(
+      num_index_tensors <=
+      sizeof(params->self_permute_dims) / sizeof(params->self_permute_dims[0]));
+  // there is no advanced indexing
+  for (size_t i = 0; i < num_index_tensors; ++i) {
+    params->advanced_indexing_dims[i] = false;
+    params->self_permute_dims[i] = 0;
+  }
+  params->num_index_tensors = num_index_tensors;
+  return params;
+}
+
+void SimpleIndexCompileOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = IndexMeta(stack)[0];
+  StackGetter stackGetter(this, stack, "IndexHabanaOperator::AddNode");
+  auto input = stackGetter.getNextInput<TensorsPair>();
+  auto indices = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  size_t size = 0;
+  auto params = FillSimpleIndexParams(indices.size(), size);
+  std::vector<synTensor> index_input{input.syn_t};
+  for (auto const& index : indices)
+    index_input.push_back(index.syn_t);
+
+  auto result = BuildOp(
+      graph,
+      get_guid_with_precision("index", meta.dtype),
+      std::move(index_input),
+      {{meta.shape, meta.dtype, 0}},
+      params.get(),
+      size);
+
+  syn_out(0) = std::move(result[0]);
+}
+
 } // namespace habana
+
+static const auto& IndexAtenKernelRegistry = habana::KernelRegistry().add(
+    "aten::index.Tensor_hacked_twin",
+    KERNEL_FN_GLOBAL(habana::SimpleIndexCompileOperator));

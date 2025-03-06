@@ -20,7 +20,6 @@ function pytorch_functions_help()
 {
     echo -e "\n- The following is a list of available functions for PyTorch"
     echo -e "build_pytorch_fork             -   Build the habana pytorch fork"
-    echo -e "build_pytorch_vision_fork      -   Build the habana pytorch vision fork"
     echo -e "build_pytorch_modules          -   Build habana pytorch intergation modules"
     echo -e "build_pytorch_dist             -   Build habana pytorch distrubuted modules"
     echo -e "build_pytorch_tb_plugin        -   Build habana pytorch tensorboard plugin"
@@ -57,21 +56,6 @@ function pytorch_usage()
     fi
 
     if [ $1 == "build_lightning_habana_fork" ]; then
-        echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
-        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
-        echo -e "  -a,  --build-all            Python only code, option ignored"
-        echo -e "  -r,  --release              Python only code, option ignored"
-        echo -e "  -d,  --debug                Python only code, option ignored"
-        echo -e "       --install              will install the package"
-        echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
-        echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_pytorch_vision_fork" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -138,6 +122,7 @@ function pytorch_usage()
         echo -e "  -c,  --test-case JUNITID            Run specific test based on JUnit ID"
         echo -e "       --pytest-mode                  Run specific pytest suite mode: [all, lazy, compile, eager]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
+        echo -e "  -r, --rerun-failures                Rerun tests on failure"
         echo -e "  -h,  --help                         Prints this help"
     fi
 
@@ -317,6 +302,8 @@ build_pytorch_modules()
             return 1
         fi
     fi
+
+    set_os_specific_vars
 
     #CI job creates venv for every job. So we need to have python pkg install unconditionally
     install_pkg=($__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt)
@@ -567,6 +554,7 @@ build_pytorch_fork()
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __set_py_vers="false"
     local __pytorch_next="false"
+    local __use_cxx11_abi="false"
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -616,6 +604,9 @@ build_pytorch_fork()
         --pytorch-next )
             __pytorch_next="true"
             ;;
+        --use-cxx11-abi )
+            __use_cxx11_abi="true"
+            ;;
         -h  | --help )
             usage $__scriptname
             restore_python_version
@@ -637,6 +628,7 @@ build_pytorch_fork()
         shift
     done
 
+    set_os_specific_vars
     unset CMAKE_ROOT  # we're using CMake from requirements files
 
     __provide_mkl || exit $?
@@ -675,6 +667,12 @@ build_pytorch_fork()
        echo "Building torch in Debug mode"
     else
        echo "Building torch in Release mode"
+    fi
+
+    if [[ $__use_cxx11_abi == "true" ]]; then
+      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=1"
+    else
+      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=0"
     fi
 
     echo "Build parameters ${__whl_params}"
@@ -910,89 +908,6 @@ build_lightning_habana_fork()
     return $__result
 }
 
-build_pytorch_vision_fork()
-{
-    SECONDS=0
-    local __scriptname=$(__get_func_name)
-    local __env_vars=""
-    local __configure=""
-    local __whl_params=" bdist_wheel"
-    local __result
-    local __build_manylinux_whl="false"
-    local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
-    local __set_py_vers="false"
-    # parameter while-loop
-    while [ -n "$1" ];
-    do
-        case $1 in
-        -j  | --jobs )
-            __env_vars+=" MAX_JOBS=$2"
-            ;;
-        -c  | --configure )
-             __configure="yes"
-            ;;
-        -r  | --release )
-            ;;
-        -d  | --debug )
-            ;;
-        --dist )
-            __whl_params=" bdist_wheel"
-            ;;
-        --install )
-            __whl_params=" install"
-            ;;
-        --manylinux )
-            __build_manylinux_whl="true"
-            ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            ;;
-        -h  | --help )
-            usage $__scriptname
-            restore_python_version
-            return 0
-            ;;
-        esac
-        shift
-    done
-
-    pushd $PYTORCH_VISION_FORK_ROOT
-
-    __provide_mkl || exit $?
-
-    if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
-        rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl
-    fi
-
-    echo "Build parameters ${__whl_params}"
-
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "Pytorch torchvision build failed!"
-    fi
-    if [ "z${__build_manylinux_whl}" == "ztrue" ]; then
-        bash -c "$__python_cmd $__auditwheel repair $PYTORCH_VISION_FORK_ROOT/dist/*.whl"
-        PTV_WHL_PATH="$PYTORCH_VISION_FORK_ROOT/wheelhouse/"
-    else
-        PTV_WHL_PATH="$PYTORCH_VISION_FORK_ROOT/dist/"
-    fi
-
-    popd
-    if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        rm -rf $PYTORCH_VISION_FORK_BUILD/pkgs
-        mkdir -p $PYTORCH_VISION_FORK_BUILD/pkgs
-        cp -f ${PTV_WHL_PATH}/*.whl $PYTORCH_VISION_FORK_BUILD/pkgs
-    fi
-
-    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
-    return $__result
-
-}
-
 run_pytorch_modules_tests()
 {
     local __pytorch_modules_tests_exe="python -m pytest"
@@ -1015,6 +930,8 @@ run_pytorch_modules_tests()
     local __hllog=3
     local __test_case=""
     local __pytest_mode="all"
+    local __py_rerun_fail=""
+    local __cpp_rerun_fail=""
 
     source ${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/disabled_tests.sh
     local __disable_failing_eager_tests="--gtest_filter=-"`echo ${FAILING_EAGER_TESTS[@]} | tr ' ' ':'`
@@ -1081,6 +998,10 @@ run_pytorch_modules_tests()
                 usage $__scriptname
                 return 1 # error
             fi
+            ;;
+        -r  | --rerun-failures )
+            __py_rerun_fail="--reruns 1"
+            __cpp_rerun_fail="--rerun-fail"
             ;;
         -h  | --help )
             usage $__scriptname
@@ -1184,42 +1105,42 @@ run_pytorch_modules_tests()
         if [ "$__dut" == "gaudi" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
                 if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
-                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter $__cpp_rerun_fail)
                     __test_status=$((__test_status | $?))
                 fi
             fi
         elif [ "$__dut" == "gaudi2" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi2"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
                 if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
-                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter $__cpp_rerun_fail)
                     __test_status=$((__test_status | $?))
                 fi
             fi
         elif [ "$__dut" == "gaudi3" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi3"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
                 if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
-                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter $__cpp_rerun_fail)
                     __test_status=$((__test_status | $?))
                 fi
             fi
         elif [ "$__dut" == "greco" ]; then
             echo "Running greco tests"
-            (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
+            (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter  $__cpp_rerun_fail)
                 __test_status=$?
         fi
     fi
@@ -1273,21 +1194,21 @@ run_pytorch_modules_tests()
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
         if [[ "$__pytest_mode" = "lazy" || "$__pytest_mode" = "all" ]] ; then
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
             __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest_autoload.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
+            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest_autoload.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
             __test_status=$((__test_status | $?))
         fi
         if [[ "$__pytest_mode" = "compile" || "$__pytest_mode" = "all" ]] ; then
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
             __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest_autoload.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
+            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest_autoload.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
             __test_status=$((__test_status | $?))
         fi
         if [[ "$__pytest_mode" = "eager" || "$__pytest_mode" = "all" ]] ; then
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
             __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_filter --junit-xml="${__xml}_eager_pytest_autoload.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
+            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_eager_pytest_autoload.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
             __test_status=$((__test_status | $?))
         fi
         popd
@@ -1295,21 +1216,21 @@ run_pytorch_modules_tests()
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" || "$__suite_type" = "infra" ]]; then
       pushd $PYTORCH_MODULES_ROOT_PATH/.devops/
-      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_filter --junit-xml="${__xml}_infra_pytest.xml" --junit-prefix="Infra." ${__marker})
+      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_pytest.xml" --junit-prefix="Infra." ${__marker})
       __test_status=$((__test_status | $?))
       popd
       pushd $PYTORCH_MODULES_ROOT_PATH/scripts/
-      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_filter --junit-xml="${__xml}_infra_scripts_pytest.xml" --junit-prefix="InfraScripts." ${__marker})
+      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_scripts_pytest.xml" --junit-prefix="InfraScripts." ${__marker})
       __test_status=$((__test_status | $?))
       popd
       if [[ "$__pytest_mode" = "eager" ]] ; then
         pushd $PYTORCH_MODULES_ROOT_PATH/tests/user_custom_op/
         $__python_cmd setup.py install
-        (set -x; eval PT_HPU_LAZY_MODE=0 ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        (set -x; eval PT_HPU_LAZY_MODE=0 ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
-        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
-        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_legacy_custom_op.py -v $__failures $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_legacy_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
         popd
       fi
@@ -1495,12 +1416,12 @@ run_pytorch_qa_tests()
             return ${__test_status}
        elif [ "$__suite_type" == "rn50_eager_1c" ]; then
             install_requirements_event_plugin
-            (set -x; python3 -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         elif  [ "$__suite_type" == "rn50_graph_1c" ]; then
             install_requirements_event_plugin
-            (set -x; python3 -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         fi
@@ -1545,7 +1466,7 @@ install_requirements_pytorch()
 
 install_requirements_event_plugin()
 {
-    cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements-prod.txt)
+    cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
@@ -2089,7 +2010,7 @@ __install_habana_transformer_engine() {
     hte_whls=$(ls ${TRANSFORMER_ENGINE_FORK_BUILD}/pkgs/*.whl 2>/dev/null | wc -l || true)
     if [ ${hte_whls} -gt 0 ]; then
         echo "  -> Habana Transformer Engine wheel found"
-        $__pip_cmd install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
+        $__pip_cmd install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall
         echo "  -> Habana Transformer Engine installed"
     else
         echo "  -> Habana Transformer Engine wheel not found"
@@ -2113,7 +2034,6 @@ __move_future_pytorch_version_artifacts_to_current_dirs() {
 
         rm -fv "$PYTORCH_FORK_RELEASE_BUILD"/pkgs/torch-*.whl
         rm -fv "$PYTORCH_MODULES_RELEASE_BUILD"/pkgs/*.whl
-        rm -fv "$PYTORCH_VISION_FORK_BUILD"/pkgs/*.whl
         rm -fv "$PYTORCH_VISION_BUILD"/pkgs/*.whl
 
         if [ -d "/dependencies" ]; then
@@ -2647,6 +2567,7 @@ build_pytorch_vision()
     rm -rf $PYTORCH_VISION_ROOT
     mkdir -p $PYTORCH_VISION_ROOT
     pushd $PYTORCH_VISION_ROOT
+    set_os_specific_vars
 
     # checkout github torch vision repo
     if [ -z ${__pt_vision_version} ]; then
@@ -2715,8 +2636,7 @@ install_pytorch_whls() {
 install_pytorch_whls_future() {
     rm -fv $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
     rm -fv $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-    rm -fv $PYTORCH_VISION_FORK_BUILD/pkgs/*.whl
-    rm -fv $PYTORCH_VISION_BUILD/pkgs/*.
+    rm -fv $PYTORCH_VISION_BUILD/pkgs/*.whl
     if [ -d "/dependencies" ]; then
         find_root="/dependencies"
     else
@@ -2742,4 +2662,29 @@ dsa_debugger()
     ${__dsa_debugger_py} "$@"
 
     return $?
+}
+
+stats_parser()
+{
+    if [ -z "$PYTORCH_MODULES_ROOT_PATH" ]
+    then
+        echo "PYTORCH_MODULES_ROOT_PATH path is not defined"
+        return 1
+    fi
+
+    local __stats_parser_py="$__python_cmd $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/stats_parser.py"
+    ${__stats_parser_py} "$@"
+
+    return $?
+}
+
+set_os_specific_vars() {
+    case $OS in
+        'sles')
+            export CC="gcc"
+            export CXX="g++"
+            ;;
+        *)
+            ;;
+    esac
 }

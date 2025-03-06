@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, is_gaudi1
+from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, is_gaudi1
 
 basic_dtypes = extended_dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
@@ -33,13 +33,6 @@ def skip_unsupported_compile(request):
         torch.float8_e4m3fn,
     ):
         pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-
-
-def get_hpu_fn(fn):
-    if pytest.mode == "compile":
-        return torch.compile(fn, backend="hpu_backend", dynamic=False)
-    else:
-        return fn
 
 
 def create_rand_tensors(shape, dtype):
@@ -64,7 +57,7 @@ def test_median(dtype, shape):
         return torch.median(input=input)
 
     cpu_input, hpu_input = create_rand_tensors(shape, dtype)
-    hpu_fn = get_hpu_fn(fn)
+    hpu_fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_fn(hpu_input)
@@ -81,7 +74,7 @@ def test_median_dim(dtype, shape, dim, keepdim):
         return torch.median(input=input, dim=dim, keepdim=keepdim)
 
     cpu_input, hpu_input = create_rand_tensors(shape, dtype)
-    hpu_fn = get_hpu_fn(fn)
+    hpu_fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     cpu_output = fn(cpu_input, dim, keepdim)
     hpu_output = hpu_fn(hpu_input, dim, keepdim)
@@ -112,7 +105,7 @@ def test_median_dim_out(dtype, shape, dim, keepdim):
     cpu_index, hpu_index = create_empty_tensors(expected_shape, torch.int64)
     cpu_out = cpu_value, cpu_index
     hpu_out = hpu_value, hpu_index
-    hpu_fn = get_hpu_fn(fn)
+    hpu_fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     fn(cpu_input, dim, keepdim, out=cpu_out)
     hpu_fn(hpu_input, dim, keepdim, out=hpu_out)
@@ -127,7 +120,7 @@ def test_2_iterations(shape, dtype):
     def fn(*args):
         return torch.median(*args)
 
-    hpu_fn = get_hpu_fn(fn)
+    hpu_fn = compile_function_if_compile_mode(fn, dynamic=False)
 
     for iter in range(2):
         actual_shape = [d * (iter + 1) for d in shape]

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -86,11 +86,12 @@ class HabanaPT2EQuantContext:
         self._graphs = ""
         self._model = None
         self._context = ""
+        self._quantizer = None
 
     def append_graph(self, fx_graph_module, modified_fx_graph_module, args):
         self._graphs = self._graphs + "\n\n" + f"{modified_fx_graph_module.graph}"
         self._total_number_of_graphs = self._total_number_of_graphs + 1
-        setattr(self._model, "graph", self._graphs)
+        self._model.graph = self._graphs
 
     def initialize_ep_dict(self, ep_dict=dict()):
         self._ep_dict = ep_dict
@@ -116,11 +117,7 @@ class HabanaPT2EQuantContext:
 
     def set_model(self, model):
         self._model = model
-        setattr(
-            self._model,
-            "graph",
-            "If you haven't provided sample input during export, run the model at least once with actual input to cature the graphs.",
-        )
+        self._model.graph = "If you haven't provided sample input during export, run the model at least once with actual input to capture the graphs."
 
     def get_original_model(self):
         return self._original_model
@@ -130,6 +127,12 @@ class HabanaPT2EQuantContext:
 
     def append_quantized_fx_graph_with_args(self, fx_graph, args):
         self._quantized_fx_graphs_with_args_list.append([fx_graph, args])
+
+    def set_quantizer(self, quantizer):
+        self._quantizer = quantizer
+
+    def get_quantizer(self):
+        return self._quantizer
 
 
 # ======================================================================================
@@ -146,14 +149,14 @@ def graph_breaks(
     """
 
     # If sample input is not specified during export, Habana's PT2E-Quant flow is used
-    if args == None:
+    if args is None:
         return True
 
     # Next, check for user instruction, if any. 3 possibilities:
     # a. graph_break_present: False [Can be set only when user is sure about no graph breaks]
     # b. graph_break_present: True  [Can be set only when user is sure about graph breaks]
     # c. graph_break_present: unspecified
-    if kwargs != None and "graph_break_present" in kwargs:
+    if kwargs is not None and "graph_break_present" in kwargs:
         return kwargs["graph_break_present"]
 
     # Finally, try and figure out if there is any graph break.
@@ -192,6 +195,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         self._prepared_module = None
         self._observed_module = None
         self._converted_module = None
+        self._pre_converted_module = None
         self._pt2e_quant_context = pt2e_quant_context
 
     def get_hash(self):
@@ -214,7 +218,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             self.preprocess(*args)
 
         if habana_quantization_map_queue[self._module_key] == []:
-            if self._pt2e_quant_context != None:
+            if self._pt2e_quant_context is not None:
                 self._pt2e_quant_context.append_graph(self._fx_module, self._fx_module, args)
             return self._fx_module(*args, **kwargs)
 
@@ -227,7 +231,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     self._fx_module, queue_element["quantizer"]
                 )
 
-                if self._pt2e_quant_context != None:
+                if self._pt2e_quant_context is not None:
                     self._pt2e_quant_context.append_graph(self._fx_module, self._prepared_module, args)
 
                 # Now we use torch.compilation with hpu_backend.
@@ -270,51 +274,75 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     logger.debug("Start quantization scale dumping.")
                     dump_scale(self._converted_module)
 
+                # pre converted module before pattern matching
+                self._pre_converted_module = copy.deepcopy(self._converted_module)
                 if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
-                if self._pt2e_quant_context != None:
+                if self._pt2e_quant_context is not None:
                     self._pt2e_quant_context.append_graph(self._fx_module, self._converted_module, args)
-                    self._pt2e_quant_context.append_quantized_fx_graph_with_args(self._converted_module, args)
+                    use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
+                    if use_export_program:
+                        self._pt2e_quant_context.append_quantized_fx_graph_with_args(self._converted_module, args)
+                    else:
+                        self._pt2e_quant_context.append_quantized_fx_graph_with_args(self._pre_converted_module, args)
 
                 # Now we call hpu_inference_compiler to convert it into synapse graph.
-                if os.getenv("USE_FX_GRAPH_FREEZING", "0") != "0":
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(
-                            self._converted_module, backend="hpu_backend", options={"use_graph_freezing": True}
-                        )
-                else:
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
+                with torch.no_grad():
+                    self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
 
                 self._converted = True
 
             self._pt2e_quant_context.set_input_for_tracing(args[-1])
-            return self._converted_module(*args, **kwargs)
+
+            if os.getenv("PT_HPU_USE_FX_GRAPH_FREEZING", "0") != "0":
+                with torch._inductor.config.patch({"freezing": True}):
+                    return self._converted_module(*args, **kwargs)
+            else:
+                return self._converted_module(*args, **kwargs)
 
         elif queue_element["task"] == "inference_pt2e":
             self._preprocessed = True
             self._prepared = True
 
+            use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
             if not self._converted:
                 key = self.get_hash()
-                self._converted_module = self._pt2e_quant_context.get_ep(key).module()
-                assert self._converted_module != None
+                if use_export_program:
+                    self._converted_module = self._pt2e_quant_context.get_ep(key).module()
+                else:
+                    # Apply pytorch prepare_pt2e on each fx graph
+                    prepared_module = _native_pt2e_quantization_interface("prepare_pt2e")(
+                        self._fx_module, queue_element["quantizer"]
+                    )
+
+                    # Apply pytorch convert_pt2e on each fx graph
+                    self._converted_module = _native_pt2e_quantization_interface("convert_pt2e")(
+                        prepared_module,
+                        False,
+                        False,
+                    )
+
+                    # Load scales from json file on each fx graph
+                    load_scale(self._converted_module, f"{key}.json")
+
+                    if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
+                        replacer = PatternMatchAndReplacer(self._converted_module)
+                        replacer.run()
+                assert self._converted_module is not None
 
                 # We call hpu_inference_compiler to convert it into synapse graph.
-                if os.getenv("USE_FX_GRAPH_FREEZING", "0") != "0":
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(
-                            self._converted_module, backend="hpu_backend", options={"use_graph_freezing": True}
-                        )
-                else:
-                    with torch.no_grad():
-                        self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
+                with torch.no_grad():
+                    self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
 
                 self._converted = True
 
-            return self._converted_module(*args, **kwargs)
+            if os.getenv("PT_HPU_USE_FX_GRAPH_FREEZING", "0") != "0":
+                with torch._inductor.config.patch({"freezing": True}):
+                    return self._converted_module(*args, **kwargs)
+            else:
+                return self._converted_module(*args, **kwargs)
 
 
 def habana_quant_compiler_fw(
@@ -394,22 +422,22 @@ def export(
             dynamic=False,
             options={"keep_input_mutations": True},
         )
-        setattr(model, "meta_hb_quant_id", model_key)
+        model.meta_hb_quant_id = model_key
         habana_pt2e_quant_context.set_model(model)
-        if args != None:
+        if args is not None:
             model(*args)
             logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
 
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
         habana_pt2e_quant_context = None
-        if kwargs != None and "graph_break_present" in kwargs:
+        if kwargs is not None and "graph_break_present" in kwargs:
             kwargs.pop("graph_break_present")
         model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
 
@@ -430,22 +458,23 @@ def prepare_pt2e(
     if multi_graph:
         # Set "prepare_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
-        model_key = getattr(model, "meta_hb_quant_id")
+        model_key = model.meta_hb_quant_id
         habana_quantization_map_queue[model_key] = []
         habana_quantization_map_queue[model_key].append({"task": "prepare_pt2e", "quantizer": quantizer})
 
         global habana_pt2e_quant_context
         habana_pt2e_quant_context.clear_graphs()
         habana_pt2e_quant_context.set_model(model)
-        if habana_pt2e_quant_context.get_input_for_tracing() != None:
+        habana_pt2e_quant_context.set_quantizer(quantizer)
+        if habana_pt2e_quant_context.get_input_for_tracing() is not None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         return model
     else:
         model = _native_pt2e_quantization_interface("prepare_pt2e")(model, quantizer)
         logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         return model
 
 
@@ -467,7 +496,7 @@ def convert_pt2e(
         reset_hash_counter()
         # Set "convert_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
-        model_key = getattr(model, "meta_hb_quant_id")
+        model_key = model.meta_hb_quant_id
         habana_quantization_map_queue[model_key] = []
         habana_quantization_map_queue[model_key].append(
             {
@@ -480,29 +509,37 @@ def convert_pt2e(
         global habana_pt2e_quant_context
         habana_pt2e_quant_context.clear_graphs()
         habana_pt2e_quant_context.set_model(model)
-        if habana_pt2e_quant_context.get_input_for_tracing() != None:
+        if habana_pt2e_quant_context.get_input_for_tracing() is not None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         return model
     else:
         model = _native_pt2e_quantization_interface("convert_pt2e")(
             model, use_reference_representation, fold_quantize=fold_quantize
         )
         logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         return model
 
 
 def convert_to_module_name(input_str):
-    output_str = input_str.replace("L__self___", "model.")
-    output_str = output_str.replace("_", ".")
-    output_str = output_str.replace(".self.attn.", ".self_attn.").replace(".proj", "_proj")
-    output_str = output_str.replace("matmul.", "matmul_")
+    output_str = input_str.replace("L['self']", "model")
+    idx = output_str.find("_modules['layers']")
+    if idx != -1:
+        # modules layers found
+        output_str = output_str.replace("_modules['layers']", "layers")
+        idx1 = output_str.find("_modules['")
+        idx2 = output_str.find("']")
+        output_str = output_str[:idx1] + output_str[idx1 + len("_modules['") : idx2] + output_str[idx2 + len("']") :]
+    else:
+        # no modules layers found, skip the model in str
+        output_str = output_str.replace("model.", "")
+
     return output_str
 
 
-def dump_scale(module: torch.fx.GraphModule):
+def dump_scale(module: torch.fx.GraphModule, extra_file: Optional[str] = None):
     graph = copy.deepcopy(module.graph)
     graph = module.graph
     dump_json_output = {"GlobalRank": None, "LocalRank": -1, "Mode": "Scale", "Nodes": {}}
@@ -543,7 +580,7 @@ def dump_scale(module: torch.fx.GraphModule):
                 dump_input_scale_attr = torch.tensor(input_quant_node.args[1], device="hpu")
                 dump_weight_scale_attr = torch.tensor(weight_quant_node.args[1], device="hpu")
                 dump_info = [dump_input_scale_attr, dump_weight_scale_attr]
-                dump_key = list(nn_module_stack.keys())[-1]
+                dump_key = list(nn_module_stack.values())[-1][0]
                 dump_key = convert_to_module_name(dump_key)
                 dump_json_output["Nodes"][dump_key] = {
                     "inputs": [dump_info[0].item()],
@@ -556,7 +593,7 @@ def dump_scale(module: torch.fx.GraphModule):
                     dump_input0_scale_attr = torch.tensor(input0_dequant_node.args[1], device="hpu")
                     dump_input1_scale_attr = torch.tensor(input1_dequant_node.args[1], device="hpu")
                     dump_info = [dump_input0_scale_attr, dump_input1_scale_attr]
-                    dump_key = list(nn_module_stack.keys())[-1]
+                    dump_key = list(nn_module_stack.values())[-1][0]
                     dump_key = convert_to_module_name(dump_key)
                     dump_json_output["Nodes"][dump_key] = {
                         "inputs": [dump_info[0].item(), dump_info[1].item()],
@@ -568,18 +605,23 @@ def dump_scale(module: torch.fx.GraphModule):
     file_path = os.getenv("PT2E_QUANT_SCALE_DUMP_PATH", "0")
     if ".json" not in file_path:
         file_path = file_path + "/pt2e_quant_dumped_scale.json"
+    if extra_file is not None:
+        file_path = extra_file
     with open(file_path, "w") as json_file:
         json.dump(dump_json_output, json_file, indent=4)
     logger.debug(f"PT2E scale info dumped to file: {file_path}")
 
 
-def load_scale(module: torch.fx.GraphModule):
+def load_scale(module: torch.fx.GraphModule, extra_file: Optional[str] = None):
     graph = module.graph
 
     file_path = os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "0")
+    if extra_file is not None:
+        file_path = extra_file
     with open(file_path, "r") as file:
         scale_info_json = json.load(file)
 
+    count = 0
     with torch.no_grad():
         for node in graph.nodes:
             if is_node(node, "bmm.default"):
@@ -590,8 +632,9 @@ def load_scale(module: torch.fx.GraphModule):
                 if input1_dequant_node is not None:
                     logger.debug("Dequant node found for input1")
                 if input0_dequant_node and input1_dequant_node:
+                    count = count + 1
                     nn_module_stack = node.meta.get("nn_module_stack", None)
-                    module_name = list(nn_module_stack.keys())[-1]
+                    module_name = list(nn_module_stack.values())[-1][0]
                     module_name = convert_to_module_name(module_name)
                     input0_dequant_node_args = list(input0_dequant_node.args)
                     input1_dequant_node_args = list(input1_dequant_node.args)
@@ -599,6 +642,14 @@ def load_scale(module: torch.fx.GraphModule):
                     input1_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
                     input0_dequant_node.args = tuple(input0_dequant_node_args)
                     input1_dequant_node.args = tuple(input1_dequant_node_args)
+                    input0_quant_node = input0_dequant_node.args[0]
+                    input1_quant_node = input1_dequant_node.args[0]
+                    input0_quant_node_args = list(input0_quant_node.args)
+                    input1_quant_node_args = list(input1_quant_node.args)
+                    input0_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
+                    input1_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
+                    input0_quant_node.args = tuple(input0_quant_node_args)
+                    input1_quant_node.args = tuple(input1_quant_node_args)
             if is_node(node, "mm.default") or is_node(node, "addmm.default"):
                 gemm_node = node
                 is_addmm_node = is_node(gemm_node, "addmm.default")
@@ -632,9 +683,10 @@ def load_scale(module: torch.fx.GraphModule):
                     logger.debug("Input pattern match failed")
                     continue
 
+                count = count + 1
                 input_quant_node = input_dequant_node.args[0]
                 nn_module_stack = node.meta.get("nn_module_stack", None)
-                module_name = list(nn_module_stack.keys())[-1]
+                module_name = list(nn_module_stack.values())[-1][0]
                 module_name = convert_to_module_name(module_name)
                 input_quant_node_args = list(input_quant_node.args)
                 weight_quant_node_args = list(weight_quant_node.args)
@@ -642,7 +694,14 @@ def load_scale(module: torch.fx.GraphModule):
                 weight_quant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
                 input_quant_node.args = tuple(input_quant_node_args)
                 weight_quant_node.args = tuple(weight_quant_node_args)
+                input_dequant_node_args = list(input_dequant_node.args)
+                input_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
+                input_dequant_node.args = tuple(input_dequant_node_args)
+                weight_dequant_node_args = list(weight_dequant_node.args)
+                weight_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["params"]["weight"]
+                weight_dequant_node.args = tuple(weight_dequant_node_args)
 
+        assert count == len(scale_info_json["Nodes"])
         module.graph.lint()
         module.recompile()
 
@@ -672,27 +731,41 @@ def save_pt2e(
         # ToDo: explore to save org model with out state dict
         torch.save(org_model, f"{f}")
 
+        use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
+
+        # save quantizer for original model if using export scale json dump
+        if not use_export_program:
+            quantizer = habana_pt2e_quant_context.get_quantizer()
+            torch.save(quantizer, "quantizer.pt2")
+
         # assumption: fx-graphs are captured and held in habana_pt2e_quant_context
         fx_module_hashkeys = []
         fx_graphs_hash_list = habana_pt2e_quant_context._fx_graphs_hash_list
         quantized_fx_graphs_with_args_list = habana_pt2e_quant_context._quantized_fx_graphs_with_args_list
+
         assert len(fx_graphs_hash_list) == len(quantized_fx_graphs_with_args_list)
         for key, value in zip(fx_graphs_hash_list, quantized_fx_graphs_with_args_list):
-            exported_program_filename = f"{key}.pt2"
-            with torch.no_grad():
-                exported_fx_graph = torch.export.export(value[0], value[1])
-            logger.debug(f"exported program: {exported_fx_graph}")
-            # `clear export program example inputs to reduce export program disk size
-            exported_fx_graph._example_inputs = ()
+            if use_export_program:
+                exported_program_filename = f"{key}.pt2"
+                with torch.no_grad():
+                    exported_fx_graph = torch.export.export(value[0], value[1])
+                logger.debug(f"exported program: {exported_fx_graph}")
+                # `clear export program example inputs to reduce export program disk size
+                exported_fx_graph._example_inputs = ()
 
-            # save each exported converted fx graph
-            with torch.no_grad():
-                _native_pt2e_quantization_interface("save_pt2e")(exported_fx_graph, exported_program_filename)
-            fx_module_hashkeys.extend([key])
+                # save each exported converted fx graph
+                with torch.no_grad():
+                    _native_pt2e_quantization_interface("save_pt2e")(exported_fx_graph, exported_program_filename)
+                fx_module_hashkeys.extend([key])
+            else:
+                # torch.save(value[0], f"fx_{key}.pt2")
+                dump_scale(value[0], f"{key}.json")
+                logger.debug(f"export dump scale: {key}.json")
 
-        # save hashkeys
-        torch.save(fx_module_hashkeys, "hashkeys.pt2")
-        logger.debug("SAVING All export program COMPLETED !!!")
+        if use_export_program:
+            # save hashkeys
+            torch.save(fx_module_hashkeys, "hashkeys.pt2")
+            logger.debug("SAVING All export program COMPLETED !!!")
         return
     else:
         with torch.no_grad():
@@ -727,10 +800,6 @@ def load_pt2e(
     logger.debug("Habana's implementation of PT2E based quantization flow: [load_pt2e]")
 
     try:
-        # try loading hashkeys
-        fx_module_hashkeys = torch.load("hashkeys.pt2")
-        assert len(fx_module_hashkeys) != 0
-
         # load original model
         org_model = torch.load(f"{f}")
         id_org_model = hash((id(org_model), type(org_model).__name__))
@@ -753,28 +822,35 @@ def load_pt2e(
             dynamic=False,
             options={"keep_input_mutations": True},
         )
-        setattr(model, "meta_hb_quant_id", model_key)
+        model.meta_hb_quant_id = model_key
         habana_pt2e_quant_context.set_model(model)
 
-        # load all exported converted fx graphs and create a dictionary
-        ep_dict = dict()
-        for key in fx_module_hashkeys:
-            exported_program_filename = f"{key}.pt2"
-            with torch.no_grad():
-                exported_fx_graph = _native_pt2e_quantization_interface("load_pt2e")(exported_program_filename)
-            del exported_fx_graph._example_inputs
-            ep_dict[key] = exported_fx_graph
-            logger.debug(f"loading exported program from file {exported_program_filename}")
-        habana_pt2e_quant_context.initialize_ep_dict(ep_dict)
+        quantizer = None
+        use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
+        if use_export_program:
+            # load all exported converted fx graphs and create a dictionary
+            # try loading hashkeys
+            fx_module_hashkeys = torch.load("hashkeys.pt2")
+            assert len(fx_module_hashkeys) != 0
+            ep_dict = dict()
+            for key in fx_module_hashkeys:
+                exported_program_filename = f"{key}.pt2"
+                with torch.no_grad():
+                    exported_fx_graph = _native_pt2e_quantization_interface("load_pt2e")(exported_program_filename)
+                del exported_fx_graph._example_inputs
+                ep_dict[key] = exported_fx_graph
+                logger.debug(f"loading exported program from file {exported_program_filename}")
+            habana_pt2e_quant_context.initialize_ep_dict(ep_dict)
+        else:
+            # load quantizer for original model if export use scale
+            quantizer = torch.load("quantizer.pt2")
+            assert quantizer is not None
 
-        habana_quantization_map_queue[model_key].append(
-            {
-                "task": "inference_pt2e",
-            }
-        )
+        habana_quantization_map_queue[model_key].append({"task": "inference_pt2e", "quantizer": quantizer})
+
         reset_hash_counter()
 
-        setattr(model, "multi_graph", True)
+        model.multi_graph = True
         logger.debug("LOADING All export program COMPLETED !!!")
         # ModelWrapper module() method will return the original model
         return ModelWrapper(model)
@@ -785,7 +861,7 @@ def load_pt2e(
                 f, extra_files=extra_files, expected_opset_version=expected_opset_version
             )
         logger.debug(f"Graph after pt2e load:\n {model.graph}")
-        setattr(model, "multi_graph", False)
+        model.multi_graph = False
         return model
 
 

@@ -24,7 +24,7 @@ TEST_P(IndexDTypeSupportTest, IndexTensorOutTest) {
   auto dtype = GetParam();
   auto options = torch::TensorOptions().dtype(dtype).device(torch::kHPU);
   auto input = torch::tensor({{1, 2, 3, 4}, {1, 2, 3, 4}}, options);
-  auto output = torch::empty({}, options);
+  auto output = torch::empty({2, 1, 4}, options);
   auto indices = torch::tensor({{0}, {1}}, options.dtype(torch::kInt64));
 
   torch::index_out(output, input, {indices});

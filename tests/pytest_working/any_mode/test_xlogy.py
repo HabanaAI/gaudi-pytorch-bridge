@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 dtypes = [torch.float, torch.bfloat16, torch.int, torch.long]
 
@@ -30,15 +30,6 @@ if not is_gaudi1():
 @pytest.mark.parametrize("input_dtype", dtypes, ids=format_tc)
 @pytest.mark.parametrize("other_dtype", dtypes, ids=format_tc)
 class TestHpuXlogY:
-    @classmethod
-    def setup_class(self):
-        # For scalar_tensor (coming from decomposition) there is expected fallback to eager
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
 
     @staticmethod
     def test_hpu_xlogy(input_shape, other_shape, input_dtype, other_dtype):
@@ -47,10 +38,7 @@ class TestHpuXlogY:
         cpu_other = torch.rand(other_shape).to(dtype=other_dtype)
         hpu_other = cpu_other.to("hpu")
 
-        fn_hpu = torch.xlogy
-        if is_pytest_mode_compile():
-            fn_hpu = torch.compile(fn_hpu, backend="hpu_backend")
-        torch._dynamo.reset()
+        fn_hpu = compile_function_if_compile_mode(torch.xlogy)
 
         cpu_output = torch.xlogy(cpu_input, cpu_other)
         hpu_output = fn_hpu(hpu_input, hpu_other)
@@ -72,10 +60,7 @@ class TestHpuXlogY:
         cpu_out = torch.empty(size=out_shape, dtype=out_dtype, device="cpu")
         hpu_out = torch.empty(size=out_shape, dtype=out_dtype, device="hpu")
 
-        fn_hpu = torch.xlogy
-        if is_pytest_mode_compile():
-            fn_hpu = torch.compile(fn_hpu, backend="hpu_backend")
-        torch._dynamo.reset()
+        fn_hpu = compile_function_if_compile_mode(torch.xlogy)
 
         torch.xlogy(cpu_input, cpu_other, out=cpu_out)
         fn_hpu(hpu_input, hpu_other, out=hpu_out)
@@ -93,10 +78,7 @@ class TestHpuXlogY:
         cpu_other = torch.rand(other_shape).to(dtype=other_dtype)
         hpu_other = cpu_other.to("hpu")
 
-        fn_hpu = torch.xlogy_
-        if is_pytest_mode_compile():
-            fn_hpu = torch.compile(fn_hpu, backend="hpu_backend")
-        torch._dynamo.reset()
+        fn_hpu = compile_function_if_compile_mode(torch.xlogy_)
 
         torch.xlogy_(cpu_input, cpu_other)
         fn_hpu(hpu_input, hpu_other)

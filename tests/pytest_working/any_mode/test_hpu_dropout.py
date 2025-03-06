@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import random
 
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, format_tc, is_pytest_mode_compile
 
 
 def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
@@ -41,9 +41,7 @@ def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
             if fallback_expected_ops:
                 pytest.skip(f"Expected fallback to eager for op[s]: {fallback_expected_ops}")
 
-            clear_t_compile_logs()
-            torch._dynamo.reset()
-            dropout_fwd = torch.compile(dropout_fwd, backend="hpu_backend")
+            dropout_fwd = compile_function_if_compile_mode(dropout_fwd)
 
         out = dropout_fwd(input)
 
@@ -131,9 +129,7 @@ def test_hpu_dropout_bwd(p, train, dtype, native):
             if fallback_expected_ops:
                 pytest.skip(f"Expected fallback to eager for op[s]: {fallback_expected_ops}")
 
-            clear_t_compile_logs()
-            torch._dynamo.reset()
-            dropout_bwd = torch.compile(dropout_bwd, backend="hpu_backend")
+            dropout_bwd = compile_function_if_compile_mode(dropout_bwd)
 
         result = dropout_bwd(input, p, train)
         result.backward()

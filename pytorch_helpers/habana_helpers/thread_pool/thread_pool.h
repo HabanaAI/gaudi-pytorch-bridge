@@ -28,7 +28,7 @@
 #include <vector>
 
 #include "backend/synapse_helpers/env_flags.h"
-#include "pytorch_helpers/habana_helpers/thread_queue.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana_helpers {
 
@@ -95,10 +95,27 @@ class BlockingQueue {
   std::condition_variable cond_;
 };
 
-template <template <typename> typename Queue, typename Task>
+struct SingleThreadPolicy {
+  static constexpr uint64_t GetNumThreads() {
+    return 1;
+  }
+};
+
+struct MultiThreadPolicy {
+  static uint64_t GetNumThreads();
+};
+
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
 class ThreadPoolBase {
  public:
-  ThreadPoolBase(bool propagate_exception = false);
+  ThreadPoolBase(
+      bool propagate_exception = false,
+      uint64_t queue_capacity = 0,
+      const std::function<void()>& init_thread = nullptr);
   ~ThreadPoolBase();
 
   template <
@@ -128,37 +145,55 @@ class ThreadPoolBase {
   std::string ToString() const;
   uint64_t get_active_task_count() const;
 
+  // utility function for debug capability to change queue capacity
+  void set_queue_capacity(uint64_t queue_capacity) {
+    queue_capacity_ = queue_capacity;
+  }
+
  private:
   Queue<Task> tasks_;
 
-  std::thread thread_;
+  std::vector<std::thread> threads_;
   std::atomic_bool stop_;
   std::exception_ptr ex_ptr_;
+  std::condition_variable cond_;
+  std::mutex mutex_;
 
   pid_t original_pid_;
 
   bool propagate_exception_ = false;
+  // queue capacity: 0 means unlimit and no throttling
+  uint64_t queue_capacity_ = 0;
 
   std::atomic<uint64_t> active_task_count_{0};
 
   void main_loop() {
     while (!stop_) {
       executePendingTask(std::move(tasks_.pop()));
-      --active_task_count_;
+      if (--active_task_count_ == 0) {
+        std::unique_lock lock(mutex_);
+        cond_.notify_all();
+      }
     }
   }
   void executePendingTask(Task&& task);
+  void throttleIfNeeded();
 };
 
-template <template <typename> typename Queue, typename Task>
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
 template <
     class F,
     class... Args,
     typename T,
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
-void ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
-  ++active_task_count_;
+void ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(F&& f, Args&&... args) {
   RethrowIfException();
+  throttleIfNeeded();
+  ++active_task_count_;
   auto task = [args = std::make_tuple(std::forward<Args>(args)...),
                func = std::move(f)]() mutable {
     std::apply([&](auto&&... x) { func(std::forward<Args>(x)...); }, args);
@@ -166,14 +201,20 @@ void ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
   tasks_.push(std::move(task));
 };
 
-template <template <typename> typename Queue, typename Task>
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
 template <
     class F,
     class... Args,
     typename T,
     typename std::
         enable_if_t<std::is_same_v<T, std::packaged_task<void()>>, bool>>
-std::future<void> ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
+std::future<void> ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(
+    F&& f,
+    Args&&... args) {
   ++active_task_count_;
   auto packed_func = [args = std::make_tuple(std::forward<Args>(args)...),
                       func = std::move(f)]() mutable {
@@ -185,11 +226,15 @@ std::future<void> ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
   return res;
 };
 
-template <template <typename> typename Queue, typename Task>
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
 template <
     typename T,
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
-void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
+void ThreadPoolBase<Queue, Task, ThreadPolicy>::waitWorkComplete() {
   RethrowIfException();
   if (active_task_count_ == 0 || stop_)
     return;
@@ -199,18 +244,24 @@ void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
   if (original_pid_ != getpid())
     return;
 
-  std::promise<void> last_task;
-  std::future<void> work_compelete = last_task.get_future();
-  ++active_task_count_;
-  tasks_.push([&last_task]() { last_task.set_value(); });
-  work_compelete.wait();
+  {
+    std::unique_lock lock(mutex_);
+    cond_.wait(lock, [this] { return active_task_count_ == 0; });
+  }
+
   RethrowIfException();
 }
 
-using ThreadPool = ThreadPoolBase<BlockingQueue, move_only_function_void>;
+using SingleThreadPool =
+    ThreadPoolBase<BlockingQueue, move_only_function_void, SingleThreadPolicy>;
+
+using ThreadPool =
+    ThreadPoolBase<BlockingQueue, move_only_function_void, MultiThreadPolicy>;
 
 // This is deprecated version which has to be removed along with lazy execution
-using ThreadPoolWithFutures =
-    ThreadPoolBase<BlockingQueue, std::packaged_task<void()>>;
+using SingleThreadPoolWithFutures = ThreadPoolBase<
+    BlockingQueue,
+    std::packaged_task<void()>,
+    SingleThreadPolicy>;
 
 } // namespace habana_helpers

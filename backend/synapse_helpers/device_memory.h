@@ -94,7 +94,7 @@ class device_memory {
   }
 #endif
 
-private:
+ private:
   device& device_;
   pool_allocator::PoolStrategyType pool_strategy_;
   uint64_t pool_size_;
@@ -130,5 +130,10 @@ private:
   std::shared_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
 #endif
   size_t alignment_;
+
+  static std::deque<std::chrono::high_resolution_clock::time_point>
+      defragmentation_timestamps;
+  static std::mutex defrag_mutex;
+  void log_defragmentation_warning_if_needed();
 };
 } // namespace synapse_helpers

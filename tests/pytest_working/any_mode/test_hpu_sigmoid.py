@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import pytest
 import torch
 from test_utils import (
     check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     is_gaudi1,
     is_pytest_mode_compile,
 )
@@ -35,12 +35,7 @@ if not is_gaudi1():
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("is_bwd", [True, False])
 def test_sigmoid(shape, dtype, is_bwd):
-    fn = torch.sigmoid
-
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = compile_function_if_compile_mode(torch.sigmoid)
 
     input = torch.empty(shape, dtype=dtype).uniform_(-30, 30)
     input_hpu = input.to("hpu")

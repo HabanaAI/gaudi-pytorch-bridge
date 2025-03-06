@@ -498,6 +498,104 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   }
 }
 
+namespace habana {
+SharedMetaDataVector IndexAddSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack.at(0).toTensor();
+  const auto& indices = stack.at(2).toTensor();
+  const auto& value = stack.at(3).toTensor();
+
+  const auto selfDim = self.dim();
+  const auto selfDtype = self.scalar_type();
+  const auto indicesDim = indices.dim();
+  const auto indicesDtype = indices.scalar_type();
+  const auto valueDim = value.dim();
+  const auto valueDtype = value.scalar_type();
+
+  const auto alphaDimBroadcasted = valueDim;
+  const auto alphaCastedDtype = valueDtype;
+
+  SharedMetaDataVector indexAddSharedMeta;
+
+  // Shared meta for IndexAddV2Operator.
+  SharedMetaData multSharedMetaV2("mult");
+  multSharedMetaV2.inputs_data.emplace_back(valueDim, valueDtype);
+  multSharedMetaV2.inputs_data.emplace_back(
+      alphaDimBroadcasted, alphaCastedDtype);
+  multSharedMetaV2.outputs_data.emplace_back(valueDim, valueDtype);
+  indexAddSharedMeta.push_back(multSharedMetaV2);
+
+  const bool self_is_int32 = selfDtype == c10::ScalarType::Int;
+  const bool useUnsortedScatter =
+      GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
+      HPUGlobalConfig::get().getDeterministic() == false &&
+      at::globalContext().deterministicAlgorithms() == false &&
+      HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi;
+
+  SharedMetaData scatterAddFwdSharedMetaV2(
+      useUnsortedScatter ? "unsorted_scatter_add_fwd" : "scatter_add_fwd");
+
+  c10::ScalarType castedSelfDtype =
+      self_is_int32 || useUnsortedScatter ? c10::ScalarType::Float : selfDtype;
+
+  scatterAddFwdSharedMetaV2.inputs_data.emplace_back(selfDim, castedSelfDtype);
+  scatterAddFwdSharedMetaV2.inputs_data.emplace_back(indicesDim, indicesDtype);
+  scatterAddFwdSharedMetaV2.inputs_data.emplace_back(
+      multSharedMetaV2.outputs_data[0].first, castedSelfDtype);
+  scatterAddFwdSharedMetaV2.outputs_data.emplace_back(selfDim, castedSelfDtype);
+  indexAddSharedMeta.push_back(scatterAddFwdSharedMetaV2);
+
+  std::pair<int, c10::ScalarType> scatterOutputV2 = {
+      scatterAddFwdSharedMetaV2.outputs_data[0].first, selfDtype};
+
+  SharedMetaData memcpySharedMetaV2("memcpy");
+  memcpySharedMetaV2.inputs_data.push_back(scatterOutputV2);
+  memcpySharedMetaV2.outputs_data.push_back(scatterOutputV2);
+  indexAddSharedMeta.push_back(memcpySharedMetaV2);
+
+  // Shared meta for IndexAddOperator.
+  SharedMetaData gatherFwdSharedMeta("gather_fwd");
+  gatherFwdSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
+  gatherFwdSharedMeta.inputs_data.emplace_back(indicesDim, indicesDtype);
+  gatherFwdSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
+  indexAddSharedMeta.push_back(gatherFwdSharedMeta);
+
+  SharedMetaData multSharedMeta("mult");
+  multSharedMeta.inputs_data.emplace_back(valueDim, valueDtype);
+  multSharedMeta.inputs_data.emplace_back(
+      alphaDimBroadcasted, alphaCastedDtype);
+  multSharedMeta.outputs_data.emplace_back(valueDim, valueDtype);
+  indexAddSharedMeta.push_back(multSharedMeta);
+
+  SharedMetaData addFwdSharedMeta("add_fwd");
+  addFwdSharedMeta.inputs_data.push_back(gatherFwdSharedMeta.outputs_data[0]);
+  addFwdSharedMeta.inputs_data.push_back(multSharedMeta.outputs_data[0]);
+  addFwdSharedMeta.outputs_data.push_back(gatherFwdSharedMeta.outputs_data[0]);
+  indexAddSharedMeta.push_back(addFwdSharedMeta);
+
+  const auto indicesExpandedDim = valueDim;
+
+  SharedMetaData scatterFwdSharedMeta("scatter_fwd");
+  scatterFwdSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
+  scatterFwdSharedMeta.inputs_data.emplace_back(
+      indicesExpandedDim, indicesDtype);
+  scatterFwdSharedMeta.inputs_data.push_back(addFwdSharedMeta.outputs_data[0]);
+  scatterFwdSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
+  indexAddSharedMeta.push_back(scatterFwdSharedMeta);
+
+  std::pair<int, c10::ScalarType> scatterOutput =
+      scatterFwdSharedMeta.outputs_data[0];
+
+  SharedMetaData memcpySharedMeta("memcpy");
+  memcpySharedMeta.inputs_data.push_back(scatterOutput);
+  memcpySharedMeta.outputs_data.push_back(scatterOutput);
+  indexAddSharedMeta.push_back(memcpySharedMeta);
+
+  return indexAddSharedMeta;
+}
+} // namespace habana
+
 void IndexAddOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -640,7 +738,6 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
   auto self_is_int32 = self.scalar_type() == c10::ScalarType::Int;
   auto alpha = inputs[4].toScalar();
 
-  std::vector<synapse_helpers::tensor_or_ref> syn_value;
   torch::jit::Stack temp_stack;
   ////alpha_value = value * alpha;
   auto mulOp = make_operator<MulOperator>(
@@ -649,95 +746,7 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
   mulOp->SetSynapseInput(p_context_->syn_inputs_[2]);
   mulOp->AllocateAndAddSynapseNode(graph, temp_stack, OutputMetaDataVector(1));
   temp_stack.clear();
-  auto pt_index_into_reshape = index;
-  syn_value.push_back(std::move(mulOp->GetSynOutputs()[0]));
-  auto pt_value = mulOp->GetOutputs()[0];
 
-  // TPC mandates indices (and hence the source as well) to be sorted for
-  // scatter_add_fwd guid to work accurately. So sort the indices using topk and
-  // based on sorted indices re order the source using gather.
-
-  // TODO: if Gaudi2 can support scatter_add without sorting, add a check and
-  // avoid sorting on G2
-
-  // Create cast operator for indices->Float = node_type = "cast_i32_to_f32" for
-  // topk
-  auto castIndicesToFloatOp = make_operator<CastOperator>(
-      this->p_context_->device_id_, "cast_i32_to_f32");
-  castIndicesToFloatOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  c10::ScalarType cast_scalar_type = c10::ScalarType::Float;
-  std::vector<c10::IValue> cast_stack{IValue(index), IValue(cast_scalar_type)};
-  castIndicesToFloatOp->AllocateAndAddSynapseNode(
-      graph, cast_stack, OutputMetaDataVector(1));
-  cast_stack.clear();
-  // Node: topk_idx = at::topk(cast_indices_pt_tensor, numel);
-  auto topkOp =
-      make_operator<TopkOperator>(this->p_context_->device_id_, "topk");
-  int64_t topk_dim = 0;
-  bool largest = true;
-  bool sorted = true;
-  topkOp->SetSynapseInput(castIndicesToFloatOp->GetSynOutputs()[0]);
-  std::vector<c10::IValue> topk_stack{
-      IValue(castIndicesToFloatOp->GetOutputs()[0]),
-      IValue(index.numel()),
-      IValue(topk_dim),
-      IValue(largest),
-      IValue(sorted)};
-  topkOp->AllocateAndAddSynapseNode(graph, topk_stack, OutputMetaDataVector(2));
-  // output[0] -> topk_values
-  // output[1] -> topk_indices
-  // Create cast operator for topk_values = node_type = "cast_f32_to_i32"
-  auto castTopkValsOp = make_operator<CastOperator>(
-      this->p_context_->device_id_, "cast_f32_to_i32");
-  castTopkValsOp->SetSynapseInput(topkOp->GetSynOutputs()[0]);
-  cast_scalar_type = c10::ScalarType::Int;
-  std::vector<c10::IValue> cast_stack1{
-      IValue(topkOp->GetOutputs()[0]), IValue(cast_scalar_type)};
-  castTopkValsOp->AllocateAndAddSynapseNode(
-      graph, cast_stack1, OutputMetaDataVector(1));
-
-  pt_index_into_reshape = castTopkValsOp->GetOutputs()[0];
-  // Node: reordered source(i.e, alpha_value tensor) =
-  // at::gather(alpha_value, 0, topk_indices);
-  auto gatherOp = make_operator<GatherOperator>(
-      this->p_context_->device_id_, value.scalar_type());
-  gatherOp->SetSynapseInput(syn_value[0]);
-  gatherOp->SetSynapseInput(topkOp->GetSynOutputs()[1]);
-  bool sparse_grad = false;
-  std::vector<c10::IValue> gather_stack{
-      IValue(mulOp->GetOutputs()[0]),
-      IValue(dim),
-      IValue(topkOp->GetOutputs()[1]),
-      IValue(sparse_grad)};
-  gatherOp->AllocateAndAddSynapseNode(
-      graph, gather_stack, OutputMetaDataVector(1));
-  pt_value = gatherOp->GetOutputs()[0];
-
-  // Expand 1D index tensor to same number of dimensions as value tensor
-  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
-  expanded_sizes[dim] = index.sizes()[0];
-  ////auto index_expanded = index.view(expanded_sizes)
-  auto reshapeOp = make_operator<ReshapeOperator>(
-      this->p_context_->device_id_, index.scalar_type());
-  temp_stack = {IValue(pt_index_into_reshape), IValue(expanded_sizes)};
-  reshapeOp->SetSynapseInput(castTopkValsOp->GetSynOutputs()[0]);
-  reshapeOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
-
-  // Broadcast index tensor to same shape as value tensor
-  bool implicit =
-      false; // The value of implicit is currently ignored in broadcast kernel
-  auto bcastOp = make_operator<BroadcastOperator>(
-      this->p_context_->device_id_, reshapeOp->GetOutputs()[0].scalar_type());
-  temp_stack = {
-      IValue(reshapeOp->GetOutputs()[0]),
-      IValue(value.sizes()),
-      IValue(implicit)};
-  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
-  bcastOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
   // TPC does not support int for scatter_add;
   // Cast self and alpha_value to float
   if (self_is_int32) {
@@ -753,8 +762,8 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
     // cast value
     auto castValueToFloatOp = make_operator<CastOperator>(
         this->p_context_->device_id_, "cast_i32_to_f32");
-    castValueToFloatOp->SetSynapseInput(gatherOp->GetSynOutputs()[0]);
-    cast_stack = {IValue(pt_value), IValue(cast_scalar_type)};
+    castValueToFloatOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
+    cast_stack = {IValue(mulOp->GetOutputs()[0]), IValue(cast_scalar_type)};
     castValueToFloatOp->AllocateAndAddSynapseNode(
         graph, cast_stack, OutputMetaDataVector(1));
     cast_stack.clear();
@@ -765,11 +774,11 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
     temp_stack = {
         IValue(castSelfToFloatOp->GetOutputs()[0]),
         IValue(dim),
-        IValue(bcastOp->GetOutputs()[0]),
+        IValue(index),
         IValue(castValueToFloatOp->GetOutputs()[0])};
 
     scatterAddOp->SetSynapseInput(castSelfToFloatOp->GetSynOutputs()[0]);
-    scatterAddOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatterAddOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     scatterAddOp->SetSynapseInput(castValueToFloatOp->GetSynOutputs()[0]);
     scatterAddOp->AllocateAndAddSynapseNode(
         graph, temp_stack, OutputMetaDataVector(1));
@@ -795,12 +804,12 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
     temp_stack = {
         IValue(self),
         IValue(dim),
-        IValue(bcastOp->GetOutputs()[0]),
-        IValue(pt_value)};
+        IValue(index),
+        IValue(mulOp->GetOutputs()[0])};
 
     scatterAddOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    scatterAddOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-    scatterAddOp->SetSynapseInput(gatherOp->GetSynOutputs()[0]);
+    scatterAddOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    scatterAddOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
     scatterAddOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
 
     p_context_->syn_outputs_.emplace_back(
@@ -1920,11 +1929,20 @@ void SliceOperator::ValidateSliceInputs(
     std::vector<int64_t>& out_shape,
     std::vector<int64_t>& step,
     std::vector<int64_t>& start) {
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "SliceOperator validate for inp_shape::",
+      inp_shape,
+      ", out_shape::",
+      out_shape,
+      ", step::",
+      step,
+      ", start::",
+      start);
   for (unsigned i = 0; i < inp_shape.size(); i++) {
     // exclude ZST from shape validation check
     if (inp_shape[i]) {
       TORCH_CHECK(
-          (start[i] < inp_shape[i]),
+          (start[i] <= inp_shape[i]),
           "Slice invalid starts param, which is greater or equal to the dimension");
     }
 
@@ -1942,16 +1960,6 @@ void SliceOperator::ValidateSliceInputs(
         " ",
         inp_shape[i]);
   }
-
-  PT_DYNAMIC_SHAPE_DEBUG(
-      "SliceOperator validated for inp_shape::",
-      inp_shape,
-      ", out_shape::",
-      out_shape,
-      ", step::",
-      step,
-      ", start::",
-      start);
 }
 
 InferOutputMetaRetType SliceOperator::InferOutputMeta(
@@ -2720,6 +2728,28 @@ void Unique_Operator::AllocateAndAddSynapseNode(
       graph.is_dynamic_graph());
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
+
+namespace habana {
+SharedMetaDataVector UniqueDimSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack.at(0).toTensor();
+  const auto selfDim = self.dim();
+  const auto selfDtype = self.scalar_type();
+
+  const int DimVector1 = 1;
+
+  SharedMetaData uniqueSharedMeta("unique_fwd");
+  uniqueSharedMeta.inputs_data.emplace_back(selfDim, selfDtype);
+  uniqueSharedMeta.outputs_data.emplace_back(selfDim, selfDtype);
+  uniqueSharedMeta.outputs_data.emplace_back(
+      DimVector1, c10::ScalarType::UInt32);
+  uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
+  uniqueSharedMeta.outputs_data.emplace_back(DimVector1, c10::ScalarType::Int);
+
+  return {uniqueSharedMeta};
+}
+} // namespace habana
 
 void UniqueDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

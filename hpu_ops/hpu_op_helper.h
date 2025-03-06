@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <ATen/core/Tensor.h>
 #include <ATen/core/stack.h>
@@ -362,14 +362,14 @@ auto get_or_create_tensor(
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;
 
-#define MAYBE_FLUSH_OP(out_tensor_count) habana_lazy::flush_op(out_tensor_count)
+#define MAYBE_FLUSH_OP() habana_lazy::flush_op()
 
 #define RUN_MAYBE_WITH_ACC_THREAD(op, lazy_op)                              \
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     auto result = lazy_op.get_result();                                     \
     scheduleAccTask(std::move(lazy_op), result);                            \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return result;                                                          \
   }                                                                         \
   return lazy_op.call();
@@ -380,7 +380,7 @@ auto get_or_create_tensor(
     auto result = lazy_op.get_result();                                     \
     result_func(result);                                                    \
     scheduleAccTask(std::move(lazy_op), result);                            \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return result;                                                          \
   }                                                                         \
   auto result = lazy_op.call();                                             \
@@ -392,7 +392,7 @@ auto get_or_create_tensor(
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     scheduleAccTask(std::move(lazy_op), self);                              \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return self;                                                            \
   }                                                                         \
   return lazy_op.call(self);
@@ -402,22 +402,17 @@ auto get_or_create_tensor(
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     scheduleAccTask(std::move(lazy_op), self);                              \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return self;                                                            \
   }                                                                         \
   return lazy_op.call(self);
-
-template <typename... Args>
-inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
-  return sizeof...(Args);
-}
 
 #define RUN_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op)                        \
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     auto tuple = lazy_op.get_result();                                      \
     scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
-    MAYBE_FLUSH_OP(tuple_elements(tuple));                                  \
+    MAYBE_FLUSH_OP();                                                       \
     return tuple;                                                           \
   }                                                                         \
   return lazy_op.call();
@@ -427,7 +422,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     tuple = lazy_op.get_result(tuple);                                      \
     scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
-    MAYBE_FLUSH_OP(tuple_elements(tuple));                                  \
+    MAYBE_FLUSH_OP();                                                       \
     return tuple;                                                           \
   }                                                                         \
   return lazy_op.call(tuple);
@@ -441,7 +436,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
       habana_lazy::AccThread::Get().PushCleanupTask(                        \
           [func = std::move(func)]() {});                                   \
     });                                                                     \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
   } else {                                                                  \
     func();                                                                 \
   }                                                                         \
@@ -472,7 +467,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
           [func = std::move(func)]() {});                                   \
     });                                                                     \
     result_func(out);                                                       \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
   } else {                                                                  \
     func();                                                                 \
     result_func(out);                                                       \
@@ -522,7 +517,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
                 (void)out;                                                  \
               });                                                           \
         });                                                                 \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return out;                                                             \
   }                                                                         \
   lazy_view_fallback_handle(self, out, param_setter, additional_predicate); \
@@ -541,7 +536,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
             (void)out;                                                      \
           });                                                               \
     });                                                                     \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return out;                                                             \
   }                                                                         \
   lazy_view_fallback_handle(self, out, param_setter);                       \
@@ -554,7 +549,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
     std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
     auto result = lazy_op.get_result();                                     \
     scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return result;                                                          \
   }                                                                         \
   return lazy_op.call();
@@ -567,7 +562,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
     std::copy(tl2.begin(), tl2.end(), std::back_inserter(tensors_copy));    \
     auto result = lazy_op.get_result();                                     \
     scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
-    MAYBE_FLUSH_OP(1);                                                      \
+    MAYBE_FLUSH_OP();                                                       \
     return result;                                                          \
   }                                                                         \
   return lazy_op.call();
@@ -578,7 +573,7 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
     std::vector<at::Tensor> tensors_copy;                                      \
     std::copy(result.begin(), result.end(), std::back_inserter(tensors_copy)); \
     scheduleAccTask(std::move(lazy_op), std::move(tensors_copy));              \
-    MAYBE_FLUSH_OP(1);                                                         \
+    MAYBE_FLUSH_OP();                                                          \
     return;                                                                    \
   }                                                                            \
   return lazy_op.call(result);

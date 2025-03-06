@@ -42,6 +42,7 @@ def test_get_cmakelists_supported_vers():
     # The output should be two supported versions strings separated by a semicolon
     output = get_profile_getter_output(["--get-cmakelists-supported-vers"] + fake_profile_args)
     supported_vers = output.split(";")
-    assert len(supported_vers) == 2
+    assert len(supported_vers) == 3
     assert r"1\.0\..*" in supported_vers
     assert r"1\.2\..*" in supported_vers
+    assert r"1\.4\..*" in supported_vers

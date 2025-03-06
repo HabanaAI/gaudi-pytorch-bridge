@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,20 +15,18 @@
 #
 ###############################################################################
 
-import os
-
 import habana_frameworks.torch.core as htcore
 import numpy
-import pytest
 import torch
 import torch.nn as nn
+from test_utils import inference_env_fixture
 
 # Run test on HPU
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 
-def test_inplace():
+def test_inplace(inference_env_fixture):
     class CustomModel(nn.Module):
         def __init__(self):
             super(CustomModel, self).__init__()
@@ -52,7 +50,6 @@ def test_inplace():
 
     model = CustomModel()
     model.eval()
-    htcore.hpu_set_inference_env()
 
     input_hpu = input.to(hpu)
     input2_hpu = input2.to(hpu)
@@ -90,8 +87,6 @@ def test_inplace():
         output2_hpu_cpu.detach().numpy(), output2_hpugraph_cpu.detach().numpy(), atol=0.001, rtol=0.001
     )
 
-    htcore.hpu_teardown_inference_env()
-
 
 def fmt_float(value, c):
     return "{:.2f}{}".format(value, c)  # Formats float to 2 decimal pla
@@ -114,7 +109,7 @@ def printStat():
     print(separator)
 
 
-def test_kvcache_inplace():
+def test_kvcache_inplace(inference_env_fixture):
     class CustomModel(nn.Module):
         def __init__(self):
             super(CustomModel, self).__init__()
@@ -138,8 +133,6 @@ def test_kvcache_inplace():
     input2 = torch.randn(y_size_elements)
     kvcache = torch.randn(y_size_elements)
     kvcache2 = torch.randn(y_size_elements)
-
-    htcore.hpu_set_inference_env()
 
     model = CustomModel()
     model.eval()
@@ -198,10 +191,8 @@ def test_kvcache_inplace():
         output2_hpu_cpu.detach().numpy(), output2_hpugraph_cpu.detach().numpy(), atol=0.001, rtol=0.001
     )
 
-    htcore.hpu_teardown_inference_env()
 
-
-def test_input_reuse():
+def test_input_reuse(inference_env_fixture):
     class InplaceOperationNet(nn.Module):
         def __init__(self):
             super(InplaceOperationNet, self).__init__()
@@ -237,7 +228,6 @@ def test_input_reuse():
 
     x1 = torch.randn(1, 10)  # Random input for x1
 
-    htcore.hpu_set_inference_env()
     x1_hpu = x1.to(hpu)
     model_hpu = model.to(hpu)
 
@@ -261,4 +251,3 @@ def test_input_reuse():
     numpy.testing.assert_allclose(
         output_hpu_cpu.detach().numpy(), output1_hpugraph_cpu.detach().numpy(), atol=0.001, rtol=0.001
     )
-    htcore.hpu_teardown_inference_env()

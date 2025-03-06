@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/bernoulli.h"
 #include "hpu_ops/habana_random_ops.h"
@@ -69,6 +69,12 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
     seedHasValue = seed.toOptional<at::Generator>().has_value();
   }
 
+  // For inplace bernoulli, self can have integral dtype, in this case we will
+  // be performing computation in float, so we need to cast self to float.
+  if (isIntegralType(selfDtype, false)) {
+    selfDtype = c10::ScalarType::Float;
+  }
+
   // Precision type and output shape will be taken from self tensor, so even if
   // it is not passed, due to the specificty of SharedLayer the first input must
   // be provided so that the precision type match. "P" tensor will be
@@ -117,7 +123,9 @@ static auto bernoulli_impl(
   auto bernoulli = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("pt_bernoulli", dtype),
+      {get_guid_with_precision(
+           "pt_bernoulli",
+           isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
        inputs,
        {{outshape, dtype, final_result_index}},
        params.get(),
@@ -156,7 +164,9 @@ void BernoulliWithP::AddNode(
 
     auto bernoulli = BuildOp(
         graph,
-        get_guid_with_precision("pt_bernoulli", dtype),
+        get_guid_with_precision(
+            "pt_bernoulli",
+            isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
         std::move(inputs),
         {{outshape, dtype, 0}},
         params.get(),
@@ -170,17 +180,20 @@ void BernoulliWithP::AddNode(
   }
 }
 
-HabanaBernoulli::HabanaBernoulli(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
+HabanaBernoulliBase::HabanaBernoulliBase(
+    int device_id,
+    c10::ScalarType scalar_type,
+    bool is_deterministic)
+    : HabanaRandomBase(
           device_id,
           "habana_bernoulli",
           scalar_type,
           {1},
-          {},
-          {},
-          false) {}
+          is_deterministic) {
+  SetSTMetaFn(DefaultSTMetaFnOneOutputShapeUpdate);
+}
 
-void HabanaBernoulli::AddNode(
+void HabanaBernoulliBase::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 1);
@@ -197,14 +210,11 @@ void HabanaBernoulli::AddNode(
 HabanaBernoulliCheckpoint::HabanaBernoulliCheckpoint(
     int device_id,
     c10::ScalarType scalar_type)
-    : OpBackend(
+    : HabanaRandCheckpointBase(
           device_id,
           "habana_bernoulli",
           scalar_type,
-          {0, 1},
-          {},
-          {},
-          false) {}
+          {0, 1}) {}
 
 void HabanaBernoulliCheckpoint::AddNode(
     synapse_helpers::graph& graph,
@@ -226,4 +236,6 @@ void HabanaBernoulliCheckpoint::AddNode(
 } // namespace habana
 
 static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry().REGISTER_RANDOM_OP(bernoulli, Bernoulli);
+    habana::KernelRegistry().REGISTER_RANDOM_CHECKPOINT_OP(
+        bernoulli,
+        Bernoulli);

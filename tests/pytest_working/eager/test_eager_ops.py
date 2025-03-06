@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -1643,6 +1643,35 @@ def test_empty_resize_node_params():
         hpu_tensor.resize_(size)
         cpu_tensor = hpu_tensor.to("cpu")
         assert np.equal(cpu_tensor.size()[0], size)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+        num_cache_entries_end = htdebug._get_jit_cache_size()
+        assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for scatter op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_scatter_node_params():
+    params = [0, 1]
+
+    index = [[1, 0], [0, 1]]
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for dim in params:
+        index_tensor = torch.Tensor(index).type(torch.int64)
+        index_tensor_hpu = index_tensor.to("hpu")
+        src_tensor = torch.randn((2, 2), dtype=torch.bfloat16)
+        src_tensor_hpu = src_tensor.to("hpu")
+        output_tensor = torch.randn((2, 2), dtype=torch.bfloat16)
+        output_tensor_hpu = output_tensor.to("hpu")
+        output_tensor.scatter_(dim, index_tensor, src_tensor)
+        output_tensor_hpu.scatter_(dim, index_tensor_hpu, src_tensor_hpu)
+
+        assert torch.equal(output_tensor, output_tensor_hpu.cpu())
 
         if iteration == 0:
             num_cache_entries_start = htdebug._get_jit_cache_size()

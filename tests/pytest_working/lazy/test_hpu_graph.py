@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -479,13 +479,13 @@ def test_cached_module_training_fp8(disable_tensor_cache):
             out_test.cpu().to(torch.float).detach().numpy(),
             out_ref.cpu().to(torch.float).detach().numpy(),
             equal_nan=True,
-        ), f"Out data mismatch at init run"
+        ), "Out data mismatch at init run"
         assert np.array_equal(
             grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-        ), f"Grad weight data mismatch at init run"
+        ), "Grad weight data mismatch at init run"
         assert np.array_equal(
             grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-        ), f"Grad bias data mismatch at init run"
+        ), "Grad bias data mismatch at init run"
         my_linear_ref.zero_grad(set_to_none=False)
         my_linear_test.zero_grad(set_to_none=False)
 

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 #  limitations under the License.
 #
 ###############################################################################
-import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import clear_t_compile_logs, compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("N, C", [(3, 5)])
@@ -32,9 +32,8 @@ def test_hpu_nll_loss_fwd(N, C, reduction, dtype):
     # each element in target has to have 0 <= value < C
     cpu_target = torch.randint(0, C, (N,))
     hpu_target = cpu_target.to("hpu")
-    torch._dynamo.reset()
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
@@ -56,9 +55,8 @@ def test_hpu_nll_loss_bwd(N, C, reduction, dtype):
     hpu_input.requires_grad = True
     cpu_target = torch.randint(0, C, (N,))
     hpu_target = cpu_target.to("hpu")
-    torch._dynamo.reset()
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
@@ -75,9 +73,8 @@ def test_hpu_nll_loss2d_fwd(N, C, H, W, reduction, dtype):
     hpu_input = cpu_input.to("hpu")
     cpu_target = torch.randint(low=0, high=C - 1, size=(N, H, W))
     hpu_target = cpu_target.to("hpu")
-    torch._dynamo.reset()
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
@@ -99,9 +96,36 @@ def test_hpu_nll_loss2d_bwd(N, C, H, W, reduction, dtype):
     hpu_input.requires_grad = True
     cpu_target = torch.randint(low=0, high=C - 1, size=(N, H, W))
     hpu_target = cpu_target.to("hpu")
-    torch._dynamo.reset()
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = compile_function_if_compile_mode(fn)
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
+
+def test_hpu_nll_loss_bwd_st_meta():
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    test_cases = [(3, 5), (4, 6), (5, 7), (6, 8), (7, 9)]
+    reduction = "mean"
+    dtype = torch.float
+
+    def fn(input, target):
+        output = torch.nn.functional.nll_loss(input, target, reduction=reduction, weight=None)
+        grad = torch.ones_like(output)
+        output.backward(grad)
+        return input.grad
+
+    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
+    for N, C in test_cases:
+        cpu_input = torch.rand(N, C, dtype=dtype)
+        hpu_input = cpu_input.to("hpu")
+        cpu_input.requires_grad = True
+        hpu_input.requires_grad = True
+        cpu_target = torch.randint(0, C, (N,))
+        hpu_target = cpu_target.to("hpu")
+
+        cpu_output = fn(cpu_input, cpu_target)
+        hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
+        assert torch.allclose(cpu_output, hpu_output)
