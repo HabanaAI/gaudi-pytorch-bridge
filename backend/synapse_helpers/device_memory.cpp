@@ -649,7 +649,8 @@ struct HandleMover {
     destination_pointer_ =
         allocator.pool_alloc_chunk(actual_size_, stream_, false);
     if (destination_pointer_ == nullptr) {
-      PT_DEVMEM_FATAL("destination_pointer_ allocation failed");
+      PT_DEVMEM_DEBUG("destination_pointer_ allocation failed in movers' Allocate");
+      PT_DEVMEM_FATAL("OOM: No enough memory for defragment.");
     }
     h2pMap.SetPtrSize(
         handle_, HandlesMap::PtrSize(destination_pointer_, size_, stream_));
