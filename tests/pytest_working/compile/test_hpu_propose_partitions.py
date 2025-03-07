@@ -32,7 +32,6 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_propose_partitions,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import _is_simulator, compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 from torch.fx import symbolic_trace
@@ -77,11 +76,7 @@ def compiler_fn(gm):
 def test_propose_partitions():
     torch.manual_seed(123)
 
-    _compiled_autograd_enable = (
-        compiled_autograd.enable if is_pytorch_older_than("2.6.0") else compiled_autograd._enable
-    )
-
-    with _compiled_autograd_enable(compiler_fn):
+    with compiled_autograd._enable(compiler_fn):
         input_dim = 100
         input = torch.rand((8, input_dim), dtype=torch.float, device="hpu")
         input_c = input.clone().detach()

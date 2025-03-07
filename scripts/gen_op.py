@@ -35,7 +35,6 @@ import gen_op_files.parser as parser
 import torch
 import yaml
 from gen_op_files.custom_ops import cpp_from_schema
-from packaging.version import Version
 from torchgen import local
 from torchgen.api.translate import translate
 from torchgen.api.types import CppSignatureGroup
@@ -117,9 +116,7 @@ _AVAILABLE_FIELDS = {
     "fallback_check",
     "guid",
     "handle_bool_inputs",
-    "hpu_wrap_all_versions",
-    "hpu_wrap_version_list",
-    "hpu_wrap_version_range",
+    "hpu_wrap",
     "inplace_ids",
     "is_custom_op_out_variant",
     "lazy",
@@ -519,14 +516,8 @@ class Op:
     def get_is_custom_op_out_variant(self):
         return self.op.get("is_custom_op_out_variant", False)
 
-    def get_hpu_wrap_all_versions(self):
-        return self.op.get("hpu_wrap_all_versions", False)
-
-    def get_hpu_wrap_version_range(self):
-        return self.op.get("hpu_wrap_version_range", False)
-
-    def get_hpu_wrap_version_list(self):
-        return self.op.get("hpu_wrap_version_list", False)
+    def get_hpu_wrap(self):
+        return self.op.get("hpu_wrap", False)
 
     def get_only_shared_layer(self):
         return self.op.get("only_shared_layer", False)
@@ -960,10 +951,6 @@ def gen_h_output_file(args, opgroup):
 
 def gen_cpp_output_file(args, opgroup):
     return gen_output_file(args, f"{opgroup}.cpp")
-
-
-def is_pytorch_at_least(version: str) -> bool:
-    return Version(Version(torch.__version__).base_version) >= Version(version)
 
 
 # Generate file with all potential ops for autocast. The actual ops registered
@@ -1852,23 +1839,6 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
     )
 
 
-def get_hpu_wrap(ctxop, minor_pt_ver):
-    hpu_wrap = ctxop.get_hpu_wrap_all_versions()
-    hpu_wrap_list = ctxop.get_hpu_wrap_version_list()
-    hpu_wrap_range = ctxop.get_hpu_wrap_version_range()
-
-    if not (hpu_wrap or hpu_wrap_list or hpu_wrap_range):
-        return False, False
-
-    if isinstance(hpu_wrap_list, list):
-        hpu_wrap_list = minor_pt_ver in hpu_wrap_list
-    if isinstance(hpu_wrap_range, list):
-        hpu_wrap_range = (hpu_wrap_range[0] == 0 or Version(hpu_wrap_range[0]) <= Version(minor_pt_ver)) and (
-            hpu_wrap_range[1] == 0 or Version(hpu_wrap_range[1]) >= Version(minor_pt_ver)
-        )
-    return True, (hpu_wrap or hpu_wrap_list or hpu_wrap_range)
-
-
 # For PT2.0, there are non-mandatory op (from PT2.0 point of view),
 # that we still need to register in the new Eager flow.
 # In order to do it, we overwrite them to default=False, dispatch=True
@@ -2174,7 +2144,6 @@ def generate(args):
     pt_ops, errors, all_ops_metas = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
     assert len(errors) == 0
 
-    minor_pt_ver = ".".join(torch.__version__.split(".")[:2])
     fgens_native = []
     fgens_hpu_wrap_lazy = []
     fgens_hpu_wrap_eager = []
@@ -2185,10 +2154,7 @@ def generate(args):
     for op_name, op_params in yaml_ctx.get_op_data():
         check_op_params(op_name, op_params)
         ctxop = Op(op_name, op_params)
-        is_hpu_wrap, is_current_version = get_hpu_wrap(ctxop, minor_pt_ver)
-        if is_hpu_wrap:
-            if not is_current_version:
-                continue
+        if ctxop.get_hpu_wrap():
             fndef = pt_ops.get(op_name, None)
             assert fndef is not None, f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml."
             op_meta = generate_op_meta(fndef.cpp_sig, op_name)
@@ -2575,17 +2541,13 @@ def generate_check_kernel_support(args):
     pt_ops, errors, _ = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
     assert len(errors) == 0
 
-    minor_pt_ver = ".".join(torch.__version__.split(".")[:2])
     fgens_native = []
     fgens_hpu_wrap = []
     fgens_custom = []
 
     for op_name, op_params in yaml_ctx.get_op_data():
         ctxop = Op(op_name, op_params)
-        is_hpu_wrap, is_current_version = get_hpu_wrap(ctxop, minor_pt_ver)
-        if is_hpu_wrap:
-            if not is_current_version:
-                continue
+        if ctxop.get_hpu_wrap():
             fndef = pt_ops.get(op_name, None)
             assert fndef is not None, f"Op {op_name} doesn't exist in the aten namespace."
             op_meta = generate_op_meta(fndef.cpp_sig, op_name)

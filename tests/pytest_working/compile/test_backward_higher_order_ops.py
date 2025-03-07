@@ -22,7 +22,6 @@ import torch
 import torch._dynamo.test_case
 import torch._dynamo.testing
 import torch._dynamo.utils
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from torch._dynamo import compiled_autograd
 from torch._dynamo._trace_wrapped_higher_order_op import trace_wrapped
 from torch._dynamo.testing import normalize_gm
@@ -60,12 +59,8 @@ class BackwardHigherOrderOpTests(torch._dynamo.test_case.TestCase):
         fn = torch._dynamo.optimize(backend)(fn)
         out = fn(x, y)
         grad_out = torch.tensor([2.0, 2.0], device=device)
-        if is_pytorch_older_than("2.6.0"):
-            with compiled_autograd.enable(compiler_fn):
-                out.backward(grad_out)
-        else:
-            with compiled_autograd._enable(compiler_fn):
-                out.backward(grad_out)
+        with compiled_autograd._enable(compiler_fn):
+            out.backward(grad_out)
         actual = normalize_gm(graph.print_readable(False))
         self.assertEqual(x.grad, grad_out * grad_out)
         expected = """\

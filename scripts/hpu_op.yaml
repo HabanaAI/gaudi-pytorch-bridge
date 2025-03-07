@@ -7189,108 +7189,103 @@ _deform_conv2d_backward:
 
 # Below ops override PyTorch implementation. They were previously
 # declared via wrap_kernels_declarations.h file in habana_kernels and pt_ver
-# directories. Now it's enough to add such op with one of fields:
-#  hpu_wrap_all_versions: true
-#  hpu_wrap_version_list: ["2.0", "2.2", "2.4"]
-#      - for a list of PT versions
-#  hpu_wrap_version_range: ["2.0", 0]
-#      - for a closed range of PT versions, 0 represents no upper/lower limit
+# directories. Now it's enough to add such op with: "hpu_wrap: true"
 
 copy_:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 sort:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 masked_select:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 masked_select.out:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 scatter_add_:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 index_add.out:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 nonzero.out:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 batch_norm_stats:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 dropout:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 matmul:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 _reshape_alias:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 _unsafe_view:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 empty.memory_format:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 empty_strided:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 slice.Tensor:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 split.Tensor:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 split_with_sizes:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 _index_put_impl_:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 bincount:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 nonzero:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 _unique:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 _unique2:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 repeat_interleave.Tensor:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 batch_norm_elemt:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 batch_norm_backward_elemt:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 batch_norm_backward_reduce:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 batch_norm_gather_stats_with_counts:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 instance_norm:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 softmax.int:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 pin_memory:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 _pin_memory:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 is_pinned:
-  hpu_wrap_all_versions: true
+  hpu_wrap: true
 
 # Custom ops
 ctc_loss_custom:

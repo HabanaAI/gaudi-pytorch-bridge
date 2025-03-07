@@ -19,7 +19,6 @@ import os
 
 import habana_frameworks.torch.hpu as hthpu
 import torch
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 
@@ -122,12 +121,8 @@ def test_reuse_bwd_inputs_with_compiled_autograd():
         return torch.compile(gm, backend=backend_compiler, fullgraph=True, options=options_wo_reuse)
 
     loss = model(input)
-    if is_pytorch_older_than("2.6.0"):
-        with compiled_autograd.enable(compiler_fn_wo_reuse):
-            loss.backward()
-    else:
-        with compiled_autograd._enable(compiler_fn_wo_reuse):
-            loss.backward()
+    with compiled_autograd._enable(compiler_fn_wo_reuse):
+        loss.backward()
     compile_wo_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 25 MB
     zero_grad(model)
     torch._dynamo.reset()  # clear the cached compiled function
@@ -141,12 +136,8 @@ def test_reuse_bwd_inputs_with_compiled_autograd():
         return torch.compile(gm, backend=backend_compiler, fullgraph=True, options=options_w_reuse)
 
     loss = model(input)
-    if is_pytorch_older_than("2.6.0"):
-        with compiled_autograd.enable(compiler_fn_w_reuse):
-            loss.backward()
-    else:
-        with compiled_autograd._enable(compiler_fn_w_reuse):
-            loss.backward()
+    with compiled_autograd._enable(compiler_fn_w_reuse):
+        loss.backward()
     compile_w_reuse_max_mem = hthpu.max_memory_allocated() // 1024 // 1024  # 21 MB
     zero_grad(model)
     torch._dynamo.reset()  # clear the cached compiled function
