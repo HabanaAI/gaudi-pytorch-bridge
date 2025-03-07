@@ -57,5 +57,9 @@ TORCH_LIBRARY_IMPL(hpu, AutogradHPU, m) {
   m.impl("hpu::batch_as_strided", batch_as_strided);
 }
 
+TORCH_LIBRARY_IMPL(hpu, HPU, m) {
+  m.impl("hpu::batch_as_strided", batch_as_strided);
+}
+
 } // namespace eager
 } // namespace habana
