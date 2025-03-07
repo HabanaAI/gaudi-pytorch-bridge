@@ -43,6 +43,7 @@
 #  - only_shared_layer - mark ops registered and implemented manually in the backend just for shared layer validation.
 #  - override_fn - function for full override of the op frontend and backend.
 #  - lazy - separate flow for lazy mode.
+#  - autograd - used to register backward support for operator
 
 _assert_async:
   guid: assert_async
@@ -7330,18 +7331,21 @@ cast_to_fp8_v2:
   output_meta: CastToFp8V2Meta
   op_backend: CastToFp8V2
   out_ids: [0, 0]
+  autograd: true
 
 cast_to_fp8_v2.scalar:
   custom_op_schema: "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
   output_meta: CastToFp8V2Meta
   op_backend: CastToFp8V2
   out_ids: [0, 0]
+  autograd: true
 
 cast_to_fp8_v2.scalar_list:
   custom_op_schema: "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
   output_meta: CastToFp8V2Meta
   op_backend: CastToFp8V2
   out_ids: [0, 0]
+  autograd: true
 
 cast_to_fp8_hybrid:
   custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"

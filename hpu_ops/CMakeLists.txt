@@ -17,7 +17,8 @@
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 add_custom_command(
-  OUTPUT ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
+  OUTPUT ${CMAKE_BINARY_DIR}/generated/autograd/autograd_ops.cpp
+         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
          ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op1.cpp
          ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op2.cpp
          ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op3.cpp
@@ -288,6 +289,7 @@ add_habana_library(
   backend/zero_gen.cpp
   common/batched_matmul_output_shape.cpp
   common/convolution_gen.cpp
+  common/fp8_ops.cpp
   common/reduction_template.cpp
   common/replication_pad.cpp
   common/scalar_dtype_range.cpp
@@ -295,6 +297,7 @@ add_habana_library(
   indexing_ops_helper.cpp
   shared_meta_common.cpp
   user_custom_op_descriptor.cpp
+  ${CMAKE_BINARY_DIR}/generated/autograd/autograd_ops.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops0.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops1.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops2.cpp

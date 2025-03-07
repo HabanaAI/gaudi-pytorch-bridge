@@ -107,6 +107,7 @@ _TYPE_NSMAP = {
 
 _AVAILABLE_FIELDS = {
     "acc_thread",
+    "autograd",
     "broadcast",
     "frontend_blocklist",
     "custom_fill_params",
@@ -489,6 +490,9 @@ class Op:
     def get_tpc_input_order(self):
         return self.op.get("tpc_input_order", None)
 
+    def is_op_autograd(self):
+        return self.op.get("autograd", False)
+
     def promote_to_common_type(self):
         return self.op.get("promote_to_common_type", [])
 
@@ -787,7 +791,8 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     )
 
 
-def generate_impl(op_variant, overload, override_fn):
+def generate_impl(op_variant, funsig, override_fn):
+    overload = funsig.replace("(", " (*)(", 1)
     return f'  m.impl("{op_variant}", static_cast<{overload}>(&{override_fn}));\n'
 
 
@@ -803,9 +808,7 @@ def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
 def generate_frontend_functions(fgen, mode):
     # torch registrations
     override_fn = f"habana::{fgen.func}"
-    pos = fgen.funsig.find("(")
-    overload = fgen.funsig[:pos] + " (*)" + fgen.funsig[pos:]
-    impl = generate_impl(get_aten_opname(fgen.aten_sig), overload, override_fn)
+    impl = generate_impl(get_aten_opname(fgen.aten_sig), fgen.funsig, override_fn)
     assert fgen.mapsig not in _FN_AUTOGRAD_HPU
     torch_regs = impl
 
@@ -1807,8 +1810,7 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
         override_fn = f"hpu_wrap::{fgen.func}"
 
         pos = fgen.funsig.find("(")
-        overload = fgen.funsig[:pos] + " (*)" + fgen.funsig[pos:]
-        impl = generate_impl(fgen.op_variant, overload, override_fn)
+        impl = generate_impl(fgen.op_variant, fgen.funsig, override_fn)
         header_impls.append(f"{fgen.funsig[:pos]} {fgen.func}{fgen.funsig[pos:]};")
         if fgen.op_variant in _FN_AUTOGRAD_HPU:
             autograd_impls.append(impl)
@@ -2139,6 +2141,123 @@ def check_op_params(op_name, op_params):
             raise Exception(f"Invalid field for {op_name}: {field}")
 
 
+def get_autograd_class_name(op_name: str) -> str:
+    op_name = op_name.replace(".", "_")
+    components = op_name.split("_")
+    return "".join([x.title() for x in components]) + "Function"
+
+
+def generate_autograd_functions_h_file(fgens_autograd: list[OpGen]) -> str:
+    dispatch_functions = ""
+    autograd_functions = ""
+    for fgen in fgens_autograd:
+        autograd_class_name = get_autograd_class_name(fgen.op_variant)
+
+        input_params = fgen.sig.split("(")[1][:-1]
+        input_params = ",\n\t  ".join(input_params.split(", "))
+
+        return_type = fgen.sig.split(" ")[0]
+        inputs = fgen.rwsig.split("(")[1][:-1].replace(", ", ",\n\t")
+
+        dispatch_op_name = f"{fgen.op_variant}_dispatch"
+        dispatch_op_name = dispatch_op_name.replace(".", "_")
+
+        dispatch_functions += f"{return_type} {dispatch_op_name}(\n\t{inputs});\n\n"
+
+        if "std::tuple" in return_type:
+            return_type = "std::vector<at::Tensor>"
+
+        autograd_functions += templates._AUTOGRAD_CLASS_DEFINITION.format(
+            autograd_class_name=autograd_class_name,
+            return_type=return_type,
+            op_name=fgen.op_variant,
+            input_params=input_params,
+        )
+    return templates._AUTOGRAD_H_FILE.format(
+        gen=os.path.basename(sys.argv[0]), dispatch_functions=dispatch_functions, autograd_functions=autograd_functions
+    )
+
+
+def create_dispatch_function(fgen: OpGen, input_names: list[str], inputs: list[str]) -> str:
+    return_type = fgen.sig.split(" ")[0]
+    results = fgen.op_variant.split(".")
+    if len(results) == 1:
+        results.append("")
+
+    dispatch_op_name = f"{fgen.op_variant}_dispatch"
+    dispatch_op_name = dispatch_op_name.replace(".", "_")
+
+    return templates._AUTOGRAD_DISPATCH_FUNCTION.format(
+        return_type=return_type,
+        dispatch_op_name=dispatch_op_name,
+        inputs=inputs,
+        op_name=results[0],
+        variant_name=results[1],
+        input_names=input_names,
+    )
+
+
+def create_autograd_frontend(fgen: OpGen, input_names: list[str], input_names_len: int, inputs: list[str]) -> str:
+    frontend = ""
+
+    dump_prexif = f"DUMP_{input_names_len}ARGS" if input_names_len > 1 else "DUMP_ARG"
+
+    op_name = f"{fgen.op_variant}_autograd".replace(".", "_")
+    return_type = fgen.sig.split(" ")[0]
+
+    frontend += f"{return_type} {op_name}(\n\t{inputs}) {{\n"
+    frontend += f'  PT_OP_INFO("{op_name} :", {dump_prexif}({input_names}));\n'
+
+    autograd_call = f"{get_autograd_class_name(fgen.op_variant)}::apply({input_names});\n"
+    if "std::tuple" in return_type:
+        frontend += f"  auto result = {autograd_call}"
+        frontend += "  return {"
+        tuple_size = return_type.count("Tensor")
+        for i in range(tuple_size):
+            frontend += f"result[{i}]"
+            if i != tuple_size - 1:
+                frontend += ", "
+        frontend += "};\n}"
+    else:
+        frontend += f"  return {autograd_call}"
+    frontend += "\n\n"
+
+    return frontend
+
+
+def generate_autograd_functions_cpp_file(fgens_autograd: list[OpGen]) -> str:
+    frontend = ""
+    dispatch_functions = ""
+    impls = "TORCH_LIBRARY_IMPL(hpu, AutogradHPU, m) {\n"
+    for fgen in fgens_autograd:
+        inputs = fgen.rwsig.split("(")[1][:-1].replace(", ", ",\n\t")
+
+        input_names = re.findall(r"\b(\w+)\b(?=[,)])", fgen.cppsig[fgen.cppsig.find(fgen.func) :])
+        input_names_len = len(input_names)
+        input_names = ", ".join(input_names)
+
+        op_name = f"{fgen.op_variant}_autograd".replace(".", "_")
+        impls += generate_impl(fgen.op_variant, fgen.funsig, op_name)
+
+        dispatch_functions += create_dispatch_function(fgen, input_names, inputs)
+        frontend += create_autograd_frontend(fgen, input_names, input_names_len, inputs)
+
+    impls += "}\n"
+
+    return templates._AUTOGRAD_CPP_FILE.format(
+        gen=os.path.basename(sys.argv[0]), frontend=frontend, dispatch_functions=dispatch_functions, impls=impls
+    )
+
+
+def generate_autograd_ops(args, fgens_autograd):
+    if fgens_autograd:
+        print(generate_autograd_functions_h_file(fgens_autograd), file=gen_h_output_file(args, "autograd/autograd_ops"))
+        print(
+            generate_autograd_functions_cpp_file(fgens_autograd),
+            file=gen_cpp_output_file(args, "autograd/autograd_ops"),
+        )
+
+
 def generate(args):
     yaml_ctx = YamlContext(args.yaml)
     pt_ops, errors, all_ops_metas = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
@@ -2150,6 +2269,7 @@ def generate(args):
     fgens_custom = []
     fgens_quant = []
     fgens_torchvision = []
+    fgens_autograd = []
 
     for op_name, op_params in yaml_ctx.get_op_data():
         check_op_params(op_name, op_params)
@@ -2170,6 +2290,8 @@ def generate(args):
                 fgens_quant.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
             else:
                 fgens_custom.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
+            if ctxop.is_op_autograd():
+                fgens_autograd.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
         elif not ctxop.get_only_shared_layer():
             fndef = pt_ops.get(op_name, None)
             if fndef is None:
@@ -2190,6 +2312,8 @@ def generate(args):
         generate_frontend(args, fgens_custom, mode, namespace="hpu")
         generate_frontend(args, fgens_quant, mode, namespace="quantized_decomposed")
         generate_frontend(args, fgens_torchvision, mode, namespace="torchvision")
+
+    generate_autograd_ops(args, fgens_autograd)
 
 
 def generate_check_kernel_support_sigs(fgen):

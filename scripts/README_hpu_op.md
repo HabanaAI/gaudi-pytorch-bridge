@@ -25,6 +25,7 @@ The generated code is broadly divided into
 * Registration to Lowering Kernel Registry
 * Registration to PyTorch
 * Op Template - Reduction
+* Autograd registration
 
 When additional code specific for an op is necessary, there is a provision for writing
  that part manually and getting those manually written code invoked in the generated code
@@ -65,3 +66,5 @@ Reduction helper functions like HandleReductionDimAndKeepdim and HandleReduction
 Reference can be found in the below specified files:
   HandleReductionDtype - [norm_gen.cpp](../hpu_ops/norm_gen.cpp)
   HandleReductionDimAndKeepdim - [all_dim_gen.cpp](../hpu_ops/all_dim_gen.cpp)
+
+To enable autograd support, set the `autograd` key to `true`. This will generate an autograd class that inherits from the `torch::autograd::Function` class. The class name is derived from the op name and variant, ending with the `Function` keyword. For example, the `cast_to_fp8_v2.scalar` op will be converted into `CastToFp8V2ScalarFunction`. You will need to manually implement the `forward` and `backward` methods of this class, as there is no generic implementation for these methods.

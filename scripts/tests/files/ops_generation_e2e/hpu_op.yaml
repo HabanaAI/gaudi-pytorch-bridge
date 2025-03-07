@@ -273,3 +273,10 @@ mixture_of_experts.fp8_fused_weights:
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
+
+cast_to_fp8_v2:
+  custom_op_schema: "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
+  output_meta: CastToFp8V2Meta
+  op_backend: CastToFp8V2
+  out_ids: [0, 0]
+  autograd: true

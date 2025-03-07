@@ -10,6 +10,7 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
+#include "cast_to_fp8_v2.h"
 #include "exp_fast_math.h"
 #include "mixture_of_experts.h"
 #include "softmax_fp8.h"
@@ -65,6 +66,19 @@ at::Tensor mixture_of_experts(const at::Tensor & hidden_states, const at::Tensor
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, hpu_op);
 }
 
+::std::tuple<at::Tensor,at::Tensor> cast_to_fp8_v2(const at::Tensor & input, const c10::optional<at::Tensor> & scale, bool stochastic_rounding, bool is_amax, at::ScalarType dtype, at::OptionalIntArrayRef scale_shape) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("cast_to_fp8_v2: ", DUMP_6ARGS(input, scale, stochastic_rounding, is_amax, dtype, scale_shape));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  LazyOp<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::cast_to_fp8_v2", {input, scale, stochastic_rounding, is_amax, dtype, scale_shape}};
+  hpu_op.SetOutputMetaFn(CastToFp8V2Meta);
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op);
+}
+
 
 
 
@@ -76,6 +90,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("softmax_fp8", static_cast<at::Tensor (*)(const at::Tensor &, int64_t, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &)>(&habana::softmax_fp8));
   m.impl("exp_fast_math", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::exp_fast_math));
   m.impl("mixture_of_experts.fp8_fused_weights", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, at::TensorList, at::TensorList, const at::Tensor &, at::TensorList, at::TensorList, at::TensorList, bool, c10::string_view, int64_t, int64_t)>(&habana::mixture_of_experts));
+  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const c10::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&habana::cast_to_fp8_v2));
 
 }
 
