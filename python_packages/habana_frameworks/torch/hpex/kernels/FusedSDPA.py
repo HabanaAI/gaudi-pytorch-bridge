@@ -116,13 +116,23 @@ def sdpa_fwd_wrapper(
 
     # Check if recompute variant is enabled
     recompute = recompute_mode
-
     if recompute is None:
         recompute = ht.recompute_sdp_enabled()
 
-    if return_attn_probs:
+    q_seq_len = q.size(-2)
+    # In case of inference, override the mode set by user and set the mode internally
+    # and go via recmpute mode unless returing attn prob is requested (since attn prob
+    # is returned only in non-recomp mode). For now take recomp path only in case Q seq len is 1.
+    # Later see if this condition can be removed.
+    if requires_backward is False:
+        if q_seq_len == 1:
+            recompute = True
+        # force recomp to False if attn prob is to be returned
+        if return_attn_probs:
+            recompute = False
+
+    if return_attn_probs is True:
         assert requires_backward is False, "return_attn_probs is supported only for inference mode"
-        recompute = False
 
     if recompute and requires_backward and softmax_mode == "fast":
         assert (

@@ -127,11 +127,17 @@ def fp8_sdpa_fwd_wrapper(
     if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
-    assert softmax_mode != "fp32", "softmax_mode == fp32 is not supported in fp8 flow"
-
-    # Check if recompute variant is enabled
     if recompute is None:
         recompute = ht.recompute_sdp_enabled()
+
+    # In case of inference, override the mode set by user and set the mode internally
+    # and go via recmpute mode. For now take this path only in case Q seq len is 1.
+    # Later see if this condition can be removed.
+    q_seq_len = q.size(-2)
+    if requires_backward is False and q_seq_len == 1:
+        recompute = True
+
+    assert softmax_mode != "fp32", "softmax_mode == fp32 is not supported in fp8 flow"
 
     if requires_backward:
         assert is_causal, "Fp8 FusedSDPA in trining only supports Triangular mask"
