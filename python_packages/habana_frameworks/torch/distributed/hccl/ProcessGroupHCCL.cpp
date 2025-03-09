@@ -29,7 +29,6 @@
 
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/collective_utils.h"
-#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_context.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -393,14 +392,16 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
       hcclResult_t hccl_result = hcclSuccess;
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-      auto resource_holder = std::make_shared<GenericResourceHolder>();
-      resource_holder->add_tensor(tensor);
+      struct ResourceHolder {
+        at::Tensor tensor_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+      };
+      auto resource_holder = std::make_shared<ResourceHolder>();
+      resource_holder->tensor_ = tensor;
 
       void* tensor_address;
       deviceCtxt->lock_address(
-          tensor.data_ptr(),
-          &tensor_address,
-          resource_holder->get_address_lock());
+          tensor.data_ptr(), &tensor_address, resource_holder->address_lock);
 
       hccl_result =
           fn(tensor, tensor_address, *comm, collective_stream, peerRank);
@@ -570,20 +571,22 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
 
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-      auto resource_holder = std::make_shared<GenericResourceHolder>();
-      resource_holder->add_tensor(input);
-      resource_holder->add_tensor(output);
+      struct ResourceHolder {
+        std::vector<at::Tensor> tensors_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+      };
+      auto resource_holder = std::make_shared<ResourceHolder>();
+      resource_holder->tensors_ = {input, output};
 
       void* input_address;
       void* output_address;
       deviceCtxt->lock_address(
-          {input.data_ptr(), output.data_ptr()},
-          resource_holder->get_address_lock());
+          {input.data_ptr(), output.data_ptr()}, resource_holder->address_lock);
       input_address =
-          reinterpret_cast<void*>(resource_holder->get_address_lock()->at(0));
+          reinterpret_cast<void*>(resource_holder->address_lock->at(0));
       HABANA_ASSERT(input_address != nullptr, "input_address is null");
       output_address =
-          reinterpret_cast<void*>(resource_holder->get_address_lock()->at(1));
+          reinterpret_cast<void*>(resource_holder->address_lock->at(1));
       HABANA_ASSERT(output_address != nullptr, "output_address is null");
 
       hccl_result =

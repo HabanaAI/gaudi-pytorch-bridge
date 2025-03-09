@@ -21,7 +21,6 @@
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
-#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/device_helpers.h"
@@ -413,7 +412,20 @@ void habana_helpers::copy_data_to_host(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
+    struct ResourceHolder {
+      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
+          : src_(src), dst_(dst) {}
+
+      at::Tensor src_;
+      at::Tensor dst_;
+
+      void release_resources() {
+        src_ = at::Tensor();
+        dst_ = at::Tensor();
+      }
+    };
+
+    auto callback = [rh = std::make_shared<ResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
     habana::HPUDeviceContext::copy_data_to_host(
@@ -487,7 +499,20 @@ void habana_helpers::copy_data_to_device(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
+    struct ResourceHolder {
+      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
+          : src_(src), dst_(dst) {}
+
+      at::Tensor src_;
+      at::Tensor dst_;
+
+      void release_resources() {
+        src_ = at::Tensor();
+        dst_ = at::Tensor();
+      }
+    };
+
+    auto callback = [rh = std::make_shared<ResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
     habana::HPUDeviceContext::copy_data_to_device(
@@ -539,7 +564,20 @@ void habana_helpers::copy_data_within_device(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
+    struct ResourceHolder {
+      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
+          : src_(src), dst_(dst) {}
+
+      at::Tensor src_;
+      at::Tensor dst_;
+
+      void release_resources() {
+        src_ = at::Tensor();
+        dst_ = at::Tensor();
+      }
+    };
+
+    auto callback = [rh = std::make_shared<ResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
     habana::HPUDeviceContext::copy_data_within_device(

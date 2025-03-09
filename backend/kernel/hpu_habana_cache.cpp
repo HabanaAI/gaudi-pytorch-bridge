@@ -17,7 +17,6 @@
 #include <algorithm>
 #include "backend/backend_meta.h"
 #include "backend/helpers/collective_kernel_info.h"
-#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
@@ -1665,20 +1664,27 @@ void RecipeLauncher::Launch(
     if (!(common::IsRecordStreamEnabled() &&
           GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
       // Use wrapper for resources that must survive async part of the compute.
-      auto resource_holder = std::shared_ptr<GenericResourceHolder>(
-          new GenericResourceHolder(),
-          [](GenericResourceHolder* resource_holder) {
-            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
-            auto recipe_handle = resource_holder->recipe_id();
+      struct ResourceHolder {
+        std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
+        std::vector<at::Tensor> output_tensors_;
+        std::vector<at::Tensor> input_tensors_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+        synapse_helpers::active_recipe_counter* recipe_counter_ptr;
+        size_t active_graph_key_;
+      };
+      auto resource_holder = std::shared_ptr<ResourceHolder>(
+          new ResourceHolder(), [](ResourceHolder* resource_holder) {
+            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
+            auto recipe_handle = resource_holder->recipe_id_;
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
-                resource_holder->active_graph_key() > 0) {
+                resource_holder->active_graph_key_ > 0) {
               auto& device = HPUDeviceContext::get_device();
               synapse_helpers::MemoryReporter* reporter =
                   device.get_device_memory().get_memory_reporter();
               reporter->getGraphStats()->removeLiveGraph(
-                  resource_holder->active_graph_key());
+                  resource_holder->active_graph_key_);
             }
             towl::emitRecipeFinished(recipe_handle.get());
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
@@ -1686,14 +1692,14 @@ void RecipeLauncher::Launch(
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
-      resource_holder->recipe_id() = recipe_ptr;
+      resource_holder->recipe_id_ = recipe_ptr;
       if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->set_output_tensors(outPtRefs);
-        resource_holder->get_address_lock() = std::move(address_lock);
-        resource_holder->set_input_tensors(ptRefs);
+        resource_holder->output_tensors_ = outPtRefs;
+        resource_holder->address_lock = std::move(address_lock);
+        resource_holder->input_tensors_ = ptRefs;
       }
-      resource_holder->set_recipe_counter_ptr(&recipe_counter);
-      resource_holder->set_active_graph_key(active_graph_key_);
+      resource_holder->recipe_counter_ptr = &recipe_counter;
+      resource_holder->active_graph_key_ = active_graph_key_;
       // ResourceHolder could be used directly as callback, if we would only
       // implement operator(), but copying of ResourceHolder would result in
       // copying of all shared_ptr stored inside (including std::vector). To
@@ -1711,20 +1717,25 @@ void RecipeLauncher::Launch(
       collective_kernels_info_->Launch(ptRefs, outPtRefs, true);
     } else {
       // Use wrapper for resources that must survive async part of the compute.
-      auto resource_holder = std::shared_ptr<GenericResourceHolder>(
-          new GenericResourceHolder(),
-          [](GenericResourceHolder* resource_holder) {
-            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
-            auto recipe_handle = resource_holder->recipe_id();
+      struct ResourceHolder {
+        std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+        synapse_helpers::active_recipe_counter* recipe_counter_ptr;
+        size_t active_graph_key_;
+      };
+      auto resource_holder = std::shared_ptr<ResourceHolder>(
+          new ResourceHolder(), [](ResourceHolder* resource_holder) {
+            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
+            auto recipe_handle = resource_holder->recipe_id_;
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
-                resource_holder->active_graph_key() > 0) {
+                resource_holder->active_graph_key_ > 0) {
               auto& device = HPUDeviceContext::get_device();
               synapse_helpers::MemoryReporter* reporter =
                   device.get_device_memory().get_memory_reporter();
               reporter->getGraphStats()->removeLiveGraph(
-                  resource_holder->active_graph_key());
+                  resource_holder->active_graph_key_);
             }
             towl::emitRecipeFinished(recipe_handle.get());
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
@@ -1732,12 +1743,12 @@ void RecipeLauncher::Launch(
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
-      resource_holder->recipe_id() = recipe_ptr;
+      resource_holder->recipe_id_ = recipe_ptr;
       if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->get_address_lock() = std::move(address_lock);
+        resource_holder->address_lock = std::move(address_lock);
       }
-      resource_holder->set_recipe_counter_ptr(&recipe_counter);
-      resource_holder->set_active_graph_key(active_graph_key_);
+      resource_holder->recipe_counter_ptr = &recipe_counter;
+      resource_holder->active_graph_key_ = active_graph_key_;
       // ResourceHolder could be used directly as callback, if we would only
       // implement operator(), but copying of ResourceHolder would result in
       // copying of all shared_ptr stored inside (including std::vector). To
