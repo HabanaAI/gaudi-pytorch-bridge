@@ -17,10 +17,8 @@
 
 
 import collections
-import os
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from habana_frameworks.torch.dynamo.utils import str_to_bool
 
 import torch
 from torch._dynamo.utils import count_calls
@@ -109,14 +107,6 @@ def hpu_partition(
     if hpu_backend_config.remove_unnecessary_clones:
         joint_module = remove_unnecessary_clone(joint_module)
 
-    # optimize the joint module before partitioning it
-    # we will fuse the attention module here
-    if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
-        from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
-            hpu_recursive_joint_graph_passes,
-        )
-
-        hpu_recursive_joint_graph_passes(joint_module)
     try:
         fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
         bw_module = reordering_to_mimic_autograd_engine(bw_module)

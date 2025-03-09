@@ -15,13 +15,11 @@
 #
 ###############################################################################
 
-import os
 from unittest import mock
 
 import functorch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import log_function_start_end
-from habana_frameworks.torch.dynamo.utils import str_to_bool
 
 import torch
 from torch._dynamo.utils import detect_fake_mode
@@ -119,15 +117,6 @@ def hpu_compiler_inner(
     three separate graphs for FWD, BWD and optimizer. Each of these phases can
     also generate multiple graphs and calls to this function.
     """
-    if not is_training:
-        # optimize the module before partitioning it
-        # we will fuse the attention module here
-        if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
-            from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
-                hpu_recursive_joint_graph_passes,
-            )
-
-            hpu_recursive_joint_graph_passes(graph_module)
 
     graph_name = _gen_graph_name()
     # Perform optimizations on a graph before running passes for preparing the partitioner.

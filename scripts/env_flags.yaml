@@ -828,13 +828,9 @@ PT_HPU_USE_PHILOX_NORMAL:
   default: false
   doc: "This flag enables executing torch.randn with philox_normal kernel instead of LFSR based."
 
+
 PT_HPU_USE_OVERRIDE_ATEN_SDPA:
   type: bool
   default: false
   doc: "This flag overrides aten.scaled_dot_product_attention in eager and torch.compile and
         invoke our autograd overwrite fucntion fused_sdpa_autograd_wrap."
-
-PT_HPU_USE_FUSE_SDPA_PASS:
-  type: bool
-  default: false
-  doc: "This flag fuse all patterns for SDPA and convert to aten.scaled_dot_product_attention."

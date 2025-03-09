@@ -233,7 +233,6 @@ hpu_backend_decompositions_list = [
     aten.unfold.default,
     aten.unfold_backward.default,
     aten.unfold_backward.out,
-    aten._unsafe_view,
     aten.upsample_bilinear2d.vec,
     aten.upsample_bilinear2d.default,
     aten.xlogy.Tensor,
@@ -773,10 +772,6 @@ def get_hpu_decompositions():
         return {
             **hpu_backend_decompositions_common,
         }
-    elif hpu_backend_config.decomposition_mode == "inductor":
-        from torch._inductor.decomposition import decompositions
-
-        return decompositions
     elif hpu_backend_config.decomposition_mode == "core_aten":
         return {**core_aten_decompositions()}
     else:
