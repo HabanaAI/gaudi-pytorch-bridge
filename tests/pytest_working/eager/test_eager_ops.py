@@ -516,6 +516,40 @@ def test_index_put_bool():
     assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
 
+def test_index_put_bool_2d():
+    def generate_boolean_tensor(x, y, z):
+        """Generate a boolean tensor of size (x,y) with z number of values set to True"""
+        if z > x * y:
+            raise ValueError("z cannot be greater than the total number of elements in the tensor (x * y).")
+        # Create a tensor of zeros (False)
+        tensor = torch.zeros(x * y, dtype=torch.bool)
+        # Randomly select z unique indices to set to True
+        indices = torch.randperm(x * y)[:z]
+        tensor[indices] = True
+        # Reshape the tensor to the desired shape
+        tensor = tensor.view(x, y)
+        return tensor
+
+    s0 = 4
+    s1 = 32
+    s2 = 4
+    s3 = s1 // 2
+    x = torch.arange(s0 * s1 * s2).view(s0, s1, s2)
+    values = torch.ones(s3, s2, dtype=x.dtype)
+    # The number of True values in the bmask should be same as the first dim of the values tensor
+    bmask = generate_boolean_tensor(s0, s1, s3)
+
+    def index_test(device, x, bmask, values):
+        x = x.to(device)
+        bmask = bmask.to(device)
+        values = values.to(device)
+        return x.index_put((bmask,), values, True)
+
+    index_res_cpu = index_test("cpu", x, bmask, values)
+    index_res = index_test("hpu", x, bmask, values)
+    torch.allclose(index_res_cpu, index_res.to("cpu"))
+
+
 def test_index_put_bool_different_rank():
     cpu_tensor = torch.arange(24).to(torch.float).view(3, 2, 2, 1, 2)
     hpu_tensor = cpu_tensor.to("hpu")

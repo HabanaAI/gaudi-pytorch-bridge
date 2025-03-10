@@ -30,17 +30,13 @@ static std::vector<int64_t> broadcast_size(
     return size;
   }
   bool all_bool_indices = true;
-  int64_t max_indices_count = 1;
   for (size_t i = 0; i < indices.size(); i++) {
-    if (indices[i].scalar_type() == c10::ScalarType::Bool) {
-      max_indices_count = (indices[i].numel() > max_indices_count)
-          ? indices[i].numel()
-          : max_indices_count;
-    } else {
+    if (indices[i].scalar_type() != c10::ScalarType::Bool) {
       all_bool_indices = false;
+      break;
     }
   }
-  auto isz = indices[0].sizes().vec();
+
   auto self_sizes = self.sizes().vec();
   if (all_bool_indices) {
     for (size_t i = 0; i < indices.size(); i++) {
@@ -49,6 +45,7 @@ static std::vector<int64_t> broadcast_size(
     }
     return size;
   } else {
+    auto isz = indices[0].sizes().vec();
     if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
       std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
                                        // rows indicates broadcast size
@@ -625,11 +622,23 @@ void IndexPutBoolEager::AddNode(
         std::move(inputPutBoolBroadcastIndexInputs),
         {{max_size, index_params.dtype}});
 
-    index_params.sizes = max_size; // indices[i].sizes().vec(); // max_size;
-    // index_params.numel = indices[i].numel();
-    index_params.numel = std::accumulate(
-        std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
+    if (values.numel() > 1) {
+      auto values_sizes = values.sizes().vec();
+      index_params.numel = values_sizes[0];
+      for (size_t i = 0; i < self_sizes.size() - values_sizes.size(); i++) {
+        index_params.sizes.emplace_back(self_sizes[i]);
+      }
+      index_params.sizes.emplace_back(values_sizes[0]);
+    } else {
+      index_params.sizes = max_size;
+      index_params.numel = std::accumulate(
+          std::begin(max_size),
+          std::end(max_size),
+          1,
+          std::multiplies<size_t>());
+    }
     index_params.force_long = false;
+
     nonzero = NonZeroCommon(
         this,
         graph,
