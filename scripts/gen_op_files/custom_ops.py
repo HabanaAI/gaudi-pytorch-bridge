@@ -136,19 +136,22 @@ def input_type(dtype):
     if dtype in input_types_map:
         return input_types_map[dtype]
     if re.match(r"Tensor\(.*\)", dtype):
-        return "TensorList" if dtype[-1] == "]" else "Tensor &"
+        if is_pytorch_older_than("2.7.0"):
+            return "TensorList" if dtype[-1] == "]" else "Tensor &"
+        else:
+            return "at::TensorList" if dtype[-1] == "]" else "at::Tensor &"
     if re.match(r"bool\[(\d+)\]", dtype):
         ctype = re.match(r"bool\[(\d+)\]", dtype).groups()[0]
         return f"::std::array<bool,{ctype}>"
-    assert True, f"Custom schema input dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
+    assert False, f"Custom schema input dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
 
 
 def output_type(dtype):
     if dtype in output_types_map:
         return output_types_map[dtype]
     if re.match(r"Tensor\(.*\)", dtype):
-        return "Tensor &"
-    assert True, f"Custom schema output dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
+        return "Tensor &" if is_pytorch_older_than("2.7.0") else "at::Tensor &"
+    assert False, f"Custom schema output dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
 
 
 def cpp_from_schema(schema):

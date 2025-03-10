@@ -35,6 +35,7 @@ import gen_op_files.parser as parser
 import torch
 import yaml
 from gen_op_files.custom_ops import cpp_from_schema
+from gen_op_files.version_checker import is_pytorch_older_than
 from torchgen import local
 from torchgen.api.translate import translate
 from torchgen.api.types import CppSignatureGroup
@@ -78,31 +79,28 @@ OpMeta = namedtuple_with_defaults("OpMeta", "op_variant, mapsig, func, funsig")
 # TODO(https://github.com/pytorch/pytorch/issues/39959)
 _FN_AUTOGRAD_HPU = {"matmul", "softmax.int", "dropout"}
 
-_TYPE_NSMAP = {
-    "Tensor": "at::Tensor",
-    "TensorList": "at::TensorList",
-    "Scalar": "at::Scalar",
-    "Storage": "at::Storage",
-    "IntList": "at::IntList",
-    "IntArrayRef": "at::IntArrayRef",
-    "OptionalIntArrayRef": "at::OptionalIntArrayRef",
-    "ArrayRef": "at::ArrayRef",
-    "Generator": "at::Generator",
-    "Layout": "at::Layout",
-    "ScalarType": "at::ScalarType",
-    "TensorOptions": "at::TensorOptions",
-    "SparseTensorRef": "at::SparseTensorRef",
-    "Device": "c10::Device",
-    "optional": "c10::optional",
-    "MemoryFormat": "at::MemoryFormat",
-    "QScheme": "at::QScheme",
-    "ConstQuantizerPtr": "at::ConstQuantizerPtr",
-    "Dimname": "at::Dimname",  # namedtensor-only
-    "DimnameList": "at::DimnameList",  # namedtensor-only
-    "ITensorListRef": "at::ITensorListRef",
-    "OptionalSymIntArrayRef": "at::OptionalSymIntArrayRef",
-    "SymInt": "c10::SymInt",
-}
+if is_pytorch_older_than("2.7.0"):
+    _TYPE_NSMAP = {
+        "Tensor": "at::Tensor",
+        "TensorList": "at::TensorList",
+        "Scalar": "at::Scalar",
+        "Storage": "at::Storage",
+        "IntArrayRef": "at::IntArrayRef",
+        "OptionalIntArrayRef": "at::OptionalIntArrayRef",
+        "ArrayRef": "at::ArrayRef",
+        "Generator": "at::Generator",
+        "Layout": "at::Layout",
+        "ScalarType": "at::ScalarType",
+        "Device": "c10::Device",
+        "MemoryFormat": "at::MemoryFormat",
+        "QScheme": "at::QScheme",
+        "Dimname": "at::Dimname",  # namedtensor-only
+        "DimnameList": "at::DimnameList",  # namedtensor-only
+        "ITensorListRef": "at::ITensorListRef",
+        "OptionalSymIntArrayRef": "at::OptionalSymIntArrayRef",
+    }
+else:
+    _TYPE_NSMAP = {}
 
 
 _AVAILABLE_FIELDS = {
@@ -1213,7 +1211,7 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
 
         param_vars.append(pname)
 
-        if cptype in ["Tensor", "at::Tensor"]:
+        if cptype == ("Tensor" if is_pytorch_older_than("2.7.0") else "at::Tensor"):
             if parser.type_is_const(ptype):
                 tfetcher.add(pname)
             else:
@@ -1223,12 +1221,14 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
                     out_indices.append(i)
 
         if rtype == "void":
-            if cptype in ["TensorList", "Tensor", "at::TensorList", "at::Tensor"]:
+            if cptype in (
+                ["TensorList", "Tensor"] if is_pytorch_older_than("2.7.0") else ["at::TensorList", "at::Tensor"]
+            ):
                 call_args.append(pname)
                 if out_ids is not None:
                     out_indices.append(i)
 
-        elif rtype == "const at::Tensor &" and cptype in ["Tensor", "at::Tensor"]:
+        elif rtype == "const at::Tensor &" and cptype == ("Tensor" if is_pytorch_older_than("2.7.0") else "at::Tensor"):
             call_args.append(pname)
             out_indices.append(i)
 
@@ -1767,7 +1767,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     tree = parser.parse(fndef.cpp_sig)
     xtree = parser.xparse(fndef.cpp_sig)
     mapsig = parser.create_map_sig(xtree, fndef.cpp_sig)
-    rwsig = parser.rewrite_signature(fndef.cpp_sig, _TYPE_NSMAP)
+    rwsig = parser.rewrite_signature(fndef.cpp_sig, _TYPE_NSMAP) if is_pytorch_older_than("2.7.0") else fndef.cpp_sig
     rwxtree = parser.xparse(rwsig)
     params = parser.get_parameters(tree)
     aten_sig = fndef.aten_sig
@@ -1861,7 +1861,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
 def generate_op_meta(cpp_sig, op_name):
     xtree = parser.xparse(cpp_sig)
     mapsig = parser.create_map_sig(xtree, cpp_sig)
-    rwsig = parser.rewrite_signature(cpp_sig, _TYPE_NSMAP)
+    rwsig = parser.rewrite_signature(cpp_sig, _TYPE_NSMAP) if is_pytorch_older_than("2.7.0") else cpp_sig
     rwxtree = parser.xparse(rwsig)
     funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
 
@@ -2452,19 +2452,33 @@ def generate_check_kernel_support_sigs(fgen):
 
 def get_cp_type_check(cptype):
     cp_type_check_map = {
-        "Scalar": "isScalar",
-        "at::Scalar": "isScalar",
-        "Tensor": "isTensor",
-        "at::Tensor": "isTensor",
         "double": "isDouble",
         "bool": "isBool",
         "int64_t": "isInt",
-        "ITensorListRef": "isTensorList",
-        "TensorList": "isTensorList",
-        "at::TensorList": "isTensorList",
-        "c10::optional<ArrayRef>": "isList",
-        "IntArrayRef": "isList",
     }
+
+    if is_pytorch_older_than("2.7.0"):
+        cp_type_check_map.update(
+            {
+                "Scalar": "isScalar",
+                "Tensor": "isTensor",
+                "ITensorListRef": "isTensorList",
+                "TensorList": "isTensorList",
+                "c10::optional<ArrayRef>": "isList",
+                "IntArrayRef": "isList",
+            }
+        )
+    else:
+        cp_type_check_map.update(
+            {
+                "at::Scalar": "isScalar",
+                "at::Tensor": "isTensor",
+                "at::ITensorListRef": "isTensorList",
+                "at::TensorList": "isTensorList",
+                "::std::optional<at::ArrayRef>": "isList",
+                "at::IntArrayRef": "isList",
+            }
+        )
     if cptype not in cp_type_check_map:
         return None
     return cp_type_check_map[cptype]

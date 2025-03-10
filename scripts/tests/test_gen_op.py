@@ -27,7 +27,6 @@ import gen_op_files.parser as parser
 import pytest
 import torch
 from gen_op import (
-    _TYPE_NSMAP,
     check_valid_fields,
     cpp_from_schema,
     generate,
@@ -287,7 +286,7 @@ def test_generate_op_hclasses(is_backend):
     "cpp_sig, out_indices, expected_results",
     [
         (
-            "void _foreach_addcmul_(TensorList self, TensorList tensor1, TensorList tensor2, const Tensor & scalars)",
+            "void _foreach_addcmul_(at::TensorList self, at::TensorList tensor1, at::TensorList tensor2, const at::Tensor & scalars)",
             [0],
             {
                 "param_vars": ["self", "tensor1", "tensor2", "scalars"],
@@ -297,7 +296,7 @@ def test_generate_op_hclasses(is_backend):
             },
         ),
         (
-            "::std::vector<Tensor> _foreach_addcmul(TensorList self, TensorList tensor1, TensorList tensor2, ArrayRef<Scalar> scalars)",
+            "::std::vector<at::Tensor> _foreach_addcmul(at::TensorList self, at::TensorList tensor1, at::TensorList tensor2, at::ArrayRef<at::Scalar> scalars)",
             None,
             {
                 "param_vars": ["self", "tensor1", "tensor2", "scalars"],
@@ -309,14 +308,15 @@ def test_generate_op_hclasses(is_backend):
     ],
 )
 def test_parse_params(cpp_sig, out_indices, expected_results):
+    if is_pytorch_older_than("2.7.0"):
+        cpp_sig = cpp_sig.replace("at::", "")
     tree = parser.parse(cpp_sig)
-    rwsig = parser.rewrite_signature(cpp_sig, _TYPE_NSMAP)
-    rwxtree = parser.xparse(rwsig)
+    rwxtree = parser.xparse(cpp_sig)
     params = parser.get_parameters(tree)
-    rtype = parser.get_return_type_str(rwxtree, rwsig)
-    funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
+    rtype = parser.get_return_type_str(rwxtree, cpp_sig)
+    funsig = parser.create_stdfunc_sig(rwxtree, cpp_sig)
 
-    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: f"{x}")
+    _, fname, _ = parser.get_function_signature(rwxtree, cpp_sig, lambda x: f"{x}")
 
     param_vars, call_args, out_indices, fc_params, _ = parse_params(params, fname, rtype, [], funsig, out_indices)
 
