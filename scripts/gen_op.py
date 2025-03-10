@@ -140,6 +140,75 @@ _AVAILABLE_FIELDS = {
     "tpc_input_order",
 }
 
+# List of ops that will not be checked for shared layer support.
+# These exceptions are tracked in SW-213270
+_OP_VALIDATOR_EXCEPTIONS = {
+    # op name: reason for lack of op_validator
+    "mixture_of_experts.fp8_fused_weights_scalars": "not implemented yet",
+    "mixture_of_experts.fp8": "not implemented yet",
+    "mixture_of_experts.fp8_scalars": "not implemented yet",
+    "mixture_of_experts.fp8_fused_weights": "not implemented yet",
+    "cast_to_fp8": "not implemented yet",
+    "fp8_gemm": "not implemented yet",
+    "masked_batch_gemm": "custom op",
+    "_native_batch_norm_legit": "not implemented yet",
+    "_native_batch_norm_legit_no_training": "not implemented yet",
+    "_native_batch_norm_legit.no_stats": "not implemented yet",
+    "_native_batch_norm_legit_functional": "not implemented yet",
+    "native_batch_norm": "not implemented yet",
+    "native_batch_norm.out": "not implemented yet",
+    "native_batch_norm_backward": "not implemented yet",
+    "native_layer_norm": "not implemented yet",
+    "native_layer_norm_backward": "not implemented yet",
+    "_weight_norm_interface": "not implemented yet",
+    "_weight_norm_interface_backward": "not implemented yet",
+    "_prelu_kernel": "not implemented yet",
+    "sdpa_bwd": "custom op",
+    "quantize_per_tensor": "custom op",
+    "quantize_per_tensor.tensor": "custom op",
+    "quantize_per_tensor.tensor2": "custom op",
+    "quantize_per_channel": "custom op",
+    "dequantize_per_channel": "custom op",
+    "dequantize_per_tensor": "custom op",
+    "dequantize_per_tensor.tensor": "custom op",
+    "dequantize_per_tensor.tensor2": "custom op",
+    "deform_conv2d": "custom op",
+    "_deform_conv2d_backward": "custom op",
+    "ctc_loss_custom": "custom op",
+    "ctc_loss_custom_backward": "custom op",
+    "cast_from_fp8": "custom op",
+    "cast_from_fp8.scalar": "custom op",
+    "cast_from_fp8.scalar_list": "custom op",
+    "cast_to_fp8_v2": "custom op",
+    "cast_to_fp8_v2.scalar": "custom op",
+    "cast_to_fp8_v2.scalar_list": "custom op",
+    "cast_to_fp8_hybrid": "custom op",
+    "conv2d_fp8": "custom op",
+    "conv2d_fp8.scalar": "custom op",
+    "custom_softmax": "custom op",
+    "fp8_gemm_v2": "custom op",
+    "fp8_gemm_v2.scalar": "custom op",
+    "fp8_gemm_v2.scalar_list": "custom op",
+    "kv_reorder_": "custom op",
+    "scaled_masked_softmax": "custom op",
+    "scaled_masked_triangular_softmax": "custom op",
+    "scaled_triangular_softmax": "custom op",
+    "scaled_triangular_softmax_retain": "custom op",
+    "softmax_fp8": "custom op",
+    "softmax_fp8.Scalar_scales": "custom op",
+    "softmax_fp8.Scalar": "custom op",
+    "ragged_softmax": "custom op",
+    "rms_norm": "custom op",
+    "rms_norm_fast": "custom op",
+    "rms_norm_backward": "custom op",
+    "rms_norm_fast_backward": "custom op",
+    "rotary_pos_embedding": "custom op",
+    "rotary_pos_embedding_backward": "custom op",
+    "in_place_interleave_": "custom op",
+    "sdpa_recomp_bwd": "custom op",
+    "fp8_sdpa_bwd": "custom op",
+}
+
 
 def torch_library_fragment(custom_schema_regs):
     if custom_schema_regs:
@@ -2135,10 +2204,49 @@ def generate_frontend(args, fgens, out_dir, namespace="aten"):
         )
 
 
-def check_op_params(op_name, op_params):
+def check_valid_fields(op_name, op_params):
     for field in op_params.keys():
         if field not in _AVAILABLE_FIELDS:
             raise Exception(f"Invalid field for {op_name}: {field}")
+
+
+def has_op_validator(op_name, op_params):
+    op_validator_found = False
+    is_custom_op = False
+    wrap_all_versions = False
+    for field in op_params.keys():
+        if field == "hpu_wrap":
+            wrap_all_versions = op_params[field]
+        if field == "op_validator":
+            return True
+        if field == "only_shared_layer":
+            return op_params[field]
+    return wrap_all_versions
+
+
+def check_op_params(op_data, op_validator_exceptions):
+    ops_with_validator = []
+    ops_without_validator = []
+
+    for op_name, op_params in op_data:
+        check_valid_fields(op_name, op_params)
+
+        if has_op_validator(op_name, op_params):
+            ops_with_validator.append(op_name)
+        else:
+            ops_without_validator.append(op_name)
+
+    ops_with_missing_validator = list(set(ops_without_validator) - set(op_validator_exceptions.keys()))
+    if ops_with_missing_validator:
+        raise Exception(f"Found ops with missing op_validator: {', '.join(ops_with_missing_validator)}")
+
+    unnecessary_validator_exceptions = list(set(ops_with_validator) & set(op_validator_exceptions))
+    if unnecessary_validator_exceptions:
+        raise Exception(
+            f"Found ops in validator exceptions list that have op_validator defined: "
+            f"{', '.join(unnecessary_validator_exceptions)}. Please remove them from"
+            " exceptions list."
+        )
 
 
 def get_autograd_class_name(op_name: str) -> str:
@@ -2258,7 +2366,7 @@ def generate_autograd_ops(args, fgens_autograd):
         )
 
 
-def generate(args):
+def generate(args, op_validator_exceptions=_OP_VALIDATOR_EXCEPTIONS):
     yaml_ctx = YamlContext(args.yaml)
     pt_ops, errors, all_ops_metas = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
     assert len(errors) == 0
@@ -2271,8 +2379,9 @@ def generate(args):
     fgens_torchvision = []
     fgens_autograd = []
 
+    check_op_params(yaml_ctx.get_op_data(), op_validator_exceptions)
+
     for op_name, op_params in yaml_ctx.get_op_data():
-        check_op_params(op_name, op_params)
         ctxop = Op(op_name, op_params)
         if ctxop.get_hpu_wrap():
             fndef = pt_ops.get(op_name, None)
