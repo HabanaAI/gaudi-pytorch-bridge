@@ -19,11 +19,11 @@
 import pytest
 import torch
 import torch.distributed._functional_collectives as funcol
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from torch.distributed._tensor import (
     Replicate,
     Shard,
     distribute_tensor,
-    init_device_mesh,
 )
 from torch.distributed._tensor.experimental import local_map
 from torch.distributed.tensor.debug import CommDebugMode
@@ -32,6 +32,9 @@ from torch.testing._internal.distributed._tensor.common_dtensor import (
     DTensorTestBase,
     with_comms,
 )
+
+if not is_pytorch_older_than("2.7.0"):
+    from torch.testing._internal.distributed._tensor.common_dtensor import DEVICE_COUNT
 
 funcol_py = torch.ops.c10d_functional
 
@@ -58,17 +61,25 @@ def mm_all_gather_forward(device_mesh, A, B):
 
 
 class TestLocalMap(DTensorTestBase):
+    def set_hpu_device_type(self):
+        self.device_type = "hpu"
+
     @property
     def world_size(self):
-        return 2
+        if is_pytorch_older_than("2.7.0"):
+            return 2
+        else:
+            return min(DEVICE_COUNT, 2)
 
     @pytest.mark.skipif(check_devices(), reason="")
     @with_comms
     def test_local_map_out_placements_allreduce(self):
-        if torch.cuda.device_count() < self.world_size:
+        if is_pytorch_older_than("2.7.0") and torch.cuda.device_count() < self.world_size:
             return
+        else:
+            self.set_hpu_device_type()
 
-        device_mesh = init_device_mesh(device_type=self.device_type, mesh_shape=(self.world_size,))
+        device_mesh = self.build_device_mesh()
         comm_mode = CommDebugMode()
 
         # X.equal(Y)
@@ -112,7 +123,10 @@ class TestLocalMap(DTensorTestBase):
     def test_local_map_out_placements_allgather(self):
 
         # Test 1: wrap out into DTensor w/ `out_placements`
-        device_mesh = init_device_mesh(device_type=self.device_type, mesh_shape=(self.world_size,))
+        if not is_pytorch_older_than("2.7.0"):
+            self.set_hpu_device_type()
+
+        device_mesh = self.build_device_mesh()
         comm_mode = CommDebugMode()
 
         # X.equal(Y)
