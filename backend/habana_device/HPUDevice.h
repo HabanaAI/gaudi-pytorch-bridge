@@ -87,6 +87,7 @@ synapse_helpers::device& get_device(int id = 0);
 
 void synchronize();
 void synchronize_host_multistage_pipeline();
+void set_scale_attributes(uint8_t is_hw_aligned, uint32_t scale_hash_id);
 
 std::string get_device_capability();
 std::string get_device_properties(unsigned id);

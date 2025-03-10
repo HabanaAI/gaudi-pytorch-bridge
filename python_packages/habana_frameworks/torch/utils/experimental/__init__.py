@@ -159,3 +159,17 @@ def _reset_device_memory():
     if _is_available:
         hpu.init()
         _experimental_C.reset_device_memory()
+
+
+def _set_scale_attributes(is_hw_aligned, scale_hash_id) -> None:
+    r"""sets the scale attributes isHwAligned and scale_hash_id.
+
+    Args:
+       is_hw_aligned - True when all scales are globally h/w aligned
+       False otherwise
+       scale_hash_id  - hashId of the scaling method used to generates scaling
+       values.
+    """
+    if _is_available:
+        hpu.init()
+        _experimental_C._set_scale_attributes(is_hw_aligned, scale_hash_id)
