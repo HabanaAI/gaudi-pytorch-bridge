@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -617,8 +617,13 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   // requested size
   if (high_memory_allocated_) {
     tail_chunk->used = false;
-    bin_utils->InsertFreeChunkIntoBin(try_to_merge(tail_chunk));
-    tail_chunk = prealloc_pool->top;
+    auto merged_chunk = try_to_merge(tail_chunk);
+    // The merge can fail if there is no free chunk before the tail chunk. In
+    // that situation, we don't change the pool status.
+    if (merged_chunk != tail_chunk) {
+      bin_utils->InsertFreeChunkIntoBin(merged_chunk);
+      tail_chunk = prealloc_pool->top;
+    }
   }
 
   if (tail_chunk->size < size) {
