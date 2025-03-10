@@ -182,6 +182,7 @@ class HabanaGraphModule(torch.nn.Module):
         is_training=False,
         dynamic=False,
         force_static_compile=False,
+        has_random_ops=False,
         is_reusables: list[bool] = [],
     ):
         from ._recipe_compiler_C import EmptyBatchData
@@ -212,7 +213,7 @@ class HabanaGraphModule(torch.nn.Module):
         # second condition.
         self.is_reusables = is_reusables
         self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
-        self._has_randoms = False
+        self._has_randoms = has_random_ops
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
         self._outputs_batch_data = []
         self._symval_recipe_id_map = {}
@@ -312,7 +313,7 @@ class HabanaGraphModule(torch.nn.Module):
                     outputs.insert(out_idx, args[self._out_to_in_dups[out_idx]])
 
         if self._recipe_id is None:
-            self.check_for_random_ops()
+            # self.check_for_random_ops()
             if self._dynamic:
                 self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
                 if self._has_randoms:
@@ -383,6 +384,7 @@ def get_callable_recipe(
     parent_graph_name,
     is_training=False,
     is_dynamic=False,
+    has_random_ops=False,
     is_reusables: list[bool] = [],
 ):
     """
@@ -412,6 +414,7 @@ def get_callable_recipe(
             is_training=is_training,
             dynamic=is_dynamic,
             force_static_compile=hpu_backend_config.force_static_compile,
+            has_random_ops=has_random_ops,
             is_reusables=is_reusables,
         )
     else:

@@ -385,6 +385,103 @@ def meta_scaled_masked_softmax(input, mask, scale):
     return input.new_empty(input.shape)
 
 
+@register_meta([torch.ops.hpu.habana_seed_generator])
+def meta_habana_seed_generator(counter, seed, size):
+    return seed.new_empty((size,))
+
+
+@register_meta([torch.ops.hpu.habana_randint])
+def meta_habana_randint(seed, low, high, shape_tensor, dtype=torch.long, device=None, pin_memory=False):
+    return torch.empty(shape_tensor, dtype=dtype, device="meta")
+
+
+@register_meta([torch.ops.hpu.habana_randint_checkpoint])
+def meta_habana_randint_checkpoint(seed, low, high, shape_tensor, dtype=torch.long, device=None, pin_memory=False):
+    return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
+
+
+@register_meta([torch.ops.hpu.habana_bernoulli])
+def meta_habana_bernoulli(seed, value):
+    return torch.rand_like(value)
+
+
+@register_meta([torch.ops.hpu.habana_bernoulli_checkpoint])
+def meta_habana_bernoulli_checkpoint(seed, value):
+    return (torch.empty_like(seed), torch.rand_like(value))
+
+
+@register_meta([torch.ops.hpu.habana_native_dropout])
+def meta_habana_native_dropout(seed, input, p, train):
+    ref_tensor = input if isinstance(input, torch.Tensor) else seed
+    shape = ref_tensor.shape
+    return (torch.empty_like(ref_tensor), torch.empty(shape, dtype=torch.bool, device="meta"))
+
+
+@register_meta([torch.ops.hpu.habana_native_dropout_checkpoint])
+def meta_habana_native_dropout_checkpoint(seed, input, p, train):
+    ref_tensor = input if isinstance(input, torch.Tensor) else seed
+    shape = ref_tensor.shape
+    return (torch.empty_like(seed), torch.empty_like(ref_tensor), torch.empty(shape, dtype=torch.bool, device="meta"))
+
+
+@register_meta([torch.ops.hpu.habana_randn])
+def meta_habana_randn(seed, shape_tensor, dtype, device, pin_memory):
+    return torch.empty(shape_tensor, dtype=dtype, device="meta")
+
+
+@register_meta([torch.ops.hpu.habana_randn_checkpoint])
+def meta_habana_randn_checkpoint(seed, shape_tensor, dtype, device, pin_memory):
+    return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
+
+
+@register_meta([torch.ops.hpu.habana_randperm])
+def meta_habana_randperm(seed, shape, dtype=torch.int64, layout=None, device="meta", pin_memory=False):
+    return torch.empty(shape, dtype=dtype, device="meta")
+
+
+@register_meta([torch.ops.hpu.habana_randperm_checkpoint])
+def meta_habana_randperm_checkpoint(seed, shape, dtype=torch.int64, layout=None, device="meta", pin_memory=False):
+    return (torch.empty_like(seed), torch.empty(shape, dtype=dtype, device="meta"))
+
+
+@register_meta([torch.ops.hpu.habana_poisson])
+def meta_habana_poisson(seed, value):
+    return torch.rand_like(value)
+
+
+@register_meta([torch.ops.hpu.habana_poisson_checkpoint])
+def meta_habana_poisson_checkpoint(seed, value):
+    return (torch.empty_like(seed), torch.rand_like(value))
+
+
+@register_meta([torch.ops.hpu.habana_rand])
+def meta_habana_rand(seed, shape_tensor, dtype=torch.float, device="meta", pin_memory=False):
+    return torch.empty(shape_tensor, dtype=dtype, device="meta")
+
+
+@register_meta([torch.ops.hpu.habana_rand_checkpoint])
+def meta_habana_rand_checkpoint(seed, shape_tensor, dtype=torch.float, device="meta", pin_memory=False):
+    return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
+
+
+@register_meta([torch.ops.hpu.habana_multinomial])
+def meta_habana_multinomial(seed, value, num_samples, replacement=False):
+    dim = value.ndim
+    if dim == 1:
+        return torch.empty((num_samples,), dtype=torch.int64, device="meta")
+    return torch.empty((value.size()[0], num_samples), dtype=torch.int64, device="meta")
+
+
+@register_meta([torch.ops.hpu.habana_multinomial_checkpoint])
+def meta_habana_multinomial_checkpoint(seed, value, num_samples, replacement=False):
+    dim = value.ndim
+    if dim == 1:
+        rst = torch.empty((num_samples,), dtype=torch.int64, device="meta")
+    else:
+        rst = torch.empty((value.size()[0], num_samples), dtype=torch.int64, device="meta")
+    return (torch.empty_like(seed), rst)
+
+
 @register_meta([torch.ops.hpu.scaled_masked_triangular_softmax.default])
 def meta_scaled_masked_triangular_softmax(
     self,

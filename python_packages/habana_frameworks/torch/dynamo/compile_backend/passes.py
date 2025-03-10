@@ -40,8 +40,8 @@ from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
 
 from ._helpers import (
+    TensorInfoPropagation,
     fill_propagated_tensor_metadata_jitfork,
-    fill_propagated_tensor_metadata_to_node,
     get_node_args,
     is_module_dynamic,
     is_node_supported,
@@ -49,6 +49,7 @@ from ._helpers import (
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
     post_pass_finalize,
+    propagate_meta,
     remove_duplicated_outputs,
     remove_no_effect_inplace_add,
     wrap_random_ops,
@@ -848,58 +849,7 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
     This function contains FakeMode propagation implementation for PT2.1+
     """
 
-    from torch._dynamo.utils import detect_fake_mode
-    from torch._subclasses.fake_tensor import FakeTensorMode
-
-    class TensorInfoPropagation(torch.fx.Interpreter):
-        """
-        This class is responsible for tracing through the graph module, and
-        propagating all the necessary tensor information. All is done using
-        fake_tensors so it does not make any real computations.
-        """
-
-        def __init__(
-            self,
-            graph_module: torch.fx.GraphModule,
-            fake_mode: FakeTensorMode | None = None,
-        ):
-            super().__init__(graph_module)
-            if fake_mode is None:
-                fake_mode = FakeTensorMode()
-            self._mode = fake_mode
-
-        def run_node(self, node: torch.fx.Node):
-            args = kwargs = result = None
-            if SymExprNodeManager.node_name in node.name:
-                result = node.meta["val"]
-                args, kwargs = self.fetch_args_kwargs_from_env(node)
-            else:
-                result = super().run_node(node)
-                args, kwargs = self.fetch_args_kwargs_from_env(node)
-
-            node.val_args = args
-            node.val_kwargs = kwargs
-            fill_propagated_tensor_metadata_to_node(result, node)
-
-            return result
-
-        def propagate(self, *args):
-            fake_args = [self._mode.from_tensor(a) if isinstance(a, torch.Tensor) else a for a in args]
-            return self.propagate_dont_convert_inputs(*fake_args)
-
-        def propagate_dont_convert_inputs(self, *args):
-            with self._mode:
-                return super().run(*args)
-
-    fake_mode = detect_fake_mode(ctx.example_inputs)
-    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
-        # Disabling autocast in fake tensor propagation as autocasting has been
-        # already done and all dtypes has been already deduced.
-        if not fake_mode:
-            fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
-            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(*ctx.example_inputs)
-        else:
-            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate_dont_convert_inputs(*ctx.example_inputs)
+    propagate_meta(ctx.graph_module, ctx.example_inputs, TensorInfoPropagation)
 
     return True
 
@@ -1849,7 +1799,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
         from torch._functorch.compilers import _disable_jit_autocast
 
         module = copy.deepcopy(input_module)
-        wrap_random_ops(module)
+        has_random_ops = wrap_random_ops(module)
         remove_duplicated_outputs(module)
         remove_no_effect_inplace_add(module)
 
@@ -1888,7 +1838,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             f.graph,
         )
 
-        return f, module
+        return f, module, has_random_ops
 
     num_subgraphs = 0
     refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
@@ -1905,7 +1855,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             if "is_reusables" in submod.meta:
                 is_reusables = submod.meta["is_reusables"]
 
-            jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
+            jit_ir_function, submod_updated, has_random_ops = generate_jit_ir_from_module(submod)
             jit_node_annotation_propagation(jit_ir_function, submod_updated)
 
             is_submod_dynamic = is_module_dynamic(submod)
@@ -1923,6 +1873,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 is_training=ctx.is_training,
                 is_dynamic=is_submod_dynamic,
                 is_reusables=is_reusables,
+                has_random_ops=has_random_ops,
             )
 
             ctx.graph_module.delete_submodule(n.target)

@@ -478,8 +478,12 @@ def is_pytest_mode_lazy():
 
 
 def clear_t_compile_logs():
+
     from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import (
         logger as helpers_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.cluster_compiler import (
+        logger as cluster_compiler_logger,
     )
     from habana_frameworks.torch.dynamo.compile_backend.passes import (
         logger as graph_logger,
@@ -490,6 +494,7 @@ def clear_t_compile_logs():
 
     helpers_logger.set_store_data(True)
     graph_logger.set_store_data(True)
+    cluster_compiler_logger.set_store_data(True)
     fallback_logger.set_store_data(True)
 
 
@@ -519,9 +524,20 @@ def compile_function_if_compile_mode(
 def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(), forbidden_ops=set()):
     import re
 
-    from habana_frameworks.torch.dynamo.compile_backend.passes import (
-        logger as graph_logger,
-    )
+    import habana_frameworks.torch.internal.bridge_config as bc
+
+    if bc.get_pt_hpu_use_jit_fork() and is_pytest_mode_compile():
+        from habana_frameworks.torch.dynamo.compile_backend.cluster_compiler import (
+            logger as graph_logger,
+        )
+
+        jit_log_prefix = "####PyTorch (JIT fork)-generated JIT IR"
+    else:
+        from habana_frameworks.torch.dynamo.compile_backend.passes import (
+            logger as graph_logger,
+        )
+
+        jit_log_prefix = "####PyTorch-generated JIT IR"
     from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
         logger as fallback_logger,
     )
@@ -553,7 +569,7 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(
     pattern = r"::(\w+)\("
 
     for log in graphs_data:
-        if "####PyTorch-generated JIT IR" in log:
+        if jit_log_prefix in log:
             for line in log.split("\n"):
                 m = re.search(pattern, line)
                 if m:

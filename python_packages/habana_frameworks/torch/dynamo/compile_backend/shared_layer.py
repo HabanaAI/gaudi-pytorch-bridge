@@ -121,6 +121,7 @@ hpu_supported_op_list = {
     # Activation checkpoint
     "run_and_save_rng_state",
     "run_with_rng_state",
+    "habana_seed_generator",
 }
 
 # When below flag is enabled, aten.linear and aten.matmul decompositions
@@ -259,7 +260,7 @@ def check_for_default_op_support(op_name, node, is_dynamic):
         if parameter in restrictions[1]:
             return True
     # Enable torch.compile for user's CustomOp API
-    if node.target.namespace == "custom_op":
+    if hasattr(node.target, "namespace") and node.target.namespace == "custom_op":
         return True
     return False
 

@@ -130,6 +130,7 @@ BUILTIN_OPS_TO_ATEN_OPS: dict[str, Any] = {
     "sym_size": lambda args, kwargs: "aten::sym_size",
     "pow": lambda args, kwargs: "aten::pow",
     "neg": lambda args, kwargs: "aten::neg",
+    "select": lambda args, kwargs: "aten::select",
 }
 
 
