@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -804,4 +804,9 @@ synStatus SYN_API_CALL synStatusGetBriefDescription(
 synStatus SYN_API_CALL
 synDumpStateAndTerminate(const char* msg, uint64_t flags) {
   return syn_api->synDumpStateAndTerminate(msg, flags);
+}
+
+synStatus SYN_API_CALL
+synUpdateMemoryConsumption(uint64_t usedMem, uint64_t timestampSec) {
+  return syn_api->synUpdateMemoryConsumption(usedMem, timestampSec);
 }

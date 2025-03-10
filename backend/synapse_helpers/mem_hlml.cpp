@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,8 +72,8 @@ void HlMlMemoryReporter::PublishMemory(std::uint64_t bytes) {
   m_data->used_mem_in_bytes = bytes;
 }
 
-void HlMlMemoryReporter::PublishTimestamp() {
-  m_data->timestamp = time(NULL);
+void HlMlMemoryReporter::PublishTimestamp(std::uint64_t timestamp) {
+  m_data->timestamp = timestamp;
 }
 
 int HlMlMemoryReporter::OpenSharedObject() {
@@ -161,8 +161,11 @@ void HlMlMemoryUpdater::stop() {
 
 void HlMlMemoryUpdater::thread_main() {
   while (not m_quit.load()) {
-    m_reporter->PublishMemory(m_get_used_memory());
-    m_reporter->PublishTimestamp();
+    std::uint64_t usage = m_get_used_memory();
+    std::uint64_t timestamp = ::time(NULL);
+    m_reporter->PublishMemory(usage);
+    m_reporter->PublishTimestamp(timestamp);
+    synUpdateMemoryConsumption(usage, timestamp);
     sleep(INTERVAL);
   }
 }

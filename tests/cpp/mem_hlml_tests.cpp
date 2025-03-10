@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,12 +91,13 @@ TEST_F(MemHlMlReporterTests, PublishMemory) {
 
 TEST_F(MemHlMlReporterTests, PublishTimestamp) {
   auto old_value = ReadData().used_mem_in_bytes;
-  memory_reporter->PublishTimestamp();
+  std::uint64_t ts = ::time(NULL);
+  memory_reporter->PublishTimestamp(ts);
   ASSERT_EQ(ReadData().used_mem_in_bytes, old_value);
-  AssertTimestamp(time(NULL));
-  memory_reporter->PublishTimestamp();
+  AssertTimestamp(ts);
+  memory_reporter->PublishTimestamp(ts);
   ASSERT_EQ(ReadData().used_mem_in_bytes, old_value);
-  AssertTimestamp(time(NULL));
+  AssertTimestamp(ts);
 }
 
 struct MemHlMlUpdaterTests : public MemHlMlReporterTests {
