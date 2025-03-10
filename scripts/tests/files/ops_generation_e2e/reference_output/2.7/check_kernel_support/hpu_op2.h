@@ -64,7 +64,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
   return false;
 }
 private:
-bool impl(const at::Tensor & self, at::IntArrayRef size, at::IntArrayRef stride, c10::optional<int64_t> storage_offset, bool is_dynamic) {
+bool impl(const at::Tensor & self, at::IntArrayRef size, at::IntArrayRef stride, ::std::optional<int64_t> storage_offset, bool is_dynamic) {
   return true;
 }
 

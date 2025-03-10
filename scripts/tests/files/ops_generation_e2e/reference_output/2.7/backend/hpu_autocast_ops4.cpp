@@ -46,7 +46,7 @@ using tuple_4_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::T
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
   Hpu_KERNEL(isfinite, "isfinite", at::Tensor(const at::Tensor &))
-  Hpu_KERNEL(upsample_bicubic2d, "upsample_bicubic2d.vec", at::Tensor(const at::Tensor &, at::OptionalIntArrayRef, bool, c10::optional<at::ArrayRef<double>>))
+  Hpu_KERNEL(upsample_bicubic2d, "upsample_bicubic2d.vec", at::Tensor(const at::Tensor &, at::OptionalIntArrayRef, bool, ::std::optional<at::ArrayRef<double>>))
 }
 
 } // namespace

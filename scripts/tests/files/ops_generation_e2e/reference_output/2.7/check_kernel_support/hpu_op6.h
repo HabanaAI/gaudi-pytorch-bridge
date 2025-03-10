@@ -19,7 +19,7 @@ struct shared_layer_squeeze : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 2) {
     auto ivalue_arr = torch::jit::last(stack, 2);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isList() ) {
+    if (ivalue_arr[0].isTensor() ) {
 
       c10::IValue self = std::move(peek(stack, 0, 2));
       c10::IValue dim = std::move(peek(stack, 1, 2));

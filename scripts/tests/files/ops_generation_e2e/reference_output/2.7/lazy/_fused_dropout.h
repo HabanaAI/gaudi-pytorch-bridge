@@ -10,7 +10,7 @@ namespace habana {
 
 HPU_OP_FRONTEND(habana_lazy::LazyOp, GeneratorToSeed)
 
-::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, c10::optional<at::Generator> generator);
+::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, ::std::optional<at::Generator> generator);
 OUTMETA_DECL(FusedNativeDropoutMeta);
 FILL_PARAMS_DECL(FillFusedNativeDropoutParams);
 

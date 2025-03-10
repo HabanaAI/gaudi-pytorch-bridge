@@ -46,7 +46,7 @@ struct shared_layer_upsample_bicubic2d : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 4) {
     auto ivalue_arr = torch::jit::last(stack, 4);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[2].isBool() && ivalue_arr[3].isList() ) {
+    if (ivalue_arr[0].isTensor() && ivalue_arr[2].isBool() ) {
 
       c10::IValue input = std::move(peek(stack, 0, 4));
       c10::IValue output_size = std::move(peek(stack, 1, 4));
@@ -100,7 +100,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
   return false;
 }
 private:
-bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, c10::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
+bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, ::std::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))

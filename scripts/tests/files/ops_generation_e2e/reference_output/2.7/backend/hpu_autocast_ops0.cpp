@@ -49,8 +49,8 @@ TORCH_LIBRARY_IMPL(_, AutocastHPU, m) {{
 }}
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
-  Hpu_KERNEL(_fused_dropout, "_fused_dropout", tuple_2_tensors(const at::Tensor &, double, c10::optional<at::Generator>))
-  Hpu_KERNEL(native_dropout, "native_dropout", tuple_2_tensors(const at::Tensor &, double, c10::optional<bool>))
+  Hpu_KERNEL(_fused_dropout, "_fused_dropout", tuple_2_tensors(const at::Tensor &, double, ::std::optional<at::Generator>))
+  Hpu_KERNEL(native_dropout, "native_dropout", tuple_2_tensors(const at::Tensor &, double, ::std::optional<bool>))
 }
 
 } // namespace

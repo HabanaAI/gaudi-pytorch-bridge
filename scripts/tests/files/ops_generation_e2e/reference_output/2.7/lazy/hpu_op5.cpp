@@ -45,7 +45,7 @@ at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tens
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(mul_out, hpu_op, out);
 }
 
-::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
+::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("sort_out: ", DUMP_6ARGS(self, stable, dim, descending, values, indices));
@@ -74,7 +74,7 @@ static const auto& kr_gen_5 = KernelRegistry()
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("mul.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::mul_out));
-  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, c10::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
+  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, ::std::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
 
 }
 

@@ -45,7 +45,7 @@ using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::T
 using tuple_4_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
-  Hpu_KERNEL(native_group_norm, "native_group_norm", tuple_3_tensors(const at::Tensor &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, int64_t, int64_t, int64_t, int64_t, double))
+  Hpu_KERNEL(native_group_norm, "native_group_norm", tuple_3_tensors(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, int64_t, int64_t, int64_t, int64_t, double))
 }
 
 } // namespace
