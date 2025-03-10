@@ -1245,7 +1245,7 @@ inline bool device::copy_data_to_device_(
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
         done_cb();
-        towl::emitCopyFinished("h2", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
+        towl::emitCopyFinished("h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
         locked = nullptr;
       });
   towl::emitCopyLaunch("h2d", mapped_cpu_data, reinterpret_cast<void*>(locked->at(0)), total_bytes);
