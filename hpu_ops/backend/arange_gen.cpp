@@ -701,7 +701,7 @@ void ArangeDefaultStartEndStep::AddNode(
         internal_out_dtype,
         syn_in0,
         syn_in1,
-        guid_,
+        update_guid_dtype(guid_, internal_out_dtype),
         outshape,
         params,
         params_size,

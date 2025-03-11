@@ -64,7 +64,7 @@ ArangeFE<at::Tensor&>::ArangeFE(
     std::vector<int32_t> params_vec{start.toInt(), end.toInt(), step.toInt()};
     auto params_shape = habana_lazy::empty_hpu_lazy(
         params_vec.size(),
-        output.options(),
+        output.options().dtype(c10::ScalarType::Int),
         output.suggest_memory_format(),
         false,
         HOST_TO_DEVICE_TENSOR);
@@ -132,7 +132,7 @@ LazyArange<at::Tensor>::LazyArange(
 
     auto params_shape = habana_lazy::empty_hpu_lazy(
         params_vec.size(),
-        out_dtype,
+        at::ScalarType::Int,
         c10::MemoryFormat::Contiguous,
         false,
         HOST_TO_DEVICE_TENSOR);
@@ -177,7 +177,7 @@ LazyArange<at::Tensor>::LazyArange(
     std::vector<int32_t> params_vec{start.toInt(), end.toInt(), step.toInt()};
     auto params_shape = habana_lazy::empty_hpu_lazy(
         params_vec.size(),
-        out_dtype,
+        at::ScalarType::Int,
         c10::MemoryFormat::Contiguous,
         false,
         HOST_TO_DEVICE_TENSOR);

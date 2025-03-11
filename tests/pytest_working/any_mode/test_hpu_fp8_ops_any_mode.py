@@ -17,6 +17,7 @@
 from enum import Enum
 
 import habana_frameworks.torch.hpu as ht
+import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
@@ -32,6 +33,7 @@ from test_utils import (
     is_pytest_mode_compile,
     is_pytest_mode_eager,
     is_pytest_mode_lazy,
+    use_eager_fallback,
 )
 
 Verbose = False
@@ -1090,6 +1092,58 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"conv2d_fp8", "cast_to_fp8_v2"})
     ht.disable_inference_mode()
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+@pytest.mark.parametrize("is_tensor", [True, False])
+@pytest.mark.parametrize("h2d_enabled", [True, False])
+@pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
+def test_h2d_scales(is_tensor, h2d_enabled, src_dtype):
+    if is_pytest_mode_compile() and not is_tensor:
+        pytest.skip("torch.compile doesn't support H2D scales as scalars.")
+
+    fp8_dtype = torch.float8_e4m3fn
+    shape_a = (4, 8)
+    shape_b = (8, 16)
+    scales_a = [1.5, 4.0, 12.8]
+    scales_b = [2.5, 0.8, 7.6]
+
+    # cast_to_fp8_v2 and fp8_gemm_v2 convert float CPU scale tensor to H2D tensor
+    # when PT_HPU_ENABLE_H2D_SCALES is enabled. For other cases CPU tensor is casted to HPU eagerly
+    # by fx pass, that's why use_eager_fallback is necessary.
+    is_eager_fallback = is_tensor and (not h2d_enabled)
+
+    with bc.env_setting("PT_HPU_ENABLE_H2D_SCALES", h2d_enabled), use_eager_fallback(is_eager_fallback):
+
+        def fn_hpu(a, b, sa, sb, sa_inv, sb_inv):
+            scaled_a, _ = torch.ops.hpu.cast_to_fp8_v2(a, sa, False, False, fp8_dtype)
+            scaled_b, _ = torch.ops.hpu.cast_to_fp8_v2(b, sb, False, False, fp8_dtype)
+            return torch.ops.hpu.fp8_gemm_v2(
+                scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+            )
+
+        def fn_cpu(a, b, sa, sb, sa_inv, sb_inv):
+            scaled_a = (a * sa).to(fp8_dtype).to(src_dtype)
+            scaled_b = (b * sb).to(fp8_dtype).to(src_dtype)
+            return torch.matmul(scaled_a, scaled_b) * (sa_inv * sb_inv)
+
+        fn_hpu = compile_function_if_compile_mode(fn_hpu)
+
+        for sa_val, sb_val in zip(scales_a, scales_b, strict=False):
+            a = torch.randn(shape_a, dtype=src_dtype)
+            ah = a.to("hpu")
+            b = torch.randn(shape_b, dtype=src_dtype)
+            bh = b.to("hpu")
+            sa = torch.tensor(sa_val) if is_tensor else sa_val
+            sb = torch.tensor(sb_val) if is_tensor else sb_val
+
+            # Scales as CPU Tensors are intentional.
+            res_hpu = fn_hpu(ah, bh, sa, sb, 1 / sa, 1 / sb)
+            res_cpu = fn_cpu(a, b, sa, sb, 1 / sa, 1 / sb)
+
+            tol = 1e-5 if src_dtype == torch.float else 0.008
+
+            compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize(

@@ -111,7 +111,7 @@ ir::NodePtr strided_insert_h2d(
 
   auto stride_st = empty_hpu_lazy(
       stride_data_vec.size() * 2,
-      orig_t.options(),
+      orig_t.options().dtype(c10::ScalarType::Int),
       orig_t.suggest_memory_format(),
       false,
       HOST_TO_DEVICE_TENSOR);

@@ -25,6 +25,7 @@
 #include "backend/random.h"
 #include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
+#include "generated/lazy/fp8_gemm_v2.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -1179,7 +1180,7 @@ ir::NodePtr strided_view_h2d(
 
   auto stride_st = empty_hpu_lazy(
       stride_data_vec.size() * 2,
-      self.options(),
+      self.options().dtype(c10::ScalarType::Int),
       self.suggest_memory_format(),
       false,
       HOST_TO_DEVICE_TENSOR);
@@ -4224,7 +4225,7 @@ at::Tensor& randperm_hpu_lazy_ht(Tensor& output, int64_t n, at::Tensor seed) {
   std::vector<int32_t> params_vec{0 /*start*/, (int32_t)n /*end*/, 1 /*step*/};
   auto params_shape = empty_hpu_lazy(
       params_vec.size(),
-      output.options(),
+      output.options().dtype(c10::ScalarType::Int),
       output.suggest_memory_format(),
       false,
       HOST_TO_DEVICE_TENSOR);
@@ -4307,7 +4308,7 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   });
   auto params_shape = empty_hpu_lazy(
       params_vec.size(),
-      self.options(),
+      self.options().dtype(c10::ScalarType::Int),
       self.suggest_memory_format(),
       false,
       HOST_TO_DEVICE_TENSOR);

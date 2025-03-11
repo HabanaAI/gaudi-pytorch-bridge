@@ -43,24 +43,30 @@ std::ostream& operator<<(std::ostream& out, synDataType syn_data_type) {
   switch (syn_data_type) {
     case syn_type_int8:
       return out << "int8";
+    case syn_type_uint8:
+      return out << "uint8";
+    case syn_type_int16:
+      return out << "int16";
+    case syn_type_uint16:
+      return out << "uint16";
+    case syn_type_int32:
+      return out << "int32";
+    case syn_type_uint32:
+      return out << "uint32";
+    case syn_type_int64:
+      return out << "int64";
+    case syn_type_uint64:
+      return out << "uint64";
     case syn_type_bf16:
       return out << "bf16";
     case syn_type_float:
       return out << "float";
-    case syn_type_int16:
-      return out << "int16";
-    case syn_type_int32:
-      return out << "int32";
-    case syn_type_uint8:
-      return out << "uint8";
     case syn_type_fp16:
       return out << "fp16";
     case syn_type_fp8_143:
       return out << "fp8_143";
     case syn_type_fp8_152:
       return out << "fp8_152";
-    case syn_type_int64:
-      return out << "int64";
     case syn_type_na:
       return out << "na";
     default:

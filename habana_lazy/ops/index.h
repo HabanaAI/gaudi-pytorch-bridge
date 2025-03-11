@@ -75,7 +75,7 @@ struct Slice : public ir::Node {
         host_params[index + 5] = start;
         auto host_tensor = empty_hpu_lazy(
             host_params.size() * 2,
-            self.options(),
+            self.options().dtype(c10::ScalarType::Int),
             self.suggest_memory_format(),
             false,
             HOST_TO_DEVICE_TENSOR);

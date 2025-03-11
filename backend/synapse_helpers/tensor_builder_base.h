@@ -260,11 +260,13 @@ class tensor_builder_base {
     return with_shape(tensor::shape_t(1_D, {SYN_MAX_TENSOR_DIM}));
   }
 
-  ConcreteBuilder& mark_host_to_device_tensor(void* host_ptr) {
+  ConcreteBuilder& mark_host_to_device_tensor(
+      void* host_ptr,
+      const synDataType syn_dtype = syn_type_int32) {
     HABANA_ASSERT(host_ptr != nullptr);
     tensor_type_ = HOST_TO_DEVICE_TENSOR;
     host_ptr_ = host_ptr;
-    data_type_ = syn_type_int32;
+    data_type_ = syn_dtype;
     is_persistent_ = true;
     return static_cast<ConcreteBuilder&>(*this);
   }

@@ -217,7 +217,7 @@ struct SliceInsert : public ir::Node {
         }
         auto host_tensor = empty_hpu_lazy(
             host_params.size() * 2,
-            orig_t.options(),
+            orig_t.options().dtype(c10::ScalarType::Int),
             orig_t.suggest_memory_format(),
             false,
             HOST_TO_DEVICE_TENSOR);

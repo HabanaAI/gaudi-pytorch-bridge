@@ -2087,7 +2087,7 @@ def generate_backend(args, fgens, is_custom=False):
         )
 
 
-def get_frontend_inclusions(mode):
+def get_frontend_inclusions(mode, ns):
     common_inclusions = (
         '#include "hpu_ops/cpu_fallback.h"\n'
         '#include "hpu_ops/op_validator.h"\n'
@@ -2101,8 +2101,9 @@ def get_frontend_inclusions(mode):
         '#include "habana_eager/ops/override_fns.h"\n'
     )
 
+    lazy_declarations = "lazy_kernels_declarations" if ns == "aten" else "lazy_custom_op_declarations"
     lazy_inclusions = (
-        '#include "habana_kernels/lazy_kernels_declarations.h"\n'
+        f'#include "habana_kernels/{lazy_declarations}.h"\n'
         '#include "habana_kernels/lazy_kernels.h"\n'
         '#include "habana_lazy/hpu_stage_submission.h"\n'
         "using habana_lazy::LazyOp;\n"
@@ -2115,7 +2116,7 @@ def get_frontend_inclusions(mode):
 
 
 def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_file_idx, out_dir, args, ns):
-    frontend_inclusions = get_frontend_inclusions(out_dir)
+    frontend_inclusions = get_frontend_inclusions(out_dir, ns)
     header_inclusions = ""
     for op_group in sorted(op_groups):
         header_inclusions += f'#include "{op_group}.h"\n'
@@ -2393,14 +2394,15 @@ def generate(args, op_validator_exceptions=_OP_VALIDATOR_EXCEPTIONS):
         elif ctxop.get_custom_op_schema():
             fndef = fndef_from_schema(ctxop.get_custom_op_schema())
             namespace = re.search(r"^(.*)::", ctxop.get_custom_op_schema()).group(1)
+            generated = generate_op(fndef, op_name, ctxop, op_params, ns=namespace)
             if namespace == "torchvision":
-                fgens_torchvision.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
+                fgens_torchvision.append(generated)
             elif namespace == "quantized_decomposed":
-                fgens_quant.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
+                fgens_quant.append(generated)
             else:
-                fgens_custom.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
+                fgens_custom.append(generated)
             if ctxop.is_op_autograd():
-                fgens_autograd.append(generate_op(fndef, op_name, ctxop, op_params, ns=namespace))
+                fgens_autograd.append(generated)
         elif not ctxop.get_only_shared_layer():
             fndef = pt_ops.get(op_name, None)
             if fndef is None:

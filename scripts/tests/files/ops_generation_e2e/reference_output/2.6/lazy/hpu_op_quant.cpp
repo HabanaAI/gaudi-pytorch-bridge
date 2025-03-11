@@ -4,7 +4,7 @@
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/op_logger.h"
 #include "common/dump_args.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/lazy_custom_op_declarations.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;

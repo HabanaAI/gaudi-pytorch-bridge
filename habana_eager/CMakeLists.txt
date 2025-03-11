@@ -61,6 +61,7 @@ add_habana_library(
   passes/add_attribute_alpha.cpp
   passes/detect_weights_tensors.cpp
   passes/get_outputs_order_in_graph.cpp
+  passes/handle_h2d_scales.cpp
   passes/handle_input_views.cpp
   passes/handle_tupple_on_output.cpp
   passes/remove_detach_op.cpp

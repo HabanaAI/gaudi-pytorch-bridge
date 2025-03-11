@@ -7336,6 +7336,9 @@ cast_to_fp8_v2:
   op_backend: CastToFp8V2
   out_ids: [0, 0]
   autograd: true
+  lazy:
+    acc_thread: true
+    override_fn: cast_to_fp8_v2_lazy
 
 cast_to_fp8_v2.scalar:
   custom_op_schema: "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
@@ -7343,6 +7346,9 @@ cast_to_fp8_v2.scalar:
   op_backend: CastToFp8V2
   out_ids: [0, 0]
   autograd: true
+  lazy:
+    acc_thread: true
+    override_fn: cast_to_fp8_v2_scalar_lazy
 
 cast_to_fp8_v2.scalar_list:
   custom_op_schema: "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)"
@@ -7396,12 +7402,18 @@ fp8_gemm_v2:
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: fp8_gemm_v2_lazy
 
 fp8_gemm_v2.scalar:
   custom_op_schema: "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: fp8_gemm_v2_scalar_lazy
 
 fp8_gemm_v2.scalar_list:
   custom_op_schema: "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor"

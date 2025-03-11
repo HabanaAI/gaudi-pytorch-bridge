@@ -22,6 +22,10 @@ namespace pass {
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
 bool AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
+bool HandleH2dScales(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& stack,
+    H2dScalesIndices& idx_of_h2d_scales);
 bool GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order);

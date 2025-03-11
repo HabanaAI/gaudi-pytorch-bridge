@@ -60,33 +60,6 @@ struct HandleDynamicOpsPass {
     }
   }
 
-  void handlePrimConstantNode(torch::jit::Node* node) {
-    auto node_vals = node->outputs();
-    for (const auto value : node_vals) {
-      torch::jit::IValue const_ivalue = toIValue(value).value();
-      m_value_ivalue_map[value] = std::make_shared<IVal>(const_ivalue);
-    }
-  }
-
-  void handlePrimListConstructNode(torch::jit::Node* node) {
-    auto node_vals = node->outputs();
-    HABANA_ASSERT(node_vals.size() == 1);
-    IValPtrShared ival =
-        GetPrimListConstructNodeOuputIValue(node, m_value_ivalue_map);
-    m_value_ivalue_map[node_vals[0]] = ival;
-  }
-
-  void handlePrimListUnpackNode(torch::jit::Node* node) {
-    auto node_vals = node->outputs();
-    for (const auto& input : node->inputs()) {
-      auto tensors = (*m_value_ivalue_map[input]).toTensorList();
-      for (size_t i = 0; i < tensors.size(); ++i) {
-        const at::Tensor& tensor = tensors[i];
-        m_value_ivalue_map[node_vals[i]] = std::make_shared<IVal>(tensor);
-      }
-    }
-  }
-
   void dumpValueIValueMap() {
     PT_EAGER_DEBUG("Map m_value_ivalue_map size :", m_value_ivalue_map.size());
     for (auto it : m_value_ivalue_map) {
@@ -205,6 +178,7 @@ struct HandleDynamicOpsPass {
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
       std::string node_name = it->kind().toQualString();
       torch::jit::Node* node{*it};
+
       if (!maxTensorDimsCheck(node, node_name))
         m_dmeta->static_fallback = true;
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);

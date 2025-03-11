@@ -713,7 +713,8 @@ synapse_helpers::tensor create_shape_tensor(
         builder.mark_persistence(persistent);
         break;
       case HOST_TO_DEVICE_TENSOR:
-        builder.mark_host_to_device_tensor(host_ptr);
+        builder.mark_host_to_device_tensor(
+            host_ptr, pytorch_to_synapse_type(tensor.scalar_type()));
         break;
       default:
         HABANA_ASSERT(0 && "Invalid shape_tensor_type");
@@ -744,7 +745,8 @@ synapse_helpers::tensor create_shape_tensor(
       builder.mark_persistence(persistent);
       break;
     case HOST_TO_DEVICE_TENSOR:
-      builder.mark_host_to_device_tensor(host_ptr);
+      builder.mark_host_to_device_tensor(
+          host_ptr, pytorch_to_synapse_type(tensor.scalar_type()));
       break;
     default:
       HABANA_ASSERT(0 && "Invalid shape_tensor_type");
@@ -1060,8 +1062,11 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
   static const std::unordered_map<c10::ScalarType, synDataType> map{
       {c10::ScalarType::Byte, synDataType::syn_type_uint8},
       {c10::ScalarType::Char, synDataType::syn_type_int8},
+      {c10::ScalarType::UInt16, synDataType::syn_type_uint16},
       {c10::ScalarType::Short, synDataType::syn_type_int16},
+      {c10::ScalarType::UInt32, synDataType::syn_type_uint32},
       {c10::ScalarType::Int, synDataType::syn_type_int32},
+      {c10::ScalarType::UInt64, synDataType::syn_type_uint64},
       {c10::ScalarType::Long, get_synapse_type_for_long()},
       {c10::ScalarType::Float, synDataType::syn_type_float},
       {c10::ScalarType::Half, synDataType::syn_type_fp16},
@@ -1082,8 +1087,11 @@ c10::ScalarType synapse_to_pytorch_type(const synDataType type) {
   static const auto map = std::unordered_map<synDataType, c10::ScalarType>{
       {synDataType::syn_type_uint8, c10::ScalarType::Byte},
       {synDataType::syn_type_int8, c10::ScalarType::Char},
+      {synDataType::syn_type_uint16, c10::ScalarType::UInt16},
       {synDataType::syn_type_int16, c10::ScalarType::Short},
+      {synDataType::syn_type_uint32, c10::ScalarType::UInt32},
       {synDataType::syn_type_int32, c10::ScalarType::Int},
+      {synDataType::syn_type_uint64, c10::ScalarType::UInt64},
       {synDataType::syn_type_float, c10::ScalarType::Float},
       {synDataType::syn_type_fp16, c10::ScalarType::Half},
       {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},

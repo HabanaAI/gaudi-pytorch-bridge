@@ -902,8 +902,14 @@ std::string_view graph::name_suffix_from_type(
     case synDataType::syn_type_int16: {
       return "i16"sv;
     }
+    case synDataType::syn_type_uint16: {
+      return "u16"sv;
+    }
     case synDataType::syn_type_int32: {
       return "i32"sv;
+    }
+    case synDataType::syn_type_uint32: {
+      return "u32"sv;
     }
     case synDataType::syn_type_int64: {
       if (use_int64) {
@@ -915,6 +921,9 @@ std::string_view graph::name_suffix_from_type(
         // changed here.
         return "i32"sv;
       }
+    }
+    case synDataType::syn_type_uint64: {
+      return "u64"sv;
     }
     case synDataType::syn_type_bf16: {
       return "bf16"sv;

@@ -30,6 +30,7 @@ namespace habana {
 namespace graph {
 
 using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
+using H2dScalesIndices = std::vector<size_t>;
 
 class GraphExec {
  public:
@@ -83,6 +84,7 @@ class GraphExec {
   bool IsDynamicGraph();
   void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
   std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
+  void PatchScaleH2dTensors(torch::jit::Stack& orig_stack);
   void UpdateSeedTensors(torch::jit::Stack& stack);
   bool HasInvalidDynamicSymbols();
 
@@ -102,6 +104,7 @@ class GraphExec {
   bool is_first_launch = true;
   bool m_is_pipeline_supported = false;
   std::shared_ptr<DynamicGraphMetaData> m_dgraph_meta = nullptr;
+  H2dScalesIndices m_idx_of_h2d_scales;
   DynamicPatchingData m_ds_patch_data;
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;

@@ -58,6 +58,10 @@ struct HandleInputViewsPass {
         continue;
       }
       torch::Tensor input_tensor{example_inputs[input_idx].toTensor()};
+      if (input_tensor.device().type() == c10::DeviceType::CPU) {
+        // CPU scale tensors will be processed later.
+        continue;
+      }
       [[maybe_unused]] auto storage_meta{
           habana::get_storage_extra_meta(input_tensor)};
 

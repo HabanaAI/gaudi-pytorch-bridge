@@ -834,3 +834,14 @@ PT_HPU_USE_OVERRIDE_ATEN_SDPA:
   default: false
   doc: "This flag overrides aten.scaled_dot_product_attention in eager and torch.compile and
         invoke our autograd overwrite fucntion fused_sdpa_autograd_wrap."
+
+PT_HPU_USE_FUSE_SDPA_PASS:
+  type: bool
+  default: false
+  doc: "This flag fuse all patterns for SDPA and convert to aten.scaled_dot_product_attention."
+
+PT_HPU_ENABLE_H2D_SCALES:
+  type: bool
+  default: false
+  settable: true
+  doc: "When this flag is enabled, scalar/CPU scales in cast_to_fp8_v2 and fp8_gemm_v2 ops are converted to H2D tensors."

@@ -201,7 +201,10 @@ void GraphExec::LaunchRecipeTask(
     InputSymbolMap&& in_symbol_value_map) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
   PatchDynamicTensors(launch_shapes);
-  gexec->LaunchRecipe(std::move(inputs), outputs, in_symbol_value_map);
+  gexec->PatchScaleH2dTensors(inputs);
+  torch::jit::Stack backend_inputs =
+      habana::eager::convert_ivalues_to_backend_tensors(inputs);
+  gexec->LaunchRecipe(std::move(backend_inputs), outputs, in_symbol_value_map);
 }
 
 GraphExec::GraphExec(
@@ -289,6 +292,12 @@ GraphExec::GraphExec(
     }
   }
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES)) {
+    // HandleH2dScales must run after dynamic passes, because it needs valid
+    // indices of the original stack.
+    pass::HandleH2dScales(m_graph, example_inputs, m_idx_of_h2d_scales);
+  }
+
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(in_stack, m_graph->inputs().size());
 
@@ -372,6 +381,54 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   return new_stack;
 }
 
+void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
+  // Patching H2D scale tensors created in HandleH2dScales pass
+  // with values from CPU tensors.
+
+  // Calculate total H2D size required for scale tensors. Scale tensor
+  // always contain one float value, so total size depends directly
+  // on the number of CPU scale tensors.
+  static constexpr size_t scale_value_size = sizeof(float_t);
+  static const size_t host_total_elem = 2 * scale_value_size;
+  size_t h2d_memory_required = m_idx_of_h2d_scales.size() * 2 * host_total_elem;
+
+  // Allocate the total H2D required in single chunk.
+  void* alloc_pointer{nullptr};
+  if (h2d_memory_required > 0) {
+    auto& device = HPUDeviceContext::get_device();
+    device.get_host_memory().uncached_malloc(
+        &alloc_pointer, h2d_memory_required);
+  }
+  void* h2d_pointer{alloc_pointer};
+
+  for (const auto idx : m_idx_of_h2d_scales) {
+    const auto& cpu_scale = orig_stack[idx];
+    HABANA_ASSERT(
+        cpu_scale.isTensor() and cpu_scale.toTensor().is_cpu(),
+        "Expected scale as a CPU tensor.");
+
+    at::Tensor h2d_tensor =
+        createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, at::ScalarType::Float);
+    auto tmeta{get_tensor_extra_meta(h2d_tensor)};
+
+    // Set the host and compile pointer from allocated chunk and
+    // increment the h2d_pointer to point to end of current H2D
+    tmeta->set_host_size(1);
+    tmeta->set_host_el_size(scale_value_size);
+    tmeta->set_host_dt_type(HostDataType::FLOAT_T);
+    tmeta->set_host_total_elem(host_total_elem);
+    tmeta->set_alloc_ptr(alloc_pointer);
+    tmeta->set_host_ptr(h2d_pointer);
+    char* ptr = static_cast<char*>(h2d_pointer) + host_total_elem;
+    h2d_pointer = static_cast<char*>(ptr + host_total_elem);
+    tmeta->set_compile_host_ptr(ptr);
+    tmeta->update_host_data(
+        cpu_scale.toTensor().data_ptr(), {1}, scale_value_size, true);
+
+    orig_stack[idx] = torch::jit::IValue(h2d_tensor);
+  }
+}
+
 std::string GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
   PT_EAGER_INFO(
       "Jit for ",
@@ -387,6 +444,10 @@ std::string GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
        input_idx++) {
     if (example_inputs[input_idx].isTensor()) {
       torch::Tensor tensor{example_inputs[input_idx].toTensor()};
+      if (tensor.device().type() == c10::DeviceType::CPU) {
+        // CPU scale tensors will be processed later.
+        continue;
+      }
       synapse_helpers::layouts::MemoryPermutation m_perm;
       std::tie(m_perm, std::ignore) =
           habana_helpers::get_tensor_memory_permutation(tensor);
@@ -520,9 +581,6 @@ torch::jit::Stack GraphExec::launch(
     }
   }
 
-  torch::jit::Stack backend_inputs =
-      habana::eager::convert_ivalues_to_backend_tensors(stack);
-
   std::vector<at::Tensor> backend_outputs;
   backend_outputs.reserve(outputs.size());
   for (auto& tensor : outputs) {
@@ -542,7 +600,7 @@ torch::jit::Stack GraphExec::launch(
     habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
         LaunchRecipeTask,
         this,
-        std::move(backend_inputs),
+        std::move(stack),
         std::move(backend_outputs),
         std::move(launch_shapes),
         std::move(in_symbol_value_map));
@@ -554,6 +612,10 @@ torch::jit::Stack GraphExec::launch(
     }
     habana::eager::JoinPendingPipelineThreads();
     PatchDynamicTensors(launch_shapes);
+    PatchScaleH2dTensors(stack);
+
+    torch::jit::Stack backend_inputs =
+        habana::eager::convert_ivalues_to_backend_tensors(stack);
     torch::jit::Stack ret_stack = LaunchRecipe(
         std::move(backend_inputs), maybe_backend_outputs, in_symbol_value_map);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);

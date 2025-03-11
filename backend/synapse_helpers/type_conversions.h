@@ -37,6 +37,7 @@ inline uint32_t size_of_syn_data_type(synDataType dataType) {
     case syn_type_hb_float: // 32-bit floating point, not compliant with IEEE
       return 4;
     case syn_type_int64: // 64-bit integer
+    case syn_type_uint64: // 64-bit unsigned integer
       return 8;
     default:
       return -1; // invalid

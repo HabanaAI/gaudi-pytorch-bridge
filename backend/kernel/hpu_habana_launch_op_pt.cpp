@@ -1602,7 +1602,7 @@ at::Tensor createDynamicTensor(
     synTensorType type) {
   auto allocator = habana::getHABANADeviceAllocator();
   constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
-  auto dtype = c10::ScalarType::Float;
+  auto dtype = c10::ScalarType::Int;
 
   at::Tensor tensor = at::detail::empty_generic(
       at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, c10::nullopt);

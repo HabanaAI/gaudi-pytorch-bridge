@@ -170,6 +170,7 @@ add_habana_library(
   habana_kernels/kernel_input_checks.cpp
   habana_kernels/kernels_register.cpp
   habana_kernels/kernel_utils.cpp
+  habana_kernels/lazy_custom_ops.cpp
   habana_kernels/lazy_kernels.cpp
   habana_kernels/lazy_optimizer_kernels.cpp
   habana_kernels/lazy_op.cpp

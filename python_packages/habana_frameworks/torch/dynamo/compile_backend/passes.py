@@ -337,7 +337,21 @@ class InplaceableOp:
     extra_check: Callable[[torch.fx.Node], bool] = lambda node: True
 
 
-def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -> bool:
+def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
+    # 0d float CPU scales of fp8 ops are left on the CPU device for H2D optimization.
+    if (
+        h2d_scales_enabled
+        and node_arg.meta["output_dtypes"][0] == torch.float
+        and node_arg.meta["output_shapes"][0] == torch.Size([])
+    ):
+        if node.target.__name__ == "cast_to_fp8_v2.default":
+            return node_arg == node.args[1]
+        if node.target.__name__ == "fp8_gemm_v2.default":
+            return node_arg in (node.args[6], node.args[7])
+    return False
+
+
+def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
     # This is list of scalar OPs
     scalar_ops = [
         "topk",
@@ -361,6 +375,8 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         node_target = node.target.__name__.split(".")[0]
         if node_arg.type in [int, float] and node_target in scalar_ops:
             assert node_arg.meta["output_device"] == torch.device("cpu")
+            copy_required = False
+        elif _is_cpu_scale_allowed(node, node_arg, h2d_scales_enabled):
             copy_required = False
     return copy_required
 
@@ -1157,6 +1173,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
     graph_changed = False
 
     nodes_to_fix_list = []
+    h2d_scales_enabled = bc.get_pt_hpu_enable_h2d_scales()
     for node in ctx.graph_module.graph.nodes:
         if (
             node.op != "placeholder"
@@ -1170,7 +1187,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                 if (
                     isinstance(arg, torch.fx.Node)
                     and ("output_device" in arg.meta and arg.meta["output_device"].type != "hpu")
-                    and _is_cpu_scalar_copy_required(node, arg)
+                    and _is_cpu_scalar_copy_required(node, arg, h2d_scales_enabled)
                 ):
                     nodes_to_fix_list.append(node)
                     break
@@ -1213,6 +1230,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     "hpu_cluster" - such OPs will be later placed inside HPU clusters
     """
     assert ctx.graph_module is not None
+    h2d_scales_enabled = bc.get_pt_hpu_enable_h2d_scales()
     for node in ctx.graph_module.graph.nodes:
         placement = None
         dynamic_call_function = is_call_function_dynamic(node, ctx.is_dynamic) if node.op == "call_function" else False
@@ -1261,6 +1279,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                         continue
                     elif is_constant_for_lift_fresh_copy(node, arg):
                         logger.debug("Argument {} to node {} is a _tensor_constant get_attr", arg, node)
+                        continue
+                    elif _is_cpu_scale_allowed(node, arg, h2d_scales_enabled):
+                        logger.debug("Argument {} to node {} is a cpu tensor for H2D optimization", arg, node)
                         continue
                     assert arg.meta["output_device"].type == "hpu"
 

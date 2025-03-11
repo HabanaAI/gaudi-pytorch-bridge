@@ -714,9 +714,9 @@ def fga_assert_helper(ops_summary, op, count_list):
 
 
 @contextmanager
-def use_eager_fallback():
+def use_eager_fallback(enabled=True):
     original = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
+    configuration_flags["use_eager_fallback"] = enabled
     try:
         yield
     finally:
