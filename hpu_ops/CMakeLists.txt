@@ -16,63 +16,61 @@
 ###############################################################################
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
-add_custom_command(
-  OUTPUT ${CMAKE_BINARY_DIR}/generated/autograd/autograd_ops.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op1.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op2.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op3.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op4.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op5.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op6.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op7.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op8.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torchvision.cpp
-         ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op0.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op1.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op2.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op3.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op4.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op5.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op6.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op7.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op8.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_quant.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torchvision.cpp
-         ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op3.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op4.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op5.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op6.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_custom.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops0.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops1.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops2.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops3.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops4.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops5.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops6.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops7.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops8.cpp
-         ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp
-  COMMAND
-    ${Python_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py --output_dir=${CMAKE_BINARY_DIR}/generated
-    --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
-    ${TORCH_INSTALL_PREFIX}/../torchgen/packaged/ATen/native/native_functions.yaml
-  MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
-  DEPENDS ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h)
+
+set(GENERATED_FILES
+    ${CMAKE_BINARY_DIR}/generated/autograd/autograd_ops.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op1.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op2.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op3.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op4.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op5.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op6.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op7.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op8.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torchvision.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op0.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op1.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op2.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op3.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op4.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op5.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op6.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op7.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op8.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_quant.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torchvision.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op3.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op4.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op5.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op6.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_op_custom.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops0.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops1.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops2.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops3.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops4.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops5.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops6.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops7.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops8.cpp
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp)
+
+include(GenOp)
+generate_files("${GENERATED_FILES}" "")
 
 add_habana_library(
   habana_pytorch_backend_ops

@@ -2862,8 +2862,8 @@ if __name__ == "__main__":
     )
     arg_parser.add_argument(
         "--check_kernel_support",
-        type=bool,
         default=False,
+        action="store_true",
         help="Check kernel support or normal kernel generation",
     )
     args, files = arg_parser.parse_known_args()
