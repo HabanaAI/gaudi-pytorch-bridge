@@ -16,6 +16,8 @@
 ###############################################################################
 
 
+import copy
+
 import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo._fx_to_jit_lowering import FxToJitLowering
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
@@ -140,8 +142,9 @@ class _ClusterCompiler(torch.fx.Interpreter):
         #         f"FX_GRAPH:\nNode name: {self.ctx.graph_name}\n" f"Target: {node.target}\n" f"Code: {submod.code}"
         #     )
 
-        jit_ir = self.fx_to_jit_ir(submod, args)
-        jit_node_annotation_propagation(jit_ir, submod)
+        submod_updated = copy.deepcopy(submod)
+        jit_ir = self.fx_to_jit_ir(submod_updated, args)
+        jit_node_annotation_propagation(jit_ir, submod_updated)
 
         is_submod_dynamic = is_module_dynamic(submod)
         refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
@@ -151,7 +154,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
                 is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
 
             if is_submod_dynamic and optim_output_sif_ds:
-                jit_node_shape_propagation(jit_ir, submod)
+                jit_node_shape_propagation(jit_ir, submod_updated)
 
         is_reusables: list[bool] = submod.meta["is_reusables"] if "is_reusables" in submod.meta else []
         syngraph_module = get_callable_recipe(

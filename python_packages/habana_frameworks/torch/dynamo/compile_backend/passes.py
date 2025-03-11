@@ -2437,6 +2437,10 @@ def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
 
                     if "output_shapes" in node.meta:
                         node.meta["output_shapes"] = bmm_output.meta.get("output_shapes", None)
+                        node.meta["output_strides"] = bmm_output.meta.get("output_strides", None)
+                        fill_propagated_tensor_metadata_jitfork(node)
+                    else:
+                        logger.warn("There is no 'output_shapes' for bmm nodes")
 
                     graph_changed = True
 

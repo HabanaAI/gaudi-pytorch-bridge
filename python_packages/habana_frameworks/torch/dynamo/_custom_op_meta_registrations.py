@@ -391,12 +391,14 @@ def meta_habana_seed_generator(counter, seed, size):
 
 
 @register_meta([torch.ops.hpu.habana_randint])
-def meta_habana_randint(seed, low, high, shape_tensor, dtype=torch.long, device=None, pin_memory=False):
+def meta_habana_randint(seed, low, high, shape_tensor, dtype=torch.long, layout=None, device=None, pin_memory=False):
     return torch.empty(shape_tensor, dtype=dtype, device="meta")
 
 
 @register_meta([torch.ops.hpu.habana_randint_checkpoint])
-def meta_habana_randint_checkpoint(seed, low, high, shape_tensor, dtype=torch.long, device=None, pin_memory=False):
+def meta_habana_randint_checkpoint(
+    seed, low, high, shape_tensor, dtype=torch.long, layout=None, device=None, pin_memory=False
+):
     return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
 
 
@@ -425,12 +427,12 @@ def meta_habana_native_dropout_checkpoint(seed, input, p, train):
 
 
 @register_meta([torch.ops.hpu.habana_randn])
-def meta_habana_randn(seed, shape_tensor, dtype, device, pin_memory):
+def meta_habana_randn(seed, shape_tensor, dtype=torch.float, layout=None, device="meta", pin_memory=False):
     return torch.empty(shape_tensor, dtype=dtype, device="meta")
 
 
 @register_meta([torch.ops.hpu.habana_randn_checkpoint])
-def meta_habana_randn_checkpoint(seed, shape_tensor, dtype, device, pin_memory):
+def meta_habana_randn_checkpoint(seed, shape_tensor, dtype=torch.float, layout=None, device="meta", pin_memory=False):
     return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
 
 
@@ -455,13 +457,23 @@ def meta_habana_poisson_checkpoint(seed, value):
 
 
 @register_meta([torch.ops.hpu.habana_rand])
-def meta_habana_rand(seed, shape_tensor, dtype=torch.float, device="meta", pin_memory=False):
+def meta_habana_rand(seed, shape_tensor, dtype=torch.float, layout=None, device="meta", pin_memory=False):
     return torch.empty(shape_tensor, dtype=dtype, device="meta")
 
 
 @register_meta([torch.ops.hpu.habana_rand_checkpoint])
-def meta_habana_rand_checkpoint(seed, shape_tensor, dtype=torch.float, device="meta", pin_memory=False):
+def meta_habana_rand_checkpoint(seed, shape_tensor, dtype=torch.float, layout=None, device="meta", pin_memory=False):
     return (torch.empty_like(seed), torch.empty(shape_tensor, dtype=dtype, device="meta"))
+
+
+@register_meta([torch.ops.hpu.habana_uniform])
+def meta_habana_uniform(seed, self, low=0.0, high=1.0):
+    return torch.empty(self.shape, dtype=self.dtype, device="meta")
+
+
+@register_meta([torch.ops.hpu.habana_uniform_checkpoint])
+def meta_habana_uniform_checkpoint(seed, self, low=0.0, high=1.0):
+    return (torch.empty_like(seed), torch.empty(self.shape, dtype=self.dtype, device="meta"))
 
 
 @register_meta([torch.ops.hpu.habana_multinomial])

@@ -17,8 +17,10 @@
 
 
 import torch
+from torch._ops import OpOverload as TorchOpOverload
+from torch._subclasses.fake_tensor import FakeTensorMode
 
-from .._helpers.helpers import TensorInfoPropagation, propagate_meta
+from .._helpers.helpers import propagate_meta
 from ..random_utils import (
     backward_random_op_inputs,
     is_backward_checkpoint_op,
@@ -26,6 +28,7 @@ from ..random_utils import (
     is_random_op,
     random_op_inputs,
 )
+from ..symbolic_execution import SymExprNodeManager
 
 
 def _flatten_meta(node):
@@ -153,7 +156,52 @@ def propagate_for_random_ops(
 
     full_args = additional_inputs + args
 
-    class _RandomOpsPropagation(TensorInfoPropagation):
-        pass
+    class _RandomOpsPropagation(torch.fx.Interpreter):
+        def __init__(
+            self,
+            graph_module: torch.fx.GraphModule,
+            fake_mode: FakeTensorMode | None = None,
+        ):
+            super().__init__(graph_module)
+            if fake_mode is None:
+                fake_mode = FakeTensorMode()
+            self._mode = fake_mode
+
+        def run_node(self, node: torch.fx.Node):
+            args = kwargs = result = None
+            if SymExprNodeManager.node_name in node.name:
+                result = node.meta["val"]
+                args, kwargs = self.fetch_args_kwargs_from_env(node)
+            elif (isinstance(node.target, TorchOpOverload) and node.target._name == "aten::bmm") or (
+                hasattr(node.target, "default")
+                and isinstance(node.target.default, TorchOpOverload)
+                and node.target.default._name == "aten::bmm"
+            ):
+                # dealing with special cases
+                # after pass pass_remove_unnecessary_bmm_view, it will make bmm op consume
+                # non-3D input tensors and cause "batch 1must be a 3D tensor" error.
+                # So just skip the second fake_propagation for bmm node.
+                result = node.meta["val"]
+                args, kwargs = self.fetch_args_kwargs_from_env(node)
+                node.val_args = args
+                node.val_kwargs = kwargs
+                return result
+            else:
+                result = super().run_node(node)
+                args, kwargs = self.fetch_args_kwargs_from_env(node)
+
+            node.val_args = args
+            node.val_kwargs = kwargs
+            node.meta["val"] = result
+
+            return result
+
+        def propagate(self, *args):
+            fake_args = [self._mode.from_tensor(a) if isinstance(a, torch.Tensor) else a for a in args]
+            return self.propagate_dont_convert_inputs(*fake_args)
+
+        def propagate_dont_convert_inputs(self, *args):
+            with self._mode:
+                return super().run(*args)
 
     propagate_meta(graph_module, full_args, _RandomOpsPropagation)
