@@ -279,7 +279,22 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
     }
 
     otherRank = otherTensor.dim();
-    resultType = at::result_type(self, otherTensor);
+    // aten.result_type doesn't implicitly allow number as tensor, so here we
+    // need explicitly create scalar and then call result_type.Scalar variant
+    if (!otherTensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+      resultType = at::result_type(self, otherTensor);
+    } else {
+      // create a new dummy scalar with default type, and
+      // then call result_type(Tensor, Scalar) variant
+      at::Scalar newOtherScalar;
+      if (at::is_floating_point(otherTensor)) {
+        newOtherScalar = at::Scalar(1.0f);
+      } else {
+        newOtherScalar = at::Scalar(1LL);
+      }
+      resultType = at::result_type(self, newOtherScalar);
+    }
+
     update_result_type(
         resultType, updatedGuid, castIntToFloat, supportI8, supportI16);
   } else {
