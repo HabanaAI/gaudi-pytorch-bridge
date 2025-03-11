@@ -232,6 +232,7 @@ hpu_backend_decompositions_list = [
     aten.unbind.int,
     aten.unfold.default,
     aten.unfold_backward.default,
+    aten._unsafe_view.default,
     aten.unfold_backward.out,
     aten.upsample_bilinear2d.vec,
     aten.upsample_bilinear2d.default,

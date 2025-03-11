@@ -318,8 +318,11 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
         weight_transpose = source_fn_stack and source_fn_stack[-1][1] in [torch.nn.Linear, torch.nn.functional.linear]
 
         gemm_users_node = next(iter(gemm_node.users), None)
-        output_view_node = gemm_users_node if is_node(gemm_users_node, "_unsafe_view.default") else None
-
+        output_view_node = (
+            gemm_users_node
+            if (is_node(gemm_users_node, "_unsafe_view.default") or is_node(gemm_users_node, "view.default"))
+            else None
+        )
         is_addmm_node = is_node(gemm_node, "addmm.default")
         weight_idx = 2 if is_addmm_node else 1
         input_idx = 1 if is_addmm_node else 0
