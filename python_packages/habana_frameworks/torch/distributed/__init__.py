@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,3 +14,7 @@
 #  limitations under the License.
 #
 ###############################################################################
+import habana_frameworks.torch.internal.bridge_config as bc
+
+if bc.get_pt_hpu_override_linear_matmul_eager():
+    import habana_frameworks.torch.distributed.tensor.ops.linear
