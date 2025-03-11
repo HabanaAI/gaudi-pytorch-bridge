@@ -11,7 +11,6 @@ using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
 #include "linear_backward.h"
-#include "native_group_norm.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,24 +21,6 @@ using torch::jit::Stack;
 namespace habana {
 
 
-
-::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_group_norm(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, c10::SymInt N, c10::SymInt C, c10::SymInt HxW, int64_t group, double eps) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("native_group_norm: ", DUMP_8ARGS(input, weight, bias, N, C, HxW, group, eps));
-
-  [[maybe_unused]] bool require_h2d = false;
-  [[maybe_unused]] bool require_st = false;
-
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_group_norm, input, weight, bias, N, C, HxW, group, eps)
-
-  LazyOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::native_group_norm", {input, weight, bias, N, C, HxW, group, eps}};
-  hpu_op.SetOutputMetaFn(GroupNormFwdMeta);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(native_group_norm, hpu_op);
-}
 
 ::std::tuple<at::Tensor,at::Tensor,at::Tensor> linear_backward(const at::Tensor & self, const at::Tensor & grad_output, const at::Tensor & weight, ::std::array<bool,3> output_mask) {
   PT_LAZY_OP_TRACE;
@@ -69,7 +50,6 @@ static const auto& kr_gen_9 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("native_group_norm", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, c10::SymInt, c10::SymInt, c10::SymInt, int64_t, double)>(&habana::native_group_norm));
   m.impl("linear_backward", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, ::std::array<bool,3>)>(&habana::linear_backward));
 
 }

@@ -11,7 +11,7 @@ using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
 #include "addbmm.h"
-#include "as_strided.h"
+#include "bucketize.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,18 +22,8 @@ using torch::jit::Stack;
 namespace habana {
 
 static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta, habana_helpers::HabanaExecutionMode::LAZY);
+static CheckNodeWithSharedLayerValidator validator_bucketize_Scalar("bucketize.Scalar", "search_sorted_fwd", {1}, {0}, BucketizeMeta, {0, 1}, false, false, false, false);
 
-
-at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
-
-  [[maybe_unused]] bool require_h2d = false;
-  [[maybe_unused]] bool require_st = false;
-
-  return habana_lazy::as_strided_hpu(self, size, stride, storage_offset);
-}
 
 at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {
   PT_LAZY_OP_TRACE;
@@ -50,6 +40,25 @@ at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::
   RUN_MAYBE_WITH_ACC_THREAD(addbmm, hpu_op);
 }
 
+at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("bucketize: ", DUMP_4ARGS(self, boundaries, out_int32, right));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  static_cast<void>(compute_type);
+
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, false, self, boundaries, out_int32, right)
+
+  LazyOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetOutputMetaFn(BucketizeMeta);
+  RUN_MAYBE_WITH_ACC_THREAD(bucketize, hpu_op);
+}
+
 
 
 
@@ -58,8 +67,8 @@ static const auto& kr_gen_2 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::optional<c10::SymInt>)>(&habana::as_strided));
   m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
+  m.impl("bucketize.Scalar", static_cast<at::Tensor (*)(const at::Scalar &, const at::Tensor &, bool, bool)>(&habana::bucketize));
 
 }
 

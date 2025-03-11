@@ -232,7 +232,7 @@ NUM_SHARDS = 10
 
 
 def should_write_and_go_to_next_file(idx: int, num_idxs_per_shard: int, file_idx: int, total_idxs):
-    return ((file_idx + 1) < NUM_SHARDS and (idx + 1) % num_idxs_per_shard == 0) or (idx + 1) == total_idxs
+    return ((file_idx + 1) < NUM_SHARDS and idx // num_idxs_per_shard > file_idx) or (idx + 1) == total_idxs
 
 
 class OpValidatorGenerator(ABC):

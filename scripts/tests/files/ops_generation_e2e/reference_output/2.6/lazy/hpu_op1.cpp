@@ -10,7 +10,7 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "_fused_dropout.h"
+#include "as_strided.h"
 #include "native_dropout.h"
 
 
@@ -22,24 +22,6 @@ using torch::jit::Stack;
 namespace habana {
 
 
-
-::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, c10::optional<at::Generator> generator) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("_fused_dropout: ", DUMP_3ARGS(self, p, generator));
-
-  [[maybe_unused]] bool require_h2d = false;
-  [[maybe_unused]] bool require_st = false;
-
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
-
-  GeneratorToSeed<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::_fused_dropout", {self, p, generator}};
-  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_fused_dropout, hpu_op);
-}
 
 ::std::tuple<at::Tensor,at::Tensor> native_dropout(const at::Tensor & input, double p, c10::optional<bool> train) {
   PT_LAZY_OP_TRACE;
@@ -62,6 +44,17 @@ namespace habana {
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(native_dropout, hpu_op);
 }
 
+at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  return habana_lazy::as_strided_hpu(self, size, stride, storage_offset);
+}
+
 
 
 
@@ -70,8 +63,8 @@ static const auto& kr_gen_1 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<at::Generator>)>(&habana::_fused_dropout));
   m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<bool>)>(&habana::native_dropout));
+  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::optional<c10::SymInt>)>(&habana::as_strided));
 
 }
 
