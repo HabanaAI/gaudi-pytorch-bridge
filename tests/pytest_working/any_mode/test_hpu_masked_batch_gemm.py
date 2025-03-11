@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import hpu, is_gaudi2
+from test_utils import compile_function_if_compile_mode, hpu, is_gaudi2
 
 
 @pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports masked_batch_gemm op")
@@ -41,7 +41,9 @@ def test_masked_batch_gemm(shape_A, shape_B, transA, transB, dtype):
     mask_A = torch.randn(mask_A_shape, dtype=dtype)
     mask_B = torch.randn(mask_B_shape, dtype=dtype)
 
-    result = torch.ops.hpu.masked_batch_gemm(A.to(hpu), B.to(hpu), mask_A.to(hpu), mask_B.to(hpu), transA, transB).cpu()
+    fn = compile_function_if_compile_mode(torch.ops.hpu.masked_batch_gemm)
+
+    result = fn(A.to(hpu), B.to(hpu), mask_A.to(hpu), mask_B.to(hpu), transA, transB).cpu()
 
     At = A.transpose(-2, -1) if transA else A
     mask_At = mask_A.transpose(-2, -1) if transA else mask_A

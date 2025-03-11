@@ -148,7 +148,6 @@ _OP_VALIDATOR_EXCEPTIONS = {
     "mixture_of_experts.fp8_fused_weights": "not implemented yet",
     "cast_to_fp8": "not implemented yet",
     "fp8_gemm": "not implemented yet",
-    "masked_batch_gemm": "custom op",
     "_native_batch_norm_legit": "not implemented yet",
     "_native_batch_norm_legit_no_training": "not implemented yet",
     "_native_batch_norm_legit.no_stats": "not implemented yet",
