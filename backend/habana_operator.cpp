@@ -16,6 +16,7 @@
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel_recipe_signature.h"
@@ -118,12 +119,6 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
   return result;
 }
 
-namespace {
-struct ResourceHolder {
-  std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-};
-} // namespace
-
 static size_t getRecipeKey(
     std::string node,
     std::vector<c10::IValue> stack,
@@ -151,8 +146,8 @@ static void launchRecipe(
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe->launch(input_buffers, output_buffers, address_lock, stream_handle);
     recipe_counter.increase();
-    auto holder = std::make_shared<ResourceHolder>();
-    holder->address_lock = std::move(address_lock);
+    auto holder = std::make_shared<GenericResourceHolder>();
+    holder->get_address_lock() = std::move(address_lock);
     const auto& recipe_ptr = recipe->getRecipeHandle();
     // Get the reference to the tensor it is operating on to prevent
     // it from being deallocated while the operation is still in flight.
