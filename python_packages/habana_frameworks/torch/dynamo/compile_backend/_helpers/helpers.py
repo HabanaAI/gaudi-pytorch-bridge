@@ -198,14 +198,11 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     This function takes out basic information from propagated fake tensor, like
     dtype, layout and device and puts it to the node that created it.
     """
-    if not bc.get_pt_hpu_use_jit_fork():
-        # todo - cleanup [SW-199903]
-        # just skip for get_attr node since it's not necessary
-        if node.op == "get_attr":
-            return
-
     if node.meta.get("val") is None:
         node.meta["val"] = result
+
+    if node.op == "get_attr":
+        return
 
     result = handle_noncontiguous_output(node, result)
 

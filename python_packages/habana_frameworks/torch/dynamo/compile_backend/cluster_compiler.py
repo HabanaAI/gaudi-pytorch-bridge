@@ -33,6 +33,7 @@ from ._helpers import (
     get_dynamic_config_value,
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
+    remove_duplicated_outputs,
     remove_no_effect_inplace_add,
 )
 from ._passes.random import propagate_for_random_ops, wrap_random_ops
@@ -73,13 +74,11 @@ class _ClusterCompiler(torch.fx.Interpreter):
         self._has_random_ops = False
 
     def fx_to_jit_ir(self, submod, args):
-        # temporarily skiping this
-        # wrap_random_ops(submod)
-        # remove_duplicated_outputs(submod)
         additional_random_args: tuple[torch.Tensor, torch.Tensor] = wrap_random_ops(submod)
         if additional_random_args:
             self._has_random_ops = True
             propagate_for_random_ops(submod, args, additional_random_args)
+        remove_duplicated_outputs(submod)
         remove_no_effect_inplace_add(submod)
 
         submod.graph.lint()

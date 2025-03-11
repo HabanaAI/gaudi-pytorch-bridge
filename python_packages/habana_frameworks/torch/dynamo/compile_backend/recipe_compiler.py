@@ -305,13 +305,6 @@ class HabanaGraphModule(torch.nn.Module):
                 self._recipe_id = None
             self._dynamic = False
 
-        if self._get_pt_hpu_use_jit_fork:
-            # insert the inputs into the out stack
-            if self._in_to_out_dups is not None:
-                out_idxes = list(self._out_to_in_dups.keys())
-                for out_idx in out_idxes:
-                    outputs.insert(out_idx, args[self._out_to_in_dups[out_idx]])
-
         if self._recipe_id is None:
             # self.check_for_random_ops()
             if self._dynamic:
@@ -358,16 +351,13 @@ class HabanaGraphModule(torch.nn.Module):
             outputs=outputs,
         )
 
-        if not self._get_pt_hpu_use_jit_fork:
-            # insert the inputs into the out stack
-            if self._in_to_out_dups is not None:
-                out_stack = (
-                    list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else [])
-                )
-                out_indexes = self._out_to_in_dups.keys()
-                for out_idx in out_indexes:
-                    out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
-                out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
+        # insert the inputs into the out stack
+        if self._in_to_out_dups is not None:
+            out_stack = list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else [])
+            out_indexes = self._out_to_in_dups.keys()
+            for out_idx in out_indexes:
+                out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
+            out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
 
         return out_stack
 

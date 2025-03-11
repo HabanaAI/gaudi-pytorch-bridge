@@ -140,6 +140,8 @@ void ComputeGraphHashCode(
     HABANA_ASSERT(node);
     output_connection_hash =
         at::hash_combine(output_connection_hash, node_idx_map[node]);
+    output_connection_hash =
+        at::hash_combine(output_connection_hash, value_out->offset());
     connection_hash = at::hash_combine(connection_hash, output_connection_hash);
   }
 
