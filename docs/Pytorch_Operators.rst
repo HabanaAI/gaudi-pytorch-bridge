@@ -219,6 +219,7 @@ all                                      Yes      Yes      Yes     No        Yes
 amax                                     Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 amin                                     Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 aminmax                                  Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
+angle                                    Yes      Yes      Yes     No        No       No        No        No       No     torch
 any                                      Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 arange                                   Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 arccos                                   Yes      Yes      No      No        Yes      Yes       Yes       Yes      Yes    torch

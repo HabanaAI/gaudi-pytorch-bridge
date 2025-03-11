@@ -2294,6 +2294,15 @@ complex:
   override_fn: complex_hpu
   op_validator: EmptySharedMeta
 
+angle:
+  guid: angle_fwd
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+angle.out:
+  guid: angle_fwd
+  op_validator: check-node-with-shared-layer
+
 constant_pad_nd:
   output_meta: ConstantPadMeta
   op_backend: ConstantPad
