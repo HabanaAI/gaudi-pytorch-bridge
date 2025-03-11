@@ -69,6 +69,31 @@ bool resizeTensor(
     std::unique_ptr<bool[]>& changed,
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
+    std::vector<int64_t> extra_num_elems) {
+  bool change = false;
+  for (size_t i = 0; i < tensors.size(); i++) {
+    auto btensor_type = tensors[i].scalar_type();
+    changed[i] = false;
+    if ((at::kChar == btensor_type || at::kByte == btensor_type ||
+         at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
+         at::kFloat8_e4m3fn == btensor_type) &&
+        ((tensors[i].numel() % 2 != 0 && extra_num_elems[i] == 1) ||
+         extra_num_elems[i] != 1)) {
+      changed[i] = true;
+      sizeList[i] = tensors[i].sizes().vec();
+      strideList[i] = tensors[i].strides().vec();
+      tensors[i] = tensors[i].resize_(tensors[i].numel() + extra_num_elems[i]);
+      change = true;
+    }
+  }
+  return change;
+}
+
+bool resizeTensor(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList,
     int extra_num_elems) {
   if (extra_num_elems == 1) {
     return resizeOddTensor(tensors, changed, sizeList, strideList);
@@ -171,6 +196,71 @@ void restoreTensorsize(
     }
   }
 }
+
+void restoreTensorsize(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList,
+    std::vector<int64_t> extra_num_elems,
+    std::vector<int64_t> ori_input_size) {
+  for (size_t i = 0; i < tensors.size(); i++) {
+    if (changed[i] == true) {
+      if (extra_num_elems[i] == 1) {
+        tensors[i] = tensors[i].resize_(sizeList[i]);
+        tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
+            sizeList[i], strideList[i]);
+      } else {
+        // Here restore logic is like below, typically for output tensor:
+        //
+        // Considering we have input tensor with shape [63] on two ranks.
+        // Originally output tensor should have shape [126]. Hovever, after
+        // resize, each input tensor has shape [64] and output tensor shape
+        // [128]. So for output tensor, there are two extra elements added,
+        // specifically the positions are 63 and 127.
+        //
+        // For restore stage, simply resizing is not enough since the extra
+        // element is at pos 63. Instead separate copy is used below to recover
+        // output correctly. To do this, a temporary buffer is required,
+        // see `resized_out` in below code. Firstly, copy elements from
+        // ori_out[0, 1, ..., 62] to resized_out[0, 1,..., 62]. And then copy
+        // elements from ori_out[64, 65, ..., 126] to
+        // resized_out[63, 64, ..., 125]. After all these done, copy elements
+        // from resized_out back to original output tensor. Now, output tensor
+        // should have all updated elements at index 0~125 and is safe to do
+        // resize.
+
+        auto resized_out = at::empty_like(tensors[i], tensors[i].scalar_type());
+        TORCH_CHECK(tensors[i].sizes().size() == 1, "only support 1D tensor");
+        auto resized_input_size = ori_input_size[i] + 1;
+        for (auto n = 0; n < extra_num_elems[i]; ++n) {
+          auto dst = at::as_strided(
+              resized_out,
+              {ori_input_size[i]},
+              resized_out.strides(),
+              n * ori_input_size[i]);
+          auto src = at::as_strided(
+              tensors[i],
+              {ori_input_size[i]},
+              tensors[i].strides(),
+              n * resized_input_size);
+          dst.copy_(src);
+        }
+        tensors[i].copy_(resized_out);
+
+        // need step marker here to ensure later resize_ has no conflict with
+        // above two as_strided operations.
+        PT_IRGRAPH_DEBUG("step marker due to restore tensor size");
+        habana_lazy::HbLazyTensor::StepMarker();
+
+        tensors[i] = tensors[i].resize_(sizeList[i]);
+        tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
+            sizeList[i], strideList[i]);
+      }
+    }
+  }
+}
+
 } // namespace
 
 ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
@@ -641,7 +731,101 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
   return allgather(outputTensorLists, inputTensors, opts);
-};
+}
+
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_into_tensor_coalesced(
+    std::vector<at::Tensor>& outputs,
+    std::vector<at::Tensor>& inputs,
+    [[maybe_unused]] const AllgatherOptions& opts) {
+  // Ensure that inputs and outputs have the same size
+  TORCH_CHECK(
+      inputs.size() == outputs.size(),
+      "inputs and outputs must have the same number of tensors");
+  auto tensor_size{inputs.size()};
+  std::vector<int64_t> ori_input_size(tensor_size);
+
+  for (size_t i = 0; i < tensor_size; ++i) {
+    at::Tensor& input_tensor = inputs[i];
+    at::Tensor& output_tensor = outputs[i];
+    if (input_tensor.dtype() != output_tensor.dtype()) {
+      TORCH_CHECK(
+          false, "output tensor must have the same type as input tensor");
+    }
+
+    if (input_tensor.numel() * size_ != output_tensor.numel()) {
+      TORCH_CHECK(
+          false,
+          "output tensor size must be equal to world_size times input tensor size");
+    }
+    ori_input_size[i] = input_tensor.numel();
+  }
+
+  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+
+  std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> out_strideList(tensor_size);
+
+  // Case 1 with even world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //
+  //    rank 0: output [126] -> no resize happen
+  //    rank 1: output [126] -> no resize happen
+  // actually require resize output tensor to [128]
+  //
+  // Case 2 with odd world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //    rank 2: input [63] -> resize to [64]
+  //
+  //    rank 0: output [189] -> resize to [190]
+  //    rank 1: output [189] -> resize to [190]
+  //    rank 2: output [189] -> resize to [190]
+  // resize happens, but got wrong size, should be [192] rather than [190]
+  bool changed =
+      resizeOddTensor(inputs, in_changed, in_sizeList, in_strideList);
+  // if no resize on input, keep current logic
+  std::vector<int64_t> out_resize_extra_num_elems(tensor_size);
+  for (size_t i = 0; i < tensor_size; i++) {
+    out_resize_extra_num_elems[i] = in_changed[i] ? size_ : 1;
+  }
+  changed |= resizeTensor(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      out_resize_extra_num_elems);
+
+  HOST_SYNC()
+  for (size_t i = 0; i < tensor_size; i++) {
+    habana_lazy::allgather_hpu_lazy_out(inputs[i], comm_->GetId(), outputs[i]);
+  }
+
+  if (changed) {
+    PT_IRGRAPH_DEBUG(
+        "step marker due to ProcessGroupLazyHCCL::_allgather_base");
+    habana_lazy::HbLazyTensor::StepMarker();
+  }
+
+  restoreOddTensorsize(inputs, in_changed, in_sizeList, in_strideList);
+
+  restoreTensorsize(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      out_resize_extra_num_elems,
+      ori_input_size);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
+}
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
