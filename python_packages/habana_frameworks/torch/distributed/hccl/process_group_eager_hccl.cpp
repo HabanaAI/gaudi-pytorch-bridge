@@ -33,9 +33,9 @@
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_helpers/towl.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
@@ -45,6 +45,8 @@
 
 #include "hpu_ops/op_logger.h"
 #include "process_group_registry.hpp"
+
+#include "backend/helpers/generic_resource_holder.h"
 
 namespace c10d {
 
@@ -373,16 +375,14 @@ void PointToPoint_Execute_Task(
 
     auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-    struct ResourceHolder {
-      at::Tensor tensor_;
-      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-    };
-    auto resource_holder = std::make_shared<ResourceHolder>();
-    resource_holder->tensor_ = tensor;
+    auto resource_holder = std::make_shared<GenericResourceHolder>();
+    resource_holder->add_tensor(tensor);
 
     void* tensor_address;
     deviceCtxt->lock_address(
-        tensor.data_ptr(), &tensor_address, resource_holder->address_lock);
+        tensor.data_ptr(),
+        &tensor_address,
+        resource_holder->get_address_lock());
 
     hcclResult_t hccl_result =
         fn(tensor,
@@ -499,22 +499,20 @@ void Collective_Execute_Task(
     hcclResult_t hccl_result = hcclSuccess;
     auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-    struct ResourceHolder {
-      std::vector<at::Tensor> tensors_;
-      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-    };
-    auto resource_holder = std::make_shared<ResourceHolder>();
-    resource_holder->tensors_ = {input, output};
+    auto resource_holder = std::make_shared<GenericResourceHolder>();
+    resource_holder->add_tensor(input);
+    resource_holder->add_tensor(output);
 
     void* input_address;
     void* output_address;
     deviceCtxt->lock_address(
-        {input.data_ptr(), output.data_ptr()}, resource_holder->address_lock);
+        {input.data_ptr(), output.data_ptr()},
+        resource_holder->get_address_lock());
     input_address =
-        reinterpret_cast<void*>(resource_holder->address_lock->at(0));
+        reinterpret_cast<void*>(resource_holder->get_address_lock()->at(0));
     HABANA_ASSERT(input_address != nullptr, "input_address is null");
     output_address =
-        reinterpret_cast<void*>(resource_holder->address_lock->at(1));
+        reinterpret_cast<void*>(resource_holder->get_address_lock()->at(1));
     HABANA_ASSERT(output_address != nullptr, "output_address is null");
 
     hccl_result =
@@ -548,14 +546,38 @@ void Collective_Execute_Task(
 }
 
 void ProcessGroupEagerHCCL::groupStart() {
-  initComms();
-  TORCH_CHECK(
+  auto _groupStart = [this]() {
+    initComms();
+    TORCH_CHECK(
       hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+  };
+
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  if (pipeline_flag) {
+    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(_groupStart);
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    _groupStart();
+  }
 }
 
 void ProcessGroupEagerHCCL::groupEnd() {
-  TORCH_CHECK(
+  auto _groupEnd = [this]() {
+    TORCH_CHECK(
       hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+  };
+
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  if (pipeline_flag) {
+    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(_groupEnd);
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    _groupEnd();
+  }
 }
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
