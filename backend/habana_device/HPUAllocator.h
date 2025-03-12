@@ -16,12 +16,12 @@
 #include <ATen/ATen.h>
 #include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
+#include <functional>
+#include <map>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
-
-#include <map>
 
 namespace habana {
 
@@ -61,6 +61,7 @@ class HPUDeviceAllocator final : public at::Allocator {
 
   void* allocate_impl(size_t size, synStatus& status) const;
   static void deleter(void* ptr);
+  static void real_deleter(void* ptr);
 
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;
@@ -73,6 +74,8 @@ class HPUDeviceAllocator final : public at::Allocator {
   static void dump_memory_reporter();
   at::DataPtr allocate(size_t size) override;
   void copy_data(void* dest, const void* src, std::size_t count) const override;
+
+  static std::function<void(void*)> deleter_hook;
 };
 
 } // namespace habana

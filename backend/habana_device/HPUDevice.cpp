@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
+#include "common/pipeline_deleter.h"
 
 namespace habana::HPUDeviceContext {
 
@@ -99,8 +100,10 @@ void HPUDeviceContextImpl::Init() {
 
   compile_thread_pool_ = std::make_unique<habana_helpers::ThreadPool>();
 
-  execute_thread_ = std::make_unique<PipeSingleThreadpool>(
-      true, []() { c10::setThreadName("Pipeline Execute Thread"); });
+  execute_thread_ = std::make_unique<PipeSingleThreadpool>(true, []() {
+    c10::setThreadName("Pipeline Execute Thread");
+    common::PipelineDeleter::instance().install();
+  });
   compile_thread_ = std::make_unique<PipeSingleThreadpool>(
       true, []() { c10::setThreadName("Pipeline Compile Thread"); });
   lowering_thread_ = std::make_unique<PipeSingleThreadpool>(
@@ -117,6 +120,7 @@ void HPUDeviceContextImpl::Init() {
 void HPUDeviceContextImpl::ThreadsRelease() {
   // Make sure all pipeline tasks finished before the reset
   JoinPipelineThreads();
+  common::PipelineDeleter::instance().uninstall();
 
   habana_helpers::AutoNoGIL gil_release;
   device_context.lowering_thread_.reset();

@@ -141,6 +141,7 @@ add_habana_library(
   habana_pytorch_plugin
   SHARED
   common/lazy/utils.cpp
+  common/lazy/pipeline_deleter.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
@@ -245,6 +246,7 @@ add_habana_library(
   habana_pytorch2_plugin
   SHARED
   common/eager/utils.cpp
+  common/eager/pipeline_deleter.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/frontend_utils.cpp

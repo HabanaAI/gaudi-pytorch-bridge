@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,11 +122,21 @@ static synStatus waitTillRecipeExecution(
   return status;
 }
 
+std::function<void(void*)> HPUDeviceAllocator::deleter_hook = nullptr;
+
 HPUDeviceAllocator::HPUDeviceAllocator() {
   allocator_active_device_id = static_cast<synDeviceId>(-1);
 }
 
 void HPUDeviceAllocator::deleter(void* ptr) {
+  if (deleter_hook) {
+    deleter_hook(ptr);
+  } else {
+    real_deleter(ptr);
+  }
+}
+
+void HPUDeviceAllocator::real_deleter(void* ptr) {
   if (!HPUDeviceContext::is_device_acquired())
     return;
 

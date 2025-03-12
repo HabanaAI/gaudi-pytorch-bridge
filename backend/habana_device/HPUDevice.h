@@ -20,7 +20,6 @@
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
-
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace synapse_helpers {
