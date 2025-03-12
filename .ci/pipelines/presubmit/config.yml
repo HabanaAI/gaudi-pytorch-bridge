@@ -50,13 +50,6 @@ orchestratorConfig:
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_functionality
-    silentMode: false
-    triggerMap:
-    - repository: pytorch-integration
-      gitHubOrg: habana-internal
-    - repository: lightning-habana-fork
-      gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
     silentMode: false
     triggerMap:
