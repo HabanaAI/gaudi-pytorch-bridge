@@ -31,6 +31,7 @@ from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping impo
     dump_fx_graph,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from habana_frameworks.torch.utils.debug.logger import LogLevel
 from habana_frameworks.torch.utils.internal import Timer
 
 import torch
@@ -777,6 +778,9 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
     """
     This pass just prints the graph in debug mode.
     """
+    if not logger.is_enabled_for(LogLevel.DEBUG):
+        return False
+
     assert ctx.graph_module is not None
 
     logger.debug("Readable:\n%s", ctx.graph_module.print_readable(False))
