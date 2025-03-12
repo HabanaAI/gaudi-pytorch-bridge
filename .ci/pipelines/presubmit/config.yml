@@ -85,11 +85,6 @@ orchestratorConfig:
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite
-    silentMode: false
-    triggerMap:
-    - repository: pytorch-integration
-      gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite
     silentMode: false
     triggerMap:
@@ -100,22 +95,12 @@ orchestratorConfig:
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_compile
-    silentMode: false
-    triggerMap:
-    - repository: pytorch-integration
-      gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_compile
     silentMode: false
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_compile
-    silentMode: false
-    triggerMap:
-    - repository: pytorch-integration
-      gitHubOrg: habana-internal
-  - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_eager
     silentMode: false
     triggerMap:
     - repository: pytorch-integration
