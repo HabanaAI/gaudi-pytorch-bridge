@@ -131,6 +131,7 @@ def verify_nodes(ops_summary, expected_op_count):
 def use_pt2e_quant_flow_with_separate_calibration(
     test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load="save"
 ):
+    # breakpoint()
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
     random.seed(0xDEADDEAD)
@@ -252,11 +253,11 @@ def use_pt2e_quant_flow_with_separate_calibration(
 
 
 @pytest.mark.skip("SW-203403 To Do Enable it once FP8 data type is added at torch.export serialization")
+@pytest.mark.parametrize("save_or_load", test_mode)
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
-@pytest.mark.parametrize("save_or_load", test_mode)
 def test_pt2e_quant_float(
     set_env_variable,
     test_case,
@@ -266,7 +267,6 @@ def test_pt2e_quant_float(
     save_or_load,
     inference_env_fixture,
 ):
-
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(quant_dtype)
     quantizer.set_global(quant_config)
@@ -371,11 +371,11 @@ def custom_quant_config_symmetric(quant_dtype):
     return quantization_config
 
 
+@pytest.mark.parametrize("save_or_load", test_mode)
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
-@pytest.mark.parametrize("save_or_load", test_mode)
 def test_pt2e_quant_int(
     test_case, quant_dtype, use_graph_break, pass_input_during_export, save_or_load, inference_env_fixture
 ):

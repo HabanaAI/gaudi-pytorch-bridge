@@ -73,6 +73,9 @@ def search_node(start_node, search_node_name, direction="input"):
 
 
 def bfs_search_node(predicate: Callable, queue=[], direction="input"):
+    """
+    Use BFS to find a given node.
+    """
     assert queue, "Initial queue is empty!"
 
     while queue:
@@ -482,6 +485,10 @@ def prepare_for_inference(pt2eq_context, new_graph_module, update_scale=False) -
 
 
 def check_kcache_or_vcache(node):
+    """
+    Check if the given node is connected to k-proj or v-proj.
+    """
+
     def k_proj_or_v_proj(node):
         if node.meta is not None:
             nn_module_stack = node.meta.get("nn_module_stack", None)
@@ -499,12 +506,12 @@ def check_kcache_or_vcache(node):
         direction="input",
     )
     if node:
-        nn_module_stack = str(node.meta.get("nn_module_stack", None))
+        nn_module_stack = node.meta.get("nn_module_stack", None)
         s = str(nn_module_stack)
         r = "k_cache" if s.find("k_proj") != -1 else "v_cache"
-        return r
+        return r, nn_module_stack
 
-    return ""
+    return "", None
 
 
 def get_kvcache_quant_details(pt2eq_context, converted_gms: list[GraphModule]):
@@ -629,13 +636,10 @@ def handle_kvcache_quantization(pt2eq_context):
             input_quant_node.args = tuple(input_quant_node_args)
 
             # Decide K-cache or V-cache
-            result = check_kcache_or_vcache(input_quant_node_args[0])
+            result, _ = check_kcache_or_vcache(input_quant_node_args[0])
             if result == "k_cache":
-                # result = search_node(input_quant_node_args[0], "rotary_pos_embedding.default")
-                # if result["found"]:
                 logger.debug(f"[PT2EQ-KVCQ] store decode graph kcache scale, zero-point: {q_scale}, {z_point}")
                 kcache_qparams.append((q_scale, z_point))
-            # else:
             elif result == "v_cache":
                 logger.debug(f"[PT2EQ-KVCQ] store decode graph vcache scale, zero-point: {q_scale}, {z_point}")
                 vcache_qparams.append((q_scale, z_point))
@@ -686,9 +690,7 @@ def handle_kvcache_quantization(pt2eq_context):
             z_point = input_quant_node_args[2]
 
             # Update scale, zero-point based on decode graphs's K-cache or V-cache qparam
-            # result = search_node(input_quant_node_args[0], "rotary_pos_embedding.default")
-            # if result["found"]:
-            result = check_kcache_or_vcache(input_quant_node_args[0])
+            result, _ = check_kcache_or_vcache(input_quant_node_args[0])
             if result == "k_cache":
                 q_scale = kcache_qparams[kcache_qparams_list_idx][0]
                 z_point = kcache_qparams[kcache_qparams_list_idx][1]
@@ -696,7 +698,6 @@ def handle_kvcache_quantization(pt2eq_context):
                 logger.debug(
                     f"[PT2EQ-KVCQ] load decode graph kcache scale, zero-point for prefill graph: {q_scale}, {z_point}"
                 )
-            # else:
             elif result == "v_cache":
                 q_scale = vcache_qparams[vcache_qparams_list_idx][0]
                 z_point = vcache_qparams[vcache_qparams_list_idx][1]

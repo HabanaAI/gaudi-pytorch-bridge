@@ -39,6 +39,7 @@ from torch.fx.passes.utils.source_matcher_utils import (
 
 from .pattern_matcher import PatternMatchAndReplacer, get_dequant_node, is_node
 from .quantize_kvcache import (
+    check_kcache_or_vcache,
     handle_kvcache_quantization,
     prepare_for_inference,
     verify_kvcache_quant_effect,
@@ -74,15 +75,17 @@ def calculate_hash(fx_graph_module):
     return non_negative_key
 
 
-def reset_hash_counter():
-    logger.debug("reset hash counter")
+def reset_counters():
+    logger.debug("reset counters")
     global hash_counter
     hash_counter = 0
+    global json_counter
+    json_counter = 0
 
 
 def get_scale_filename(key):
     filename = f"{key}.json"
-    if os.getenv("PT_HPU_PT2EQ_KVCQ", "0") != "0":
+    if os.getenv("PT_HPU_PT2EQ_KVCQ", "1") != "0":
         global json_counter
         filename = f"_{json_counter}_.json"
         json_counter = json_counter + 1
@@ -100,14 +103,14 @@ class HabanaPT2EQuantContext:
     def __init__(self, model, model_key, input=None):
         super().__init__()
         self._original_model = model
-        self._fx_graphs_hash_list = []
-        self._quantized_fx_graph_args_scales_list = []
         self._model_key = model_key
         self._input_for_tracing = input
         self._ep_dict = {}
-        self._graphs = ""
         self._model = None
         self._quantizer = None
+        self._args = []
+        self._gm_hash = []
+        self._preprocessed_gms = []
         self._prepared_gm = []
         self._converted_gm = []
         self._running_gm_cnt = 0
@@ -140,21 +143,29 @@ class HabanaPT2EQuantContext:
     def get_kvcache_quant_details(self):
         return self._kvcache_quant_details
 
-    def record_graphs(self, modified_fx_graph_module):
-        self._graphs = self._graphs + "\n\n" + f"{modified_fx_graph_module.graph}"
-        self._model.graph = self._graphs
-        self._running_gm_cnt = self._running_gm_cnt + 1
+    def extract_graphs(self, preprocessed=False, prepared=False, converted=False):
+        gms = None
+        if prepared:
+            gms = self._prepared_gm
+        elif converted:
+            gms = self._converted_gm
+        elif preprocessed:
+            gms = self._preprocessed_gms
+        graphs = self._model.graph
+        if len(gms) > 0:
+            graphs = "Multiple graphs found.\n"
+            for idx, gm in enumerate(gms):
+                graphs = graphs + f"graph[{idx}]:\n" + f"{gm.graph}\n"
+            self._model.graph = graphs
+        return graphs
 
-    def record_transformed_gm(self, transformed_gm, prepared=False, converted=False):
+    def record_transformed_gm(self, transformed_gm, preprocessed=False, prepared=False, converted=False):
         if prepared:
             self._prepared_gm.append(transformed_gm)
-        if converted:
-            use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
-            # get scales per fx graph for pt2e_save flow not using export program
-            if not use_export_program:
-                scale_info_json = dump_scale(transformed_gm, False)
-                self._quantized_fx_graph_args_scales_list.append([None, None, scale_info_json])
+        elif converted:
             self._converted_gm.append(transformed_gm)
+        elif preprocessed:
+            self._preprocessed_gms.append(transformed_gm)
 
     def replace_transformed_gm(self, old_transformed_gm, new_transformed_gm, prepared=False, converted=False):
         if prepared:
@@ -162,17 +173,38 @@ class HabanaPT2EQuantContext:
         if converted:
             self._converted_gm[self._converted_gm.index(old_transformed_gm)] = new_transformed_gm
 
-    def get_all_transformed_gms(self, prepared=False, converted=False):
+    def get_all_transformed_gms(self, preprocessed=False, prepared=False, converted=False):
         if prepared:
             return self._prepared_gm
-        if converted:
+        elif converted:
             return self._converted_gm
+        elif preprocessed:
+            return self._preprocessed_gms
 
     def get_transformed_gm(self, prepared=False, converted=False):
+        gm = None
         if prepared:
-            return self._prepared_gm[self._running_gm_cnt] if self._prepared_gm else None
+            logger.debug(f"prepared graph module list: len={len(self._prepared_gm)}, idx={self._running_gm_cnt}")
+            if len(self._prepared_gm) > self._running_gm_cnt:
+                gm = self._prepared_gm[self._running_gm_cnt]
         if converted:
-            return self._converted_gm[self._running_gm_cnt] if self._converted_gm else None
+            logger.debug(f"converted graph module list: len={len(self._converted_gm)}, idx={self._running_gm_cnt}")
+            if len(self._converted_gm) > self._running_gm_cnt:
+                gm = self._converted_gm[self._running_gm_cnt]
+        self._running_gm_cnt = self._running_gm_cnt + 1
+        return gm
+
+    def record_args(self, args):
+        self._args.append(args)
+
+    def get_args_list(self):
+        return self._args
+
+    def record_hash(self, hash):
+        self._gm_hash.append(hash)
+
+    def get_hash_list(self):
+        return self._gm_hash
 
     def initialize_ep_dict(self, ep_dict={}):
         self._ep_dict = ep_dict
@@ -183,22 +215,18 @@ class HabanaPT2EQuantContext:
     def get_total_number_of_graphs(self):
         return self._running_gm_cnt
 
-    def clear_graphs(self):
-        self._graphs = ""
+    def reset_graph_counter(self):
         self._running_gm_cnt = 0
 
     def get_input_for_tracing(self):
         return self._input_for_tracing
 
     def set_model(self, model):
+        model.graph = "If you haven't provided sample input during export, run the model at least once with actual input to capture the graphs."
         self._model = model
-        self._model.graph = "If you haven't provided sample input during export, run the model at least once with actual input to capture the graphs."
 
     def get_original_model(self):
         return self._original_model
-
-    def append_fx_graph_hash(self, hash):
-        self._fx_graphs_hash_list.append(hash)
 
     def set_quantizer(self, quantizer):
         self._quantizer = quantizer
@@ -287,7 +315,9 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         self._kvcache_input_quantized = discover_and_materialize_params(
             self._pt2e_quant_context, self._fx_module, *args
         )
+        self._pt2e_quant_context.record_args(args)
         self._fx_graph_hash = calculate_hash(self._fx_module)
+        self._pt2e_quant_context.record_hash(self._fx_graph_hash)
         self._preprocessed = True
 
     def __call__(self, *args, **kwargs):
@@ -302,20 +332,21 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             self.preprocess(*args)
 
         if habana_quantization_map_queue[self._module_key] == []:
-            self._pt2e_quant_context.record_graphs(self._fx_module)
+            self._pt2e_quant_context.record_transformed_gm(self._fx_module, preprocessed=True)
             return self._fx_module(*args, **kwargs)
 
         assert len(habana_quantization_map_queue[self._module_key]) == 1
         queue_element = habana_quantization_map_queue[self._module_key][0]
-        if queue_element["task"] == "prepare_pt2e":
+        if queue_element["task"] == "prepare_for_calibration":
             if not self._prepared:
-                # Apply pytorch prepare_pt2e on each fx graph
-                self._prepared_module = _native_pt2e_quantization_interface("prepare_pt2e")(
-                    self._fx_module, queue_element["quantizer"]
-                )
-
-                self._pt2e_quant_context.record_transformed_gm(self._prepared_module, prepared=True)
-                self._pt2e_quant_context.record_graphs(self._prepared_module)
+                # Get already prepared fx graph
+                self._prepared_module = self._pt2e_quant_context.get_transformed_gm(prepared=True)
+                if not self._prepared_module:
+                    # Apply pytorch prepare_pt2e on preprocessed fx graph
+                    self._prepared_module = _native_pt2e_quantization_interface("prepare_pt2e")(
+                        self._fx_module, self._pt2e_quant_context.get_quantizer()
+                    )
+                    self._pt2e_quant_context.record_transformed_gm(self._prepared_module, prepared=True)
 
                 # Now we use torch.compilation with hpu_backend.
                 # hpu_backend internally uses aot_autograd which extracts the forward definition of
@@ -331,7 +362,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
 
             return self._observed_module(*args, **kwargs)
 
-        elif queue_element["task"] == "convert_pt2e":
+        elif queue_element["task"] == "inference_after_calibration":
             if not self._converted:
                 if not self._prepared:
                     if not self._kvcache_input_quantized:
@@ -362,14 +393,6 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
-                self._pt2e_quant_context.record_graphs(self._converted_module)
-                self._pt2e_quant_context.append_fx_graph_hash(self._fx_graph_hash)
-                use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
-                if use_export_program:
-                    self._pt2e_quant_context._quantized_fx_graph_args_scales_list.append[
-                        self._converted_module, args, None
-                    ]
-
                 # Now we call hpu_inference_compiler to convert it into synapse graph.
                 with torch.no_grad():
                     self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
@@ -382,7 +405,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             else:
                 return self._converted_module(*args, **kwargs)
 
-        elif queue_element["task"] == "inference_pt2e":
+        elif queue_element["task"] == "inference_after_load":
             self._preprocessed = True
             self._prepared = True
 
@@ -399,9 +422,9 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     extra_file = os.path.join(queue_element["dir_path"], get_scale_filename(key))
                     load_scale(self._converted_module, extra_file=extra_file)
 
-                    if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
-                        replacer = PatternMatchAndReplacer(self._converted_module)
-                        replacer.run()
+                if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
+                    replacer = PatternMatchAndReplacer(self._converted_module)
+                    replacer.run()
 
                 assert self._converted_module is not None
 
@@ -505,11 +528,13 @@ def export(
             options={"keep_input_mutations": True},
         )
         model.meta_hb_quant_id = model_key
+        habana_pt2e_quant_context.reset_graph_counter()
         habana_pt2e_quant_context.set_model(model)
         if args is not None:
             model(*args)
             logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
 
+        model.graph = habana_pt2e_quant_context.extract_graphs(preprocessed=True)
         model.multi_graph = True
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
@@ -541,19 +566,33 @@ def prepare_pt2e(
 
     multi_graph = getattr(model, "multi_graph", False)
     if multi_graph:
+        reset_counters()
         # Set "prepare_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
         model_key = model.meta_hb_quant_id
         habana_quantization_map_queue[model_key] = []
-        habana_quantization_map_queue[model_key].append({"task": "prepare_pt2e", "quantizer": quantizer})
+        habana_quantization_map_queue[model_key].append({"task": "prepare_for_calibration"})
 
+        # If user provides example input during export() call,
+        # we are sure about the availability of the preprocessed graph modules here.
+        # And, we can prepare all the preprocessed graph modules in one go.
         global habana_pt2e_quant_context
-        habana_pt2e_quant_context.clear_graphs()
+        preprocessed_gms = habana_pt2e_quant_context.get_all_transformed_gms(preprocessed=True)
+
+        if len(preprocessed_gms) > 0:
+            habana_pt2e_quant_context.reset_graph_counter()
+            logger.debug("Graphs after prepare_pt2e:")
+            for p_gm in preprocessed_gms:
+                # Preparation of each preprocessed fx_graph
+                prepared_module = _native_pt2e_quantization_interface("prepare_pt2e")(p_gm, quantizer)
+                habana_pt2e_quant_context.record_transformed_gm(prepared_module, prepared=True)
+                logger.debug(f"{prepared_module.graph}")
+
+        habana_pt2e_quant_context.reset_graph_counter()
         habana_pt2e_quant_context.set_model(model)
         habana_pt2e_quant_context.set_quantizer(quantizer)
-        if habana_pt2e_quant_context.get_input_for_tracing() is not None:
-            model(*habana_pt2e_quant_context.get_input_for_tracing())
-            logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
+
+        model.graph = habana_pt2e_quant_context.extract_graphs(prepared=True)
         model.multi_graph = True
         return model
     else:
@@ -578,14 +617,14 @@ def convert_pt2e(
 
     multi_graph = getattr(model, "multi_graph", False)
     if multi_graph:
-        reset_hash_counter()
+        reset_counters()
         # Set "convert_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
         model_key = model.meta_hb_quant_id
         habana_quantization_map_queue[model_key] = []
         habana_quantization_map_queue[model_key].append(
             {
-                "task": "convert_pt2e",
+                "task": "inference_after_calibration",
             }
         )
 
@@ -595,6 +634,8 @@ def convert_pt2e(
         calibrated_gms = habana_pt2e_quant_context.get_all_transformed_gms(prepared=True)
 
         if len(calibrated_gms) > 0:
+            habana_pt2e_quant_context.reset_graph_counter()
+            logger.debug("Graphs after convert_pt2e:")
             for gm in calibrated_gms:
                 # Conversion of each prepared + calibrated fx_graph
                 converted_module = _native_pt2e_quantization_interface("convert_pt2e")(
@@ -603,17 +644,17 @@ def convert_pt2e(
                     fold_quantize=False,
                 )
                 habana_pt2e_quant_context.record_transformed_gm(converted_module, converted=True)
+                logger.debug(f"{converted_module.graph}")
 
         # Try to use kv-cache quantization.
         # This takes effect only if kv-cache allocation is done as part of model forward method.
         handle_kvcache_quantization(habana_pt2e_quant_context)
 
-        habana_pt2e_quant_context.clear_graphs()
+        habana_pt2e_quant_context.reset_graph_counter()
         habana_pt2e_quant_context.set_model(model)
         habana_pt2e_quant_context.set_convert_settings(use_reference_representation, False)
-        if habana_pt2e_quant_context.get_input_for_tracing() is not None:
-            model(*habana_pt2e_quant_context.get_input_for_tracing())
-            logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
+
+        model.graph = habana_pt2e_quant_context.extract_graphs(converted=True)
         model.multi_graph = True
         return model
     else:
@@ -732,15 +773,16 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     copy_src_quant_node = full_user_node.args[1]
                     nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
 
-                    result = search_node(copy_src_quant_node.args[0], "rotary_pos_embedding.default")
+                    result, k_proj_v_proj_node_meta = check_kcache_or_vcache(copy_src_quant_node.args[0])
+                    assert result == "k_cache" or result == "v_cache"
+
                     if not nn_module_stack:
-                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+                        assert k_proj_v_proj_node_meta
+                        nn_module_stack = k_proj_v_proj_node_meta
 
                     dump_key = list(nn_module_stack.values())[-1][0]
                     dump_key = convert_to_module_name(dump_key)
-                    dump_key = create_kvcache_module_name(
-                        dump_key, "prompt.k_cache" if result["found"] else "prompt.v_cache"
-                    )
+                    dump_key = create_kvcache_module_name(dump_key, f"prompt.{result}")
 
                     dump_input1_scale_attr = torch.tensor(copy_src_quant_node.args[1], device="hpu")
                     dump_input0_scale_attr = torch.ones_like(dump_input1_scale_attr)
@@ -758,13 +800,16 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     input3_quant_node = result["fx_node"]
                     nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
 
-                    result = search_node(input3_quant_node.args[0], "rotary_pos_embedding.default")
+                    result, k_proj_v_proj_node_meta = check_kcache_or_vcache(input3_quant_node.args[0])
+                    assert result == "k_cache" or result == "v_cache"
+
                     if not nn_module_stack:
-                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+                        assert k_proj_v_proj_node_meta
+                        nn_module_stack = k_proj_v_proj_node_meta
 
                     dump_key = list(nn_module_stack.values())[-1][0]
                     dump_key = convert_to_module_name(dump_key)
-                    dump_key = create_kvcache_module_name(dump_key, "k_cache" if result["found"] else "v_cache")
+                    dump_key = create_kvcache_module_name(dump_key, result)
 
                     dump_input3_scale_attr = torch.tensor(input3_quant_node.args[1], device="hpu")
                     dump_inputs_scale_attr = torch.ones_like(dump_input3_scale_attr)
@@ -903,15 +948,16 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     copy_src_quant_node = full_user_node.args[1]
                     nn_module_stack = copy_src_quant_node.meta.get("nn_module_stack", None)
 
-                    result = search_node(copy_src_quant_node.args[0], "rotary_pos_embedding.default")
+                    result, k_proj_v_proj_node_meta = check_kcache_or_vcache(copy_src_quant_node.args[0])
+                    assert result == "k_cache" or result == "v_cache"
+
                     if not nn_module_stack:
-                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+                        assert k_proj_v_proj_node_meta
+                        nn_module_stack = k_proj_v_proj_node_meta
 
                     load_key = list(nn_module_stack.values())[-1][0]
                     load_key = convert_to_module_name(load_key)
-                    load_key = create_kvcache_module_name(
-                        load_key, "prompt.k_cache" if result["found"] else "prompt.v_cache"
-                    )
+                    load_key = create_kvcache_module_name(load_key, f"prompt.{result}")
 
                     count = count + 1
                     input1_quant_node_args = list(copy_src_quant_node.args)
@@ -926,13 +972,16 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     input3_quant_node = result["fx_node"]
                     nn_module_stack = input3_quant_node.meta.get("nn_module_stack", None)
 
-                    result = search_node(input3_quant_node.args[0], "rotary_pos_embedding.default")
+                    result, k_proj_v_proj_node_meta = check_kcache_or_vcache(input3_quant_node.args[0])
+                    assert result == "k_cache" or result == "v_cache"
+
                     if not nn_module_stack:
-                        nn_module_stack = result["fx_node"].meta.get("nn_module_stack", None)
+                        assert k_proj_v_proj_node_meta
+                        nn_module_stack = k_proj_v_proj_node_meta
 
                     load_key = list(nn_module_stack.values())[-1][0]
                     load_key = convert_to_module_name(load_key)
-                    load_key = create_kvcache_module_name(load_key, "k_cache" if result["found"] else "v_cache")
+                    load_key = create_kvcache_module_name(load_key, result)
 
                     count = count + 1
                     input3_quant_node_args = list(input3_quant_node.args)
@@ -966,63 +1015,67 @@ def save_pt2e(
     logger.debug("Habana's implementation of PT2E based quantization flow: [save_pt2e]")
 
     multi_graph = getattr(model, "multi_graph", False)
-    logger.debug(f"  Save Multi graph {multi_graph}")
+    logger.debug(f"[save_pt2e] Multi graph: {multi_graph}")
+
     if multi_graph:
+        reset_counters()
         global habana_pt2e_quant_context
         org_model = habana_pt2e_quant_context.get_original_model()
+        org_model.multi_graph = True
 
         # save original model
         # ToDo: explore to save org model with out state dict
         torch.save(org_model, f"{f}")
 
-        use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
-
-        # save quantizer for original model if using export scale json dump
         dir_name = os.path.dirname(f)
+
+        use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
         if not use_export_program:
-            quantizer = habana_pt2e_quant_context.get_quantizer()
+            # save quantizer used
             quantizer_filename = os.path.join(dir_name, "quantizer.pt2")
+            torch.save(habana_pt2e_quant_context.get_quantizer(), quantizer_filename)
+            # save convert_pt2e settings used
             convert_settings_filename = os.path.join(dir_name, "convert_settings.pt2")
-            torch.save(quantizer, quantizer_filename)
             torch.save(habana_pt2e_quant_context.get_convert_settings(), convert_settings_filename)
-
-        # assumption: fx-graphs are captured and held in habana_pt2e_quant_context
-        fx_module_hashkeys = []
-        fx_graphs_hash_list = habana_pt2e_quant_context._fx_graphs_hash_list
-        quantized_fx_graph_args_scales_list = habana_pt2e_quant_context._quantized_fx_graph_args_scales_list
-
-        assert len(fx_graphs_hash_list) == len(quantized_fx_graph_args_scales_list)
-        for key, value in zip(fx_graphs_hash_list, quantized_fx_graph_args_scales_list, strict=False):
-            if use_export_program:
-                # Expected value[0] quantized fx graph, value[1] input args
-                assert value[0] is not None
-                assert value[1] is not None
-                exported_program_filename = os.path.join(dir_name + f"{key}.pt2")
+            # save kv-cache quant details
+            kvcq_details_filename = os.path.join(dir_name, "kvcache_quant_details.pt2")
+            torch.save(habana_pt2e_quant_context.get_kvcache_quant_details(), kvcq_details_filename)
+            # save scale information
+            fx_module_hashkeys = habana_pt2e_quant_context.get_hash_list()
+            converted_gms = habana_pt2e_quant_context.get_all_transformed_gms(converted=True)
+            for hashkey, gm_2 in zip(fx_module_hashkeys, converted_gms, strict=False):
+                # get scale information
+                scale_info_json = dump_scale(gm_2, False)
+                scale_filename = os.path.join(dir_name, get_scale_filename(hashkey))
+                with open(scale_filename, "w") as json_file:
+                    json.dump(scale_info_json, json_file, indent=4)
+            logger.debug("[save_pt2e] Completed.")
+        else:
+            # save export programs
+            fx_module_hashkeys = habana_pt2e_quant_context.get_hash_list()
+            converted_gms = habana_pt2e_quant_context.get_all_transformed_gms(converted=True)
+            args_list = habana_pt2e_quant_context.get_args_list()
+            assert len(args_list) == len(fx_module_hashkeys)
+            assert len(args_list) == len(converted_gms)
+            for hashkey, gm_2, arg in zip(fx_module_hashkeys, converted_gms, args_list, strict=False):
+                # get export program
+                exported_fx_graph = None
                 with torch.no_grad():
-                    exported_fx_graph = torch.export.export(value[0], value[1])
+                    exported_fx_graph = torch.export.export(gm_2, arg)
                 logger.debug(f"exported program: {exported_fx_graph}")
+
+                assert exported_fx_graph is not None
                 # clear export program example inputs to reduce export program disk size
                 exported_fx_graph._example_inputs = ()
 
                 # save each exported converted fx graph
+                exported_program_filename = os.path.join(dir_name, f"{hashkey}.pt2")
                 with torch.no_grad():
                     _native_pt2e_quantization_interface("save_pt2e")(exported_fx_graph, exported_program_filename)
-                fx_module_hashkeys.extend([key])
-            else:
-                # Expected value[2] i.e. scales dict
-                assert value[2] is not None
-                scale_filename = os.path.join(dir_name, get_scale_filename(key))
-                # torch.save(value[2], scale_filename)
-                with open(scale_filename, "w") as json_file:
-                    json.dump(value[2], json_file, indent=4)
-                logger.debug(f"export dump scale: {scale_filename}")
-
-        if use_export_program:
             # save hashkeys
             hashkeys_filename = os.path.join(dir_name, "hashkeys.pt2")
             torch.save(fx_module_hashkeys, hashkeys_filename)
-            logger.debug("SAVING All export program COMPLETED !!!")
-        return
+            logger.debug("[save_pt2e] Export Program Dump Completed.")
     else:
         with torch.no_grad():
             _native_pt2e_quantization_interface("save_pt2e")(
@@ -1055,10 +1108,15 @@ def load_pt2e(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [load_pt2e]")
 
-    try:
-        # load original model
-        # weights_only flag is True by default from PT2.6 onwards, Hence explicitly setting it as False
-        org_model = torch.load(f"{f}", weights_only=False)
+    # load original model
+    # weights_only flag is True by default from PT2.6 onwards, Hence explicitly setting it as False
+    model = torch.load(f"{f}", weights_only=False)
+    multi_graph = getattr(model, "multi_graph", False)
+    logger.debug(f"[load_pt2e] Multi graph: {multi_graph}")
+
+    if multi_graph:
+        reset_counters()
+        org_model = model
         id_org_model = hash((id(org_model), type(org_model).__name__))
 
         # ToDo: explore to save org model with out state dict
@@ -1105,23 +1163,27 @@ def load_pt2e(
             quantizer = torch.load(quantizer_filename, weights_only=False)
             assert quantizer is not None
             habana_pt2e_quant_context.set_quantizer(quantizer)
+            # load convert_pt2e settings
             convert_settings_filename = os.path.join(dir_name, "convert_settings.pt2")
             convert_settings = torch.load(convert_settings_filename, weights_only=False)
             assert convert_settings is not None
             habana_pt2e_quant_context.set_convert_settings(
                 convert_settings["use_reference_representation"], convert_settings["fold_quantize"]
             )
+            # load kv-cache quant details
+            kvcq_details_filename = os.path.join(dir_name, "kvcache_quant_details.pt2")
+            kvcache_quant_details = torch.load(kvcq_details_filename, weights_only=False)
+            assert kvcache_quant_details is not None
+            habana_pt2e_quant_context.set_kvcache_quant_details(kvcache_quant_details)
 
-        habana_quantization_map_queue[model_key].append({"task": "inference_pt2e", "dir_path": dir_name})
+        habana_quantization_map_queue[model_key].append({"task": "inference_after_load", "dir_path": dir_name})
 
-        reset_hash_counter()
-
+        model.graph = ""
         model.multi_graph = True
         logger.debug("LOADING All export program COMPLETED !!!")
         # ModelWrapper module() method will return the original model
         return ModelWrapper(model)
-
-    except:
+    else:
         with torch.no_grad():
             model = _native_pt2e_quantization_interface("load_pt2e")(
                 f, extra_files=extra_files, expected_opset_version=expected_opset_version
