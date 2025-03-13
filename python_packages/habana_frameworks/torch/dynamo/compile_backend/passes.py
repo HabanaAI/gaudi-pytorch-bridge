@@ -832,12 +832,15 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if node.op == "call_module":
+            submodule = node.graph.owning_module.get_submodule(node.target)
+            # for submodules that are not dynamic, we don't need to add symints
+            if not is_module_dynamic(submodule):
+                continue
             missing_symint_list = get_missing_symbolic_int_input_nodes(symint_list, node)
             if missing_symint_list == ():
                 continue
 
             node.args = missing_symint_list + node.args
-            submodule = node.graph.owning_module.get_submodule(node.target)
 
             # Get the First node in the graph to insert all the SymInts at the
             # beginning of the node_list
