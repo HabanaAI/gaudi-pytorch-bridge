@@ -3,10 +3,6 @@ orchestratorConfig:
   cron: "H H/3 * * *"
   retriggerThreshold: "3"
   testConfig:
-    - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
-    - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_lazy
-    - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_compile
-    - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_eager
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
@@ -93,7 +89,7 @@ orchestratorConfig:
       silentMode: false
     # PT Gaudi2 Optimum Habana Models Job <End>
   codeCoverageConfig:
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
   coverityConfig:
   coverityConfig_stageSilentMode: true
 stepConfig:
