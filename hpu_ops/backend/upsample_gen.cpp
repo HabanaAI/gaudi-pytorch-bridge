@@ -17,6 +17,7 @@
 #include "generated/backend/_upsample_nearest_exact1d.h"
 #include "generated/backend/_upsample_nearest_exact1d_backward.h"
 #include "generated/backend/_upsample_nearest_exact2d.h"
+#include "generated/backend/_upsample_nearest_exact2d_backward.h"
 #include "generated/backend/_upsample_nearest_exact3d.h"
 #include "generated/backend/upsample_linear1d.h"
 #include "generated/backend/upsample_linear1d_backward.h"
@@ -459,6 +460,20 @@ OutputMetaDataVector UpsampleNearestExact2DFwdMeta(const at::Stack& stack) {
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
   return {meta};
 }
+// Backward Meta Function - NearestExact2D
+OutputMetaDataVector UpsampleNearestExact2DBwdMeta(const at::Stack& stack) {
+  auto grad_out = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto in_size = stack.at(2);
+  auto scales_h = stack.at(3).toOptional<double>();
+  auto scales_w = stack.at(4).toOptional<double>();
+  OutputMetaData meta;
+  meta.dtype = grad_out.scalar_type();
+  meta.shape = in_size.toIntVector();
+  check_null_inputs_2d(out_size, scales_h, scales_w);
+  upsample_exact_2d_check(grad_out, out_size);
+  return {meta};
+}
 // Forward Meta Function - NearestExact3D
 OutputMetaDataVector UpsampleNearestExact3DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
@@ -727,12 +742,6 @@ SharedMetaDataVector UpsampleNearest2DFwdSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   return UpsampleCommmonSharedLayer(stack, true, 2, true);
-}
-
-SharedMetaDataVector UpsampleNearestExact2DFwdSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  return UpsampleCommmonSharedLayer(stack, false, 2, true);
 }
 
 SharedMetaDataVector UpsampleNearest2DBwdSharedMeta(
@@ -1063,6 +1072,31 @@ std::shared_ptr<void> FillNearestExact2DFwdParams(
       nearest_exact,
       out_size,
       scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
+std::shared_ptr<void> FillNearestExact2DBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_out = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scales_h = stack.at(3);
+  auto scales_w = stack.at(4);
+  bool align_corners = false;
+  bool antialias = false;
+  double scale_d = 1.0;
+  double scale_w = scales_w.toOptional<double>().value_or(1.0);
+  double scale_h = scales_h.toOptional<double>().value_or(1.0);
+  return FillResizeParams(
+      grad_out.dim(),
+      size,
+      nearest_exact,
+      out_size,
+      scales_h,
       scale_w,
       scale_h,
       scale_d,
@@ -1599,6 +1633,28 @@ void UpSampleTrilinear3DFwdOperator::AddNode(
       {scale_d, scale_h, scale_w},
       meta,
       self_tensor);
+}
+// AddNode BWD 2D Nearest Exact function
+void UpsampleNearestExact2DBwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = UpsampleNearestExact2DBwdMeta(stack)[0];
+  c10::optional<int> final_index = 0;
+
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+
+  auto resize = Resize(
+      this,
+      graph,
+      {syn_in(0)},
+      meta.shape,
+      meta.dtype,
+      params,
+      size,
+      final_index);
+
+  syn_out(0) = std::move(resize.at(0));
 }
 // AddNode FWD 3D Nearest function
 void UpSampleNearest3DFwdOperator::AddNode(
