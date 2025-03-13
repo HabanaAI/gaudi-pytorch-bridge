@@ -828,7 +828,6 @@ PT_HPU_USE_PHILOX_NORMAL:
   default: false
   doc: "This flag enables executing torch.randn with philox_normal kernel instead of LFSR based."
 
-
 PT_HPU_USE_OVERRIDE_ATEN_SDPA:
   type: bool
   default: false

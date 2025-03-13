@@ -773,6 +773,10 @@ def get_hpu_decompositions():
         return {
             **hpu_backend_decompositions_common,
         }
+    elif hpu_backend_config.decomposition_mode == "inductor":
+        from torch._inductor.decomposition import decompositions
+
+        return decompositions
     elif hpu_backend_config.decomposition_mode == "core_aten":
         return {**core_aten_decompositions()}
     else:
