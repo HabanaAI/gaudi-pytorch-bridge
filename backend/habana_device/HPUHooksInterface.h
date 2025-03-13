@@ -30,6 +30,10 @@ struct HPUHooks : public at::HPUHooksInterface {
       at::DeviceIndex device_index = -1) const override;
 
   bool hasHPU() const override;
+#if IS_PYTORCH_AT_LEAST(2, 7)
+  bool isBuilt() const override;
+  bool isAvailable() const override;
+#endif
   at::Device getDeviceFromPtr(void* data) const override;
   bool isPinnedPtr(const void* data) const override;
   at::Allocator* getPinnedMemoryAllocator() const override;
