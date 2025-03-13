@@ -15,10 +15,13 @@
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
+#include <hccl.h>
+#include <hccl_types.h>
 #include <torch/csrc/distributed/c10d/Types.hpp>
 #include <torch/csrc/distributed/c10d/Utils.hpp>
 #include "backend/helpers/collective_utils.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/generic_resource_holder.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "common/utils.h"
 #include "habana_helpers/logging_pt.h"
@@ -28,9 +31,6 @@
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
-
-#include <hccl.h>
-#include <hccl_types.h>
 
 using RedOpType = c10d::ReduceOp::RedOpType;
 
@@ -273,36 +273,20 @@ void collective(
       }
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-      struct ResourceHolder {
-        std::vector<at::Tensor> tensors_;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-      };
-      auto resource_holder = std::make_shared<ResourceHolder>();
-      resource_holder->tensors_ = {in_tensor, out_tensor};
+      auto resource_holder = std::make_shared<GenericResourceHolder>();
+      resource_holder->add_tensor(in_tensor);
+      resource_holder->add_tensor(out_tensor);
 
       void* input_address;
       void* output_address;
-      auto input_buffer = input->get_buffer();
-      auto output_buffer = output->get_buffer();
-      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE)) {
-        auto external_offset = input->get_external_offset();
-        if (external_offset != (uint64_t)-1) {
-          input_buffer =
-              (char*)input->get_buffer_start() + input->get_external_offset();
-        }
-        external_offset = output->get_external_offset();
-        if (external_offset != (uint64_t)-1) {
-          output_buffer =
-              (char*)output->get_buffer_start() + output->get_external_offset();
-        }
-      }
       deviceCtxt->lock_address(
-          {input_buffer, output_buffer}, resource_holder->address_lock);
+          {input->get_buffer(), output->get_buffer()},
+          resource_holder->get_address_lock());
       input_address =
-          reinterpret_cast<void*>(resource_holder->address_lock->at(0));
+          reinterpret_cast<void*>(resource_holder->get_address_lock()->at(0));
       HABANA_ASSERT(input_address != nullptr, "input_address is null");
       output_address =
-          reinterpret_cast<void*>(resource_holder->address_lock->at(1));
+          reinterpret_cast<void*>(resource_holder->get_address_lock()->at(1));
       HABANA_ASSERT(output_address != nullptr, "output_address is null");
 
       hcclResult_t hccl_result =
@@ -400,16 +384,16 @@ void pointToPoint(
       recipe_counter.increase();
 
       // TBD: Need to store references to tensor
-      struct ResourceHolder {
-        std::vector<at::Tensor> pt_tensor;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-      };
-      auto resource_holder = std::make_shared<ResourceHolder>();
+      auto resource_holder = std::make_shared<GenericResourceHolder>();
 
       void* tensor_address;
       deviceCtxt->lock_address(
-          tensor->get_buffer(), &tensor_address, resource_holder->address_lock);
-      resource_holder->pt_tensor = pt_tensor;
+          tensor->get_buffer(),
+          &tensor_address,
+          resource_holder->get_address_lock());
+      for (const auto& t : pt_tensor) {
+        resource_holder->add_pt_tensor(t);
+      }
 
       auto hccl_result = fn(
           tensor, tensor_address, std::move(comm), collective_stream, peerRank);
@@ -698,9 +682,7 @@ void HcclAllToAllOutOperator::AllocateAndAddSynapseNode(
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          get_syn_input_at(1),
-          graph,
-          output_metadata.at(0).external));
+          get_syn_input_at(1), graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(outputTensor);
 }
 
@@ -740,7 +722,7 @@ void HcclAllToAllOutOperator::RunCollective(
             void* recv_buffer,
             std::shared_ptr<HcclCommunicator> comm,
             synStreamHandle stream) {
-          int64_t count = CollectiveOperator::GetNumel(input);
+          int64_t count = input->get_numel();
           auto type = getHCCLDataType(scalar_type);
           getCountDatatype(scalar_type, count, type);
           hcclResult_t hccl_result{hcclSuccess};
@@ -846,9 +828,7 @@ void HcclAllgatherOutOperator::AllocateAndAddSynapseNode(
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          get_syn_input_at(1),
-          graph,
-          output_metadata.at(0).external));
+          get_syn_input_at(1), graph, output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(outputTensor);
 }
 
@@ -883,7 +863,7 @@ void HcclAllgatherOutOperator::RunCollective(
           std::shared_ptr<HcclCommunicator> comm,
           synStreamHandle stream) {
         auto tensor_data_type = getHCCLDataType(scalar_type);
-        int64_t numel = CollectiveOperator::GetNumel(input);
+        int64_t numel = input->get_numel();
         getCountDatatype(scalar_type, numel, tensor_data_type);
         hcclResult_t hccl_result = hcclAllGather(
             send_buffer,
