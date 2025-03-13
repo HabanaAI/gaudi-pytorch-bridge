@@ -41,6 +41,8 @@ def _get_decomp_mode(env_var: str, default: str):
     return env_str_value
 
 
+# dump all fx graphs straight after dynamo as executable python scripts
+dump_graph_repro = _get_bool_from_env("PT_HPU_DUMP_GRAPH_REPRO", "0")
 use_compiled_recipes = _get_bool_from_env("PT_HPU_COMPILE_USE_RECIPES", "1")
 # decomposition_mode can take values "habana", "core_aten" and "none" and
 # with each of those values, hpu backend creates AOT Autograd instance with decomposition list

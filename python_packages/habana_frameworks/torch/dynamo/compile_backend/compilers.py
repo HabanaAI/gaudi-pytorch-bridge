@@ -20,6 +20,10 @@ from unittest import mock
 
 import functorch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.dynamo.debug_utils.graph_repro_utils import (
+    map_hpu_backend_config_snapshot_to_dict,
+    store_fx_graph_as_code,
+)
 from habana_frameworks.torch.dynamo.debug_utils.logger import log_function_start_end
 from habana_frameworks.torch.dynamo.utils import str_to_bool
 
@@ -130,6 +134,14 @@ def hpu_compiler_inner(
             hpu_recursive_joint_graph_passes(graph_module)
 
     graph_name = _gen_graph_name()
+
+    if hpu_backend_config.dump_graph_repro:
+        store_fx_graph_as_code(
+            graph_module,
+            example_inputs,
+            graph_name,
+            options=map_hpu_backend_config_snapshot_to_dict(hpu_backend_config),
+        )
     # Perform optimizations on a graph before running passes for preparing the partitioner.
     optimize_pre_placement(graph_module, graph_name, example_inputs, is_training, is_backward)
 
