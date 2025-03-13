@@ -33,13 +33,18 @@ std::vector<int64_t> BitwiseLogicalShape(const at::Stack& stack) {
 }
 
 OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
   OutputMetaData meta;
   meta.shape = BitwiseLogicalShape(stack);
-  meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
-      {stack[0], stack[1]},
-      c10::nullopt,
-      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
-      false);
+  if (stack.at(1).isScalar() && self.scalar_type() == c10::ScalarType::Bool) {
+    meta.dtype = self.scalar_type();
+  } else {
+    meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+        {stack[0], stack[1]},
+        c10::nullopt,
+        habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+        false);
+  }
   return {meta};
 }
 
