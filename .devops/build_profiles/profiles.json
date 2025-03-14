@@ -44,7 +44,7 @@
     "current": {
       "version": "2.6.0",
       "default_source": "build",
-      "cpu_index_url" : "default",
+      "cpu_index_url": "default",
       "extras": {
         "torchvision": "v0.21.0",
         "torchaudio": "v2.6.0",
@@ -55,12 +55,12 @@
     "next": {
       "version": "2.7.0",
       "default_source": "build",
-      "cpu_index_url" : "https://download.pytorch.org/whl/nightly/cpu",
+      "cpu_index_url": "https://download.pytorch.org/whl/nightly/cpu",
       "extras": {
-        "torchvision": "main",
-        "torchaudio": "main",
-        "torchtext": "main",
-        "torchdata": "main"
+        "torchvision": "v0.22-rc1",
+        "torchaudio": "v2.7.0-rc1",
+        "torchtext": "v0.18.0",
+        "torchdata": "v0.11.0"
       }
     },
     "rc": {
