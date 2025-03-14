@@ -16,11 +16,9 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
+from test_utils import compile_function_if_compile_mode, format_tc
 
-dtypes = [torch.bfloat16, torch.float, torch.int, torch.short, torch.int8]
-if not is_gaudi1():
-    dtypes.append(torch.float16)
+dtypes = [torch.bfloat16, torch.float, torch.float16, torch.int, torch.short, torch.int8]
 
 
 @pytest.mark.parametrize("shape", [[2, 3, 4], [5], [5, 2, 3, 4]], ids=format_tc)

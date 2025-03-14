@@ -266,7 +266,6 @@ list(
   user_stream_tests.cpp
   utils/check_device_type.cpp
   utils/device_type_util.cpp
-  utils/dtype_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
   utils/rerun_failures.cpp
   view_utils_tests.cpp

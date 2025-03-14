@@ -21,15 +21,12 @@ from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
     is_dtype_floating_point,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
 Verbose = False
 
-dtypes = [torch.float32, torch.bfloat16, torch.int64, torch.int32, torch.int8]
-if not is_gaudi1():
-    dtypes.extend([torch.float16, torch.int16])
+dtypes = [torch.float32, torch.bfloat16, torch.int64, torch.int32, torch.int8, torch.float16, torch.int16]
 
 
 @pytest.mark.parametrize("shape", [(), (0,), (1,), (5,), (3, 2), (3, 0, 2)], ids=format_tc)

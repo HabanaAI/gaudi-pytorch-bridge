@@ -19,11 +19,9 @@ import random
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, is_gaudi1
+from test_utils import compile_function_if_compile_mode
 
-supported_dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short]
-if not is_gaudi1():
-    supported_dtypes.append(torch.half)
+supported_dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short, torch.half]
 
 
 def generate_inputs(shape, dtype):

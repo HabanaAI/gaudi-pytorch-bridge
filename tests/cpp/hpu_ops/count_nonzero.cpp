@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {
@@ -71,9 +70,6 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define COUNT_NON_ZERO_TEST(DTYPE)                                          \
   TEST_F(HpuOpTest, count_nonzero_##DTYPE) {                                \
-    if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                   \
-      GTEST_SKIP();                                                         \
-    }                                                                       \
     testCountNonZero({3, 2, 4}, torch::DTYPE, at::IntArrayRef{0, 1, 2}, 0); \
     testCountNonZero(                                                       \
         {3, 2, 4, 6, 2, 1}, torch::DTYPE, at::IntArrayRef{3, 1, 2}, 0);     \
@@ -84,9 +80,6 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define COUNT_NON_ZERO_OUT_TEST(DTYPE)                                         \
   TEST_F(HpuOpTest, count_nonzero_out_##DTYPE) {                               \
-    if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                      \
-      GTEST_SKIP();                                                            \
-    }                                                                          \
     testCountNonZeroOut({3, 2, 4}, torch::DTYPE, at::IntArrayRef{0, 1, 2}, 0); \
     testCountNonZeroOut(                                                       \
         {3, 2, 4, 6, 2, 1}, torch::DTYPE, at::IntArrayRef{3, 1, 2}, 0);        \

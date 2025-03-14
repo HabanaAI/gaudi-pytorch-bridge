@@ -26,7 +26,6 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -658,7 +657,6 @@ def test_op_chunk():
             assert torch.allclose(out_h.to("cpu"), out_c, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="G1 not supported half")
 def test_op_bernoulli_half_static():
     input = [2, 3, 4, 4]
 

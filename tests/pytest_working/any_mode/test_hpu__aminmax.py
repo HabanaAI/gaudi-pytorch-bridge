@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,14 +22,11 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.bool]
+dtypes = [torch.float32, torch.bfloat16, torch.bool, torch.half, torch.float8_e5m2, torch.float8_e4m3fn]
 integer_dtypes = [torch.int, torch.long]
-if not is_gaudi1():
-    dtypes += [torch.half, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 def prepare_input(shape, dtype):

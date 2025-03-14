@@ -22,7 +22,6 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -36,8 +35,6 @@ inputs = [
 @pytest.mark.parametrize("input", inputs, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_angle(input, dtype):
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("Test is not supported on Gaudi1")
     cpu_input = input.to(dtype)
     hpu_input = cpu_input.to("hpu")
 

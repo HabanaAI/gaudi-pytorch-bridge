@@ -22,13 +22,10 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16]
-if not is_gaudi1():
-    dtypes += [torch.half]
+dtypes = [torch.float32, torch.bfloat16, torch.half]
 
 
 @pytest.mark.parametrize(

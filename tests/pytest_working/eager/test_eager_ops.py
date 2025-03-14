@@ -24,7 +24,7 @@ import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import format_tc
 
 Verbose = False
 
@@ -1146,7 +1146,6 @@ def test_sag_zst_1d():
     assert torch.equal(e.cpu(), torch.mul(d.cpu(), 2))
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_conv_bwd_view():
     for N, C, H, W, C2 in [
         [2, 4, 7, 7, 3],
@@ -1319,9 +1318,7 @@ def test_tensor_containing_scalar():
     assert torch.equal(output, output_hpu.cpu())
 
 
-dtypes = [torch.bfloat16, torch.float, torch.int]
-if not is_gaudi1():
-    dtypes.append(torch.long)
+dtypes = [torch.bfloat16, torch.float, torch.int, torch.long]
 
 
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
@@ -1363,7 +1360,6 @@ def test_shape_agnostic_helper():
 
 
 # test node params patching for cat op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_cat_node_params():
     params = [0, 2]
 
@@ -1388,7 +1384,6 @@ def test_sag_cat_node_params():
 
 
 # test node params patching for topk op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_topk_node_params_2():
     params = [3, 5]
 
@@ -1410,7 +1405,6 @@ def test_sag_topk_node_params_2():
 
 
 # test node params patching for arange op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_arange_node_params():
     params = [1, 2]
 
@@ -1432,7 +1426,6 @@ def test_sag_arange_node_params():
 
 
 # test node params patching for upsample nearest 2d op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_nearest_2d_node_params():
     params = [2, 3]
 
@@ -1455,7 +1448,6 @@ def test_sag_upsample_nearest_2d_node_params():
 
 
 # test node params patching for upsample nearest 1d op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_nearest_1d_node_params():
     params = [2, 3]
 
@@ -1478,7 +1470,6 @@ def test_sag_upsample_nearest_1d_node_params():
 
 
 # test node params patching for upsample nearest 3d op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_nearest_3d_node_params():
     params = [2, 3]
 
@@ -1501,7 +1492,6 @@ def test_sag_upsample_nearest_3d_node_params():
 
 
 # test node params patching for upsample bilinear 2d op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bilinear_2d_node_params():
     params = [2, 3]
 
@@ -1524,7 +1514,6 @@ def test_sag_upsample_bilinear_2d_node_params():
 
 
 # test node params patching for upsample bicubic 2d op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bicubic_2d_node_params():
     params = [2, 3]
 
@@ -1547,7 +1536,6 @@ def test_sag_upsample_bicubic_2d_node_params():
 
 
 # test node params patching for upsample linear 1d op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_linear_1d_node_params():
     pytest.xfail("[SW-198691] Param agnostic flow disabled for UpsampleLinear1D, needs correction")
     params = [2, 3]
@@ -1571,7 +1559,6 @@ def test_sag_upsample_linear_1d_node_params():
 
 
 # test node params patching for upsample bilinear 2d backward op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bilinear_2d_backward_node_params():
     params = [True, False]
 
@@ -1602,7 +1589,6 @@ def test_sag_upsample_bilinear_2d_backward_node_params():
 
 
 # test node params patching for upsample bicubic 2d backward op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_bicubic_2d_backward_node_params():
     params = [True, False]
 
@@ -1633,7 +1619,6 @@ def test_sag_upsample_bicubic_2d_backward_node_params():
 
 
 # test node params patching for resize op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_empty_resize_node_params():
     params = [10, 20]
 
@@ -1652,7 +1637,6 @@ def test_empty_resize_node_params():
 
 
 # test node params patching for scatter op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_scatter_node_params():
     params = [0, 1]
 
@@ -1693,7 +1677,6 @@ def test_sag_section_validation_issue():
         assert torch.equal(a, a_h.cpu())
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_lerp():
     params = [((2, 2), 10), ((4, 4), 20)]
 
@@ -1755,7 +1738,6 @@ def test_lop():
 
 
 # test node params patching for masked_fill op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_masked_fill_node_params():
     a = torch.rand((2, 3), dtype=torch.bfloat16)
     a_hpu = a.to("hpu")
@@ -1773,7 +1755,6 @@ def test_sag_masked_fill_node_params():
 
 
 # test node params patching for efficientzerotensor op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_efficientzerotensor_node_params():
     params = [(10), (20)]
 
@@ -1792,7 +1773,6 @@ def test_efficientzerotensor_node_params():
 
 
 # test node params patching for efficientzerotensor op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_efficientzerotensor_node_params_2():
     params = [torch.float32, torch.int32]
 
@@ -1811,7 +1791,6 @@ def test_efficientzerotensor_node_params_2():
 
 
 # test for fix in SW-192192
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_h2d_copy_race_condition_fix():
 
     t1 = torch.arange(1, 5, dtype=torch.bfloat16)

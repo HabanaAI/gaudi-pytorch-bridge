@@ -16,12 +16,6 @@
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 
-bool isGaudi() {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi;
-}
-
 bool isGaudi2() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,11 +17,9 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, hpu, is_gaudi1
+from test_utils import compare_tensors, format_tc, hpu
 
-dtypes = [torch.bfloat16, torch.float]
-if not is_gaudi1():
-    dtypes.append(torch.half)
+dtypes = [torch.bfloat16, torch.float, torch.half]
 
 shapes = [(2, 3, 4, 5), (4, 3, 8), (3, 2, 4, 5, 2, 3)]
 

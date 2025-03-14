@@ -16,11 +16,9 @@
 ###############################################################################
 
 import habana_frameworks.torch.hpu as hthpu
-import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import is_gaudi1
 
 device = "hpu"
 backend_compiler = "hpu_backend"
@@ -242,7 +240,6 @@ def test_produced_by_mutation_partition2():
     assert torch.allclose(sum.to("cpu"), sum_ref.to("cpu"), atol=1e-3), "output mismatch"
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="random failure on G1")
 def test_ws_reduced_e2e():
     batch_size = 1024
     channel_num = 1024
@@ -308,7 +305,6 @@ def test_ws_reduced_e2e():
     assert torch.allclose(y_cpu, ref_cpu, atol=1e-3), "output mismatch"
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="random failure on G1")
 def test_not_cache_hit_e2e():
     batch_size = 1024
     channel_num = 1024

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -34,8 +33,6 @@ alpha_beta_pairs = [(0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 1.0), (2.0, 2.0)]
 @pytest.mark.parametrize("use_gelu", [False, True])
 @pytest.mark.parametrize("alpha, beta", alpha_beta_pairs)
 def test_addmm_activation_out(dtype, n, m, p, use_gelu, alpha, beta):
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("Half is not supported on Gaudi.")
 
     def fn(input, mat1, mat2, beta, alpha, use_gelu, output):
         torch._addmm_activation(

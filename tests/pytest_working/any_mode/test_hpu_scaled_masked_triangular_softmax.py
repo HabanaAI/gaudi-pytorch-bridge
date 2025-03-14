@@ -22,7 +22,6 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -41,9 +40,7 @@ def out_dtype_checked(dtype, out_dtype):
     return out_dtype
 
 
-out_dtypes = [None]
-if not is_gaudi1():
-    out_dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+out_dtypes = [None, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 @pytest.mark.parametrize("shape", [(16, 5, 5)])

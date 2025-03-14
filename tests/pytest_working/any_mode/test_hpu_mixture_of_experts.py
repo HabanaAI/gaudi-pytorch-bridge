@@ -30,7 +30,6 @@ from test_utils import (
     cpu,
     format_tc,
     hpu,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -148,7 +147,6 @@ def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, 
     return (w1_cpu, w2_cpu, w3_cpu), (w1_hpu, w2_hpu, w3_hpu)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -228,7 +226,6 @@ def test_mixture_of_experts(
         check_ops_executed_in_jit_ir(op_name)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -325,7 +322,6 @@ def test_mixture_of_experts_fp8(
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -427,7 +423,6 @@ def test_mixture_of_experts_fwd_bwd(
         check_ops_executed_in_jit_ir(op_names)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)

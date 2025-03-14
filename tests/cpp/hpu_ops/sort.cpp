@@ -58,9 +58,6 @@ HPU_SORT_TEST(sort_Int32_asc, sort, torch::kInt32, false)
 HPU_SORT_TEST(sort_Int16_asc, sort, torch::kInt16, false)
 
 TEST_F(HpuOpTest, sort_Float16_asc) {
-  if (isGaudi()) {
-    GTEST_SKIP() << "Test skipped on Gaudi.";
-  }
   GenerateInputs(1, {{10, 3, 2}});
   auto k = 3;
   auto dim = 0;

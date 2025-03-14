@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
-from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
+from test_utils import compile_function_if_compile_mode, format_tc
 
-dtypes = [torch.float32, torch.bfloat16]
-if not is_gaudi1():
-    dtypes.append(torch.float16)
+dtypes = [torch.float32, torch.bfloat16, torch.float16]
 
 
 def multi_margin_loss_common(C, N, dtype, p, margin, is_weight, size_average, reduce, reduction):

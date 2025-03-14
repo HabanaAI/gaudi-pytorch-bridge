@@ -21,7 +21,6 @@ from test_utils import (
     clear_t_compile_logs,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
 )
 
 
@@ -113,9 +112,6 @@ def test_hpu_max_pool3d(shape, kernel_size_and_padding, stride, dilation, dtype)
 @pytest.mark.parametrize("dilation", [[1, 2, 2]])
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool3d_bwd(shape, kernel_size_and_padding, stride, dilation, dtype):
-    if is_gaudi1():
-        pytest.xfail("[SW-165533] result mismatch")
-
     def fn(input):
         max_pool_3d = torch.ops.aten.max_pool3d(
             input,

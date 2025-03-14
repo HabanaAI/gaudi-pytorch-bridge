@@ -21,12 +21,10 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
 )
 
 basic_dtypes = extended_dtypes = [torch.float32, torch.bfloat16, torch.int]
-if not is_gaudi1():
-    extended_dtypes = basic_dtypes + [torch.float8_e5m2, torch.float8_e4m3fn, torch.float16]
+extended_dtypes = basic_dtypes + [torch.float8_e5m2, torch.float8_e4m3fn, torch.float16]
 
 
 @pytest.fixture(autouse=True)

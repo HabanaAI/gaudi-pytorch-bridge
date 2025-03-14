@@ -22,16 +22,13 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_lazy,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16]
+dtypes = [torch.float32, torch.bfloat16, torch.half]
 integer_dtypes = []
 bool_dtype = [torch.bool] if not is_lazy() else []
-if not is_gaudi1():
-    dtypes += [torch.half]
 if not is_lazy():
     integer_dtypes += [torch.int, torch.int16, torch.int8, torch.uint8]
 
@@ -108,9 +105,7 @@ def test_hpu_reduction_dim(op_name, shape_and_dim, keepdim, dtype):
         check_ops_executed_in_jit_ir(op_name)
 
 
-prod_dtypes = [torch.float32, torch.bfloat16, torch.int, torch.int16]
-if not is_gaudi1():
-    prod_dtypes += [torch.half, torch.long]
+prod_dtypes = [torch.float32, torch.bfloat16, torch.half, torch.long, torch.int, torch.int16]
 
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 3, 4]])

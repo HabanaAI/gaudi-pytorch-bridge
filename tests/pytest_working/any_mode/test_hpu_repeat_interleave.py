@@ -22,13 +22,10 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float, torch.bfloat16, torch.int32, torch.long, torch.int8, torch.bool]
-if not is_gaudi1():
-    dtypes += [torch.half]
+dtypes = [torch.float, torch.bfloat16, torch.int32, torch.long, torch.int8, torch.bool, torch.half]
 
 
 @pytest.mark.parametrize("size, repeats, dim", [((2, 3), 2, 0), ((1, 3, 2), (0, 3, 2), 1)], ids=format_tc)

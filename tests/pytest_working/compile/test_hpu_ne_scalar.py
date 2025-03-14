@@ -15,15 +15,12 @@
 #
 ###############################################################################
 
-import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, is_gaudi1
+from test_utils import compile_function_if_compile_mode
 
 
 # A test for aten.ne.Scalar op with INT64 dtype
 def test_ne_scalar_int64():
-    if is_gaudi1():
-        pytest.skip("Int64 is not supported on Gaudi1")
 
     def fn(t, s):
         return torch.ne(t, s)

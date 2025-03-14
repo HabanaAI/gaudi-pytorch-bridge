@@ -21,11 +21,8 @@ import numpy as np
 import pytest
 import torch
 from fp8_utils import FP8_MAX, fp8_dtypes, simulateFp8Precision
-from test_utils import hpu, is_gaudi1
 
 ht.disable_dynamic_shape()
-
-pytestmark = pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8")
 
 hpu = torch.device("hpu")
 

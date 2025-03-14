@@ -25,14 +25,11 @@ from test_utils import (
     find_in_hier_list,
     format_tc,
     hpu,
-    is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_lazy,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.int]
-if not is_gaudi1():
-    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.float8_e5m2, torch.float8_e4m3fn]
 
 Verbose = False
 

@@ -19,11 +19,10 @@ import pytest
 import torch
 from test_utils import (
     compile_function_if_compile_mode,
-    filter_dtypes,
     format_tc,
 )
 
-dtypes = filter_dtypes([torch.float32, torch.bfloat16, torch.float16])
+dtypes = [torch.float32, torch.bfloat16, torch.float16]
 
 
 @pytest.mark.parametrize("shape", [[3, 2, 16, 16], [8, 13, 14]], ids=format_tc)

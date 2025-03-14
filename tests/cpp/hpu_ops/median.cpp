@@ -24,9 +24,6 @@ class MedianHpuOpTest : public HpuOpTestUtil,
 TEST_P(MedianHpuOpTest, median) {
   const auto& testParams = GetParam();
   auto dtype = std::get<0>(testParams);
-  if (isGaudi() && dtype == torch::kFloat16) {
-    GTEST_SKIP() << "Half dtype not supported on Gaudi1.";
-  }
   auto size = std::get<1>(testParams);
   GenerateInputs(1, {{size}}, {dtype});
   auto expected = torch::median(GetCpuInput(0));
@@ -44,9 +41,6 @@ TEST_P(MedianDimHpuOpTest, median_dim) {
   }
   const auto& testParams = GetParam();
   auto dtype = std::get<0>(testParams);
-  if (isGaudi() && dtype == torch::kFloat16) {
-    GTEST_SKIP() << "Half dtype not supported on Gaudi1.";
-  }
   auto size = std::get<1>(testParams);
   auto axis = std::get<2>(testParams);
   auto keepdim = std::get<3>(testParams);

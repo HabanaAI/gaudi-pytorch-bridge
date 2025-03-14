@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,16 +21,13 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
-    is_gaudi1,
     is_pytest_mode_compile,
     print_tensors,
 )
 
 Verbose = False
 
-dtypes = [torch.float32, torch.bfloat16]
-if not is_gaudi1():
-    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [torch.float32, torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 @pytest.mark.parametrize("shapes", [([3, 4], [3, 4]), ([3, 4], [6, 4]), ([3, 4], [2, 3, 8])])

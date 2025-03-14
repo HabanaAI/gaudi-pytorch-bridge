@@ -17,7 +17,7 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, hpu, is_gaudi1
+from test_utils import compare_tensors, format_tc, hpu
 
 
 @pytest.mark.parametrize("shape", [[1, 8, 16, 16], [1, 1, 8, 16, 16]], ids=format_tc)
@@ -71,9 +71,7 @@ def test_hpu_avg_pool3d_bwd_grad_input(
     assert torch.allclose(cpu_output, hpu_output.cpu())
 
 
-dtypes = [torch.bfloat16, torch.float]
-if not is_gaudi1():
-    dtypes.append(torch.float16)
+dtypes = [torch.bfloat16, torch.float, torch.float16]
 
 
 @pytest.mark.parametrize("input_shape", [[1, 2, 3, 7], [1, 1, 2, 3, 7], [4, 8, 7, 7], [2, 4, 8, 7, 7]], ids=format_tc)

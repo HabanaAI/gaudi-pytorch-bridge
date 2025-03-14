@@ -20,14 +20,12 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 fp8_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]
-if not is_gaudi1():
-    dtypes += fp8_dtypes
+dtypes += fp8_dtypes
 
 
 def generate_tensor(shape, dtype):
@@ -74,7 +72,6 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
         check_ops_executed_in_jit_ir(name)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported trunc mode")
 @pytest.mark.parametrize("shape_a, shape_b", [[(), ()], [(1,), (2,)], [(4, 4), (1, 1)], [(16, 12), (16, 12)]])
 @pytest.mark.parametrize("dtype", [torch.uint8, torch.int8])
 def test_mul_trunc(shape_a, shape_b, dtype):

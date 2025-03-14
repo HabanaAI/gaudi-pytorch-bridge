@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,12 +18,9 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, is_gaudi1
+from test_utils import compare_tensors, format_tc
 
-dtypes = [torch.float32, torch.bfloat16, torch.int, torch.bool]
-
-if not is_gaudi1():
-    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn, torch.long]
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.bool, torch.float8_e5m2, torch.float8_e4m3fn, torch.long]
 
 
 @pytest.mark.parametrize(

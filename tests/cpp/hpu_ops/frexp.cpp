@@ -21,9 +21,6 @@ class FrexpHpuOpTest : public HpuOpTestUtil,
 
 TEST_P(FrexpHpuOpTest, frexp) {
   const auto& dtype = GetParam();
-  if (isGaudi() && dtype == torch::kFloat16) {
-    GTEST_SKIP() << "Half dtype not supported on Gaudi1";
-  }
 
   GenerateInputs(1, {{10}}, dtype);
 

@@ -21,7 +21,6 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -30,9 +29,7 @@ cumulative_ops_inplace = ["cumsum_"]
 cumulative_ops = [*cumulative_ops_out, *cumulative_ops_inplace]
 
 integer_types = [torch.int, torch.int8, torch.long]
-supported_dtypes = [*integer_types, torch.float32, torch.bfloat16]
-if not is_gaudi1():
-    supported_dtypes.append(torch.float16)
+supported_dtypes = [*integer_types, torch.float32, torch.bfloat16, torch.float16]
 
 
 def fn_out(op, input, dim, out=None):

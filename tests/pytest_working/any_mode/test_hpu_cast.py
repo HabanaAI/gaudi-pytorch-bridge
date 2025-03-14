@@ -22,13 +22,21 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.int8, torch.int16, torch.int, torch.int64, torch.uint8]
-if not is_gaudi1():
-    dtypes += [torch.float16, torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [
+    torch.float32,
+    torch.bfloat16,
+    torch.int8,
+    torch.int16,
+    torch.int,
+    torch.int64,
+    torch.uint8,
+    torch.float16,
+    torch.float8_e5m2,
+    torch.float8_e4m3fn,
+]
 
 
 @pytest.mark.parametrize("from_dtype", dtypes, ids=format_tc)
@@ -37,7 +45,7 @@ def test_hpu_cast(from_dtype, to_dtype):
     def fn(input):
         return input.to(to_dtype)
 
-    to = 300 if from_dtype == torch.float and to_dtype in [torch.int8, torch.uint8] and not is_gaudi1() else 100
+    to = 300 if from_dtype == torch.float and to_dtype in [torch.int8, torch.uint8] else 100
     input = torch.randint(0, to, (16, 16)).to(from_dtype)
     input_hpu = input.to("hpu")
 

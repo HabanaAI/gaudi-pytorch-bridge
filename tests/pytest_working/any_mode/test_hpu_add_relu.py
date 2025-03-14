@@ -24,13 +24,10 @@ from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
     hpu,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.bfloat16, torch.float]
-if not is_gaudi1():
-    dtypes.append(torch.float16)
+dtypes = [torch.bfloat16, torch.float, torch.float16]
 
 
 #  _add_relu on CPU doesn't support bfloat16 nor float16

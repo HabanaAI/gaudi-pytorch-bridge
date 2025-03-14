@@ -21,7 +21,6 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_gaudi3,
     is_pytest_mode_compile,
     setup_teardown_env_fixture,  # noqa F401
@@ -95,7 +94,6 @@ def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype, setup_t
         check_ops_executed_in_jit_ir(ops)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="Not supported by Gaudi")
 @pytest.mark.parametrize("dtype", [torch.float8_e4m3fn, torch.float8_e5m2])
 @pytest.mark.parametrize(
     "setup_teardown_env_fixture",

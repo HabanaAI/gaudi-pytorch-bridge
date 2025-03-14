@@ -23,11 +23,9 @@ from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
     hpu,
-    is_gaudi1,
 )
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="im2col is not supported on Gaudi1")
 @pytest.mark.parametrize("kernel_size", [14], ids=format_tc)
 @pytest.mark.parametrize("dilation", [1], ids=format_tc)
 @pytest.mark.parametrize("padding", [0], ids=format_tc)
