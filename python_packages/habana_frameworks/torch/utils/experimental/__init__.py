@@ -172,4 +172,4 @@ def _set_scale_attributes(is_hw_aligned, scale_hash_id) -> None:
     """
     if _is_available:
         hpu.init()
-        _experimental_C._set_scale_attributes(is_hw_aligned, scale_hash_id)
+        _experimental_C.set_scale_attributes(is_hw_aligned, scale_hash_id)

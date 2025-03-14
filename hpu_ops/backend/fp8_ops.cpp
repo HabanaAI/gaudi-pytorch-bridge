@@ -513,7 +513,21 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   // it to be explicitly filled with nullptr before.
   syn_inputs.push_back(nullptr);
 
-  synGEMMParams params{transA, transB};
+  ns_Fp8Gemm::ParamsV2 params{};
+  params.transpose_a = transA;
+  params.transpose_b = transB;
+
+  if (scaleAOpt.isTensorsPair() and scaleBOpt.isTensorsPair()) {
+    const auto tmeta_a{get_tensor_extra_meta(scaleAOpt.toTensorsPair().pt_t)};
+    const auto tmeta_b{get_tensor_extra_meta(scaleBOpt.toTensorsPair().pt_t)};
+
+    if (tmeta_a->get_tensor_type() == HOST_TO_DEVICE_TENSOR and
+        tmeta_b->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+      const auto& device = habana::HPUDeviceContext::get_device();
+      params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
+      params.scale_method_hash_id = device.get_scale_attribute_hash_id();
+    }
+  }
 
   auto meta = Fp8GemmV2Meta(stack)[0];
 

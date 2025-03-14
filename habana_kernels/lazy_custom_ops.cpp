@@ -68,29 +68,6 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op);
 }
 
-std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
-    const at::Tensor& input,
-    double scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    at::ScalarType dtype,
-    at::OptionalIntArrayRef scale_shape) {
-  PT_LAZY_TRACE;
-
-  std::vector<at::IValue> inputs{
-      input, scale, stochastic_rounding, is_amax, dtype, scale_shape};
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES)) {
-    float scale_float = static_cast<float>(scale);
-    inputs[1] = create_h2d_scale(&scale_float);
-    PT_BRIDGE_DEBUG(
-        "Scalar scale of node hpu::cast_to_fp8_v2.scalar was converted to H2D tensor.");
-  }
-  LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::cast_to_fp8_v2", std::move(inputs)};
-  hpu_op.SetOutputMetaFn(CastToFp8V2Meta);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op);
-}
-
 at::Tensor fp8_gemm_v2_lazy(
     const at::Tensor& A,
     bool trans_A,
@@ -124,45 +101,6 @@ at::Tensor fp8_gemm_v2_lazy(
     inputs[7] = create_h2d_scale(B_scale_inv->data_ptr());
     PT_BRIDGE_DEBUG(
         "CPU Tensor scales of node hpu::fp8_gemm_v2 were converted to H2D tensors.");
-  }
-  LazyOp<at::Tensor> hpu_op{"hpu::fp8_gemm_v2", std::move(inputs)};
-  hpu_op.SetOutputMetaFn(Fp8GemmV2Meta);
-  RUN_MAYBE_WITH_ACC_THREAD(fp8_gemm_v2, hpu_op);
-}
-
-at::Tensor fp8_gemm_v2_scalar_lazy(
-    const at::Tensor& A,
-    bool trans_A,
-    const at::Tensor& B,
-    bool trans_B,
-    const c10::optional<at::Tensor>& D,
-    at::ScalarType out_dtype,
-    double A_scale_inv,
-    double B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
-    bool accumulate,
-    at::OptionalIntArrayRef B_scale_shape) {
-  PT_LAZY_TRACE;
-
-  std::vector<at::IValue> inputs{
-      A,
-      trans_A,
-      B,
-      trans_B,
-      D,
-      out_dtype,
-      A_scale_inv,
-      B_scale_inv,
-      bias,
-      accumulate,
-      B_scale_shape};
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES)) {
-    float scale_a_float = static_cast<float>(A_scale_inv);
-    float scale_b_float = static_cast<float>(B_scale_inv);
-    inputs[6] = create_h2d_scale(&scale_a_float);
-    inputs[7] = create_h2d_scale(&scale_b_float);
-    PT_BRIDGE_DEBUG(
-        "Scalar scales of node hpu::fp8_gemm_v2.scalar were converted to H2D tensors.");
   }
   LazyOp<at::Tensor> hpu_op{"hpu::fp8_gemm_v2", std::move(inputs)};
   hpu_op.SetOutputMetaFn(Fp8GemmV2Meta);

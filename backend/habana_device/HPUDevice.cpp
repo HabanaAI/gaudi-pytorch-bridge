@@ -383,7 +383,7 @@ void synchronize_device() {
   device_context.device_->synchronize();
 }
 
-void set_scale_attributes(uint8_t is_hw_aligned, uint32_t scale_hash_id) {
+void set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id) {
   HABANA_ASSERT(device_context.device_);
   device_context.device_->set_scale_attributes(is_hw_aligned, scale_hash_id);
 }

@@ -1841,6 +1841,19 @@ std::string device::get_device_properties(unsigned id) {
   return properties;
 }
 
+void device::set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id) {
+  scale_attribute_is_hw_aligned_ = is_hw_aligned;
+  scale_attribute_hash_id_ = scale_hash_id;
+}
+
+bool device::get_scale_attribute_is_hw_aligned() const {
+  return scale_attribute_is_hw_aligned_;
+}
+
+uint32_t device::get_scale_attribute_hash_id() const {
+  return scale_attribute_hash_id_;
+}
+
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
   if (ptr) {
     PT_SYNHELPER_DEBUG(

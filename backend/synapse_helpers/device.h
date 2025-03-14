@@ -465,18 +465,11 @@ class device {
     return device_memory_alignment_;
   }
 
-  void set_scale_attributes(uint8_t is_hw_aligned, uint32_t scale_hash_id) {
-    scale_attribute_is_hw_aligned_ = is_hw_aligned;
-    scale_attribute_hash_id_ = scale_hash_id;
-  }
+  void set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id);
 
-  uint8_t get_scale_attribute_is_hw_aligned() {
-    return scale_attribute_is_hw_aligned_;
-  }
+  bool get_scale_attribute_is_hw_aligned() const;
 
-  uint32_t get_scale_attribute_hash_id() {
-    return scale_attribute_hash_id_;
-  }
+  uint32_t get_scale_attribute_hash_id() const;
 
  private:
   friend class stream;
@@ -563,8 +556,8 @@ class device {
   // Only used with old design of stream assignment
   std::unordered_map<default_stream_type, std::unique_ptr<stream>>
       default_streams_;
-  uint8_t scale_attribute_is_hw_aligned_;
-  uint32_t scale_attribute_hash_id_;
+  bool scale_attribute_is_hw_aligned_{false};
+  uint32_t scale_attribute_hash_id_{0};
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);
