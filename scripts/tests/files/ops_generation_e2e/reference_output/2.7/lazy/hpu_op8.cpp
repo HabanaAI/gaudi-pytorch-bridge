@@ -10,8 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "_native_batch_norm_legit.h"
 #include "convolution_backward_overrideable.h"
+#include "native_group_norm.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,38 +22,6 @@ using torch::jit::Stack;
 namespace habana {
 
 
-
-::std::tuple<at::Tensor,at::Tensor,at::Tensor> _native_batch_norm_legit(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("_native_batch_norm_legit: ", DUMP_8ARGS(input, weight, bias, running_mean, running_var, training, momentum, eps));
-
-  [[maybe_unused]] bool require_h2d = false;
-  [[maybe_unused]] bool require_st = false;
-
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), weight)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), bias)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_mean)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_var)
-  FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-
-  LazyOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::_native_batch_norm_legit", {input, weight, bias, running_mean, running_var, training, momentum, eps}};
-  hpu_op.SetOutputMetaFn(BatchNormFwdMeta);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_native_batch_norm_legit, hpu_op);
-}
 
 ::std::tuple<at::Tensor,at::Tensor,at::Tensor> convolution_backward_overrideable(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, c10::SymIntArrayRef stride, c10::SymIntArrayRef padding, c10::SymIntArrayRef dilation, bool transposed, c10::SymIntArrayRef output_padding, c10::SymInt groups, ::std::array<bool,3> output_mask) {
   PT_LAZY_OP_TRACE;
@@ -75,6 +43,24 @@ namespace habana {
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(convolution_backward_overrideable, hpu_op);
 }
 
+::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_group_norm(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, c10::SymInt N, c10::SymInt C, c10::SymInt HxW, int64_t group, double eps) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("native_group_norm: ", DUMP_8ARGS(input, weight, bias, N, C, HxW, group, eps));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_group_norm, input, weight, bias, N, C, HxW, group, eps)
+
+  LazyOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::native_group_norm", {input, weight, bias, N, C, HxW, group, eps}};
+  hpu_op.SetOutputMetaFn(GroupNormFwdMeta);
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(native_group_norm, hpu_op);
+}
+
 
 
 
@@ -83,8 +69,8 @@ static const auto& kr_gen_8 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_native_batch_norm_legit", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, at::Tensor &, at::Tensor &, bool, double, double)>(&habana::_native_batch_norm_legit));
   m.impl("convolution_backward_overrideable", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward_overrideable));
+  m.impl("native_group_norm", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, c10::SymInt, c10::SymInt, c10::SymInt, int64_t, double)>(&habana::native_group_norm));
 
 }
 

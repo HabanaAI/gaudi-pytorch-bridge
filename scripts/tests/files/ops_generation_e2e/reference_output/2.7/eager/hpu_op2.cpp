@@ -6,7 +6,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "native_dropout.h"
+#include "as_strided.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -18,25 +18,14 @@ namespace habana {
 
 
 
-::std::tuple<at::Tensor,at::Tensor> native_dropout(const at::Tensor & input, double p, ::std::optional<bool> train) {
+at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, ::std::optional<c10::SymInt> storage_offset) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("native_dropout: ", DUMP_3ARGS(input, p, train));
+  PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_dropout, input, p, train)
-
-  if (auto eePath = NativeDropoutEarlyExitCondition(input, p, train))
-    return NativeDropoutEarlyExit(eePath, input, p, train);
-
-  NativeDropoutFE<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"aten::native_dropout", {input, p, train}};
-  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::native_dropout", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
-  return hpu_op.call();
+  return habana::eager::as_strided_hpu(self, size, stride, storage_offset);
 }
 
 
@@ -47,7 +36,7 @@ static const auto& kr_gen_2 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, ::std::optional<bool>)>(&habana::native_dropout));
+  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, ::std::optional<c10::SymInt>)>(&habana::as_strided));
 
 }
 

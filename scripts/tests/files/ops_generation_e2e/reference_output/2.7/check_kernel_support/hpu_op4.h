@@ -15,51 +15,6 @@ namespace habana {
 
 
 
-struct shared_layer_prod_out : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 5) {
-    auto ivalue_arr = torch::jit::last(stack, 5);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isInt() && ivalue_arr[2].isBool() && ivalue_arr[4].isTensor() ) {
-
-      c10::IValue self = std::move(peek(stack, 0, 5));
-      c10::IValue dim = std::move(peek(stack, 1, 5));
-      c10::IValue keepdim = std::move(peek(stack, 2, 5));
-      c10::IValue dtype = std::move(peek(stack, 3, 5));
-      c10::IValue out = std::move(peek(stack, 4, 5));
-
-      at::Tensor self_base = self.to<at::Tensor>();
-      int64_t dim_base = dim.to<int64_t>();
-      bool keepdim_base = keepdim.to<bool>();
-
-      auto dtype_opt = dtype.toOptional<c10::IValue>();
-      ::std::optional<at::ScalarType> dtype_opt_out;
-      if (dtype_opt.has_value()) {
-          const c10::IValue dtype_opt_in = dtype_opt.value();
-          at::ScalarType dtype_opt_in_base = dtype_opt_in.to<at::ScalarType>();
-          dtype_opt_out = ::std::optional<at::ScalarType>(dtype_opt_in_base);
-      } else {
-          dtype_opt_out = ::std::optional<at::ScalarType>();
-      }
-
-      at::Tensor out_base = out.to<at::Tensor>();
-      auto is_supported = impl(self_base, dim_base, keepdim_base, dtype_opt_out, out_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, int64_t dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, prod, is_dynamic, int_out, self, dim, keepdim, dtype, out)
-
-  return true;
-}
-
-};
-
 struct shared_layer_clone : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 2) {
@@ -93,6 +48,40 @@ bool impl(const at::Tensor & self, ::std::optional<at::MemoryFormat> memory_form
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
   RETURN_IF_UNSUPPORTED_DTYPE(self, clone, is_dynamic, self, memory_format)
+
+  return true;
+}
+
+};
+
+struct shared_layer_mul_out : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 3) {
+    auto ivalue_arr = torch::jit::last(stack, 3);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isTensor() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 3));
+      c10::IValue other = std::move(peek(stack, 1, 3));
+      c10::IValue out = std::move(peek(stack, 2, 3));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      at::Scalar other_base = other.to<at::Scalar>();
+      at::Tensor out_base = out.to<at::Tensor>();
+      auto is_supported = impl(self_base, other_base, out_base, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out, bool is_dynamic) {
+  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, true/*safe_cast*/);
+  static_cast<void>(compute_type);
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, mul, is_dynamic, Scalar_out, self, other, out)
 
   return true;
 }

@@ -6,7 +6,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "as_strided.h"
+#include "addbmm.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,16 +16,22 @@ using torch::jit::Stack;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta, habana_helpers::HabanaExecutionMode::EAGER);
 
 
-at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, ::std::optional<c10::SymInt> storage_offset) {
+at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
+  PT_OP_INFO("addbmm: ", DUMP_5ARGS(self, batch1, batch2, beta, alpha));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  return habana::eager::as_strided_hpu(self, size, stride, storage_offset);
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, true, self, batch1, batch2, beta, alpha)
+
+  eager::EagerOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
+  hpu_op.SetOutputMetaFn(AddBMMMeta);
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::addbmm", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
+  return hpu_op.call();
 }
 
 
@@ -36,7 +42,7 @@ static const auto& kr_gen_3 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, ::std::optional<c10::SymInt>)>(&habana::as_strided));
+  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
 
 }
 

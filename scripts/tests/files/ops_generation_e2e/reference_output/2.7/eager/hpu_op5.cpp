@@ -6,7 +6,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "bucketize.h"
+#include "prod.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,26 +16,23 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_bucketize_Scalar("bucketize.Scalar", "search_sorted_fwd", {1}, {0}, BucketizeMeta, {0, 1}, false, false, false, false);
 
 
-at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right) {
+at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("bucketize: ", DUMP_4ARGS(self, boundaries, out_int32, right));
+  PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
-  static_cast<void>(compute_type);
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, prod, int_out, self, dim, keepdim, dtype, out)
 
-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, true, self, boundaries, out_int32, right)
-
-  eager::EagerOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
-  hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetOutputMetaFn(BucketizeMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::bucketize", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
-  return hpu_op.call();
+  eager::EagerOp<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}};
+  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::prod", require_h2d, require_st, 1});
+  return hpu_op.call(out);
 }
 
 
@@ -46,7 +43,7 @@ static const auto& kr_gen_5 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("bucketize.Scalar", static_cast<at::Tensor (*)(const at::Scalar &, const at::Tensor &, bool, bool)>(&habana::bucketize));
+  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, ::std::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
 
 }
 

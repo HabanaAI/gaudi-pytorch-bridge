@@ -7,6 +7,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
 #include "__ilshift__.h"
+#include "_fused_dropout.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -33,6 +34,24 @@ at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
   return hpu_op.call(self);
 }
 
+::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, ::std::optional<at::Generator> generator) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("_fused_dropout: ", DUMP_3ARGS(self, p, generator));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
+
+  GeneratorToSeed<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"aten::_fused_dropout", {self, p, generator}};
+  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::_fused_dropout", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
+  return hpu_op.call();
+}
+
 
 
 
@@ -42,6 +61,7 @@ static const auto& kr_gen_0 = KernelRegistry()
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("__ilshift__.Scalar", static_cast<at::Tensor & (*)(at::Tensor &, const at::Scalar &)>(&habana::__ilshift__));
+  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, ::std::optional<at::Generator>)>(&habana::_fused_dropout));
 
 }
 

@@ -24,3 +24,7 @@ from packaging.version import Version
 
 def is_pytorch_older_than(version: str) -> bool:
     return Version(Version(torch.__version__).base_version) < Version(version)
+
+
+def is_pytorch_exactly(version: str) -> bool:
+    return Version(Version(torch.__version__).base_version) == Version(version)

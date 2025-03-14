@@ -6,7 +6,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "addbmm.h"
+#include "bucketize.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,21 +16,25 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta, habana_helpers::HabanaExecutionMode::EAGER);
+static CheckNodeWithSharedLayerValidator validator_bucketize_Scalar("bucketize.Scalar", "search_sorted_fwd", {1}, {0}, BucketizeMeta, {0, 1}, false, false, false, false);
 
 
-at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {
+at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("addbmm: ", DUMP_5ARGS(self, batch1, batch2, beta, alpha));
+  PT_OP_INFO("bucketize: ", DUMP_4ARGS(self, boundaries, out_int32, right));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, true, self, batch1, batch2, beta, alpha)
+  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  static_cast<void>(compute_type);
 
-  eager::EagerOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
-  hpu_op.SetOutputMetaFn(AddBMMMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::addbmm", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, true, self, boundaries, out_int32, right)
+
+  eager::EagerOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetOutputMetaFn(BucketizeMeta);
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::bucketize", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
   return hpu_op.call();
 }
 
@@ -42,7 +46,7 @@ static const auto& kr_gen_4 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
+  m.impl("bucketize.Scalar", static_cast<at::Tensor (*)(const at::Scalar &, const at::Tensor &, bool, bool)>(&habana::bucketize));
 
 }
 

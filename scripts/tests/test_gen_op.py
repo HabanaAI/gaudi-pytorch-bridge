@@ -17,6 +17,7 @@
 ###############################################################################
 
 
+import json
 import os
 import pathlib
 import shutil
@@ -38,13 +39,24 @@ from gen_op import (
     is_eager_op,
     parse_params,
 )
-from gen_op_files.version_checker import is_pytorch_older_than
+from gen_op_files.version_checker import is_pytorch_exactly, is_pytorch_older_than
 
 TORCH_PKG_PATH = torch.__path__[0]
 
-pytestmark = pytest.mark.skipif(
-    is_pytorch_older_than("2.6.0"), reason="Only newest PyTorch version should be validated"
-)
+profiles_path = os.path.join(os.getenv("PYTORCH_MODULES_ROOT_PATH"), ".devops/build_profiles/profiles.json")
+
+with open(profiles_path, encoding="utf-8") as profiles_json:
+    current_pytorch_version = json.load(profiles_json)["pt_versions"]["current"]["version"]
+
+pytestmark = [
+    pytest.mark.skipif(
+        is_pytorch_older_than(current_pytorch_version), reason="Only newest PyTorch version should be validated"
+    ),
+    pytest.mark.xfail(
+        not is_pytorch_exactly(current_pytorch_version),
+        reason="It's time consuming for developers to set up pytorch-next just to update reference for future tests",
+    ),
+]
 
 
 @dataclass
