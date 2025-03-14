@@ -16,7 +16,13 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi3
+from test_utils import (
+    compile_function_if_compile_mode,
+    format_tc,
+    is_gaudi3,
+    is_pytest_mode_eager,
+    is_pytest_mode_lazy,
+)
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.uint8], ids=format_tc)
@@ -68,20 +74,9 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("align_corners", [True, False])
     @pytest.mark.parametrize("antialias", [True, False])
     def test_upsample_bicubic2d(self, shape, size, scale_factor, align_corners, antialias, variant, dtype):
-        if dtype == torch.uint8 and pytest.mode == "lazy" and variant == "bwd":
-            pytest.xfail(
-                "Unsupported dtype on CPU: `only Tensors of floating point and complex dtype can require gradients`"
-            )
-        if (
-            antialias
-            and (
-                (shape == (2, 2, 3, 3) and size == (6, 6) and scale_factor is None)
-                or (shape == (2, 2, 3, 3) and size is None and scale_factor == [1, 2])
-            )
-            and variant == "bwd"
-        ):
-            pytest.skip("Unsupported test configuration (aten::_upsample_bicubic2d_aa.out is not yet supported on HPU)")
-        if is_gaudi3 and pytest.mode != "eager" and not antialias and size is None:
+        if dtype == torch.uint8 and not is_pytest_mode_eager() and variant == "bwd":
+            pytest.xfail("Unsupported dtype: `only Tensors of floating point and complex dtype can require gradients`")
+        if is_gaudi3 and is_pytest_mode_lazy() and not antialias and size is None:
             pytest.skip("SW-215817 Invalid node geometry on Gaudi3")
         if pytest.mode == "compile" and antialias is False:
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
@@ -102,10 +97,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("align_corners", [True, False])
     @pytest.mark.parametrize("antialias", [True, False])
     def test_upsample_bilinear2d(self, shape, size, scale_factor, align_corners, antialias, variant, dtype):
-        if dtype == torch.uint8 and pytest.mode == "lazy" and variant == "bwd":
-            pytest.xfail(
-                "Unsupported dtype on CPU: `only Tensors of floating point and complex dtype can require gradients`"
-            )
+        if dtype == torch.uint8 and is_pytest_mode_lazy() and variant == "bwd":
+            pytest.xfail("Unsupported dtype: `only Tensors of floating point and complex dtype can require gradients`")
         if is_gaudi3() and antialias:
             pytest.skip(reason="SW-215817 Antialiasing is not fully supported on Gaudi3")
         if pytest.mode == "compile":
@@ -125,10 +118,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("shape,size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
     def test_upsample_nearest1d(self, shape, size, scale_factor, variant, dtype):
-        if pytest.mode == "lazy" and dtype == torch.uint8 and variant == "bwd":
-            pytest.xfail(
-                "Unsupported dtype on CPU: `only Tensors of floating point and complex dtype can require gradients`"
-            )
+        if is_pytest_mode_lazy() and dtype == torch.uint8 and variant == "bwd":
+            pytest.xfail("Unsupported dtype: `only Tensors of floating point and complex dtype can require gradients`")
         if pytest.mode == "compile":
             pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
@@ -136,10 +127,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("shape,size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
     def test_upsample_nearest_exact1d(self, shape, size, scale_factor, variant, dtype):
-        if pytest.mode == "lazy" and dtype == torch.uint8 and variant == "bwd":
-            pytest.xfail(
-                "Unsupported dtype on CPU: `only Tensors of floating point and complex dtype can require gradients`"
-            )
+        if is_pytest_mode_lazy() and dtype == torch.uint8 and variant == "bwd":
+            pytest.xfail("Unsupported dtype: `only Tensors of floating point and complex dtype can require gradients`")
         if pytest.mode == "compile":
             pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
         if pytest.mode == "eager" and variant == "bwd":
@@ -149,10 +138,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("shape, size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2]], ids=format_tc)
     def test_upsample_nearest2d(self, shape, size, scale_factor, variant, dtype):
-        if pytest.mode == "lazy" and dtype == torch.uint8 and variant == "bwd":
-            pytest.xfail(
-                "Unsupported dtype on CPU: `only Tensors of floating point and complex dtype can require gradients`"
-            )
+        if is_pytest_mode_lazy() and dtype == torch.uint8 and variant == "bwd":
+            pytest.xfail("Unsupported dtype: `only Tensors of floating point and complex dtype can require gradients`")
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
@@ -169,10 +156,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("shape,size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]], ids=format_tc)
     def test_upsample_nearest3d(self, shape, size, scale_factor, variant, dtype):
-        if pytest.mode == "lazy" and dtype == torch.uint8 and variant == "bwd":
-            pytest.xfail(
-                "Unsupported dtype on CPU: `only Tensors of floating point and complex dtype can require gradients`"
-            )
+        if is_pytest_mode_lazy() and dtype == torch.uint8 and variant == "bwd":
+            pytest.xfail("Unsupported dtype: `only Tensors of floating point and complex dtype can require gradients`")
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
@@ -180,7 +165,7 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("shape,size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]], ids=format_tc)
     def test_upsample_nearest_exact3d(self, shape, size, scale_factor, variant, dtype):
-        if pytest.mode == "lazy" and variant == "bwd":
+        if is_pytest_mode_lazy() and variant == "bwd":
             pytest.skip("aten::_upsample_nearest_exact3d_backward.grad_input is not yet implemented on HPU")
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
@@ -190,8 +175,10 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
     @pytest.mark.parametrize("align_corners", [True, False])
     def test_upsample_linear1d(self, shape, size, scale_factor, align_corners, variant, dtype):
-        if dtype == torch.uint8:
-            pytest.xfail("Unsupported dtype on CPU")
+        if dtype == torch.uint8 and variant == "fwd":
+            pytest.xfail("Unsupported dtype `\"compute_indices_weights_linear\" not implemented for 'Byte'`")
+        if dtype == torch.uint8 and variant == "bwd":
+            pytest.xfail("RuntimeError: only Tensors of floating point and complex dtype can require gradients")
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, False, "linear", dtype)
@@ -214,8 +201,9 @@ class TestHpuUpsample:
     )
     @pytest.mark.parametrize("align_corners", [True, False])
     def test_upsample_trilinear3d(self, shape, size, scale_factor, align_corners, variant, dtype):
-        if dtype == torch.uint8:
-            pytest.xfail("Unsupported dtype on CPU")
+        if dtype == torch.uint8 and variant == "fwd":
+            pytest.xfail("Unsupported dtype `\"compute_indices_weights_trilinear\" not implemented for 'Byte'`")
+
         is_bwd = variant == "bwd"
         illegal_size = size is not None and size[0] != 3
         illegal_scale = scale_factor is not None and scale_factor[0] != 1

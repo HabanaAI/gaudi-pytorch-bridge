@@ -6587,6 +6587,25 @@ _upsample_bicubic2d_aa.out:
   - [WHCN]
   op_validator: check-node-with-shared-layer
 
+_upsample_bicubic2d_aa_backward:
+  custom_fill_params: FillBicubicBwdParamsAA
+  output_meta: UpsampleBicubic2DBwdMetaAA
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
+_upsample_bicubic2d_aa_backward.grad_input:
+  custom_fill_params: FillBicubicBwdParamsAA
+  output_meta: UpsampleBicubic2DBwdMetaAA
+  guid: resize_bwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  op_validator: check-node-with-shared-layer
+
 upsample_bicubic2d_backward.grad_input:
   custom_fill_params: FillBicubicBwdParams
   output_meta: UpsampleBicubic2DBwdMeta

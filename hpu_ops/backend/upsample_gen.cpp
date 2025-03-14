@@ -520,7 +520,7 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
   }
   return out_shape;
 }
-// Forward Meta Function - Bicubic2D AA
+
 std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(
     const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
@@ -543,6 +543,7 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(
   }
   return out_shape;
 }
+
 // Forward Meta Function - Bicubic2D
 OutputMetaDataVector UpsampleBicubic2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
@@ -576,6 +577,20 @@ OutputMetaDataVector UpsampleBicubic2DFwdMetaAA(const at::Stack& stack) {
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
 
+  return {meta};
+}
+// Backward Meta Function - Bicubic2D AA
+OutputMetaDataVector UpsampleBicubic2DBwdMetaAA(const at::Stack& stack) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_h = stack.at(4).toOptional<double>();
+  auto scale_w = stack.at(5).toOptional<double>();
+  upsample_exact_2d_check(grad_in, out_size);
+  check_null_inputs_2d(out_size, scale_h, scale_w);
+
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = grad_in.scalar_type();
   return {meta};
 }
 // Backward Meta Function - Bicubic2D
@@ -869,6 +884,31 @@ std::shared_ptr<void> FillBicubicFwdParamsAA(
   bool antialias = true;
   return FillResizeParams(
       self.dim(),
+      size,
+      bicubic,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
+std::shared_ptr<void> FillBicubicBwdParamsAA(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(3).toBool();
+  // scales
+  auto scales = stack.at(4);
+  double scale_h = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(5).toOptional<double>().value_or(1.0);
+  double scale_d = 1.0;
+  bool antialias = true;
+  return FillResizeParams(
+      grad_in.dim(),
       size,
       bicubic,
       out_size,
