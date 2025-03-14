@@ -30,7 +30,9 @@ from test_utils import (
     cpu,
     format_tc,
     hpu,
+    is_gaudi2,
     is_pytest_mode_compile,
+    is_pytest_mode_eager,
 )
 
 DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16]
@@ -147,6 +149,112 @@ def generate_expert_weights(hidden_dim, ffn_dim, num_experts, permuted_weights, 
     return (w1_cpu, w2_cpu, w3_cpu), (w1_hpu, w2_hpu, w3_hpu)
 
 
+def mixture_of_experts_eager(
+    hidden_states_hpu,
+    expert_routing_table_hpu,
+    router_weights_hpu,
+    w1_hpu,
+    w2_hpu,
+    w3_hpu,
+    d_scale_hidden_states,
+    d_scale_intermediate_hidden_states,
+    d_scale_w1,
+    d_scale_w2,
+    d_scale_w3,
+    permuted_weights,
+    activation,
+):
+    num_experts = len(w1_hpu)
+    [num_tokens, hidden_dim] = hidden_states_hpu.shape
+    final_hidden_states = torch.zeros(1, num_tokens, hidden_dim, dtype=torch.bfloat16, device=hpu)
+
+    padded_weights = (
+        torch.zeros((num_tokens, num_experts), dtype=router_weights_hpu.dtype, device=router_weights_hpu.device)
+        .scatter_(-1, expert_routing_table_hpu, router_weights_hpu)
+        .reshape((-1, num_tokens, num_experts))
+        .permute(2, 0, 1)
+        .unsqueeze(-1)
+    )
+
+    activation_functions = {"silu": F.silu, "gelu": F.gelu, "relu": F.relu}
+    activation_fn = activation_functions.get(activation)
+    dynamic_quant = d_scale_intermediate_hidden_states is None
+
+    scaling_factor = 240 if is_gaudi2() else 448
+
+    for i in range(num_experts):
+        current_expert_w1 = w1_hpu[i].transpose(0, 1) if permuted_weights else w1_hpu[i]
+        current_expert_w2 = w2_hpu[i].transpose(0, 1) if permuted_weights else w2_hpu[i]
+        current_expert_w3 = w3_hpu[i].transpose(0, 1) if permuted_weights else w3_hpu[i]
+
+        hidden_states_w1 = activation_fn(
+            torch.ops.hpu.fp8_gemm_v2(
+                hidden_states_hpu,
+                False,
+                current_expert_w1,
+                False,
+                None,
+                torch.bfloat16,
+                d_scale_hidden_states,
+                d_scale_w1[i],
+                None,
+                False,
+                None,
+            )
+        )
+
+        hidden_states_w2 = torch.ops.hpu.fp8_gemm_v2(
+            hidden_states_hpu,
+            False,
+            current_expert_w2,
+            False,
+            None,
+            torch.bfloat16,
+            d_scale_hidden_states,
+            d_scale_w2[i],
+            None,
+            False,
+            None,
+        )
+
+        hidden_states_w12 = hidden_states_w1 * hidden_states_w2
+
+        if dynamic_quant:
+            max_values = torch.abs(hidden_states_w12).max(1).values
+            current_d_scale_intermediate_hidden_states = ((max_values + 1e-8) / scaling_factor).unsqueeze(-1)
+            print(current_d_scale_intermediate_hidden_states)
+        else:
+            current_d_scale_intermediate_hidden_states = d_scale_intermediate_hidden_states[i]
+
+        hidden_states_w12, _ = torch.ops.hpu.cast_to_fp8_v2(
+            hidden_states_w12,
+            current_d_scale_intermediate_hidden_states,
+            False,
+            False,
+            hidden_states_hpu.dtype,
+            None,
+        )
+
+        hidden_states_w3 = torch.ops.hpu.fp8_gemm_v2(
+            hidden_states_w12,
+            False,
+            current_expert_w3,
+            False,
+            None,
+            torch.bfloat16,
+            torch.tensor(1.0, device=hpu),
+            d_scale_w3[i],
+            None,
+            False,
+            None,
+        )
+
+        final_hidden_states += hidden_states_w3 * padded_weights[i]
+
+    final_hidden_states = final_hidden_states.reshape(hidden_states_hpu.shape)
+    return final_hidden_states
+
+
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -235,6 +343,7 @@ def test_mixture_of_experts(
 @pytest.mark.parametrize("fused_weights", FUSED_WEIGHTS)
 @pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
 @pytest.mark.parametrize("scales_as_tensors", [True, False])
+@pytest.mark.parametrize("dynamic_scale", [True, False], ids=["dynamic_quant", "static_quant"])
 @pytest.mark.parametrize(
     "fp8_scales",
     [
@@ -258,7 +367,10 @@ def test_mixture_of_experts_fp8(
     fp8_dtype,
     scales_as_tensors,
     fp8_scales,
+    dynamic_scale,
 ):
+    if dynamic_scale and fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
+        pytest.skip("Dynamic scale is supported only for torch.float8_e4m3")
     d_scale_w1 = fp8_scales["d_scale_w1"]
     d_scale_w2 = d_scale_w1 if fused_weights else fp8_scales["d_scale_w2"]
     d_scale_w3 = fp8_scales["d_scale_w3"]
@@ -300,8 +412,7 @@ def test_mixture_of_experts_fp8(
         )
         weights = (w12_hpu, w3_hpu) if fused_weights else (w1_hpu, w2_hpu, w3_hpu)
         hidden_state_scales = (
-            d_scale_hidden_states,
-            d_scale_intermediate_hidden_states,
+            (d_scale_hidden_states,) if dynamic_scale else (d_scale_hidden_states, d_scale_intermediate_hidden_states)
         )
         weights_scales = (d_scale_w1, d_scale_w3) if fused_weights else (d_scale_w1, d_scale_w2, d_scale_w3)
         common_params = (
@@ -316,12 +427,120 @@ def test_mixture_of_experts_fp8(
     with torch.inference_mode():
         result_hpu = partial(call_moe_fn)()
 
-    check_using_cosine_similarity(result_hpu, result_cpu, 0.975)
+    check_using_cosine_similarity(result_hpu, result_cpu, 0.938 if dynamic_scale else 0.975)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
+@pytest.mark.skip(reason="On-demand test. Used only for debugging and integration testing")
+@pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
+@pytest.mark.parametrize("activation", ACTIVATIONS)
+@pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
+@pytest.mark.parametrize("ffn_dim", FFN_DIMS)
+@pytest.mark.parametrize("num_experts", NUM_EXPERTS)
+@pytest.mark.parametrize("num_tokens", NUM_TOKENS)
+@pytest.mark.parametrize("fused_weights", [True])
+@pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
+@pytest.mark.parametrize("scales_as_tensors", [True])
+@pytest.mark.parametrize("dynamic_scale", [True])
+@pytest.mark.parametrize(
+    "fp8_scales",
+    [
+        {
+            "d_scale_w1": [4.35, 1.49, 1.12, 2.22, 8.33, 1.28, 2.94, 1.79],
+            "d_scale_w2": [1.10, 2.13, 2.78, 1.22, 3.45, 1.59, 1.35, 1.72],
+            "d_scale_w3": [6.67, 1.09, 2.08, 2.70, 1.56, 1.23, 1.89, 3.85],
+            "d_scale_intermediate_hidden_states": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            "d_scale_hidden_states": 3.17,
+        }
+    ],
+)
+def test_compare_graph_modes_to_eager_decomposition(
+    permuted_weights,
+    fused_weights,
+    num_tokens,
+    num_experts,
+    activation,
+    hidden_dim,
+    ffn_dim,
+    fp8_dtype,
+    scales_as_tensors,
+    fp8_scales,
+    dynamic_scale,
+):
+    if dynamic_scale and fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
+        pytest.skip("Dynamic scale is supported only for torch.float8_e4m3")
+    d_scale_w1 = fp8_scales["d_scale_w1"]
+    d_scale_w2 = d_scale_w1 if fused_weights else fp8_scales["d_scale_w2"]
+    d_scale_w3 = fp8_scales["d_scale_w3"]
+    d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
+    d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
+
+    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
+    router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
+    router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
+    hidden_states_hpu /= d_scale_hidden_states
+
+    _, expert_weights_hpu = generate_expert_weights(
+        hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype, (d_scale_w1, d_scale_w2, d_scale_w3)
+    )
+
+    if scales_as_tensors:
+        d_scale_w1 = [torch.tensor(s).to(hpu) for s in d_scale_w1]
+        d_scale_w2 = [torch.tensor(s).to(hpu) for s in d_scale_w2]
+        d_scale_w3 = [torch.tensor(s).to(hpu) for s in d_scale_w3]
+        d_scale_intermediate_hidden_states = [torch.tensor(s).to(hpu) for s in d_scale_intermediate_hidden_states]
+        d_scale_hidden_states = torch.tensor(d_scale_hidden_states).to(hpu)
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+    w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
+    cat_dim = 0 if permuted_weights else 1
+    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu, strict=False)]
+
+    def call_moe_fn():
+        common_inputs = (
+            hidden_states_hpu,
+            expert_routing_table_hpu,
+            router_weights_hpu,
+        )
+        weights = (w12_hpu, w3_hpu) if fused_weights else (w1_hpu, w2_hpu, w3_hpu)
+        hidden_state_scales = (
+            (d_scale_hidden_states,) if dynamic_scale else (d_scale_hidden_states, d_scale_intermediate_hidden_states)
+        )
+        weights_scales = (d_scale_w1, d_scale_w3) if fused_weights else (d_scale_w1, d_scale_w2, d_scale_w3)
+        common_params = (
+            permuted_weights,
+            activation,
+            0,
+            num_experts - 1,
+        )
+
+        return fn(*common_inputs, *weights, *hidden_state_scales, *weights_scales, *common_params)
+
+    result_eager = mixture_of_experts_eager(
+        hidden_states_hpu,
+        expert_routing_table_hpu,
+        router_weights_hpu,
+        w1_hpu,
+        w2_hpu,
+        w3_hpu,
+        d_scale_hidden_states,
+        None if dynamic_scale else d_scale_intermediate_hidden_states,
+        d_scale_w1,
+        d_scale_w2,
+        d_scale_w3,
+        permuted_weights,
+        activation,
+    )
+
+    with torch.inference_mode():
+        result_hpu = partial(call_moe_fn)()
+
+    check_using_cosine_similarity(result_hpu, result_eager.cpu(), 0.95 if dynamic_scale else 0.99)
+
+
+@pytest.mark.skip(reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)

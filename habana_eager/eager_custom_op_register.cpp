@@ -1423,6 +1423,16 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::mixture_of_experts.fp8_fused_weights_scalars",
       mixture_of_experts_fp8_fused_weights_scalars);
+  m.impl("hpu::mixture_of_experts.fp8_dynamic", mixture_of_experts_fp8_dynamic);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_fused_weights_dynamic",
+      mixture_of_experts_fp8_fused_weights_dynamic);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_scalars_dynamic",
+      mixture_of_experts_fp8_scalars_dynamic);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic",
+      mixture_of_experts_fp8_fused_weights_scalars_dynamic);
   m.impl("hpu::optimizer_sgd", optimizer_sgd);
   m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum);
   m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd);

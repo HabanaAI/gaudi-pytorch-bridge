@@ -142,10 +142,14 @@ _AVAILABLE_FIELDS = {
 # These exceptions are tracked in SW-213270
 _OP_VALIDATOR_EXCEPTIONS = {
     # op name: reason for lack of op_validator
-    "mixture_of_experts.fp8_fused_weights_scalars": "not implemented yet",
-    "mixture_of_experts.fp8": "not implemented yet",
-    "mixture_of_experts.fp8_scalars": "not implemented yet",
-    "mixture_of_experts.fp8_fused_weights": "not implemented yet",
+    "mixture_of_experts.fp8_fused_weights_scalars": "custom op",
+    "mixture_of_experts.fp8": "custom op",
+    "mixture_of_experts.fp8_scalars": "custom op",
+    "mixture_of_experts.fp8_fused_weights": "custom op",
+    "mixture_of_experts.fp8_fused_weights_scalars_dynamic": "custom op",
+    "mixture_of_experts.fp8_dynamic": "custom op",
+    "mixture_of_experts.fp8_scalars_dynamic": "custom op",
+    "mixture_of_experts.fp8_fused_weights_dynamic": "custom op",
     "cast_to_fp8": "not implemented yet",
     "fp8_gemm": "not implemented yet",
     "_native_batch_norm_legit": "not implemented yet",

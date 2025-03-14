@@ -1215,6 +1215,49 @@ def meta_mixture_of_experts_fp8_fused_weights(
     return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
 
 
+@register_meta([torch.ops.hpu.mixture_of_experts.fp8_dynamic, torch.ops.hpu.mixture_of_experts.fp8_scalars_dynamic])
+def meta_mixture_of_experts_fp8_dynamic(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w1,
+    w2,
+    w3,
+    d_scale_w1,
+    d_scale_w2,
+    d_scale_w3,
+    d_scale_hidden_states,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
+
+
+@register_meta(
+    [
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_dynamic,
+        torch.ops.hpu.mixture_of_experts.fp8_fused_weights_scalars_dynamic,
+    ]
+)
+def meta_mixture_of_experts_fp8_fused_weights_dynamic(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    d_scale_w12,
+    d_scale_w3,
+    d_scale_hidden_states,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return hidden_states.new_empty(hidden_states.shape, dtype=torch.bfloat16)
+
+
 @register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])
 def meta_rotary_pos_embedding_backward(grad_in, sin, cos, position_ids, offset, mode):
     return grad_in.new_empty(grad_in.shape)

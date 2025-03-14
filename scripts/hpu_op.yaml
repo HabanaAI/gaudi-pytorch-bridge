@@ -7643,3 +7643,31 @@ mixture_of_experts.fp8_fused_weights_scalars:
   op_backend: MixtureOfExpertsFp8Scalars
   frontend_blocklist: [eager]
   out_ids: [2]
+
+mixture_of_experts.fp8_dynamic:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8Dynamic
+  frontend_blocklist: [eager]
+  out_ids: [2]
+
+mixture_of_experts.fp8_fused_weights_dynamic:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8Dynamic
+  frontend_blocklist: [eager]
+  out_ids: [2]
+
+mixture_of_experts.fp8_scalars_dynamic:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8ScalarsDynamic
+  frontend_blocklist: [eager]
+  out_ids: [2]
+
+mixture_of_experts.fp8_fused_weights_scalars_dynamic:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8ScalarsDynamic
+  frontend_blocklist: [eager]
+  out_ids: [2]
