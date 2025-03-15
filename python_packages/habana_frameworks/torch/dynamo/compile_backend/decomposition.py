@@ -830,20 +830,35 @@ def index_add(
         or tensor_in.dtype == torch.bool
     ):
         tensor = tensor.to(torch.float)
-
     zero_dim = x.ndim == 0
     x1 = x.unsqueeze(0) if zero_dim else x
-
     # Follow the implementation used in HPU Lazy mode
-    expanded_sizes = [1] * tensor.dim()
-    if len(index):
-        expanded_sizes[dim] = index.shape[0]
+    dim_size = x.numel()
+    if dim_size:
+        # for non-scalar tensor case
+        dim_size = x1.shape[dim]
+    # Implementation to take care of duplicate entries in index tensor and
+    # also the case where index tensor size can be greater than the self
+    # tensor size at the relevant dim.
+    sorted_index = torch.ops.aten.sort(index, stable=True)
+    # Note: sorted_index[0] = actual indices sorted. sorted_index_pos = orted_index[1] = original positions of the sorted indices in index
+    sorted_index_pos = sorted_index[1]
+    sorted_index_pos_reshape_shape = [1] * tensor.dim()
+    if len(sorted_index_pos.shape):
+        sorted_index_pos_reshape_shape[dim] = sorted_index_pos.shape[0]
     else:
-        expanded_sizes[dim] = 1
-
-    index_expanded = torch.ops.aten.reshape(index, expanded_sizes).expand(tensor.shape)
-    ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, tensor)
-
+        sorted_index_pos_reshape_shape[dim] = 1
+    sorted_index_pos_reshaped = torch.ops.aten.reshape(sorted_index[1], sorted_index_pos_reshape_shape).expand(
+        tensor.shape
+    )
+    gathered_values = torch.ops.aten.gather(tensor, dim, sorted_index_pos_reshaped)
+    index_expand_shape = [1] * gathered_values.dim()
+    if len(sorted_index[0].shape):
+        index_expand_shape[dim] = sorted_index[0].shape[0]
+    else:
+        index_expand_shape[dim] = 1
+    index_expanded = torch.ops.aten.reshape(sorted_index[0], index_expand_shape).expand(gathered_values.shape)
+    ret = torch.ops.aten.scatter_add(x1, dim, index_expanded, gathered_values)
     if x_in.dtype == torch.int32 or x_in.dtype == torch.uint8 or x_in.dtype == torch.int8 or x_in.dtype == torch.bool:
         return ret.to(x_in.dtype)
     else:
