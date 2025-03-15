@@ -1566,12 +1566,6 @@ argmin.out:
   guid: argmin_multi_dim_fwd
   op_validator: check-node-with-shared-layer
 
-argsort.stable:
-  output_meta: ArgSortStableMeta
-  op_backend: ArgSortStable
-  out_ids: [0]
-  op_validator: TopkSharedMeta
-
 asin:
   promote_int_to_float: [self]
   guid: asin_fwd
@@ -6415,10 +6409,12 @@ topk.values:
 
 sort.values_stable:
   output_meta: SortStableMeta
+  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   op_validator: TopkSharedMeta
 
 sort.stable:
+  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   output_meta: SortStableMeta
   out_ids: [0, 0]

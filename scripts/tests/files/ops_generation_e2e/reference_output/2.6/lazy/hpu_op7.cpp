@@ -10,8 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "_native_batch_norm_legit.h"
 #include "bitwise_left_shift.h"
+#include "isfinite.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,6 +22,23 @@ using torch::jit::Stack;
 namespace habana {
 
 
+
+at::Tensor isfinite(const at::Tensor & self) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("isfinite: ", DUMP_ARG(self));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(self, isfinite, self)
+
+  LazyOp<at::Tensor> hpu_op{"aten::isfinite", {self}};
+  RUN_MAYBE_WITH_ACC_THREAD(isfinite, hpu_op);
+}
 
 at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other) {
   PT_LAZY_OP_TRACE;
@@ -38,38 +55,6 @@ at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other)
   RUN_MAYBE_WITH_ACC_THREAD(bitwise_left_shift, hpu_op);
 }
 
-::std::tuple<at::Tensor,at::Tensor,at::Tensor> _native_batch_norm_legit(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("_native_batch_norm_legit: ", DUMP_8ARGS(input, weight, bias, running_mean, running_var, training, momentum, eps));
-
-  [[maybe_unused]] bool require_h2d = false;
-  [[maybe_unused]] bool require_st = false;
-
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), weight)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), bias)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_mean)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_var)
-  FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-
-  LazyOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::_native_batch_norm_legit", {input, weight, bias, running_mean, running_var, training, momentum, eps}};
-  hpu_op.SetOutputMetaFn(BatchNormFwdMeta);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_native_batch_norm_legit, hpu_op);
-}
-
 
 
 
@@ -78,8 +63,8 @@ static const auto& kr_gen_7 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("isfinite", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::isfinite));
   m.impl("bitwise_left_shift.Tensor_Scalar", static_cast<at::Tensor (*)(const at::Tensor &, const at::Scalar &)>(&habana::bitwise_left_shift));
-  m.impl("_native_batch_norm_legit", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, at::Tensor &, at::Tensor &, bool, double, double)>(&habana::_native_batch_norm_legit));
 
 }
 

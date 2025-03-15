@@ -6,7 +6,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "_fused_dropout.h"
+#include "_foreach_add.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -18,22 +18,20 @@ namespace habana {
 
 
 
-::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, c10::optional<at::Generator> generator) {
+void _foreach_add_(at::TensorList self, const at::Scalar & scalar) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("_fused_dropout: ", DUMP_3ARGS(self, p, generator));
+  PT_OP_INFO("_foreach_add_: ", DUMP_2ARGS(self, scalar));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))
 
-  GeneratorToSeed<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"aten::_fused_dropout", {self, p, generator}};
-  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::_fused_dropout", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
-  return hpu_op.call();
+  eager::EagerOp<void> hpu_op{"aten::_foreach_add_", {self, scalar}};
+  hpu_op.set_eager_op_info({eager::eagerOpKind::Inplace, "aten::_foreach_add", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){0}});
+  hpu_op.call(self);
 }
 
 
@@ -44,7 +42,7 @@ static const auto& kr_gen_1 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<at::Generator>)>(&habana::_fused_dropout));
+  m.impl("_foreach_add_.Scalar", static_cast<void (*)(at::TensorList, const at::Scalar &)>(&habana::_foreach_add_));
 
 }
 

@@ -78,47 +78,6 @@ bool impl(at::TensorList self, const at::Scalar & scalar, bool is_dynamic) {
 
 };
 
-struct shared_layer__fused_dropout : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 3) {
-    auto ivalue_arr = torch::jit::last(stack, 3);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
-
-      c10::IValue self = std::move(peek(stack, 0, 3));
-      c10::IValue p = std::move(peek(stack, 1, 3));
-      c10::IValue generator = std::move(peek(stack, 2, 3));
-
-      at::Tensor self_base = self.to<at::Tensor>();
-      double p_base = p.to<double>();
-
-      auto generator_opt = generator.toOptional<c10::IValue>();
-      ::std::optional<at::Generator> generator_opt_out;
-      if (generator_opt.has_value()) {
-          const c10::IValue generator_opt_in = generator_opt.value();
-          at::Generator generator_opt_in_base = generator_opt_in.to<at::Generator>();
-          generator_opt_out = ::std::optional<at::Generator>(generator_opt_in_base);
-      } else {
-          generator_opt_out = ::std::optional<at::Generator>();
-      }
-
-      auto is_supported = impl(self_base, p_base, generator_opt_out, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, double p, c10::optional<at::Generator> generator, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, is_dynamic, self, p, generator)
-
-  return true;
-}
-
-};
-
 
 
 

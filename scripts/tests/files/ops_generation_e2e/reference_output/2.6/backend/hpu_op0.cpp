@@ -3,7 +3,6 @@
 #include "hpu_ops/op_validator.h"
 #include "__ilshift__.h"
 #include "_foreach_add.h"
-#include "_fused_dropout.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -30,29 +29,15 @@ struct Gen_foreach_add__Scalar : ForeachBinary {
   }
 };
 
-struct Gen_fused_dropout : FusedNativeDropout {
-  Gen_fused_dropout(int device_id, c10::ScalarType scalar_type) :
-      FusedNativeDropout(device_id, "None", scalar_type, {0, 0}, {}, {}, false) {
-        SetOutputMetaFn(FusedNativeDropoutMeta);
-        SetFillParams(FillFusedNativeDropoutParams);
-  }
-};
-
 
 
 static const auto& kr_gen_0 = KernelRegistry()
 .REGISTER_HPU_BACKEND("aten::__ilshift__.Scalar", Gen__ilshift___Scalar)
 .REGISTER_HPU_BACKEND("aten::_foreach_add_.Scalar", Gen_foreach_add__Scalar)
-.REGISTER_HPU_BACKEND("aten::_fused_dropout", Gen_fused_dropout)
-.REGISTER_HPU_BACKEND("hpu::_fused_dropout", Gen_fused_dropout)
 ;
 
 
 
-TORCH_LIBRARY_FRAGMENT(hpu, m) {
-  static_cast<void>(m);
-  m.def("_fused_dropout(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)");
 
-}
 }  // namespace habana
 

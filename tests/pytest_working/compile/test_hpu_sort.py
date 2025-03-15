@@ -47,6 +47,9 @@ def test_sort_stable(dim, descending, stable):
     def fn(input, dim, descending, stable):
         return input.sort(dim=dim, descending=descending, stable=stable)
 
+    if dim in [3, -1] and not descending and stable:
+        pytest.skip("SortStableFallbackCheck returns false")
+
     # CPU
     x = torch.randn([12, 10, 8, 6])
     hx = x.to("hpu")

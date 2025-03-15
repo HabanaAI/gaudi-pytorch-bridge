@@ -3,6 +3,7 @@
 #include "hpu_ops/op_validator.h"
 #include "_deform_conv2d_backward.h"
 #include "linear_backward.h"
+#include "native_group_norm.h"
 #include "quantize_per_channel.h"
 
 
@@ -16,6 +17,14 @@ namespace habana {
 
 
 
+
+struct Gennative_group_norm : OpBackend {
+  Gennative_group_norm(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "native_group_norm_fwd", scalar_type, {0, 0, 0}, {}, {}, false) {
+        SetOutputMetaFn(GroupNormFwdMeta);
+        SetFillParams(FillNativeGroupNormParams);
+  }
+};
 
 struct Genlinear_backward : OpBackend {
   Genlinear_backward(int device_id, c10::ScalarType scalar_type) :
@@ -44,6 +53,7 @@ struct Gen_deform_conv2d_backward : DeformConv2dBackward {
 
 
 static const auto& kr_gen_9 = KernelRegistry()
+.REGISTER_HPU_BACKEND("aten::native_group_norm", Gennative_group_norm)
 .REGISTER_HPU_BACKEND("aten::linear_backward", Genlinear_backward)
 .REGISTER_HPU_BACKEND("quantized_decomposed::quantize_per_channel", Genquantize_per_channel)
 .REGISTER_HPU_BACKEND("torchvision::_deform_conv2d_backward", Gen_deform_conv2d_backward)
