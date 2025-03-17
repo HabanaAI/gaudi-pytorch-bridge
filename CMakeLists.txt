@@ -76,6 +76,27 @@ find_package(ZLIB REQUIRED)
 include(pt_ver)
 detect_pt_version()
 
+list(
+  APPEND
+  REQUIRED_ENV_VARIABLES
+  HABANA_SOFTWARE_STACK
+  THIRD_PARTIES_ROOT
+  HCL_ROOT
+  HL_LOGGER_INCLUDE_DIRS
+  MEDIA_ROOT
+  SPECS_EXT_ROOT
+  SYNAPSE_ROOT
+  SYNAPSE_UTILS_ROOT
+  BUILD_ROOT_LATEST
+  PYTORCH_MODULES_ROOT_PATH)
+foreach(env_var IN LISTS REQUIRED_ENV_VARIABLES)
+  if(DEFINED ENV{${env_var}})
+    message(STATUS "Environment variable ${env_var} exists: $ENV{${env_var}}")
+  else()
+    message(SEND_ERROR "Required environment variable ${env_var} is not defined.")
+  endif()
+endforeach()
+
 set(CMAKE_CONFIGURABLE_FILE_CONTENT "${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}")
 configure_file("${CMAKE_ROOT}/Modules/CMakeConfigurableFile.in"
                "${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/required_version.txt" @ONLY)

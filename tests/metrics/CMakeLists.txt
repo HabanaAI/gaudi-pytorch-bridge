@@ -19,6 +19,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 project(metrics_tests LANGUAGES CXX)
+if(DEFINED ENV{SWTOOLS_SDK_ROOT})
+  message(STATUS "Environment variable SWTOOLS_SDK_ROOT exists: $ENV{SWTOOLS_SDK_ROOT}")
+else()
+  message(SEND_ERROR "Required environment variable SWTOOLS_SDK_ROOT is not defined.")
+endif()
 add_habana_library(metrics_tests SHARED metrics_test_op.cpp metrics_test_kernel.cpp)
 target_include_directories(
   metrics_tests

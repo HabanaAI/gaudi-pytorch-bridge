@@ -115,11 +115,15 @@ min_venv_python = supported_python_versions[0]
 min_pip_version = Version("19.3.1")
 build_py = os.path.realpath(__file__)
 
-build_root = os.environ.get("BUILD_ROOT", None)
-if not build_root:
-    log.fatal("$BUILD_ROOT not set or is empty.")
-    sys.exit(1)
+for env_var in ["PYTORCH_MODULES_RELEASE_BUILD", "BUILD_ROOT", "PYTORCH_MODULES_ROOT_PATH"]:
+    variable = os.environ.get(env_var, None)
+    if variable:
+        log.info(f"Environment variable env_var exists: {variable}")
+    else:
+        log.error(f"Required environment variable {env_var} is not defined.")
+        sys.exit(1)
 
+build_root = os.environ["BUILD_ROOT"]
 build_dir_suffix = "pytorch_modules_multi_build"
 build_dir = os.path.join(build_root, build_dir_suffix)
 

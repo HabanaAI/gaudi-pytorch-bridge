@@ -32,8 +32,4 @@ set(CMAKE_CXX_FLAGS_RELEASE
     CACHE STRING "release flags" FORCE)
 set(CMAKE_CXX_CLANG_TIDY "")
 
-if(NOT DEFINED ENV{THIRD_PARTIES_ROOT})
-  message(FATAL_ERROR "THIRD_PARTIES_ROOT env var doesn't exist")
-endif()
-
 add_subdirectory(src)

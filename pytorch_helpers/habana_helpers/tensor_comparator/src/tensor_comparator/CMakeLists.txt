@@ -15,10 +15,6 @@
 #
 ###############################################################################
 
-if(NOT DEFINED ENV{THIRD_PARTIES_ROOT})
-  message(FATAL_ERROR "THIRD_PARTIES_ROOT env var doesn't exist")
-endif()
-
 # This is an external library that should be removed from the bridge to another repository, see here: SW-73476
 add_library(
   tensor_comparator_core STATIC
