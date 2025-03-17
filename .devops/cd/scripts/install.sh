@@ -52,10 +52,10 @@ source .env
 # 'upstream' - install extras AND torch from the internet, everything else from internal pytorch_modules.tgz package
 if [[ -n $TORCH_TYPE && $TORCH_TYPE == "upstream" ]]; then
   rm -f torch-*.whl
-  python${MIN_PYTHON_VER} -m pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu
+  python${MIN_PYTHON_VER} -m pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --extra-index-url https://download.pytorch.org/whl/cpu
   python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
 else
-  python${MIN_PYTHON_VER} -m pip install torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --dry-run --report pip_report
+  python${MIN_PYTHON_VER} -m pip install torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} torchtext==${TORCHTEXT_VERSION} torchdata==${TORCHDATA_VERSION} --index-url https://download.pytorch.org/whl/test/cpu --extra-index-url https://download.pytorch.org/whl/cpu --dry-run --report pip_report
   jq -r '.install[].download_info.url' pip_report | grep -v '/torch-' > extras_req.txt
   python${MIN_PYTHON_VER} -m pip install -r extras_req.txt --no-dependencies
   python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
