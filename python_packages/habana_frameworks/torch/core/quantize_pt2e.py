@@ -26,6 +26,7 @@ from functools import partial
 from typing import Any
 
 import functorch
+import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
@@ -85,7 +86,7 @@ def reset_counters():
 
 def get_scale_filename(key):
     filename = f"{key}.json"
-    if os.getenv("PT_HPU_PT2EQ_KVCQ", "1") != "0":
+    if bc.get_pt_hpu_pt2eq_kvcq():
         global json_counter
         filename = f"_{json_counter}_.json"
         json_counter = json_counter + 1
@@ -381,15 +382,15 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     self._converted_module = self._pt2e_quant_context.get_transformed_gm(converted=True)
                 assert self._converted_module is not None
 
-                if os.getenv("PT2E_QUANT_SCALE_LOAD_PATH", "") != "":
+                if bc.get_pt_hpu_pt2eq_scale_load_path() != "":
                     logger.debug("Start quantization scale loading.")
                     load_scale(self._converted_module)
 
-                if os.getenv("PT2E_QUANT_SCALE_DUMP_PATH", "") != "":
+                if bc.get_pt_hpu_pt2eq_scale_dump_path() != "":
                     logger.debug("Start quantization scale dumping.")
                     dump_scale(self._converted_module, True)
 
-                if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
+                if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
@@ -399,7 +400,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
 
                 self._converted = True
 
-            if os.getenv("PT_HPU_USE_FX_GRAPH_FREEZING", "0") != "0":
+            if bc.get_pt_hpu_pt2eq_fx_graph_freezing():
                 with torch._inductor.config.patch({"freezing": True}):
                     return self._converted_module(*args, **kwargs)
             else:
@@ -409,7 +410,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
             self._preprocessed = True
             self._prepared = True
 
-            use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
+            use_export_program = bc.get_pt_hpu_pt2eq_use_export_program()
             if not self._converted:
                 key = self._fx_graph_hash
                 if use_export_program:
@@ -422,7 +423,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     extra_file = os.path.join(queue_element["dir_path"], get_scale_filename(key))
                     load_scale(self._converted_module, extra_file=extra_file)
 
-                if os.getenv("USE_FX_GRAPH_PATTERN_MATCHING", "0") != "0":
+                if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
@@ -434,7 +435,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
 
                 self._converted = True
 
-            if os.getenv("PT_HPU_USE_FX_GRAPH_FREEZING", "0") != "0":
+            if bc.get_pt_hpu_pt2eq_fx_graph_freezing():
                 with torch._inductor.config.patch({"freezing": True}):
                     return self._converted_module(*args, **kwargs)
             else:
@@ -1029,7 +1030,7 @@ def save_pt2e(
 
         dir_name = os.path.dirname(f)
 
-        use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
+        use_export_program = bc.get_pt_hpu_pt2eq_use_export_program()
         if not use_export_program:
             # save quantizer used
             quantizer_filename = os.path.join(dir_name, "quantizer.pt2")
@@ -1141,7 +1142,7 @@ def load_pt2e(
 
         quantizer = None
         dir_name = os.path.dirname(f)
-        use_export_program = os.getenv("PT2E_QUANT_EXPORT_USE_EXPORT_PROGRAM", "0") != "0"
+        use_export_program = bc.get_pt_hpu_pt2eq_use_export_program()
         if use_export_program:
             # load all exported converted fx graphs and create a dictionary
             # try loading hashkeys

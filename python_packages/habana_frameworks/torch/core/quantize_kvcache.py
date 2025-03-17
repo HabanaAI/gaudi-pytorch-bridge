@@ -19,6 +19,7 @@
 import os
 from collections.abc import Callable
 
+import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
@@ -104,7 +105,7 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
            2. Remove _to_copy nodes, if both input and output dtypes are same.
     """
     kvcache_quant_details = pt2eq_context.get_kvcache_quant_details()
-    if os.getenv("PT_HPU_PT2EQ_KVCQ", "1") == "0" or not kvcache_quant_details:
+    if not bc.get_pt_hpu_pt2eq_kvcq() or not kvcache_quant_details:
         return False
 
     # Get all placeholders of size=kvcache_size, dtype=kvcache_quant_dtype.
@@ -261,7 +262,7 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
     This is possible if kv-cache allocation is done as part of model forward method.
     """
     kvcache_quant_details = pt2eq_context.get_kvcache_quant_details()
-    if os.getenv("PT_HPU_PT2EQ_KVCQ", "1") == "0" or not kvcache_quant_details:
+    if not bc.get_pt_hpu_pt2eq_kvcq() or not kvcache_quant_details:
         return module
 
     # Iterate through all nodes in the graph
@@ -574,7 +575,7 @@ def handle_kvcache_quantization(pt2eq_context):
     """
     Use kv-cache quantization if kv-cache allocation is done internally i.e. as part of model forward method.
     """
-    if os.getenv("PT_HPU_PT2EQ_KVCQ", "1") == "0":
+    if not bc.get_pt_hpu_pt2eq_kvcq():
         return
 
     converted_gms = pt2eq_context.get_all_transformed_gms(converted=True)

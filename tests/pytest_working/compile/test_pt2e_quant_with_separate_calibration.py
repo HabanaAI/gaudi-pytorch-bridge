@@ -16,9 +16,9 @@
 ###############################################################################
 
 
-import os
 import random
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
@@ -31,7 +31,9 @@ from habana_frameworks.torch.core.quantizer import (
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
-from test_utils import inference_env_fixture  # noqa F401
+from test_utils import (
+    inference_env_fixture,  # noqa F401
+)
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer
@@ -55,16 +57,6 @@ def fga_assert_helper(ops_summary, op, count_list):
                 # assert op in single_graph_summary
                 # assert single_graph_summary[op].graph_count == graph_count
                 # assert single_graph_summary[op].eager_count == eager_count
-
-
-# Fixture to set the environment variable
-@pytest.fixture
-def set_env_variable():
-    variable_name_fx_pass = "USE_FX_GRAPH_PATTERN_MATCHING"
-    os.environ[variable_name_fx_pass] = "1"
-    # Yield to provide the value for the test
-    yield "1"
-    os.environ[variable_name_fx_pass] = "0"
 
 
 class SimpleModel(torch.nn.Module):
@@ -259,7 +251,6 @@ def use_pt2e_quant_flow_with_separate_calibration(
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
 def test_pt2e_quant_float(
-    set_env_variable,
     test_case,
     quant_dtype,
     use_graph_break,
@@ -267,32 +258,41 @@ def test_pt2e_quant_float(
     save_or_load,
     inference_env_fixture,
 ):
-    quantizer = habana_quantizer()
-    quant_config = habana_quant_config_symmetric(quant_dtype)
-    quantizer.set_global(quant_config)
+    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", True), bc.env_setting(
+        "PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False
+    ):
+        quantizer = habana_quantizer()
+        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quantizer.set_global(quant_config)
 
-    expected_op_count = {
-        "after_prepare_pt2e": {
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-        },
-        "after_convert_pt2e": {
-            "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
-            "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-        },
-    }
+        expected_op_count = {
+            "after_prepare_pt2e": {
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+            },
+            "after_convert_pt2e": {
+                "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
+                "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+            },
+        }
 
-    use_pt2e_quant_flow_with_separate_calibration(
-        test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load
-    )
+        use_pt2e_quant_flow_with_separate_calibration(
+            test_case,
+            quant_dtype,
+            quantizer,
+            expected_op_count,
+            use_graph_break,
+            pass_input_during_export,
+            save_or_load,
+        )
 
 
 class custom_quantizer(Quantizer):
@@ -377,38 +377,50 @@ def custom_quant_config_symmetric(quant_dtype):
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
 def test_pt2e_quant_int(
-    test_case, quant_dtype, use_graph_break, pass_input_during_export, save_or_load, inference_env_fixture
+    test_case,
+    quant_dtype,
+    use_graph_break,
+    pass_input_during_export,
+    save_or_load,
+    inference_env_fixture,
 ):
-    quant_config = custom_quant_config_symmetric(quant_dtype)
-    quantizer = custom_quantizer(quant_config)
+    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False):
+        quant_config = custom_quant_config_symmetric(quant_dtype)
+        quantizer = custom_quantizer(quant_config)
 
-    expected_op_count = {
-        "after_prepare_pt2e": {
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-        },
-        "after_convert_pt2e": {
-            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
-            "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-        },
-    }
+        expected_op_count = {
+            "after_prepare_pt2e": {
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+            },
+            "after_convert_pt2e": {
+                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
+                "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+            },
+        }
 
-    use_pt2e_quant_flow_with_separate_calibration(
-        test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load
-    )
+        use_pt2e_quant_flow_with_separate_calibration(
+            test_case,
+            quant_dtype,
+            quantizer,
+            expected_op_count,
+            use_graph_break,
+            pass_input_during_export,
+            save_or_load,
+        )
 
 
 """

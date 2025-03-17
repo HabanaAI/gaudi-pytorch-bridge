@@ -443,8 +443,8 @@ def get_model_with_observer(model):
 def test_reinplace_index_copy_pt2e():
     import os
 
-    os.environ.setdefault("USE_FX_GRAPH_PATTERN_MATCHING", "1")
-    os.environ.setdefault("USE_FX_GRAPH_FREEZING", "1")
+    os.environ.setdefault("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", "1")
+    os.environ.setdefault("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", "1")
 
     class TestModule(torch.nn.Module):
         def __init__(self):

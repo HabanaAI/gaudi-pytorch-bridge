@@ -26,9 +26,9 @@ This module implements Habana quantizers that can be used in PT2E-Quantization.
 # However, they have been renamed and amended as per the present need.
 
 import itertools
-import os
 from typing import Any
 
+import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.core.observer import AbsMaxObserver
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
@@ -134,7 +134,7 @@ class habana_quantizer(Quantizer):
         self, model: torch.fx.GraphModule, config: QuantizationConfig
     ) -> torch.fx.GraphModule:
 
-        if os.getenv("PT_HPU_PT2EQ_KVCQ", "1") != "0":
+        if bc.get_pt_hpu_pt2eq_kvcq():
             self._annotate_kvcache(model, config)
 
         self._annotate_conv2d(model, config)
