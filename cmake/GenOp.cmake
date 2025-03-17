@@ -19,13 +19,18 @@ function(generate_files OUTPUT_FILES FLAGS)
   add_custom_command(
     OUTPUT ${OUTPUT_FILES}
     COMMAND
-      ${Python_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py --output_dir=${CMAKE_BINARY_DIR}/generated
+      ${Python_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/run_gen_op.py --output_dir=${CMAKE_BINARY_DIR}/generated
       --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
       ${TORCH_INSTALL_PREFIX}/../torchgen/packaged/ATen/native/native_functions.yaml ${FLAGS}
-    MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
-    DEPENDS ${CMAKE_SOURCE_DIR}/scripts/gen_op_files/code_templates.py
-            ${CMAKE_SOURCE_DIR}/scripts/gen_op_files/custom_ops.py
-            ${CMAKE_SOURCE_DIR}/scripts/gen_op_files/parser.py
+    MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/scripts/run_gen_op.py
+    DEPENDS ${CMAKE_SOURCE_DIR}/scripts/gen_op/code_generation.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/code_templates.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/constants.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/custom_ops.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/op_validator.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/op.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/parser.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/version_checker.py
             ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
             ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
             ${TORCH_INSTALL_PREFIX}/../torchgen/packaged/ATen/native/native_functions.yaml)

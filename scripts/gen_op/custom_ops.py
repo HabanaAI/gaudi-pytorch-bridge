@@ -18,7 +18,7 @@
 
 import re
 
-from gen_op_files.version_checker import is_pytorch_older_than
+from .version_checker import is_pytorch_older_than
 
 if is_pytorch_older_than("2.7.0"):
     input_types_map = {

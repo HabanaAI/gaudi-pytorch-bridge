@@ -128,6 +128,6 @@ target_link_libraries(
           absl::str_format
           npu::hllogger)
 
-# this is to make sure that gen_op.py is invoked before habana_pytorch2_frontend
+# this is to make sure that run_gen_op.py is invoked before habana_pytorch2_frontend
 # Custom command is specified in CMake there, so we cannot otherwise ensure proper order
 add_dependencies(habana_pytorch2_frontend habana_pytorch_frontend_ops)

@@ -24,10 +24,10 @@ import shutil
 from dataclasses import dataclass
 from filecmp import dircmp
 
-import gen_op_files.parser as parser
+import gen_op.parser as parser
 import pytest
 import torch
-from gen_op import (
+from gen_op.code_generation import (
     check_valid_fields,
     cpp_from_schema,
     generate,
@@ -39,7 +39,7 @@ from gen_op import (
     is_eager_op,
     parse_params,
 )
-from gen_op_files.version_checker import is_pytorch_exactly, is_pytorch_older_than
+from gen_op.version_checker import is_pytorch_exactly, is_pytorch_older_than
 
 TORCH_PKG_PATH = torch.__path__[0]
 
@@ -80,7 +80,7 @@ def check_diffs_recursively(cmp, only_left, only_right, different):
 def test_ops_generation_e2e(monkeypatch):
     # without that generated files differ between CI and local test
     def mock_gen_op_file(args, **kwargs):
-        return "gen_op.py"
+        return "run_gen_op.py"
 
     monkeypatch.setattr(os.path, "basename", mock_gen_op_file)
 

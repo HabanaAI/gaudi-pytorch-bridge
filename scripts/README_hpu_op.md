@@ -1,6 +1,6 @@
 # Generation of code for PyTorch hpu op through yaml
 
-This [script](./gen_op.py) reads the input [yaml file](./hpu_op.yaml) and generates C++
+This [script](./run_gen_op.py) reads the input [yaml file](./hpu_op.yaml) and generates C++
  code for the ops defined.
 
 To add an op, add the op's name defined in RegistrationDeclarations.h. For simple ops,
