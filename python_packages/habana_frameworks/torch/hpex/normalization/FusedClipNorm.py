@@ -30,7 +30,9 @@ class FusedClipNorm:
         self.dtype = torch.float32
         if len(params_list) != 0:
             self.dtype = params_list[0].dtype  # assume params are of same type and use type of first param
-        self.max_norm_t = (torch.ones(1) * max_norm).to(self.dtype).to(torch.device("hpu"))
+        if not isinstance(max_norm, torch.Tensor):
+            max_norm = torch.tensor(max_norm)
+        self.max_norm_t = max_norm.to(self.dtype).to(torch.device("hpu"))
         self.norm_type = 2.0
         super().__init__()
 
