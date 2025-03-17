@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -425,10 +425,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
     }
   }
 
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       allreduce_tensors,
       allreduce_tensors,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
@@ -484,6 +488,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
       },
       true /*is_allreduce*/);
 
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < tensors.size(); i++) {
+      allreduce_tensors[i].div_(worldSize);
+    }
+  }
+
   for (size_t i = 0; i < tensors.size(); i++) {
     auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
     if (!is_valid_hccl_dtype(data_type)) {
@@ -520,11 +532,17 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
       reduction_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
+  int root_rank = (opts.rootRank * reduction_tensors.size() + opts.rootTensor);
+
   auto work = collective(
       reduction_tensors,
       reduction_tensors,
       [root = opts.rootRank * reduction_tensors.size() + opts.rootTensor,
-       reduceOp = opts.reduceOp,
+       reduceOp = reduce_op,
        this](
           at::Tensor& input,
           [[maybe_unused]] at::Tensor& output,
@@ -576,6 +594,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
         }
         return hccl_result;
       });
+
+  if (opts.reduceOp == c10d::ReduceOp::AVG && root_rank == getRank()) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < tensors.size(); i++) {
+      reduction_tensors[i].div_(worldSize);
+    }
+  }
 
   for (size_t i = 0; i < tensors.size(); i++) {
     auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
@@ -1414,10 +1440,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
       inputFlattened[i][j].copy_(inputTensors[i][j], true);
     }
   }
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       inputFlattened,
       outputTensors,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
@@ -1452,6 +1482,13 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
         return hccl_result;
       });
 
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < outputTensors.size(); i++) {
+      outputTensors[i].div_(worldSize);
+    }
+  }
   if (coalescing_state_) {
     coalesed_works_->append(work);
   }
@@ -1496,10 +1533,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
   inputs.push_back(reduce_in_tensors);
   outputs.push_back(reduce_out_tensors);
 
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       inputs,
       outputs,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
@@ -1533,6 +1574,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
         }
         return hccl_result;
       });
+
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    reduce_out_tensors.div_(worldSize);
+  }
   if (!is_valid_hccl_dtype(data_type) && out_scalar_t != at::kInt &&
       out_scalar_t != at::kLong) {
     work->wait();
@@ -1594,10 +1641,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
     outputs.push_back(reduce_out_tensors);
   }
 
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       inputs,
       outputs,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
@@ -1631,6 +1682,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
         }
         return hccl_result;
       });
+
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      outputs[i].div_(worldSize);
+    }
+  }
 
   for (size_t i = 0; i < inputs.size(); ++i) {
     at::Tensor& output_tensor = outputs[i];

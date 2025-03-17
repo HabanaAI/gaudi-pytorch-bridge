@@ -40,6 +40,8 @@ const std::map<c10d::ReduceOp, hcclRedOp_t> hcclOp = {
     {c10d::ReduceOp::MIN, hcclMin},
     {c10d::ReduceOp::MAX, hcclMax},
     {c10d::ReduceOp::SUM, hcclSum},
+    // hcl does not support AVG, so use sum/world_size
+    {c10d::ReduceOp::AVG, hcclSum},
     {c10d::ReduceOp::PRODUCT, hcclProd},
 };
 
