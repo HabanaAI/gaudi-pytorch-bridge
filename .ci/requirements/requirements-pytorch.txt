@@ -1,5 +1,5 @@
 # Common
-pandas==2.0.1
+pandas
 protobuf==3.20.3
 pydot
 regex==2023.5.5
