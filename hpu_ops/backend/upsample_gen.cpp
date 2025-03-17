@@ -19,6 +19,7 @@
 #include "generated/backend/_upsample_nearest_exact2d.h"
 #include "generated/backend/_upsample_nearest_exact2d_backward.h"
 #include "generated/backend/_upsample_nearest_exact3d.h"
+#include "generated/backend/_upsample_nearest_exact3d_backward.h"
 #include "generated/backend/upsample_linear1d.h"
 #include "generated/backend/upsample_linear1d_backward.h"
 #include "generated/backend/upsample_nearest1d.h"
@@ -690,6 +691,21 @@ OutputMetaDataVector UpsampleNearest3DBwdMeta(const at::Stack& stack) {
   meta.dtype = grad_in.scalar_type();
   return {meta};
 }
+// Backward Output Shape - NearestExact3D
+OutputMetaDataVector UpsampleNearestExact3DBwdMeta(const at::Stack& stack) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_d = stack.at(3).toOptional<double>();
+  auto scale_h = stack.at(4).toOptional<double>();
+  auto scale_w = stack.at(5).toOptional<double>();
+  check_null_inputs_3d(out_size, scale_d, scale_h, scale_w);
+  upsample_exact_3d_check(grad_in, out_size);
+
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = grad_in.scalar_type();
+  return {meta};
+}
 
 enum modes { nearest, nearest_exact, linear, bicubic };
 
@@ -1193,6 +1209,30 @@ std::shared_ptr<void> FillNearestBwdParams(
       scale_d,
       false /*align_corners*/,
       false /*antialias*/);
+}
+
+std::shared_ptr<void> FillNearestExact3DBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  bool align_corners = false;
+  bool antialias = false;
+  double scale_d = stack.at(3).toOptional<double>().value_or(1.0);
+  double scale_h = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(5).toOptional<double>().value_or(1.0);
+
+  return FillResizeParams(
+      grad_in.dim(),
+      size,
+      nearest_exact,
+      out_size,
+      stack.at(3),
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
 }
 
 // Resize TPC kernel
@@ -1759,4 +1799,33 @@ void UpSampleNearest3DBwdOperator::AddNode(
       meta,
       self_tensor);
 }
+// AddNode BWD 3D Nearest Exact function
+void UpsampleNearestExact3DBwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  // outshape
+  auto meta = UpsampleNearestExact3DBwdMeta(stack)[0];
+  auto self_tensor = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  // scales
+  auto scales_d = stack.at(3);
+  double scale_d = scales_d.toOptional<double>().value_or(1.0);
+  double scale_h = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(5).toOptional<double>().value_or(1.0);
+  bool isForward = false;
+  bool align_corners = false;
+  syn_out(0) = UpsampleCommonFunc(
+      this,
+      graph,
+      nearest_exact,
+      isForward,
+      {syn_in(0)},
+      out_size,
+      align_corners,
+      scales_d,
+      {scale_d, scale_h, scale_w},
+      meta,
+      self_tensor);
+}
+
 } // namespace habana

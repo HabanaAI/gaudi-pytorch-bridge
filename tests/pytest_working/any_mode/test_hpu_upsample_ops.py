@@ -165,8 +165,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("shape,size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]], ids=format_tc)
     def test_upsample_nearest_exact3d(self, shape, size, scale_factor, variant, dtype):
-        if is_pytest_mode_lazy() and variant == "bwd":
-            pytest.skip("aten::_upsample_nearest_exact3d_backward.grad_input is not yet implemented on HPU")
+        if is_pytest_mode_lazy() and dtype == torch.uint8 and variant == "bwd":
+            pytest.xfail("Unsupported dtype: `only Tensors of floating point and complex dtype can require gradients`")
         if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest-exact", dtype)
