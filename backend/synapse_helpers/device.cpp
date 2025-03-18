@@ -182,28 +182,22 @@ uint64_t GetSystemRamInKB(void) {
 }
 
 void dumpEnvSettings() {
-  unsigned long node_id = 0;
-  char* ptr1;
-  char* ptr2;
-  ptr1 = std::getenv("RANK");
-  ptr2 = std::getenv("OMPI_COMM_WORLD_RANK");
-  if (ptr1 != nullptr) {
-    node_id = std::stoul(ptr1, nullptr, 16);
-  } else if (ptr2 != nullptr) {
-    node_id = std::stoul(ptr2, nullptr, 16);
-  } else {
-    node_id = 0;
-  }
+  const char* rank = std::getenv("RANK");
+  const char* ompi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
 
-  // print only from main process
-  if (!node_id) {
+  // Determine process rank, default to "0" if both are unset
+  std::string process_rank = (rank) ? rank : (ompi_rank) ? ompi_rank : "0";
+
+  // Print only for the main process or if PT_HPU_PRINT_DEVICE_CONFIG is set
+  if (process_rank == "0" || GET_ENV_FLAG_NEW(PT_HPU_PRINT_DEVICE_CONFIG)) {
     if (const char* env_p = std::getenv("HB_BUILD_VER")) {
       std::clog
-          << "=============================HABANA SW VERSION======================================= \n";
+          << "============================= HPU SW VERSION ====================================== \n";
       std::clog << " HB_BUILD_VER = " << env_p << '\n';
     }
     std::clog
-        << "============================= HABANA PT BRIDGE CONFIGURATION =========================== \n";
+        << "============================= HPU PT BRIDGE CONFIGURATION ON RANK = "
+        << process_rank << " ============= \n";
 
     // Below should be logged only flags documented in
     // https://docs.habana.ai/en/latest/PyTorch/Runtime_Flags.html
@@ -238,7 +232,8 @@ void dumpEnvSettings() {
         << "---------------------------: System Configuration :---------------------------\n";
     std::clog << "Num CPU Cores : " << std::thread::hardware_concurrency()
               << "\n";
-    std::clog << "CPU RAM       : " << GetSystemRamInKB() << " KB\n";
+    auto ram_size = GetSystemRamInKB() / (1024 * 1024);
+    std::clog << "CPU RAM       : " << ram_size << " GB\n";
     std::clog
         << "------------------------------------------------------------------------------\n";
   }

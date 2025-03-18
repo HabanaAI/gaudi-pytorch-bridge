@@ -876,3 +876,8 @@ PT_HPU_PT2EQ_KVCQ:
   type: bool
   default: true
   doc: "This flag enable KVCache quantization and KV cache pattern matching in PT2E quant backend."
+
+PT_HPU_PRINT_DEVICE_CONFIG:
+  type: bool
+  default: false
+  doc: "When this flag is enabled, Gaudi PyTorch Bridge configuration is printed from all ranks upon device acquisition"
