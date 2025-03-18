@@ -36,6 +36,9 @@ OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
   if (stack.at(1).isInt()) {
     auto dim = stack.at(1).toInt();
     meta.shape = ReductionOutputShape(self, dim, keepdim)[0];
+  } else if (stack.at(1).isNone()) {
+    auto dims = std::vector<int64_t>{};
+    meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
   } else {
     auto dims = stack.at(1).toIntList().vec();
     meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
