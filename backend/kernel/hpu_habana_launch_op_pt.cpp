@@ -638,6 +638,7 @@ void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
     case torch::jit::aten::normal:
     case torch::jit::aten::randperm:
     case torch::jit::aten::rrelu_with_noise:
+    case torch::jit::aten::rrelu_with_noise_functional:
       populate_seed = true;
       break;
     default:

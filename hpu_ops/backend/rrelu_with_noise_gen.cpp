@@ -71,6 +71,10 @@ SharedMetaDataVector RreluWithNoiseSharedMeta(
 
 using namespace std::literals;
 
+bool is_rrelu_functional(const OpBackend& op) {
+  return op.GetGuid().find("rrelu_with_noise_functional") != std::string::npos;
+}
+
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -82,6 +86,11 @@ void Rrelu_with_noise::AddNode(
   auto lower = stack.at(2).toScalar().to<float>();
   auto upper = stack.at(3).toScalar().to<float>();
   size_t size = 0;
+  bool is_functional = is_rrelu_functional(*this);
+  c10::optional<int> noise_out_idx{c10::nullopt};
+  if (is_functional) {
+    noise_out_idx = 1;
+  }
   if (training) {
     std::optional<synapse_helpers::tensor> noiseStorageOpt;
     auto [noise_in_storage_or_idx] = get_or_create_tensor<STORAGE_IDX>(
@@ -128,7 +137,7 @@ void Rrelu_with_noise::AddNode(
         {NodeAttr::NodeOutputAttr{
             outshape,
             ScalarType(),
-            c10::nullopt,
+            noise_out_idx,
             DATA_TENSOR,
             syn_type_na,
             noise_in_storage_or_idx}});
@@ -139,8 +148,12 @@ void Rrelu_with_noise::AddNode(
         {syn_in(0), noise[0].get()},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
-    GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        1, std::move(noise[0]), std::get<int>(noise_in_storage_or_idx)});
+    if (is_functional) {
+      syn_out(1) = std::move(noise[0]);
+    } else {
+      GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
+          1, std::move(noise[0]), std::get<int>(noise_in_storage_or_idx)});
+    }
   } else {
     PARAMS_STUB(ns_LeakyReluKernel::Params);
     auto negative_slope = (lower + upper) / 2;
@@ -153,6 +166,11 @@ void Rrelu_with_noise::AddNode(
         params.get(),
         size);
     syn_out(0) = std::move(output[0]);
+    if (is_functional) { // return an empty tensor for non-training cases
+      auto result = habana::OpBackend::BuildOp(
+          graph, "memset", {}, {{1, ScalarType(), 1}});
+      syn_out(1) = std::move(result[0]);
+    }
   }
 }
 

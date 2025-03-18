@@ -31,8 +31,6 @@ from test_utils import (
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("inference", [True, False])
 def test_rrelu(shape_in, range, dtype, inference):
-    if is_pytest_mode_compile():
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-169408")
 
     m = torch.nn.RReLU(*range)
     hpu_tensor = torch.randn(size=shape_in, dtype=dtype, requires_grad=True, device="hpu")
@@ -61,4 +59,4 @@ def test_rrelu(shape_in, range, dtype, inference):
         compare_tensors([noise_fwd], [noise_bwd.cpu()], atol=0.01, rtol=0.01)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir("rrelu_with_noise")
+        check_ops_executed_in_jit_ir("rrelu_with_noise_functional")

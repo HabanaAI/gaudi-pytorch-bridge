@@ -5667,6 +5667,14 @@ rrelu_with_noise_backward:
   out_ids: [0]
   op_validator: RreluWithNoiseBwdSharedMeta
 
+rrelu_with_noise_functional:
+  op_frontend: GeneratorToSeed
+  op_backend: Rrelu_with_noise
+  guid: rrelu_with_noise_functional
+  out_ids: [0, 1]
+  schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> (Tensor, Tensor noise_out)"
+  op_validator: RreluWithNoiseSharedMeta
+
 rsqrt:
   promote_int_to_float: [self]
   guid: rsqrt_fwd
