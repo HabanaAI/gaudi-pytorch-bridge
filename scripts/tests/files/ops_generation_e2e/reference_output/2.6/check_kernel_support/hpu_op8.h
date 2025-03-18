@@ -93,20 +93,15 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
    {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), weight)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
    {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), bias)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
    {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_mean)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
    {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_var)
   RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
   RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)

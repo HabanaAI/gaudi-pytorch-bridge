@@ -15,6 +15,32 @@ namespace habana {
 
 
 
+struct shared_layer_isfinite : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 1) {
+    auto ivalue_arr = torch::jit::last(stack, 1);
+    if (ivalue_arr[0].isTensor() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 1));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      auto is_supported = impl(self_base, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & self, bool is_dynamic) {
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE(self, isfinite, is_dynamic, self)
+
+  return true;
+}
+
+};
+
 struct shared_layer_upsample_bicubic2d : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 4) {
@@ -74,37 +100,9 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, ::std::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE2(input, upsample_bicubic2d, is_dynamic, vec, input, output_size, align_corners, scale_factors)
-
-  return true;
-}
-
-};
-
-struct shared_layer_bitwise_left_shift : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 2) {
-    auto ivalue_arr = torch::jit::last(stack, 2);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() ) {
-
-      c10::IValue self = std::move(peek(stack, 0, 2));
-      c10::IValue other = std::move(peek(stack, 1, 2));
-
-      at::Tensor self_base = self.to<at::Tensor>();
-      at::Scalar other_base = other.to<at::Scalar>();
-      auto is_supported = impl(self_base, other_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, const at::Scalar & other, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, is_dynamic, Tensor_Scalar, self, other)
 
   return true;
 }

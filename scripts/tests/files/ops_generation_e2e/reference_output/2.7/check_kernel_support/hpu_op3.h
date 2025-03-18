@@ -13,8 +13,42 @@ using namespace torch::jit;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_bucketize_Scalar("bucketize.Scalar", "search_sorted_fwd", {1}, {0}, BucketizeMeta, {0, 1}, false, false, false, false);
 static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
+
+struct shared_layer_bucketize : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 4) {
+    auto ivalue_arr = torch::jit::last(stack, 4);
+    if (ivalue_arr[0].isScalar() && ivalue_arr[1].isTensor() && ivalue_arr[2].isBool() && ivalue_arr[3].isBool() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 4));
+      c10::IValue boundaries = std::move(peek(stack, 1, 4));
+      c10::IValue out_int32 = std::move(peek(stack, 2, 4));
+      c10::IValue right = std::move(peek(stack, 3, 4));
+
+      at::Scalar self_base = self.to<at::Scalar>();
+      at::Tensor boundaries_base = boundaries.to<at::Tensor>();
+      bool out_int32_base = out_int32.to<bool>();
+      bool right_base = right.to<bool>();
+      auto is_supported = impl(self_base, boundaries_base, out_int32_base, right_base, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right, bool is_dynamic) {
+  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  static_cast<void>(compute_type);
+
+  VAL_RETURN_IF_UNSUPPORTED_DTYPE2(bucketize, is_dynamic, Scalar, self, boundaries, out_int32, right)
+
+  return true;
+}
+
+};
 
 struct shared_layer_elu : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
@@ -40,51 +74,6 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 private:
 bool impl(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale, bool is_dynamic) {
   VAL_RETURN_IF_UNSUPPORTED_DTYPE(elu, is_dynamic, self, alpha, scale, input_scale)
-
-  return true;
-}
-
-};
-
-struct shared_layer_prod_out : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 5) {
-    auto ivalue_arr = torch::jit::last(stack, 5);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isInt() && ivalue_arr[2].isBool() && ivalue_arr[4].isTensor() ) {
-
-      c10::IValue self = std::move(peek(stack, 0, 5));
-      c10::IValue dim = std::move(peek(stack, 1, 5));
-      c10::IValue keepdim = std::move(peek(stack, 2, 5));
-      c10::IValue dtype = std::move(peek(stack, 3, 5));
-      c10::IValue out = std::move(peek(stack, 4, 5));
-
-      at::Tensor self_base = self.to<at::Tensor>();
-      int64_t dim_base = dim.to<int64_t>();
-      bool keepdim_base = keepdim.to<bool>();
-
-      auto dtype_opt = dtype.toOptional<c10::IValue>();
-      ::std::optional<at::ScalarType> dtype_opt_out;
-      if (dtype_opt.has_value()) {
-          const c10::IValue dtype_opt_in = dtype_opt.value();
-          at::ScalarType dtype_opt_in_base = dtype_opt_in.to<at::ScalarType>();
-          dtype_opt_out = ::std::optional<at::ScalarType>(dtype_opt_in_base);
-      } else {
-          dtype_opt_out = ::std::optional<at::ScalarType>();
-      }
-
-      at::Tensor out_base = out.to<at::Tensor>();
-      auto is_supported = impl(self_base, dim_base, keepdim_base, dtype_opt_out, out_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, int64_t dim, bool keepdim, ::std::optional<at::ScalarType> dtype, at::Tensor & out, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, prod, is_dynamic, int_out, self, dim, keepdim, dtype, out)
 
   return true;
 }

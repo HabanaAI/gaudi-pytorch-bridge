@@ -540,7 +540,6 @@ def test_compare_graph_modes_to_eager_decomposition(
     check_using_cosine_similarity(result_hpu, result_eager.cpu(), 0.95 if dynamic_scale else 0.99)
 
 
-@pytest.mark.skip(reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)

@@ -11,7 +11,7 @@ using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
 #include "eq.h"
-#include "isfinite.h"
+#include "squeeze.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,6 +22,21 @@ using torch::jit::Stack;
 namespace habana {
 
 
+
+at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("squeeze: ", DUMP_2ARGS(self, dim));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, squeeze, dims, self, dim)
+
+  return habana_lazy::squeeze_dims_hpu_lazy(self, dim);
+}
 
 at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
@@ -34,8 +49,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kLong, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
 
@@ -43,23 +57,6 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   hpu_op.set_scalar_types({compute_type});
   hpu_op.SetOutputMetaFn(CompareMeta);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(eq_out, hpu_op, out);
-}
-
-at::Tensor isfinite(const at::Tensor & self) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("isfinite: ", DUMP_ARG(self));
-
-  [[maybe_unused]] bool require_h2d = false;
-  [[maybe_unused]] bool require_st = false;
-
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(self, isfinite, self)
-
-  LazyOp<at::Tensor> hpu_op{"aten::isfinite", {self}};
-  RUN_MAYBE_WITH_ACC_THREAD(isfinite, hpu_op);
 }
 
 
@@ -70,8 +67,8 @@ static const auto& kr_gen_6 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("squeeze.dims", static_cast<at::Tensor (*)(const at::Tensor &, at::IntArrayRef)>(&habana::squeeze));
   m.impl("eq.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::eq_out));
-  m.impl("isfinite", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::isfinite));
 
 }
 

@@ -4686,12 +4686,6 @@ _native_batch_norm_legit:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi:
-      input: [BFloat16, Float]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
     Gaudi2:
       input: [BFloat16, Float, Half]
       weight: [Float]
@@ -4711,12 +4705,6 @@ _native_batch_norm_legit_no_training:
   custom_fill_params: FillBatchNormNoTrainingFwdParams
   output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi:
-      input: [BFloat16, Float]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
     Gaudi2:
       input: [BFloat16, Float, Half]
       weight: [Float]
@@ -4737,10 +4725,6 @@ _native_batch_norm_legit.no_stats:
   custom_fill_params: FillBatchNormNoStatsFwdParams
   output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi:
-      input: [BFloat16, Float]
-      weight: [Float]
-      bias: [Float]
     Gaudi2:
       input: [BFloat16, Float, Half]
       weight: [Float]
@@ -4757,12 +4741,6 @@ _native_batch_norm_legit_functional:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFunctionalFwdMeta
   dtypes:
-    Gaudi:
-      input: [BFloat16, Float]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
     Gaudi2:
       input: [BFloat16, Float, Half]
       weight: [Float]
@@ -4783,12 +4761,6 @@ native_batch_norm:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi:
-      input: [BFloat16, Float]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
     Gaudi2:
       input: [BFloat16, Float, Half]
       weight: [Float]
@@ -4811,15 +4783,6 @@ native_batch_norm.out:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi:
-      input: [BFloat16, Float]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
-      out: [BFloat16, Float]
-      save_mean: [Float]
-      save_invstd: [Float]
     Gaudi2:
       input: [BFloat16, Float, Half]
       weight: [Float]
@@ -4844,7 +4807,6 @@ native_batch_norm_backward:
   custom_fill_params: FillBatchNormBwdParams
   output_meta: BatchNormBwdMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: BatchNormBwdOpBackend
@@ -4858,7 +4820,6 @@ native_batch_norm_backward:
 
 native_layer_norm:
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: layer_norm_fwd_pt
@@ -4869,7 +4830,6 @@ native_layer_norm:
 
 native_layer_norm_backward:
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: layer_norm_bwd_pt
@@ -5135,7 +5095,6 @@ norm.ScalarOpt_dtype:
 _weight_norm_interface:
   output_meta: WeightNormMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: WeightNormOp
@@ -5146,7 +5105,6 @@ _weight_norm_interface_backward:
   custom_fill_params: FillWeightNormBwdParams
   guid: weight_norm_bwd
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   out_ids: [0, 0]
@@ -5229,7 +5187,6 @@ pow.Tensor_Tensor_out:
 
 _prelu_kernel:
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
@@ -6558,7 +6515,6 @@ upsample_bicubic2d.out:
 upsample_bicubic2d.vec:
   only_shared_layer: true
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
 
@@ -6660,7 +6616,6 @@ upsample_trilinear3d.out:
 upsample_bilinear2d.vec:
   only_shared_layer: true
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
 
@@ -6743,7 +6698,6 @@ upsample_linear1d.out:
 upsample_linear1d.vec:
   only_shared_layer: true
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
 
@@ -6788,7 +6742,6 @@ upsample_nearest1d.out:
 upsample_nearest1d.vec:
   only_shared_layer: true
   dtypes:
-    Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
     Gaudi3: [BFloat16, Float, Half, Byte]
 
@@ -6954,14 +6907,12 @@ _upsample_nearest_exact3d_backward.grad_input:
 upsample_nearest2d.vec:
   only_shared_layer: true
   dtypes:
-    Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
     Gaudi3: [BFloat16, Float, Half, Byte]
 
 upsample_nearest3d.vec:
   only_shared_layer: true
   dtypes:
-    Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
     Gaudi3: [BFloat16, Float, Half, Byte]
 

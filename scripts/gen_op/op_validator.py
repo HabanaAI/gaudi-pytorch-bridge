@@ -24,7 +24,6 @@ from .op import Op
 
 _DEVICE_STR_TO_ENUM = {
     "All": "-1",
-    "Gaudi": "synDeviceGaudi",
     "Gaudi2": "synDeviceGaudi2",
     "Gaudi3": "synDeviceGaudi3",
 }

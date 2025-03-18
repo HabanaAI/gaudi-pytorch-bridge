@@ -2,7 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "eq.h"
-#include "isfinite.h"
+#include "squeeze.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,6 +16,13 @@ namespace habana {
 
 
 
+struct Gensqueeze_dims : SqueezeDims {
+  Gensqueeze_dims(int device_id, c10::ScalarType scalar_type) :
+      SqueezeDims(device_id, "squeeze", scalar_type, {0}, {}, {}, false) {
+        SetOutputMetaFn(SqueezeDimsMeta);
+  }
+};
+
 struct Geneq_Scalar_out : OpBackend {
   Geneq_Scalar_out(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "equal_fwd", scalar_type, {}, {}, {1}, true) {
@@ -25,17 +32,11 @@ struct Geneq_Scalar_out : OpBackend {
   }
 };
 
-struct Genisfinite : _IsFiniteInfNan {
-  Genisfinite(int device_id, c10::ScalarType scalar_type) :
-      _IsFiniteInfNan(device_id, "isfinite_fwd", scalar_type, {0}, {}, {}, false) {
-  }
-};
-
 
 
 static const auto& kr_gen_6 = KernelRegistry()
+.REGISTER_HPU_BACKEND("aten::squeeze.dims", Gensqueeze_dims)
 .REGISTER_HPU_BACKEND("aten::eq.Scalar_out", Geneq_Scalar_out)
-.REGISTER_HPU_BACKEND("aten::isfinite", Genisfinite)
 ;
 
 

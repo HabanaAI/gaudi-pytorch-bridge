@@ -15,6 +15,46 @@ namespace habana {
 
 
 
+struct shared_layer__fused_dropout : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 3) {
+    auto ivalue_arr = torch::jit::last(stack, 3);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 3));
+      c10::IValue p = std::move(peek(stack, 1, 3));
+      c10::IValue generator = std::move(peek(stack, 2, 3));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      double p_base = p.to<double>();
+
+      auto generator_opt = generator.toOptional<c10::IValue>();
+      ::std::optional<at::Generator> generator_opt_out;
+      if (generator_opt.has_value()) {
+          const c10::IValue generator_opt_in = generator_opt.value();
+          at::Generator generator_opt_in_base = generator_opt_in.to<at::Generator>();
+          generator_opt_out = ::std::optional<at::Generator>(generator_opt_in_base);
+      } else {
+          generator_opt_out = ::std::optional<at::Generator>();
+      }
+
+      auto is_supported = impl(self_base, p_base, generator_opt_out, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & self, double p, ::std::optional<at::Generator> generator, bool is_dynamic) {
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, is_dynamic, self, p, generator)
+
+  return true;
+}
+
+};
+
 struct shared_layer_native_dropout : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 3) {
@@ -46,65 +86,10 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & input, double p, ::std::optional<bool> train, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE(input, native_dropout, is_dynamic, input, p, train)
 
-  return true;
-}
-
-};
-
-struct shared_layer_as_strided : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 4) {
-    auto ivalue_arr = torch::jit::last(stack, 4);
-    if (ivalue_arr[0].isTensor() ) {
-
-      c10::IValue self = std::move(peek(stack, 0, 4));
-      c10::IValue size = std::move(peek(stack, 1, 4));
-      c10::IValue stride = std::move(peek(stack, 2, 4));
-      c10::IValue storage_offset = std::move(peek(stack, 3, 4));
-
-      at::Tensor self_base = self.to<at::Tensor>();
-      std::vector<int64_t> size_vec;
-      const c10::List<c10::IValue> size_list_in = size.toList();
-
-      for (c10::IValue size_elem: size_list_in) {
-          int64_t size_elem_base = size_elem.to<int64_t>();
-          size_vec.push_back(size_elem_base);
-      }
-      at::IntArrayRef size_list_out(size_vec);
-
-      std::vector<int64_t> stride_vec;
-      const c10::List<c10::IValue> stride_list_in = stride.toList();
-
-      for (c10::IValue stride_elem: stride_list_in) {
-          int64_t stride_elem_base = stride_elem.to<int64_t>();
-          stride_vec.push_back(stride_elem_base);
-      }
-      at::IntArrayRef stride_list_out(stride_vec);
-
-
-      auto storage_offset_opt = storage_offset.toOptional<c10::IValue>();
-      ::std::optional<int64_t> storage_offset_opt_out;
-      if (storage_offset_opt.has_value()) {
-          const c10::IValue storage_offset_opt_in = storage_offset_opt.value();
-          int64_t storage_offset_opt_in_base = storage_offset_opt_in.to<int64_t>();
-          storage_offset_opt_out = ::std::optional<int64_t>(storage_offset_opt_in_base);
-      } else {
-          storage_offset_opt_out = ::std::optional<int64_t>();
-      }
-
-      auto is_supported = impl(self_base, size_list_out, stride_list_out, storage_offset_opt_out, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, at::IntArrayRef size, at::IntArrayRef stride, ::std::optional<int64_t> storage_offset, bool is_dynamic) {
   return true;
 }
 

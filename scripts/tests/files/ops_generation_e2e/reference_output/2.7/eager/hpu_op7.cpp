@@ -6,7 +6,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "eq.h"
+#include "sort.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -18,26 +18,22 @@ namespace habana {
 
 
 
-at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
+  PT_OP_INFO("sort_out: ", DUMP_6ARGS(self, stable, dim, descending, values, indices));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
-  static_cast<void>(compute_type);
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, sort, values_stable, self, stable, dim, descending, values, indices)
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kLong, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
-
-  eager::EagerOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};
-  hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetOutputMetaFn(CompareMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::eq", require_h2d, require_st, 1});
-  return hpu_op.call(out);
+  FALLBACK_IF_UNSUPPORTED_INPUTS2(SortStableFallbackCheck(self, stable, dim, descending), sort, values_stable, self, stable, dim, descending, values, indices)
+  eager::EagerOp<::std::tuple<at::Tensor &,at::Tensor &>> hpu_op{"aten::sort", {self, stable, dim, descending, values, indices}};
+  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::sort", require_h2d, require_st, 2});
+  return hpu_op.call(::std::tuple<at::Tensor &,at::Tensor &>(values, indices));
 }
 
 
@@ -48,7 +44,7 @@ static const auto& kr_gen_7 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("eq.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::eq_out));
+  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, ::std::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
 
 }
 

@@ -23,7 +23,6 @@ __ilshift__.Scalar:
 
 _foreach_add_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
   guid: add_fwd
@@ -34,7 +33,6 @@ _fused_dropout:
   output_meta: FusedNativeDropoutMeta
   custom_fill_params: FillFusedNativeDropoutParams
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: GeneratorToSeed
@@ -46,7 +44,6 @@ native_dropout:
   output_meta: FusedNativeDropoutMeta
   custom_fill_params: FillFusedNativeDropoutParams
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   early_exit: NativeDropoutEarlyExit
@@ -61,7 +58,6 @@ as_strided:
 
 addbmm:
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: batch_gemm
@@ -82,7 +78,6 @@ bucketize.Scalar:
 
 elu:
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: elu_fwd
@@ -92,7 +87,6 @@ elu:
 
 prod.int_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
     Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
   guid: reduce_prod_multi_dim_fwd
@@ -100,7 +94,6 @@ prod.int_out:
 
 clone:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: identity
@@ -111,7 +104,6 @@ clone:
 mul.Scalar_out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
@@ -120,7 +112,6 @@ mul.Scalar_out:
 
 sort.values_stable:
   dtypes:
-    Gaudi: [Float, Int, BFloat16, Short]
     Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
     Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
@@ -129,7 +120,6 @@ sort.values_stable:
 squeeze.dims:
   output_meta: SqueezeDimsMeta
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   guid: squeeze
@@ -141,7 +131,6 @@ squeeze.dims:
 
 eq.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
     Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
     Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
@@ -153,7 +142,6 @@ eq.Scalar_out:
 
 isfinite:
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: _IsFiniteInfNan
@@ -163,7 +151,6 @@ isfinite:
 upsample_bicubic2d.vec:
   only_shared_layer: true
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
 
@@ -191,12 +178,6 @@ _native_batch_norm_legit:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi:
-      input: [BFloat16, Float]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
     Gaudi2:
       input: [BFloat16, Float, Half]
       weight: [Float]
@@ -218,7 +199,6 @@ _native_batch_norm_legit:
 convolution_backward_overrideable:
   output_meta: ConvolutionOverrideableMetaBwd
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: ConvolutionBackwardOverrideableFE
@@ -227,7 +207,6 @@ convolution_backward_overrideable:
 
 native_group_norm:
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: native_group_norm_fwd
@@ -239,7 +218,6 @@ linear_backward:
   output_meta: LinearBackwardMeta
   custom_fill_params: FillLinearBwdParams
   dtypes:
-    Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: linear_temp_bwd
