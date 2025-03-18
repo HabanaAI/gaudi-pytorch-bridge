@@ -148,6 +148,12 @@ PT_HPU_ENABLE_D2H_ASYNC_THREAD:
   type: bool
   default: true
 
+PT_HPU_COMPILE_THREAD_POOL_SIZE:
+  type: unsigned long
+  default: 8
+  doc: "Set the number of threads for Compile thread pool which is used in Eager and Compile mode.\n
+If set to 0, the number of threads will be equal to the number of CPUs."
+
 PT_HPU_QUEUE_SYNLAUNCHES:
   type: bool
   default: true
