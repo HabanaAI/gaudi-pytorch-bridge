@@ -571,12 +571,21 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     auto& mdata = output_metadata.at(0);
     if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+    } else if (output_metadata[0].dtype == at::ScalarType::Undefined) {
+      auto output = habana::createPTTensor(
+          arg1,
+          IntArrayRef(out_shape.data(), out_shape.size()),
+          arg1.options(),
+          memory_format,
+          mdata.persistent);
+      AllocateSynapseOutput(graph, output, mdata);
     } else {
       auto output = habana::createPTTensor(
           arg1,
           IntArrayRef(out_shape.data(), out_shape.size()),
           arg1.options(),
           memory_format,
+          output_metadata[0].dtype,
           mdata.persistent);
       AllocateSynapseOutput(graph, output, mdata);
     }
@@ -606,12 +615,21 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     auto& mdata = output_metadata.at(0);
     if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+    } else if (output_metadata[0].dtype == at::ScalarType::Undefined) {
+      auto output = habana::createPTTensor(
+          arg1,
+          IntArrayRef(out_shape.data(), out_shape.size()),
+          arg1.options(),
+          memory_format,
+          mdata.persistent);
+      AllocateSynapseOutput(graph, output, mdata);
     } else {
       auto output = habana::createPTTensor(
           arg1,
           IntArrayRef(out_shape.data(), out_shape.size()),
           arg1.options(),
           memory_format,
+          output_metadata[0].dtype,
           mdata.persistent);
       AllocateSynapseOutput(graph, output, mdata);
     }
