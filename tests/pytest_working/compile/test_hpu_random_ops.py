@@ -31,6 +31,8 @@ def test_bernoulli(shape, dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()
 
+    torch.manual_seed(12345)
+
     def fn(input_a, input_b):
         a = torch.bernoulli(input_a)
         b = torch.bernoulli(input_b)
