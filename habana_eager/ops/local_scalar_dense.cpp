@@ -86,10 +86,12 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Warray-bounds"
 
-  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND3(
+  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND5(
       at::ScalarType::Bool,
       at::ScalarType::BFloat16,
       at::ScalarType::Half,
+      at::ScalarType::Float8_e5m2,
+      at::ScalarType::Float8_e4m3fn,
       self.scalar_type(),
       "_local_scalar_dense",
       [&] {

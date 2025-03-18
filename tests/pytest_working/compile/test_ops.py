@@ -321,6 +321,8 @@ def test_nonzero(shape_in):
         (12345.678, torch.double),
         (12345.678, torch.bfloat16),
         (1234567, torch.int),
+        (12288.0, torch.float8_e5m2),
+        (120.0, torch.float8_e4m3fn),
         (True, torch.bool),
     ],
     ids=format_tc,

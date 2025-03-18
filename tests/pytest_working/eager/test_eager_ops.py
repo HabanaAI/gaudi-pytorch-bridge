@@ -896,7 +896,15 @@ def test_unique(tensor_in, return_inverse, return_sorted):
 # For Scalars to() operator and item() are going with different paths for scalars
 # copy h2d is done via copy_from_ operator, but item() is calling local_scalar_dense
 # both should support INT64 downcasting
-@pytest.mark.parametrize("init_val, dtype", [(1234567, torch.int64), (12345.678, torch.double)])
+@pytest.mark.parametrize(
+    "init_val, dtype",
+    [
+        (1234567, torch.int64),
+        (12345.678, torch.double),
+        (12288.0, torch.float8_e5m2),
+        (120.0, torch.float8_e4m3fn),
+    ],
+)
 def test_local_scalar_dense(init_val, dtype):
     hpu_tensor = torch.Tensor([init_val]).type(dtype).to("hpu")
     if dtype == torch.double:
