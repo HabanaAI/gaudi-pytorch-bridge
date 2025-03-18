@@ -115,7 +115,12 @@ min_venv_python = supported_python_versions[0]
 min_pip_version = Version("19.3.1")
 build_py = os.path.realpath(__file__)
 
-for env_var in ["PYTORCH_MODULES_RELEASE_BUILD", "BUILD_ROOT", "PYTORCH_MODULES_ROOT_PATH"]:
+for env_var in [
+    "PYTORCH_MODULES_RELEASE_BUILD",
+    "BUILD_ROOT",
+    "PYTORCH_MODULES_ROOT_PATH",
+    "PYTORCH_MODULES_DEBUG_BUILD",
+]:
     variable = os.environ.get(env_var, None)
     if variable:
         log.info(f"Environment variable env_var exists: {variable}")
