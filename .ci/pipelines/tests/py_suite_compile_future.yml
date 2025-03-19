@@ -42,10 +42,6 @@ common:
     Install Python test dependencies and artifacts:
       command: 'set_up_pytorch_artifacts_for_testing next'
 testsMap:
-  Test_pytorch_modules_gaudi_sim_py_suite_compile_future:
-    stages:
-      Run PY compile tests gaudi sim:
-        filter: -t py_tests --pytest-mode compile
   Test_pytorch_modules_gaudi2_sim_py_suite_compile_future:
     dependencies:
       - TPC_LLVM

@@ -43,10 +43,6 @@ common:
     Install Python test dependencies and artifacts:
       command: 'set_up_pytorch_artifacts_for_testing current'
 testsMap:
-  Test_pytorch_modules_gaudi_sim_cpp_suite:
-    stages:
-      Run CPP tests gaudi sim:
-        filter: -t cpp_tests -r
   Test_pytorch_modules_gaudi2_sim_cpp_suite:
     dependencies:
       - TPC_LLVM
