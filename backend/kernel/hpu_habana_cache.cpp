@@ -1670,15 +1670,15 @@ void RecipeLauncher::Launch(
           [](GenericResourceHolder* resource_holder) {
             auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
             auto recipe_handle = resource_holder->recipe_id();
+            const auto active_graph_key = resource_holder->active_graph_key();
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
-                resource_holder->active_graph_key() > 0) {
+                active_graph_key > 0) {
               auto& device = HPUDeviceContext::get_device();
               synapse_helpers::MemoryReporter* reporter =
                   device.get_device_memory().get_memory_reporter();
-              reporter->getGraphStats()->removeLiveGraph(
-                  resource_holder->active_graph_key());
+              reporter->getGraphStats()->removeLiveGraph(active_graph_key);
             }
             towl::emitRecipeFinished(recipe_handle.get());
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
@@ -1716,15 +1716,15 @@ void RecipeLauncher::Launch(
           [](GenericResourceHolder* resource_holder) {
             auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
             auto recipe_handle = resource_holder->recipe_id();
+            const auto active_graph_key = resource_holder->active_graph_key();
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
-                resource_holder->active_graph_key() > 0) {
+                active_graph_key > 0) {
               auto& device = HPUDeviceContext::get_device();
               synapse_helpers::MemoryReporter* reporter =
                   device.get_device_memory().get_memory_reporter();
-              reporter->getGraphStats()->removeLiveGraph(
-                  resource_holder->active_graph_key());
+              reporter->getGraphStats()->removeLiveGraph(active_graph_key);
             }
             towl::emitRecipeFinished(recipe_handle.get());
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");

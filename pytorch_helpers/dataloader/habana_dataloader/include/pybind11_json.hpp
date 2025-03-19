@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ namespace pyjson
             {
                 obj.append(from_json(el));
             }
-            return std::move(obj);
+            return obj;
         }
         else // Object
         {
@@ -79,7 +79,7 @@ namespace pyjson
             {
                 obj[py::str(it.key())] = from_json(it.value());
             }
-            return std::move(obj);
+            return obj;
         }
     }
 

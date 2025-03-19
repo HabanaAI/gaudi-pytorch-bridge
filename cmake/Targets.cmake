@@ -51,6 +51,15 @@ function(set_up_warnings TARGET_NAME)
     target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=maybe-uninitialized)
   endif()
 
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+     AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0.0"
+     AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0.0")
+    # GCC 13 has a bug with -Wdangling-reference https://gcc.gnu.org/bugzilla/show_bug.cgi?id=107532
+    # Similarly with -Warray-bounds affecting std::vector::reserve https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110498
+    # As a W/A don't emit error in this case
+    target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=dangling-reference -Wno-error=array-bounds)
+  endif()
+
   if(PROJECT_IS_TOP_LEVEL)
     target_compile_options(${TARGET_NAME} PRIVATE -Werror)
   endif()

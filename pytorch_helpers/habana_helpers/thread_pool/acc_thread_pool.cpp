@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -263,7 +263,7 @@ void AccThreadPoolFast<Queue>::main_loop() {
   }
   // in case of exception has been thrown
   while (!tasks_.empty()) {
-    auto task = std::move(tasks_.pop());
+    auto task = tasks_.pop();
     if (task.intra_task_)
       task.fun_();
   }

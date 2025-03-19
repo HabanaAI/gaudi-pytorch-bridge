@@ -587,28 +587,27 @@ void HabanaLaunchOpPT::GetSynapseInputsForTensors(
   // different nodes in graph
   // note: else path is only of listcontruct is fused with another op like
   // cat. This case occurs in lazy eval but not in torch trace mode
-  auto HandleSingleTensor =
-      [this, &habana_op, &scope_string](CValPtr value_in) {
-        SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
-            std::make_shared<SynTensorOrRefList>();
-        HandleMappedandUnmappedTensor(
-            value_in, habana_op, tensor_ref_list_ptr_sh, scope_string);
+  auto HandleSingleTensor = [this, &habana_op, &scope_string](
+                                CValPtr value_in) {
+    SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
+        std::make_shared<SynTensorOrRefList>();
+    HandleMappedandUnmappedTensor(
+        value_in, habana_op, tensor_ref_list_ptr_sh, scope_string);
 
-        // Set memory reuse info
-        if (input_reusable_pairs_.count(
-                const_cast<torch::jit::Value*>(value_in))) {
-          bool reusable = input_reusable_pairs_.at(
-              const_cast<torch::jit::Value*>(value_in));
-          if (reusable) {
-            for (sh::tensor_or_ref& tensor : *tensor_ref_list_ptr_sh) {
-              PT_BRIDGE_DEBUG(
-                  "Setting mem reusable info on tensor: ", tensor.ref().id());
-              synTensorSetMemoryReuse(tensor.ref().get(), true);
-              tensor.ref().set_reusable(true);
-            }
-          }
+    // Set memory reuse info
+    if (input_reusable_pairs_.count(const_cast<torch::jit::Value*>(value_in))) {
+      bool reusable =
+          input_reusable_pairs_.at(const_cast<torch::jit::Value*>(value_in));
+      if (reusable) {
+        for (sh::tensor_or_ref& tensor : *tensor_ref_list_ptr_sh) {
+          PT_BRIDGE_DEBUG(
+              "Setting mem reusable info on tensor: ", tensor.ref().id());
+          synTensorSetMemoryReuse(tensor.ref().get(), true);
+          tensor.ref().set_reusable(true);
         }
-      };
+      }
+    }
+  };
 
   if (isTensor ||
       (value_in->node()->kind() != torch::jit::prim::ListConstruct)) {
@@ -3988,7 +3987,7 @@ void HabanaLaunchOpPT::UpdateValueToIShapeMapForInputs(
   PT_BRIDGE_BEGIN;
   auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
   for (size_t j = 0; j < pt_stack_sh_.size(); j++) {
-    auto& value_input = jit_graph->inputs().at(j);
+    auto value_input = jit_graph->inputs().at(j);
     auto& ivalue_input = pt_stack_sh_[j];
     const auto& value_name = value_input->debugName();
     if (ivalue_input->isTensor()) {
