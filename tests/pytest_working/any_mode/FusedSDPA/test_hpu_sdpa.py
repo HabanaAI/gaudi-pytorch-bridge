@@ -1545,7 +1545,7 @@ def test_sdpa(
         k_grad_hpu_c = k_hpu.grad.detach().to("cpu")
         v_grad_hpu_c = v_hpu.grad.detach().to("cpu")
 
-    if recompute and (dropout_p != 0.0 or dropout_p != 1.0):
+    if recompute and (dropout_p != 0.0 and dropout_p != 1.0):
         vb_print("recompute and (dropout_p!=0.0 or dropout_p!=1.0): Can not compare results. Returning")
         return
 
