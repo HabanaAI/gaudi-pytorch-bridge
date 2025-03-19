@@ -201,10 +201,7 @@ void GraphExec::LaunchRecipeTask(
     InputSymbolMap&& in_symbol_value_map) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
   PatchDynamicTensors(launch_shapes);
-  gexec->PatchScaleH2dTensors(inputs);
-  torch::jit::Stack backend_inputs =
-      habana::eager::convert_ivalues_to_backend_tensors(inputs);
-  gexec->LaunchRecipe(std::move(backend_inputs), outputs, in_symbol_value_map);
+  gexec->LaunchRecipe(std::move(inputs), outputs, in_symbol_value_map);
 }
 
 GraphExec::GraphExec(
@@ -581,6 +578,11 @@ torch::jit::Stack GraphExec::launch(
     }
   }
 
+  PatchScaleH2dTensors(stack);
+
+  torch::jit::Stack backend_inputs =
+      habana::eager::convert_ivalues_to_backend_tensors(stack);
+
   std::vector<at::Tensor> backend_outputs;
   backend_outputs.reserve(outputs.size());
   for (auto& tensor : outputs) {
@@ -600,7 +602,7 @@ torch::jit::Stack GraphExec::launch(
     habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
         LaunchRecipeTask,
         this,
-        std::move(stack),
+        std::move(backend_inputs),
         std::move(backend_outputs),
         std::move(launch_shapes),
         std::move(in_symbol_value_map));
@@ -612,10 +614,7 @@ torch::jit::Stack GraphExec::launch(
     }
     habana::eager::JoinPendingPipelineThreads();
     PatchDynamicTensors(launch_shapes);
-    PatchScaleH2dTensors(stack);
 
-    torch::jit::Stack backend_inputs =
-        habana::eager::convert_ivalues_to_backend_tensors(stack);
     torch::jit::Stack ret_stack = LaunchRecipe(
         std::move(backend_inputs), maybe_backend_outputs, in_symbol_value_map);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
