@@ -347,6 +347,13 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       at::globalContext().deterministicAlgorithms() == false &&
       HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
+      // Special handling if the length of indices is 1
+      if (index.sizes() == 1) {
+        SetGuid("unsorted_scatter_add_fwd_bf16");
+        AddNodeToSynapseGraph(graph, &params, sizeof(params));
+        return;
+      }
+
       auto cast_op1 = make_operator<CastOperator>(
           self.device().index(), "cast_bf16_to_f32");
       auto cast_op2 = make_operator<CastOperator>(
