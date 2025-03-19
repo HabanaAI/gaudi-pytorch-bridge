@@ -30,7 +30,7 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
   int mat1_dim0 = 1, dim_i = 0;
   for (; dim_i < input.dim() - 1; ++dim_i)
     mat1_dim0 *= input.sizes().vec()[dim_i];
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.sizes().vec()[input.dim() - 1] == weight.sizes().vec()[1],
       "matrix 1 and matrix 2 shapes cannot be multiplied (",
       mat1_dim0,

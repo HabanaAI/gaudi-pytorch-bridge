@@ -22,7 +22,7 @@ namespace habana {
 int64_t calculateNumberOfClasses(const at::Stack& stack) {
   const auto num_classes = stack.at(1).toInt();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       num_classes != DEFAULT_NUM_OF_CLASSES, "Number of classes cannot be -1");
 
   return num_classes;

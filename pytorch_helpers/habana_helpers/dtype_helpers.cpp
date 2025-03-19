@@ -151,10 +151,10 @@ void DTypeHelper::build() {
     result_dtype_ = output_dtype_;
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       common_dtype_ != c10::ScalarType::Undefined,
       "Common data type cannot be determined");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       result_dtype_ != c10::ScalarType::Undefined,
       "Result data type cannot be determined");
 }

@@ -14,15 +14,10 @@
  */
 
 #include <set>
-#include <sstream>
 #include <string>
-#include <vector>
 
 #include <gtest/gtest.h>
 
-#include <c10/util/Exception.h>
-
-#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 
 TEST(EnvFlags, GetEnv) {

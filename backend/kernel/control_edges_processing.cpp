@@ -263,11 +263,11 @@ bool GraphAffinityAnalyzer::IsControlEdgeCycle(
     const std::vector<torch::jit::Node*>& blocking_nodes_vec) const {
   for (auto& blocking_node : blocking_nodes_vec) {
     // check if blocked node is an ancestor of blocking node
-    TORCH_CHECK(
+    HABANA_ASSERT(
         dfs_time_map_.find(blocking_node) != dfs_time_map_.end(),
         blocking_node,
         blocking_node->kind().toQualString());
-    TORCH_CHECK(
+    HABANA_ASSERT(
         dfs_time_map_.find(blocked_node) != dfs_time_map_.end(),
         blocked_node,
         blocked_node->kind().toQualString());
@@ -783,11 +783,11 @@ void ProcessStridedInsertAtOutput(
     md.at(0).persistent = true;
     habana_kernel->AllocateAndAddSynapseNode(syn_graph, input_stack, md);
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         value_to_ivalue.count(val_ins[0]),
         "incorrect input for strided insert");
     const auto& ivalue = value_to_ivalue.at(val_ins[0]);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         pt_to_synapse_tensors.find(ivalue) != pt_to_synapse_tensors.end(),
         "incorrect ivalue for strided insert input");
 

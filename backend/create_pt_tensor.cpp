@@ -42,7 +42,7 @@ bool StorageLessWrapperTensorImpl::has_storage() const {
 }
 
 const at::Storage& StorageLessWrapperTensorImpl::storage() const {
-  TORCH_CHECK(0, "StorageLessWrapperTensorImpl tensors do not have storage");
+  HABANA_ASSERT(0, "StorageLessWrapperTensorImpl tensors do not have storage");
 }
 
 static bool alwaysAllocOnDevice() {

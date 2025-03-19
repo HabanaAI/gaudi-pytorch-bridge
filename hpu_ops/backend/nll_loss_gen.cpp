@@ -71,7 +71,7 @@ static std::shared_ptr<void> FillNllLossParams(
       params->mode = NLLLossMode_t::NLL_LOSS_MODE_SUM;
       break;
     default:
-      TORCH_CHECK(false, "Unsupported reduction in nll_loss: ", reduction);
+      HABANA_ASSERT(false, "Unsupported reduction in nll_loss: ", reduction);
   }
   params->ignoreIndexValue = ignore_index;
   return params;

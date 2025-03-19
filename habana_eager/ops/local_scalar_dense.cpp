@@ -96,7 +96,7 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
       "_local_scalar_dense",
       [&] {
         scalar_t val;
-        TORCH_CHECK(
+        HABANA_ASSERT(
             elementSize(self.scalar_type()) == sizeof(val),
             " source and destination size mismatch");
         auto dst =

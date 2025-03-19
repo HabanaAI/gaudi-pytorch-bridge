@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "recipe_cache.h"
-#include <c10/util/Exception.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <synapse_api.h>
@@ -27,7 +26,6 @@
 #include <future>
 #include <memory>
 #include <sstream>
-#include <utility>
 #include "base_cache_file_handler.h"
 #include "habana_helpers/logging.h"
 

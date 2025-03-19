@@ -53,7 +53,7 @@ std::shared_ptr<void> FillMseLossParams(const at::Stack& stack, size_t& size) {
       params->mode = MSELossMode_t::MSE_LOSS_REDUCTION_MODE_SUM;
       break;
     default:
-      TORCH_CHECK(false, "Unsupported reduction mode in mseloss: ", mode);
+      HABANA_ASSERT(false, "Unsupported reduction mode in mseloss: ", mode);
   }
   return params;
 }

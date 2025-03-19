@@ -60,7 +60,7 @@ at::Tensor bincount_eager(
     const c10::optional<at::Tensor>& weights,
     int64_t minlength) {
   PT_EAGER_TRACE;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       minlength >= 0 && minlength <= std::numeric_limits<int32_t>::max(),
       "Invalid length. Possible over or underflow.");
   // Handle case for empty tensor where we return empty tensor with size

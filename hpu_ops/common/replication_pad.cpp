@@ -21,11 +21,11 @@ sizes_vec ComputePadOutputShape(const at::Stack& stack, PadType padType) {
   std::vector<int64_t> outputSize = self.sizes().vec();
   auto paddingSize = padding.size();
   auto selfRank = self.dim();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       paddingSize == 1 || paddingSize % 2 == 0,
       "Padding length must be divisible by 2");
-  TORCH_CHECK(floor(paddingSize / 2) <= selfRank, "Padding length too large");
-  TORCH_CHECK(
+  HABANA_ASSERT(floor(paddingSize / 2) <= selfRank, "Padding length too large");
+  HABANA_ASSERT(
       (paddingSize == 1 || paddingSize == 2 || paddingSize == 4 ||
        paddingSize == 6) &&
           (selfRank >= 2 && selfRank <= 5),

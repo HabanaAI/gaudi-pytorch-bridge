@@ -28,7 +28,7 @@ void WrapScalarAsTensor(
     std::vector<sh::tensor>& scalar_tensors,
     std::vector<synTensor>& syn_inputs,
     c10::ScalarType force_type) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       scalar.isDouble() || scalar.isInt(),
       "quantize_per_tensor expects only double or int parameters");
   if (scalar.isDouble()) {

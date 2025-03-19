@@ -116,7 +116,7 @@ std::shared_ptr<void> RandomUniformParams(
       params->high.i = 2;
       break;
     default:
-      TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
+      HABANA_ASSERT(false, "Got unsupported type for random uniform: ", type);
       break;
   }
 
@@ -142,7 +142,7 @@ std::shared_ptr<void> RandomUniformParams(
       params->low.i = 0;
       break;
     default:
-      TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
+      HABANA_ASSERT(false, "Got unsupported type for random uniform: ", type);
       break;
   }
   if (c10::isFloatingType(type)) {

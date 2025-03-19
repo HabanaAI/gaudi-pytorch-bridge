@@ -68,7 +68,7 @@ void RecipeCacheLRU::insert(
   // Pre-C++11 it could be linear, and it seems that this is the case here.
   // Skip the check to prevent perf issues like SW-216784 and hope corruption
   // won't happen until we switch back to C++11 ABI.
-  TORCH_CHECK(
+  HABANA_ASSERT(
       map_.size() == list_.size(),
       "lru cache corruption, map size ",
       map_.size(),
@@ -110,7 +110,7 @@ std::shared_ptr<RecipeHolder> RecipeCacheLRU::get(
     // Pre-C++11 it could be linear, and it seems that this is the case here.
     // Skip the check to prevent perf issues like SW-216784 and hope corruption
     // won't happen until we switch back to C++11 ABI.
-    TORCH_CHECK(
+    HABANA_ASSERT(
         map_.size() == list_.size(),
         "lru cache corruption, map size ",
         map_.size(),

@@ -212,7 +212,7 @@ using DSOpRegisterFunc = std::function<DynamicOpPtr()>;
 class RegisterDSOps {
  public:
   RegisterDSOps& add(const std::string guid, DSOpRegisterFunc func) {
-    TORCH_CHECK(!dsOps_.count(guid), guid, " is already registered!");
+    HABANA_ASSERT(!dsOps_.count(guid), guid, " is already registered!");
     dsOps_.emplace(guid, func);
     return *this;
   }

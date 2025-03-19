@@ -61,7 +61,7 @@ std::vector<synapse_helpers::tensor> CommonReplicationPadBwd(
 
     auto currentMaxShapeSize = currentMaxShape.size();
     for (size_t dim = 0; dim < currentMaxShapeSize; dim++)
-      TORCH_CHECK(
+      HABANA_ASSERT(
           (currentMaxShape[dim] <= outputShapeExpectedMax[dim]),
           "Dim (%d) size (%d) in max pass is greater than expected size (%d)",
           dim,

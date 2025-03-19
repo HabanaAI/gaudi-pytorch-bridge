@@ -583,7 +583,7 @@ void SingleHPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
             hbl = habana_lazy::GetHbLazyTensor(
                 habana_lazy::HbLazyTensorViews::HandleViewsD2H(t));
           } else {
-            TORCH_CHECK(
+            HABANA_ASSERT(
                 0, "Neither storage attached to input tensor, not its view.")
           }
         }

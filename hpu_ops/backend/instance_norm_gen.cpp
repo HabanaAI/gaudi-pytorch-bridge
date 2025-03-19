@@ -59,7 +59,7 @@ void InstanceNorm::AddNode(
     const at::Stack& stack) {
   auto meta = InstanceNormMeta(stack);
 
-  TORCH_CHECK(stack[3].isDouble(), "Input type expected to be double");
+  HABANA_ASSERT(stack[3].isDouble(), "Input type expected to be double");
 
   StackGetter stackGetter(this, stack, "InstanceNormFwd::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();

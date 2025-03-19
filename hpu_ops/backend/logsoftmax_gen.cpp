@@ -19,7 +19,7 @@ std::shared_ptr<void> FillLogSoftmaxParams(
     const at::Stack& stack,
     size_t& size) {
   bool half_to_float = stack.at(2).toBool();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
   auto self = stack.at(0).toTensor();

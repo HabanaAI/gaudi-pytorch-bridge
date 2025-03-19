@@ -56,14 +56,14 @@ hcclRedOp_t getHCCLReduceOp(
       // bitwise and
       return hcclMin;
     } else if (reduceOp == c10d::ReduceOp::AVG) {
-      TORCH_CHECK(false, "Cannot use ReduceOp.AVG with boolean inputs");
+      HABANA_ASSERT(false, "Cannot use ReduceOp.AVG with boolean inputs");
     }
   }
 
   try {
     return hcclOp.at(reduceOp);
   } catch (std::out_of_range& e) {
-    TORCH_CHECK(false, "Unsupported ReduceOp for HCCL process group");
+    HABANA_ASSERT(false, "Unsupported ReduceOp for HCCL process group");
   }
 }
 
@@ -102,7 +102,7 @@ hcclDataType_t getHCCLDataType(at::ScalarType type) {
     return hcclUint8;
   }
   auto it = hcclDataType.find(type);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       it != hcclDataType.end(),
       "Input tensor data type is not supported for HCCL process group: ",
       type);
@@ -114,7 +114,7 @@ size_t getHCCLDataSize(hcclDataType_t type) {
       {hcclBfloat16, 2}, {hcclFloat, 4}};
 
   auto it = type2size.find(type);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       it != type2size.end(),
       "Getting size for given data type is not supported: ",
       type);
@@ -145,7 +145,7 @@ void getCountDatatype(
     tensor_data_type = getHCCLDataType(at::kBFloat16);
     numel = (numel * element_size) / 2;
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         "Provided tensor can't be represented as neither HCCL float32 nor HCCL bfloat16;",
         " numel: ",

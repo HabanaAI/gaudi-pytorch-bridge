@@ -56,8 +56,8 @@ calculate_output_shapes_for_ctc_loss_custom_fwd(
 sym_sizes_vec ctc_loss_custom_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 2);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 2);
+  HABANA_ASSERT(params.size() == 1);
   auto [loss_shape, alpha_shape] =
       calculate_output_shapes_for_ctc_loss_custom_fwd_common(
           inputs[0].sym_sizes(), inputs[1].sym_sizes(), params[0]);
@@ -154,7 +154,7 @@ void CTCLossCustomBackward::AddNode(
         : targetsCurrentMaxShape.at(0);
     const auto expectedLastDimSizeInLogAlphaTensor = maxTargetSize * 2 + 1;
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (actualLastDimSizeInLogAlphaTensor <=
          expectedLastDimSizeInLogAlphaTensor),
         "Actual size of the last dim in LogAlpha tensor (",

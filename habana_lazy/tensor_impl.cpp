@@ -280,7 +280,6 @@ int64_t HbLazyTensorImpl::numel_custom() const {
 bool HbLazyTensorImpl::is_contiguous_custom(
     at::MemoryFormat memory_format) const {
   // Only check that the storage is already contiguous.
-  // HABANA_ASSERT(is_contiguous_);
   return is_contiguous_default(memory_format);
 }
 

@@ -156,7 +156,7 @@ std::once_flag MediaProxyHolder::initialize_once_flag_{};
 } // namespace
 
 uintptr_t CreatePytMediaProxy(int device_id) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       device_id == 0, "Unsupported device id ", device_id, ". Must be 0.");
   return (uintptr_t)(&MediaProxyHolder::getInstance().media_fw_proxy_);
 }

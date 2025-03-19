@@ -157,7 +157,7 @@ at::Tensor hpu_wrap::repeat_interleave(
   auto RepeatInterleaveMeta = [](const at::Stack& stack) {
     auto self = stack.at(0).toTensor();
     auto output_size_opt = stack.at(1).toOptional<int64_t>();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         output_size_opt.has_value(),
         "It is expected that output_size is provided after frontend execution.");
 

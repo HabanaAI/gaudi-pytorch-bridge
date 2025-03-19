@@ -31,7 +31,7 @@ std::shared_ptr<void> FillLeakyReluBackwardParams(
   PARAMS_STUB(ns_LeakyReluKernel::Params);
   auto alpha = stack.at(2).toScalar().to<float>();
   bool is_result = stack.at(3).toBool();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !is_result || alpha >= 0.0,
       "In-place leakyReLu backward calculation is triggered with a negative slope which is not supported. "
       "This is caused by calling in-place forward function with a negative slope, "

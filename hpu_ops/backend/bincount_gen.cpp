@@ -34,7 +34,7 @@ BinCount::BinCount(int device_id, c10::ScalarType scalar_type)
 }
 
 void BinCount::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !graph.is_dynamic_graph(), "Dynamic graph is not supported for bincount");
 
   StackGetter stackGetter(this, stack, "Bincount::AddNode");

@@ -141,7 +141,7 @@ struct SchemaParser {
     // also disallow dunder attribute names to be overload names
     bool is_a_valid_overload_name =
         !((overload_name == "default") || (overload_name.rfind("__", 0) == 0));
-    TORCH_CHECK(
+    HABANA_ASSERT(
         is_a_valid_overload_name,
         overload_name,
         " is not a legal overload name for aten operators");
@@ -393,7 +393,7 @@ std::variant<OperatorName, FunctionSchema> parseSchemaOrName(
 
 FunctionSchema parseSchema(const std::string& schema) {
   auto parsed = parseSchemaOrName(schema);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       std::holds_alternative<FunctionSchema>(parsed),
       "Tried to parse a function schema but only the operator name was given");
   return std::get<FunctionSchema>(std::move(parsed));
@@ -401,7 +401,7 @@ FunctionSchema parseSchema(const std::string& schema) {
 
 OperatorName parseName(const std::string& name) {
   auto parsed = parseSchemaOrName(name);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       std::holds_alternative<OperatorName>(parsed),
       "Tried to parse an operator name but function schema was given");
   return std::get<OperatorName>(std::move(parsed));

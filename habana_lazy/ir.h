@@ -479,7 +479,8 @@ class Node {
   }
 
   const Output GetOutput(size_t index) const {
-    TORCH_CHECK(index < GetNumOutputs(), "Node::GetOutputs index out of range");
+    HABANA_ASSERT(
+        index < GetNumOutputs(), "Node::GetOutputs index out of range");
     return m_outputs[index];
   }
 

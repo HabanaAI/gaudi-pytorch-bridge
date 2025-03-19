@@ -15,14 +15,10 @@
 #pragma once
 
 #include <c10/core/DeviceGuard.h>
-#include <c10/util/Exception.h>
 
 #include <synapse_api_types.h>
 #include "HPUStream.h"
-#include "backend/synapse_helpers/device.h"
-#include "habana_helpers/logging.h"
 
-#include <cstdint>
 #include <utility>
 
 namespace at {

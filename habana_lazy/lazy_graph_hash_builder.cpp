@@ -125,7 +125,7 @@ void GraphHashBuilder::prepareInputsStackMap(
         in.ToString());
     auto itr = std::find(
         graph_input_stack_uids.begin(), graph_input_stack_uids.end(), uid);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         itr != graph_input_stack_uids.end(),
         "missing tensor in stack map. id: ",
         uid);

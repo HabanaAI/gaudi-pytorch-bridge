@@ -19,14 +19,14 @@ namespace habana {
 sizes_vec DotOutputShape(const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 1 && other.dim() == 1,
       "Dot Op: 1D tensors expected, but got ",
       self.dim(),
       "D and ",
       other.dim(),
       "D tensors");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.sizes() == other.sizes(),
       "Dot Op: Tensor must have same size, but got ",
       self.sizes(),

@@ -46,14 +46,14 @@ using namespace std::literals;
 void OptimizerLambNorm::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 2, "OptimizerLambNorm must have 2 input arguments");
 
   StackGetter stackGetter(this, stack, "OptimizerLambNorm::AddNode");
   auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
   float max_grad_norm = static_cast<float>(stackGetter.getNextInput<double>());
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       gradients.size() > 0,
       "Gradiens list in OptimizerLambNorm cannot be empty");
 
@@ -218,7 +218,7 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
 void OptimizerLambPhase1::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 15, "OptimizerLambPhase1 must have 15 input arguments");
 
   StackGetter stackGetter(this, stack, "OptimizerLambPhase1::AddNode");
@@ -425,7 +425,7 @@ OptimizerLambPhase2::OptimizerLambPhase2(
 void OptimizerLambPhase2::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 7, "OptimizerLambPhase2 must have 7 input arguments");
 
   StackGetter stackGetter(this, stack, "OptimizerLambPhase2::AddNode");

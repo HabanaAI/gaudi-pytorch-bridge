@@ -31,7 +31,7 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   auto inferred_size = at::infer_size_dv(size, self.numel());
   auto stride = at::detail::computeStride(
       self.sym_sizes(), self.sym_strides(), inferred_size);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stride.has_value(),
       "view size is "
       "not compatible with input tensor's size and stride (at least one dimension"
@@ -63,7 +63,7 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
 
   HABANA_ASSERT(output_smeta);
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !input_tmeta->is_maybe_grad_view(),
       " Multilevel views on bucket grad view neither expected,  nor supported");
 

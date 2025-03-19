@@ -15,6 +15,7 @@
 #include "habana_eager/graph_exec.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/dynamic_shape_info.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"

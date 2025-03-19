@@ -27,19 +27,19 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of inputs expected for threshold operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isScalar(), "Input arg3 type expected to be scalar");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isScalar(), "Input arg3 type expected to be scalar");
 
   auto grad_output = inputs[0].toTensor();
   auto self = inputs[1].toTensor();
   auto threshold = inputs[2].toScalar();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       threshold.to<float>() == 0.0,
       "Threshold values other than 0 are not supported")
 

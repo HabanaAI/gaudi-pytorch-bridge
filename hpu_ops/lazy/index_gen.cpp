@@ -36,7 +36,7 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   std::vector<c10::optional<at::Tensor>> bool_indices_vec;
   std::vector<at::Tensor> indices_vec_out{};
   std::vector<at::Tensor> indices_vec;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "Index op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,

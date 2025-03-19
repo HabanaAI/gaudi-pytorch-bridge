@@ -21,14 +21,14 @@
 #include <synapse_common_types.h>
 #include <torch/extension.h>
 //clang-format on
-#include <tuple>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/habana_device/HPUGuardImpl.h"
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/stream.h"
-#include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"

@@ -301,17 +301,17 @@ void habana::HabanaOperator::SetPTOutput(const at::Tensor& output) {
 
 void habana::HabanaOperator::SetPTOutput(torch::jit::Stack& inputs) {
   static_cast<void>(inputs);
-  TORCH_CHECK(0, "Should never reach this empty base SetPTOutput Stack");
+  HABANA_ASSERT(0, "Should never reach this empty base SetPTOutput Stack");
 }
 
 void habana::HabanaOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   static_cast<void>(inputs);
-  TORCH_CHECK(0, "Should never reach this empty base SetPTOutputs Stack");
+  HABANA_ASSERT(0, "Should never reach this empty base SetPTOutputs Stack");
 }
 
 void habana::HabanaOperator::SetPTOutputs(
     const std::vector<at::Tensor>& outputs) {
-  TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
 
   for (auto& output : outputs) {
     p_context_->pt_outputs_.emplace_back(output);
@@ -336,7 +336,6 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     void* host_ptr,
     const std::string& idx) {
   PT_BRIDGE_TRACE;
-  // TORCH_CHECK(input != nullptr, "Input cannot be null");
   if (input.scalar_type() == c10::ScalarType::Long &&
       !common::IsInt64Supported()) {
     auto tmeta{habana::get_tensor_extra_meta(input)};
@@ -394,8 +393,6 @@ void habana::HabanaOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& inputs,
     bool is_persistent) {
-  // TORCH_CHECK(!inputs.empty(), "Inputs cannot be null");
-
   for (auto& input : inputs) {
     AllocateSynapseInput(graph, input, is_persistent);
   }
@@ -528,8 +525,8 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& outputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
-  TORCH_CHECK(
+  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(
       outputs.size() == output_metadata.size(),
       "#output should match #output_metadata");
   for (unsigned int i = 0; i < outputs.size(); ++i) {
@@ -545,7 +542,7 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
   static_cast<void>(graph);
   static_cast<void>(inputs);
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       0, "Should never reach this empty base AllocateAndAddSynapseNode");
 }
 
@@ -567,13 +564,13 @@ void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(
   static_cast<void>(inputs);
   static_cast<void>(syn_t_vec);
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       0, "Should never reach this empty base ReuseMemoryAndAddSynapseNode");
 };
 
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
     [[maybe_unused]] synapse_helpers::tensor_or_ref&& tensor) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       0, "Should never reach this SetSynapseInput, avoid using std::move");
 }
 

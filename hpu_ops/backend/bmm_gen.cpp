@@ -34,13 +34,15 @@ OutputMetaDataVector BmmMeta(const at::Stack& stack) {
     return {meta};
   }
 
-  TORCH_CHECK(self.dim() == 3, "BMM Input1 should be 3D, but got ", self.dim())
-  TORCH_CHECK(mat2.dim() == 3, "BMM Input2 should be 3D, but got ", mat2.dim())
+  HABANA_ASSERT(
+      self.dim() == 3, "BMM Input1 should be 3D, but got ", self.dim())
+  HABANA_ASSERT(
+      mat2.dim() == 3, "BMM Input2 should be 3D, but got ", mat2.dim())
   // Inner Dimentions
   // self tensor  = {b, n, m} eg, [4, 3, 2]
   // other tensor = {b, m, p} eg, [4, 2, 5]
   // output = {b, n, p}  eg, [4, 3, 5]
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (*(self_end_iter - 1) == *(mat2_end_iter - 2) &&
        *(self_end_iter - 3) == *(mat2_end_iter - 3)),
       "Expected size for first two dimensions of batch2 tensor to be:",

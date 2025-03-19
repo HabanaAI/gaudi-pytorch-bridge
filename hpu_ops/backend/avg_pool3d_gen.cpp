@@ -19,7 +19,7 @@
 #include "hpu_ops/shared_meta_common.h"
 
 #define CHECK_DIM(input_size)                                             \
-  TORCH_CHECK(                                                            \
+  HABANA_ASSERT(                                                          \
       input_size == 4 || input_size == 5,                                 \
       "Averagepool3D expects input_size equals to 4 or 5, but got size ", \
       input_size);

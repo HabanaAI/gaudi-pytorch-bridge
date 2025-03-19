@@ -316,10 +316,10 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
   auto num_groups = stackGetter.getNextInput<int>();
   const auto Nmod = N * num_groups;
 
-  TORCH_CHECK(grad_out.pt_t.numel() == N * C * HxW);
-  TORCH_CHECK(input.pt_t.numel() == N * C * HxW);
-  TORCH_CHECK(mean.pt_t.numel() == Nmod);
-  TORCH_CHECK(rstd.pt_t.numel() == Nmod);
+  HABANA_ASSERT(grad_out.pt_t.numel() == N * C * HxW);
+  HABANA_ASSERT(input.pt_t.numel() == N * C * HxW);
+  HABANA_ASSERT(mean.pt_t.numel() == Nmod);
+  HABANA_ASSERT(rstd.pt_t.numel() == Nmod);
 
   const bool use_bn_fwd_in_gn_bwd =
       GET_ENV_FLAG_NEW(PT_HPU_USE_BN_FWD_IN_GN_BWD);

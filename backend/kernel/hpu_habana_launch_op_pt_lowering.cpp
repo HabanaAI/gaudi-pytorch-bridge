@@ -175,7 +175,6 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     for (size_t i = 0; i < tinfos.size(); ++i) {
       auto& info = tinfos[i];
       if (info->is_output() && !info->is_ZST()) {
-        // HABANA_ASSERT(tinfo_map.count(info->get_tensor_id() == 0));
         tinfo_map[info->get_tensor_id()] = info;
         if (info->get_allow_permutation()) {
           synRetrievedLaunchTensorInfo record = {};
@@ -227,10 +226,10 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
           "}\n");
 
       auto iter = synapse_to_pt_tensor.find(tensor_id);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           iter != synapse_to_pt_tensor.end(),
           "Failed to find PT tensor to update permutation");
-      TORCH_CHECK(
+      HABANA_ASSERT(
           iter->second->isTensor(),
           "Update permutation on non-tensor output is not supported");
 
@@ -266,7 +265,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
     auto& info = tinfos[i];
     if (!info->get_allow_permutation() && info->is_output()) {
       auto iter = synapse_to_pt_tensor.find(info->get_tensor_id());
-      TORCH_CHECK(
+      HABANA_ASSERT(
           iter != synapse_to_pt_tensor.end(),
           "Failed to find PT tensor to update permutation");
       // updating the permute on the internal hb lazy tensor
@@ -742,7 +741,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
 
 std::shared_ptr<synapse_helpers::graph::recipe_handle> habana::
     HabanaLaunchOpPT::CompileSynapseGraph() {
-  TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
+  HABANA_ASSERT(syn_graph_ptr_, "Synapse graph pointer is null");
 
   if (syn_graph_ptr_->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
@@ -778,7 +777,7 @@ std::shared_ptr<synapse_helpers::graph::recipe_handle> habana::
 void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
     RecipeValueSpec& rv,
     const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe) {
-  TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
+  HABANA_ASSERT(syn_graph_ptr_, "Synapse graph pointer is null");
   if (syn_graph_ptr_->is_empty() && collective_kernels_info_.Empty()) {
     PT_BRIDGE_DEBUG(
         "Empty synapse graph. No need to construct the patching table.");
@@ -823,7 +822,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
 
     // At this point, tinfos for inputs, input duplicates and intermediates
     // are populated
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
              rv.num_shape_tensors + rv.num_intermediates ==
          rv.dtensorinfos.size()),
@@ -843,7 +842,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
     size_t output_idx{0};
     for (auto output : jit_ir_graph_->outputs()) {
       auto oit = value_to_ivalue_.find(output);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           oit != value_to_ivalue_.end(),
           "value_to_ivalue_ does not have an entry for %",
           output->debugName());
@@ -857,7 +856,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
       aten_outputs_.push_back(ivpsh);
       output_idx++;
     }
-    TORCH_CHECK(
+    HABANA_ASSERT(
         output_tensorinfo_map_.empty(),
         "output_tensorinfo_map_ still contains ",
         output_tensorinfo_map_.size(),
@@ -882,7 +881,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
       rv.num_outduplicates + rv.num_input_to_outduplicates +
       rv.num_intermediate_to_outduplicates + rv.num_output_to_outduplicates;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       total_tinfos == rv.dtensorinfos.size(),
       " num_inputs ",
       rv.num_inputs,
@@ -907,7 +906,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
 
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED ||
       (refine_ds_enabled_ && current_dbipsh_)) {
-    TORCH_CHECK(cur_rargpsh_ != nullptr, "Encountered null cur_rargpsh");
+    HABANA_ASSERT(cur_rargpsh_ != nullptr, "Encountered null cur_rargpsh");
     rv.set_key(cur_rargpsh_->hashCode());
     rv.set_graph_key(graph_key_);
     rv.set_graph_name(GetSynapseGraphName());
@@ -937,8 +936,8 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
 
 void habana::HabanaLaunchOpPT::StoreCompiledInformation(
     std::shared_ptr<RecipeValueSpec>& rvs) {
-  TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
-  TORCH_CHECK(recipe_launcher_, "Recipe pointer is null");
+  HABANA_ASSERT(syn_graph_ptr_, "Synapse graph pointer is null");
+  HABANA_ASSERT(recipe_launcher_, "Recipe pointer is null");
   if (syn_graph_ptr_->is_empty() && rvs->collective_kernels_info->Empty()) {
     return;
   }
@@ -975,8 +974,8 @@ void habana::HabanaLaunchOpPT::StoreCompiledInformation(
 }
 
 void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
-  TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
-  TORCH_CHECK(recipe_launcher_, "Recipe pointer is null");
+  HABANA_ASSERT(syn_graph_ptr_, "Synapse graph pointer is null");
+  HABANA_ASSERT(recipe_launcher_, "Recipe pointer is null");
   if (syn_graph_ptr_->is_empty() &&
       recipe_launcher_->collective_kernels_info_->Empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Will update outputs directly.");
@@ -1047,7 +1046,7 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
         }
       }
     } else {
-      TORCH_CHECK(false, "Error condition for input tiv");
+      HABANA_ASSERT(false, "Error condition for input tiv");
     }
   }
   // At this point inputs tinfos are populated
@@ -1065,14 +1064,14 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
         std::ostringstream err;
         err << *ti;
 
-        TORCH_CHECK(
+        HABANA_ASSERT(
             buff_to_inputtividx_map.end() != it_parent,
             "parent tinfo is missing for input duplicate ",
             err.str());
 
         ti->set_duplicate_flag(true);
         size_t parent_idx = it_parent->second;
-        TORCH_CHECK(
+        HABANA_ASSERT(
             parent_idx < num_inputs_,
             "out of bound parent index : ",
             parent_idx,
@@ -1090,10 +1089,10 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
       rv.dtensorinfos.push_back(ti);
       nduplicates++;
     } else {
-      TORCH_CHECK(false, "duplicate tiv must be a tensor");
+      HABANA_ASSERT(false, "duplicate tiv must be a tensor");
     }
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       nduplicates == duplicate_input_tivs_.size(),
       "#duplicate_input_tivs_ ",
       duplicate_input_tivs_.size(),
@@ -1103,7 +1102,7 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   rv.num_induplicates = nduplicates;
 
   // At this point inputs and duplicate tinfos are populated
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (rv.num_inputs + rv.num_induplicates == rv.dtensorinfos.size()),
       "num_inputs ",
       rv.num_inputs,
@@ -1124,11 +1123,11 @@ void habana::HabanaLaunchOpPT::OrderInputs() {
         if (it != input_tiv_map_.end()) {
           input_tivs_.push_back(it->second);
         } else {
-          TORCH_CHECK(false, "synapse tensor not found for input index", i);
+          HABANA_ASSERT(false, "synapse tensor not found for input index", i);
         }
       }
     }
-    TORCH_CHECK(
+    HABANA_ASSERT(
         input_tivs_.size() == num_tensor_inputs_,
         "number of input tensors ",
         num_tensor_inputs_,
@@ -1145,13 +1144,14 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   size_t output_idx{0};
   for (auto output : jit_ir_graph_->outputs()) {
     auto oit = value_to_ivalue_.find(output);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         oit != value_to_ivalue_.end(),
         "value_to_ivalue_ does not have an entry for %",
         output->debugName());
 
     IValPtrShared ivpsh = oit->second;
-    TORCH_CHECK(nullptr != ivpsh, "IValPtrShared for subgraph output is null");
+    HABANA_ASSERT(
+        nullptr != ivpsh, "IValPtrShared for subgraph output is null");
 
     // Checking where we can find the outputs
     {
@@ -1173,7 +1173,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         auto it_dup = duplicate_output_to_outtinfo_map_.find(ivpsh);
         it_dup->second->set_output_index(output_idx);
       } else {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             0,
             "Unaccounted output %",
             output->debugName(),
@@ -1188,12 +1188,12 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     output_idx++;
   }
 
-  TORCH_CHECK(!has_empty_name, "empty tensor name");
+  HABANA_ASSERT(!has_empty_name, "empty tensor name");
 
   size_t intermediates_start = rv.num_inputs + rv.num_induplicates +
       rv.num_dma_inputs + rv.num_shape_tensors;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_tensorinfo_map_.empty(),
       "output_tensorinfo_map_ still contains ",
       output_tensorinfo_map_.size(),
@@ -1251,14 +1251,14 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     std::ostringstream err;
     err << *ti;
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         buff_to_outputtinfoidx_map.end() != it_parent,
         "parent tinfo is missing for output duplicate ",
         err.str());
 
     ti->set_duplicate_flag(true);
     size_t parent_idx = it_parent->second;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         parent_idx >= outputs_start && parent_idx < outputs_end,
         "for output duplicate ",
         ti->get_syn_name(),
@@ -1288,7 +1288,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         buff_to_inputtividx_map.emplace(buffp, in_idx++);
       }
     } else {
-      TORCH_CHECK(false, "Error condition for input tiv");
+      HABANA_ASSERT(false, "Error condition for input tiv");
     }
   }
 
@@ -1305,14 +1305,14 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     std::ostringstream err;
     err << *ti;
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         buff_to_inputtividx_map.end() != it_parent,
         "parent tinfo is missing for input_to_out duplicate ",
         err.str());
 
     ti->set_duplicate_flag(true);
     auto parent_idx = it_parent->second;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         parent_idx < rv.num_inputs,
         "for in_to_out duplicate ",
         ti->get_syn_name(),
@@ -1343,14 +1343,14 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     std::ostringstream err;
     err << *ti;
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         buff_to_interim_tividx_map.end() != it_parent,
         "parent tinfo is missing for interim_to_out duplicate ",
         err.str());
 
     ti->set_duplicate_flag(true);
     auto parent_idx = it_parent->second;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (parent_idx >= intermediates_start && parent_idx < intermediates_end),
         "for interim to out duplicate ",
         ti->get_syn_name(),
@@ -1380,14 +1380,14 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     std::ostringstream err;
     err << *ti;
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         buff_to_outputtinfoidx_map.end() != it_parent,
         "parent tinfo is missing for output_to_out duplicate ",
         err.str());
 
     ti->set_duplicate_flag(true);
     auto parent_idx = it_parent->second;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         parent_idx >= outputs_start && parent_idx < outputs_end,
         parent_idx < rv.num_inputs,
         "for out_to_out duplicate ",
@@ -1427,7 +1427,7 @@ void habana::HabanaLaunchOpPT::UpdateOutputs() {
   torch::jit::drop(*pt_stack_, num_inputs_);
   for (auto output : jit_ir_graph_->outputs()) {
     auto oit = value_to_ivalue_.find(output);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         oit != value_to_ivalue_.end(),
         "value_to_ivalue_ does not have an entry for %",
         output->debugName());
@@ -1455,7 +1455,7 @@ void habana::HabanaLaunchOpPT::UpdateRecipeOutputs() {
 void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
   num_inputs_ = jit_ir_graph_->inputs().size();
   PT_EAGER_DEBUG("[SHAPE AGNOSTIC] #graph_inputs : ", num_inputs_);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       num_inputs_ == input_st.size(),
       "Input stack size=",
       input_st.size(),
@@ -1477,7 +1477,7 @@ void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
 
   // We dont support running some ops on CPU while running fused op on Habana
   // All tensors should be alocated to habana before entering this phase
-  TORCH_CHECK(
+  HABANA_ASSERT(
       is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU");
 
   // Set the habana operators to capture data

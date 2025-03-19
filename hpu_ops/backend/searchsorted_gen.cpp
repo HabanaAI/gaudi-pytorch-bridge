@@ -30,7 +30,7 @@ OutputMetaDataVector SearchSortedMeta(const at::Stack& stack) {
   auto old_outshape = outshape;
   old_seqshape.erase(old_seqshape.end() - 1);
   old_outshape.erase(old_outshape.end() - 1);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       seqshape.empty() || (old_seqshape == old_outshape),
       "torch.searchsorted(): boundaries tensor should be 1 dimension or ",
       "the first N-1 dimensions of boundaries tensor and input value tensor ",

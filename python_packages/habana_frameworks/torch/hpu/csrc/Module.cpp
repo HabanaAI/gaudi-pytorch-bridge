@@ -26,7 +26,7 @@ PyObject* THP_HPU_Module_getCurrentStream_wrap(
     [[maybe_unused]] PyObject* self,
     PyObject* device_index) {
   HANDLE_TH_ERRORS
-  TORCH_CHECK(
+  HABANA_ASSERT(
       THPUtils_checkLong(device_index), "invalid argument to getCurrentStream");
   auto c10_device_index = THPUtils_unpackDeviceIndex(device_index);
   auto stream = c10::hpu::getCurrentHPUStream(c10_device_index);
@@ -48,7 +48,7 @@ PyObject* THP_HPU_Module_getCurrentStream_raw(
     [[maybe_unused]] PyObject* self,
     PyObject* device_index) {
   HANDLE_TH_ERRORS
-  TORCH_CHECK(
+  HABANA_ASSERT(
       THPUtils_checkLong(device_index), "invalid argument to getCurrentStream");
   auto c10_device_index = THPUtils_unpackDeviceIndex(device_index);
   return THPUtils_packInt64(
@@ -60,7 +60,7 @@ PyObject* THP_HPU_Module_getDefaultStream_wrap(
     [[maybe_unused]] PyObject* self,
     PyObject* device_index) {
   HANDLE_TH_ERRORS
-  TORCH_CHECK(
+  HABANA_ASSERT(
       THPUtils_checkLong(device_index), "invalid argument to getDefaultStream");
   auto c10_device_index = THPUtils_unpackDeviceIndex(device_index);
   auto stream = c10::hpu::getDefaultHPUStream(c10_device_index);
@@ -105,7 +105,7 @@ PyObject* THP_HPU_Module_getStreamInfo_wrap(
       static_cast<c10::DeviceIndex>(device_index),
       static_cast<c10::DeviceType>(device_type));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stream.device_index() ==
           (int64_t)habana::HPUDeviceContext::get_device().id(),
       "getStreamInfo invalid device_index");
@@ -144,7 +144,7 @@ PyObject* THP_HPU_Module_setStream_wrap(
       static_cast<c10::DeviceIndex>(device_index),
       static_cast<c10::DeviceType>(device_type));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stream.device_index() ==
           (int64_t)habana::HPUDeviceContext::get_device().id(),
       "setStream invalid device_index");

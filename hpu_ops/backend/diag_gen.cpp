@@ -34,9 +34,9 @@ OutputMetaDataVector DiagMeta(const at::Stack& stack) {
   meta.dtype = self.scalar_type();
   // https://jira.habana-labs.com/browse/SW-42950
 
-  TORCH_CHECK(self.dim() <= 2, "Input tensor should have a dimension 1 or 2");
+  HABANA_ASSERT(self.dim() <= 2, "Input tensor should have a dimension 1 or 2");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (self.dim() == 1 || self.dim() == 2),
       "Invalid Input size",
       self.sizes().vec())

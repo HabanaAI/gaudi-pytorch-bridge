@@ -41,7 +41,7 @@ using namespace habana;
 using namespace habana_lazy;
 
 #define FP8_CHECK                                 \
-  TORCH_CHECK(                                    \
+  HABANA_ASSERT(                                  \
       synapse_helpers::device_supports_fp8(       \
           HPUDeviceContext::get_device().type()), \
       "FP8 data type is not available on this device.")
@@ -157,7 +157,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
       to_string(src),
       " non_blocking=",
       to_string(non_blocking));
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= 8 && src.dim() <= 8, "HPU doesn't support rank > 8D");
   return copy_hpu_lazy_(self, src, non_blocking);
 }
@@ -968,7 +968,7 @@ std::vector<at::Tensor> hpu_wrap::split(
   // lower aten::split as split_with_sizes using the logic used in Fork
   int64_t dim_size = self.size(dim);
   auto split_size = split_size_symint.expect_int();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       split_size > 0 || self.size(dim) == 0,
       "split_size can only be 0 if dimension size is 0, "
       "but got dimension size of ",
@@ -1098,10 +1098,10 @@ void optimizer_adamw_hpu_wrap(
           exp_avg_scales,
           exp_avg_sq_scales));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weight_vec.size() > 0),
       "optimizer_adamw : can not process empty weight vector");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
       "optimizer_adamw : expects both or neighter scales to be set");
 
@@ -1133,7 +1133,7 @@ Tensor fused_norm_hpu_wrap(
       to_string(max_norm),
       " norm_type=",
       to_string(norm_type));
-  TORCH_CHECK((grad.size() > 0), "Can not process empty grad vector");
+  HABANA_ASSERT((grad.size() > 0), "Can not process empty grad vector");
   return fused_norm_hpu_lazy(grad, max_norm, norm_type);
 }
 

@@ -105,8 +105,8 @@ OutputMetaDataVector TriluIndicesMeta(
   const auto out_dtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
 
-  TORCH_CHECK((row > 0 && col > 0), "row and col must be greater than 0");
-  TORCH_CHECK(
+  HABANA_ASSERT((row > 0 && col > 0), "row and col must be greater than 0");
+  HABANA_ASSERT(
       (out_dtype == at::ScalarType::Long || out_dtype == at::ScalarType::Int),
       "tri(l/u)_indices output must be either int32 or int64");
 

@@ -232,7 +232,7 @@ PyTypeObject THP_HPU_EventType = {
 };
 
 void THP_HPU_Event_init(PyObject* module) {
-  TORCH_CHECK(THPEventClass, "THPEvent has not been initialized yet.");
+  HABANA_ASSERT(THPEventClass, "THPEvent has not been initialized yet.");
   Py_INCREF(THPEventClass);
   THP_HPU_EventType.tp_base = THPEventClass;
   THP_HPU_EventClass = (PyObject*)&THP_HPU_EventType;

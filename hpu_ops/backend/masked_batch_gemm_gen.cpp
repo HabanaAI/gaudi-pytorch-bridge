@@ -36,8 +36,8 @@ sizes_vec_template<DimT> MaskedBatchGemmOutputShapeInternal(
 sym_sizes_vec masked_batch_gemm_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 2);
-  TORCH_CHECK(params.size() == 2);
+  HABANA_ASSERT(inputs.size() == 2);
+  HABANA_ASSERT(params.size() == 2);
   return MaskedBatchGemmOutputShapeInternal(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -48,7 +48,7 @@ sym_sizes_vec masked_batch_gemm_out_shape(
 REGISTER_CUSTOM_OP_OUTSHAPE_FUN(masked_batch_gemm, masked_batch_gemm_out_shape);
 
 OutputMetaDataVector MaskedBatchGemmMeta(const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       HPUDeviceContext::get_device().type() == synDeviceGaudi2,
       "masked_batch_gemm is supported only on Gaudi2.");
 
@@ -61,7 +61,7 @@ OutputMetaDataVector MaskedBatchGemmMeta(const at::Stack& stack) {
   auto out_shapes = MaskedBatchGemmOutputShapeInternal(
       a.sizes(), b.sizes(), trans_a, trans_b);
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       a.dim() == 4 && b.dim() == 4 && mask_a.dim() == 4 && mask_b.dim() == 4,
       "All inputs must be 4D, but got: a = ",
       a.dim(),

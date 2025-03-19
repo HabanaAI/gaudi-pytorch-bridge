@@ -40,7 +40,7 @@ OutputMetaDataVector CdistFwdMeta(const at::Stack& stack) {
     auto& shape = shapes[i];
     shape = input.sizes();
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         shape.size() >= 2,
         "Cdist only supports 2D tensors or above, got: ",
         shape.size(),

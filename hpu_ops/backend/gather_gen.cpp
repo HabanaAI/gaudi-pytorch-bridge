@@ -26,14 +26,14 @@ OutputMetaDataVector GatherMeta(const at::Stack& stack) {
   // gather shape check
   auto self_dims = std::max<int64_t>(1, self.dim());
   auto index_dims = std::max<int64_t>(1, index.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self_dims == index_dims,
       "Index tensor must have the same number of dimensions as input tensor");
   for (int64_t i = 0; i < self_dims; ++i) {
     if (i != dim) {
       auto index_size = index.dim() == 0 ? 1 : index.size(i);
       auto self_size = self.dim() == 0 ? 1 : self.size(i);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           index_size <= self_size,
           "Size does not match at dimension ",
           i,

@@ -508,7 +508,7 @@ void ConvolutionBackwardOverrideable::AddNode(
         out_shape.end(),
         grad_output_sizes.begin(),
         grad_output_sizes.end());
-    TORCH_CHECK(
+    HABANA_ASSERT(
         validateRes,
         "Mismatch in Grad Out size{",
         grad_output_sizes,

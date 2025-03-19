@@ -28,6 +28,7 @@
 #include <cctype>
 #include <iterator>
 #include <string>
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana_torch {
 namespace jit {
@@ -89,7 +90,7 @@ TypeWrapper TypeWrapper::createTensorTypeWrapper(
     const SymbolicStrides& strides,
     c10::optional<Device> device,
     c10::optional<bool> requires_grad) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       shape.size() == strides.size(),
       "The number of dimensions is not equal in shape and strides.");
 
@@ -113,7 +114,7 @@ TypeWrapper TypeWrapper::createTensorTypeWrapper(
     fixed_strides.reserve(strides.size());
 
     const auto get_fixed_value = [](const DimVariants& dim) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           std::holds_alternative<int64_t>(dim),
           "Found non-fixed dimension for a tensor with a fixed shape.");
       return std::get<int64_t>(dim);
@@ -151,7 +152,7 @@ TypePtr TypeWrapper::initType(TypePtr underlying_type) {
 
 TypeWrapper::TypeDetails TypeWrapper::initTypeDetails(
     SymbolOrExpr symbol_or_expr) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       isSymbolic(),
       "Single symbol or expression is allowed only for simple symbolic types.");
 
@@ -163,7 +164,7 @@ TypeWrapper::TypeDetails TypeWrapper::initTypeDetails(
     SymbolicStrides symbolic_strides) {
   const TypeKind type_kind = type_->kind();
   const bool is_tensor_type = type_kind == TypeKind::TensorType;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       is_tensor_type,
       "Shape and strides info is allowed only for tensor type.");
 
@@ -195,12 +196,12 @@ TypeWrapper::operator bool() const noexcept {
 }
 
 const TypePtr& TypeWrapper::getType() const {
-  TORCH_CHECK(type_ != nullptr, "Underlying type was not initialized.");
+  HABANA_ASSERT(type_ != nullptr, "Underlying type was not initialized.");
   return type_;
 }
 
 const SymbolOrExpr& TypeWrapper::getSymbolOrExpr() const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       isSymbolic(),
       "Single symbol or expression is allowed only for simple symbolic types.");
   return std::get<SymbolOrExpr>(type_details_);
@@ -209,14 +210,15 @@ const SymbolOrExpr& TypeWrapper::getSymbolOrExpr() const {
 const SymbolicStrides& TypeWrapper::getStrides() const {
   const TypeKind type_kind = type_->kind();
   const bool is_tensor_type = type_kind == TypeKind::TensorType;
-  TORCH_CHECK(is_tensor_type, "Strides info is allowed only for tensor type.");
+  HABANA_ASSERT(
+      is_tensor_type, "Strides info is allowed only for tensor type.");
   return std::get<TensorTypeDetails>(type_details_).strides;
 }
 
 const SymbolicShape& TypeWrapper::getShape() const {
   const TypeKind type_kind = type_->kind();
   const bool is_tensor_type = type_kind == TypeKind::TensorType;
-  TORCH_CHECK(is_tensor_type, "Shape info is allowed only for tensor type.");
+  HABANA_ASSERT(is_tensor_type, "Shape info is allowed only for tensor type.");
   return std::get<TensorTypeDetails>(type_details_).shape;
 }
 
@@ -336,7 +338,7 @@ std::ostream& operator<<(std::ostream& out, const TypeWrapper& wrapper) {
         } else if ((std::holds_alternative<int64_t>(sym_shape[i]))) {
           out << std::get<int64_t>(sym_shape[i]);
         } else {
-          TORCH_CHECK(0, "Shape contains incomplete dimension info.");
+          HABANA_ASSERT(0, "Shape contains incomplete dimension info.");
         }
       }
       out << "]";
@@ -350,7 +352,7 @@ std::ostream& operator<<(std::ostream& out, const TypeWrapper& wrapper) {
         } else if (std::holds_alternative<int64_t>(sym_strides[i])) {
           out << std::get<int64_t>(sym_strides[i]);
         } else {
-          TORCH_CHECK(0, "Strides contain incomplete dimension info.");
+          HABANA_ASSERT(0, "Strides contain incomplete dimension info.");
         }
       }
       out << "]";

@@ -1136,7 +1136,7 @@ sh::tensor OpBackend::BuildPermute(
 
   auto compute_output_shape = [](at::IntArrayRef self_sizes,
                                  at::IntArrayRef permutation) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         self_sizes.size() == permutation.size(),
         "Number of dims in tensor don't match in permutation");
     auto new_sizes = self_sizes.vec();

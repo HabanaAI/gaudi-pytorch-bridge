@@ -13,9 +13,11 @@
  * limitations under the License.
  */
 
+#include <ATen/Context.h>
 #include <c10/util/ArrayRef.h>
+#include <torch/csrc/jit/ir/ir.h>
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "habana_helpers/logging_pt.h" // Required for logging
+#include "habana_helpers/logging_pt.h"
 
 namespace habana {
 namespace graph {

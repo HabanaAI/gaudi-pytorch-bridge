@@ -611,7 +611,7 @@ void IRParser::parseOperator(Block* b) {
     vmap[v.name]->setDebugName(v.name, true /*allow_numbers*/);
 
     if (schema && !schema->is_varret()) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           schema->returns().size() > idx,
           "Operator parsing error: out of bounds access at ",
           idx,

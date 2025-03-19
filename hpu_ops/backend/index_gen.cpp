@@ -199,7 +199,7 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
       return shape;
     }
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         "!!!Not expected to hit IndexOutShapeFromOrigStack as index op uses custom schema!!!");
     return IndexOutShapeFromOrigStack(stack);
   }

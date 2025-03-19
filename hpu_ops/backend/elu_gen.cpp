@@ -31,9 +31,9 @@ std::shared_ptr<void> FillEluBackwardParams(
   float scale = stack.at(2).toScalar().to<float>();
   float input_scale = stack.at(3).toScalar().to<float>();
   bool is_result = stack.at(4).toBool();
-  TORCH_CHECK(scale == 1.0, "scale = 1 is only supported");
-  TORCH_CHECK(input_scale == 1.0, "input_scale = 1 is only supported");
-  TORCH_CHECK(is_result == false, "is_result = false is only supported");
+  HABANA_ASSERT(scale == 1.0, "scale = 1 is only supported");
+  HABANA_ASSERT(input_scale == 1.0, "input_scale = 1 is only supported");
+  HABANA_ASSERT(is_result == false, "is_result = false is only supported");
   params->alpha = alpha;
   params->isInputFeaturemap = true;
   return params;

@@ -836,7 +836,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   const auto& excluded_out_indices =
       habana_op->GetSynOutputIndicesExcludedInNode();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_nodes.size() ==
           output_tensors_pt.size() - excluded_out_indices.size(),
       "HabanaFusionOp Lowering of node : ",
@@ -1128,7 +1128,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     bool persistence) {
   auto syn_tensorlist_input =
       pt_to_synapse_tensors_.find(value_to_ivalue_[value_in]);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       syn_tensorlist_input->second->size() == 1,
       "not implemented the handling of syn_tensorlist_input size ",
       syn_tensorlist_input->second->size());
@@ -1269,7 +1269,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
       value_out->debugName());
 
   if (is_in_graph_outputs) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         pt_to_synapse_tensors_.count(ivpsh),
         " Could not find the syn tensor corresponding to %",
         value_in->debugName());
@@ -1317,7 +1317,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
 
         buff_to_intermediate_ivpsh_map_.erase(buffp);
         buff_to_intermediate_ivpsh_map_.emplace(buffp, ivpsh_restrided);
-        TORCH_CHECK(
+        HABANA_ASSERT(
             duplicate_intermediate_to_outtinfo_map_.count(ivpsh),
             " entry for restride input %",
             value_in->debugName(),
@@ -1342,7 +1342,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
         buff_to_input_ivpsh_map_.erase(buffp);
         buff_to_input_ivpsh_map_.emplace(buffp, ivpsh_restrided);
 
-        TORCH_CHECK(
+        HABANA_ASSERT(
             duplicate_input_to_outtinfo_map_.count(ivpsh),
             " entry for restride input %",
             value_in->debugName(),
@@ -1367,7 +1367,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
         buff_to_output_ivpsh_map_.erase(buffp);
         buff_to_output_ivpsh_map_.emplace(buffp, ivpsh_restrided);
 
-        TORCH_CHECK(
+        HABANA_ASSERT(
             duplicate_output_to_outtinfo_map_.count(ivpsh),
             " entry for restride input %",
             value_in->debugName(),
@@ -1381,7 +1381,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
         duplicate_output_to_outtinfo_map_.erase(ivpsh);
         duplicate_output_to_outtinfo_map_.emplace(ivpsh_restrided, ti);
       } else {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             false,
             " unhandled scenario for restride input %",
             value_in->debugName(),
@@ -1832,10 +1832,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
     }
   }
   torch::jit::Operator jit_op = node->getOperator();
-  // auto offset =
   jit_op.getOperation()(stack);
-
-  // TORCH_CHECK(offset == 0);
 
   auto node_outs = node->outputs();
   auto outputs = last(stack, node_outs.size());
@@ -1855,7 +1852,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
     }*/
     i++;
   }
-  /* TORCH_CHECK(
+  /* HABANA_ASSERT(
       in_data == out_data, "HabanaFusion : Data pointer changed in Meta
      op");*/
 }
@@ -2699,7 +2696,7 @@ void HabanaLaunchOpPT::ProcessIntermediateSymbolicShapes(
       std::string outputshape_str;
       if (node->hasAttribute(outputshapes_attr)) {
         auto sym_node = *itr_node;
-        TORCH_CHECK(
+        HABANA_ASSERT(
             node->kind() == sym_node->kind(),
             "Nodes not matching!!!",
             "\nsym_node:",
@@ -2708,7 +2705,7 @@ void HabanaLaunchOpPT::ProcessIntermediateSymbolicShapes(
             node->output(0)->debugName());
         outputshape_str = sym_node->s(outputshapes_attr);
       } else {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             0,
             "Attr 'output_shapes' is missing for node:",
             node->output(0)->debugName());
@@ -2888,7 +2885,7 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
     HabanaOperatorPtr HabanaKernel =
         KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
-    TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
+    HABANA_ASSERT(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
     UpdateIshapeForNodeInputs(node, rv);
     UpdateIshapeForNodeOuputs(node, rv);
@@ -3125,7 +3122,7 @@ HabanaOperatorPtr HabanaLaunchOpPT::GetConfiguredHabanaKernel(
   HabanaOperatorPtr HabanaKernelPtr =
       KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
-  TORCH_CHECK(HabanaKernelPtr, op, " isn't registered in KernelRegistry!");
+  HABANA_ASSERT(HabanaKernelPtr, op, " isn't registered in KernelRegistry!");
 
   auto& HabanaKernel = *HabanaKernelPtr;
 
@@ -3389,7 +3386,7 @@ HabanaLaunchOpPT::ComputeShapeRT HabanaLaunchOpPT::ComputeShape(
                 "DISABLED_InferOutputMeta_JIT_IR_OP: ", node_qual_str);
             HabanaLaunchOpUtils::disabled_jit_ir_ops().insert(node_qual_str);
           }
-          TORCH_CHECK(
+          HABANA_ASSERT(
               false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
               "InferOutputMeta validation failed for op ",
               node_qual_str,
@@ -3402,7 +3399,7 @@ HabanaLaunchOpPT::ComputeShapeRT HabanaLaunchOpPT::ComputeShape(
               "Empty_InferOutputMeta_JIT_IR_OP: ", node_qual_str);
           empty_cs_jit_ir_ops_.insert(node_qual_str);
         }
-        TORCH_CHECK(
+        HABANA_ASSERT(
             false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
             "InferOutputMeta method not available for validation of op ",
             node_qual_str);
@@ -3530,9 +3527,9 @@ void HabanaLaunchOpPT::HandlePatchInfo(
 
       if (enable_caching_ || enable_shape_agnostic_caching_) {
         auto mit = input_tiv_map_.find(ivpsh);
-        TORCH_CHECK(input_tiv_map_.end() != mit, "tinfo missing for input");
+        HABANA_ASSERT(input_tiv_map_.end() != mit, "tinfo missing for input");
 
-        TORCH_CHECK(ivpsh->isTensor(), "non tensor parent found");
+        HABANA_ASSERT(ivpsh->isTensor(), "non tensor parent found");
       }
 
       duplicate_input_tivs_.emplace_back(ti);
@@ -3865,7 +3862,7 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
           uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
-            TORCH_CHECK(
+            HABANA_ASSERT(
                 h2d_elem < LONG_MAX,
                 "H2D data ",
                 h2d_elem,
@@ -4530,7 +4527,7 @@ void RecipeValueSpec::create_outdup(
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
   PtTensorInfo& ti = *(dtensorinfos.at(ti_idx));
   auto output_idx = ti.get_output_index();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_idx < aten_output_num,
       "output index ",
       output_idx,
@@ -4538,7 +4535,7 @@ void RecipeValueSpec::create_outdup(
       aten_output_num);
 
   size_t parent_idx = ti.get_parent_index();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       parent_ivpsh_map.count(parent_idx),
       "Actual input with idx ",
       parent_idx,

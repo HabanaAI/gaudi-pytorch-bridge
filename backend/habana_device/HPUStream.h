@@ -14,19 +14,12 @@
  */
 #pragma once
 
-#include <cstdint>
-#include <utility>
-
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/Stream.h>
-#include <c10/util/Exception.h>
-//#include "hpu_cached_devices.h"
 
 #include <synapse_api_types.h>
-#include "backend/synapse_helpers/device.h"
+#include "backend/synapse_helpers/device_types.h"
 #include "habana_helpers/logging.h"
-
-//#include "habana_lazy/hpu_lazy_tensors.h"
 
 /*
  * Stream pool note.
@@ -89,7 +82,7 @@ class HPUStream {
   /// Construct a HPUStream from a Stream.  This construction is checked,
   /// and will raise an error if the Stream is not, in fact, a HPU stream.
   explicit HPUStream(Stream stream) : stream_(stream) {
-    TORCH_CHECK(stream_.device_type() == DeviceType::HPU);
+    HABANA_ASSERT(stream_.device_type() == DeviceType::HPU);
   }
 
   /// Construct a HPUStream from a Stream with no error checking.

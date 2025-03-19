@@ -63,7 +63,7 @@ torch::jit::Stack habana::CreateInputStack(
       input_metadata.size());
   for (size_t tidx = 0; tidx < rvpsh->num_inputs; tidx++) {
     auto& ti = rvpsh->dtensorinfos.at(tidx);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         input_shapes.count(tidx),
         "Tensor index ",
         tidx,

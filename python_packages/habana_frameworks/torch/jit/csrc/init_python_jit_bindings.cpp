@@ -829,7 +829,7 @@ void defineRealTypeClasses(pybind11::module& m) {
               const int64_t int_value = item.cast<int64_t>();
               cpp_list.push_back(int_value);
             } else {
-              TORCH_CHECK(
+              HABANA_ASSERT(
                   0, "Shape or strides contain incorrect dimension info.");
             }
           }

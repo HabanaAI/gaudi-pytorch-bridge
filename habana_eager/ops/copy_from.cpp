@@ -16,6 +16,7 @@
 #include "habana_eager/ops/copy_from.h"
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_utils.h"
@@ -262,7 +263,7 @@ void Register_Copy_In_Pipeline(
     synStatus status =
         habana::HPUDeviceContext::get_device().get_host_memory().malloc(
             &host_ptr, total_bytes);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         status == synStatus::synSuccess,
         Logger::formatStatusMsg(status),
         "Host malloc failed !");

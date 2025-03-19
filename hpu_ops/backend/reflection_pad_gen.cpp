@@ -32,7 +32,7 @@ sizes_vec ReflectionPadOutputShape(
       stack.at(selfIndex).toTensor().sizes().vec();
   auto pad = stack.at(padIndex).toIntVector();
   uint expectedPadsNumber = PADS_PER_DIM * dimsVariant;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (pad.size() == expectedPadsNumber),
       "Pad size can only be %dd for ReflectionPad%dd",
       expectedPadsNumber,
@@ -134,7 +134,7 @@ void ReflectionPadBwd::AddNode(
         stack, SELF_INDEX_BWD, PAD_INDEX_BWD, dimsVariant);
 
     for (uint dim = 0; dim < max.size(); dim++) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           (max[dim] <= outputShapeExpectedMax[0][dim]),
           "Output shape at dim=%d in max pass is greater than expectedd max output shape.",
           dim);

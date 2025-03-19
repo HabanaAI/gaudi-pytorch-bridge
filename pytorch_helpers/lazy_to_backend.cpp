@@ -46,7 +46,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
   auto original_dtype = options.dtype();
   auto type = c10::typeMetaToScalarType(original_dtype);
   auto shape_tensor = habana_helpers::is_shape_tensor(tensor_type);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       options.pinned_memory() == false,
       "habana allocator doesn't supported pinned memory");
 
@@ -175,7 +175,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
       // Note: storage() api call also sets the front end storage()
       if (create_storage && at_tensor.numel()) {
         if (!is_strided) {
-          TORCH_CHECK(
+          HABANA_ASSERT(
               (at_tensor.storage().data_ptr() &&
                (at_tensor.data_ptr() != nullptr)),
               "t_updated tensor is expected to be have storage and valid data_ptr ",

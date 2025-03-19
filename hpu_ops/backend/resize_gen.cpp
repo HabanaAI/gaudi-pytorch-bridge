@@ -90,7 +90,7 @@ void ResizeOutputOpBackend::AddNode(
   const auto& self = stack.at(0).toTensor();
   const auto device = stack.at(2).toDevice();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.device().type() == device.type(),
       "Tensor doesn't have the correct device set");
 

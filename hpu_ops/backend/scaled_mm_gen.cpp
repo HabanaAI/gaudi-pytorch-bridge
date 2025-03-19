@@ -79,9 +79,9 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto mat1_dtype = mat1.pt_t.scalar_type();
   const auto mat2_dtype = mat2.pt_t.scalar_type();
 
-  TORCH_CHECK(mat1_shape.size() == 2, "mat1 must be a matrix");
-  TORCH_CHECK(mat2_shape.size() == 2, "mat2 must be a matrix");
-  TORCH_CHECK(
+  HABANA_ASSERT(mat1_shape.size() == 2, "mat1 must be a matrix");
+  HABANA_ASSERT(mat2_shape.size() == 2, "mat2 must be a matrix");
+  HABANA_ASSERT(
       mat1_shape[1] == mat2_shape[0],
       "mat1 and mat2 shapes cannot be multiplied (",
       mat1_shape[0],
@@ -92,18 +92,18 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
       "x",
       mat2_shape[1],
       ")");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !bias || bias->pt_t.numel() == mat2_shape[1],
       "Bias must be size ",
       mat2_shape[1],
       " but got ",
       bias->pt_t.numel());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat1_dtype == at::ScalarType::Float8_e5m2 ||
           mat1_dtype == at::ScalarType::Float8_e4m3fn,
       "Expected mat1 to be Float8_e5m2 or Float8_e4m3fn matrix got ",
       mat1_dtype);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat2_dtype == at::ScalarType::Float8_e5m2 ||
           mat2_dtype == at::ScalarType::Float8_e4m3fn,
       "Expected mat2 to be Float8_e5m2 or Float8_e4m3fn matrix got ",

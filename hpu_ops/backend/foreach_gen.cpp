@@ -118,7 +118,7 @@ OutputMetaDataVector CommonForeachBinaryMeta(
     // Second arg could be tensorlist, scalarlist, tensor or scalar
     if (stack.at(1).isList()) {
       const auto& list2 = stack.at(1).toList();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           list1.size() == list2.size(),
           "List1 size: ",
           list1.size(),

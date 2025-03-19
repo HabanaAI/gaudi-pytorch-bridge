@@ -69,7 +69,7 @@ void CastToFp8Hybrid::AddNode(
   auto is_amax = stackGetter.getNextInput<bool>();
   auto src_type = self.pt_t.scalar_type();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
       "CastToFp8Hybrid input must be of float or bfloat16 dtype.");
 

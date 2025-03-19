@@ -195,7 +195,7 @@ class PtTensorInfo {
     buffer_ = pt_tensor.data_ptr();
     buffer_start_ = pt_tensor.storage().data_ptr().get();
     auto new_offset = get_buffer_syn() - get_buffer_start_syn();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         shape_agnostic_flag || offset_ == new_offset,
         "offset_ ",
         offset_,

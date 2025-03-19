@@ -792,7 +792,7 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
       continue;
     }
 
-    TORCH_CHECK(input.isTensor());
+    HABANA_ASSERT(input.isTensor());
     if (!input.toTensor().has_storage()) {
       return parent_vec;
     }
@@ -804,7 +804,7 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
       continue;
     }
 
-    TORCH_CHECK(input.isTensor());
+    HABANA_ASSERT(input.isTensor());
     auto input_addr = (uint64_t)(input.toTensor().data_ptr());
 
     if (input_addr == 0) {
@@ -883,7 +883,7 @@ void EagerExec::prune_duplicate_graph_inputs(
   for (size_t i = 0; i < jit_ir_graph_inputs.size(); i++) {
     if (parent_vec.is_duplicate(i)) {
       size_t parent_idx = parent_vec[i];
-      TORCH_CHECK(
+      HABANA_ASSERT(
           parent_idx != ULONG_MAX && parent_idx < i,
           " invalid parent index ",
           parent_idx,

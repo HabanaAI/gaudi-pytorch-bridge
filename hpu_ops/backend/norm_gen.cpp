@@ -144,7 +144,7 @@ static void VecNormCheck(
       dtype);
 
   if (self.numel() == 0) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p >= 0,
         "linalg.vector_norm of negative order cannot be performed on an empty tensor");
     if (p == INF) {
@@ -159,7 +159,7 @@ static void VecNormCheck(
           }
         }
       }
-      TORCH_CHECK(
+      HABANA_ASSERT(
           has_identity,
           "linalg.vector_norm cannot compute the infinity norm on an empty ",
           "dimension because the operation does not have an identity");

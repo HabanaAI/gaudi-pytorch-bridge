@@ -49,18 +49,18 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer_sparse_sgd operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isBool(), "Input arg8 type expected to be Bool");
-  TORCH_CHECK(
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isBool(), "Input arg8 type expected to be Bool");
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "OptimizerSparseSgdOperator: #output_metadata should be 2");
 
@@ -92,16 +92,16 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 6,
       "Incorrect size of inputs for optimizer_adagrad_sgd operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "OptimizerSparseAdagradOperator: #output_metadata should be 2");
 
@@ -137,7 +137,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 10,
       "Incorrect size of inputs for adamw optimizer graph creation call");
 
@@ -344,17 +344,17 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer_adagrad operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
 
   auto gradients = inputs[0].toTensor();
   auto weights = inputs[1].toTensor();
@@ -392,20 +392,20 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer fused adagrad operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensorList(), "Input arg3 type expected to be tensorlist");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
 
   auto gradients = inputs[0].toTensorList();
   auto weights = inputs[1].toTensorList();
@@ -457,16 +457,16 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 7,
       "Incorrect size of inputs for optimizer SGD operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
-  TORCH_CHECK(inputs[4].isDouble(), "Input arg5 type expected to be float");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isBool(), "Input arg7 type expected to be bool");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isDouble(), "Input arg4 type expected to be float");
+  HABANA_ASSERT(inputs[4].isDouble(), "Input arg5 type expected to be float");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isBool(), "Input arg7 type expected to be bool");
 
   auto gradients = inputs[0].toTensor();
   auto weights = inputs[1].toTensor();
@@ -496,18 +496,18 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 7,
       "Incorrect size of inputs for optimizer fused SGD operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
-  TORCH_CHECK(inputs[4].isDouble(), "Input arg5 type expected to be float");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isBool(), "Input arg7 type expected to be bool");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isDouble(), "Input arg4 type expected to be float");
+  HABANA_ASSERT(inputs[4].isDouble(), "Input arg5 type expected to be float");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isBool(), "Input arg7 type expected to be bool");
 
   auto gradients = inputs[0].toTensorList();
   auto weights = inputs[1].toTensorList();
@@ -550,15 +550,15 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of inputs for fused ema optimizer graph creation call");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be Tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be Tensor");
 
   auto model_inputs = inputs[0].toTensorList();
   auto updated_ema = inputs[1].toTensorList();
@@ -640,18 +640,18 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 9,
       "Incorrect size of inputs for optimizer SGD operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
-  TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[8].isBool(), "Input arg9 type expected to be bool");
 
   auto gradients = inputs[0].toTensor();
   if (habana_lazy::GetHbInternalTensorImpl(gradients)) {
@@ -725,21 +725,21 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 9,
       "Incorrect size of inputs for optimizer fused SGD operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensorList(), "Input arg3 type expected to be tensorlist");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
-  TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[8].isBool(), "Input arg9 type expected to be bool");
 
   auto gradients = inputs[0].toTensorList();
   auto weights = inputs[1].toTensorList();

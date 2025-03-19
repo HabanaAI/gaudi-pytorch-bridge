@@ -23,12 +23,12 @@ std::vector<int64_t> pad_output_shape(
   auto ndim = self.dim();
   auto lpad = pad.size() / 2;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       pad.size() % 2 == 0,
       "Length of pad must be even but instead it equals ",
       pad.size());
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ndim >= (int64_t)lpad,
       "Length of pad should be no more than twice the number of "
       "dimensions of the input. Pad length is ",
@@ -43,7 +43,7 @@ std::vector<int64_t> pad_output_shape(
     auto pad_start = pad[2 * i];
     auto pad_end = pad[2 * i + 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         shape[ndim - i - 1] > 0,
         "The input size ",
         self.sizes()[i],

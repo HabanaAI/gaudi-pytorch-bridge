@@ -50,7 +50,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   std::vector<c10::optional<at::Tensor>> bool_indices_vec;
   std::vector<at::Tensor> indices_vec_out{};
   std::vector<at::Tensor> indices_vec;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "Index op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,
@@ -132,7 +132,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   }
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
-      TORCH_CHECK(0, "Indexing with CPU tensors is not supported for PT 2.0");
+      HABANA_ASSERT(0, "Indexing with CPU tensors is not supported for PT 2.0");
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }

@@ -452,8 +452,8 @@ std::shared_ptr<torch::jit::Graph> FuseCollectiveViewPass::CreateClonedGraph(
 
 std::unique_ptr<FuseCollectiveViewPassData> FuseCollectiveViewPass::VisitGraph(
     const std::shared_ptr<torch::jit::Graph> graph) {
-  TORCH_CHECK(nullptr != habana_launch_op_ptr_);
-  TORCH_CHECK(nullptr != graph.get());
+  HABANA_ASSERT(nullptr != habana_launch_op_ptr_);
+  HABANA_ASSERT(nullptr != graph.get());
   auto cloned_graph_ptr_sh = CreateClonedGraph(graph);
   if (cloned_graph_ptr_sh != nullptr) {
     RunFuseOpsPasses(cloned_graph_ptr_sh);

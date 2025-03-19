@@ -31,7 +31,7 @@ class TensorShape {
     return m_dim;
   }
   int64_t dim_size(size_t dim) const {
-    TORCH_CHECK(dim < m_dim, "dim idx is out of range");
+    HABANA_ASSERT(dim < m_dim, "dim idx is out of range");
     return m_sizes[dim];
   }
   int64_t num_elements() const {
@@ -45,7 +45,7 @@ class TensorShape {
     return (m_dim == 0);
   }
   void set_dim(size_t dim, int64_t size) {
-    TORCH_CHECK(dim < m_dim, "dim idx is out of range");
+    HABANA_ASSERT(dim < m_dim, "dim idx is out of range");
     m_sizes[dim] = size;
   }
   void set_size(const std::vector<int64_t>& sizes);
@@ -55,7 +55,7 @@ class TensorShape {
     scalar_type_ = scalar_type;
   }
   at::ScalarType get_scalar_type() {
-    TORCH_CHECK(is_scalar_initialized, "Scalar Type is not initialized");
+    HABANA_ASSERT(is_scalar_initialized, "Scalar Type is not initialized");
     return scalar_type_;
   }
   bool operator==(const TensorShape& shape) const {

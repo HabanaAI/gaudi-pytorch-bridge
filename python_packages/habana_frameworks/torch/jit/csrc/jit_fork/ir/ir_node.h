@@ -534,7 +534,7 @@ struct TORCH_API Node {
 
   template <typename T>
   T* expect() {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         T::Kind == kind(),
         "expected a ",
         T::Kind.toDisplayString(),

@@ -30,7 +30,7 @@ OutputMetaDataVector LogspaceMeta(const at::Stack& stack) {
   TORCH_INTERNAL_ASSERT(device.is_hpu());
 
   const bool pin_memory = stack.at(7).toOptional<bool>().value_or(false);
-  TORCH_CHECK(!pin_memory, "Only dense CPU tensors can be pinned");
+  HABANA_ASSERT(!pin_memory, "Only dense CPU tensors can be pinned");
 
   return {meta};
 }

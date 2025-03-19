@@ -43,7 +43,7 @@ OutputMetaDataVector AdaptiveAvgPool2dMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const auto output_size = stack[1].toIntList().vec();
   const auto input_size = self.dim();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input_size == 4 || input_size == 3,
       "AdaptiveAvgPool2d expects input rank to be 4 or 3, but got size ",
       input_size);

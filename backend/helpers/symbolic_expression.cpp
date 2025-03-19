@@ -60,7 +60,7 @@ habana::SymExpression::SymExpression(
   m_expr_t.register_symbol_table(m_symbol_table);
 
   if (!parser.compile(m_expr_str, m_expr_t)) {
-    TORCH_CHECK(0, "ExprtK expression Compilation error... ", m_expr_str);
+    HABANA_ASSERT(0, "ExprtK expression Compilation error... ", m_expr_str);
   }
 }
 

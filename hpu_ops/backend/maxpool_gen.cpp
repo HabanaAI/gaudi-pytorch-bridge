@@ -57,23 +57,23 @@ OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
   auto dilation =
       stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 4 || self.dim() == 3,
       "Maxpool2d expects Input size must be 4 or 3, but got ",
       self.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       kernel.size() == 2,
       "Maxpool2d expects Kernel size must 2, but got ",
       kernel.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stride.size() == 2,
       "Maxpool2d expects Stride size must 2, but got ",
       stride.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       padding.size() == 2,
       "Maxpool2d expects Padding size must 2, but got ",
       padding.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dilation.size() == 2,
       "Maxpool2d expects Dilation size must 2, but got ",
       dilation.size());
@@ -153,23 +153,23 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
       stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 5 || self.dim() == 4,
       "Maxpool3d expects Input size must be 5 or 4, but got ",
       self.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       padding.size() == 3,
       "Maxpool3d expects padding size is 3 but got ",
       padding.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       kernel.size() == 3,
       "Maxpool3d expects kernel size is 3 but got ",
       kernel.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stride.size() == 3,
       "Maxpool3d expects stride size is 3 but got ",
       stride.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dilation.size() == 3,
       "Maxpool3d expects dilation size is 3 but got ",
       dilation.size());

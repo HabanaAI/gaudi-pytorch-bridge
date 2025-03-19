@@ -32,13 +32,13 @@ OutputMetaDataVector AddRMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto vec1 = stack_tensor(stack, 1);
   auto vec2 = stack_tensor(stack, 2);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
       "addr: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
-  TORCH_CHECK(vec1.dim() == 1, "addr: Expected vec1 to be 1-D");
-  TORCH_CHECK(vec2.dim() == 1, "addr: Expected vec2 to be 1-D");
+  HABANA_ASSERT(vec1.dim() == 1, "addr: Expected vec1 to be 1-D");
+  HABANA_ASSERT(vec2.dim() == 1, "addr: Expected vec2 to be 1-D");
   std::vector<int64_t> outshape{
       vec1.sizes()[0], vec2.sizes()[0]}; // (n, 1)@(1, m) -> (n, m)
 

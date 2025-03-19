@@ -16,6 +16,7 @@
 
 #include <ATen/NamedTensorUtils.h>
 #include <ATen/core/TensorBody.h>
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
 namespace eager {
@@ -27,7 +28,7 @@ at::Tensor alias_with_sizes_and_strides(
   // caller should make sure that sizes and strides are valid for self
   //(storage is sufficient, strides are non-negative, strides and sizes array
   // size is the same)
-  TORCH_CHECK(!self.is_quantized());
+  HABANA_ASSERT(!self.is_quantized());
   at::Tensor self_ = at::detail::make_tensor<at::TensorImpl>(
       c10::TensorImpl::VIEW,
       at::Storage(self.storage()),

@@ -38,10 +38,10 @@ using namespace habana;
 using namespace std::literals;
 
 void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 1,
       "Incorrect size of inputs expected for NonZero operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg0 expected to be tensor for NonZero operator");
 
@@ -184,13 +184,13 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for NonZero operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg0 expected to be tensor for NonZero operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "output_metadata expected to be vector of size 2");
 

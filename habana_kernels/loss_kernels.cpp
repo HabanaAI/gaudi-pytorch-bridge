@@ -39,13 +39,13 @@ void KlDivOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of inputs expected for kl_div operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isInt(), "Input type expected to be integer");
-  TORCH_CHECK(inputs[3].isBool(), "Input type expected to be boolean");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isInt(), "Input type expected to be integer");
+  HABANA_ASSERT(inputs[3].isBool(), "Input type expected to be boolean");
 
   auto self = inputs[0].toTensor();
   auto target = inputs[1].toTensor();

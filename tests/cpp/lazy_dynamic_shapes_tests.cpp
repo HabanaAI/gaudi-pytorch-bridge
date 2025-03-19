@@ -1171,8 +1171,8 @@ TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
 void compute_iou(
     torch::Tensor& boxes,
     std::vector<std::vector<float>>& iou_vec_2d) {
-  TORCH_CHECK(boxes.dim() == 2, "Expecting a 2D tensor, got ", boxes.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(boxes.dim() == 2, "Expecting a 2D tensor, got ", boxes.dim());
+  HABANA_ASSERT(
       boxes.sizes()[1] == 4, "Expecting the FCD=4, got ", boxes.sizes()[1]);
 
   auto num_boxes = boxes.sizes()[0];
@@ -1192,7 +1192,7 @@ void compute_iou(
       float y0i = boxes[i][Y0].item<float>();
       float x1i = boxes[i][X1].item<float>();
       float y1i = boxes[i][Y1].item<float>();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           x0i < x1i && y0i < y1i,
           "invalid box coordinate received ",
           "  x0i=",
@@ -1220,7 +1220,7 @@ void compute_iou(
       float y0j = boxes[j][Y0].item<float>();
       float x1j = boxes[j][X1].item<float>();
       float y1j = boxes[j][Y1].item<float>();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           x0j < x1j && y0j < y1j,
           "invalid box coordinate received ",
           "  x0j=",
@@ -1297,7 +1297,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
 
     auto nms_boxid = torchvision_nms_hpu_wrap(hboxes, hscores, 1.0);
     auto nms_boxid_c = nms_boxid.to(torch::kCPU);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         nms_boxid_c.dim() == 1,
         "Expecting a 1D tensor, got ",
         boxes.dim(),
@@ -1344,7 +1344,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
 
       auto nms_boxid = torchvision_nms_hpu_wrap(hboxes, hscores, 1.0);
       auto nms_boxid_c = nms_boxid.to(torch::kCPU);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           nms_boxid_c.dim() == 1,
           "Expecting a 1D tensor, got ",
           boxes_cur.dim(),
@@ -1418,7 +1418,7 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
       auto nms_boxid =
           batched_nms_hpu_lazy(hboxes, hscores, hclasses, score_th);
       auto nms_boxid_c = nms_boxid.to(torch::kCPU);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           nms_boxid_c.dim() == 1,
           "Expecting a 1D tensor, got ",
           boxes_cur.dim(),

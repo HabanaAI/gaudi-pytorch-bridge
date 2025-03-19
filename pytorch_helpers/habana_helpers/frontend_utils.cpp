@@ -154,7 +154,7 @@ c10::Scalar habana_helpers::_local_scalar_dense_internal(
       "_local_scalar_dense",
       [&] {
         scalar_t val;
-        TORCH_CHECK(
+        HABANA_ASSERT(
             elementSize(self.scalar_type()) == sizeof(val),
             " source and destination size mismatch");
         habana_helpers::copy_scalar_to_host(

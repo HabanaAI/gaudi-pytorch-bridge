@@ -50,7 +50,7 @@ static std::shared_ptr<void> MultinomialParams(
       params->outcomes = t.sizes()[0];
       break;
     default:
-      TORCH_CHECK(false, "Unsupported type for random multinomial: ", type);
+      HABANA_ASSERT(false, "Unsupported type for random multinomial: ", type);
       break;
   }
 

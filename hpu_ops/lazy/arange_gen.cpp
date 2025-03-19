@@ -27,9 +27,9 @@ static int64_t get_arange_depth(
   const float end = _end.to<float>();
   const float step = _step.to<float>();
 
-  TORCH_CHECK(step != 0.0, "step value can not be 0.");
-  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
-  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
+  HABANA_ASSERT(step != 0.0, "step value can not be 0.");
+  HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
+  HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
   int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
   return num_elements;

@@ -228,10 +228,10 @@ void optimizer_adamw(
           exp_avg_scales,
           exp_avg_sq_scales));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weight_vec.size() > 0),
       "optimizer_adamw : can not process empty weight vector");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
       "optimizer_adamw : expects both or neighter scales to be set");
 
@@ -271,7 +271,7 @@ at::Tensor fused_clip_norm(
   PT_EAGER_TRACE;
   PT_OP_INFO("fused_clip_norm :", DUMP_3ARGS(grad, max_norm, norm_type));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (grad.size() > 0),
       "fused_clip_norm : can not process empty grad vector (eager)");
 
@@ -301,7 +301,7 @@ void optimizer_sgd(
   PT_OP_INFO(
       " optimizer_sgd:",
       DUMP_7ARGS(gradients, weights, lr, wd, mom, damp, nesterov));
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weights.size() > 0),
       "optimizer_sgd : can not process empty weight vector");
   habana::eager::EagerOp<void> hpu_op{
@@ -336,7 +336,7 @@ void optimizer_sgd_momentum(
           wd,
           damp,
           nesterov));
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weights.size() > 0),
       "optimizer_sgd_momentum : can not process empty weight vector");
   habana::eager::EagerOp<void> hpu_op{
@@ -410,7 +410,7 @@ void accumulate_grads_(
   PT_EAGER_TRACE;
   PT_OP_INFO("accumulate_grads_ :", DUMP_2ARGS(variables, new_grads));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       variables.size() == new_grads.size(),
       "Inputs to hpu::accumulate_grads_ must be of the same size, got: ",
       variables.size(),

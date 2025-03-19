@@ -24,6 +24,7 @@
 
 #include <c10/util/irange.h>
 #include <torch/csrc/jit/serialization/source_range_serialization.h>
+#include <regex>
 #include "habana_helpers/logging.h"
 
 namespace habana_torch::jit {

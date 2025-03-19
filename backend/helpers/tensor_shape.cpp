@@ -18,8 +18,6 @@
 #include <cassert>
 #include <cstring>
 
-#include <c10/util/Exception.h>
-
 #include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
 namespace habana_helpers {

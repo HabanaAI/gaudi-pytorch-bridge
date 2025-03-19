@@ -248,7 +248,7 @@ void HlExec::FindDuplicateInStack(
   size_t num_inputs = po_data.inputs.size();
 
   // Assumption : stack[i] is the corresponding input of po_data.inputs[i]
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == num_inputs,
       " stack_size ",
       stack.size(),
@@ -261,7 +261,7 @@ void HlExec::FindDuplicateInStack(
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
-    TORCH_CHECK(input.isTensor());
+    HABANA_ASSERT(input.isTensor());
     if (!input.toTensor().has_storage()) {
       return;
     }
@@ -269,7 +269,7 @@ void HlExec::FindDuplicateInStack(
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
-    TORCH_CHECK(input.isTensor());
+    HABANA_ASSERT(input.isTensor());
     auto input_addr = (uint64_t)(input.toTensor().data_ptr());
 
     // input_addr == 0 not considered for duplicate removal since this address
@@ -335,7 +335,7 @@ void HlExec::PruneDuplicateGraphInputs(
   for (size_t i = 0; i < jit_ir_graph_inputs.size(); i++) {
     if (is_duplicate_vec[i]) {
       size_t parent_idx = parent_vec[i];
-      TORCH_CHECK(
+      HABANA_ASSERT(
           parent_idx != ULONG_MAX && parent_idx < i,
           " invalid parent index ",
           parent_idx,

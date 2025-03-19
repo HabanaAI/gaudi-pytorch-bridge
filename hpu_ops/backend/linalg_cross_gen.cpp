@@ -21,7 +21,7 @@ static sizes_vec SplitOutputShape(
     bool,
     int64_t dim,
     std::vector<int64_t> outshape) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       outshape[dim] == 3,
       "LinAlgCross: dimension ",
       dim,
@@ -177,14 +177,14 @@ void LinAlgCross::AddNode(
   auto ndim = self.dim();
   int64_t dim_axis = -1;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.scalar_type() == other.scalar_type(),
       "LinAlgCross: Tensor must have same dtype, but got ",
       self.scalar_type(),
       "and ",
       other.scalar_type(),
       "dtype tensors");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.sizes().vec() == other.sizes().vec(),
       "LinAlgCross: Tensor must have same shape, but got ",
       self.sizes().vec(),
@@ -201,7 +201,8 @@ void LinAlgCross::AddNode(
         break;
       }
     }
-    TORCH_CHECK(dim_axis >= 0, "LinAlgCross: no dimension of size 3 in input");
+    HABANA_ASSERT(
+        dim_axis >= 0, "LinAlgCross: no dimension of size 3 in input");
   } else {
     dim_axis = stack.at(2).toInt();
     dim_axis =

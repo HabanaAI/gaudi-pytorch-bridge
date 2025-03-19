@@ -51,7 +51,7 @@ void ScaledMaskedTriangularSoftmax::AddNode(
           self.pt_t.scalar_type());
   const auto& input_dtype = ScalarType();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input_dtype == out_dtype or
           (input_dtype == c10::ScalarType::BFloat16 and
            (out_dtype == c10::ScalarType::Float8_e5m2 or
@@ -63,12 +63,12 @@ void ScaledMaskedTriangularSoftmax::AddNode(
 
   auto shape = self.pt_t.sizes().vec();
   auto rank = shape.size();
-  TORCH_CHECK(rank == 3, "Input must be a 3D tensor.");
-  TORCH_CHECK(
+  HABANA_ASSERT(rank == 3, "Input must be a 3D tensor.");
+  HABANA_ASSERT(
       shape[1] == shape[2] || shape[1] == 1, "Dim1 must equal (dim2 or 1)");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       grouped_batch_size > 0, "grouped_batch_size must be larger than 0.");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       shape[0] % grouped_batch_size == 0,
       "dim0 must be a multiple of grouped_batch_size.");
 

@@ -328,7 +328,7 @@ at::Tensor& _index_put_impl_eager(
   } else {
     indices = indices_in;
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "index_put op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,

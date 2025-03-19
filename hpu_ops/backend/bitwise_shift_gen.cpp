@@ -39,7 +39,7 @@ void ValidateBitwiseShiftInputShapes(const at::Stack& stack) {
 
     for (size_t i = 0; i < min_rank; i++) {
       if ((shift_t_shape[i] != 1) && (input_t_shape[i] != 1)) {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             shift_t_shape[i] == input_t_shape[i],
             "Input shape incompatible inputs at dim=",
             i,

@@ -459,7 +459,7 @@ std::shared_ptr<habana::OptimizedJITGraphAndMetaData> JitGraphCache::
 void JitGraphCache::Add(
     size_t key,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
-  TORCH_CHECK(!IsCached(key), "This key is already cached!");
+  HABANA_ASSERT(!IsCached(key), "This key is already cached!");
 
   std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.emplace(key, val);
@@ -511,7 +511,7 @@ std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedJitGraphCache::
 void OptimizedJitGraphCache::Add(
     size_t key,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
-  TORCH_CHECK(!IsCached(key), "This key is already cached!");
+  HABANA_ASSERT(!IsCached(key), "This key is already cached!");
 
   std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.emplace(key, val);

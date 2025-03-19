@@ -365,7 +365,7 @@ void mapOutputTensors(
         output_shape_info.GetKernelOutputs().at(0)->GetOutputTensor();
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       nr_of_node_outputs ==
           (output_tensors.size() +
            output_shape_info.GetNumUndefinedOutputTensors() -
@@ -444,7 +444,8 @@ void HabanaLaunchOpPT::RunHybridSif(
 
   PT_BRIDGE_BEGIN;
 
-  TORCH_CHECK(inputs.size() == graph->inputs().size(), "Inputs size mismatch");
+  HABANA_ASSERT(
+      inputs.size() == graph->inputs().size(), "Inputs size mismatch");
 
   PT_DYNAMIC_SHAPE_DEBUG(
       "SIF JIT_IR_Graph_BEGIN\n", graph->toString(), "JIT_IR_Graph_END\n");
@@ -481,7 +482,7 @@ void HabanaLaunchOpPT::RunHybridSif(
     HabanaOperatorPtr habana_op =
         KernelRegistry().get(device.id(), op, node_type);
 
-    TORCH_CHECK(habana_op, op, " isn't registered in KernelRegistry!");
+    HABANA_ASSERT(habana_op, op, " isn't registered in KernelRegistry!");
 
     // Set the deterministic val
     habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
@@ -562,7 +563,8 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
   CValPtrtoIValueMap val_to_ival_map;
   auto graph_inputs = jit_ir_graph_->inputs();
-  TORCH_CHECK(input_refs_.size() == graph_inputs.size(), "Input size mismatch");
+  HABANA_ASSERT(
+      input_refs_.size() == graph_inputs.size(), "Input size mismatch");
   for (size_t i = 0; i < graph_inputs.size(); i++) {
     auto input = graph_inputs[i];
     val_to_ival_map[input] = input_refs_[i];
@@ -623,7 +625,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
     HabanaOperatorPtr habana_op =
         KernelRegistry().get(device_id, op, node_type);
 
-    TORCH_CHECK(habana_op, op, " isn't registered in KernelRegistry!");
+    HABANA_ASSERT(habana_op, op, " isn't registered in KernelRegistry!");
 
     // Set the deterministic val
     habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));

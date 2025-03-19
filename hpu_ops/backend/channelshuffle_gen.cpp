@@ -19,20 +19,20 @@ namespace habana {
 
 OutputMetaDataVector ChannelShuffleMeta(const at::Stack& stack) {
   auto input = stack.at(0).toTensor();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() > 2,
       "Channel shuffle expects input with dim > 2, but got ",
       input.dim());
 
   const int groups = stack.at(1).toInt();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       groups > 0,
       "Channel shuffle expects number of groups to be positive, but got ",
       groups);
 
   const auto shape = input.sizes().vec();
   const auto inputChannels = shape[1];
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (inputChannels % groups == 0),
       "Channel shuffle expects number of channels to be divisible by groups");
 

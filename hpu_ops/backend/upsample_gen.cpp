@@ -33,7 +33,7 @@
 using namespace synapse_helpers::layouts;
 
 #define CHECK_NULL_INPUT(out_size, scale)                     \
-  TORCH_CHECK(                                                \
+  HABANA_ASSERT(                                              \
       !(out_size == c10::nullopt && scale == c10::nullopt) || \
           (out_size != c10::nullopt &&                        \
            (scale != c10::nullopt && !scale.isScalar())),     \
@@ -43,7 +43,7 @@ inline void check_null_inputs_2d(
     c10::IValue out_size,
     c10::optional<double> scale_h,
     c10::optional<double> scale_w) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (scale_h.has_value() && scale_w.has_value()) || !out_size.isNone(),
       "Upsample: Must specify output size if scales aren't given, but got output_size: ",
       out_size,
@@ -58,7 +58,7 @@ inline void check_null_inputs_3d(
     c10::optional<double> scale_d,
     c10::optional<double> scale_h,
     c10::optional<double> scale_w) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (scale_d.has_value() && scale_h.has_value() && scale_w.has_value()) ||
           !out_size.isNone(),
       "Upsample: Must specify output size if scales aren't given, but got output_size: ",
@@ -72,7 +72,7 @@ inline void check_null_inputs_3d(
 }
 
 #define CHECK_INPUT_OUTPUT_WIDTH(input_width, output_width)                               \
-  TORCH_CHECK(                                                                            \
+  HABANA_ASSERT(                                                                          \
       input_width > 0 && output_width > 0,                                                \
       "Upsample1D:  Input and output sizes should be greater than 0, but got input (W: ", \
       input_width,                                                                        \
@@ -82,7 +82,7 @@ inline void check_null_inputs_3d(
 
 #define CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(                                                  \
     input_height, output_height, input_width, output_width)                               \
-  TORCH_CHECK(                                                                            \
+  HABANA_ASSERT(                                                                          \
       (input_width > 0 && output_width > 0) &&                                            \
           (input_height > 0 && output_height > 0),                                        \
       "Upsample2D:  Input and output sizes should be greater than 0, but got input (W: ", \
@@ -100,7 +100,7 @@ inline void check_null_inputs_3d(
     output_height,                                                                       \
     input_width,                                                                         \
     output_width)                                                                        \
-  TORCH_CHECK(                                                                           \
+  HABANA_ASSERT(                                                                         \
       (input_depth > 0 && output_depth > 0) &&                                           \
           (input_width > 0 && output_width > 0) &&                                       \
           (input_height > 0 && output_height > 0),                                       \
@@ -126,20 +126,20 @@ void upsample_1d_common_check(
     const torch::Tensor& input,
     c10::IValue out_size,
     c10::IValue scales) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 3,
       "Upsample1D expects input_size equals to 3, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 1,
         "Upsample1D expects out_size equals to 1, but got ",
         out_size.toIntVector().size());
   }
 
   if (!scales.isNone() && !scales.isScalar()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         scales.toDoubleVector().size() == 1,
         "Upsample1D expects scales equals to 1, but got ",
         scales.toDoubleVector().size());
@@ -150,20 +150,20 @@ void upsample_2d_common_check(
     const torch::Tensor& input,
     c10::IValue out_size,
     c10::IValue scales) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 4,
       "Upsample2D expects input_size equals to 4, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 2,
         "Upsample2D expects out_size equals to 2, but got ",
         out_size.toIntVector().size());
   }
 
   if (!scales.isNone() && !scales.isScalar()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         scales.toDoubleVector().size() == 2,
         "Upsample2D expects scales equals to 2, but got ",
         scales.toDoubleVector().size());
@@ -171,13 +171,13 @@ void upsample_2d_common_check(
 }
 
 void upsample_exact_2d_check(const torch::Tensor& input, c10::IValue out_size) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 4,
       "Upsample2D expects input_size equals to 4, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 2,
         "Upsample2D expects out_size equals to 2, but got ",
         out_size.toIntVector().size());
@@ -188,20 +188,20 @@ void upsample_3d_common_check(
     const torch::Tensor& input,
     c10::IValue out_size,
     c10::IValue scales) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 5,
       "Upsample3D expects input_size equals to 5, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 3,
         "Upsample3D expects out_size equals to 3, but got ",
         out_size.toIntVector().size());
   }
 
   if (!scales.isNone() && !scales.isScalar()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         scales.toDoubleVector().size() == 3,
         "Upsample3D expects scales equals to 3, but got ",
         scales.toDoubleVector().size());
@@ -209,13 +209,13 @@ void upsample_3d_common_check(
 }
 
 void upsample_exact_3d_check(const torch::Tensor& input, c10::IValue out_size) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 5,
       "Upsample3D expects input_size equals to 5, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 3,
         "Upsample3D expects out_size equals to 3, but got ",
         out_size.toIntVector().size());

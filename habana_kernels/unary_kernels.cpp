@@ -42,9 +42,9 @@ void UnaryOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 1, "Incorrect size of inputs expected for operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
 
   at::Tensor input = inputs[0].toTensor();
   auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
@@ -69,10 +69,10 @@ void ReciprocalOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 1,
       "Incorrect size of inputs expected for Reciprocal operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for Reciprocal operator");
 
@@ -88,13 +88,13 @@ void ReciprocalOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for ReciprocalOut operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for ReciprocalOut operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for ReciprocalOut operator");
 

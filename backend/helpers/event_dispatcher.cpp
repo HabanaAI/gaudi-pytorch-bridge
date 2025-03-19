@@ -13,10 +13,7 @@
  * limitations under the License.
  */
 #include "event_dispatcher.h"
-#include <c10/util/Exception.h>
-#include <chrono>
 #include <memory>
-#include <ostream>
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {

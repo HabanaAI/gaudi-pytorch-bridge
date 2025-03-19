@@ -89,7 +89,7 @@ static std::shared_ptr<void> FillGridSamplerParamsCommon(
       params->interp = GridSampleInterpolation_t::SAMPLE_CUBIC;
       break;
     default:
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Unsupported interpolation mode in grid_sampler op: ",
           interpolation_mode);
@@ -106,7 +106,7 @@ static std::shared_ptr<void> FillGridSamplerParamsCommon(
       params->pad = GridSamplePad_t::PAD_REFLECTION;
       break;
     default:
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false, "Unsupported padding mode in grid_sampler op: ", padding_mode);
   }
   auto align_corners = stack.at(ALIGN_COR_POS).toBool();

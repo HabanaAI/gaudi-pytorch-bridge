@@ -26,7 +26,7 @@ OutputMetaDataVector IndexCopyMeta(const at::Stack& stack) {
   dim = at::maybe_wrap_dim(dim, input_tensor.dim(), /*wrap_scalar=*/true);
   inputTensorShape.erase(inputTensorShape.begin() + dim);
   copyTensorShape.erase(copyTensorShape.begin() + dim);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputTensorShape == copyTensorShape,
       " Source/destination tensor must have same slice shapes except at dimension ",
       dim,

@@ -78,7 +78,7 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   We use the CPU implementation that follows the "non-fused" (ie., assumes
   can_use_fused=0) path.
   */
-  TORCH_CHECK(
+  HABANA_ASSERT(
       v_in.device().type() == g_in.device().type(),
       "weight_norm: expected v_in and g_in to be on the same device, but v_in is "
       "on ",
@@ -128,15 +128,15 @@ OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {
   const torch::Tensor& saved_v = stack_tensor(stack, 1);
   const torch::Tensor& saved_g = stack_tensor(stack, 2);
   const torch::Tensor& saved_norms = stack_tensor(stack, 3);
-  TORCH_CHECK(grad_w.is_contiguous(), "grad_w must be contiguous");
-  TORCH_CHECK(saved_v.is_contiguous(), "saved_v must be contiguous");
-  TORCH_CHECK(saved_g.is_contiguous(), "saved_g must be contiguous");
-  TORCH_CHECK(saved_norms.is_contiguous(), "saved_norms must be contiguous");
+  HABANA_ASSERT(grad_w.is_contiguous(), "grad_w must be contiguous");
+  HABANA_ASSERT(saved_v.is_contiguous(), "saved_v must be contiguous");
+  HABANA_ASSERT(saved_g.is_contiguous(), "saved_g must be contiguous");
+  HABANA_ASSERT(saved_norms.is_contiguous(), "saved_norms must be contiguous");
 
   auto dim = stack.at(4).toInt();
   int64_t last_dim = saved_v.dim() - 1;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dim == 0 || dim == last_dim,
       "Expected dim to be the first or last dimension");
   int64_t last_size = saved_v.size(last_dim);

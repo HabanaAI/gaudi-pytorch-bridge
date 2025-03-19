@@ -480,7 +480,7 @@ void HandleOutputInsert(
         break;
 
       default:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             node == nullptr,
             "Expecting exactly one non auxiliary node, but already found ",
             node->kind().toQualString(),
@@ -565,7 +565,7 @@ void HandleInputOutputViews(
         break;
 
       default:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             node == nullptr,
             "Expecting exactly one non auxiliary node, but already found ",
             node->kind().toQualString(),

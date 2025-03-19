@@ -464,7 +464,7 @@ class HbLazyTensor {
   void addView(ir::LazyView view) {
     // WE will support multiple views in future , but for now a single one is
     // supported
-    TORCH_CHECK(
+    HABANA_ASSERT(
         data()->num_views == 0,
         "Trying to create a duplicate view on Lazy tensor");
     data()->parent_view = std::move(view);

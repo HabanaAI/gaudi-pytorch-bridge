@@ -125,7 +125,7 @@ class TOperator : public TransposeOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs.size() == 1, "aten::t Operation expects 1 arguments as input")
     inputs.insert(inputs.begin() + 1, c10::IValue(0));
     inputs.insert(inputs.begin() + 2, c10::IValue(-1));

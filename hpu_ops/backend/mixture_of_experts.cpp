@@ -178,8 +178,8 @@ std::vector<std::vector<int64_t>> MixtureOfExpertsFwdShapes(
 sym_sizes_vec mixture_of_experts_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 2);
-  TORCH_CHECK(params.size() == 3);
+  HABANA_ASSERT(inputs.size() == 2);
+  HABANA_ASSERT(params.size() == 3);
 
   const auto& hidden_state_sizes = inputs[0].sym_sizes();
   const auto& expert_routing_table_sizes = inputs[1].sym_sizes();
@@ -233,7 +233,7 @@ std::shared_ptr<void> FillMixtureOfExpertsParams(
   const auto activation_mode =
       stack.at(permuted_weights_idx + 1).to<c10::string_view>();
   auto activationIterator = activationModeMap.find(activation_mode);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       activationIterator != activationModeMap.end(),
       "Activation \"",
       activation_mode,

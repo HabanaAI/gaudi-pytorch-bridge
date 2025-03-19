@@ -21,7 +21,7 @@ namespace habana {
 OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto output_size_opt = stack.at(1).toOptional<int64_t>();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_size_opt.has_value(),
       "It is expected that output_size is provided after frontend execution.");
 
@@ -47,7 +47,7 @@ void RepeatInterleave::AddNode(
 
   const auto dtype = torch::kInt;
 
-  TORCH_CHECK(self.dim() == 1, "Self tensor is expected to be 1D.");
+  HABANA_ASSERT(self.dim() == 1, "Self tensor is expected to be 1D.");
 
   const auto self_numel = self.numel();
 

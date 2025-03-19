@@ -12,14 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <c10/util/Exception.h>
-#include <mutex>
-#include <unordered_map>
 #include <unordered_set>
 
 #include "backend/jit_graph_cache.h"
-#include "habana_eager/eager_exec.h"
-#include "habana_helpers/logging_pt.h"
 
 #pragma once
 namespace habana {

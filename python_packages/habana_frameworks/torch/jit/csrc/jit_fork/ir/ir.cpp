@@ -1844,7 +1844,7 @@ Node* Graph::createList(
     at::ArrayRef<Value*> values) {
   auto n = create(prim::ListConstruct, values);
   for (const auto& v : values) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         v->type()->isSubtypeOf(*contained_type),
         "Expected a list element that subtypes '",
         contained_type->repr_str(),
@@ -1980,7 +1980,7 @@ Value* Graph::insertToList(Value* v, TypePtr type) {
   } else if (ptr == ComplexType::get()) {
     elem_ty = 3;
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         ptr->repr_str(),
         " is not one of the supported element types for tolist: int, float, complex, bool");

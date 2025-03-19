@@ -57,7 +57,7 @@ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   bool largest = stack.at(3).isNone() ? false : stack.at(3).toBool();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
 

@@ -71,7 +71,7 @@ void HPUEvent::record(const c10::hpu::HPUStream& stream) {
     created_with_stream_ = stream.stream();
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       device_index_ == stream.device_index(),
       "Event device ",
       device_index_,
@@ -118,7 +118,7 @@ void HPUEvent::block(const c10::hpu::HPUStream& stream) {
 
 // Note: hpuEventElapsedTime can be safely called from any device
 float HPUEvent::elapsed_time(const HPUEvent& other) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       is_created_ && other.isCreated(),
       "Both events must be recorded before calculating elapsed time.");
   auto& device = habana::HPUDeviceContext::get_device();

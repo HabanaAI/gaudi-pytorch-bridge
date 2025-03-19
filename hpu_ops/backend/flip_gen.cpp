@@ -43,12 +43,12 @@ SharedMetaDataVector FlipSharedMeta(
 }
 
 void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 2, "Incorrect size of input arguments for Flip Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.at(0).isTensor(),
       "Input arg 1 for Flip op needs to be tensor type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.at(1).isIntList(), "Input arg 2 for Flip op needs to be Int List");
 
   auto self = stack.at(0).toTensor();

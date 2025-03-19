@@ -16,6 +16,8 @@
 #include "backend/habana_device/HPUDevice.h"
 #include <c10/util/thread_name.h>
 #include <memory>
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"

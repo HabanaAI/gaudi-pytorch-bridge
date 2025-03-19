@@ -570,7 +570,7 @@ inline TensorExtraMeta* get_tensor_extra_meta(
     const at::Tensor& tensor,
     bool relax = false) {
   auto impl{tensor.unsafeGetTensorImpl()};
-  TORCH_CHECK(impl, "No impl");
+  HABANA_ASSERT(impl, "No impl");
   return get_tensor_extra_meta(*impl, relax);
 }
 

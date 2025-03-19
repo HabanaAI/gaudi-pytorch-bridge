@@ -163,7 +163,7 @@ static std::shared_ptr<void> BceParams(
       params->mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_SUM;
       break;
     default:
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false, "Unsupported reduction mode in Binarycrossentropy: ", mode);
   }
   return params;

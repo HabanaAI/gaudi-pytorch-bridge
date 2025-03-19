@@ -48,7 +48,7 @@ std::shared_ptr<void> ScatterReduceParams(
   if (it != reduceModes.end())
     mode = it->second;
   else
-    TORCH_CHECK(false, "Unsupported reduce: ", reduce);
+    HABANA_ASSERT(false, "Unsupported reduce: ", reduce);
 
   params->dim = dim;
   params->include_self = includeSelf;

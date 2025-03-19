@@ -165,7 +165,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) {
   void* v_ptr{nullptr};
   synStatus status{synStatus::synSuccess};
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       habana::HPUDeviceAllocator::allocator_active_device_id == 0,
       "habana active device: ",
       habana::HPUDeviceAllocator::allocator_active_device_id,
@@ -215,7 +215,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) {
           status, "allocate failed to allocate ", num_bytes, " bytes");
     }
 
-    TORCH_CHECK(nullptr != v_ptr, "memory corruption");
+    HABANA_ASSERT(nullptr != v_ptr, "memory corruption");
 
     PT_DEVICE_DEBUG("successful memory alloc, requested size ", num_bytes);
   }

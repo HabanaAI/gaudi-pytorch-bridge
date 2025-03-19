@@ -25,22 +25,22 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto mat1 = stack_tensor(stack, 1);
   auto mat2 = stack_tensor(stack, 2);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
       "addmm: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat1.dim() == 2,
       "addmm: Expected mat1 to be 2-D, but got ",
       mat1.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat2.dim() == 2,
       "addmm: Expected mat2 to be 2-D, but got ",
       mat2.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat1.sizes()[1] == mat2.sizes()[0],
       "Matrices sizes are not compatible to multiply them");
   // (n, m)@(m, p) -> (n, p)
@@ -84,17 +84,17 @@ OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto batch1 = stack_tensor(stack, 1);
   auto batch2 = stack_tensor(stack, 2);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
       "addbmm: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       batch1.dim() == 3,
       "addbmm: Expected batch1 to be 3-D, but got ",
       batch1.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       batch2.dim() == 3,
       "addbmm: Expected batch2 to be 3-D, but got ",
       batch2.dim(),

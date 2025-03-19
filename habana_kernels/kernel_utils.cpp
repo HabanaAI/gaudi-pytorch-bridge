@@ -303,7 +303,7 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
     } else {
       // sizes do not match and none of the input sizes is 1 => sizes
       // inconsistent for broadcast
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           "Incompatible input shapes, broadcast not possible. Tensor1 Size: ",
           sz1,
@@ -387,13 +387,13 @@ void CastOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for cast operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for cast operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for cast operator");
 
@@ -433,13 +433,13 @@ void ConstantOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 2,
       "Incorrect size of inputs expected for constant operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for constant operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isScalar(),
       "Input arg2 expected to be scalar for constant operator");
 

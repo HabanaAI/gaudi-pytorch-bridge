@@ -41,7 +41,7 @@ class CustomOp : public ir::Node {
       } else if (input.isScalar()) {
         AddInput(GetIrValueForScalar(input.toScalar()));
       } else {
-        TORCH_CHECK(false, "Custom op supports only tensor & scalars inputs");
+        HABANA_ASSERT(false, "Custom op supports only tensor & scalars inputs");
       }
     }
     AddInputPtTensors(input_pt_vec);

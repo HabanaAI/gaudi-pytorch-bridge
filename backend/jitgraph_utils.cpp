@@ -71,7 +71,7 @@ torch::jit::Node* GetUnpackNodeFromTensorList(const torch::jit::Value* val) {
 
 bool isInGraphOutputs(const torch::jit::Node* node, size_t index) {
   auto node_outs = node->outputs();
-  TORCH_CHECK(index <= node_outs.size());
+  HABANA_ASSERT(index <= node_outs.size());
 
   return isInGraphOutputs(node_outs[index]);
 }
@@ -106,7 +106,7 @@ bool isInGraphOutputs(const torch::jit::Value* value) {
   // return if graph output is restrided node output
   if (IsOutputToRestride(value)) {
     auto value_restrided = GetRestridedOutvalue(value);
-    TORCH_CHECK(nullptr != value_restrided, "Restrided value output is null");
+    HABANA_ASSERT(nullptr != value_restrided, "Restrided value output is null");
     auto graph_outs = value->owningGraph()->outputs();
     for (auto value_out : graph_outs) {
       if (value_restrided->unique() == value_out->unique()) {

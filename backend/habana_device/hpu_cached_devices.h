@@ -14,18 +14,14 @@
  */
 #pragma once
 
-#include <c10/util/Exception.h>
 #include <synapse_api_types.h>
 
-#include <array>
+#include <atomic>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/PinnedMemoryAllocator.h"
-#include "backend/helpers/dynamic_shape_info.h"
-#include "backend/synapse_helpers/device.h"
-#include "backend/synapse_helpers/session.h"
+#include "habana_helpers/logging.h"
 
 namespace habana {
 
@@ -109,31 +105,31 @@ class HPURegistrar {
   }
 
   void register_acc_thread(CallFinally::FinalFunc&& acc_thread_cleanup) {
-    TORCH_CHECK(!accumulation_thread_cleanup_);
+    HABANA_ASSERT(!accumulation_thread_cleanup_);
     accumulation_thread_cleanup_.reset(std::move(acc_thread_cleanup));
   }
 
   void register_lazy_exec_thread_pool(
       CallFinally::FinalFunc&& lazy_exec_thread_pool_cleanup) {
-    TORCH_CHECK(!lazy_exec_thread_pool_cleanup_);
+    HABANA_ASSERT(!lazy_exec_thread_pool_cleanup_);
     lazy_exec_thread_pool_cleanup_.reset(
         std::move(lazy_exec_thread_pool_cleanup));
   }
 
   void register_lazy_execution_arena(
       CallFinally::FinalFunc&& lazy_execution_arena_cleanup) {
-    TORCH_CHECK(!lazy_execution_arena_cleanup_);
+    HABANA_ASSERT(!lazy_execution_arena_cleanup_);
     lazy_execution_arena_cleanup_.reset(
         std::move(lazy_execution_arena_cleanup));
   }
 
   void register_thread_deleter(CallFinally::FinalFunc&& thread_deleter) {
-    TORCH_CHECK(!thread_deleter_);
+    HABANA_ASSERT(!thread_deleter_);
     thread_deleter_.reset(std::move(thread_deleter));
   }
 
   void register_device_deleter(CallFinally::FinalFunc&& device_deleter) {
-    TORCH_CHECK(!device_deleter_);
+    HABANA_ASSERT(!device_deleter_);
     device_deleter_.reset(std::move(device_deleter));
   }
 

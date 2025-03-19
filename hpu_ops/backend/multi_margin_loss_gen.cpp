@@ -36,7 +36,7 @@ static std::shared_ptr<void> MultiMarginLossParamsCommon(
       params->mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
       break;
     default:
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Unsupported reduction mode in multi_margin_loss: ",
           reduction);

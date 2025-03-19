@@ -32,7 +32,7 @@ struct KvReorder : KvReorderCommon {
 void KvReorderCommon::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 4, "KvReorder must have 4 input arguments");
+  HABANA_ASSERT(stack.size() == 4, "KvReorder must have 4 input arguments");
 
   StackGetter stackGetter(this, stack, "KvReorder::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
@@ -40,18 +40,18 @@ void KvReorderCommon::AddNode(
   auto end = stackGetter.getNextInput<TensorsPair>();
   auto beam_idx = stackGetter.getNextInput<TensorsPair>();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       start.pt_t.dtype() == c10::ScalarType::Int,
       "Start tensor must be of type Int32");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       end.pt_t.dtype() == c10::ScalarType::Int,
       "End tensor must be of type Int32");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       beam_idx.pt_t.dtype() == c10::ScalarType::Byte,
       "Beam_idx tensor must be of type UInt8");
-  TORCH_CHECK(start.pt_t.dim() == 1, "Start tensor must have dimensions 1");
-  TORCH_CHECK(end.pt_t.dim() == 1, "End tensor must have dimensions 1");
-  TORCH_CHECK(
+  HABANA_ASSERT(start.pt_t.dim() == 1, "Start tensor must have dimensions 1");
+  HABANA_ASSERT(end.pt_t.dim() == 1, "End tensor must have dimensions 1");
+  HABANA_ASSERT(
       beam_idx.pt_t.dim() == 1, "Beam_idx tensor must have dimensions 1");
 
   auto shape = self.pt_t.sizes().vec();

@@ -16,12 +16,12 @@
 #include "generated/backend/mm.h"
 namespace habana {
 OutputMetaDataVector MmMeta(const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (stack.at(0).isTensor() && stack.at(1).isTensor()),
       " Matmul Input type expected to be tensors");
   auto mat1 = stack.at(0).toTensor();
   auto mat2 = stack.at(1).toTensor();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat1.scalar_type() == mat2.scalar_type(),
       "expected m1 and m2 to have the same dtype, but got: ",
       mat1.scalar_type(),

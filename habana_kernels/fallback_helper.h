@@ -12,12 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <c10/util/Exception.h>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
-
-#include "habana_helpers/logging_pt.h"
+#include "habana_helpers/logging.h"
 
 #pragma once
 namespace habana {
@@ -51,7 +49,7 @@ class HpuFallbackHelper {
   }
 
   void check_fallback_allowed(const std::string& op) const {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         enable_fallback || m_ops_placed_on_cpu.count(op),
         op,
         " is not yet supported on HPU.")

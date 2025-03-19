@@ -50,7 +50,7 @@ inline void _allocate_or_resize_output_with_indices(
     result_sizes[dim] = k;
   }
   if (values.defined()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         self.options().type_equal(values.options()),
         "output values must be of same type as input");
     auto tht_values = values.unsafeGetTensorImpl();
@@ -64,10 +64,10 @@ inline void _allocate_or_resize_output_with_indices(
     values = at::empty(result_sizes, self.options());
   }
   if (indices.defined()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         indices.dtype() == c10::ScalarType::Int,
         "output indices must be of scalar type Int");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         indices.device() == self.device(),
         "output indices must be on same device as input");
     auto tht_indices = indices.unsafeGetTensorImpl();
@@ -122,32 +122,32 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 7,
       "Incorrect size of inputs expected for topk operator");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg0 expected to be tensor for topkout operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor() || inputs[1].isInt(),
       "Input arg1 expected to be of type Int or Tensor for topkout operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isInt(),
       "Input arg2 expected to be of type Int for topkout operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isBool(),
       "Input arg3 expected to be of type Bool for topkout operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[4].isBool(),
       "Input arg4 expected to be of type Bool for topkout operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[5].isTensor(),
       "Input arg5 expected to be tensor for topkout operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[6].isTensor(),
       "Input arg6 expected to be tensor for topkout operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "TopkOutOperator: #output_metadata should be 2");
 
@@ -160,10 +160,10 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   int64_t k;
   // Get k value
   if (inputs[1].isTensor()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (p_context_->syn_inputs_.size() == 2) ||
         (p_context_->syn_inputs_.size() == 4));
-    TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
+    HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_shape_tensor());
     Tensor k_tensor = inputs[1].toTensor();
     k = k_tensor.sizes().vec().at(
         0); // Get the first element which holds the dynamic value of k
@@ -195,13 +195,13 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   bool largest = inputs[3].toBool();
   bool sorted = inputs[4].toBool();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
   // TPC doen't support unsorted or ascending order - but that applies only for
   // tensors with more than 1 element
   if (self.numel() > 1) {
-    TORCH_CHECK(sorted == true, "unsorted output not supported")
+    HABANA_ASSERT(sorted == true, "unsorted output not supported")
   }
 
   _allocate_or_resize_output_with_indices(
@@ -309,13 +309,13 @@ void TopkOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5,
       "Incorrect size of inputs expected for topk operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for topk operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "TopkOperator: #output_metadata should be 2");
 

@@ -35,7 +35,7 @@ std::shared_ptr<void> FillSmoothL1LossFwdParams(
 
 OutputMetaDataVector SmoothL1LossMeta(const at::Stack& stack) {
   float beta = stack.at(3).toScalar().to<float>();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       beta >= 0, "smooth_l1_loss does not support negative values for beta.")
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
@@ -121,7 +121,7 @@ void SmoothL1LossBwdOperator::AddNode(
   auto meta = SmoothL1LossBackwardMeta(stack)[0];
 
   float beta = stack.at(4).toScalar().to<float>();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       beta >= 0,
       "smooth_l1_loss_backward does not support negative values for beta.")
   auto mode = stack.at(3).toInt();

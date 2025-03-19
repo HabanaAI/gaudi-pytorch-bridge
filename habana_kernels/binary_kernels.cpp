@@ -233,11 +233,11 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of input expected for Binary operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
 
@@ -333,18 +333,18 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of input expected for Binary operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor() || inputs[1].isTensor(),
       "At least one of the inputs arg1 or arg2 expected to be a tensor");
   // Note that pow has a (Scalar, Tensor) variant in native_functions.yaml
   // although mul and div do not
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor() || inputs[0].isScalar(),
       "Input arg1 type expected to be a tensor or scalar");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
 
@@ -544,10 +544,10 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input 0 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input 1 type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input 0 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input 1 type expected to be tensor");
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
   auto memory_format = at::MemoryFormat::Contiguous;
@@ -734,18 +734,18 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor() || inputs[1].isTensor(),
       "At least one of the inputs arg1 or arg2 expected to be a tensor");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor() || inputs[0].isScalar(),
       "Input arg1 type expected to be a tensor or scalar");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
-  TORCH_CHECK(inputs[2].isScalar(), "Input arg3 type expected to be scalar");
+  HABANA_ASSERT(inputs[2].isScalar(), "Input arg3 type expected to be scalar");
 
   std::shared_ptr<HabanaOperator> binaryOp;
   if (inputs[0].isTensor() &&

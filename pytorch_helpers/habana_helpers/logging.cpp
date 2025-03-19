@@ -16,12 +16,10 @@
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
 #include <c10/util/Lazy.h>
+#include <synapse_api.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "backend/synapse_helpers/env_flags.h"
-#include "habana_helpers/pt_version_check.h"
-#include "habana_lazy/debug_utils.h"
 
 // -------------- HL LOG ----------------
 namespace HlLogger {

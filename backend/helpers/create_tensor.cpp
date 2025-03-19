@@ -868,9 +868,9 @@ create_tensors(
     const std::vector<bool>& externals,
     const std::vector<c10::optional<c10::ScalarType>> dtypes) {
   const auto num_tensors = tensors.size();
-  TORCH_CHECK(persistents.size() == num_tensors);
-  TORCH_CHECK(externals.size() == num_tensors);
-  TORCH_CHECK(dtypes.size() == num_tensors);
+  HABANA_ASSERT(persistents.size() == num_tensors);
+  HABANA_ASSERT(externals.size() == num_tensors);
+  HABANA_ASSERT(dtypes.size() == num_tensors);
 
   // tensor_helpers are used for tenor lifetime managment
   // syn_tensors are convinient to use with synapse API
@@ -917,7 +917,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
   }
 
   if (external) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         tensor.is_persistent(), "Cannot create non persistent external tensor");
   }
 
@@ -973,7 +973,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
         tensor.is_persistent());
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor.is_persistent(),
       "Why would you like to create another tensor in the same memory section for non persistent tensor?");
 
@@ -1078,7 +1078,7 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
   };
 
   auto result = map.find(pt_type);
-  TORCH_CHECK(result != map.end(), "Unsupported pytorch type ", pt_type);
+  HABANA_ASSERT(result != map.end(), "Unsupported pytorch type ", pt_type);
 
   return result->second;
 }
@@ -1101,7 +1101,7 @@ c10::ScalarType synapse_to_pytorch_type(const synDataType type) {
   };
 
   auto result = map.find(type);
-  TORCH_CHECK(result != map.end(), "Unsupported synapse type ", type);
+  HABANA_ASSERT(result != map.end(), "Unsupported synapse type ", type);
 
   return result->second;
 }
@@ -1121,7 +1121,7 @@ c10::ScalarType scalar_type(const c10::Scalar& s) {
   } else if (s.isBoolean()) {
     type = c10::ScalarType::Bool;
   } else {
-    TORCH_CHECK(!s.isComplex(), "Habana doesn't support complex types");
+    HABANA_ASSERT(!s.isComplex(), "Habana doesn't support complex types");
     throw std::runtime_error("Unknown type");
   }
 

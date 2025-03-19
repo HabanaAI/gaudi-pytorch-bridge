@@ -22,11 +22,11 @@ LazyCast::LazyCast(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "lazy_cast_guid", scalar_type, {0}, {}, {}, false) {}
 
 void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() >= 2 && stack.size() <= 4,
       "Incorrect size of inputs expected for cast operator");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack[0].isTensor(),
       "Input arg1 expected to be tensor for toDtype operator");
 
@@ -36,12 +36,12 @@ void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto sizes = self.sizes();
 
   if (stack.size() > 2) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stack[2].isBool(), "Input arg2 expected to be Bool for cast operator");
   }
 
   if (stack.size() > 3) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stack[3].isInt(), "Input arg3 expected to be Int for cast operator");
   }
 

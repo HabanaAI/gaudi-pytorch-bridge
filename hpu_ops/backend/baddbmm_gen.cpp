@@ -46,8 +46,8 @@ OutputMetaDataVector BaddbmmMeta(const at::Stack& stack) {
   auto batch2 = stack_tensor(stack, 2);
   const auto batch1_sizes = batch1.sizes();
   const auto batch2_sizes = batch2.sizes();
-  TORCH_CHECK(batch1.dim() == 3, "batch1 must be a 3D tensor");
-  TORCH_CHECK(batch2.dim() == 3, "batch2 must be a 3D tensor");
+  HABANA_ASSERT(batch1.dim() == 3, "batch1 must be a 3D tensor");
+  HABANA_ASSERT(batch2.dim() == 3, "batch2 must be a 3D tensor");
   int64_t bs = batch1_sizes[0];
   int64_t contraction_size = batch1_sizes[2];
   int64_t res_rows = batch1_sizes[1];
@@ -56,7 +56,7 @@ OutputMetaDataVector BaddbmmMeta(const at::Stack& stack) {
   meta.shape = {bs, res_rows, res_cols};
   meta.dtype = self.scalar_type();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       batch2_sizes[0] == bs && batch2_sizes[1] == contraction_size,
       "Expected size for first two dimensions of batch2 tensor to be: [",
       bs,

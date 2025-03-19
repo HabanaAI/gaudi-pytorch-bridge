@@ -36,7 +36,7 @@ std::shared_ptr<void> IndexReduceFillParams(
       };
 
   auto it = reduceModes.find(mode);
-  TORCH_CHECK(it != reduceModes.end(), "Unsupported reduce: ", mode)
+  HABANA_ASSERT(it != reduceModes.end(), "Unsupported reduce: ", mode)
 
   params->mode = it->second;
   params->include_self = stack.at(5).toBool();

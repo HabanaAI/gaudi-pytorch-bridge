@@ -14,14 +14,13 @@
  */
 #include "backend/backend_meta.h"
 #include <memory>
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/jit_graph_cache.h"
 #include "backend_meta.h"
 #include "common/utils.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_lazy/tensor_impl.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
 namespace habana {
@@ -158,7 +157,8 @@ void TensorExtraMeta::prepare_const_tensor(
 }
 
 TensorExtraMeta* allocate_tensor_extra_meta(at::TensorImpl& impl) {
-  TORCH_CHECK(impl.get_backend_meta() == nullptr, "Meta is already assigned.");
+  HABANA_ASSERT(
+      impl.get_backend_meta() == nullptr, "Meta is already assigned.");
   auto new_meta{new habana::TensorExtraMeta()};
   auto meta =
       c10::intrusive_ptr<BaseTensorExtraMeta>::unsafe_steal_from_new(new_meta);
@@ -179,7 +179,7 @@ std::string ToString(const StorageExtraMetaMap& map) {
 
 habana::HPUAllocationContext* get_hpu_alloc_context(
     const c10::TensorImpl* tensor_impl) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor_impl->device().type() == c10::DeviceType::HPU,
       "StorageExtraMeta available only on HPU Tensors.");
 
@@ -248,7 +248,7 @@ StorageExtraMeta* get_storage_extra_meta(
     return ptr;
   } else {
     if (nbytes.has_value()) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           tensor_impl->storage_offset() == 0,
           " non-zero storage offset not expected when accessing base meta. offset: ",
           tensor_impl->storage_offset());
@@ -269,7 +269,7 @@ StorageExtraMeta* get_storage_extra_meta(
             alloc_ctx->num_bytes,
             " storage nbytes ",
             tensor_impl->storage().nbytes());
-        TORCH_CHECK(
+        HABANA_ASSERT(
             common::getLoadedLibraryType() == common::LibraryType::LAZY,
             " when accessing base meta, tensor size should match the storage size");
       }
@@ -348,8 +348,8 @@ std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
 
   auto elem_size =
       c10::elementSize(habana_helpers::getInternalDtype(tensor.scalar_type()));
-  auto total_num_elements =
-      (int64_t)(habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
+  auto total_num_elements = (int64_t)(
+      habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
   std::vector<int64_t> base_size({total_num_elements});
   return base_size;
 }

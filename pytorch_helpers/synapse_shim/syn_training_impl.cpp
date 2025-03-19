@@ -810,3 +810,15 @@ synStatus SYN_API_CALL
 synUpdateMemoryConsumption(uint64_t usedMem, uint64_t timestampSec) {
   return syn_api->synUpdateMemoryConsumption(usedMem, timestampSec);
 }
+
+synStatus SYN_API_CALL synGetLastError() {
+  return syn_api->synGetLastError();
+}
+
+const char* SYN_API_CALL synGetErrorString(synStatus status) {
+  return syn_api->synGetErrorString(status);
+}
+
+const char* SYN_API_CALL synGetLastErrorMessage() {
+  return syn_api->synGetLastErrorMessage();
+}

@@ -96,7 +96,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
         size,
         [&copyDone]() { copyDone = true; },
         false);
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    HABANA_ASSERT(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -120,7 +120,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
         size,
         [&copyDone]() { copyDone = true; },
         false);
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    HABANA_ASSERT(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();

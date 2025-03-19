@@ -12,13 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <c10/util/Exception.h>
 #include <c10/util/irange.h>
 
-#include <atomic>
-#include <cstdint>
 #include <mutex>
-#include <vector>
 
 #include <iostream>
 #include "backend/habana_device/HPUGuardImpl.h"

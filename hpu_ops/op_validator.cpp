@@ -34,7 +34,7 @@ namespace {
 struct SharedLayerInitialization {
   SharedLayerInitialization() {
     static auto status = synSharedLayerInit();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         SharedLayer::Return_t::SHARED_LAYER_SUCCESS == status,
         "cannot initialize shared layer");
   }
@@ -58,7 +58,7 @@ SharedLayer::DeviceId synDeviceTypeToSharedLayerType(synDeviceType tp) {
       break;
   }
 
-  TORCH_CHECK(false, "unsupported synDeviceType for shared layer");
+  HABANA_ASSERT(false, "unsupported synDeviceType for shared layer");
 }
 
 SharedLayer::DeviceId _getDeviceType() {
@@ -368,7 +368,7 @@ bool CheckNodeWithSharedLayerValidator::Validate(
       outputs.emplace_back(tensor.dim(), dtype);
     }
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         "Op should be either _out or have defined one of [output_meta, res_ids, inplace_ids]");
   }

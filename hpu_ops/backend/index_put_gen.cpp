@@ -77,7 +77,7 @@ static void validate_cat_tensor_dim_sizes(
     auto sz2 = tensors->at(tempT_i);
     for (j = 0; j < tensors->at(i).size(); j++) {
       if (j != dim && (sz1[j] - sz2[j]) != 0) {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             ((sz1[j] - sz2[j]) == 0),
             "Sizes of tensors along one of the non-cat dimensions don't match");
       }
@@ -285,7 +285,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
       outshape.insert(outshape.begin() + gather_dim, numel);
     }
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         size1,
         "Index put op (acc=True case) - gather op output shape cannot be 0");
   }

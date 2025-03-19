@@ -16,7 +16,6 @@
 #include "habana_eager/ops/eager_op.h"
 
 #include <c10/core/TensorImpl.h>
-#include <c10/util/Exception.h>
 #include <hccl.h>
 #include <hccl_types.h>
 #include <pybind11/chrono.h>
@@ -26,20 +25,12 @@
 #include <vector>
 
 #include <unistd.h>
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/collective_utils.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/towl.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/permute_tensors.h"
-#include "habana_lazy/tensor_impl.h"
 #include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.hpp"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
@@ -74,7 +65,7 @@ class CollectiveContext {
       std::vector<at::Tensor>& outputs,
       bool is_pipelined = false)
       : inputs_(inputs), outputs_(outputs), is_pipelined_(is_pipelined) {
-    TORCH_CHECK(inputs.size() == outputs.size());
+    HABANA_ASSERT(inputs.size() == outputs.size());
     ensure_input_output_tensors_contiguity();
   }
   CollectiveContext(const CollectiveContext&) = delete;
@@ -167,7 +158,7 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
           store->set("HCCL_GROUP_UNIQUE_ID", vec);
         } else {
           auto vec = store->get("HCCL_GROUP_UNIQUE_ID");
-          TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
+          HABANA_ASSERT(vec.size() == sizeof(hcclUniqueId));
           std::memcpy(hcclID, vec.data(), vec.size());
         }
       });
@@ -364,7 +355,7 @@ void PointToPoint_Execute_Task(
     if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
       tensor = *org_tensor;
     }
-    TORCH_CHECK(
+    HABANA_ASSERT(
         tensor.get_device() == 0,
         "All tensors are expected to be assigned to device with id 0");
     synStreamHandle collective_stream = comm.getCommStream();
@@ -390,7 +381,7 @@ void PointToPoint_Execute_Task(
            *(comm.GetHcclHandle()),
            collective_stream,
            peerRank);
-    TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+    HABANA_ASSERT(hcclSuccess == hccl_result, "P2P call returned error");
 
     recipe_counter.increase();
     deviceCtxt->submit_events(
@@ -481,7 +472,7 @@ void Collective_Execute_Task(
       continue;
     }
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         input.get_device() == 0 && output.get_device() == 0,
         "All tensors are expected to be assigned to device with id 0");
     synStreamHandle collective_stream = comm.getCommStream();
@@ -522,7 +513,7 @@ void Collective_Execute_Task(
            output_address,
            *(comm.GetHcclHandle()),
            collective_stream);
-    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+    HABANA_ASSERT(hcclSuccess == hccl_result, "Collective call returned error");
 
     recipe_counter.increase();
     deviceCtxt->submit_events(
@@ -548,15 +539,16 @@ void Collective_Execute_Task(
 void ProcessGroupEagerHCCL::groupStart() {
   auto _groupStart = [this]() {
     initComms();
-    TORCH_CHECK(
-      hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+    HABANA_ASSERT(
+        hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
   };
 
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
 
   if (pipeline_flag) {
-    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(_groupStart);
+    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
+        _groupStart);
   } else {
     habana::eager::JoinPendingPipelineThreads();
     _groupStart();
@@ -565,8 +557,8 @@ void ProcessGroupEagerHCCL::groupStart() {
 
 void ProcessGroupEagerHCCL::groupEnd() {
   auto _groupEnd = [this]() {
-    TORCH_CHECK(
-      hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+    HABANA_ASSERT(
+        hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
   };
 
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
@@ -588,7 +580,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   PT_DISTRIBUTED_BEGIN;
   PT_DISTRIBUTED_DEBUG("ProcessGroupEagerHCCL::collective");
 
-  TORCH_CHECK(inputs.size() == outputs.size());
+  HABANA_ASSERT(inputs.size() == outputs.size());
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
 

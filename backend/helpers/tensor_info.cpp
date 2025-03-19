@@ -38,7 +38,7 @@ void DMAInputGenerators::populateSeedTensor(
   }
 
   auto vec_size = seed_vec.size() * sizeof(seed_vec[0]);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       vec_size == ti.get_size(),
       " cpu vec size ",
       vec_size,
@@ -135,7 +135,7 @@ PtTensorInfo::PtTensorInfo(
     const synTensorType stt,
     DMAInputGeneratorType dma_gen_id)
     : orig_syn_handle_(handle) {
-  TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
+  HABANA_ASSERT(ivpsh->isTensor(), "aten tensor is expected");
   std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();
   populate_tinfo(pt_tensor, sn, irn, tensor_id, stt, dma_gen_id);
@@ -172,7 +172,7 @@ void PtTensorInfo::update_shape_syn() {
       break;
     case TENSOR_TYPE_MAX:
     default:
-      TORCH_CHECK(false, "Unreachable condition.");
+      HABANA_ASSERT(false, "Unreachable condition.");
   }
 }
 

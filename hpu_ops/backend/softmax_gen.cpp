@@ -28,7 +28,7 @@ std::shared_ptr<void> FillSoftmaxForwardParams(
   auto self = stack.at(selfPositionInArgList).toTensor();
   int dim = stack.at(dimPositionInArgList).toInt();
   bool half_to_float = stack.at(halfToFloatPositionInArgList).toBool();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
   params->dim = get_dim_in_tpc_order(dim, self.dim());

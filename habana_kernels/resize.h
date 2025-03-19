@@ -39,7 +39,7 @@ inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
   // for the first time (providing the necessary type). It is an ERROR to
   // invoke any PyTorch operations on such a half-constructed storage,
   // and this check tests for that case.
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor->storage(),
       "Cannot use PyTorch operations on a half-constructed "
       "tensor. If this tensor came from Caffe2, please call GetMutableData on "
@@ -53,11 +53,11 @@ inline void THStorage_resizeBytes(
     ptrdiff_t size_bytes,
     const caffe2::TypeMeta dtype,
     bool is_tensor_pipelined = false) {
-  TORCH_CHECK(size_bytes >= 0, "invalid size");
-  TORCH_CHECK(self->allocator() != nullptr);
+  HABANA_ASSERT(size_bytes >= 0, "invalid size");
+  HABANA_ASSERT(self->allocator() != nullptr);
   int device_id = habana::HPUDeviceAllocator::allocator_active_device_id;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self->resizable(), "Trying to resize storage that is not resizable");
 
   if (size_bytes == 0) {
@@ -188,7 +188,7 @@ inline void THHTensor_resizeNd(
     int nDimension,
     const int64_t* size,
     const int64_t* stride) {
-  TORCH_CHECK(nDimension >= 0, "resizeNd nDimension must be non-negative");
+  HABANA_ASSERT(nDimension >= 0, "resizeNd nDimension must be non-negative");
   at::IntArrayRef sizes(size, nDimension);
   at::optional<at::IntArrayRef> strides;
   if (stride) {
@@ -207,7 +207,7 @@ inline void THHTensor_resizeNd_nonpersistent(
     int nDimension,
     const int64_t* size,
     const int64_t* stride) {
-  TORCH_CHECK(nDimension >= 0, "resizeNd nDimension must be non-negative");
+  HABANA_ASSERT(nDimension >= 0, "resizeNd nDimension must be non-negative");
   at::IntArrayRef sizes(size, nDimension);
   at::optional<at::IntArrayRef> strides;
   if (stride) {

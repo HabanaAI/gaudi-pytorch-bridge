@@ -187,11 +187,11 @@ void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
   } else { // special cases
     if (dst_scalar_type == c10::ScalarType::Long &&
         src_scalar_type == c10::ScalarType::Int) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           dst.nbytes() >= src.nbytes(),
           "Unsupported device to device copy: dst size needs to be >= src size");
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           dst.nbytes() == src.nbytes(), "Unsupported device to device copy");
     }
     if (copy_transpose_valid(dst, src)) {
@@ -213,8 +213,8 @@ Tensor& copy_hpu_(
   PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used from
                       // other Lazy kernels
   Tensor& dst = self;
-  TORCH_CHECK(dst.defined(), "dst is undefined");
-  TORCH_CHECK(src.defined(), "src is undefined");
+  HABANA_ASSERT(dst.defined(), "dst is undefined");
+  HABANA_ASSERT(src.defined(), "src is undefined");
   const auto src_device = src.device().type();
   const auto dst_device = dst.device().type();
 
@@ -224,10 +224,10 @@ Tensor& copy_hpu_(
     // CPU/source tensor should have same dtype as dst & should be contiguous
     // before H2D DMA is triggered
     // Backend kernels should not trigger contiguous call
-    TORCH_CHECK(src.is_contiguous(src.suggest_memory_format()));
+    HABANA_ASSERT(src.is_contiguous(src.suggest_memory_format()));
     src_contiguous = src.to(dst.scalar_type());
 
-    TORCH_CHECK(dst.nbytes() >= src_contiguous.nbytes());
+    HABANA_ASSERT(dst.nbytes() >= src_contiguous.nbytes());
     habana_helpers::copy_data_to_device(
         src_contiguous, dst, non_blocking, hpu_stream);
     print_stride_warning(src_contiguous, dst);
@@ -237,7 +237,7 @@ Tensor& copy_hpu_(
     // HPU/source tensor should be contiguous before D2H DMA is triggered
     // Backend kernels should not trigger contiguous call
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      TORCH_CHECK(src.is_contiguous(src.suggest_memory_format()));
+      HABANA_ASSERT(src.is_contiguous(src.suggest_memory_format()));
       src_contiguous = src;
     } else {
       src_contiguous = src.contiguous(src.suggest_memory_format());
@@ -256,13 +256,13 @@ Tensor& copy_hpu_(
           dst.options().dtype(src_contiguous.scalar_type()),
           dst.suggest_memory_format());
       // Is there any reason why this check cannot be strict equality?
-      TORCH_CHECK(dst_intermediate.nbytes() >= src_contiguous.nbytes());
+      HABANA_ASSERT(dst_intermediate.nbytes() >= src_contiguous.nbytes());
       habana_helpers::copy_data_to_host(
           src_contiguous, dst_intermediate, false, hpu_stream);
       dst.copy_(dst_intermediate.to(dst.scalar_type()));
     } else {
       // Is there any reason why this check cannot be strict equality?
-      TORCH_CHECK(dst.nbytes() >= src_contiguous.nbytes());
+      HABANA_ASSERT(dst.nbytes() >= src_contiguous.nbytes());
       habana_helpers::copy_data_to_host(
           src_contiguous, dst, non_blocking, hpu_stream);
     }
@@ -308,7 +308,7 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
     if (output.dim() > 0 && self.dim() > 0) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           self.sizes() == output.sizes(),
           "incorrect input sizes for Copy Opertion",
           " self.sizes(): ",
@@ -427,11 +427,12 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   static_cast<void>(graph);
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
-  TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 fneeds to be of scalar type");
+  HABANA_ASSERT(
+      inputs[3].isScalar(), "Input arg 3 fneeds to be of scalar type");
   auto size = inputs[1].toIntVector();
   auto strides = inputs[2].toIntVector();
   auto offset = inputs[3].toInt();
@@ -462,7 +463,7 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   static_cast<void>(graph);
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
 
   at::Tensor output;
@@ -563,12 +564,12 @@ void SliceInsertOperator::ReuseMemoryAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 4, "Incorrect number of arguments for slice insert op");
   // orig, insert, offset, graph_input
   auto graph_input = inputs.back().toTensor();
   auto self = inputs[0].toTensor();
-  TORCH_CHECK(graph_input.sizes() == self.sizes(), "incorrect graph input");
+  HABANA_ASSERT(graph_input.sizes() == self.sizes(), "incorrect graph input");
   bool have_shape_tensor = inputs[2].isTensor();
 
   p_context_->syn_outputs_.emplace_back(
@@ -601,7 +602,7 @@ void SliceInsertOperator::FixSliceParams(
   std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
 
   // TODO: support negative strides
-  TORCH_CHECK(step > 0, "slice step must be positive");
+  HABANA_ASSERT(step > 0, "slice step must be positive");
 
   // INT64_MAX stands for default value.
   if (start == INT64_MAX) {
@@ -669,7 +670,7 @@ void SliceInsertOperator::ValidateSliceInsertInputs(
     std::vector<int64_t>& start) {
   for (unsigned i = 0; i < inp_shape.size(); i++) {
     if (inp_shape[i]) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           (start[i] < inp_shape[i]),
           "SliceInsert starts param, which is greater or equal to the dimension");
     }
@@ -680,7 +681,7 @@ void SliceInsertOperator::ValidateSliceInsertInputs(
     // end_val = sizes[dim]*step + 1 - step + start_val
     auto end_val = out_shape[i] * step[i] + 1 - step[i] + start[i];
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (end_val <= inp_shape[i]),
         "SliceInsert invalid end param, which is greater or equal to the dimension ",
         end_val,
@@ -724,7 +725,7 @@ void SliceInsertOperator::UpdateMaxPassSliceInputs(
       }
     }
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       min <= start, "SliceInsertOperator Start tensor min is greater than max");
 }
 
@@ -732,17 +733,17 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   auto self = inputs[0].toTensor();
   bool has_shape_tensor = inputs[2].isTensor();
   if (has_shape_tensor && inputs.size() == 4) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs.size() == 4,
         "Incorrect size of inputs expected for slice_insert operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[2].ref().is_shape_tensor(),
         "Synapse input3 type expected to be shape tensor");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[3].ref().is_shape_tensor(),
         "Synapse input4 type expected to be shape tensor");
 
@@ -777,7 +778,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
 
     ValidateSliceInsertInputs(inp_shape, out_shape, step, start);
   } else if (has_shape_tensor && inputs.size() == 3) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[2].ref().is_host_to_device_tensor(),
         "Synapse input3 type expected to be host to device tensor");
     auto inp_shape = self.sizes().vec();
@@ -790,10 +791,10 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     step = SliceOperator::get_step_tensor(params_vec);
     ValidateSliceInsertInputs(inp_shape, out_shape, step, start);
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs.size() == 3,
         "Incorrect size of inputs expected for slice operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[2].isIntList(),
         "Input slice params type expected to be integer list");
   }
@@ -1074,7 +1075,7 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
     h2d_data = h2d_data + sif_offset;
     for (size_t i = 0; i < data_size; i++) {
       uint64_t h2d_elem = *h2d_data++;
-      TORCH_CHECK(
+      HABANA_ASSERT(
           h2d_elem < LONG_MAX,
           "H2D data ",
           h2d_elem,
@@ -1278,7 +1279,7 @@ void StridedInsertOperator::compute_params_h2d(
     IntArrayRef strides_ref(stride_values.data(), stride_values.size());
     bool memAccessCheck = verifyViewMemoryAccess(
         inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[0].toTensor().numel() == 0 || memAccessCheck,
         "Strided Insert will access memory outside of original tensor range!");
   }
@@ -1302,7 +1303,7 @@ void StridedInsertOperator::compute_params(
       return;
     }
 
-    TORCH_CHECK(hop.GetSynInputs()[2].ref().is_shape_tensor());
+    HABANA_ASSERT(hop.GetSynInputs()[2].ref().is_shape_tensor());
     strides = GetStridedInsertOperatorStrides(inputs, graph.is_dry_run());
     IntArrayRef strides_ref(strides.data(), strides.size());
     if (HasFrontendStrides(inputs)) {
@@ -1346,7 +1347,7 @@ void StridedInsertOperator::compute_params(
             habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       bool memAccessCheck = verifyViewMemoryAccess(
           inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           inputs[0].toTensor().numel() == 0 || memAccessCheck,
           "Strided Insert will access memory outside of original tensor range!");
     }
@@ -1436,7 +1437,7 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 3,
       "Incorrect number of arguments for strided insert op");
 
@@ -1472,13 +1473,13 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
     Stack& inputs,
     const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 4,
       "Incorrect number of arguments for strided insert op");
   // orig, insert, offset, graph_input
   auto graph_input = inputs.back().toTensor();
   auto orig_t = inputs[0].toTensor();
-  TORCH_CHECK(graph_input.sizes() == orig_t.sizes(), "incorrect graph input");
+  HABANA_ASSERT(graph_input.sizes() == orig_t.sizes(), "incorrect graph input");
 
   struct synStridedOpParams params;
   compute_params(*this, params, inputs, graph);
@@ -1508,7 +1509,7 @@ void AsStridedScatterOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 3,
       "Incorrect number of arguments for AsStridedScatterOperator op");
 
@@ -1657,7 +1658,7 @@ void StridedViewOperator::compute_params_h2d(
   params = static_cast<synStridedOpParams>(params);
   std::fill_n(params.strides, HABANA_DIM_MAX, 0);
   std::vector<int64_t> stride_values;
-  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
+  HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_shape_tensor());
   size = p_context_->syn_inputs_[1].ref().pt_shape();
   strides = GetStridedViewOperatorH2DStrides(inputs, graph.is_dry_run());
 
@@ -1728,7 +1729,7 @@ void StridedViewOperator::compute_params_h2d(
     IntArrayRef strides_ref(stride_values.data(), stride_values.size());
     bool memAccessCheck = verifyViewMemoryAccess(
         inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[0].toTensor().numel() == 0 || memAccessCheck,
         "Strided View will access memory outside of original tensor range!");
   }
@@ -1763,7 +1764,7 @@ void StridedViewOperator::compute_params(
       return;
     }
 
-    TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
+    HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_shape_tensor());
     size = p_context_->syn_inputs_[1].ref().pt_shape();
     strides = GetStridedViewOperatorStrides(inputs, graph.is_dry_run());
     IntArrayRef strides_ref(strides.data(), strides.size());
@@ -1799,14 +1800,14 @@ void StridedViewOperator::compute_params(
             habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       bool memAccessCheck = verifyViewMemoryAccess(
           inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           self.numel() == 0 || memAccessCheck,
           "Strided View will access memory outside of original tensor range!");
     }
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
     size = inputs[1].toIntVector();
     strides = inputs[2].toIntVector();

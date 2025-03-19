@@ -842,11 +842,12 @@ class LazyOp {
           }
           auto base = HbLazyTensorViews::get_recent_base_tensor(
               stride_params_opt.value().base);
-          TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+          HABANA_ASSERT(
+              base.storage(), "base tensor should have valid storage");
           auto base_internal_tensor = GetHbLazyTensor(base).CurrentTensorData();
           hl_self.SetTensorData(*base_internal_tensor);
         } else {
-          TORCH_CHECK(
+          HABANA_ASSERT(
               0, "Neither storage attached to input tensor, not its view.")
         }
       }

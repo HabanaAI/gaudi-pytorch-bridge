@@ -69,7 +69,7 @@ class StackGetter {
 
  private:
   void CheckStackPos() {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stackPos < stack.size(),
         label,
         " expected at least ",
@@ -119,7 +119,7 @@ class StackGetter {
       std::string_view orNoneStrOpt,
       TensorsPair*) {
     auto pos = CheckGetAndIncrStackPos();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stack[pos].isTensor(),
         "Input ",
         pos,
@@ -133,7 +133,7 @@ class StackGetter {
       std::string_view orNoneStrOpt,
       std::vector<TensorsPair>*) {
     auto pos = CheckGetAndIncrStackPos();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stack[pos].isTensorList(),
         "Input ",
         pos,
@@ -185,7 +185,7 @@ class StackGetter {
 #define GET_NEXT_INPUT_INTERNAL(T, isFn, toFn, Tstr)          \
   T getNextInputInternal(std::string_view orNoneStrOpt, T*) { \
     auto pos = CheckGetAndIncrStackPos();                     \
-    TORCH_CHECK(                                              \
+    HABANA_ASSERT(                                            \
         stack[pos].isFn(),                                    \
         "Input ",                                             \
         pos,                                                  \
@@ -268,7 +268,7 @@ class StackGetter {
     try {
       return matchInputToTypeList<Ts...>(stack[pos], pVarT);
     } catch (const std::string& typesListStr) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Input ",
           pos,

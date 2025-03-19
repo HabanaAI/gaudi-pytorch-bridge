@@ -48,7 +48,7 @@ void ValidateScaleShape(
   for (auto d : scale_shape.toIntVector()) {
     shape_numel *= d;
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       scale_numel == shape_numel,
       "Number of scale elements (",
       scale_numel,
@@ -117,19 +117,19 @@ void HandleScale(
   if (scaleOpt.isTensorsPair()) {
     auto scale = scaleOpt.toTensorsPair();
     if (scale.pt_t.dim() == 2) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           scale.pt_t.size(0) == 1 || scale.pt_t.size(1) == 1,
           "Scale tensor must be 1D or 2D with one of the dimensions being 1.");
     }
 
     auto sizes = input.sizes().vec();
     if (isTranspose) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           sizes.size() >= 2,
           "Input tensor must have at least 2 dimensions to perform transpose operation.");
       std::swap(sizes[sizes.size() - 1], sizes[sizes.size() - 2]);
     }
-    TORCH_CHECK(
+    HABANA_ASSERT(
         at::are_expandable(at::IntArrayRef(sizes), scale.pt_t.sizes()),
         "Input and its scale must be broadcastable. Got: ",
         at::IntArrayRef(sizes),
@@ -189,10 +189,10 @@ void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   bool is_amax = amax.numel() != 0;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
       "CastToFp8 input must be of float or bfloat16 dtype.");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       sizes == out.sizes(), "Input and output must have the same shape");
 
   auto guid = get_guid_with_precision("convert_to_fp8"sv, src_type);
@@ -245,13 +245,13 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   auto is_fp8_input = src_type == at::ScalarType::Float8_e5m2 or
       src_type == at::ScalarType::Float8_e4m3fn;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       is_fp8_input or src_type == at::ScalarType::Float or
           src_type == at::ScalarType::BFloat16,
       "CastToFp8V2 input dtype must be one of [float, bfloat16, float8_e5m2, float8_e4m3fn].");
   if (is_fp8_input) {
-    TORCH_CHECK(!is_amax, "CastToFp8V2 must have no amax for float8.");
-    TORCH_CHECK(
+    HABANA_ASSERT(!is_amax, "CastToFp8V2 must have no amax for float8.");
+    HABANA_ASSERT(
         src_type == dst_type,
         "CastToFp8V2 input and output must have the same dtype for float8, but are ",
         src_type,
@@ -312,7 +312,7 @@ OutputMetaDataVector CastFromFp8Meta(const at::Stack& stack) {
 }
 
 void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 4, "CastFromFp8 must have 4 input arguments");
+  HABANA_ASSERT(stack.size() == 4, "CastFromFp8 must have 4 input arguments");
 
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1];
@@ -322,7 +322,7 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   ValidateScaleShape(scale, scale_shape);
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dst_type == at::ScalarType::Float or dst_type == at::ScalarType::BFloat16,
       "CastFromFp8 output dtype must be equal to float or bfloat16.");
 
@@ -376,7 +376,7 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
     out_shape = getBatchMatmulOutShape(
         A.pt_t.sizes(), B.pt_t.sizes(), trans_A, trans_B);
   } catch (const std::invalid_argument& e) {
-    TORCH_CHECK(false, e.what());
+    HABANA_ASSERT(false, e.what());
   }
 
   std::string guid = get_guid_with_precision("fp8_gemm"sv, out_type);
@@ -417,8 +417,8 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
 sym_sizes_vec fp8_gemm_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 2);
-  TORCH_CHECK(params.size() == 2);
+  HABANA_ASSERT(inputs.size() == 2);
+  HABANA_ASSERT(params.size() == 2);
   return {getBatchMatmulOutShape(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -437,7 +437,7 @@ OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
   try {
     meta.shape = getBatchMatmulOutShape(A.sizes(), B.sizes(), trans_A, trans_B);
   } catch (const std::invalid_argument& e) {
-    TORCH_CHECK(false, e.what());
+    HABANA_ASSERT(false, e.what());
     return {};
   }
   meta.dtype = stack[5].toScalarType();
@@ -445,7 +445,7 @@ OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
 }
 
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 11, "Fp8GemmV2 must have 11 input arguments");
+  HABANA_ASSERT(stack.size() == 11, "Fp8GemmV2 must have 11 input arguments");
 
   StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
   auto A = stackGetter.getNextInput<TensorsPair>();
@@ -488,7 +488,7 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
       scale_shape);
 
   if (scaleAOpt.isTensorsPair() && scaleBOpt.isTensorsPair()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         at::are_expandable(
             scaleAOpt.toTensorsPair().pt_t.sizes(),
             scaleBOpt.toTensorsPair().pt_t.sizes()),
@@ -501,7 +501,7 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
     syn_inputs.push_back(nullptr);
   }
   if (accumulate) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         DOpt,
         "Accumulation tensor must be provided at index 4 for Fp8GemmV2, when accumulate is true");
     syn_inputs.push_back(DOpt->syn_t);
@@ -549,10 +549,10 @@ OutputMetaDataVector InPlaceInterleaveMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto shape = self.sizes().vec();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 1, "InPlaceInterleave must have 1 input argument");
-  TORCH_CHECK(shape.size() == 4, "Input has to be a 4D tensor.");
-  TORCH_CHECK(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
+  HABANA_ASSERT(shape.size() == 4, "Input has to be a 4D tensor.");
+  HABANA_ASSERT(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
 
   OutputMetaData meta;
   meta.shape = shape;
@@ -605,8 +605,8 @@ std::vector<DimT> ComputeConv2dOutputSize(
 sym_sizes_vec conv2d_fp8_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 2);
-  TORCH_CHECK(params.size() == 6);
+  HABANA_ASSERT(inputs.size() == 2);
+  HABANA_ASSERT(params.size() == 6);
   return {ComputeConv2dOutputSize(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -678,11 +678,11 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto scale_weight_opt =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.pt_t.dim() == 4 and weight.pt_t.dim() == 4,
       "Input and weight must be 4D tensors");
   if (bias_opt) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bias_opt->pt_t.dim() == 1 and
             bias_opt->pt_t.sizes()[0] == weight.pt_t.sizes()[0],
         "Bias must be 1D tensor with size equal to weight dim0");
@@ -703,7 +703,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
     const auto& scale = (i == 0) ? scale_input_opt : scale_weight_opt;
     if (scale.isTensorsPair()) {
       auto scale_tp = scale.toTensorsPair();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           scale_tp.pt_t.numel() == 1,
           "Multi-element scale tensors are not supported yet.");
       syn_inputs.push_back(scale_tp.syn_t);

@@ -156,8 +156,8 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
 sym_sizes_vec fp8_sdpa_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<float>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
   sym_sizes_vec out_sizes = SDPAFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -173,8 +173,8 @@ REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_sdpa_fwd, fp8_sdpa_fwd_out_shape);
 sym_sizes_vec sdpa_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<float>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
 
   return SDPAFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
@@ -673,8 +673,8 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
 sym_sizes_vec sdpa_recomp_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
   return SDPARecompFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -685,8 +685,8 @@ sym_sizes_vec sdpa_recomp_fwd_out_shape(
 sym_sizes_vec fp8_sdpa_recomp_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
   sym_sizes_vec out_sizes = SDPARecompFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),

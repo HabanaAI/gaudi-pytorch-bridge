@@ -22,6 +22,7 @@
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
+#include "backend/helpers/runtime_config.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
@@ -39,25 +40,25 @@ static void check_matmul_params(
     bool mat1_transposed,
     bool mat2_transposed,
     c10::optional<const at::Tensor*> bias) {
-  TORCH_CHECK(mat1.ndimension() == 2, "matmul_hpu supports only 2d matrices");
-  TORCH_CHECK(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
+  HABANA_ASSERT(mat1.ndimension() == 2, "matmul_hpu supports only 2d matrices");
+  HABANA_ASSERT(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
 
   if (mat1_transposed == false && mat2_transposed == false) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
   } else if (mat1_transposed == true && mat2_transposed == false) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         mat1.size(0) == mat2.size(0), "matmul inner dimensions doesn't match");
   } else if (mat1_transposed == false && mat2_transposed == true) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         mat1.size(1) == mat2.size(1), "matmul inner dimensions doesn't match");
   } else {
-    TORCH_CHECK(false, "matmul_hpu won't support both transposed");
+    HABANA_ASSERT(false, "matmul_hpu won't support both transposed");
   }
 
-  /*TORCH_CHECK(
+  /*HABANA_ASSERT(
       mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match"); */
-  TORCH_CHECK(
+  HABANA_ASSERT(
       static_cast<int>(mat1.is_contiguous()) + mat2.is_contiguous() > 0,
       "Only one matrix can me non contiguous.",
       "\nmat1.is_contiguous() returned: ",
@@ -73,7 +74,7 @@ static void check_matmul_params(
       "mat2 strides: ",
       mat2.strides());
   if (bias)
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
 }
 
@@ -97,12 +98,12 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   // Bias is the 5th input
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ((inputs.size() == 2) || (inputs.size() == 4) || (inputs.size() == 5)),
       "Incorrect size of inputs expected for matmul operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
 
   auto mat1 = inputs[0].toTensor();
   auto mat2 = inputs[1].toTensor();
@@ -110,14 +111,16 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
   bool mat1_transposed = false;
   bool mat2_transposed = false;
   if (inputs.size() > 2) {
-    TORCH_CHECK(inputs[2].isBool(), "Input tranpose flag expected to be bool");
-    TORCH_CHECK(inputs[3].isBool(), "Input tranpose flag expected to be bool");
+    HABANA_ASSERT(
+        inputs[2].isBool(), "Input tranpose flag expected to be bool");
+    HABANA_ASSERT(
+        inputs[3].isBool(), "Input tranpose flag expected to be bool");
     mat1_transposed = inputs[2].toBool();
     mat2_transposed = inputs[3].toBool();
   }
 
   if (inputs.size() > 4) {
-    TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
+    HABANA_ASSERT(inputs[4].isTensor(), "Input type expected to be tensor");
   }
 
   check_matmul_params(
@@ -141,13 +144,13 @@ void habana::BmmOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ((inputs.size() >= 3) || (inputs.size() == 5) || (inputs.size() == 6)),
       "Incorrect size of inputs expected for BmmOut operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
 
   auto out = inputs[0].toTensor();
   auto self = inputs[1].toTensor();
@@ -219,12 +222,12 @@ void habana::BmmOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ((inputs.size() == 2) || (inputs.size() == 4) || (inputs.size() == 5)),
       "Incorrect size of inputs expected for Bmm operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
 
   auto self = inputs[0].toTensor();
   auto mat2 = inputs[1].toTensor();
@@ -265,12 +268,12 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for matmul operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
 
   auto mat1 = inputs[0].toTensor(); // size of mat1 is m
   auto mat2 = inputs[1].toTensor(); // size of mat2 is m
@@ -347,12 +350,12 @@ void habana::MvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for matmul operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
 
   auto mat1 = inputs[0].toTensor(); // mxn
   auto mat2 = inputs[1].toTensor(); // size of mat2 is n
@@ -462,13 +465,13 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ((inputs.size() == 2) || (inputs.size() == 3) || (inputs.size() == 4) ||
        (inputs.size() == 5)),
       "Incorrect size of inputs expected for matmul operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
 
   bool reshape_3d_2d = habana_helpers::IsMatmul3d2dReshapeEnabled();
   auto tensor1 = inputs[0].toTensor();
@@ -816,17 +819,17 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ((inputs.size() == 3) || (inputs.size() == 4)),
       "Incorrect size of inputs expected for matmul backward operator");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input1 type expected to be tensor for matmul backward operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input2 type expected to be tensor for matmul backward operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input3 type expected to be tensor for matmul backward operator");
 
@@ -859,13 +862,13 @@ void habana::MatMulBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ((inputs.size() == 3 || inputs.size() == 4)),
       "Incorrect size of inputs expected for linear backward operator");
 
-  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input2 type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input0 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input1 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input2 type expected to be tensor");
   auto grad_out = inputs[0].toTensor();
   auto input_a = inputs[1].toTensor();
   auto input_b = inputs[2].toTensor();

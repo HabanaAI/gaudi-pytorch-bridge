@@ -27,7 +27,7 @@ OutputMetaDataVector PdistFwdMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto shape = self.sizes().vec();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       shape.size() == 2,
       "pdist only supports 2D tensors, got: ",
       shape.size(),

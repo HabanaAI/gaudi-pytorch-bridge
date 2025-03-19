@@ -806,7 +806,7 @@ class RegisterKernel {
     // Construct OperatorName from op
     c10::OperatorName opname = getOperatorName(op);
 
-    TORCH_CHECK(!kernels_.count(opname), opname, " is already registered!");
+    HABANA_ASSERT(!kernels_.count(opname), opname, " is already registered!");
     kernels_.emplace(opname, func);
     return *this;
   }

@@ -21,6 +21,7 @@
 #include <utility>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/random.h"
 #include "backend/synapse_helpers/device_helpers.h"
@@ -68,7 +69,7 @@ using namespace habana;
 using namespace at;
 
 #define FP8_CHECK                                 \
-  TORCH_CHECK(                                    \
+  HABANA_ASSERT(                                  \
       synapse_helpers::device_supports_fp8(       \
           HPUDeviceContext::get_device().type()), \
       "FP8 data type is not available on this device.")
@@ -234,7 +235,7 @@ inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
           condition = src_max_val <= max_int_val && src_min_val >= min_int_val;
         }
       }
-      TORCH_CHECK(
+      HABANA_ASSERT(
           condition,
           "Error when trying to cast ",
           src.scalar_type(),
@@ -359,7 +360,7 @@ void strided_insert_hpu_lazy(
   PT_LAZY_TRACE;
   auto hl_self = GetHbLazyTensor(self, true, false);
   auto& stride_params_opt = hl_self.getDataPtr()->stride_params;
-  TORCH_CHECK(stride_params_opt.has_value(), "incorrect tensor id");
+  HABANA_ASSERT(stride_params_opt.has_value(), "incorrect tensor id");
   StrideParams& params = stride_params_opt.value();
 
   if (params.optype == kStridedOpDefault) {
@@ -468,7 +469,7 @@ void lazy_view_fallback_handle(
   PT_LAZY_TRACE;
   if (additional_predicate(self, out) && is_fallback_original_op(self)) {
     auto& strided_param_opt = GetHbLazyTensor(out).getDataPtr()->stride_params;
-    TORCH_CHECK(strided_param_opt.has_value(), "invalid stride params");
+    HABANA_ASSERT(strided_param_opt.has_value(), "invalid stride params");
 
     func(self, strided_param_opt.value());
   }
@@ -803,7 +804,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
 
   // This situation should not occur
   // Throwing an exception here for now to catch any cases that arise
-  TORCH_CHECK(
+  HABANA_ASSERT(
       IsHbLazyTensor(src),
       "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
 
@@ -1076,8 +1077,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
 
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
-  TORCH_CHECK(self.defined(), "dst is undefined");
-  TORCH_CHECK(src.defined(), "src is undefined");
+  HABANA_ASSERT(self.defined(), "dst is undefined");
+  HABANA_ASSERT(src.defined(), "src is undefined");
 
   const auto src_device = src.device().type();
   const auto dst_device = self.device().type();
@@ -1453,7 +1454,7 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
         hb_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     flush_op();
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         0,
         "as_strided_ called with strides creating non-contiguous output tensor not supported");
   }
@@ -1542,7 +1543,7 @@ Tensor view_hpu(const Tensor& self_, SymIntArrayRef size) {
   auto inferred_size = habana_helpers::infer_size(size_, self_.numel());
   auto stride =
       at::detail::computeStride(self_.sizes(), self_.strides(), inferred_size);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stride.has_value(),
       "view size is "
       "not compatible with input tensor's size and stride (at least one dimension"
@@ -1571,7 +1572,7 @@ inline DimVector compute_strides_for_view_dtype_downsize(
     ScalarType new_dtype) {
   const int64_t ndim = old_strides.size();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       old_strides[ndim - 1] == 1,
       "self.stride(-1) must be 1 to view ",
       old_dtype,
@@ -1596,7 +1597,7 @@ inline DimVector compute_strides_for_view_dtype_upsize(
     ScalarType old_dtype,
     ScalarType new_dtype) {
   const int64_t ndim = old_strides.size();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       old_strides[ndim - 1] == 1,
       "self.stride(-1) must be 1 to view ",
       old_dtype,
@@ -1607,7 +1608,7 @@ inline DimVector compute_strides_for_view_dtype_upsize(
 
   DimVector new_strides(ndim);
   for (int64_t dim_idx = 0; dim_idx < ndim - 1; dim_idx++) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (old_strides[dim_idx] % size_ratio) == 0,
         "self.stride(",
         dim_idx,
@@ -1633,10 +1634,10 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
     return self;
   }
   const auto type_meta = c10::scalarTypeToTypeMeta(dtype);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !self.is_conj(),
       "torch.Tensor.view is not supported for conjugate view tensors when converting to a different dtype.");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !self.is_neg(),
       "torch.Tensor.view is not supported for tensors with negative bit set when converting to a different dtype.");
 
@@ -1655,7 +1656,7 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
     impl->set_storage_offset(self.storage_offset());
     impl->set_sizes_and_strides(self.sizes(), self.strides());
   } else if (self.dim() == 0) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         "self.dim() cannot be 0 to view ",
         self.scalar_type(),
@@ -1685,7 +1686,7 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
 
     int64_t size_ratio = new_element_size / self_element_size;
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (self.size(-1) % size_ratio) == 0,
         "self.size(-1) must be divisible by ",
         size_ratio,
@@ -1697,7 +1698,7 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
         "but got ",
         self.size(-1));
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (self.storage_offset() % size_ratio) == 0,
         "self.storage_offset() must be divisible by ",
         size_ratio,
@@ -1725,7 +1726,7 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
   auto hb_tensor = GetHbLazyTensor(new_tensor);
   hb_tensor.setTensorOriginalType(dtype);
   auto& params_opt = hb_tensor.getDataPtr()->stride_params;
-  TORCH_CHECK(params_opt.has_value(), "view_dtype: incorrect stride params");
+  HABANA_ASSERT(params_opt.has_value(), "view_dtype: incorrect stride params");
   params_opt.value().optype = kStridedOpViewDtype;
 
   return new_tensor;
@@ -1905,10 +1906,12 @@ Tensor bincount_hpu_lazy(
   }
   const auto self_dtype = self.scalar_type();
   auto maybe_casted_self = self;
-  if (self_dtype == c10::ScalarType::Short || self_dtype == c10::ScalarType::Char)
+  if (self_dtype == c10::ScalarType::Short ||
+      self_dtype == c10::ScalarType::Char)
     maybe_casted_self = self.to(c10::ScalarType::Int);
 
-  auto max_in_input = static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
+  auto max_in_input =
+      static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
   int64_t length = std::max(max_in_input + 1, minlength);
   std::vector<int64_t> shape{length};
   // Add bincount node
@@ -2478,7 +2481,7 @@ Tensor& _index_put_impl_hpu_lazy_(
     indices = indices_in;
   }
   std::vector<at::Tensor> indices_vec;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "index_put op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,
@@ -4819,7 +4822,8 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
   // This avoids strided memcpy operations and uses
   // the SliceOp from GC which results in better perf
 
-  TORCH_CHECK(self.dim() != 0, "split expects at least a 1-dimensional tensor");
+  HABANA_ASSERT(
+      self.dim() != 0, "split expects at least a 1-dimensional tensor");
   int64_t cur_size = self.size(dim);
   int64_t num_splits = split_sizes.size();
   std::vector<Tensor> splits(num_splits);
@@ -4827,7 +4831,7 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
 
   for (const auto i : c10::irange(num_splits)) {
     auto length = split_sizes[i];
-    TORCH_CHECK(
+    HABANA_ASSERT(
         length >= 0,
         "split_with_sizes expects split_sizes have only non-negative ",
         "entries, but got split_sizes=",
@@ -4837,7 +4841,7 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
       // dim specification.
       start_idx = c10::maybe_wrap_dim(start_idx, cur_size);
     }
-    TORCH_CHECK(
+    HABANA_ASSERT(
         length >= 0 && start_idx <= cur_size - length,
         "start (",
         start_idx,
@@ -4849,7 +4853,7 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
     splits[i] = slice_hpu_lazy(self, dim, start_idx, start_idx + length, 1);
     start_idx += length;
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       start_idx == cur_size,
       "split_with_sizes expects split_sizes to sum exactly to ",
       cur_size,

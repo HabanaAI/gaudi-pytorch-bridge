@@ -87,7 +87,7 @@ const allocate_user_params_func& HabanaCustomOpDescriptor::
 }
 
 bool HabanaCustomOpDescriptor::hasOutputShapeFunc(unsigned index) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       index < getOutputsSize(),
       getSchemaName(),
       " has ",
@@ -99,7 +99,7 @@ bool HabanaCustomOpDescriptor::hasOutputShapeFunc(unsigned index) const {
 
 const compute_output_shape_function& HabanaCustomOpDescriptor::
     getOutputShapeFunc(unsigned index) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       index < getOutputsSize(),
       getSchemaName(),
       " has ",
@@ -124,7 +124,7 @@ void HabanaCustomOpDescriptor::verifyInputOutputIndexes() {
   auto check_unique = [](auto&& descriptors) {
     std::unordered_set<unsigned> unique_indexes;
     for (auto&& descriptor : descriptors) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           unique_indexes.insert(descriptor.index).second,
           "Indexes must be unique");
     }

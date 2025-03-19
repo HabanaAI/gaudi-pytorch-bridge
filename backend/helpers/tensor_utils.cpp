@@ -252,7 +252,7 @@ void habana_helpers::copy_scalars_to_device(
   for (auto pair : tensors_list) {
     auto src = pair.first;
     auto dst = pair.second;
-    TORCH_CHECK(dst.nbytes() >= src.nbytes());
+    HABANA_ASSERT(dst.nbytes() >= src.nbytes());
 
     synapse_helpers::device::transfer_desc desc;
     desc.src = reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr());
@@ -650,7 +650,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::ComplexHalf:
     case c10::ScalarType::ComplexFloat:
     case c10::ScalarType::ComplexDouble: {
-      TORCH_CHECK(false, "Complex datatype is not supported on HPU device.");
+      HABANA_ASSERT(false, "Complex datatype is not supported on HPU device.");
       return false;
     }
     case c10::ScalarType::Float8_e5m2:

@@ -71,7 +71,7 @@ static PyObject* THP_HPU_Stream_pynew(
   }
 
   if (stream_ptr) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         priority == 0, "Priority was explicitly set for a external stream")
   }
 

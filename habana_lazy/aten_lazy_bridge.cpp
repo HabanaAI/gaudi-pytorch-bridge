@@ -375,7 +375,7 @@ ir::Value GetIrValueForListConstruct(
 void* GetLazyTensorDataPtr(const at::Tensor& t) {
   auto lazy_t = GetHbLazyTensor(t);
   auto internal_tensor = lazy_t.GetHbLazyTensorDataForMedia();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       internal_tensor,
       "Internal error: GetLazyTensorDataPtr doesn't have "
       "tensor with HBM storage");

@@ -81,7 +81,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
     } else if (ADAGRAD == optimizer) {
       callAdagrad(tList1, tList2);
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Incorrect optmizer option. Only ADAGRAD/SGD_MOMENTUM can be called with 2 at::TensorList& arguments.")
     }

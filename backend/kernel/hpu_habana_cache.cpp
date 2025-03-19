@@ -76,7 +76,7 @@ namespace {
           uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
-            TORCH_CHECK(
+            HABANA_ASSERT(
                 h2d_elem < LONG_MAX,
                 "H2D data ",
                 h2d_elem,
@@ -786,7 +786,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == num_inputs,
       "running index ",
       ridx,
@@ -846,7 +846,7 @@ void RecipeValueSpec::update_patching_table(
       auto dma_cb = ti.get_dma_cb();
       auto tshape{ti.get_shape()};
       at::TensorOptions topts(ti.get_topts());
-      TORCH_CHECK(
+      HABANA_ASSERT(
           topts.dtype() == c10::ScalarType::Int,
           " mismatch in seed tensor dtype, expected ",
           c10::ScalarType::Int,
@@ -890,7 +890,7 @@ void RecipeValueSpec::update_patching_table(
     if (ti.is_duplicate()) {
       auto ti_parent_index = ti.get_parent_index();
       auto pt_parent_index = ti_parent_index - intermediates_start;
-      TORCH_CHECK(
+      HABANA_ASSERT(
           pt_parent_index < intermediate_tensors.size(),
           "out of range duplicate intermediate tensor index ",
           pt_parent_index,
@@ -947,7 +947,7 @@ void RecipeValueSpec::update_patching_table(
     patch_intermediate_tensor(ridx);
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == intermediates_end,
       "tensor info index ",
       ridx,
@@ -959,7 +959,7 @@ void RecipeValueSpec::update_patching_table(
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
 
   if (is_shape_agnostic_graph) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         aten_output_num == output_shapes.size(),
         "number of output shapes for patching ",
         output_shapes.size(),
@@ -987,7 +987,7 @@ void RecipeValueSpec::update_patching_table(
       (outputs_end - ridx == allocated_outputs->size()));
   for (; ridx < outputs_end; ridx++) {
     auto output_idx = dtensorinfos.at(ridx)->get_output_index();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         output_idx < aten_output_num,
         "output index ",
         output_idx,
@@ -1047,7 +1047,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == outduplicates_end,
       "tensor info idx",
       ridx,
@@ -1066,7 +1066,7 @@ void RecipeValueSpec::update_patching_table(
     for (; ridx < input_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos.at(ridx)->get_output_index();
-        TORCH_CHECK(
+        HABANA_ASSERT(
             output_idx < aten_output_num,
             "output index ",
             output_idx,
@@ -1094,7 +1094,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == input_to_outduplicates_end,
       "tensor info idx ",
       ridx,
@@ -1130,7 +1130,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == interim_to_outduplicates_end,
       "tensor info idx ",
       ridx,
@@ -1149,7 +1149,7 @@ void RecipeValueSpec::update_patching_table(
     for (; ridx < output_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos.at(ridx)->get_output_index();
-        TORCH_CHECK(
+        HABANA_ASSERT(
             output_idx < aten_output_num,
             "output index ",
             output_idx,
@@ -1168,7 +1168,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == output_to_outduplicates_end,
       "tensor info idx ",
       ridx,
@@ -1176,7 +1176,7 @@ void RecipeValueSpec::update_patching_table(
       output_to_outduplicates_end);
 
   auto num_tinfos = dtensorinfos.size();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == num_tinfos,
       "tensor info idx ",
       ridx,
@@ -1191,7 +1191,7 @@ void RecipeValueSpec::update_patching_table(
     PT_EAGER_DEBUG(
         "[SHAPE AGNOSTIC] number of dtinfos patched count : ",
         dtinfos_patched_count);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         dtinfos_patched_count == num_tinfos - tinfos_not_patched,
         "number of dtinfos patched : ",
         dtinfos_patched_count,
@@ -1354,7 +1354,7 @@ void RecipeValueSpec::populate_syn_tensor_ids(
 void RecipeValueSpec::patch_launch_info(
     std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
     std::vector<size_t>& external_tensor_info_indexes) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor_ids_.size() == dtensorinfos.size(),
       "syn tensor ids are not populated");
 
@@ -1421,11 +1421,11 @@ void RecipeValueSpec::patch_launch_info(
         break;
       }
       case TENSOR_TYPE_MAX:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             false, "Patching of ", ti.tensor_type(), " is not supported yet.");
         break;
       default:
-        TORCH_CHECK(false, "Unreachable condition.");
+        HABANA_ASSERT(false, "Unreachable condition.");
     }
   }
 }
@@ -1559,7 +1559,7 @@ void RecipeLauncher::Launch(
     }
     if (dma_inputs.size() > 0) {
       for (auto& dma_input : dma_inputs) {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             dma_input->isTensor(), "Only tensor is supported as dma_input");
         at::Tensor tensor = dma_input->toTensor();
         ptRefs.push_back(std::move(tensor));
@@ -1964,7 +1964,7 @@ void DynamicBucketInfoMap::refine_graph(
       return;
     }
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       false, "Graph key ", graph_key, " is missing from DynamicBucketInfoMap");
 }
 

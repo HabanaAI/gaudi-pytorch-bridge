@@ -17,7 +17,7 @@
 
 namespace habana_helpers {
 std::string ResultShapes::DebugString() {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       min_shapes.size() == max_shapes.size(),
       "max and min have different shapes");
   std::ostringstream O;
@@ -71,7 +71,7 @@ bool HistoryItem::IsInRange(const ResultShapes& r) {
     auto& tidx{a.first};
     auto& tshape{a.second};
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         r.min_shapes.count(tidx) && r.max_shapes.count(tidx),
         "Tensor index ",
         tidx,

@@ -27,10 +27,10 @@ auto empty_meta(
     const at::IValue& pin_memory_opt,
     const at::IValue& memory_format_opt) {
   c10::Device device = device_opt.toOptional<at::Device>().value_or(at::kHPU);
-  TORCH_CHECK(device.is_hpu(), "Expected hpu device but got ", device);
+  HABANA_ASSERT(device.is_hpu(), "Expected hpu device but got ", device);
 
   bool pin_memory = pin_memory_opt.toOptional<bool>().value_or(false);
-  TORCH_CHECK(!pin_memory, "Only dense CPU tensors can be pinned");
+  HABANA_ASSERT(!pin_memory, "Only dense CPU tensors can be pinned");
 
   auto dtype = dtype_opt.toOptional<at::ScalarType>().value_or(
       at::get_default_dtype_as_scalartype());

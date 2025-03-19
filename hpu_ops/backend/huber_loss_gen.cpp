@@ -39,7 +39,7 @@ OutputMetaDataVector HuberLossMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
   double delta = stack.at(3).toScalar().to<double>();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       delta >= 0, "huber_loss does not support negative values for delta.")
 
   OutputMetaData meta;
@@ -131,7 +131,7 @@ void HuberLossBwdOperator::AddNode(
   auto meta = HuberLossBackwardMeta(stack)[0];
 
   float delta = stack.at(4).toScalar().to<float>();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       delta >= 0,
       "huber_loss_backward does not support negative values for delta.")
   auto mode = stack.at(3).toInt();

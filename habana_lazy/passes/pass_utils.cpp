@@ -43,7 +43,7 @@ at::IntArrayRef getDimsForLayout5d(
           habana::LayoutFormatWithDepthDims::N};
       dims = dimarr;
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           " InsertPermute_graph: permute called for unsupported channel order");
     }
@@ -65,7 +65,7 @@ at::IntArrayRef getDimsForLayout5d(
           habana::LayoutFormatWithDepthDims::N};
       dims = dimarr;
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           " InsertPermute_graph: permute called for unsupported channel order");
     }
@@ -87,12 +87,12 @@ at::IntArrayRef getDimsForLayout5d(
           habana::LayoutFormatWithDepthDims::H};
       dims = dimarr;
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           " InsertPermute_graph: permute called for unsupported channel order");
     }
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         0,
         " InsertPermute_graph: permute called for unsupported channel order");
   }
@@ -121,7 +121,7 @@ at::IntArrayRef getDimsForLayout(
           habana::LayoutFormatDims::N};
       dims = dimarr;
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           " InsertPermtue_graph: permute called for unsupported channel order");
     }
@@ -141,7 +141,7 @@ at::IntArrayRef getDimsForLayout(
           habana::LayoutFormatDims::N};
       dims = dimarr;
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           " InsertPermtue_graph: permute called for unsupported channel order");
     }
@@ -161,12 +161,12 @@ at::IntArrayRef getDimsForLayout(
           habana::LayoutFormatDims::H};
       dims = dimarr;
     } else {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           " InsertPermtue_graph: permute called for unsupported channel order");
     }
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         0,
         " InsertPermtue_graph: permute called for unsupported channel order");
   }

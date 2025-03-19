@@ -92,7 +92,7 @@ template <typename T>
 static void div_mode(habana_lazy::LazyOp<T>* op, at::Stack& inputs) {
   c10::optional<c10::string_view> rounding_mode =
       inputs.at(2).toOptional<c10::string_view>();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !rounding_mode.has_value() or (*rounding_mode == "trunc") or
           (*rounding_mode == StrModeFloor),
       "div expected rounding_mode to be one of None, '",

@@ -126,7 +126,10 @@
   visitor(synTensorSetDeviceDataType);        \
   visitor(synStatusGetBriefDescription);      \
   visitor(synUpdateMemoryConsumption);        \
-  visitor(synDumpStateAndTerminate);
+  visitor(synDumpStateAndTerminate);          \
+  visitor(synGetLastError);                   \
+  visitor(synGetErrorString);                 \
+  visitor(synGetLastErrorMessage);
 
 #define DECL_SYN_FN(func)                       \
   using func##_pfn_t = decltype(::func);        \

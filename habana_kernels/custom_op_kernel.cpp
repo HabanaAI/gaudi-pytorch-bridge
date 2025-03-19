@@ -22,16 +22,16 @@ void CustomOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == op_desc_.getInputsSize(),
       "Incorrect size of inputs expected for CustomOperator: ",
       op_desc_.getSchemaName());
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Currently custom op supprts first input as tensor type");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       op_desc_.getOutputsSize() == output_metadata.size(),
       "AllocateAndAddSynapseNode for multiple outputs count doesn't match, CustomOperator: ",
       op_desc_.getSchemaName());

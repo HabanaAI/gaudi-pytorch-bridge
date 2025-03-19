@@ -58,7 +58,7 @@ void HbExecutionContext::MarkTensorStatus(
 }
 
 void HbExecutionContext::MarkTensorExecuting(std::shared_ptr<Data> data) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       data->execution_status != kUN_REGISTERED,
       "Habana Lazy execution : trying to set Executing stage to unregistered tensor");
   if (data->execution_status != kEXECUTION_COMPLETE &&
@@ -114,7 +114,7 @@ void HbExecutionContext::JoinPendingLaunchThread(bool wait_only) {
 }
 
 void HbExecutionContext::MarkTensorExecuted(std::shared_ptr<Data> data) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       data->execution_status != kUN_REGISTERED,
       "Habana Lazy execution : trying to set executed stage to unregistered tensor");
   data->execution_status = kEXECUTION_COMPLETE;

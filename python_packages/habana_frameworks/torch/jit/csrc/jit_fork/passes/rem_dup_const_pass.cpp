@@ -47,7 +47,7 @@ bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
 #endif
   // Remove duplicate nodes
   std::for_each(nodes_to_remove.begin(), nodes_to_remove.end(), [](Node* n) {
-    TORCH_CHECK(!n->hasUses());
+    HABANA_ASSERT(!n->hasUses());
     PT_BRIDGE_DEBUG("Removing node ", *n, ".");
     n->destroy();
   });

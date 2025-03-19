@@ -33,7 +33,7 @@ std::shared_ptr<void> FillMultilabelMarginLossParamsCommon(
       params->mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
       break;
     default:
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Unsupported reduction mode in multilabel_margin_loss: ",
           reduction);

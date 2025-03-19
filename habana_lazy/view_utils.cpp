@@ -567,7 +567,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
     if (src.is_contiguous()) {
       base =
           get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
-      TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+      HABANA_ASSERT(base.storage(), "base tensor should have valid storage");
       base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
       auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);
       auto synapse_permute = hb_impl->GetMemoryPermutation();
@@ -645,7 +645,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
 
       if (t_updated.is_contiguous()) {
         // optimization for contiguous views
-        TORCH_CHECK(
+        HABANA_ASSERT(
             base.storage().data_ptr(),
             "base tensor is expected to be have storage");
         auto storage = base.storage();
@@ -683,7 +683,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
     }
 
     // Note: storage() api call also sets the front end storage()
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (t_updated.numel() == 0 ||
          (t_updated.storage().data_ptr() && (t_updated.data_ptr() != nullptr))),
         "t_updated tensor is expected to be have storage and valid data_ptr");
@@ -1252,7 +1252,7 @@ size_t HbLazyTensorViews::updateViewHash(
         hash = at::hash_combine(hash, params.viewStatus);
         break;
       default:
-        TORCH_CHECK("incorrect optype for views ", optype);
+        HABANA_ASSERT("incorrect optype for views ", optype);
     } // switch (optype)
   }
 
@@ -1273,7 +1273,7 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
     if (src.is_contiguous()) {
       base =
           get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
-      TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+      HABANA_ASSERT(base.storage(), "base tensor should have valid storage");
       base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
       auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);
       auto synapse_permute = hb_impl->GetMemoryPermutation();

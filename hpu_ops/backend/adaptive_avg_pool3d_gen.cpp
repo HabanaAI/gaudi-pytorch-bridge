@@ -36,7 +36,7 @@ OutputMetaDataVector AdaptiveAvgPool3dMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const auto inputSize = self.dim();
   const auto outputSize = stack[1].toIntList().vec();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputSize == 5 || inputSize == 4,
       "AdaptiveAvgPool3d expects input rank to be 4 or 3, but got size ",
       inputSize);

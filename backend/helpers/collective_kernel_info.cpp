@@ -31,7 +31,8 @@ std::vector<int64_t> ptr_array_indices(
       continue;
     }
     auto iter = std::find(src_array.begin(), src_array.end(), e);
-    TORCH_CHECK(iter != src_array.end(), "Failed to find element in src_array");
+    HABANA_ASSERT(
+        iter != src_array.end(), "Failed to find element in src_array");
     indices.push_back(std::distance(src_array.begin(), iter));
   }
   return indices;
@@ -49,7 +50,7 @@ std::vector<std::shared_ptr<T>> indices_array_to_ptr_array(
       continue;
     }
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         idx <= (int64_t)src_array.size(),
         "idx ",
         idx,
@@ -147,7 +148,7 @@ void CollectiveKernelInfos::Deserialize(
         habana::KernelRegistry().get(device_id, op_name, scalar_type);
     auto collective_kernel =
         std::dynamic_pointer_cast<habana::CollectiveOperator>(habana_kernel);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         collective_kernel,
         "Failed to find collective kernel for ",
         guid,

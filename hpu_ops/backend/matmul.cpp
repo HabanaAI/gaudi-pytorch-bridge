@@ -222,7 +222,7 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          {syn_in(0), syn_in(1)},
          {{meta.shape, meta.dtype, 0}}})[0]);
   } else {
-    TORCH_CHECK(false, "Not supported matmul configuration.");
+    HABANA_ASSERT(false, "Not supported matmul configuration.");
   }
 }
 

@@ -43,10 +43,10 @@ static int64_t get_arange_depth(
   const double end = _end.toDouble();
   const double step = _step.toDouble();
 
-  TORCH_CHECK(step != 0.0, "step value can not be 0.");
-  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
-  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
-  TORCH_CHECK(
+  HABANA_ASSERT(step != 0.0, "step value can not be 0.");
+  HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
+  HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
+  HABANA_ASSERT(
       std::isfinite(start) && std::isfinite(end),
       "unsupported range: ",
       start,
@@ -55,7 +55,7 @@ static int64_t get_arange_depth(
 
   double elements = std::ceil((end - start) / step);
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       elements >= 0 &&
           elements <= static_cast<double>(std::numeric_limits<int64_t>::max()),
       "invalid number of elements, possible overflow");
@@ -68,9 +68,9 @@ static int64_t get_arange_depth_ds(
     const float start,
     const float end,
     const float step) {
-  TORCH_CHECK(step != 0.0, "step value can not be 0.");
-  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
-  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
+  HABANA_ASSERT(step != 0.0, "step value can not be 0.");
+  HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
+  HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
   int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
   return num_elements;
@@ -254,7 +254,7 @@ OutputMetaDataVector ArangeDefaultCommonMeta(
   TORCH_INTERNAL_ASSERT(device.is_hpu());
 
   auto pin_memory = pin_memory_opt.toOptional<bool>().value_or(false);
-  TORCH_CHECK(!pin_memory, "Only dense CPU tensors can be pinned");
+  HABANA_ASSERT(!pin_memory, "Only dense CPU tensors can be pinned");
 
   meta.shape = {depth};
   meta.mem_format = at::MemoryFormat::Contiguous;

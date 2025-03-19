@@ -46,7 +46,7 @@ std::shared_ptr<void> FillExponentialParams(
     size_t& size) {
   PARAMS_STUB(ns_RandomExponential::Params);
   float lambd = stack.at(1).toScalar().toFloat();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       lambd >= 0.0,
       "exponential_ expects lambda >= 0.0, but found lambda=",
       lambd);
