@@ -343,7 +343,7 @@ struct _dispatch_fallback<
     if constexpr (std::is_void_v<ReturnType>)
       call(osl, result_dtype, args..., indices);
     else
-      return ::std::move(call(osl, result_dtype, args..., indices));
+      return call(osl, result_dtype, args..., indices);
   }
 
   template <std::size_t... Indices>

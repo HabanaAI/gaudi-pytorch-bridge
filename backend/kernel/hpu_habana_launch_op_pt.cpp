@@ -3825,7 +3825,7 @@ void HabanaLaunchOpPT::UpdateValueToIShapeMapForInputs(
   PT_BRIDGE_BEGIN;
   auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
   for (size_t j = 0; j < pt_stack_sh_.size(); j++) {
-    auto& value_input = jit_graph->inputs().at(j);
+    auto value_input = jit_graph->inputs().at(j);
     auto& ivalue_input = pt_stack_sh_[j];
     const auto& value_name = value_input->debugName();
     if (ivalue_input->isTensor()) {

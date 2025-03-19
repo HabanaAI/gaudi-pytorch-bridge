@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,14 @@ void ScaledTriangularSoftmax::AddNode(
         "exp_sum_recpr and max inputs must have the same shape.");
 
     auto expected_shape = self.pt_t.sizes().vec();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+    // There is already an assert that checks that self.pt_t is 3D tensor.
+    // Unfortunately GCC does not recognize it, requiring to manually supress
+    // the warning.
     expected_shape.back() = 1;
+#pragma GCC diagnostic pop
+
     TORCH_CHECK(
         exp_sum_recpr_shape == expected_shape,
         "exp_sum_recpr and max inputs must have shape [self_shape[0], self_shape[1], 1].");

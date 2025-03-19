@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <torch/torch.h>
@@ -52,27 +52,23 @@ enum class IShapeType {
 // Class to represent IValue
 class IShape {
  private:
-  IShapeType type;
+  IShapeType type{IShapeType::NONE};
   std::variant<at::Scalar, std::vector<int64_t>> data;
-  c10::ScalarType scalarType;
-  bool updated;
+  c10::ScalarType scalarType{};
+  bool updated{false};
 
  public:
   // Constructors
 
-  IShape() : type(IShapeType::NONE) {}
+  IShape() = default;
 
   IShape(at::Scalar scalar, c10::ScalarType scalarType = c10::ScalarType::Int)
-      : type(IShapeType::SCALAR),
-        data(scalar),
-        scalarType(scalarType),
-        updated(false) {}
+      : type(IShapeType::SCALAR), data(scalar), scalarType(scalarType) {}
 
   IShape(std::vector<int64_t> tensorShape, c10::ScalarType scalarType)
       : type(IShapeType::TENSOR_SHAPE),
         data(tensorShape),
-        scalarType(scalarType),
-        updated(false) {}
+        scalarType(scalarType) {}
 
   // Getters
   IShapeType getType() const;

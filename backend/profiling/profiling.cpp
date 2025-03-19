@@ -14,6 +14,7 @@
  */
 
 #include "backend/profiling/profiling.h"
+#include <array>
 #include <stdexcept>
 #include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/profiling/trace_sources/memory_source.h"
