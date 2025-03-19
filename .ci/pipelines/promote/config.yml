@@ -50,9 +50,9 @@ orchestratorConfig:
     # deepspeed-fork <End>
     # torchbench <Start>
     - testToLaunch: habana-internal/torchbench/Tests/Test_torchbench_gaudi2_asic_promote_torchbench_eager_suite
-      silentMode: true
+      silentMode: false
     - testToLaunch: habana-internal/torchbench/Tests/Test_torchbench_gaudi3_asic_promote_torchbench_eager_suite
-      silentMode: true
+      silentMode: false
     # torchbench <End>
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bert_suite
     - testToLaunch: habana-internal/habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite
