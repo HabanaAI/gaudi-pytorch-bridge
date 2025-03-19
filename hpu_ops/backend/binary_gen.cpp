@@ -160,6 +160,23 @@ static auto BuildBinary(
       op, graph, {guid, inputs, {{outshape, result_type, out_index}}});
 }
 
+bool MulTensorDSSTMetaFn(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("MulDSSTMeta called");
+  static_cast<void>(outputs);
+
+  if (inputs[0].isScalar() || inputs[1].isScalar())
+    return false;
+
+  // detect type promotion for mul.Tensor and update output shape
+  if (inputs[0].getScalarType() != inputs[1].getScalarType()) {
+    std::vector<int64_t> out_shape = {1};
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+  }
+  return true;
+}
+
 static void update_result_type(
     at::ScalarType& result_type,
     std::string& guid,

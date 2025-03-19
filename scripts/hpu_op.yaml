@@ -4531,7 +4531,7 @@ mse_loss_backward.grad_input:
 mul.Tensor:
   guid: mult_fwd
   output_meta: MulMeta
-  st_meta: DefaultSTMetaFn
+  st_meta: MulTensorDSSTMetaFn
   out_ids: [0]
   broadcast: true
   promote_to_common_type: [self, other]
