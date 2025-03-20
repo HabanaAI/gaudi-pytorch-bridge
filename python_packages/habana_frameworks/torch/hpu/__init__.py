@@ -228,6 +228,10 @@ def enable_inference_mode():
     _hpu_C.enable_inference_mode()
 
 
+def is_inference_mode_enabled():
+    return _hpu_C.is_inference_mode_enabled()
+
+
 def disable_inference_mode():
     _hpu_C.disable_inference_mode()
 
@@ -262,6 +266,10 @@ def enable_matmul3d_2d_reshape():
 
 def disable_matmul3d_2d_reshape():
     _hpu_C.disable_matmul3d_2d_reshape()
+
+
+def is_matmul3d_2d_reshape_enabled():
+    return _hpu_C.is_matmul3d_2d_reshape_enabled()
 
 
 def is_bf16_supported():

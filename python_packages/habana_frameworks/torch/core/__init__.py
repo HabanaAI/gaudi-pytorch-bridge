@@ -28,6 +28,8 @@ import torch
 # expose common APIs
 from .quantization import (
     hpu_inference_initialize,
+    hpu_inference_reset_env,
+    hpu_inference_set_env,
     hpu_initialize,
     hpu_reset_env,
     hpu_set_env,

@@ -343,6 +343,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("disable_inference_mode", []() {
     habana_helpers::DisableInferenceMode();
   });
+  m.def("is_inference_mode_enabled", []() {
+    return habana_helpers::IsInferenceMode();
+  });
   m.def("enable_quantization", []() { habana_helpers::EnableQuantization(); });
   m.def(
       "disable_quantization", []() { habana_helpers::DisableQuantization(); });
@@ -378,7 +381,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("disable_matmul3d_2d_reshape", []() {
     habana_helpers::DisableMatmul3d2dReshape();
   });
-
+  m.def("is_matmul3d_2d_reshape_enabled", []() {
+    return habana_helpers::IsMatmul3d2dReshapeEnabled();
+  });
   m.def("enable_recompute_FSDPA", [](bool recompute) {
     habana_helpers::enableRecomputeFSDPA(recompute);
   });
