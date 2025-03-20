@@ -314,9 +314,11 @@ void emitCopyMultipleLaunch(const char* tag, const uint64_t* srcs, const uint64_
   if (not config.log_copy) {
     return;
   }
-  PT_TOWL_DEBUG("h2d_multiple.launch ", tag, " num_copies ", num_copies);
+  PT_TOWL_DEBUG("copy.multiple.launch ", tag, " num_copies ", num_copies);
   for (size_t i = 0; i < num_copies; ++i) {
-    emitCopyLaunch(tag, reinterpret_cast<void*>(srcs[i]), reinterpret_cast<void*>(dsts[i]), sizes[i]);
+    PT_TOWL_DEBUG("copy.multiple.launch ", tag,
+                  " src ", reinterpret_cast<void*>(srcs[i]),
+                  " dst ", reinterpret_cast<void*>(dsts[i]), " size ", sizes[i]);
   }
 }
 
@@ -324,13 +326,11 @@ void emitCopyMultipleFinished(const char* tag, std::shared_ptr<synapse_helpers::
   if (not config.log_copy) {
     return;
   }
-  PT_TOWL_DEBUG("copy.multiple.finished ", tag);
-  size_t copies = std::size_t(std::distance(locked->begin(), locked->end()));
-  for (size_t i = 0; i < copies; ++i) {
-    emitCopyFinished(
-        tag,
-        nullptr,
-        reinterpret_cast<void*>(locked->at(i + copies)));
+  size_t num_copies = std::size_t(std::distance(locked->begin(), locked->end()));
+  PT_TOWL_DEBUG("copy.multiple.finished ", tag, " num_copies ", num_copies);
+  for (size_t i = 0; i < num_copies; ++i) {
+    PT_TOWL_DEBUG("copy.multiple.finished ", tag,
+                  " dst ", reinterpret_cast<void*>(locked->at(i)));
   }
 }
 
