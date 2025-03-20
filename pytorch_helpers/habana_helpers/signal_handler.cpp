@@ -12,8 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "habana_helpers/signal_handler.h"
+
+#include <unistd.h>
+
 #include "backend/synapse_helpers/env_flags.h"
+#include "habana_helpers/signal_handler.h"
 
 #include <c10/util/Backtrace.h>
 

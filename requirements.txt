@@ -16,7 +16,7 @@ pre-commit
 pybind11==2.10.4
 pyyaml==6.0.1
 requests
-setuptools>=67.7.2
+setuptools>=67.7.2,<=77.0.1 # 77.0.1 is last known working version, TODO investigate why
 urllib3>=1.26.2,<2  # <2 is an Amazon Linux 2 requirement
 wheel>=0.40
 
