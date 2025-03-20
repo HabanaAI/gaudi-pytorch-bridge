@@ -516,28 +516,46 @@ def test_index_put_bool():
     assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
 
-def test_index_put_bool_2d():
-    def generate_boolean_tensor(x, y, z):
+@pytest.mark.parametrize(
+    "x_shape, indices_shape, values_shape",
+    [
+        ((32, 4), (32,), (5, 4)),
+        ((40, 3), (40, 3), (1,)),
+        ((4, 330, 4), (4, 330), (5, 4)),
+        ((4, 32, 4), (4, 32, 4), (1,)),
+        ((50, 32, 4, 2), (50,), (17, 32, 4, 2)),
+        ((4, 32, 4, 2), (4, 32, 4), (3, 2)),
+        ((5, 40, 3, 3), (5, 40, 3, 3), (1,)),
+    ],
+)
+def test_index_put_bool_2d(x_shape, indices_shape, values_shape):
+    def generate_boolean_tensor(indices_shape, true_values):
         """Generate a boolean tensor of size (x,y) with z number of values set to True"""
-        if z > x * y:
-            raise ValueError("z cannot be greater than the total number of elements in the tensor (x * y).")
+        elements = 1
+        for dim_len in indices_shape:
+            elements *= dim_len
+
+        if true_values > elements:
+            raise ValueError(
+                "true_values cannot be greater than the total number of elements in the tensor with indices_shape."
+            )
         # Create a tensor of zeros (False)
-        tensor = torch.zeros(x * y, dtype=torch.bool)
+        tensor = torch.zeros(elements, dtype=torch.bool)
         # Randomly select z unique indices to set to True
-        indices = torch.randperm(x * y)[:z]
+        indices = torch.randperm(elements)[:true_values]
         tensor[indices] = True
         # Reshape the tensor to the desired shape
-        tensor = tensor.view(x, y)
+        tensor = tensor.view(indices_shape)
         return tensor
 
-    s0 = 4
-    s1 = 32
-    s2 = 4
-    s3 = s1 // 2
-    x = torch.arange(s0 * s1 * s2).view(s0, s1, s2)
-    values = torch.ones(s3, s2, dtype=x.dtype)
+    x = torch.randn(x_shape)
+    values = torch.ones(values_shape, dtype=x.dtype)
+    if values_shape[0] == 1:
+        values = torch.tensor(1, dtype=x.dtype)
+
     # The number of True values in the bmask should be same as the first dim of the values tensor
-    bmask = generate_boolean_tensor(s0, s1, s3)
+    true_values = values_shape[0]
+    bmask = generate_boolean_tensor(indices_shape, true_values)
 
     def index_test(device, x, bmask, values):
         x = x.to(device)

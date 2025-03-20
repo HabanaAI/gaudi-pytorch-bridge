@@ -578,6 +578,7 @@ void IndexPutBoolEager::AddNode(
   auto shape_tensor_shape = at::DimVector{5};
 
   auto self_sizes = self.sizes().vec();
+  auto values_sizes = values.sizes().vec();
   std::vector<at::Tensor> cat_input;
   std::vector<synTensor> cat_input_synTensor;
   std::vector<synapse_helpers::tensor> cat_input_tensor;
@@ -622,15 +623,10 @@ void IndexPutBoolEager::AddNode(
         std::move(inputPutBoolBroadcastIndexInputs),
         {{max_size, index_params.dtype}});
 
+    index_params.sizes = max_size;
     if (values.numel() > 1) {
-      auto values_sizes = values.sizes().vec();
       index_params.numel = values_sizes[0];
-      for (size_t i = 0; i < self_sizes.size() - values_sizes.size(); i++) {
-        index_params.sizes.emplace_back(self_sizes[i]);
-      }
-      index_params.sizes.emplace_back(values_sizes[0]);
     } else {
-      index_params.sizes = max_size;
       index_params.numel = std::accumulate(
           std::begin(max_size),
           std::end(max_size),
@@ -700,7 +696,6 @@ void IndexPutBoolEager::AddNode(
   if (values.numel() >
       1) { // if values has more than 1 elem, we have to assume the valid
     // count in indices will match values numel
-    auto values_sizes = values.sizes().vec();
     auto indices_fcd = cat_pt_shape[1];
     // Take leading dimensions of value from indices tensor
     for (size_t i = 0; i < cat_pt_shape.size() - 1; i++)
