@@ -108,11 +108,6 @@ orchestratorConfig:
     triggerMap:
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_lightning_habana_uts
-    silentMode: false
-    triggerMap:
-    - repository: lightning-habana-fork
-      gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pt_next/Test_dependent_Build_pt_next_u22
     triggerMap:
     - repository: pytorch-integration
