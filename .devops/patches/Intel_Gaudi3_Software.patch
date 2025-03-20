@@ -1,8 +1,8 @@
-diff --git a/specs_external/shared_layer_api.hpp b/specs_external/shared_layer_api.hpp
-index 0501a1a..8b1ed63 100644
---- a/specs_external/shared_layer_api.hpp
-+++ b/specs_external/shared_layer_api.hpp
-@@ -18,23 +18,36 @@ namespace SharedLayer
+diff --git a/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp b/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp
+index 0501a1a..6c7b3e1 100644
+--- a/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp
++++ b/Intel_Gaudi3_Software/specs_external/shared_layer_api.hpp
+@@ -18,23 +18,37 @@ namespace SharedLayer
  
      typedef enum
      {
@@ -38,6 +38,7 @@ index 0501a1a..8b1ed63 100644
 +        SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT           = 14,
 +        SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT         = 15,
 +        SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT           = 16,
++        SHARED_LAYER_DS_NDIMS_NOT_SUPPORTED                 = 17,
 +        SHARED_LAYER_FAILED                                 = -1,
      } Return_t;
  
@@ -54,7 +55,7 @@ index 0501a1a..8b1ed63 100644
      typedef struct{
          int                           apiVersion;
          DeviceId                      deviceId;
-@@ -46,6 +59,17 @@ namespace SharedLayer
+@@ -46,6 +60,17 @@ namespace SharedLayer
          unsigned                      outputTensorNr;
      }Params_t;
  

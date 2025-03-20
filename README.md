@@ -13,7 +13,8 @@ These steps assume you are building on Ubuntu 22.04. If you use a different OS, 
 
 Follow the below steps once to configure your environment for the repository build.
 
-1. Install the Intel Gaudi software and driver using steps from the [Installation Guide](https://docs.habana.ai/en/latest/Installation_Guide/Driver_Installation.html#driver-installation). For example:
+1. If you are not using a prebuilt Intel Gaudi container, install the Intel Gaudi software and driver by following the steps from the [Installation Guide]
+(https://docs.habana.ai/en/latest/Installation_Guide/Driver_Installation.html#driver-installation). For example:
 
 ```bash
 sudo apt update && sudo apt install -y curl gnupg pciutils wget
@@ -23,7 +24,14 @@ bash habanalabs-installer.sh install -t base -y
 sudo ln -s /usr/lib/habanalabs/libaeon.so.1 /usr/lib/habanalabs/libaeon.so
 ```
 
-1. Prepare the Intel Gaudi PyTorch bridge repository and install a proper version of the Gaudi-enabled `torch` wheel:
+If you are using a custom container provided in the Intel Gaudi vault, download the habanalabs-installer.sh without running it:
+
+```bash
+sudo apt update && sudo apt install -y curl gnupg pciutils wget
+wget 'https://vault.habana.ai/artifactory/gaudi-installer/latest/habanalabs-installer.sh'
+```
+
+2. Prepare the Intel Gaudi PyTorch bridge repository and install a proper version of the Gaudi-enabled `torch` wheel:
 
 ```bash
 export HABANA_SOFTWARE_STACK="$(pwd)"
@@ -36,7 +44,7 @@ EOF
 "${PYTORCH_MODULES_ROOT_PATH}"/scripts/install_torch_fork.sh "$VERSION" "$BUILD"
 ```
 
-1. Set up the required 3rd party code:
+3. Set up the required 3rd party code:
 ```bash
 mkdir 3rd-parties
 pushd 3rd-parties
@@ -55,7 +63,7 @@ popd
 
 4. Set up additional build dependencies:
 ```bash
-git clone --depth 1 --branch 1.19.0-561 https://github.com/HabanaAI/HCL.git
+git clone --depth 1 --branch 1.20.0-543 https://github.com/HabanaAI/HCL.git
 git clone --depth 1 --branch main https://github.com/HabanaAI/Intel_Gaudi3_Software.git
 
 sudo ln -s /usr/include/habanalabs/ /usr/include/habanalabs/include
@@ -90,10 +98,16 @@ export SYNAPSE_UTILS_ROOT=/usr/include/habanalabs/
 export BUILD_ROOT="$HOME/builds"
 export BUILD_ROOT_LATEST=/usr/lib/habanalabs/
 export PYTORCH_MODULES_RELEASE_BUILD="$BUILD_ROOT/pytorch_modules_release"  # the release build artifact directory
+export PYTORCH_MODULES_DEBUG_BUILD="$BUILD_ROOT/pytorch_modules_debug"  # the debug build artifact directory
 export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 ```
 
-2. Build the Intel Gaudi PyTorch bridge:
+2. Install the requirements:
+```bash
+pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
+```
+
+3. Build the Intel Gaudi PyTorch bridge:
 ```bash
 "$PYTORCH_MODULES_ROOT_PATH"/.devops/build.py -cir
 ```
