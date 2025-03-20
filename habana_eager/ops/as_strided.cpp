@@ -26,7 +26,7 @@ at::Tensor as_strided_hpu(
     const at::Tensor& self,
     c10::SymIntArrayRef size,
     c10::SymIntArrayRef stride,
-    c10::optional<c10::SymInt> storage_offset_) {
+    std::optional<c10::SymInt> storage_offset_) {
   auto storage_offset = storage_offset_.value_or(self.storage_offset());
   at::Tensor result = at::detail::make_tensor<at::TensorImpl>(
       c10::TensorImpl::VIEW,

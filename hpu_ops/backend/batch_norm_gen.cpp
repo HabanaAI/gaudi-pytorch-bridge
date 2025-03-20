@@ -26,7 +26,7 @@ namespace habana {
 
 namespace sh = synapse_helpers;
 
-static bool should_cast_from_BF16(c10::optional<TensorsPair> tensor_pair_opt) {
+static bool should_cast_from_BF16(std::optional<TensorsPair> tensor_pair_opt) {
   if (tensor_pair_opt.has_value())
     return tensor_pair_opt->pt_t.scalar_type() == c10::ScalarType::BFloat16;
   return false;
@@ -35,7 +35,7 @@ static bool should_cast_from_BF16(c10::optional<TensorsPair> tensor_pair_opt) {
 static synTensor cast_if_necessary_or_default(
     OpBackend* op,
     sh::graph& graph,
-    c10::optional<TensorsPair> source_opt,
+    std::optional<TensorsPair> source_opt,
     synTensor& default_val,
     std::optional<sh::tensor>& storage) {
   if (should_cast_from_BF16(source_opt)) {
@@ -297,10 +297,10 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     OpBackend& op,
     sh::graph& graph,
     const TensorsPair& input,
-    const c10::optional<TensorsPair>& weight_opt,
-    const c10::optional<TensorsPair>& bias_opt,
-    const c10::optional<TensorsPair>& running_mean_opt,
-    const c10::optional<TensorsPair>& running_var_opt,
+    const std::optional<TensorsPair>& weight_opt,
+    const std::optional<TensorsPair>& bias_opt,
+    const std::optional<TensorsPair>& running_mean_opt,
+    const std::optional<TensorsPair>& running_var_opt,
     const std::shared_ptr<void>& params,
     const size_t params_size,
     const sizes_vec& out_shapes) {
@@ -362,7 +362,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
         {get_guid_with_precision("batch_norm_reshape_fwd"sv, op.ScalarType()),
          {input.syn_t, bias, weight, running_mean, running_var},
          {NodeAttr::NodeOutputAttr{
-              input_4d_shape, op.ScalarType(), c10::optional<int>(0)},
+              input_4d_shape, op.ScalarType(), std::optional<int>(0)},
           NodeAttr::NodeOutputAttr{
               out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
           NodeAttr::NodeOutputAttr{
@@ -393,7 +393,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
          {NodeAttr::NodeOutputAttr{
               input_4d_shape,
               op.ScalarType(),
-              (input_dim != 4) ? c10::nullopt : c10::optional<int>(0)},
+              (input_dim != 4) ? c10::nullopt : std::optional<int>(0)},
           NodeAttr::NodeOutputAttr{
               out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
           NodeAttr::NodeOutputAttr{
@@ -428,10 +428,10 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
     OpBackend& op,
     sh::graph& graph,
     const TensorsPair& input,
-    const c10::optional<TensorsPair>& weight_opt,
-    const c10::optional<TensorsPair>& bias_opt,
-    const c10::optional<TensorsPair>& running_mean_opt,
-    const c10::optional<TensorsPair>& running_var_opt,
+    const std::optional<TensorsPair>& weight_opt,
+    const std::optional<TensorsPair>& bias_opt,
+    const std::optional<TensorsPair>& running_mean_opt,
+    const std::optional<TensorsPair>& running_var_opt,
     const std::shared_ptr<void>& params,
     const size_t params_size,
     const sizes_vec& out_shapes) {
@@ -480,7 +480,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
           graph,
           {get_guid_with_precision("batch_norm_inf_reshape"sv, op.ScalarType()),
            {input.syn_t, bias, weight, running_mean, running_var},
-           {{out_shapes[INPUT_IDX], op.ScalarType(), c10::optional<int>(0)}},
+           {{out_shapes[INPUT_IDX], op.ScalarType(), std::optional<int>(0)}},
            params.get(),
            params_size})
           .at(0)));
@@ -662,10 +662,10 @@ std::shared_ptr<void> FillBatchNormBwdParams(
 void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "BatchNormOpBackend::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto runningMeanOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto runningVarOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weightOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto runningMeanOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto runningVarOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   bool training = stackGetter.getNextInput<bool>();
   stackGetter.getNextInput<double>(); // momentum
   stackGetter.getNextInput<double>(); // epsilon
@@ -735,10 +735,10 @@ void BatchNormNoTrainingOpBackend::AddNode(
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "BatchNormNoTrainingOpBackend::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto runningMeanOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto runningVarOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weightOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto runningMeanOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto runningVarOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   stackGetter.getNextInput<double>(); // momentum
   stackGetter.getNextInput<double>(); // epsilon
 
@@ -785,8 +785,8 @@ void BatchNormNoStatsOpBackend::AddNode(
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "BatchNormNoStatsOpBackend::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weightOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   bool training = stackGetter.getNextInput<bool>();
   stackGetter.getNextInput<double>(); // momentum
   stackGetter.getNextInput<double>(); // epsilon
@@ -838,12 +838,12 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "BatchNormFwdOpBackend::AddNode");
   auto grad_out = stackGetter.getNextInput<TensorsPair>();
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto weight_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weight_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto running_mean_opt =
-      stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto running_var_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto saved_mean_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto saved_istd_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+      stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto running_var_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto saved_mean_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto saved_istd_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   bool training = stackGetter.getNextInput<bool>();
   double eps = stackGetter.getNextInput<double>();
   auto meta = BatchNormBwdMeta(stack);
@@ -937,10 +937,10 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   size_t size; // Will be initialized by below call
   const auto params = FillBatchNormBwdParams(stack, size);
 
-  c10::optional<int> final_result_index_0 =
+  std::optional<int> final_result_index_0 =
       meta[INPUT_GRAD_IDX].shape.size() != 4
-      ? c10::optional<int>{c10::nullopt}
-      : c10::optional<int>{INPUT_GRAD_IDX};
+      ? std::optional<int>{c10::nullopt}
+      : std::optional<int>{INPUT_GRAD_IDX};
   auto bn_out = BuildOp(
       graph,
       get_guid_with_precision("batch_norm_bwd"sv, meta[0].dtype),

@@ -1245,7 +1245,7 @@ Tensor empty_as_strided_lazy(
     const Tensor& self,
     IntArrayRef size,
     IntArrayRef stride,
-    c10::optional<int64_t> storage_offset) {
+    std::optional<int64_t> storage_offset) {
   PT_LAZY_TRACE;
   auto storage_impl = self.unsafeGetTensorImpl();
   Tensor at_internal_tensor = AtenInternalHbTensor(
@@ -1274,7 +1274,7 @@ ir::NodePtr create_as_strided_node(
     const Tensor& self,
     at::IntArrayRef size,
     at::IntArrayRef stride,
-    c10::optional<int64_t> storage_offset,
+    std::optional<int64_t> storage_offset,
     bool is_out) {
   return create_as_strided_node(
       self, size, stride, self.sizes(), self.strides(), storage_offset, is_out);
@@ -1286,7 +1286,7 @@ ir::NodePtr create_as_strided_node(
     at::IntArrayRef stride,
     at::IntArrayRef orig_size,
     at::IntArrayRef orig_stride,
-    c10::optional<int64_t> storage_offset,
+    std::optional<int64_t> storage_offset,
     bool is_out) {
   ir::NodePtr node = nullptr;
   auto self_strides = orig_stride.vec();
@@ -1377,7 +1377,7 @@ Tensor as_strided_hpu(
     const Tensor& self,
     SymIntArrayRef size,
     SymIntArrayRef stride,
-    c10::optional<SymInt> offset) {
+    std::optional<SymInt> offset) {
   PT_LAZY_TRACE;
   auto storage_offset_val =
       offset.has_value() ? offset.value().expect_int() : self.storage_offset();
@@ -1408,7 +1408,7 @@ Tensor as_strided_hpu_lazy(
     const Tensor& self,
     IntArrayRef size_in,
     IntArrayRef stride_in,
-    c10::optional<int64_t> storage_offset) {
+    std::optional<int64_t> storage_offset) {
   PT_LAZY_TRACE;
 
   // lazy within lazy. as strided node is not here. Only the view table update
@@ -1436,7 +1436,7 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
     IntArrayRef stride,
     IntArrayRef orig_size,
     IntArrayRef orig_stride,
-    c10::optional<int64_t> storage_offset) {
+    std::optional<int64_t> storage_offset) {
   // We only support contiguous chunks of data to be taken as strided,
   // as Device doesnt support strided tensors we dont support that case
   ir::NodePtr node = create_as_strided_node(
@@ -1463,7 +1463,7 @@ const Tensor& as_strided_hpu_lazy_(
     const Tensor& self,
     SymIntArrayRef _size,
     SymIntArrayRef _stride,
-    c10::optional<SymInt> _storage_offset) {
+    std::optional<SymInt> _storage_offset) {
   auto size = C10_AS_INTARRAYREF_SLOW(_size);
   auto stride = C10_AS_INTARRAYREF_SLOW(_stride);
   auto orig_size = self.sizes().vec();
@@ -1871,8 +1871,8 @@ at::Tensor cast_to_32(const at::Tensor& self) {
   return self;
 }
 
-c10::optional<at::Tensor> cast_weights(
-    const c10::optional<at::Tensor>& weights) {
+std::optional<at::Tensor> cast_weights(
+    const std::optional<at::Tensor>& weights) {
   if (weights.has_value() &&
       (weights.value().dtype() != c10::ScalarType::Int &&
        weights.value().dtype() != c10::ScalarType::Float)) {
@@ -1882,7 +1882,7 @@ c10::optional<at::Tensor> cast_weights(
 }
 
 c10::ScalarType bincount_output_dtype(
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   if (!weights.has_value()) {
     return c10::ScalarType::Long;
   }
@@ -1893,7 +1893,7 @@ c10::ScalarType bincount_output_dtype(
 
 Tensor bincount_hpu_lazy(
     const Tensor& self,
-    const c10::optional<Tensor>& weights,
+    const std::optional<Tensor>& weights,
     int64_t minlength) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
@@ -2189,14 +2189,14 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
 }
 
 static bool check_for_advanced_indexing(
-    const c10::List<c10::optional<at::Tensor>>& indices) {
+    const c10::List<std::optional<at::Tensor>>& indices) {
   bool advanced_indexing = false;
   c10::ScalarType prev_scalar_type = c10::ScalarType::Long;
   bool first_scalar = true;
   int bool_indices_count = 0;
 
   if (indices.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
-    for (c10::optional<at::Tensor> input_ind : indices) {
+    for (std::optional<at::Tensor> input_ind : indices) {
       auto input = input_ind.value_or(Tensor());
       if (!input.defined()) {
         advanced_indexing = true;
@@ -2226,12 +2226,12 @@ static bool check_for_advanced_indexing(
   return advanced_indexing;
 }
 
-static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
-    const c10::List<c10::optional<at::Tensor>>& indices) {
-  std::vector<c10::optional<at::Tensor>> bool_indices_vec;
+static c10::List<std::optional<at::Tensor>> check_for_boolean_advanced_indexing(
+    const c10::List<std::optional<at::Tensor>>& indices) {
+  std::vector<std::optional<at::Tensor>> bool_indices_vec;
   at::Tensor t_nz;
   bool has_bool_mask = false;
-  for (c10::optional<at::Tensor> input_ind : indices) {
+  for (std::optional<at::Tensor> input_ind : indices) {
     auto input_temp = input_ind.value_or(Tensor());
     Tensor input;
     if (input.defined() &&
@@ -2266,7 +2266,7 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
     }
   }
   if (has_bool_mask) {
-    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
+    c10::List<std::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
     return bool_mask_indices;
   } else {
     return indices;
@@ -2278,7 +2278,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   at::Tensor self = stack_tensor(stack, 0);
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
 
-  std::vector<c10::optional<at::Tensor>> indices;
+  std::vector<std::optional<at::Tensor>> indices;
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (o1.has_value() && o1.value().defined()) {
@@ -2466,13 +2466,13 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
 
 Tensor& _index_put_impl_hpu_lazy_(
     Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices_in,
+    const c10::List<std::optional<at::Tensor>>& indices_in,
     const Tensor& value,
     bool accumulate,
     [[maybe_unused]] const bool unsafe) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
-  c10::List<c10::optional<at::Tensor>> indices;
+  c10::List<std::optional<at::Tensor>> indices;
   bool advanced_indexing = check_for_advanced_indexing(indices_in);
   if (advanced_indexing) {
     // if we have boolean mask tensors, convert them to long int indices
@@ -2511,7 +2511,7 @@ Tensor& _index_put_impl_hpu_lazy_(
     std::tie(self, indices_vec) =
         generate_advanced_indexing_indices_list(stack);
   } else {
-    for (c10::optional<at::Tensor> input_ind : indices) {
+    for (std::optional<at::Tensor> input_ind : indices) {
       auto input = input_ind.value_or(Tensor());
       if (input.defined()) {
         HABANA_ASSERT(
@@ -2525,7 +2525,7 @@ Tensor& _index_put_impl_hpu_lazy_(
       } else {
         HABANA_ASSERT(
             0 &&
-            "index_put: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+            "index_put: unsupported case: None is not yet supported on HPU for c10::List<std::optional<Tensor>>");
       }
     }
   }
@@ -2534,7 +2534,7 @@ Tensor& _index_put_impl_hpu_lazy_(
   at::TensorList indices_in_list(indices_vec);
   auto indices_out_vec =
       habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
-  std::vector<c10::optional<at::Tensor>> indices_out_opt_vec;
+  std::vector<std::optional<at::Tensor>> indices_out_opt_vec;
   for (auto ind : indices_out_vec) {
     if (ind.defined()) {
       indices_out_opt_vec.emplace_back(ind);
@@ -2542,7 +2542,7 @@ Tensor& _index_put_impl_hpu_lazy_(
       indices_out_opt_vec.emplace_back(c10::nullopt);
     }
   }
-  c10::List<c10::optional<at::Tensor>> indices_out_opt_list(
+  c10::List<std::optional<at::Tensor>> indices_out_opt_list(
       indices_out_opt_vec);
   // index backward is not supported on hpu, indices needs to be
   // bool, byte or long type for cpu fallback
@@ -2629,7 +2629,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   auto output_shape = NonZeroOperator::compute_output_shape(self);
   std::vector<int64_t> shape_tensor_shape{5};
   Tensor nz_shape_tensor;
-  c10::optional<at::Tensor> nonzero_shape_tensor =
+  std::optional<at::Tensor> nonzero_shape_tensor =
       c10::make_optional(nz_shape_tensor);
   NonZero k({self, c10::nullopt}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
@@ -2772,7 +2772,7 @@ Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
   // after unbind indices might be on cpu.
   // Before passing it to index operator all indices must be on hpu
   // This is done as an alternative of typeConvertIndices
-  c10::List<c10::optional<Tensor>> converted_inds;
+  c10::List<std::optional<Tensor>> converted_inds;
   converted_inds.reserve(idx.size());
   for (size_t i = 0; i < idx.size(); ++i) {
     const auto& ind = idx[i];
@@ -2807,7 +2807,7 @@ Tensor& masked_select_out_hpu_lazy(
   // after unbind indices might be on cpu.
   // Before passing it to index operator all indices must be on hpu
   // This is done as an alternative of typeConvertIndices
-  c10::List<c10::optional<Tensor>> converted_inds;
+  c10::List<std::optional<Tensor>> converted_inds;
   converted_inds.reserve(idx.size());
   for (size_t i = 0; i < idx.size(); ++i) {
     const auto& ind = idx[i];
@@ -2944,12 +2944,12 @@ bool static cast_required(c10::ScalarType self_scalar_type) {
 
 Tensor index_put_frontend_impl_hpu_lazy(
     const Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices_list,
+    const c10::List<std::optional<at::Tensor>>& indices_list,
     const Tensor& value_in,
     bool accumulate) {
   PT_LAZY_TRACE;
   std::vector<at::Tensor> indices_vec;
-  for (c10::optional<Tensor> input : indices_list) {
+  for (std::optional<Tensor> input : indices_list) {
     indices_vec.push_back(input.value());
   }
   std::vector<Tensor> indices_vec_out{};
@@ -3138,7 +3138,7 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
   auto output_shape = NonZeroOperator::compute_output_shape(self);
   std::vector<int64_t> shape_tensor_shape{5};
   Tensor nz_shape_tensor;
-  c10::optional<at::Tensor> nonzero_shape_tensor =
+  std::optional<at::Tensor> nonzero_shape_tensor =
       c10::make_optional(nz_shape_tensor);
   NonZero k({self, c10::nullopt}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
@@ -3150,14 +3150,14 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
 
 Tensor index_put_hpu_lazy(
     const Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices_list,
+    const c10::List<std::optional<at::Tensor>>& indices_list,
     const Tensor& value_in,
     bool accumulate) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
   std::vector<at::Tensor> indices_vec;
-  for (c10::optional<Tensor> input : indices_list) {
+  for (std::optional<Tensor> input : indices_list) {
     indices_vec.push_back(input.value());
   }
   TensorList indices_in(indices_vec);
@@ -3252,14 +3252,14 @@ Tensor index_put_hpu_lazy(
 
 Tensor& index_put_hpu_lazy_(
     at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
+    const c10::List<std::optional<at::Tensor>>& indices,
     const at::Tensor& value,
     bool accumulate) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
   std::vector<at::Tensor> indices_in;
-  for (c10::optional<Tensor> input : indices) {
+  for (std::optional<Tensor> input : indices) {
     indices_in.push_back(input.value());
   }
 
@@ -3294,8 +3294,8 @@ Tensor& index_put_hpu_lazy_(
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,
-    c10::optional<int64_t> start,
-    c10::optional<int64_t> end,
+    std::optional<int64_t> start,
+    std::optional<int64_t> end,
     int64_t step) {
   PT_LAZY_TRACE;
 
@@ -3389,10 +3389,10 @@ at::Tensor select_hpu_lazy(
     index += size;
   }
 
-  c10::optional<int64_t> start_opt = c10::make_optional(index);
+  std::optional<int64_t> start_opt = c10::make_optional(index);
 
   int64_t end = index + 1;
-  c10::optional<int64_t> end_opt = c10::make_optional(end);
+  std::optional<int64_t> end_opt = c10::make_optional(end);
   auto slice_out = slice_hpu_lazy(self, dim, start_opt, end_opt, 1);
   auto out = squeeze_hpu_lazy(slice_out, dim);
 
@@ -3640,10 +3640,10 @@ Tensor _batch_norm_fwd_inference(
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const Tensor& input_,
-    const c10::optional<at::Tensor>& weight_tensor,
-    const c10::optional<at::Tensor>& bias_tensor,
-    const c10::optional<at::Tensor>& running_mean_,
-    const c10::optional<at::Tensor>& running_var_,
+    const std::optional<at::Tensor>& weight_tensor,
+    const std::optional<at::Tensor>& bias_tensor,
+    const std::optional<at::Tensor>& running_mean_,
+    const std::optional<at::Tensor>& running_var_,
     bool training,
     double momentum,
     double eps) {
@@ -3708,8 +3708,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_legit_hpu_lazy(
     const Tensor& input_,
-    const c10::optional<at::Tensor>& weight_tensor,
-    const c10::optional<at::Tensor>& bias_tensor,
+    const std::optional<at::Tensor>& weight_tensor,
+    const std::optional<at::Tensor>& bias_tensor,
     at::Tensor& running_mean_,
     at::Tensor& running_var_,
     bool training,
@@ -3818,11 +3818,11 @@ std::tuple<Tensor, Tensor, Tensor> _batch_norm_bwd(
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const Tensor& grad_out_,
     const Tensor& input_,
-    const c10::optional<at::Tensor>& weight_tensor,
-    const c10::optional<at::Tensor>& running_mean_,
-    const c10::optional<at::Tensor>& running_var_,
-    const c10::optional<at::Tensor>& save_mean,
-    const c10::optional<at::Tensor>& save_invstd,
+    const std::optional<at::Tensor>& weight_tensor,
+    const std::optional<at::Tensor>& running_mean_,
+    const std::optional<at::Tensor>& running_var_,
+    const std::optional<at::Tensor>& save_mean,
+    const std::optional<at::Tensor>& save_invstd,
     bool train,
     double eps,
     [[maybe_unused]] std::array<bool, 3> output_mask) {
@@ -3882,8 +3882,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
 
 Tensor batch_norm_elemt_lazy(
     const Tensor& input,
-    const c10::optional<Tensor>& weight,
-    const c10::optional<Tensor>& bias,
+    const std::optional<Tensor>& weight,
+    const std::optional<Tensor>& bias,
     const Tensor& mean,
     const Tensor& invstd,
     double eps) {
@@ -3958,7 +3958,7 @@ Tensor batch_norm_backward_elemt_lazy(
     const Tensor& input,
     const Tensor& mean,
     const Tensor& invstd,
-    const c10::optional<Tensor>& weight,
+    const std::optional<Tensor>& weight,
     bool input_g,
     bool weight_g,
     bool bias_g) {
@@ -3986,8 +3986,8 @@ Tensor batch_norm_backward_elemt_lazy(
     const Tensor& input,
     const Tensor& mean,
     const Tensor& invstd,
-    const c10::optional<Tensor>& running_mean,
-    const c10::optional<Tensor>& running_var,
+    const std::optional<Tensor>& running_mean,
+    const std::optional<Tensor>& running_var,
     double momentum,
     double eps,
     const Tensor& counts) {
@@ -4067,7 +4067,7 @@ native_group_norm_backward_hpu_lazy(
     const at::Tensor& input_,
     const at::Tensor& mean_,
     const at::Tensor& rstd_,
-    const c10::optional<at::Tensor>& weight_opt,
+    const std::optional<at::Tensor>& weight_opt,
     [[maybe_unused]] c10::SymInt N,
     [[maybe_unused]] c10::SymInt C,
     [[maybe_unused]] c10::SymInt HxW,
@@ -4254,7 +4254,7 @@ void setTensorDim(at::Tensor& tensor, int64_t n) {
 }
 Tensor& randperm_hpu_lazy(
     c10::SymInt n_,
-    c10::optional<Generator> gen,
+    std::optional<Generator> gen,
     Tensor& output) {
   PT_LAZY_TRACE;
   auto n = n_.expect_int();
@@ -4277,10 +4277,10 @@ Tensor& randperm_hpu_lazy(
 
 Tensor randperm_nogen_hpu_lazy(
     c10::SymInt n,
-    c10::optional<ScalarType> dtype,
-    c10::optional<Layout> layout,
-    c10::optional<Device> device,
-    c10::optional<bool> pin_memory) {
+    std::optional<ScalarType> dtype,
+    std::optional<Layout> layout,
+    std::optional<Device> device,
+    std::optional<bool> pin_memory) {
   PT_LAZY_TRACE;
   at::TensorOptions options = at::TensorOptions()
                                   .device(device)
@@ -4351,7 +4351,7 @@ at::Tensor repeat_hpu(const at::Tensor& self, at::SymIntArrayRef _repeats) {
 
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& repeats,
-    c10::optional<int64_t> output_size) {
+    std::optional<int64_t> output_size) {
   // if output_size is not provided by user, there is no way to compute output
   // shape without peeking into the "repeats" tensor. See desc. from PyT docs,
   // "output_size (int, optional) – Total output size for the given axis (
@@ -4439,10 +4439,10 @@ at::Tensor repeat_inlv_hpu_lazy(
 
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<IntArrayRef> size,
-    c10::optional<IntArrayRef> stride,
-    c10::optional<MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<IntArrayRef> size,
+    std::optional<IntArrayRef> stride,
+    std::optional<MemoryFormat> mem_format) {
   IntArrayRef tensor_size = size.value_or(at_tensor.sizes());
 
   if (stride.has_value()) {
@@ -4471,7 +4471,7 @@ Tensor empty_strided_hpu_lazy(
     bool create_storage,
     synTensorType tensor_type,
     int64_t storage_offset,
-    c10::optional<std::reference_wrapper<const at::Tensor>> base_view,
+    std::optional<std::reference_wrapper<const at::Tensor>> base_view,
     bool is_strided) {
   PT_LAZY_TRACE;
 
@@ -5416,7 +5416,7 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
 Tensor matmul_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
-    c10::optional<at::ScalarType> dtype) {
+    std::optional<at::ScalarType> dtype) {
   PT_LAZY_TRACE;
   c10::ScalarType out_dtype =
       dtype.has_value() ? dtype.value() : self.dtype().toScalarType();
@@ -5432,7 +5432,7 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
     const Tensor& other,
-    c10::optional<at::ScalarType> dtype) {
+    std::optional<at::ScalarType> dtype) {
   PT_LAZY_TRACE;
   c10::ScalarType out_dtype =
       dtype.has_value() ? dtype.value() : self.dtype().toScalarType();
@@ -5865,7 +5865,7 @@ at::Tensor convert_from_int4_common(
     const std::string& op_name,
     const at::Tensor& input,
     const at::Tensor& scale,
-    const c10::optional<at::Tensor>& zero_point,
+    const std::optional<at::Tensor>& zero_point,
     at::ScalarType out_dtype) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -5883,7 +5883,7 @@ at::Tensor convert_from_int4_common(
 at::Tensor convert_from_int4_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
-    const c10::optional<at::Tensor>& zero_point,
+    const std::optional<at::Tensor>& zero_point,
     at::ScalarType out_dtype) {
   return convert_from_int4_common(
       "convert_from_int4", input, scale, zero_point, out_dtype);
@@ -5892,7 +5892,7 @@ at::Tensor convert_from_int4_lazy(
 at::Tensor convert_from_uint4_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
-    const c10::optional<at::Tensor>& zero_point,
+    const std::optional<at::Tensor>& zero_point,
     at::ScalarType out_dtype) {
   return convert_from_int4_common(
       "convert_from_uint4", input, scale, zero_point, out_dtype);
@@ -6082,7 +6082,7 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_lazy(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -6104,7 +6104,7 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_lazy(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -6161,7 +6161,7 @@ habana_bounds_check_indices_lazy(
     at::Tensor& warning,
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -6289,18 +6289,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   if (p > 0.0) {
-    c10::optional<Generator> gen;
+    std::optional<Generator> gen;
     auto seed = habana::get_seed_tensor_hpu(gen);
     LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
         "hpu::sdpa_fwd_dropout_seed",
@@ -6351,7 +6351,7 @@ fp8_sdpa_recomp_fwd_common(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
@@ -6365,7 +6365,7 @@ fp8_sdpa_recomp_fwd_common(
     T d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type,
     c10::ScalarType fwdOutType) {
   PT_LAZY_OP_TRACE;
@@ -6409,7 +6409,7 @@ fp8_sdpa_recomp_fwd_common(
   }
 
   if (p > 0.0) {
-    c10::optional<Generator> gen;
+    std::optional<Generator> gen;
     auto seed = habana::get_seed_tensor_hpu(gen);
     LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
         "hpu::fp8_sdpa_recomp_fwd_dropout_seed",
@@ -6489,28 +6489,28 @@ fp8_sdpa_recomp_fwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor> d_scale_q,
-    const c10::optional<at::Tensor> d_scale_k,
-    const c10::optional<at::Tensor> d_scale_v,
-    const c10::optional<at::Tensor> q_scale_s,
-    const c10::optional<at::Tensor> q_scale_o,
-    const c10::optional<at::Tensor> d_scale_s,
+    const std::optional<at::Tensor> d_scale_q,
+    const std::optional<at::Tensor> d_scale_k,
+    const std::optional<at::Tensor> d_scale_v,
+    const std::optional<at::Tensor> q_scale_s,
+    const std::optional<at::Tensor> q_scale_o,
+    const std::optional<at::Tensor> d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
       (!q_scale_o.has_value()))
     fwdOutType = at::ScalarType::BFloat16;
 
-  return fp8_sdpa_recomp_fwd_common<c10::optional<at::Tensor>>(
+  return fp8_sdpa_recomp_fwd_common<std::optional<at::Tensor>>(
       q,
       k,
       v,
@@ -6544,7 +6544,7 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
@@ -6558,7 +6558,7 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const double d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
@@ -6591,19 +6591,19 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -6626,7 +6626,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
   }
 
   if (p > 0.0) {
-    c10::optional<Generator> gen;
+    std::optional<Generator> gen;
     auto seed = habana::get_seed_tensor_hpu(gen);
     LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
         "hpu::fp8_sdpa_fwd_dropout_seed",
@@ -6685,18 +6685,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   if (p > 0.0) {
-    c10::optional<Generator> gen;
+    std::optional<Generator> gen;
     auto seed = habana::get_seed_tensor_hpu(gen);
     LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
         "hpu::sdpa_recomp_fwd_dropout_seed",
@@ -6751,22 +6751,22 @@ fp8_sdpa_recomp_bwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const at::Tensor& m,
     const at::Tensor& linv,
-    const c10::optional<at::Tensor>& seed,
+    const std::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
     const double scale,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& d_scale_s,
-    const c10::optional<at::Tensor>& d_scale_do,
-    const c10::optional<at::Tensor>& d_scale_ds,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_ds,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_do,
+    const std::optional<at::Tensor>& d_scale_ds,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_ds,
     const bool is_amax_ds,
     const at::Tensor& fwd_out) {
   PT_LAZY_OP_TRACE;

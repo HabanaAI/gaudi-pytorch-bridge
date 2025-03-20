@@ -92,7 +92,7 @@ SharedMetaDataVector ForeachLerpSharedMeta(
   auto startsSize = starts.size();
   const auto& ends = stack.at(1).toList();
   auto weightTensors = stack.at(2);
-  c10::optional<c10::List<c10::IValue>> weightTensorList = c10::nullopt;
+  std::optional<c10::List<c10::IValue>> weightTensorList = c10::nullopt;
   if (weightTensors.isTensorList()) {
     weightTensorList = weightTensors.toList();
   }

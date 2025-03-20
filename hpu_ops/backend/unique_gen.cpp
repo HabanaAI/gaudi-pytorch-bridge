@@ -27,9 +27,9 @@ std::vector<synapse_helpers::tensor> UniqueCommon(
     synapse_helpers::graph& graph,
     UniqueParams_t self_params,
     synTensor self_synin,
-    c10::optional<int> final_result_index_0,
-    c10::optional<int> final_result_index_1,
-    [[maybe_unused]] c10::optional<int> final_result_index_2) {
+    std::optional<int> final_result_index_0,
+    std::optional<int> final_result_index_1,
+    [[maybe_unused]] std::optional<int> final_result_index_2) {
   int elements = self_params.numel;
   std::vector<int64_t> output_shape{elements};
   std::vector<int64_t> valid_count_shape{1};

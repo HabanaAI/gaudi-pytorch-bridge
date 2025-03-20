@@ -68,10 +68,10 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto mat2 = stackGetter.getNextInput<TensorsPair>();
   auto scale_a = stackGetter.getNextInput<TensorsPair>();
   auto scale_b = stackGetter.getNextInput<TensorsPair>();
-  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto scale_result = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto bias = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto scale_result = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto out_dtype =
-      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+      stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           mat1.pt_t.scalar_type());
 
   const auto mat1_shape = mat1.pt_t.sizes();

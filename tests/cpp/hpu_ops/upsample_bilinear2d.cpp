@@ -180,8 +180,8 @@ TEST_F(HpuOpTest, upsample_bilinear2d_bwd_size) {
 
 TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale_CL) {
   GenerateInputs(1, {{2, 7, 1, 6}});
-  c10::optional<double> scales_h(0.6);
-  c10::optional<double> scales_w(1.7);
+  std::optional<double> scales_h(0.6);
+  std::optional<double> scales_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
   std::vector<int64_t> output_size = {1, 6};
   auto expected = torch::upsample_bilinear2d_backward(
@@ -203,8 +203,8 @@ TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale_CL) {
 
 TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale) {
   GenerateInputs(1, {{2, 7, 1, 6}});
-  c10::optional<double> scales_h(0.6);
-  c10::optional<double> scales_w(1.7);
+  std::optional<double> scales_h(0.6);
+  std::optional<double> scales_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
   std::vector<int64_t> output_size = {1, 6};
 

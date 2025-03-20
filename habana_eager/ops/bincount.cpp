@@ -35,8 +35,8 @@ at::Tensor cast_to_32(const at::Tensor& self) {
   return self;
 }
 
-c10::optional<at::Tensor> cast_weights(
-    const c10::optional<at::Tensor>& weights) {
+std::optional<at::Tensor> cast_weights(
+    const std::optional<at::Tensor>& weights) {
   if (weights.has_value() &&
       (weights.value().dtype() != c10::ScalarType::Int &&
        weights.value().dtype() != c10::ScalarType::Float)) {
@@ -46,7 +46,7 @@ c10::optional<at::Tensor> cast_weights(
 }
 
 c10::ScalarType bincount_output_dtype(
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   if (!weights.has_value()) {
     return c10::ScalarType::Long;
   }
@@ -57,7 +57,7 @@ c10::ScalarType bincount_output_dtype(
 
 at::Tensor bincount_eager(
     const at::Tensor& self,
-    const c10::optional<at::Tensor>& weights,
+    const std::optional<at::Tensor>& weights,
     int64_t minlength) {
   PT_EAGER_TRACE;
   HABANA_ASSERT(

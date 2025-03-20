@@ -21,10 +21,10 @@ namespace eager {
 
 at::Tensor instance_norm_autograd_wrap(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight,
-    const c10::optional<at::Tensor>& bias,
-    const c10::optional<at::Tensor>& running_mean,
-    const c10::optional<at::Tensor>& running_var,
+    const std::optional<at::Tensor>& weight,
+    const std::optional<at::Tensor>& bias,
+    const std::optional<at::Tensor>& running_mean,
+    const std::optional<at::Tensor>& running_var,
     bool use_input_stats,
     double momentum,
     double eps,
@@ -32,8 +32,8 @@ at::Tensor instance_norm_autograd_wrap(
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_fwd_eager_hpu(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight,
-    const c10::optional<at::Tensor>& bias,
+    const std::optional<at::Tensor>& weight,
+    const std::optional<at::Tensor>& bias,
     double eps);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_bwd_eager_hpu(
@@ -41,7 +41,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_bwd_eager_hpu(
     const at::Tensor& grad_in,
     const at::Tensor& mean,
     const at::Tensor& istd,
-    const c10::optional<at::Tensor>& gamma);
+    const std::optional<at::Tensor>& gamma);
 
 } // namespace eager
 } // namespace habana

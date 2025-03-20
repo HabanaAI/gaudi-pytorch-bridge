@@ -22,6 +22,6 @@ at::Tensor as_strided_hpu(
     const at::Tensor& self,
     c10::SymIntArrayRef size,
     c10::SymIntArrayRef stride,
-    c10::optional<c10::SymInt> storage_offset);
+    std::optional<c10::SymInt> storage_offset);
 } // namespace eager
 } // namespace habana

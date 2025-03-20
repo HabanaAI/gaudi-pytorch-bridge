@@ -29,8 +29,8 @@ at::Tensor& set_source_Storage_storage_offset(
   at::native::checkSetStorage(self, source, storage_offset, size, stride);
 
   auto int_storage_offset = storage_offset.as_int_unchecked();
-  c10::optional<at::IntArrayRef> stride_opt = stride.data() != nullptr
-      ? c10::optional<at::IntArrayRef>(C10_AS_INTARRAYREF_SLOW(stride))
+  std::optional<at::IntArrayRef> stride_opt = stride.data() != nullptr
+      ? std::optional<at::IntArrayRef>(C10_AS_INTARRAYREF_SLOW(stride))
       : c10::nullopt;
 
   auto hb_tmeta{habana::get_tensor_extra_meta(self)};

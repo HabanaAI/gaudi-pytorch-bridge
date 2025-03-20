@@ -23,15 +23,15 @@ class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
   void Compare(
       const torch::Tensor& cpu_result,
       const torch::Tensor& hpu_result,
-      c10::optional<double> rtol = c10::nullopt,
-      c10::optional<double> atol = c10::nullopt) const;
+      std::optional<double> rtol = c10::nullopt,
+      std::optional<double> atol = c10::nullopt) const;
 
   template <typename... Ts>
   void Compare(
       const std::tuple<Ts...>& cpu_result,
       const std::tuple<Ts...>& hpu_result,
-      c10::optional<double> rtol = c10::nullopt,
-      c10::optional<double> atol = c10::nullopt) const;
+      std::optional<double> rtol = c10::nullopt,
+      std::optional<double> atol = c10::nullopt) const;
 
   torch::Tensor& GetCpuInput(int index) {
     return m_cpu_inputs.at(index);
@@ -81,8 +81,8 @@ class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
 
   template <typename T = float>
   T GenerateScalar(
-      c10::optional<T> min = c10::nullopt,
-      c10::optional<T> max = c10::nullopt) const;
+      std::optional<T> min = c10::nullopt,
+      std::optional<T> max = c10::nullopt) const;
 
  private:
   const std::vector<int64_t> m_dims = {4, 5, 6};
@@ -95,16 +95,16 @@ class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
       const std::tuple<Ts...>& expected,
       const std::tuple<Ts...>& result,
       std::index_sequence<Is...>,
-      c10::optional<double> rtol,
-      c10::optional<double> atol) const;
+      std::optional<double> rtol,
+      std::optional<double> atol) const;
 };
 
 template <typename... Ts>
 void HpuOpTestUtilBase::Compare(
     const std::tuple<Ts...>& expected,
     const std::tuple<Ts...>& result,
-    c10::optional<double> rtol,
-    c10::optional<double> atol) const {
+    std::optional<double> rtol,
+    std::optional<double> atol) const {
   compareTuple(expected, result, std::index_sequence_for<Ts...>{}, rtol, atol);
 }
 
@@ -113,13 +113,13 @@ void HpuOpTestUtilBase::compareTuple(
     const std::tuple<Ts...>& expected,
     const std::tuple<Ts...>& result,
     std::index_sequence<Is...>,
-    c10::optional<double> rtol,
-    c10::optional<double> atol) const {
+    std::optional<double> rtol,
+    std::optional<double> atol) const {
   (Compare(std::get<Is>(expected), std::get<Is>(result), rtol, atol), ...);
 }
 
 template <typename T>
-T HpuOpTestUtilBase::GenerateScalar(c10::optional<T> min, c10::optional<T> max)
+T HpuOpTestUtilBase::GenerateScalar(std::optional<T> min, std::optional<T> max)
     const {
   std::uniform_real_distribution<T> dist(min.value_or(-127), max.value_or(128));
   return dist(m_mt);
@@ -127,13 +127,13 @@ T HpuOpTestUtilBase::GenerateScalar(c10::optional<T> min, c10::optional<T> max)
 
 template <>
 int HpuOpTestUtilBase::GenerateScalar(
-    c10::optional<int> min,
-    c10::optional<int> max) const;
+    std::optional<int> min,
+    std::optional<int> max) const;
 
 template <>
 bool HpuOpTestUtilBase::GenerateScalar(
-    c10::optional<bool> min,
-    c10::optional<bool> max) const;
+    std::optional<bool> min,
+    std::optional<bool> max) const;
 
 class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
  public:

@@ -35,8 +35,8 @@ constexpr size_t INPUT_CHANNEL_INDEX = 1;
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_fwd_eager_hpu(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight,
-    const c10::optional<at::Tensor>& bias,
+    const std::optional<at::Tensor>& weight,
+    const std::optional<at::Tensor>& bias,
     double eps) {
   PT_OP_INFO("instance_norm_eager: ", DUMP_4ARGS(input, weight, bias, eps));
 
@@ -67,7 +67,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_bwd_eager_hpu(
     const at::Tensor& grad_in,
     const at::Tensor& mean,
     const at::Tensor& istd,
-    const c10::optional<at::Tensor>& gamma_opt) {
+    const std::optional<at::Tensor>& gamma_opt) {
   PT_OP_INFO(
       "instance_norm_backward_eager: ",
       DUMP_5ARGS(input, grad_in, mean, istd, gamma_opt));
@@ -108,7 +108,7 @@ dispatch_instance_norm_backward_hpu(
     const at::Tensor& grad_in,
     const at::Tensor& mean,
     const at::Tensor& istd,
-    const c10::optional<at::Tensor>& gamma_opt) {
+    const std::optional<at::Tensor>& gamma_opt) {
   PT_OP_INFO(
       "Dispatch hpu::instance_norm_backward: ",
       DUMP_5ARGS(input, grad_in, mean, istd, gamma_opt));
@@ -121,8 +121,8 @@ dispatch_instance_norm_backward_hpu(
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_instance_norm_hpu(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight_opt,
-    const c10::optional<at::Tensor>& bias_opt,
+    const std::optional<at::Tensor>& weight_opt,
+    const std::optional<at::Tensor>& bias_opt,
     double eps) {
   PT_OP_INFO(
       "Dispatch hpu::instance_norm: ",
@@ -139,7 +139,7 @@ struct InstanceNormBackward
   static torch::autograd::variable_list forward(
       torch::autograd::AutogradContext* ctx,
       const torch::Tensor& input,
-      const c10::optional<at::Tensor>& weight_opt, // gamma
+      const std::optional<at::Tensor>& weight_opt, // gamma
       const torch::Tensor& grad_in,
       const torch::Tensor& mean, // save_mean
       const torch::Tensor& istd, // save_invstd
@@ -253,8 +253,8 @@ class InstanceNormAutogradHPU
   static at::Tensor forward(
       torch::autograd::AutogradContext* ctx,
       const at::Tensor& input,
-      const c10::optional<at::Tensor>& weight_opt, // gamma
-      const c10::optional<at::Tensor>& bias_opt, // beta
+      const std::optional<at::Tensor>& weight_opt, // gamma
+      const std::optional<at::Tensor>& bias_opt, // beta
       double eps) {
     auto input_maybe_reshaped = input;
     const auto is_3d = input.dim() == 3;
@@ -307,10 +307,10 @@ class InstanceNormAutogradHPU
 
 at::Tensor instance_norm_autograd_wrap(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight_opt,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::Tensor>& running_mean_opt,
-    const c10::optional<at::Tensor>& running_var_opt,
+    const std::optional<at::Tensor>& weight_opt,
+    const std::optional<at::Tensor>& bias_opt,
+    const std::optional<at::Tensor>& running_mean_opt,
+    const std::optional<at::Tensor>& running_var_opt,
     bool use_input_stats,
     double momentum,
     double eps,
@@ -333,10 +333,10 @@ at::Tensor instance_norm_autograd_wrap(
 
 at::Tensor instance_norm_wrap(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight_opt,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::Tensor>& running_mean_opt,
-    const c10::optional<at::Tensor>& running_var_opt,
+    const std::optional<at::Tensor>& weight_opt,
+    const std::optional<at::Tensor>& bias_opt,
+    const std::optional<at::Tensor>& running_mean_opt,
+    const std::optional<at::Tensor>& running_var_opt,
     bool use_input_stats,
     double momentum,
     double eps,

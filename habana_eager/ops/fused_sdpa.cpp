@@ -29,12 +29,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
@@ -72,7 +72,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_sdpa_bwd_wrap(
     const at::Tensor& k,
     const at::Tensor& v,
     const at::Tensor& P,
-    const c10::optional<at::Tensor>& dm,
+    const std::optional<at::Tensor>& dm,
     const bool is_causal,
     const double p,
     const double scale,
@@ -158,7 +158,7 @@ class FusedSDPAAutogradHPU
       scale_ = 1 / sqrt(query.sizes()[3]);
     else
       scale_ = scale.value();
-    auto valid_seq_len = c10::optional<at::Tensor>();
+    auto valid_seq_len = std::optional<at::Tensor>();
     ctx->saved_data["dropout_p"] = dropout_p;
     ctx->saved_data["scale"] = scale_;
     ctx->saved_data["is_causal"] = is_causal;

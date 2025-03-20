@@ -371,7 +371,7 @@ SharedMetaDataVector NormalSharedMeta(
   else
     outputRank = stack.at(SIZE_INDEX).toIntVector().size();
 
-  c10::optional<int64_t> seedTensorIndex = c10::nullopt;
+  std::optional<int64_t> seedTensorIndex = c10::nullopt;
   if (stack.at(stack.size() - 1).isTensor())
     seedTensorIndex = 2;
   else if (normalVariant == NORMAL_FF && stack.at(3).isTensor())

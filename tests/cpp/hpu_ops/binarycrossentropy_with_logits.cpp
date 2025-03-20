@@ -30,19 +30,19 @@ TEST_P(BCEWithLogitsParameterizedTestFixture, tests) {
   auto input = torch::randn({5, 2, 4, 3});
   auto target = torch::randn({5, 2, 4, 3});
   auto grad_output = torch::randn({1});
-  c10::optional<at::Tensor> weight =
-      testWeight ? torch::randn({3}) : c10::optional<at::Tensor>();
-  c10::optional<at::Tensor> pos_weight =
-      testPosWeight ? torch::rand({3}) : c10::optional<at::Tensor>();
+  std::optional<at::Tensor> weight =
+      testWeight ? torch::randn({3}) : std::optional<at::Tensor>();
+  std::optional<at::Tensor> pos_weight =
+      testPosWeight ? torch::rand({3}) : std::optional<at::Tensor>();
 
   torch::Tensor hinput = input.to(torch::kHPU);
   torch::Tensor htarget = target.to(torch::kHPU);
   torch::Tensor hgrad_out = grad_output.to(torch::kHPU);
-  c10::optional<at::Tensor> hweight =
-      testWeight ? weight.value().to(torch::kHPU) : c10::optional<at::Tensor>();
-  c10::optional<at::Tensor> hpos_weight = testPosWeight
+  std::optional<at::Tensor> hweight =
+      testWeight ? weight.value().to(torch::kHPU) : std::optional<at::Tensor>();
+  std::optional<at::Tensor> hpos_weight = testPosWeight
       ? pos_weight.value().to(torch::kHPU)
-      : c10::optional<at::Tensor>();
+      : std::optional<at::Tensor>();
 
   auto result_fwd = torch::binary_cross_entropy_with_logits(
       hinput, htarget, hweight, hpos_weight, reductionType);

@@ -40,7 +40,12 @@ std::string to_string(const T& val) {
 }
 
 template <typename T>
-std::string to_string(const c10::optional<T>& val) {
+std::string to_string(const std::optional<T>& val) {
+  return val.has_value() ? to_string(*val) : "None";
+}
+
+template <typename T>
+std::string to_string(const std::optional<at::ArrayRef<T>>& val) {
   return val.has_value() ? to_string(*val) : "None";
 }
 
@@ -80,7 +85,7 @@ INSTANTIATE_FOR_LIST(c10::ArrayRef, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::IListRef, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::List, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::IListRef, at::OptionalTensorRef)
-INSTANTIATE_FOR_LIST(c10::List, c10::optional<at::Tensor>)
+INSTANTIATE_FOR_LIST(c10::List, std::optional<at::Tensor>)
 INSTANTIATE_FOR_LIST(std::vector, at::Tensor)
 #undef INSTANTIATE_FOR_LIST
 } // namespace habana

@@ -16,7 +16,7 @@ class CastToFp8V2Function
   static std::vector<at::Tensor> forward(
       torch::autograd::AutogradContext* ctx,
       const Tensor & input,
-	  const c10::optional<Tensor> & scale,
+	  const std::optional<Tensor> & scale,
 	  bool stochastic_rounding,
 	  bool is_amax,
 	  ScalarType dtype,
@@ -28,7 +28,7 @@ class CastToFp8V2Function
 
 ::std::tuple<Tensor,Tensor> cast_to_fp8_v2_dispatch(
 	const at::Tensor & input,
-	const c10::optional<at::Tensor> & scale,
+	const std::optional<at::Tensor> & scale,
 	bool stochastic_rounding,
 	bool is_amax,
 	at::ScalarType dtype,

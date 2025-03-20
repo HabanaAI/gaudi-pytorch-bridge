@@ -52,7 +52,7 @@ struct FusedDropoutHpuOpTest : public HpuOpTestUtil {
       std::initializer_list<long int> sizes,
       torch::ScalarType type,
       double p,
-      c10::optional<at::Generator> gen,
+      std::optional<at::Generator> gen,
       int seed1,
       int seed2) {
     DisableRecipeCache();

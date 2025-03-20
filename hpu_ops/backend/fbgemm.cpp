@@ -112,7 +112,7 @@ void LazyBoundsCheckIndices::AddNode(
   auto warning = stackGetter.getNextInput<TensorsPair>();
   auto rowsPerTable = stackGetter.getNextInput<TensorsPair>();
   auto boundsCheckMode = stackGetter.getNextInput<int>();
-  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weights = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   std::vector<synTensor> inputs = {
       rowsPerTable.syn_t, indices.syn_t, offsets.syn_t, warning.syn_t};

@@ -35,7 +35,7 @@ class LoweringUtil {
   static c10::ScalarType GetDtype(
       at::Tensor& result,
       const at::Tensor& self,
-      c10::optional<c10::ScalarType> dtype,
+      std::optional<c10::ScalarType> dtype,
       bool promote_integers = false);
 
   static DimMask MakeDimMask(at::IntArrayRef dims, int64_t ndim);

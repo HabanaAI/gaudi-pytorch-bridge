@@ -27,7 +27,7 @@ namespace habana_lazy {
 
 void CreateStorageForAtenTensor(
     size_t tensor_size,
-    c10::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> size,
     c10::Storage& lazy_storage) {
   auto storage_size = tensor_size;
   if (size.has_value()) {
@@ -41,10 +41,10 @@ void CreateStorageForAtenTensor(
 
 at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor&& HbLazy_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
@@ -63,10 +63,10 @@ at::Tensor AtenFromHbLazyTensor(
 
 at::Tensor AtenFromHbLazyTensor(
     const HbLazyTensor& HbLazy_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
@@ -87,10 +87,10 @@ at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor&& HbLazy_tensor,
     const c10::Storage& storage,
     c10::DispatchKeySet key_set,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
@@ -105,10 +105,10 @@ at::Tensor AtenFromHbLazyTensor(
 at::Tensor AtenInternalHbTensor(
     c10::Storage&& storage,
     const caffe2::TypeMeta& data_type,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   at::Tensor tensor = at::Tensor(
       c10::make_intrusive<HbInternalTensorImpl>(std::move(storage), data_type));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
@@ -205,7 +205,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
 }
 } // namespace
 
-c10::optional<HbLazyTensor> TryGetHbLazyTensor(
+std::optional<HbLazyTensor> TryGetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated,
     bool handle_collective,
@@ -318,7 +318,7 @@ int64_t GetHbLazyTensorId(
 }
 
 HbLazyTensor GetOrCreateHbLazyTensor(
-    const c10::optional<at::Tensor>& tensor,
+    const std::optional<at::Tensor>& tensor,
     const c10::Device& device) {
   PT_LAZY_TRACE;
   if (!IsDefined(tensor)) {
@@ -346,7 +346,7 @@ ir::Value GetIrValueForScalar(const c10::Scalar& scalar) {
 
 at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
-    const c10::optional<at::Device>& device) {
+    const std::optional<at::Device>& device) {
   PT_LAZY_TRACE;
   if (tensor.defined() && device) {
     bool is_input_lazy = IsHbLazyTensor(tensor);

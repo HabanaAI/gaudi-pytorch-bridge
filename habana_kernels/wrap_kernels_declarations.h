@@ -46,8 +46,8 @@ void optimizer_adamw_hpu_wrap(
     const double beta2,
     const double epsilon,
     const double weight_decay,
-    c10::optional<at::TensorList> exp_avg_scales = c10::nullopt,
-    c10::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt);
+    std::optional<at::TensorList> exp_avg_scales = c10::nullopt,
+    std::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt);
 at::Tensor fused_norm_hpu_wrap(
     std::vector<at::Tensor>& grad,
     const at::Tensor& max_norm,
@@ -143,12 +143,12 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights);
+    const std::optional<at::Tensor>& weights);
 std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights);
+    const std::optional<at::Tensor>& weights);
 at::Tensor habana_expand_into_jagged_permute_wrap(
     const at::Tensor& permute,
     const at::Tensor& input_offsets,
@@ -167,36 +167,36 @@ habana_bounds_check_indices_wrap(
     at::Tensor& warning,
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
-    const c10::optional<at::Tensor>& weights);
+    const std::optional<at::Tensor>& weights);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
@@ -205,7 +205,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const at::Tensor& k,
     const at::Tensor& v,
     const at::Tensor& P,
-    const c10::optional<at::Tensor>& dm,
+    const std::optional<at::Tensor>& dm,
     const bool is_causal,
     const double p,
     const double scale,
@@ -216,18 +216,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
     const at::Tensor& k,
     const at::Tensor& v,
     const at::Tensor& P,
-    const c10::optional<at::Tensor>& dm,
+    const std::optional<at::Tensor>& dm,
     const bool is_causal,
     const double p,
     const double scale,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& d_scale_s,
-    const c10::optional<at::Tensor>& d_scale_do,
-    const c10::optional<at::Tensor>& d_scale_ds,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_ds,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_do,
+    const std::optional<at::Tensor>& d_scale_ds,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_ds,
     const bool is_amax_ds,
     const at::Tensor& fwd_out);
 
@@ -236,10 +236,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const at::Tensor& m,
     const at::Tensor& linv,
-    const c10::optional<at::Tensor>& seed,
+    const std::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
     const double scale,

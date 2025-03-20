@@ -443,8 +443,8 @@ TEST_F(SifTest, IndexSubCat) {
     auto h_idx2 = idx2.to(torch::kHPU);
 
     // Make list
-    c10::List<c10::optional<at::Tensor>> indices_cpu_list;
-    c10::List<c10::optional<at::Tensor>> indices_hpu_list;
+    c10::List<std::optional<at::Tensor>> indices_cpu_list;
+    c10::List<std::optional<at::Tensor>> indices_hpu_list;
 
     indices_cpu_list.push_back(idx);
     indices_cpu_list.push_back(idx2);
@@ -500,8 +500,8 @@ TEST_F(SifTest, IndexSubSiluBwd) {
     auto h_idx2 = idx2.to(torch::kHPU);
 
     // Make list
-    c10::List<c10::optional<at::Tensor>> indices_cpu_list;
-    c10::List<c10::optional<at::Tensor>> indices_hpu_list;
+    c10::List<std::optional<at::Tensor>> indices_cpu_list;
+    c10::List<std::optional<at::Tensor>> indices_hpu_list;
 
     indices_cpu_list.push_back(idx);
     indices_cpu_list.push_back(idx2);
@@ -581,8 +581,8 @@ TEST_F(SifTest, RandPermHT) {
   std::vector<int> in_sizes{8, 10, 15};
   for (int i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
     torch::manual_seed(0);

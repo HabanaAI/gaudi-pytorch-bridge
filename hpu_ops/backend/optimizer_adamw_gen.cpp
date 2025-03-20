@@ -155,9 +155,9 @@ void OptimizerFusedAdamWOperator::AddNode(
   auto weight_decay = stackGetter.getNextInput<TensorsPair>();
   auto has_weight_decay = stackGetter.getNextInput<bool>();
   auto exp_avg_scales =
-      stackGetter.getNextInput<c10::optional<std::vector<TensorsPair>>>();
+      stackGetter.getNextInput<std::optional<std::vector<TensorsPair>>>();
   auto exp_avg_sq_scales =
-      stackGetter.getNextInput<c10::optional<std::vector<TensorsPair>>>();
+      stackGetter.getNextInput<std::optional<std::vector<TensorsPair>>>();
 
   if ((gradient_vec.size() != weight_vec.size()) ||
       (gradient_vec.size() != exp_avg_vec.size()) ||
@@ -222,7 +222,7 @@ void OptimizerFusedAdamWOperator::AddNode(
     const auto& exp_avg = exp_avg_vec[i];
     const auto& exp_avg_sq = exp_avg_sq_vec[i];
 
-    c10::optional<synTensor> exp_avg_scale_syn, exp_avg_sq_scale_syn;
+    std::optional<synTensor> exp_avg_scale_syn, exp_avg_sq_scale_syn;
     std::optional<sh::tensor> exp_avg_casted, exp_avg_sq_casted;
     std::optional<sh::tensor> exp_avg_scale_updated, exp_avg_sq_scale_updated;
     if (is_fp8) {

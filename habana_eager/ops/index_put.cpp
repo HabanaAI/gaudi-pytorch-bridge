@@ -31,14 +31,14 @@ namespace habana {
 namespace eager {
 
 static bool check_for_advanced_indexing(
-    const c10::List<c10::optional<at::Tensor>>& indices) {
+    const c10::List<std::optional<at::Tensor>>& indices) {
   bool advanced_indexing = false;
   c10::ScalarType prev_scalar_type = c10::ScalarType::Long;
   bool first_scalar = true;
   int bool_indices_count = 0;
 
   if (indices.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
-    for (c10::optional<at::Tensor> input_ind : indices) {
+    for (std::optional<at::Tensor> input_ind : indices) {
       auto input = input_ind.value_or(at::Tensor());
       if (!input.defined()) {
         advanced_indexing = true;
@@ -68,12 +68,12 @@ static bool check_for_advanced_indexing(
   return advanced_indexing;
 }
 
-static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
-    const c10::List<c10::optional<at::Tensor>>& indices) {
-  std::vector<c10::optional<at::Tensor>> bool_indices_vec;
+static c10::List<std::optional<at::Tensor>> check_for_boolean_advanced_indexing(
+    const c10::List<std::optional<at::Tensor>>& indices) {
+  std::vector<std::optional<at::Tensor>> bool_indices_vec;
   at::Tensor t_nz;
   bool has_bool_mask = false;
-  for (c10::optional<at::Tensor> input_ind : indices) {
+  for (std::optional<at::Tensor> input_ind : indices) {
     auto input_temp = input_ind.value_or(at::Tensor());
     at::Tensor input;
     if (input.defined() &&
@@ -107,10 +107,10 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
     }
   }
   if (has_bool_mask) {
-    return c10::List<c10::optional<at::Tensor>>(bool_indices_vec);
+    return c10::List<std::optional<at::Tensor>>(bool_indices_vec);
   } else {
-    c10::List<c10::optional<at::Tensor>> upcast_indices;
-    for (c10::optional<at::Tensor> ind : indices) {
+    c10::List<std::optional<at::Tensor>> upcast_indices;
+    for (std::optional<at::Tensor> ind : indices) {
       // For non-bool case we need to upcast the indices to long as it may
       // happen that different indices have different dtypes.
       if (ind.has_value() && ind.value().defined() &&
@@ -129,7 +129,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   at::Tensor self = stack_tensor(stack, 0);
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
 
-  std::vector<c10::optional<at::Tensor>> indices;
+  std::vector<std::optional<at::Tensor>> indices;
   indices.reserve(indices_ival.size());
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
@@ -316,11 +316,11 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
 
 at::Tensor& _index_put_impl_eager(
     at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices_in,
+    const c10::List<std::optional<at::Tensor>>& indices_in,
     const at::Tensor& value,
     bool accumulate,
     [[maybe_unused]] bool unsafe) {
-  c10::List<c10::optional<at::Tensor>> indices;
+  c10::List<std::optional<at::Tensor>> indices;
   bool advanced_indexing = check_for_advanced_indexing(indices_in);
   if (advanced_indexing) {
     // if we have boolean mask tensors, convert them to long int indices
@@ -356,7 +356,7 @@ at::Tensor& _index_put_impl_eager(
     std::tie(self_permuted, indices_vec) =
         generate_advanced_indexing_indices_list(stack); //(self, indices_in);
   } else {
-    for (c10::optional<at::Tensor> input_ind : indices) {
+    for (std::optional<at::Tensor> input_ind : indices) {
       auto input_temp = input_ind.value_or(at::Tensor());
       at::Tensor input;
       if (input_temp.defined() &&
@@ -370,11 +370,11 @@ at::Tensor& _index_put_impl_eager(
       } else {
         HABANA_ASSERT(
             0 &&
-            "index_put: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+            "index_put: unsupported case: None is not yet supported on HPU for c10::List<std::optional<Tensor>>");
       }
     }
   }
-  std::vector<c10::optional<at::Tensor>> indices_out_opt_vec;
+  std::vector<std::optional<at::Tensor>> indices_out_opt_vec;
   for (auto ind : indices_vec) {
     if (ind.defined()) {
       indices_out_opt_vec.emplace_back(ind);
@@ -384,7 +384,7 @@ at::Tensor& _index_put_impl_eager(
   }
 
   indices_vec.clear();
-  for (c10::optional<at::Tensor> input : indices_out_opt_vec) {
+  for (std::optional<at::Tensor> input : indices_out_opt_vec) {
     indices_vec.push_back(input.value());
   }
 

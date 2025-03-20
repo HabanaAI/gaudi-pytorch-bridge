@@ -940,7 +940,7 @@ void IndexPutCompile::AddNode(
     PT_KERNEL_DEBUG(
         "index_put boolmask torch.compile: received list of optional tensors");
     auto opt_tensorlist_args = stack.at(1).toOptionalTensorList();
-    for (c10::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+    for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
       auto input = input_ind.value_or(at::Tensor());
       if (input.defined()) {
         PT_KERNEL_DEBUG(
@@ -961,7 +961,7 @@ void IndexPutCompile::AddNode(
             "torch.compile: index_put boolmask: undefined indices tensor");
         HABANA_ASSERT(
             0 &&
-            "torch.compile: index_put boolmask: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+            "torch.compile: index_put boolmask: unsupported case: None is not yet supported on HPU for c10::List<std::optional<Tensor>>");
       }
     }
     HABANA_ASSERT(

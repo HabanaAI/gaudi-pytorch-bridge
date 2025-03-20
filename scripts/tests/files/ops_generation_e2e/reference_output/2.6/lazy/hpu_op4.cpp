@@ -23,7 +23,7 @@ namespace habana {
 
 
 
-at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
+at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, std::optional<at::ScalarType> dtype, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
@@ -39,7 +39,7 @@ at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::o
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(prod_out, hpu_op, out);
 }
 
-at::Tensor clone(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format) {
+at::Tensor clone(const at::Tensor & self, std::optional<at::MemoryFormat> memory_format) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("clone: ", DUMP_2ARGS(self, memory_format));
@@ -64,8 +64,8 @@ static const auto& kr_gen_4 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, c10::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
-  m.impl("clone", static_cast<at::Tensor (*)(const at::Tensor &, c10::optional<at::MemoryFormat>)>(&habana::clone));
+  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, std::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
+  m.impl("clone", static_cast<at::Tensor (*)(const at::Tensor &, std::optional<at::MemoryFormat>)>(&habana::clone));
 
 }
 

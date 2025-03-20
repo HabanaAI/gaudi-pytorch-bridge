@@ -65,9 +65,9 @@ class HabanaSerializationRecipeTest : public ::testing::Test {
 };
 
 TEST(HabanaSerializationTest, TensorOptionsTest) {
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+  std::optional<at::ScalarType> dtype = c10::ScalarType::Float;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  std::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions()
           .dtype(dtype)

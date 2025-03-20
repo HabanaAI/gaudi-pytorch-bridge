@@ -19,7 +19,7 @@ namespace habana {
 namespace eager {
 at::Tensor bincount_eager(
     const at::Tensor& self,
-    const c10::optional<at::Tensor>& weights,
+    const std::optional<at::Tensor>& weights,
     int64_t minlength);
 } // namespace eager
 } // namespace habana

@@ -68,8 +68,8 @@ TEST_F(VarStd, var_empty_dim) {
   torch::ScalarType dtype = torch::kFloat;
 
   auto expected =
-      torch::var(GetCpuInput(0), c10::optional<at::IntArrayRef>{}, 2);
-  auto result = torch::var(GetHpuInput(0), c10::optional<at::IntArrayRef>{}, 2);
+      torch::var(GetCpuInput(0), std::optional<at::IntArrayRef>{}, 2);
+  auto result = torch::var(GetHpuInput(0), std::optional<at::IntArrayRef>{}, 2);
 
   Compare(expected, result);
 }

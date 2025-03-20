@@ -47,7 +47,7 @@ void ScaledMaskedTriangularSoftmax::AddNode(
   const auto use_max = stackGetter.getNextInput<bool>();
   const auto mode = stackGetter.getNextInput<int>();
   const auto out_dtype =
-      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+      stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           self.pt_t.scalar_type());
   const auto& input_dtype = ScalarType();
 

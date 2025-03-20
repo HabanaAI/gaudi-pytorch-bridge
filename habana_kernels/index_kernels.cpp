@@ -1542,7 +1542,7 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   if (inputs[1].isOptionalTensorList()) {
     PT_KERNEL_DEBUG("index_put: received list of optional tensors");
     auto opt_tensorlist_args = inputs[1].toOptionalTensorList();
-    for (c10::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+    for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
       auto input = input_ind.value_or(at::Tensor());
       if (input.defined()) {
         PT_KERNEL_DEBUG(
@@ -1552,7 +1552,7 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
         PT_KERNEL_DEBUG("undefined indices tensor");
         HABANA_ASSERT(
             0 &&
-            "index_put: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+            "index_put: unsupported case: None is not yet supported on HPU for c10::List<std::optional<Tensor>>");
       }
     }
     HABANA_ASSERT(0, "index_put: OptionalTensorList is not handled in kernel");

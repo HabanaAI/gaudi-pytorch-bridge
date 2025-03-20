@@ -19,39 +19,39 @@
 #pragma once
 namespace habana_lazy {
 
-// Checks whether a c10::optional<Tensor> is defined.
-inline bool IsDefined(const c10::optional<at::Tensor>& tensor) {
+// Checks whether a std::optional<Tensor> is defined.
+inline bool IsDefined(const std::optional<at::Tensor>& tensor) {
   return tensor.has_value() && tensor.value().defined();
 }
 
 // Creates an ATen tensor with HbLazy type id from an HbLazyTensor.
 at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor&& HbLazy_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format);
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format);
 at::Tensor AtenFromHbLazyTensor(
     const HbLazyTensor& HbLazy_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format);
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format);
 at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor&& HbLazy_tensor,
     const c10::Storage& lazy_storage,
     c10::DispatchKeySet key_set,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format);
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format);
 at::Tensor AtenInternalHbTensor(
     c10::Storage&& storage,
     const caffe2::TypeMeta& data_type,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format);
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format);
 
 HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor);
 
@@ -64,7 +64,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::Device& device = c10::kHPU);
 
 HbLazyTensor GetOrCreateHbLazyTensor(
-    const c10::optional<at::Tensor>& tensor,
+    const std::optional<at::Tensor>& tensor,
     const c10::Device& device);
 
 // Extracts the HbLazyTensor out of our version of at::Tensor. Throws an
@@ -84,7 +84,7 @@ int64_t GetHbLazyTensorId(
     bool get_updated = true,
     bool handle_collective = true);
 
-c10::optional<HbLazyTensor> TryGetHbLazyTensor(
+std::optional<HbLazyTensor> TryGetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated = true,
     bool handle_collective = true,
@@ -100,7 +100,7 @@ ir::Value GetIrValueForScalar(const c10::Scalar& scalar);
 
 at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
-    const c10::optional<at::Device>& device);
+    const std::optional<at::Device>& device);
 
 ir::Value GetIrValueForListConstruct(
     const ir::ValueList& values,

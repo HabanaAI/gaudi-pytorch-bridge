@@ -99,7 +99,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
   return false;
 }
 private:
-bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, c10::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
+bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, std::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE2(input, upsample_bicubic2d, is_dynamic, vec, input, output_size, align_corners, scale_factors)

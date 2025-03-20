@@ -282,7 +282,7 @@ class HbExecutionContext {
     return m_output_vals;
   }
 
-  std::unordered_map<int64_t, c10::optional<at::Generator>>& getSeedTensorMap() {
+  std::unordered_map<int64_t, std::optional<at::Generator>>& getSeedTensorMap() {
     return m_seed_tensor_generator_map;
   }
 
@@ -433,7 +433,7 @@ class HbExecutionContext {
   bool m_capturing_graph{false};
   bool m_dry_run{false};
   at::hpu::HPUGraph* m_captured_hpu_graph{nullptr};
-  std::unordered_map<int64_t, c10::optional<at::Generator>>
+  std::unordered_map<int64_t, std::optional<at::Generator>>
       m_seed_tensor_generator_map;
   static std::atomic_uint64_t m_unique_jobid_count;
 

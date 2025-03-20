@@ -478,7 +478,7 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dims, true)[0];
 
-  c10::optional<int> finalIndex =
+  std::optional<int> finalIndex =
       keepdim ? c10::make_optional<int>(1) : c10::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0},
@@ -531,7 +531,7 @@ void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dims, true)[0];
-  c10::optional<int> finalIndex =
+  std::optional<int> finalIndex =
       keepdim ? c10::make_optional<int>(1) : c10::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0},

@@ -392,12 +392,12 @@ TEST_F(LazyDynamicFallbackTest, ArangeTest) {
     torch::Scalar step = step_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
 
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
-    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+    std::optional<at::Device> cpu_device = at::DeviceType::CPU;
     at::TensorOptions cpu_options =
         at::TensorOptions().dtype(dtype).device(cpu_device);
 
@@ -422,12 +422,12 @@ TEST_F(LazyDynamicFallbackTest, ArangeTestFloat) {
     torch::Scalar step = step_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
 
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Float;
 
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
-    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+    std::optional<at::Device> cpu_device = at::DeviceType::CPU;
     at::TensorOptions cpu_options =
         at::TensorOptions().dtype(dtype).device(cpu_device);
 

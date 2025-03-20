@@ -69,10 +69,10 @@ std::vector<AtTensorPair> native_layer_norm_test(
 
   dump_tensor<float>("Input:", input_tensor_cpu, verbose);
 
-  c10::optional<at::Tensor> weight_cpu_opt;
-  c10::optional<at::Tensor> bias_cpu_opt;
-  c10::optional<torch::Tensor> weight_hpu_opt;
-  c10::optional<torch::Tensor> bias_hpu_opt;
+  std::optional<at::Tensor> weight_cpu_opt;
+  std::optional<at::Tensor> bias_cpu_opt;
+  std::optional<torch::Tensor> weight_hpu_opt;
+  std::optional<torch::Tensor> bias_hpu_opt;
   if (weight == NativeLayerNormTestWeight::Defined) {
     weight_cpu_opt =
         torch::arange(

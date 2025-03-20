@@ -23,7 +23,7 @@ class HpuTimer : public Timer {
  public:
   explicit HpuTimer(c10::Device /* unused */) {}
 
-  c10::optional<int64_t> measureDifference(Event start, Event end) override {
+  std::optional<int64_t> measureDifference(Event start, Event end) override {
     int64_t start_time = getTimeRef(start);
     int64_t end_time = getTimeRef(end);
     PT_DISTRIBUTED_DEBUG("start time::", start_time, " End time::", end_time);

@@ -20,11 +20,11 @@ using namespace torch;
 
 // Helper code to calculate second derivative of instance_norm.
 namespace {
-Tensor toNonOptTensor(const c10::optional<Tensor>& t) {
+Tensor toNonOptTensor(const std::optional<Tensor>& t) {
   return t.has_value() ? *t : Tensor();
 }
 
-static bool isDefined(const c10::optional<Tensor>& t) {
+static bool isDefined(const std::optional<Tensor>& t) {
   return t.has_value() && t->defined();
 }
 
@@ -65,17 +65,17 @@ static Tensor expand_as_dim1(const Tensor& src, const Tensor& target) {
 
 std::tuple<Tensor, Tensor, Tensor> batchnorm_double_backward(
     const Tensor& input,
-    const c10::optional<Tensor>& gamma,
+    const std::optional<Tensor>& gamma,
     const Tensor& ggI,
     const Tensor& ggG,
     const Tensor& ggB,
     const Tensor& gO,
-    const c10::optional<Tensor>& running_mean,
-    const c10::optional<Tensor>& running_var,
+    const std::optional<Tensor>& running_mean,
+    const std::optional<Tensor>& running_var,
     bool training,
     double eps,
-    const c10::optional<Tensor>& save_mean,
-    const c10::optional<Tensor>& save_invstd,
+    const std::optional<Tensor>& save_mean,
+    const std::optional<Tensor>& save_invstd,
     std::array<bool, 3> output_mask) {
   bool affine = isDefined(gamma);
   // TODO: Do we have a ScalarOrTensor type?  Would such a thing exist?

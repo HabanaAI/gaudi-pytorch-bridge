@@ -62,7 +62,7 @@ void InstanceNormBackward::AddNode(
   auto grad_in = stackGetter.getNextInput<TensorsPair>();
   auto mean = stackGetter.getNextInput<TensorsPair>();
   auto istd = stackGetter.getNextInput<TensorsPair>();
-  auto gamma = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto gamma = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
 

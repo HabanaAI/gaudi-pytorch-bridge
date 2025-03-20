@@ -51,7 +51,7 @@ TORCH_API MatchedSchema matchSchema(
     Graph& graph,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    const c10::optional<NamedValue>& self = c10::nullopt);
+    const std::optional<NamedValue>& self = c10::nullopt);
 
 TORCH_API std::pair<size_t, MatchedSchema> matchSchemas(
     const std::vector<const ::c10::FunctionSchema*>& schemas,
@@ -59,7 +59,7 @@ TORCH_API std::pair<size_t, MatchedSchema> matchSchemas(
     Graph& graph,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    const c10::optional<NamedValue>& self = c10::nullopt,
+    const std::optional<NamedValue>& self = c10::nullopt,
     bool render_errors = false);
 
 TORCH_API bool convertibleToList(
@@ -74,9 +74,9 @@ TORCH_API Value* emitBuiltinCall(
     Symbol name,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    const c10::optional<NamedValue>& self = c10::nullopt);
+    const std::optional<NamedValue>& self = c10::nullopt);
 
-TORCH_API c10::optional<size_t> findInputWithName(
+TORCH_API std::optional<size_t> findInputWithName(
     const std::string& name,
     at::ArrayRef<NamedValue> kwargs,
     bool is_aten = false);

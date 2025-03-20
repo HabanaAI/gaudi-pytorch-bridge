@@ -1444,7 +1444,7 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
   // ListConstruct can have optional and non-optional tensors as item types
   if (node->output()->type()->containedTypes()[0]->kind() ==
       OptionalType::Kind) {
-    c10::List<c10::optional<at::Tensor>> opttensorList;
+    c10::List<std::optional<at::Tensor>> opttensorList;
     for (const auto& value_in : node_ins) {
       auto ivptrsh = value_to_ivalue[value_in];
       if (ivptrsh->isTensor()) {
@@ -1575,7 +1575,7 @@ IValPtrShared MapPrimListConstructNodeInputIShape(
   // ListConstruct can have optional and non-optional tensors as item types
   if (node->output()->type()->containedTypes()[0]->kind() ==
       OptionalType::Kind) {
-    c10::List<c10::optional<at::Tensor>> opttensorList;
+    c10::List<std::optional<at::Tensor>> opttensorList;
     for (const auto& value_in : node_ins) {
       static_cast<void>(value_in);
       opttensorList.emplace_back(c10::nullopt);

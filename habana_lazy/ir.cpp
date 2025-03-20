@@ -211,7 +211,7 @@ void Value::SetNode(
     NodePtr node,
     const c10::Device& device,
     const SmallSizeVec& dims,
-    const c10::optional<at::ScalarType> scalar_type,
+    const std::optional<at::ScalarType> scalar_type,
     size_t index) {
   if (m_index == 0) {
     // m_index has been set directly, don't reset to 0

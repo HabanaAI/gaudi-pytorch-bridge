@@ -44,44 +44,44 @@ class HbLazyTensorViews {
   static at::Tensor add_view_lazy(
       const at::Tensor& self,
       at::IntArrayRef size,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
 
   static at::Tensor add_slice_lazy(
       const at::Tensor& self,
       const StridedOpSliceParams& params,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
 
   static at::Tensor add_transpose_lazy(
       const at::Tensor& self,
       const StridedOpTransposeParams& params,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
 
   static at::Tensor add_t_lazy(
       const at::Tensor& self,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
 
   static at::Tensor add_permute_lazy(
       const at::Tensor& self,
       std::vector<int64_t> dims_vec,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
 
   static at::Tensor add_squeeze_unsqueeze_lazy(
       const at::Tensor& self,
       const int64_t dim,
-      c10::optional<at::Tensor> out_t,
+      std::optional<at::Tensor> out_t,
       std::string node_str);
 
   static at::Tensor add_squeeze_dims_lazy(
       const at::Tensor& self,
       std::vector<int64_t> dims_vec,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
 
  public:
   static at::Tensor add_expand_lazy(
       const at::Tensor& self,
       std::vector<int64_t> sizes,
       bool implicit,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
   static bool HandleViews(
       const at::Tensor& t,
       const habana_lazy::HbLazyTensor& hl_t);
@@ -108,7 +108,7 @@ class HbLazyTensorViews {
       at::IntArrayRef stride_in,
       int64_t storage_offset,
       bool is_update_view,
-      c10::optional<at::Tensor> out,
+      std::optional<at::Tensor> out,
       bool is_out = false);
   static at::Tensor process_strided_view(
       const at::Tensor& self,
@@ -129,7 +129,7 @@ class HbLazyTensorViews {
   static void StepMarkerAllReduce(const std::vector<at::Tensor>& inputs);
   static at::Tensor add_identity_lazy(
       const at::Tensor& self,
-      c10::optional<at::Tensor> out_t);
+      std::optional<at::Tensor> out_t);
   static std::vector<StridedOpSliceParams> getSliceInsertParams(
       const at::Tensor& recent_orig_t,
       const at::Tensor& recent_src_t,

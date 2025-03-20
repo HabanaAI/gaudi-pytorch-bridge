@@ -683,7 +683,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
 synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
     synapse_helpers::graph& graph,
     const c10::Scalar& scalar_val,
-    c10::optional<at::ScalarType> force_type) {
+    std::optional<at::ScalarType> force_type) {
   auto val_type = scalar_val.type();
 
   const auto init_val_size = elementSize(val_type);

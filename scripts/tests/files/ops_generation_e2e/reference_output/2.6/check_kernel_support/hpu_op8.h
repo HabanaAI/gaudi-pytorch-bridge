@@ -92,7 +92,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
   return false;
 }
 private:
-bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps, bool is_dynamic) {
+bool impl(const at::Tensor & input, const std::optional<at::Tensor> & weight, const std::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},

@@ -75,7 +75,7 @@ static synTensor CreateLayerNormBiasWeightTensor(
     OpBackend* op,
     sh::graph& graph,
     std::vector<sh::tensor>& storage,
-    const c10::optional<TensorsPair>& weightOrBiasOpt,
+    const std::optional<TensorsPair>& weightOrBiasOpt,
     const std::vector<int64_t>& constant_shape,
     float constant_value,
     std::vector<int64_t>& weightOrBias_shape) {
@@ -113,8 +113,8 @@ void LayerNormHabanaOperator::AddNode(
   StackGetter stackGetter(this, stack, "LayerNormHabanaOperator::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto normalized_shape = stackGetter.getNextInput<std::vector<int64_t>>();
-  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weightOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   auto metas = LayerNormHabanaMeta(stack);
   // CGUID layer_norm_fwd_pt should be used when we call underneath the TPC
@@ -301,7 +301,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   auto normalized_shape = stackGetter.getNextInput<std::vector<int64_t>>();
   auto mean = stackGetter.getNextInput<TensorsPair>();
   auto rstd = stackGetter.getNextInput<TensorsPair>();
-  auto weightOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weightOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   auto metas = LayerNormBwdMeta(stack);
 

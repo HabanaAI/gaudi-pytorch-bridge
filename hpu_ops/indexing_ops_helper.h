@@ -43,7 +43,7 @@ bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig);
 bool handle_bool_mask_indices(
     c10::ArrayRef<c10::IValue>& indices_in_orig,
     std::vector<c10::IValue>& indices_in_ivals_vec,
-    std::vector<c10::optional<at::Tensor>>& bool_indices_vec);
+    std::vector<std::optional<at::Tensor>>& bool_indices_vec);
 
 std::vector<int64_t> ComputeIndexOperatorOutputShape(
     const at::Tensor& input,

@@ -27,9 +27,9 @@ class LazyRandomGenKernelTest : public habana_lazy_test::LazyTest {};
 TEST_F(LazyRandomGenKernelTest, RandpermOutTest) {
   constexpr int n = 10;
 
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+  std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  std::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
 

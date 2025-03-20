@@ -39,7 +39,7 @@ ns_Reduction::ParamsV2 FillReductionParams(
 
 // Returns the input after cast to the supplied dtype. If dtype is none or if
 // dtype is same as input's dtype, returns nullopt.
-c10::optional<synapse_helpers::tensor> HandleReductionDtype(
+std::optional<synapse_helpers::tensor> HandleReductionDtype(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,

@@ -146,7 +146,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
   return false;
 }
 private:
-bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, int64_t N, int64_t C, int64_t HxW, int64_t group, double eps, bool is_dynamic) {
+bool impl(const at::Tensor & input, const std::optional<at::Tensor> & weight, const std::optional<at::Tensor> & bias, int64_t N, int64_t C, int64_t HxW, int64_t group, double eps, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE(input, native_group_norm, is_dynamic, input, weight, bias, N, C, HxW, group, eps)

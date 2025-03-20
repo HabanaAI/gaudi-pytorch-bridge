@@ -44,7 +44,7 @@ at::Tensor empty_as_strided_lazy(
     const at::Tensor& self,
     at::IntArrayRef size,
     at::IntArrayRef stride,
-    c10::optional<int64_t> storage_offset);
+    std::optional<int64_t> storage_offset);
 
 at::Tensor handleWeightTensorLayout(const at::Tensor& src);
 
@@ -54,24 +54,24 @@ ir::NodePtr create_as_strided_node(
     at::IntArrayRef stride,
     at::IntArrayRef orig_size,
     at::IntArrayRef orig_stride,
-    c10::optional<int64_t> storage_offset,
+    std::optional<int64_t> storage_offset,
     bool is_out = false);
 
 ir::NodePtr create_as_strided_node(
     const at::Tensor& self,
     at::IntArrayRef size,
     at::IntArrayRef stride,
-    c10::optional<int64_t> storage_offset,
+    std::optional<int64_t> storage_offset,
     bool is_out = false);
 
 bool is_inplace(at::Symbol symbol);
 
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format);
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format);
 std::vector<int64_t> CalculateStrides(
     const c10::IntArrayRef sizes,
     c10::MemoryFormat format);
@@ -1621,7 +1621,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
     habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
     if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
-      c10::optional<const at::IValue*> output = is_outfn_
+      std::optional<const at::IValue*> output = is_outfn_
           ? c10::make_optional<const at::IValue*>(&inputs.back())
           : c10::nullopt;
       auto dtype_helper =

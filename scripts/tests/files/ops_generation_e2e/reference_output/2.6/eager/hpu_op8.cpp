@@ -18,7 +18,7 @@ namespace habana {
 
 
 
-::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
+::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
   PT_EAGER_TRACE;
   PT_OP_INFO("sort_out: ", DUMP_6ARGS(self, stable, dim, descending, values, indices));
 
@@ -44,7 +44,7 @@ static const auto& kr_gen_8 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, c10::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
+  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, std::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
 
 }
 

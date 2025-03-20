@@ -12,7 +12,7 @@ using namespace at;
 
 ::std::tuple<Tensor,Tensor> cast_to_fp8_v2_autograd(
 	const at::Tensor & input,
-	const c10::optional<at::Tensor> & scale,
+	const std::optional<at::Tensor> & scale,
 	bool stochastic_rounding,
 	bool is_amax,
 	at::ScalarType dtype,
@@ -25,7 +25,7 @@ using namespace at;
 
 ::std::tuple<Tensor,Tensor> cast_to_fp8_v2_dispatch(
 	const at::Tensor & input,
-	const c10::optional<at::Tensor> & scale,
+	const std::optional<at::Tensor> & scale,
 	bool stochastic_rounding,
 	bool is_amax,
 	at::ScalarType dtype,
@@ -39,7 +39,7 @@ using namespace at;
 
 
 TORCH_LIBRARY_IMPL(hpu, AutogradHPU, m) {
-  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const c10::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&cast_to_fp8_v2_autograd));
+  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const std::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&cast_to_fp8_v2_autograd));
 }
 
 }  // namespace habana

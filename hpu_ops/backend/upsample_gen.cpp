@@ -41,8 +41,8 @@ using namespace synapse_helpers::layouts;
 
 inline void check_null_inputs_2d(
     c10::IValue out_size,
-    c10::optional<double> scale_h,
-    c10::optional<double> scale_w) {
+    std::optional<double> scale_h,
+    std::optional<double> scale_w) {
   HABANA_ASSERT(
       (scale_h.has_value() && scale_w.has_value()) || !out_size.isNone(),
       "Upsample: Must specify output size if scales aren't given, but got output_size: ",
@@ -55,9 +55,9 @@ inline void check_null_inputs_2d(
 
 inline void check_null_inputs_3d(
     c10::IValue out_size,
-    c10::optional<double> scale_d,
-    c10::optional<double> scale_h,
-    c10::optional<double> scale_w) {
+    std::optional<double> scale_d,
+    std::optional<double> scale_h,
+    std::optional<double> scale_w) {
   HABANA_ASSERT(
       (scale_d.has_value() && scale_h.has_value() && scale_w.has_value()) ||
           !out_size.isNone(),
@@ -1244,7 +1244,7 @@ static std::vector<synapse_helpers::tensor> Resize(
     const at::ScalarType& dtype,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = c10::nullopt) {
   auto guid = op->GetGuid();
   update_guid_dtype(guid, dtype);
 
@@ -1264,7 +1264,7 @@ static std::vector<synapse_helpers::tensor> Slice(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     const at::ScalarType& dtype,
-    c10::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = c10::nullopt) {
   auto output_size = outshape.size();
 
   synSliceParamsV2 slice_params{};
@@ -1350,8 +1350,8 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
       false /*antialias*/);
   auto final_index_for_resize =
       modifyInputWithOutputWidth || meta.dtype == c10::ScalarType::Byte
-      ? c10::optional<int>()
-      : c10::optional<int>(0);
+      ? std::optional<int>()
+      : std::optional<int>(0);
 
   auto resize = Resize(
       op,
@@ -1366,8 +1366,8 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
   // For Fwd ops, when both size and scale is provided with align_corners=false
   if (modifyInputWithOutputWidth) {
     auto final_index_for_slice = (meta.dtype == c10::ScalarType::Byte)
-        ? c10::optional<int>()
-        : c10::optional<int>(0);
+        ? std::optional<int>()
+        : std::optional<int>(0);
 
     resize = Slice(
         op,
@@ -1586,7 +1586,7 @@ void UpSampleNearest2DOperator::AddNode(
   auto self = stack_tensor(stack, 0);
   std::vector<synTensor> input{syn_in(0)};
   std::optional<synapse_helpers::tensor> cast_storage;
-  c10::optional<int> final_index = 0;
+  std::optional<int> final_index = 0;
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
   auto intermediateDtype = meta.dtype;
   if (meta.dtype == c10::ScalarType::Byte) {
@@ -1639,7 +1639,7 @@ synapse_helpers::tensor UpsampleNearestExactFwdCommon(
   auto meta = op->OutputMeta(stack)[0];
   auto self = stack_tensor(stack, 0);
   std::optional<synapse_helpers::tensor> cast_storage;
-  c10::optional<int> final_index = 0;
+  std::optional<int> final_index = 0;
   op->CreateShapeTensorInput(
       graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
   auto intermediateDtype = meta.dtype;
@@ -1719,7 +1719,7 @@ void UpsampleNearestExact2DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto meta = UpsampleNearestExact2DBwdMeta(stack)[0];
-  c10::optional<int> final_index = 0;
+  std::optional<int> final_index = 0;
 
   size_t size = 0;
   const auto& params = FillParams(stack, size);

@@ -190,8 +190,8 @@ inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {
 
 std::vector<at::Tensor> GetMetaTensorList(
     const std::vector<at::Tensor>& tensors);
-std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors);
+std::vector<std::optional<at::Tensor>> GetMetaOptTensorList(
+    const std::vector<std::optional<at::Tensor>>& tensors);
 
 template <typename T>
 T& get(fint_t&);
@@ -265,7 +265,7 @@ template <unsigned... Is>
 auto get_or_create_tensor(
     OpBackend& op,
     synapse_helpers::graph& graph,
-    const c10::optional<TensorsPair>& tensor,
+    const std::optional<TensorsPair>& tensor,
     const c10::IntArrayRef& size,
     const c10::ScalarType& scalar_type,
     const at::Scalar& val,

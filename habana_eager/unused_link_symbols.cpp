@@ -150,7 +150,7 @@ at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
 }
 
-at::Tensor repeat_inlv_hpu_lazy(const at::Tensor&, c10::optional<int64_t>) {
+at::Tensor repeat_inlv_hpu_lazy(const at::Tensor&, std::optional<int64_t>) {
   EAGER_NOT_SUPPORTED;
 }
 
@@ -182,7 +182,7 @@ Tensor empty_as_strided_lazy(
     const Tensor&,
     IntArrayRef,
     IntArrayRef,
-    c10::optional<int64_t>) {
+    std::optional<int64_t>) {
   EAGER_NOT_SUPPORTED;
 }
 
@@ -190,7 +190,7 @@ ir::NodePtr create_as_strided_node(
     at::Tensor const&,
     c10::ArrayRef<long>,
     c10::ArrayRef<long>,
-    c10::optional<long>,
+    std::optional<long>,
     bool) {
   EAGER_NOT_SUPPORTED;
 }
@@ -210,17 +210,17 @@ Tensor empty_strided_hpu_lazy(
     bool,
     synTensorType,
     int64_t,
-    c10::optional<std::reference_wrapper<const at::Tensor>>,
+    std::optional<std::reference_wrapper<const at::Tensor>>,
     bool) {
   EAGER_NOT_SUPPORTED;
 }
 
 void InitSizesAndStrides(
     at::Tensor&,
-    c10::optional<synTensorType>,
-    c10::optional<IntArrayRef>,
-    c10::optional<IntArrayRef>,
-    c10::optional<MemoryFormat>) {
+    std::optional<synTensorType>,
+    std::optional<IntArrayRef>,
+    std::optional<IntArrayRef>,
+    std::optional<MemoryFormat>) {
   EAGER_NOT_SUPPORTED;
 }
 
@@ -404,7 +404,7 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
     [[maybe_unused]] const at::Tensor& permute,
     [[maybe_unused]] const at::Tensor& lengths,
     [[maybe_unused]] const at::Tensor& indices,
-    [[maybe_unused]] const c10::optional<at::Tensor>& weights) {
+    [[maybe_unused]] const std::optional<at::Tensor>& weights) {
   EAGER_NOT_SUPPORTED;
 }
 
@@ -412,7 +412,7 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
     [[maybe_unused]] const at::Tensor& permute,
     [[maybe_unused]] const at::Tensor& lengths,
     [[maybe_unused]] const at::Tensor& indices,
-    [[maybe_unused]] const c10::optional<at::Tensor>& weights) {
+    [[maybe_unused]] const std::optional<at::Tensor>& weights) {
   EAGER_NOT_SUPPORTED;
 }
 
@@ -440,7 +440,7 @@ habana_bounds_check_indices_wrap(
     [[maybe_unused]] at::Tensor& warning,
     [[maybe_unused]] const at::Tensor& rows_per_table,
     [[maybe_unused]] int64_t bounds_check_mode,
-    [[maybe_unused]] const c10::optional<at::Tensor>& weights) {
+    [[maybe_unused]] const std::optional<at::Tensor>& weights) {
   EAGER_NOT_SUPPORTED;
 }
 

@@ -176,7 +176,7 @@ size_t SourceRangeHasher::operator()(
       std::hash<size_t>()(key.start()) ^ std::hash<size_t>()(key.end()));
 }
 
-c10::optional<SourceRange> Source::findSourceRangeThatGenerated(
+std::optional<SourceRange> Source::findSourceRangeThatGenerated(
     const SourceRange& range) {
   (void)range;
   return c10::nullopt;

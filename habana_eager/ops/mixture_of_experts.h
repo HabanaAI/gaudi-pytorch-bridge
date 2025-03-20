@@ -30,7 +30,7 @@ at::Tensor mixture_of_experts(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp);
+    const std::optional<bool> recomp);
 
 at::Tensor mixture_of_experts_fused_weights(
     const at::Tensor& hidden_states,
@@ -42,7 +42,7 @@ at::Tensor mixture_of_experts_fused_weights(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp);
+    const std::optional<bool> recomp);
 
 std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement(
     const at::Tensor& hidden_states,
@@ -205,7 +205,7 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp);
+    const std::optional<bool> recomp);
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const at::Tensor& hidden_states,
@@ -217,7 +217,7 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp);
+    const std::optional<bool> recomp);
 
 } // namespace eager
 } // namespace habana

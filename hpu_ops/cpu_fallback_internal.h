@@ -45,8 +45,8 @@ inline bool is_unchanged(const at::Tensor& t1, const at::Tensor& t2) {
 }
 
 inline bool is_unchanged(
-    const c10::optional<at::Tensor>& t1,
-    const c10::optional<at::Tensor>& t2) {
+    const std::optional<at::Tensor>& t1,
+    const std::optional<at::Tensor>& t2) {
   if (t1.has_value())
     if (t2.has_value())
       return t1->unsafeGetTensorImpl() == t2->unsafeGetTensorImpl();
@@ -79,7 +79,7 @@ inline bool is_eligible_for_redispatch(const at::Tensor& t) {
   return t.is_floating_point();
 }
 
-inline bool is_eligible_for_redispatch(const c10::optional<at::Tensor>& t) {
+inline bool is_eligible_for_redispatch(const std::optional<at::Tensor>& t) {
   if (t.has_value())
     return t->is_floating_point();
   return true;
@@ -104,8 +104,8 @@ inline void set_attribute(const at::Tensor& arg, at::Tensor tensor) {
 
 // Overload to process optional<Tensor>
 inline void set_attribute(
-    const c10::optional<at::Tensor>& arg,
-    c10::optional<at::Tensor> tensor) {
+    const std::optional<at::Tensor>& arg,
+    std::optional<at::Tensor> tensor) {
   if (arg.has_value() && tensor.has_value()) {
     (tensor.value()).set_requires_grad((arg.value()).requires_grad());
   }

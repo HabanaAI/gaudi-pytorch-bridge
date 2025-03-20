@@ -35,7 +35,7 @@ at::Generator createHPUGenerator() {
 }
 } // namespace detail
 
-uint32_t get_seed_hpu(const c10::optional<at::Generator>& gen) {
+uint32_t get_seed_hpu(const std::optional<at::Generator>& gen) {
   at::CPUGeneratorImpl* generator =
       at::get_generator_or_default<at::CPUGeneratorImpl>(
           gen, detail::getDefaultHPUGenerator());
@@ -49,7 +49,7 @@ uint32_t get_seed_hpu(const c10::optional<at::Generator>& gen) {
   return generator->random();
 }
 
-at::Tensor get_seed_tensor_hpu(const c10::optional<at::Generator>& gen) {
+at::Tensor get_seed_tensor_hpu(const std::optional<at::Generator>& gen) {
   int seed = get_seed_hpu(gen);
   at::Tensor seed_tensor = at::tensor(seed);
   auto t = habana_lazy::append_to_batch_h2d_list(seed_tensor);

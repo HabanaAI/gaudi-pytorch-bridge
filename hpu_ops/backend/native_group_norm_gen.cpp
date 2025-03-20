@@ -464,8 +464,8 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
 void NativeGroupNormFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "NativeGroupNormFwd::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weight = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto bias = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto metas = OutputMeta(stack);
   size_t size = 0;
   auto params = FillParams(stack, size);

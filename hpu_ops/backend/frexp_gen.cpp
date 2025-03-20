@@ -62,8 +62,8 @@ void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto meta = FrexpMeta(stack);
   const auto kernelExponentType = GetKernelExponentType(meta[0].dtype);
   const bool castIsNeededForExponent = kernelExponentType != meta[1].dtype;
-  const c10::optional<int> exponentFinalResultIndex =
-      castIsNeededForExponent ? c10::nullopt : c10::optional<int>{1};
+  const std::optional<int> exponentFinalResultIndex =
+      castIsNeededForExponent ? c10::nullopt : std::optional<int>{1};
 
   auto frexp = BuildOp(
       graph,

@@ -30,7 +30,7 @@ TEST(HpuOpLogTest, logger) {
   EXPECT_EQ("2", habana::to_string(2));
 
   // optional int64_t with none
-  c10::optional<int64_t> opt = c10::nullopt;
+  std::optional<int64_t> opt = c10::nullopt;
   EXPECT_EQ("None", habana::to_string(opt));
 
   // Scalar
@@ -42,7 +42,7 @@ TEST(HpuOpLogTest, logger) {
   // ScalarType
   EXPECT_EQ("BFloat16", habana::to_string(at::kBFloat16));
 
-  // c10::optional<ScalarType>
+  // std::optional<ScalarType>
   EXPECT_EQ("Float", habana::to_string(c10::make_optional(at::kFloat)));
 
   // array
@@ -67,7 +67,7 @@ TEST(HpuOpLogTest, logger) {
   at::TensorList tlist{t1, t2};
   EXPECT_EQ("[UndefinedTensor] HPUFloatType[2]", habana::to_string(tlist));
 
-  at::List<c10::optional<at::Tensor>> listopt{{}, t2};
+  at::List<std::optional<at::Tensor>> listopt{{}, t2};
   EXPECT_EQ("None HPUFloatType[2]", habana::to_string(listopt));
 
   at::IListRef<at::Tensor> ilistref{t3, t2};

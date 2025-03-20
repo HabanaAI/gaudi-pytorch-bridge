@@ -183,7 +183,7 @@ c10::ScalarType DTypeHelper::get_result_dtype() const {
 DTypeHelper DTypeHelper::op_with_optional_dtype_promotion(
     const std::vector<at::IValue>& inputs,
     bool to_float,
-    c10::optional<const at::IValue*> output,
+    std::optional<const at::IValue*> output,
     bool safe_cast) {
   DTypeHelper dtype_helper;
   std::vector<const at::IValue*> input_tensors;
@@ -208,7 +208,7 @@ DTypeHelper DTypeHelper::op_with_optional_dtype_promotion(
 
 DTypeHelper DTypeHelper::binary_op_with_type_promotion(
     const std::vector<at::IValue>& inputs,
-    c10::optional<const at::IValue*> output,
+    std::optional<const at::IValue*> output,
     bool safe_cast) {
   DTypeHelper dtype_helper;
   dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
@@ -225,7 +225,7 @@ DTypeHelper DTypeHelper::binary_op_with_type_promotion(
 DTypeHelper DTypeHelper::binary_op_with_optional_int_to_float_promotion(
     const std::vector<at::IValue>& inputs,
     bool int_to_float,
-    c10::optional<const at::IValue*> output,
+    std::optional<const at::IValue*> output,
     bool safe_cast) {
   DTypeHelper dtype_helper;
   dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
@@ -242,10 +242,10 @@ DTypeHelper DTypeHelper::binary_op_with_optional_int_to_float_promotion(
 
 c10::ScalarType DTypeHelper::get_compute_dtype(
     const std::vector<at::IValue>& stack,
-    c10::optional<at::Tensor> opt_output,
+    std::optional<at::Tensor> opt_output,
     DtypePromoteVariant promote_variant,
     bool safe_cast,
-    c10::optional<c10::ScalarType> dtype,
+    std::optional<c10::ScalarType> dtype,
     bool double_support,
     bool int64_support) {
   std::vector<const at::IValue*> inputs;

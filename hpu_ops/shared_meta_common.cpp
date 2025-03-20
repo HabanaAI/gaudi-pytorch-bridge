@@ -245,7 +245,7 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
     bool isAddcdiv = guid == "addcdiv_fwd";
     const bool isOutputIntegral = c10::isIntegralType(dtype, true);
     dtype = (isAddcdiv && isOutputIntegral) ? torch::kFloat32 : dtype;
-    c10::optional<SharedMetaData> floorSharedMeta = c10::nullopt;
+    std::optional<SharedMetaData> floorSharedMeta = c10::nullopt;
 
     if (isValueTensor) {
       auto valueTensor = value.toTensor();

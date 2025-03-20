@@ -21,7 +21,7 @@ namespace habana {
 static CheckNodeWithSharedLayerValidator validator_exp_fast_math("exp_fast_math", "exp_fast_math_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
-at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const c10::optional<at::Tensor> & input_scale, const c10::optional<at::Tensor> & output_scale, const c10::optional<at::Tensor> & inv_attn_heads, const c10::optional<at::Tensor> & fused_add) {
+at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const std::optional<at::Tensor> & input_scale, const std::optional<at::Tensor> & output_scale, const std::optional<at::Tensor> & inv_attn_heads, const std::optional<at::Tensor> & fused_add) {
   PT_EAGER_TRACE;
   PT_OP_INFO("softmax_fp8: ", DUMP_6ARGS(input, dim, input_scale, output_scale, inv_attn_heads, fused_add));
 
@@ -48,7 +48,7 @@ at::Tensor exp_fast_math(const at::Tensor & self) {
   return hpu_op.call();
 }
 
-::std::tuple<at::Tensor,at::Tensor> cast_to_fp8_v2(const at::Tensor & input, const c10::optional<at::Tensor> & scale, bool stochastic_rounding, bool is_amax, at::ScalarType dtype, at::OptionalIntArrayRef scale_shape) {
+::std::tuple<at::Tensor,at::Tensor> cast_to_fp8_v2(const at::Tensor & input, const std::optional<at::Tensor> & scale, bool stochastic_rounding, bool is_amax, at::ScalarType dtype, at::OptionalIntArrayRef scale_shape) {
   PT_EAGER_TRACE;
   PT_OP_INFO("cast_to_fp8_v2: ", DUMP_6ARGS(input, scale, stochastic_rounding, is_amax, dtype, scale_shape));
 
@@ -69,9 +69,9 @@ static const auto& kr_gen__custom = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
-  m.impl("softmax_fp8", static_cast<at::Tensor (*)(const at::Tensor &, int64_t, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &)>(&habana::softmax_fp8));
+  m.impl("softmax_fp8", static_cast<at::Tensor (*)(const at::Tensor &, int64_t, const std::optional<at::Tensor> &, const std::optional<at::Tensor> &, const std::optional<at::Tensor> &, const std::optional<at::Tensor> &)>(&habana::softmax_fp8));
   m.impl("exp_fast_math", static_cast<at::Tensor (*)(const at::Tensor &)>(&habana::exp_fast_math));
-  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const c10::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&habana::cast_to_fp8_v2));
+  m.impl("cast_to_fp8_v2", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, const std::optional<at::Tensor> &, bool, bool, at::ScalarType, at::OptionalIntArrayRef)>(&habana::cast_to_fp8_v2));
 
 }
 

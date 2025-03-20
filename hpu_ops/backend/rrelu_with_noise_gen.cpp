@@ -80,14 +80,14 @@ void Rrelu_with_noise::AddNode(
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "Rrelu_with_noise::AddNode");
   [[maybe_unused]] auto input = stackGetter.getNextInput<TensorsPair>();
-  auto noiseIn = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto noiseIn = stackGetter.getNextInput<std::optional<TensorsPair>>();
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto training = stack.at(4).toBool();
   auto lower = stack.at(2).toScalar().to<float>();
   auto upper = stack.at(3).toScalar().to<float>();
   size_t size = 0;
   bool is_functional = is_rrelu_functional(*this);
-  c10::optional<int> noise_out_idx{c10::nullopt};
+  std::optional<int> noise_out_idx{c10::nullopt};
   if (is_functional) {
     noise_out_idx = 1;
   }

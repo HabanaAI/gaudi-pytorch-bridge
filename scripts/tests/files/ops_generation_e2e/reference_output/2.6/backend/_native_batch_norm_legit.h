@@ -10,7 +10,7 @@ namespace habana {
 HPU_OP_BACKEND(BatchNormOpBackend)
 
 
-::std::tuple<at::Tensor,at::Tensor,at::Tensor> _native_batch_norm_legit(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps);
+::std::tuple<at::Tensor,at::Tensor,at::Tensor> _native_batch_norm_legit(const at::Tensor & input, const std::optional<at::Tensor> & weight, const std::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps);
 OUTMETA_DECL(BatchNormFwdMeta);
 FILL_PARAMS_DECL(FillBatchNormFwdParams);
 

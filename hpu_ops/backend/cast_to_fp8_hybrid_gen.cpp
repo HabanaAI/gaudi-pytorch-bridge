@@ -63,8 +63,8 @@ void CastToFp8Hybrid::AddNode(
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "CastToFp8Hybrid::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
-  auto scale_152 = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto scale_143 = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scale_152 = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto scale_143 = stackGetter.getNextInput<std::optional<TensorsPair>>();
   stackGetter.getNextInput<bool>();
   auto is_amax = stackGetter.getNextInput<bool>();
   auto src_type = self.pt_t.scalar_type();

@@ -29,9 +29,9 @@ std::vector<at::Tensor> GetMetaTensorList(
   return metatensors;
 }
 
-std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors) {
-  std::vector<c10::optional<at::Tensor>> metatensors;
+std::vector<std::optional<at::Tensor>> GetMetaOptTensorList(
+    const std::vector<std::optional<at::Tensor>>& tensors) {
+  std::vector<std::optional<at::Tensor>> metatensors;
   metatensors.reserve(tensors.size());
   for (const auto& tensor : tensors) {
     if (tensor.has_value()) {

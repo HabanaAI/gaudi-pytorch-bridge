@@ -22,8 +22,8 @@ class HpuOpTest : public HpuOpTestUtil {};
 TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale_CL) {
   GenerateInputs(1, {{1, 9, 3, 4}});
   std::vector<int64_t> size = {6, 12};
-  c10::optional<double> scale_h = 2.0;
-  c10::optional<double> scale_w = 3.0;
+  std::optional<double> scale_h = 2.0;
+  std::optional<double> scale_w = 3.0;
 
   auto expected = torch::upsample_nearest2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
@@ -41,8 +41,8 @@ TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale_CL) {
 TEST_F(HpuOpTest, upsample_nearest2d_fwd_scale) {
   GenerateInputs(1, {{1, 9, 3, 4}}, torch::kByte);
   std::vector<int64_t> size = {6, 12};
-  c10::optional<double> scale_h = 2.0;
-  c10::optional<double> scale_w = 3.0;
+  std::optional<double> scale_h = 2.0;
+  std::optional<double> scale_w = 3.0;
 
   auto expected =
       torch::upsample_nearest2d(GetCpuInput(0), size, scale_h, scale_w);
@@ -120,8 +120,8 @@ TEST_F(HpuOpTest, upsample_nearest2d_fwd_out) {
 TEST_F(HpuOpTest, upsample_nearest2d_bwd_scale) {
   GenerateInputs(1, {{1, 4, 6, 8}});
   std::vector<int64_t> out_size = {6, 8};
-  c10::optional<double> scale_h = 2.0;
-  c10::optional<double> scale_w = 2.0;
+  std::optional<double> scale_h = 2.0;
+  std::optional<double> scale_w = 2.0;
   std::vector<int64_t> input_size = {1, 4, 3, 4};
 
   torch::ScalarType dtype = torch::kFloat;

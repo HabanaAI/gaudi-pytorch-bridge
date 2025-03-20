@@ -18,7 +18,7 @@ namespace habana {
 
 
 
-::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, c10::optional<at::Generator> generator) {
+::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, std::optional<at::Generator> generator) {
   PT_EAGER_TRACE;
   PT_OP_INFO("_fused_dropout: ", DUMP_3ARGS(self, p, generator));
 
@@ -43,7 +43,7 @@ static const auto& kr_gen_2 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<at::Generator>)>(&habana::_fused_dropout));
+  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, std::optional<at::Generator>)>(&habana::_fused_dropout));
 
 }
 

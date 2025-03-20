@@ -22,7 +22,7 @@ namespace habana {
 
 FALLBACK_CHECK(
     IndexFallbackCheck,
-    [[maybe_unused]] const c10::List<c10::optional<at::Tensor>>& indices) {
+    [[maybe_unused]] const c10::List<std::optional<at::Tensor>>& indices) {
   return true;
 };
 
@@ -33,7 +33,7 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   std::vector<at::IValue> inputs_vec = sub_inputs;
   c10::ArrayRef<c10::IValue> indices_in;
   std::vector<c10::IValue> indices_in_ivals_vec;
-  std::vector<c10::optional<at::Tensor>> bool_indices_vec;
+  std::vector<std::optional<at::Tensor>> bool_indices_vec;
   std::vector<at::Tensor> indices_vec_out{};
   std::vector<at::Tensor> indices_vec;
   HABANA_ASSERT(
@@ -54,7 +54,7 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
       indices_in_orig, indices_in_ivals_vec, bool_indices_vec);
   if (has_bool_mask) {
     indices_in = indices_in_ivals_vec;
-    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
+    c10::List<std::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
     inputs_vec.clear();
     inputs_vec.emplace_back(sub_inputs.at(0));
     inputs_vec.emplace_back(c10::IValue(bool_mask_indices));

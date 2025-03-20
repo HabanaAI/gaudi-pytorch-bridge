@@ -468,7 +468,7 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
 
   at::Tensor output;
   int64_t offset = 0;
-  c10::optional<int64_t> opt_offset = c10::make_optional((int64_t)0);
+  std::optional<int64_t> opt_offset = c10::make_optional((int64_t)0);
   auto sizes = self.sizes().vec();
   auto dims = inputs[1].toIntVector();
   auto is_5d_layout = dims.size() == 5 ? true : false;
@@ -886,8 +886,8 @@ void SliceScatterOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   auto dim = inputs[2].toInt();
-  auto start_opt = inputs[3].to<c10::optional<int64_t>>();
-  auto end_opt = inputs[4].to<c10::optional<int64_t>>();
+  auto start_opt = inputs[3].to<std::optional<int64_t>>();
+  auto end_opt = inputs[4].to<std::optional<int64_t>>();
   int64_t start = start_opt.value_or(0);
   int64_t end = end_opt.value_or(INT64_MAX);
   auto step = inputs[5].toInt();
@@ -1522,7 +1522,7 @@ void AsStridedScatterOperator::AllocateAndAddSynapseNode(
   }
 
   // Non-DS variant
-  auto storage_offset_opt = inputs[4].to<c10::optional<int64_t>>();
+  auto storage_offset_opt = inputs[4].to<std::optional<int64_t>>();
   auto storage_offset =
       storage_offset_opt.value_or(inputs[0].toTensor().storage_offset());
   Stack inputs_mod = {inputs[0], inputs[1], inputs[3], IValue(storage_offset)};

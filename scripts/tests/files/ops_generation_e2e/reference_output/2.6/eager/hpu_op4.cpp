@@ -18,7 +18,7 @@ namespace habana {
 
 
 
-at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
+at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, std::optional<c10::SymInt> storage_offset) {
   PT_EAGER_TRACE;
   PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
 
@@ -36,7 +36,7 @@ static const auto& kr_gen_4 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::optional<c10::SymInt>)>(&habana::as_strided));
+  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, std::optional<c10::SymInt>)>(&habana::as_strided));
 
 }
 

@@ -149,7 +149,7 @@ if is_pytorch_older_than("2.7.0"):
     SCHEMA_CPP_LIST = [
         (
             "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)",
-            "::std::tuple<Tensor,Tensor,Tensor> native_batch_norm(const Tensor & input, const c10::optional<Tensor> & weight, const c10::optional<Tensor> & bias, const c10::optional<Tensor> & running_mean, const c10::optional<Tensor> & running_var, bool training, double momentum, double eps)",
+            "::std::tuple<Tensor,Tensor,Tensor> native_batch_norm(const Tensor & input, const std::optional<Tensor> & weight, const std::optional<Tensor> & bias, const std::optional<Tensor> & running_mean, const std::optional<Tensor> & running_var, bool training, double momentum, double eps)",
         ),
         (
             "aten::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor",
@@ -157,11 +157,11 @@ if is_pytorch_older_than("2.7.0"):
         ),
         (
             "hpu::cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor",
-            "Tensor cross_entropy_loss(const Tensor & self, const Tensor & target, const c10::optional<Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing)",
+            "Tensor cross_entropy_loss(const Tensor & self, const Tensor & target, const std::optional<Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing)",
         ),
         (
             "aten::normal.float_float(float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor",
-            "Tensor normal(double mean, double std, c10::SymIntArrayRef size, c10::optional<Generator> generator, c10::optional<ScalarType> dtype, c10::optional<Layout> layout, c10::optional<Device> device, c10::optional<bool> pin_memory)",
+            "Tensor normal(double mean, double std, c10::SymIntArrayRef size, std::optional<Generator> generator, std::optional<ScalarType> dtype, std::optional<Layout> layout, std::optional<Device> device, std::optional<bool> pin_memory)",
         ),
     ]
 else:

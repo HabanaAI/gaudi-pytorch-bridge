@@ -310,8 +310,8 @@ void ConvolutionOverrideable::AddNode(
         &expandParams,
         sizeof(expandParams))[0]);
 
-    c10::optional<int> final_result_index_0 =
-        is_conv_1d ? c10::optional<int>{c10::nullopt} : c10::optional<int>{0};
+    std::optional<int> final_result_index_0 =
+        is_conv_1d ? std::optional<int>{c10::nullopt} : std::optional<int>{0};
     using namespace std::literals;
     auto addOp = BuildOp(
         graph,

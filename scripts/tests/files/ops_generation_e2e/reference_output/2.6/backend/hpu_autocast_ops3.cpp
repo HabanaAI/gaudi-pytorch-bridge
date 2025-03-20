@@ -45,7 +45,7 @@ using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::T
 using tuple_4_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
-  Hpu_KERNEL(clone, "clone", at::Tensor(const at::Tensor &, c10::optional<at::MemoryFormat>))
+  Hpu_KERNEL(clone, "clone", at::Tensor(const at::Tensor &, std::optional<at::MemoryFormat>))
   Hpu_KERNEL(squeeze, "squeeze.dims", at::Tensor(const at::Tensor &, at::IntArrayRef))
 }
 

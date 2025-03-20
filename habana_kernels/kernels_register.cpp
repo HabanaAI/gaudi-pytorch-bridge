@@ -70,7 +70,7 @@ static CheckNodeWithSharedLayerValidator validator_instance_norm(
 
 bool hpu_wrap::is_pinned(
     const at::Tensor& self,
-    c10::optional<at::Device> device) {
+    std::optional<at::Device> device) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "is_pinned :", " self=", to_string(self), " device=", to_string(device));
@@ -106,7 +106,7 @@ Tensor hpu_wrap::_pin_memory(
 
 Tensor hpu_wrap::bincount(
     const Tensor& self,
-    const c10::optional<Tensor>& weights,
+    const std::optional<Tensor>& weights,
     int64_t minlength) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -319,7 +319,7 @@ Tensor& hpu_wrap::scatter_add_(
 
 at::Tensor& hpu_wrap::_index_put_impl_(
     at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
+    const c10::List<std::optional<at::Tensor>>& indices,
     const at::Tensor& values,
     bool accumulate,
     bool unsafe) {
@@ -721,7 +721,7 @@ Tensor hpu_wrap::instance_norm(
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
-    c10::optional<c10::SymInt> output_size) {
+    std::optional<c10::SymInt> output_size) {
   habana_lazy::NoAccThread no_acc_thread;
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -748,7 +748,7 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
       torch::autograd::AutogradContext* ctx,
       at::Tensor input,
       int64_t dim,
-      c10::optional<at::ScalarType> dtype) {
+      std::optional<at::ScalarType> dtype) {
     bool need_fp8_to_fp32_cast =
         input.scalar_type() == at::ScalarType::Float8_e5m2 ||
         input.scalar_type() == at::ScalarType::Float8_e4m3fn;
@@ -824,11 +824,11 @@ Tensor hpu_wrap::softmax(
 
 Tensor hpu_wrap::empty(
     SymIntArrayRef size,
-    c10::optional<ScalarType> dtype,
-    c10::optional<Layout> layout,
-    c10::optional<Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<MemoryFormat> optional_memory_format) {
+    std::optional<ScalarType> dtype,
+    std::optional<Layout> layout,
+    std::optional<Device> device,
+    std::optional<bool> pin_memory,
+    std::optional<MemoryFormat> optional_memory_format) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -858,10 +858,10 @@ Tensor hpu_wrap::empty(
 Tensor hpu_wrap::empty_strided(
     SymIntArrayRef size,
     SymIntArrayRef stride,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory) {
+    std::optional<at::ScalarType> dtype,
+    std::optional<at::Layout> layout,
+    std::optional<at::Device> device,
+    std::optional<bool> pin_memory) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1079,8 +1079,8 @@ void optimizer_adamw_hpu_wrap(
     const double beta2,
     const double epsilon,
     const double weight_decay,
-    c10::optional<at::TensorList> exp_avg_scales,
-    c10::optional<at::TensorList> exp_avg_sq_scales) {
+    std::optional<at::TensorList> exp_avg_scales,
+    std::optional<at::TensorList> exp_avg_sq_scales) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1335,7 +1335,7 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1356,7 +1356,7 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1427,7 +1427,7 @@ habana_bounds_check_indices_wrap(
     at::Tensor& warning,
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1453,12 +1453,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -1493,19 +1493,19 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -1554,13 +1554,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -1644,8 +1644,8 @@ Tensor matmul_inference(const Tensor& self, const Tensor& other) {
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
-    c10::optional<c10::SymInt> start,
-    c10::optional<c10::SymInt> end,
+    std::optional<c10::SymInt> start,
+    std::optional<c10::SymInt> end,
     c10::SymInt step) {
   auto temp_start = start.has_value() ? start.value().expect_int() : 0;
   auto temp_end = end.has_value() ? end.value().expect_int() : INT64_MAX;
@@ -1679,7 +1679,7 @@ struct DropoutFunction : public Function<DropoutFunction> {
     } else if (p == 1) {
       return input * 0.0;
     }
-    c10::optional<at::Generator> gen = c10::nullopt;
+    std::optional<at::Generator> gen = c10::nullopt;
     at::Tensor result1, result2;
     std::tie(result1, result2) = _fused_dropout(input, p, gen);
     ctx->save_for_backward({result2});

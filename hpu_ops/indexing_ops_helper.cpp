@@ -150,7 +150,7 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
   std::vector<int64_t> dims;
   std::vector<at::Tensor> transposedIndices;
-  std::vector<c10::optional<at::Tensor>> indices;
+  std::vector<std::optional<at::Tensor>> indices;
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (!o1.has_value() || !o1.value().defined()) {
@@ -210,7 +210,7 @@ bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig) {
 bool handle_bool_mask_indices(
     c10::ArrayRef<c10::IValue>& indices_in_orig,
     std::vector<c10::IValue>& indices_in_ivals_vec,
-    std::vector<c10::optional<at::Tensor>>& bool_indices_vec) {
+    std::vector<std::optional<at::Tensor>>& bool_indices_vec) {
   at::Tensor t_nz;
   bool has_bool_mask = false;
 

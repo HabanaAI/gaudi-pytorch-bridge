@@ -47,24 +47,24 @@ class DTypeHelper {
 
   static DTypeHelper binary_op_with_type_promotion(
       const std::vector<at::IValue>& stack,
-      c10::optional<const at::IValue*> output,
+      std::optional<const at::IValue*> output,
       bool safe_cast);
   static DTypeHelper binary_op_with_optional_int_to_float_promotion(
       const std::vector<at::IValue>& stack,
       bool int_to_float,
-      c10::optional<const at::IValue*> output,
+      std::optional<const at::IValue*> output,
       bool safe_cast);
   static DTypeHelper op_with_optional_dtype_promotion(
       const std::vector<at::IValue>& inputs,
       bool to_float,
-      c10::optional<const at::IValue*> output,
+      std::optional<const at::IValue*> output,
       bool safe_cast);
   static c10::ScalarType get_compute_dtype(
       const std::vector<at::IValue>& stack,
-      c10::optional<at::Tensor> opt_output,
+      std::optional<at::Tensor> opt_output,
       DtypePromoteVariant promote_variant,
       bool safe_cast,
-      c10::optional<c10::ScalarType> dtype = c10::nullopt,
+      std::optional<c10::ScalarType> dtype = c10::nullopt,
       bool double_support = true,
       bool int64_support = true);
 

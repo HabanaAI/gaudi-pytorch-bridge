@@ -181,7 +181,7 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
     tensor.set_requires_grad(true);
     std::array<double, 2> scale_array = {2.0, 2.0};
     c10::ArrayRef<double> scale_factors = scale_array;
-    c10::optional<c10::IntArrayRef> out_size = c10::nullopt;
+    std::optional<c10::IntArrayRef> out_size = c10::nullopt;
 
     auto outHabana =
         torch::upsample_nearest2d(tHabana, out_size, scale_factors);
@@ -195,8 +195,8 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
 
     std::array<int64_t, 2> out_sizes_arr = {8, 21};
     c10::IntArrayRef out_sizes = out_sizes_arr;
-    c10::optional<double> scales_h(2.0);
-    c10::optional<double> scales_w(2.0);
+    std::optional<double> scales_h(2.0);
+    std::optional<double> scales_w(2.0);
 
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_sizes, in_sizes, scales_h, scales_w);

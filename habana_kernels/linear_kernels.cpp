@@ -39,7 +39,7 @@ static void check_matmul_params(
     const Tensor& mat2,
     bool mat1_transposed,
     bool mat2_transposed,
-    c10::optional<const at::Tensor*> bias) {
+    std::optional<const at::Tensor*> bias) {
   HABANA_ASSERT(mat1.ndimension() == 2, "matmul_hpu supports only 2d matrices");
   HABANA_ASSERT(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
 

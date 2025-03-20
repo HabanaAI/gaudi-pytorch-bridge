@@ -239,8 +239,8 @@ TEST_F(LazyDynamicInferOutputMetasTest, UpsampleNearest2DBwdTest) {
     auto mat1_h = mat1.to(torch::kHPU);
     mat1.set_requires_grad(true);
     std::array<double, 2> scales = {2.0, 3.0};
-    c10::optional<c10::ArrayRef<double>> scale_factors = scales;
-    c10::optional<c10::IntArrayRef> out_size = c10::nullopt;
+    std::optional<c10::ArrayRef<double>> scale_factors = scales;
+    std::optional<c10::IntArrayRef> out_size = c10::nullopt;
 
     auto out = torch::upsample_nearest2d(mat1, out_size, scale_factors);
     auto grad_out = torch::ones_like(out);
@@ -252,8 +252,8 @@ TEST_F(LazyDynamicInferOutputMetasTest, UpsampleNearest2DBwdTest) {
 
     std::array<int64_t, 2> out_sizes_arr = {8, 21};
     c10::IntArrayRef out_sizes = out_sizes_arr;
-    c10::optional<double> scales_h(2.0);
-    c10::optional<double> scales_w(3.0);
+    std::optional<double> scales_h(2.0);
+    std::optional<double> scales_w(3.0);
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_sizes, in_sizes, scales_h, scales_w);
 
@@ -631,12 +631,12 @@ TEST_F(LazyDynamicInferOutputMetasTest, ArangeTestFloatHt) {
     torch::Scalar step = step_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
 
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Float;
 
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
-    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+    std::optional<at::Device> cpu_device = at::DeviceType::CPU;
     at::TensorOptions cpu_options =
         at::TensorOptions().dtype(dtype).device(cpu_device);
 
@@ -661,12 +661,12 @@ TEST_F(LazyDynamicInferOutputMetasTest, ArangeTestHt) {
     torch::Scalar step = step_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
 
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
-    c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+    std::optional<at::Device> cpu_device = at::DeviceType::CPU;
     at::TensorOptions cpu_options =
         at::TensorOptions().dtype(dtype).device(cpu_device);
 
@@ -716,8 +716,8 @@ TEST_F(LazyDynamicInferOutputMetasTest, RandPermHT) {
   std::vector<int> in_sizes{8, 10, 15};
   for (int i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
     torch::manual_seed(0);

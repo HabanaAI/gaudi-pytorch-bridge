@@ -31,10 +31,10 @@ struct NodeAttr {
   struct NodeOutputAttr {
     at::IntArrayRef sizes{};
     at::ScalarType dtype{at::kFloat};
-    c10::optional<int> final_result_index{c10::nullopt};
+    std::optional<int> final_result_index{c10::nullopt};
     synTensorType tensor_type{DATA_TENSOR};
     synDataType syn_data_type{syn_type_na};
-    c10::optional<std::variant<synapse_helpers::tensor*, int>> inplace_out_ptr{
+    std::optional<std::variant<synapse_helpers::tensor*, int>> inplace_out_ptr{
         c10::nullopt};
   };
 
@@ -265,7 +265,7 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      c10::optional<int> final_result_index);
+      std::optional<int> final_result_index);
 
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
@@ -287,23 +287,23 @@ class OpBackend : public HabanaOperator {
   synapse_helpers::tensor ConstantHelper(
       synapse_helpers::graph& graph,
       const at::Scalar& val,
-      c10::optional<at::ScalarType> force_type = c10::nullopt,
+      std::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor ReshapeHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor BroadcastHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor PermuteHelper(
       synapse_helpers::graph& graph,
@@ -311,22 +311,22 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       at::IntArrayRef permutation,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor IdentityHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor SqueezeHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<unsigned> axis = c10::nullopt,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<unsigned> axis = c10::nullopt,
+      std::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor ExpandDimsHelper(
       synapse_helpers::graph& graph,
@@ -334,14 +334,14 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       at::ScalarType dtype,
       unsigned axis,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor FlattenHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
@@ -360,7 +360,7 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildBoolCast(
       OpBackend* op,
@@ -368,21 +368,21 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       const at::IntArrayRef sizes,
       const at::ScalarType& from,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildConstant(
       OpBackend* op,
       synapse_helpers::graph& graph,
       const at::Scalar& val,
-      c10::optional<at::ScalarType> force_type = c10::nullopt,
+      std::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildConstantTensor(
       OpBackend* op,
       synapse_helpers::graph& graph,
       const at::Scalar& val,
-      c10::optional<at::ScalarType> force_type = c10::nullopt,
+      std::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1);
 
   static synapse_helpers::tensor BuildReshape(
@@ -391,7 +391,7 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildBroadcast(
       OpBackend* op,
@@ -399,7 +399,7 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildIdentity(
       OpBackend* op,
@@ -407,7 +407,7 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildSqueeze(
       OpBackend* op,
@@ -415,8 +415,8 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<unsigned> axis = c10::nullopt,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<unsigned> axis = c10::nullopt,
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildExpandDims(
       OpBackend* op,
@@ -425,7 +425,7 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       at::ScalarType dtype,
       unsigned axis,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildFlatten(
       OpBackend* op,
@@ -433,7 +433,7 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildPermute(
       OpBackend* op,
@@ -442,7 +442,7 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       at::IntArrayRef permutation,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      std::optional<int> final_result_index = c10::nullopt);
 
   void moveLastOutputTensorAtFront();
 

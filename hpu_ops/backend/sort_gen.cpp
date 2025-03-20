@@ -31,7 +31,7 @@ bool shouldFallback(const at::Tensor& self, bool isStable, int64_t dim_) {
 FALLBACK_CHECK(
     SortStableFallbackCheck,
     const at::Tensor& self,
-    c10::optional<bool> stable,
+    std::optional<bool> stable,
     int64_t dim_,
     [[maybe_unused]] bool descending) {
   bool isStable = stable.has_value() ? stable.value() : false;

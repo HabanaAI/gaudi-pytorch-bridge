@@ -19,8 +19,8 @@ namespace habana {
 
 OutputMetaDataVector XlogYMeta(const at::Stack& stack) {
   OutputMetaData meta;
-  c10::optional<at::Tensor> output_tensor = c10::nullopt;
-  c10::optional<c10::ScalarType> output_type = c10::nullopt;
+  std::optional<at::Tensor> output_tensor = c10::nullopt;
+  std::optional<c10::ScalarType> output_type = c10::nullopt;
   auto size = stack.size();
   if (size > 2 && stack.at(size - 1).isTensor()) {
     output_tensor = stack.at(size - 1).toTensor();

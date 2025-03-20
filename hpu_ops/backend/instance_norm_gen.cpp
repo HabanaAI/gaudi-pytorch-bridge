@@ -63,8 +63,8 @@ void InstanceNorm::AddNode(
 
   StackGetter stackGetter(this, stack, "InstanceNormFwd::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weight = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto bias = stackGetter.getNextInput<std::optional<TensorsPair>>();
   const auto eps = stackGetter.getNextInput<double>();
 
   auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;

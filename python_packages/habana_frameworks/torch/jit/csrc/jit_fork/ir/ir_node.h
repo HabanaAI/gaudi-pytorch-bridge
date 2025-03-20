@@ -95,16 +95,16 @@ struct TORCH_API Node {
   std::vector<Block*> blocks_;
   Graph* graph_;
   Block* owning_block_;
-  c10::optional<SourceRange> source_range_;
-  c10::optional<std::string> stack_trace_;
+  std::optional<SourceRange> source_range_;
+  std::optional<std::string> stack_trace_;
   ScopePtr scope_;
-  c10::optional<InlinedCallStackPtr> callstack_;
+  std::optional<InlinedCallStackPtr> callstack_;
   // Assumes FunctionSchemas are persistent, so we don't manage their lifetime.
   // This field is effective a cache that's populated on attribute lookups and
   // invalidated every time we perform an operation that could potentially
   // change the schema. note: mutable because schema_ is effectively a cache
   mutable const torch::jit::Operator* op_;
-  c10::optional<c10::OperatorName> operator_name_ = c10::nullopt;
+  std::optional<c10::OperatorName> operator_name_ = c10::nullopt;
   topo_position_t topo_position_ = 0;
   // a managing wrapper for Python to allow invalidation
   std::shared_ptr<Wrap<Node>> wrap_;
@@ -113,7 +113,7 @@ struct TORCH_API Node {
   // is changed, we need to rely on this name
   // to retrieve old schemas to successfully apply upgraders
   // for this operator.
-  c10::optional<std::string> historic_schema_name_ = c10::nullopt;
+  std::optional<std::string> historic_schema_name_ = c10::nullopt;
 
  protected:
   Node(Graph* graph_, NodeKind kind_); // defined after graph
@@ -138,7 +138,7 @@ struct TORCH_API Node {
     return wrap_;
   }
 
-  const c10::optional<std::string> getHistoricSchemaName() {
+  const std::optional<std::string> getHistoricSchemaName() {
     return historic_schema_name_;
   }
 
@@ -212,7 +212,7 @@ struct TORCH_API Node {
     return this;
   }
 
-  c10::optional<InlinedCallStackPtr> callstack() const {
+  std::optional<InlinedCallStackPtr> callstack() const {
     return callstack_;
   }
   void setCallStack(InlinedCallStackPtr cs) {
@@ -297,10 +297,10 @@ struct TORCH_API Node {
   Value* namedInput(const std::string& unqualName) const;
   Value* namedInput(Symbol name) const;
 
-  c10::optional<IValue> get(Symbol name) const;
+  std::optional<IValue> get(Symbol name) const;
 
   template <typename T>
-  c10::optional<T> get(Symbol name) const {
+  std::optional<T> get(Symbol name) const {
     if (auto v = get(name)) {
       return v->template to<T>();
     }
@@ -899,7 +899,7 @@ struct OperatorMap {
     return n->maybeOperator() && contains(n->getOperator());
   }
 
-  c10::optional<T> find(const torch::jit::Operator& op) {
+  std::optional<T> find(const torch::jit::Operator& op) {
     const auto it = map.find(Symbol::fromQualString(op.schema().name()));
     if (it == map.end()) {
       return c10::nullopt;

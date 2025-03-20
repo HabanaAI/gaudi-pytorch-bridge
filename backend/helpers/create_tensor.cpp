@@ -141,7 +141,7 @@ synapse_helpers::tensor create_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     bool external,
-    const c10::optional<c10::ScalarType> dtype,
+    const std::optional<c10::ScalarType> dtype,
     const std::string& name,
     const std::string& inference_name) {
   PT_BRIDGE_DEBUG("[create_tensor-1] name: ", name);
@@ -856,7 +856,7 @@ create_tensors(
       graph,
       std::vector<bool>(tensors.size(), persistent),
       std::vector<bool>(tensors.size(), external),
-      std::vector<c10::optional<c10::ScalarType>>(
+      std::vector<std::optional<c10::ScalarType>>(
           tensors.size(), c10::nullopt));
 }
 
@@ -866,7 +866,7 @@ create_tensors(
     synapse_helpers::graph& graph,
     const std::vector<bool>& persistents,
     const std::vector<bool>& externals,
-    const std::vector<c10::optional<c10::ScalarType>> dtypes) {
+    const std::vector<std::optional<c10::ScalarType>> dtypes) {
   const auto num_tensors = tensors.size();
   HABANA_ASSERT(persistents.size() == num_tensors);
   HABANA_ASSERT(externals.size() == num_tensors);

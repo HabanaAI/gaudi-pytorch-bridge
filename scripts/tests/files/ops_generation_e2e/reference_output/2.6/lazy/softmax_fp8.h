@@ -9,7 +9,7 @@
 namespace habana {
 
 
-at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const c10::optional<at::Tensor> & input_scale, const c10::optional<at::Tensor> & output_scale, const c10::optional<at::Tensor> & inv_attn_heads, const c10::optional<at::Tensor> & fused_add);
+at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const std::optional<at::Tensor> & input_scale, const std::optional<at::Tensor> & output_scale, const std::optional<at::Tensor> & inv_attn_heads, const std::optional<at::Tensor> & fused_add);
 OUTMETA_DECL(SoftmaxFp8Meta);
 
 }  // namespace habana

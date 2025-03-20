@@ -22,7 +22,7 @@ namespace habana {
 namespace eager {
 at::Tensor& _index_put_impl_eager(
     at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
+    const c10::List<std::optional<at::Tensor>>& indices,
     const at::Tensor& values,
     bool accumulate,
     bool unsafe);

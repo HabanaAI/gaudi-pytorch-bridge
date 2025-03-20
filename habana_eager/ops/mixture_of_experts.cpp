@@ -519,7 +519,7 @@ at::Tensor mixture_of_experts(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp) {
+    const std::optional<bool> recomp) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts :",
@@ -560,7 +560,7 @@ at::Tensor mixture_of_experts_fused_weights(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp) {
+    const std::optional<bool> recomp) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts.fused_weights :",

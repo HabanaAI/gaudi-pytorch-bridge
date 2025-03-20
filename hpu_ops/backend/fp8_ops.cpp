@@ -366,9 +366,9 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
   bool trans_B = stackGetter.getNextInput<bool>();
   auto D = stackGetter.getNextInput<TensorsPair>();
   auto out_type = stackGetter.getNextInput<c10::ScalarType>();
-  auto scaleAOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto scaleBOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scaleAOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto scaleBOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   bool accumulate = stackGetter.getNextInput<bool>();
 
   std::vector<int64_t> out_shape;
@@ -452,13 +452,13 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   bool transA = stackGetter.getNextInput<bool>();
   auto B = stackGetter.getNextInput<TensorsPair>();
   bool transB = stackGetter.getNextInput<bool>();
-  auto DOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto DOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto out_type = stackGetter.getNextInput<c10::ScalarType>();
   auto scaleAOpt =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto scaleBOpt =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
-  auto biasOpt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto biasOpt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   bool accumulate = stackGetter.getNextInput<bool>();
   auto scale_shape = stackGetter.getNextInput<c10::IValue>();
 
@@ -662,7 +662,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "Conv2dFp8::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto weight = stackGetter.getNextInput<TensorsPair>();
-  auto bias_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto bias_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto stride = expand_param_if_needed(
       stackGetter.getNextInput<std::vector<int64_t>>(), "stride", 2);
   auto padding = expand_param_if_needed(
@@ -671,7 +671,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       stackGetter.getNextInput<std::vector<int64_t>>(), "dilation", 2);
   auto groups = stackGetter.getNextInput<int>();
   auto out_dtype =
-      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+      stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           at::ScalarType::BFloat16);
   auto scale_input_opt =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();

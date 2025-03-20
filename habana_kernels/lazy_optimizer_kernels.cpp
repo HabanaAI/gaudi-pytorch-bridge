@@ -137,8 +137,8 @@ void optimizer_adamw_hpu_lazy(
     const double beta2,
     const double epsilon,
     const double modified_wd,
-    c10::optional<at::TensorList> exp_avg_scales,
-    c10::optional<at::TensorList> exp_avg_sq_scales) {
+    std::optional<at::TensorList> exp_avg_scales,
+    std::optional<at::TensorList> exp_avg_sq_scales) {
   PT_LAZY_TRACE;
   std::vector<at::Tensor> gradients_v;
   std::vector<at::Tensor> weights_v;

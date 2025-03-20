@@ -25,7 +25,7 @@ static void convert_scalar_val_to_tensor(at::Stack& inputs) {
     valueTensor =
         habana_lazy::get_tensor_for_scalar(value.to<double>(), self.options());
 
-  c10::optional<at::Tensor> valueTensorOpt = c10::make_optional(valueTensor);
+  std::optional<at::Tensor> valueTensorOpt = c10::make_optional(valueTensor);
   inputs.at(3) = valueTensorOpt;
 }
 

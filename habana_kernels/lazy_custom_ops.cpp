@@ -35,7 +35,7 @@ at::Tensor create_h2d_scale(void* scale) {
   return scale_tensor;
 }
 
-bool is_cpu_float_0d_tensor(const c10::optional<at::Tensor>& tensor) {
+bool is_cpu_float_0d_tensor(const std::optional<at::Tensor>& tensor) {
   return tensor.has_value() and tensor.value().defined() and
       tensor->device().is_cpu() and
       tensor->scalar_type() == at::ScalarType::Float and tensor->dim() == 0;
@@ -47,7 +47,7 @@ namespace habana_lazy {
 
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
+    const std::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     bool is_amax,
     at::ScalarType dtype,
@@ -73,11 +73,11 @@ at::Tensor fp8_gemm_v2_lazy(
     bool trans_A,
     const at::Tensor& B,
     bool trans_B,
-    const c10::optional<at::Tensor>& D,
+    const std::optional<at::Tensor>& D,
     at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
+    const std::optional<at::Tensor>& A_scale_inv,
+    const std::optional<at::Tensor>& B_scale_inv,
+    const std::optional<at::Tensor>& bias,
     bool accumulate,
     at::OptionalIntArrayRef B_scale_shape) {
   PT_LAZY_TRACE;

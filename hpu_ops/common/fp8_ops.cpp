@@ -22,7 +22,7 @@ namespace {
 
 at::Tensor cast_from_fp8_dispatch(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
+    const std::optional<at::Tensor>& scale,
     at::ScalarType out_dtype,
     at::OptionalIntArrayRef scale_shape) {
   static auto op = torch::Dispatcher::singleton()
@@ -61,7 +61,7 @@ at::Tensor cast_from_fp8_scalar_list_dispatch(
 std::vector<at::Tensor> CastToFp8V2Function::forward(
     torch::autograd::AutogradContext* ctx,
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
+    const std::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     bool is_amax,
     at::ScalarType dtype,

@@ -172,11 +172,11 @@ inline Tensor cast(
 
 template <
     class T,
-    std::enable_if_t<std::is_same_v<T, const c10::optional<Tensor>&>, bool> =
+    std::enable_if_t<std::is_same_v<T, const std::optional<Tensor>&>, bool> =
         true>
-inline c10::optional<Tensor> cast(
+inline std::optional<Tensor> cast(
     at::ScalarType to_type,
-    const c10::optional<Tensor>& arg,
+    const std::optional<Tensor>& arg,
     DeviceType device_type = DeviceType::HPU) {
   if (arg.has_value()) {
     return cast<decltype(*arg)>(to_type, *arg, device_type);

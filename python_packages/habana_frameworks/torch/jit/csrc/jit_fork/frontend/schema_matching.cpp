@@ -288,7 +288,7 @@ static Value* tryMatchArgument(
   return value;
 }
 
-c10::optional<size_t> findInputWithName(
+std::optional<size_t> findInputWithName(
     const std::string& name,
     at::ArrayRef<NamedValue> kwargs,
     bool is_aten) {
@@ -395,13 +395,13 @@ bool isBlockListedSchema(const FunctionSchema& schema) {
   return false;
 }
 
-static c10::optional<MatchedSchema> tryMatchSchema(
+static std::optional<MatchedSchema> tryMatchSchema(
     const FunctionSchema& schema,
     const SourceRange& loc,
     Graph& graph,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    c10::optional<NamedValue> self,
+    std::optional<NamedValue> self,
     std::ostream* failure_messages,
     bool allow_conversions) {
   if (isBlockListedSchema(schema)) {
@@ -430,7 +430,7 @@ static c10::optional<MatchedSchema> tryMatchSchema(
   size_t used_args = 0;
   for (const auto schema_i : c10::irange(schema.arguments().size())) {
     const auto& arg = schema.arguments()[schema_i];
-    c10::optional<NamedValue> actual_named_value;
+    std::optional<NamedValue> actual_named_value;
     if (arg.name() == "self" && self) {
       actual_named_value = self;
       self = c10::nullopt;
@@ -581,7 +581,7 @@ MatchedSchema matchSchema(
     Graph& graph,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    const c10::optional<NamedValue>& self) {
+    const std::optional<NamedValue>& self) {
   std::stringstream failure_messages;
   if (auto result = tryMatchSchema(
           schema,
@@ -618,7 +618,7 @@ std::pair<size_t, MatchedSchema> matchSchemas(
     Graph& graph,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    const c10::optional<NamedValue>& self,
+    const std::optional<NamedValue>& self,
     bool render_errors) {
   HABANA_ASSERT(!schemas.empty());
   // if there is only one schema, we do not need to try without conversions
@@ -667,7 +667,7 @@ static Value* emitBuiltinNode(
     const SourceRange& loc,
     Graph& graph,
     Symbol name,
-    c10::optional<size_t> version) {
+    std::optional<size_t> version) {
   auto n = graph.insertNode(graph.create(name, matched_schema.inputs, 0))
                ->setSourceRange(loc);
 
@@ -698,7 +698,7 @@ Value* emitBuiltinCall(
     Symbol name,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    const c10::optional<NamedValue>& self) {
+    const std::optional<NamedValue>& self) {
   const auto& variants = torch::jit::getAllOperatorsFor(name);
   const auto& builtin_functions = torch::jit::getAllBuiltinFunctionsFor(name);
 

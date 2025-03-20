@@ -238,8 +238,8 @@ void clampTensor::AddNode(
 
   StackGetter stackGetter(this, stack, "clampTensor::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto min = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto max = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto min = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto max = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   std::vector<synTensor> inputs = {input.syn_t};
   inputs.push_back(min ? min.value().syn_t : nullptr);

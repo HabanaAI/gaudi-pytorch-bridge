@@ -43,21 +43,21 @@ class LazyLossKernelWithParamsTest
     auto grad_output = torch::randn({1});
     // weight (Tensor, optional) – a manual rescaling weight if provided it’s
     // repeated to match input tensor shape
-    c10::optional<Tensor> weight =
-        testWeight ? torch::randn({3}) : c10::optional<Tensor>();
+    std::optional<Tensor> weight =
+        testWeight ? torch::randn({3}) : std::optional<Tensor>();
     // pos_weight (Tensor, optional) – a weight of positive examples. Must be a
     // vector with length equal to the number of classes.
-    c10::optional<Tensor> pos_weight =
-        testPosWeight ? torch::rand({3}) : c10::optional<Tensor>();
+    std::optional<Tensor> pos_weight =
+        testPosWeight ? torch::rand({3}) : std::optional<Tensor>();
 
     torch::Tensor hinput = input.to(torch::kHPU);
     torch::Tensor htarget = target.to(torch::kHPU);
     torch::Tensor hgrad_out = grad_output.to(torch::kHPU);
-    c10::optional<Tensor> hweight =
-        testWeight ? weight.value().to(torch::kHPU) : c10::optional<Tensor>();
-    c10::optional<Tensor> hpos_weight = testPosWeight
+    std::optional<Tensor> hweight =
+        testWeight ? weight.value().to(torch::kHPU) : std::optional<Tensor>();
+    std::optional<Tensor> hpos_weight = testPosWeight
         ? pos_weight.value().to(torch::kHPU)
-        : c10::optional<Tensor>();
+        : std::optional<Tensor>();
 
     auto houtput = torch::binary_cross_entropy_with_logits(
         hinput, htarget, hweight, hpos_weight, reductionType);
@@ -369,15 +369,15 @@ TEST_F(LazyLossKernelTest, BCELogitsFwdLossTest) {
   auto target = torch::randn({5, 2, 4, 3});
   // weight (Tensor, optional) – a manual rescaling weight if provided it’s
   // repeated to match input tensor shape
-  c10::optional<Tensor> weight = torch::randn({3});
+  std::optional<Tensor> weight = torch::randn({3});
   // pos_weight (Tensor, optional) – a weight of positive examples. Must be a
   // vector with length equal to the number of classes.
-  c10::optional<Tensor> pos_weight = torch::rand({3});
+  std::optional<Tensor> pos_weight = torch::rand({3});
 
   torch::Tensor hinput = input.to(torch::kHPU);
   torch::Tensor htarget = target.to(torch::kHPU);
-  c10::optional<Tensor> hweight = weight.value().to(torch::kHPU);
-  c10::optional<Tensor> hpos_weight = pos_weight.value().to(torch::kHPU);
+  std::optional<Tensor> hweight = weight.value().to(torch::kHPU);
+  std::optional<Tensor> hpos_weight = pos_weight.value().to(torch::kHPU);
 
   auto houtput = torch::binary_cross_entropy_with_logits(
       hinput, htarget, hweight, hpos_weight, at::Reduction::Mean);

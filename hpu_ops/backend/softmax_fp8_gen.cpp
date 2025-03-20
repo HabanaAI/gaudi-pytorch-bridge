@@ -21,7 +21,7 @@ namespace habana {
 namespace {
 
 void addOptionalTensor(
-    const c10::optional<TensorsPair>& input_opt,
+    const std::optional<TensorsPair>& input_opt,
     std::vector<synTensor>& syn_inputs,
     const at::ScalarType dtype,
     const std::string& input_name) {
@@ -82,7 +82,7 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto inv_attn_heads_opt =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
-  auto fused_add_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto fused_add_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto rank = self.pt_t.dim();
   dim = at::maybe_wrap_dim(dim, rank, /*wrap_scalar=*/true);
   auto out_meta = SoftmaxFp8Meta(stack)[0];

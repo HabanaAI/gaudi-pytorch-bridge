@@ -134,7 +134,7 @@ inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
 inline TensorImpl* resize_impl_hpu_(
     TensorImpl* self,
     IntArrayRef size,
-    c10::optional<IntArrayRef> stride,
+    std::optional<IntArrayRef> stride,
     [[maybe_unused]] bool device_guard = true) {
   HABANA_ASSERT(
       self != nullptr, "Trying to resize tensor with non-existing TensorImpl");

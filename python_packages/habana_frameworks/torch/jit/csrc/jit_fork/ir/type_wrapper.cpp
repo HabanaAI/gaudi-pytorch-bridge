@@ -88,8 +88,8 @@ TypeWrapper TypeWrapper::createTensorTypeWrapper(
     at::ScalarType scalar_type,
     const SymbolicShape& shape,
     const SymbolicStrides& strides,
-    c10::optional<Device> device,
-    c10::optional<bool> requires_grad) {
+    std::optional<Device> device,
+    std::optional<bool> requires_grad) {
   HABANA_ASSERT(
       shape.size() == strides.size(),
       "The number of dimensions is not equal in shape and strides.");

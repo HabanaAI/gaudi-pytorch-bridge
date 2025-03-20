@@ -51,11 +51,11 @@ SharedMetaDataVector ReductionOpSharedMeta(
     bool isListVariant) {
   const auto& self = stack_tensor(stack, 0);
 
-  c10::optional<uint8_t> dimIndex =
+  std::optional<uint8_t> dimIndex =
       isListVariant ? c10::make_optional<uint8_t>(1) : c10::nullopt;
-  c10::optional<uint8_t> keepDimIndex =
+  std::optional<uint8_t> keepDimIndex =
       isListVariant ? c10::make_optional<uint8_t>(2) : c10::nullopt;
-  c10::optional<uint8_t> dtypeIndex = isListVariant
+  std::optional<uint8_t> dtypeIndex = isListVariant
       ? c10::make_optional<uint8_t>(3)
       : c10::make_optional<uint8_t>(1);
   auto dtype = get_dtype(stack, dtypeIndex);
@@ -162,8 +162,8 @@ static sh::tensor ReductionOpCommon(
   const bool isAdditionalCastNeeded =
       (isSumOutVersion &&
        !areTypesAllowedForSumOut(op->ScalarType(), dtype.value()));
-  const c10::optional<int> finalResultIndex =
-      isAdditionalCastNeeded ? c10::nullopt : c10::optional<int>(0);
+  const std::optional<int> finalResultIndex =
+      isAdditionalCastNeeded ? c10::nullopt : std::optional<int>(0);
 
   auto result = OpBackend::BuildNode(
       op,

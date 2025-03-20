@@ -27,7 +27,7 @@ std::vector<synapse_helpers::tensor> TopK_Helper(
     int ndimension,
     int kvalue,
     int variant,
-    c10::optional<at::ScalarType> out_dtype) {
+    std::optional<at::ScalarType> out_dtype) {
   synBeamParams Topk_params{};
   Topk_params.bsw = kvalue;
   Topk_params.axis = reduction_axis;

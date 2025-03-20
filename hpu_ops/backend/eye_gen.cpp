@@ -50,7 +50,7 @@ void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = EyeMeta(stack)[0];
 
   auto computeDtype = meta.dtype;
-  c10::optional<int> finalResultIndex = 0;
+  std::optional<int> finalResultIndex = 0;
   if (meta.dtype == c10::ScalarType::Long) {
     computeDtype = c10::ScalarType::Int;
     finalResultIndex = c10::nullopt;

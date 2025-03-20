@@ -506,7 +506,7 @@ at::Tensor mixture_of_experts_lazy(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp) {
+    const std::optional<bool> recomp) {
   PT_LAZY_OP_TRACE;
   PT_OP_INFO(
       "mixture_of_experts :",
@@ -552,7 +552,7 @@ at::Tensor mixture_of_experts_fused_weights_lazy(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp) {
+    const std::optional<bool> recomp) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "mixture_of_experts.fused_weights :",

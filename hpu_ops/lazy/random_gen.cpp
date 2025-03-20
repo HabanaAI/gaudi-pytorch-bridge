@@ -68,7 +68,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
 unsigned NativeDropoutEarlyExitCondition(
     const at::Tensor& input,
     double p,
-    c10::optional<bool> train) {
+    std::optional<bool> train) {
   if (input.numel() == 0) {
     return 1;
   }
@@ -82,7 +82,7 @@ unsigned NativeDropoutEarlyExitCondition(
     unsigned eePath,
     const at::Tensor& input,
     double,
-    c10::optional<bool>) {
+    std::optional<bool>) {
   if (eePath == 1) {
     return std::make_tuple(input, at::empty_like(input, input.options()));
   } else {
@@ -104,7 +104,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     habana_lazy::LazyOp,
     NativeDropoutFE,
     std::tuple<at::Tensor, at::Tensor>) {
-  c10::IValue fakeGenToSeed = c10::optional<at::Generator>{};
+  c10::IValue fakeGenToSeed = std::optional<at::Generator>{};
   ConvertGeneratorToSeedTensor(fakeGenToSeed);
   get_inputs().back() = fakeGenToSeed;
 }

@@ -62,7 +62,7 @@ TEST_P(NativeGroupNormTests, GroupNormFwdBwdExecute) {
   const auto [atol, rtol] = dtype == torch::kFloat32
       ? std::make_tuple(c10::nullopt, c10::nullopt)
       : std::make_tuple(
-            c10::optional<double>(0.05), c10::optional<double>(0.05));
+            std::optional<double>(0.05), std::optional<double>(0.05));
 
   // Input, weight, bias, grad
   GenerateInputs(4, {{N, C, H, W}, {C}, {C}, {N, C, H, W}}, {dtype});

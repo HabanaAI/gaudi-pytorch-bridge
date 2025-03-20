@@ -28,7 +28,7 @@ synapse_helpers::tensor ArangeCommon(
     std::vector<int64_t> outshape,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_result_index,
+    std::optional<int> final_result_index,
     bool is_eager = false);
 std::shared_ptr<void> FillArangeParamsInternal(
     c10::Scalar start,

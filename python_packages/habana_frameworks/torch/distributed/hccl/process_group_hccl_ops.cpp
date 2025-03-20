@@ -127,7 +127,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
     const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    [[maybe_unused]] const c10::optional<at::Tensor>& sparse_indices,
+    [[maybe_unused]] const std::optional<at::Tensor>& sparse_indices,
     bool async_op,
     int64_t timeout) {
   auto tensor_vec = tensors.vec();
@@ -146,7 +146,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
     const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    [[maybe_unused]] const c10::optional<at::Tensor>& sparse_indices,
+    [[maybe_unused]] const std::optional<at::Tensor>& sparse_indices,
     int64_t timeout) {
   auto tensor_vec = tensors.vec();
   auto work =

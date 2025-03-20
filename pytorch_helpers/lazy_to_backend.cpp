@@ -34,13 +34,13 @@ bool lazy_to_backend::is_lazy_inference_call_context() {
 at::Tensor habana_lazy::empty_hpu_lazy(
     c10::IntArrayRef size,
     const at::TensorOptions& options,
-    c10::optional<c10::MemoryFormat> optional_memory_format,
+    std::optional<c10::MemoryFormat> optional_memory_format,
     bool create_storage,
     synTensorType tensor_type,
-    c10::optional<std::reference_wrapper<const at::Tensor>> base_view,
+    std::optional<std::reference_wrapper<const at::Tensor>> base_view,
     bool is_strided) {
   PT_LAZY_TRACE;
-  c10::optional<c10::MemoryFormat> mem_format =
+  std::optional<c10::MemoryFormat> mem_format =
       optional_memory_format.has_value() ? optional_memory_format
                                          : options.memory_format_opt();
   auto original_dtype = options.dtype();

@@ -23,7 +23,7 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
     synapse_helpers::graph& graph,
     NonZeroParams_t self_params,
     synTensor self_synin,
-    c10::optional<int> final_result_index_0,
-    c10::optional<int> final_result_index_1,
+    std::optional<int> final_result_index_0,
+    std::optional<int> final_result_index_1,
     bool use_tpc_impl = false);
 } // namespace habana

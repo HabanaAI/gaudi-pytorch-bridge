@@ -282,7 +282,7 @@ class PytorchKernelContext {
   size_t params_size_;
   bool is_duplicate_input_{false};
   std::deque<synapse_helpers::tensor_or_ref> syn_input_orig_;
-  c10::optional<synapse_helpers::tensor_or_ref> syn_seed_;
+  std::optional<synapse_helpers::tensor_or_ref> syn_seed_;
 };
 
 struct KernelMetaData {
@@ -683,7 +683,7 @@ class HabanaOperator {
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
       const c10::Scalar& value,
-      c10::optional<at::ScalarType> force_type = c10::nullopt);
+      std::optional<at::ScalarType> force_type = c10::nullopt);
 
   template <class T, class U>
   static void CopyVecToHostPtr(const std::vector<T>& vec, void* host_ptr) {

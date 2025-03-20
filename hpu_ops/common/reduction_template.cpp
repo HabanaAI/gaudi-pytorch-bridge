@@ -17,7 +17,7 @@
 
 namespace habana {
 
-static at::IntArrayRef optional_to_arrayref(const c10::optional<int64_t>& opt) {
+static at::IntArrayRef optional_to_arrayref(const std::optional<int64_t>& opt) {
   return opt.has_value() ? opt.value() : at::IntArrayRef{};
 }
 

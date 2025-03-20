@@ -45,7 +45,7 @@ using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::T
 using tuple_4_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
-  Hpu_KERNEL(as_strided, "as_strided", at::Tensor(const at::Tensor &, c10::IntArrayRef, c10::IntArrayRef, c10::optional<int64_t>))
+  Hpu_KERNEL(as_strided, "as_strided", at::Tensor(const at::Tensor &, c10::IntArrayRef, c10::IntArrayRef, std::optional<int64_t>))
   Hpu_KERNEL(addbmm, "addbmm", at::Tensor(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &))
 }
 

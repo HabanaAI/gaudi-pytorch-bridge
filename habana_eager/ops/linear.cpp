@@ -31,7 +31,7 @@ namespace eager {
 at::Tensor linear_forward(
     const at::Tensor& input,
     const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias) {
+    const std::optional<at::Tensor>& bias) {
   PT_EAGER_TRACE;
   PT_OP_INFO("linear: ", DUMP_3ARGS(input, weight, bias));
 
@@ -45,7 +45,7 @@ at::Tensor linear_forward(
 at::Tensor linear_forward_dispatch(
     const at::Tensor& input,
     const at::Tensor& other,
-    const c10::optional<at::Tensor>& bias) {
+    const std::optional<at::Tensor>& bias) {
   PT_EAGER_TRACE;
   static auto op = torch::Dispatcher::singleton()
                        .findSchemaOrThrow("hpu::linear", "")
@@ -94,7 +94,7 @@ class LinearFunction : public torch::autograd::Function<LinearFunction> {
       torch::autograd::AutogradContext* ctx,
       const at::Tensor& input,
       const at::Tensor& weight,
-      const c10::optional<at::Tensor>& bias) {
+      const std::optional<at::Tensor>& bias) {
     PT_EAGER_TRACE;
     ctx->saved_data["bias"] = bias.has_value() && bias.value().defined();
     ctx->save_for_backward({input, weight});
@@ -119,7 +119,7 @@ class LinearFunction : public torch::autograd::Function<LinearFunction> {
 at::Tensor linear_autograd_wrap(
     const at::Tensor& input,
     const at::Tensor& other,
-    const c10::optional<at::Tensor>& bias) {
+    const std::optional<at::Tensor>& bias) {
   PT_EAGER_TRACE;
   return LinearFunction::apply(input, other, bias);
 }

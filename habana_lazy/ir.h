@@ -117,19 +117,19 @@ class Output {
 
   std::string ToString() const;
 
-  const c10::optional<c10::Device> get_device() const {
+  const std::optional<c10::Device> get_device() const {
     return device;
   }
 
-  const c10::optional<size_t> get_dims() const {
+  const std::optional<size_t> get_dims() const {
     return dims;
   }
 
-  const c10::optional<at::ScalarType> get_scalar_type() const {
+  const std::optional<at::ScalarType> get_scalar_type() const {
     return scalar_type;
   }
 
-  const c10::optional<SmallSizeVec> get_sizes() const {
+  const std::optional<SmallSizeVec> get_sizes() const {
     return sizes;
   }
 
@@ -137,10 +137,10 @@ class Output {
   Node* m_node = nullptr;
   size_t m_index;
   // OutInfo
-  c10::optional<c10::Device> device;
-  c10::optional<size_t> dims;
-  c10::optional<SmallSizeVec> sizes;
-  c10::optional<at::ScalarType> scalar_type;
+  std::optional<c10::Device> device;
+  std::optional<size_t> dims;
+  std::optional<SmallSizeVec> sizes;
+  std::optional<at::ScalarType> scalar_type;
   uint64_t unique_id;
 };
 using OutputList = std::vector<Output>;
@@ -318,7 +318,7 @@ struct Value final {
       NodePtr node,
       const c10::Device& device,
       const SmallSizeVec& dims,
-      const c10::optional<at::ScalarType> scalar_type,
+      const std::optional<at::ScalarType> scalar_type,
       size_t index = 0);
 
   size_t GetIndex() const {
@@ -358,19 +358,19 @@ struct Value final {
 
   bool DataPtrValidAndNotExpired() const;
 
-  const c10::optional<c10::Device> get_device() const {
+  const std::optional<c10::Device> get_device() const {
     return device;
   }
 
-  const c10::optional<size_t> get_dims() const {
+  const std::optional<size_t> get_dims() const {
     return dims;
   }
 
-  const c10::optional<at::ScalarType> get_scalar_type() const {
+  const std::optional<at::ScalarType> get_scalar_type() const {
     return scalar_type;
   }
 
-  const c10::optional<SmallSizeVec> get_sizes() const {
+  const std::optional<SmallSizeVec> get_sizes() const {
     return sizes;
   }
 
@@ -392,10 +392,10 @@ struct Value final {
 
  protected:
   // OutInfo
-  c10::optional<c10::Device> device;
-  c10::optional<size_t> dims;
-  c10::optional<SmallSizeVec> sizes;
-  c10::optional<at::ScalarType> scalar_type;
+  std::optional<c10::Device> device;
+  std::optional<size_t> dims;
+  std::optional<SmallSizeVec> sizes;
+  std::optional<at::ScalarType> scalar_type;
   /* The m_index field points to the output index from the node*/
   size_t m_index = 0;
 };

@@ -28,7 +28,7 @@ at::Tensor LazyBinaryOp<at::Tensor>::get_result_overrideable() {
       : LazyOp<at::Tensor>::get_out_shapes().at(0);
 
   if (dst_dtype_ == at::ScalarType::Undefined) {
-    c10::optional<const at::IValue*> output = is_outfn_
+    std::optional<const at::IValue*> output = is_outfn_
         ? c10::make_optional<const at::IValue*>(&inputs.back())
         : c10::nullopt;
     auto dtype_helper =

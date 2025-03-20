@@ -20,17 +20,17 @@ namespace habana {
 namespace eager {
 at::Tensor empty(
     at::SymIntArrayRef size,
-    c10::optional<at::ScalarType> dtype_opt,
-    c10::optional<at::Layout> layout_opt,
-    c10::optional<at::Device> device_opt,
-    c10::optional<bool> pin_memory_opt,
-    c10::optional<at::MemoryFormat> memory_format_opt);
+    std::optional<at::ScalarType> dtype_opt,
+    std::optional<at::Layout> layout_opt,
+    std::optional<at::Device> device_opt,
+    std::optional<bool> pin_memory_opt,
+    std::optional<at::MemoryFormat> memory_format_opt);
 at::Tensor empty_strided(
     at::SymIntArrayRef size,
     at::SymIntArrayRef stride,
-    c10::optional<at::ScalarType> dtype_opt,
-    c10::optional<at::Layout> layout_opt,
-    c10::optional<at::Device> device_opt,
-    c10::optional<bool> pin_memory_opt);
+    std::optional<at::ScalarType> dtype_opt,
+    std::optional<at::Layout> layout_opt,
+    std::optional<at::Device> device_opt,
+    std::optional<bool> pin_memory_opt);
 } // namespace eager
 } // namespace habana

@@ -220,7 +220,7 @@ if is_pytorch_older_than("2.7.0"):
             "Tensor": "isTensor",
             "ITensorListRef": "isTensorList",
             "TensorList": "isTensorList",
-            "c10::optional<ArrayRef>": "isList",
+            "std::optional<ArrayRef>": "isList",
             "IntArrayRef": "isList",
         }
     )

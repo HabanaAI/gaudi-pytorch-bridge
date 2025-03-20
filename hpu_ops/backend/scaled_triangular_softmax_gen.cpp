@@ -36,8 +36,8 @@ void ScaledTriangularSoftmax::AddNode(
   auto self = stackGetter.getNextInput<TensorsPair>();
   stackGetter.getNextInput<double>(); // inv_scale_attn
   auto exp_sum_recpr_opt =
-      stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto max_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+      stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto max_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   HABANA_ASSERT(self.pt_t.dim() == 3, "Self tensor must be 3D.");
 

@@ -101,7 +101,7 @@ static std::vector<synapse_helpers::tensor> NllLoss(
     const OutputMetaData& meta,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = c10::nullopt) {
   return OpBackend::BuildNode(
       op,
       graph,
@@ -134,7 +134,7 @@ static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     const OutputMetaData& meta,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_index = c10::nullopt,
+    std::optional<int> final_index = c10::nullopt,
     at::IntArrayRef shapeTnsrSize = {}) {
   // This helper function is used only when weight is none
   op->CreateShapeTensorInput(graph, meta.dtype, shapeTnsrSize, input);

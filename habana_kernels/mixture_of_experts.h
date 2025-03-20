@@ -27,7 +27,7 @@ at::Tensor mixture_of_experts_lazy(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp = false);
+    const std::optional<bool> recomp = false);
 
 at::Tensor mixture_of_experts_fused_weights_lazy(
     const at::Tensor& hidden_states,
@@ -39,7 +39,7 @@ at::Tensor mixture_of_experts_fused_weights_lazy(
     const c10::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp = false);
+    const std::optional<bool> recomp = false);
 
 std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
     const at::Tensor& hidden_states,

@@ -343,13 +343,13 @@ TEST_F(EagerKernelTest, IndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({{0, 1}, {0, 1}})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
@@ -369,13 +369,13 @@ TEST_F(EagerKernelTest, BroadCastIndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
@@ -399,13 +399,13 @@ TEST_F(EagerKernelTest, BroadCastIndexTest1) {
       torch::tensor({0, 1}),
       torch::tensor({{0, 1}, {1, 1}})};
 
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {

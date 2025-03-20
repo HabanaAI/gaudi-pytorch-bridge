@@ -52,8 +52,8 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
 OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
   OutputMetaData meta;
   // Take output tensor dtype
-  c10::optional<at::Tensor> output_tensor = c10::nullopt;
-  c10::optional<c10::ScalarType> output_type = c10::nullopt;
+  std::optional<at::Tensor> output_tensor = c10::nullopt;
+  std::optional<c10::ScalarType> output_type = c10::nullopt;
   if (stack.at(stack.size() - 1).isTensor()) {
     output_tensor = stack.at(stack.size() - 1).toTensor();
     output_type = stack.at(stack.size() - 1).toTensor().scalar_type();
@@ -116,7 +116,7 @@ static std::vector<synapse_helpers::tensor> ComputeBetaSide(
     std::vector<synTensor> input_tensor,
     const at::IntArrayRef output_shape,
     const float beta_val,
-    c10::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = c10::nullopt) {
   synapse_helpers::tensor beta_tensor = OpBackend::BuildConstant(
       op, graph, beta_val, op->ScalarType(), output_shape);
   std::vector<synTensor> node_inputs{input_tensor.at(0), beta_tensor.get()};
@@ -137,7 +137,7 @@ static std::vector<synapse_helpers::tensor> ComputeGEMM(
     const at::IntArrayRef output_shape,
     const at::IntArrayRef gemm_output_shape,
     const bool is_batch,
-    c10::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = c10::nullopt) {
   NodeAttr::NodeOutputAttr gemm_node_output_attr = {
       gemm_output_shape, op->ScalarType()};
   if (!is_batch)
@@ -175,8 +175,8 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     const at::IntArrayRef gemm_output_shape,
     const float alpha_val,
     const bool is_batch,
-    c10::optional<int> final_idx = c10::nullopt) {
-  c10::optional<int> is_gemm_final_node = c10::nullopt;
+    std::optional<int> final_idx = c10::nullopt) {
+  std::optional<int> is_gemm_final_node = c10::nullopt;
   if (alpha_val == 1.0) {
     is_gemm_final_node = final_idx;
   }
@@ -330,7 +330,7 @@ void AddMMActivation::AddNode(
         {syn_in(0), syn_in(1), syn_in(2)},
         {{meta.shape,
           meta.dtype,
-          append_activation ? c10::nullopt : c10::optional(0)}},
+          append_activation ? c10::nullopt : std::optional(0)}},
         &params,
         sizeof(params));
   } else {
@@ -346,7 +346,7 @@ void AddMMActivation::AddNode(
          alpha_tensor.get()},
         {{meta.shape,
           meta.dtype,
-          append_activation ? c10::nullopt : c10::optional(0)}});
+          append_activation ? c10::nullopt : std::optional(0)}});
   }
 
   if (append_activation) {

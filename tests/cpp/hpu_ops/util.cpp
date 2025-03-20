@@ -36,8 +36,8 @@ static std::tuple<double, double> get_default_tolerances(at::ScalarType dtype) {
 void HpuOpTestUtilBase::Compare(
     const torch::Tensor& cpu_result,
     const torch::Tensor& hpu_result,
-    c10::optional<double> opt_rtol,
-    c10::optional<double> opt_atol) const {
+    std::optional<double> opt_rtol,
+    std::optional<double> opt_atol) const {
   EXPECT_TRUE(hpu_result.is_hpu());
 
   EXPECT_EQ(cpu_result.scalar_type(), hpu_result.scalar_type())
@@ -152,16 +152,16 @@ void HpuOpTestUtilBase::GenerateIntInputs(
 
 template <>
 int HpuOpTestUtilBase::GenerateScalar(
-    c10::optional<int> min,
-    c10::optional<int> max) const {
+    std::optional<int> min,
+    std::optional<int> max) const {
   std::uniform_int_distribution<> dist(min.value_or(-127), max.value_or(128));
   return dist(m_mt);
 }
 
 template <>
 bool HpuOpTestUtilBase::GenerateScalar(
-    c10::optional<bool> min,
-    c10::optional<bool> max) const {
+    std::optional<bool> min,
+    std::optional<bool> max) const {
   std::bernoulli_distribution dist;
   return dist(m_mt);
 }

@@ -33,12 +33,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
@@ -47,7 +47,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const at::Tensor& k,
     const at::Tensor& v,
     const at::Tensor& P,
-    const c10::optional<at::Tensor>& dm,
+    const std::optional<at::Tensor>& dm,
     const bool is_causal,
     const double p,
     const double scale,

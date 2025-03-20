@@ -1492,8 +1492,8 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
         torch::randint(0, (W - 1), {index_size}, torch::dtype(torch::kInt64));
 
     // Make list
-    c10::List<c10::optional<at::Tensor>> indices_cpu;
-    c10::List<c10::optional<at::Tensor>> indices_list{};
+    c10::List<std::optional<at::Tensor>> indices_cpu;
+    c10::List<std::optional<at::Tensor>> indices_list{};
     at::Tensor temp = torch::slice(index, 0, 0, end_sizes[i], step_sizes[i]);
     indices_cpu.push_back(c10::make_optional(temp));
     temp =
@@ -1516,12 +1516,12 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest1) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
@@ -1537,12 +1537,12 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest1) {
 
   std::vector<torch::Tensor> vec_cpu1{
       torch::tensor({1, 0}), torch::tensor({0})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu1{};
+  c10::List<std::optional<at::Tensor>> indices_cpu1{};
   indices_cpu1.reserve(vec_cpu1.size());
   for (auto t : vec_cpu1) {
     indices_cpu1.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list1{};
+  c10::List<std::optional<at::Tensor>> indices_list1{};
   indices_list1.reserve(vec_cpu1.size());
   for (auto t : vec_cpu1) {
     indices_list1.push_back(c10::make_optional(t.to(torch::kHPU)));
@@ -1843,8 +1843,8 @@ TEST_F(LazyDynamicShapesTest, RandpermOutTest) {
   std::vector<int> in_sizes{8, 10, 15};
   for (int i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
     torch::manual_seed(0);
@@ -2252,7 +2252,7 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor beta =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
-    c10::optional<at::Tensor> mean;
+    std::optional<at::Tensor> mean;
     torch::Tensor var =
         torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor h_gamma = gamma.to(torch::kHPU);

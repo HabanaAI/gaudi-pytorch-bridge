@@ -65,7 +65,7 @@ void WhereBackend::AddNode(
   const auto& self = stack_tensor(stack, 1);
   const auto& other = stack_tensor(stack, 2);
 
-  c10::optional<const at::IValue*> output = IsOutputAvailable()
+  std::optional<const at::IValue*> output = IsOutputAvailable()
       ? c10::make_optional<const at::IValue*>(&stack.back())
       : c10::nullopt;
 

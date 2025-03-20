@@ -20,7 +20,7 @@
   TEST_F(HpuOpTest, name) {                                                   \
     GenerateInputs(1, {{2, 3, 10}}, dtype);                                   \
     int dim = 2;                                                              \
-    c10::optional<bool> stable(false);                                        \
+    std::optional<bool> stable(false);                                        \
     auto result = torch::empty(0).to(dtype);                                  \
     auto result_h = result.to("hpu");                                         \
     auto indices = torch::empty(0).to(torch::kLong);                          \
@@ -88,7 +88,7 @@ TEST_F(HpuOpTest, sort) {
 TEST_F(HpuOpTest, sort_out) {
   GenerateInputs(1, {{8, 24, 24, 3}});
   int dim = 2;
-  c10::optional<bool> stable(false);
+  std::optional<bool> stable(false);
   bool descending = false;
   auto result = torch::empty(0);
   auto result_h = result.to("hpu");

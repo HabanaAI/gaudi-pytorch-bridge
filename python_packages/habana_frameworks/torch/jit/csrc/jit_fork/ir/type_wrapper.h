@@ -66,8 +66,8 @@ class TypeWrapper {
       at::ScalarType scalar_type,
       const SymbolicShape& shape,
       const SymbolicStrides& strides,
-      c10::optional<c10::Device> device,
-      c10::optional<bool> requires_grad);
+      std::optional<c10::Device> device,
+      std::optional<bool> requires_grad);
 
   const c10::TypePtr& getType() const;
   const SymbolOrExpr& getSymbolOrExpr() const;

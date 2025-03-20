@@ -238,7 +238,7 @@ HbLazyTensor::HbLazyTensor(const c10::Device& device)
 HbLazyTensor::HbLazyTensor(
     ir::Value&& ir_value,
     const at::Device& device,
-    c10::optional<at::ScalarType> logical_element_type)
+    std::optional<at::ScalarType> logical_element_type)
     : mp_data(std::make_shared<Data>(
           std::move(ir_value),
           device,
@@ -268,7 +268,7 @@ void HbLazyTensor::setTensorSize(c10::IntArrayRef sizes) {
 HbLazyTensor HbLazyTensor::Create(
     ir::Value&& ir_value,
     const at::Device& device,
-    c10::optional<at::ScalarType> logical_element_type) {
+    std::optional<at::ScalarType> logical_element_type) {
   HbLazyTensor hb_tensor(std::move(ir_value), device, logical_element_type);
   HbContextArena::Get()->RegisterTensor(hb_tensor.getDataPtr());
   return hb_tensor;
@@ -282,7 +282,7 @@ at::Tensor HbLazyTensor::ToTensor(bool detached) {
   auto context = habana_lazy::get_device_lazy_execution_context();
   context->JoinPendingLaunchThread();
 
-  c10::optional<at::Tensor> tensor_data = CurrentTensorData();
+  std::optional<at::Tensor> tensor_data = CurrentTensorData();
   if (!tensor_data) {
     // TODO:: Will need to check if we need to activate this path
     // We arent allocation any new memory to tensors which isnt coming via At
@@ -397,7 +397,7 @@ void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   }
 }
 
-c10::optional<at::Tensor> HbLazyTensor::GetTensorData() {
+std::optional<at::Tensor> HbLazyTensor::GetTensorData() {
   auto tens = data()->tensor_data;
   if (tens != c10::nullopt) {
     bool isHPU = tens.value().device().type() == c10::DeviceType::HPU;
@@ -470,7 +470,7 @@ void HbLazyTensor::ClearStrideParams() {
   data()->stride_params.reset();
 }
 
-const c10::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
+const std::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
   const auto& tens = data()->cpu_tensor_data;
   if (tens != c10::nullopt) {
     bool isCPU = tens.value().device().type() == c10::DeviceType::CPU;
@@ -486,7 +486,7 @@ c10::TensorImpl* HbLazyTensor::getAttachedTensorImpl() const {
     return nullptr;
   }
 }
-c10::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
+std::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
   auto context = habana_lazy::get_device_lazy_execution_context();
   if (context != nullptr) {
     auto status = context->getTensorExecutionStatus(getDataPtr());
@@ -510,7 +510,7 @@ const SmallSizeVec& HbLazyTensor::GetSizes() const {
 }
 
 void HbLazyTensor::SetScalarType(
-    c10::optional<at::ScalarType> logical_element_type) {
+    std::optional<at::ScalarType> logical_element_type) {
   data()->logical_element_type = logical_element_type;
 }
 
@@ -532,7 +532,7 @@ at::ScalarType HbLazyTensor::dtype() const {
   }
 }
 
-c10::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
+std::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
   return data()->logical_element_type;
 }
 
@@ -707,7 +707,7 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
  * StepMarker instead, tensor data ptr is returned. But StepMarker can be called
  * for output tensors.
  */
-c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
+std::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
   // When acc thread is present, IR value may not be available so the next check
   // may fail and skip StepMarker
   habana_lazy::AccThread::Get().SyncAccThreadPool();
@@ -1429,7 +1429,7 @@ void HbLazyTensor::ExecuteCachedGraph(
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
     std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
-    const std::unordered_map<int64_t, c10::optional<at::Generator>>&
+    const std::unordered_map<int64_t, std::optional<at::Generator>>&
         seed_tensors_generator_map,
     uint64_t launch_jobid,
     c10::hpu::HPUStream capture_stream [[maybe_unused]]) {

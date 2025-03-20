@@ -18,7 +18,7 @@ namespace habana {
 
 
 
-::std::tuple<at::Tensor,at::Tensor> native_dropout(const at::Tensor & input, double p, c10::optional<bool> train) {
+::std::tuple<at::Tensor,at::Tensor> native_dropout(const at::Tensor & input, double p, std::optional<bool> train) {
   PT_EAGER_TRACE;
   PT_OP_INFO("native_dropout: ", DUMP_3ARGS(input, p, train));
 
@@ -46,7 +46,7 @@ static const auto& kr_gen_3 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<bool>)>(&habana::native_dropout));
+  m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, std::optional<bool>)>(&habana::native_dropout));
 
 }
 

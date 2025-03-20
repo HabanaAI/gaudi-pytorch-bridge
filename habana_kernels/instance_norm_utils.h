@@ -23,15 +23,15 @@
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> batchnorm_double_backward(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& gamma,
+    const std::optional<at::Tensor>& gamma,
     const at::Tensor& ggI,
     const at::Tensor& ggG,
     const at::Tensor& ggB,
     const at::Tensor& gO,
-    const c10::optional<at::Tensor>& running_mean,
-    const c10::optional<at::Tensor>& running_var,
+    const std::optional<at::Tensor>& running_mean,
+    const std::optional<at::Tensor>& running_var,
     bool training,
     double eps,
-    const c10::optional<at::Tensor>& save_mean,
-    const c10::optional<at::Tensor>& save_invstd,
+    const std::optional<at::Tensor>& save_mean,
+    const std::optional<at::Tensor>& save_invstd,
     std::array<bool, 3> output_mask);

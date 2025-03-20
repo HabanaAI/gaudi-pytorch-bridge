@@ -209,8 +209,8 @@ void optimizer_adamw(
     const double epsilon,
     const at::Tensor& weight_decay,
     const bool has_weight_decay,
-    c10::optional<at::TensorList> exp_avg_scales = c10::nullopt,
-    c10::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt) {
+    std::optional<at::TensorList> exp_avg_scales = c10::nullopt,
+    std::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
@@ -377,7 +377,7 @@ at::Tensor slice_ds(
     c10::SymInt start,
     c10::SymInt end,
     c10::SymInt step,
-    [[maybe_unused]] c10::optional<c10::SymIntArrayRef> size) {
+    [[maybe_unused]] std::optional<c10::SymIntArrayRef> size) {
   PT_EAGER_TRACE;
   PT_OP_INFO("slice_ds :", DUMP_5ARGS(self, size, dim, start, end));
   return at::native::slice(
@@ -392,7 +392,7 @@ at::Tensor constant_pad_nd_ds(
     const at::Tensor& self,
     c10::SymIntArrayRef pad,
     const c10::Scalar& value,
-    [[maybe_unused]] c10::optional<c10::SymIntArrayRef> size) {
+    [[maybe_unused]] std::optional<c10::SymIntArrayRef> size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "constant_pad_ds :",
@@ -442,13 +442,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
@@ -528,12 +528,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
@@ -604,19 +604,19 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
@@ -730,7 +730,7 @@ fp8_sdpa_recomp_fwd_common(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
@@ -744,7 +744,7 @@ fp8_sdpa_recomp_fwd_common(
     T d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type,
     c10::ScalarType fwdOutType) {
   PT_EAGER_TRACE;
@@ -883,21 +883,21 @@ fp8_sdpa_recomp_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
@@ -905,7 +905,7 @@ fp8_sdpa_recomp_fwd(
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
       (!q_scale_o.has_value()))
     fwdOutType = at::ScalarType::BFloat16;
-  return fp8_sdpa_recomp_fwd_common<c10::optional<at::Tensor>>(
+  return fp8_sdpa_recomp_fwd_common<std::optional<at::Tensor>>(
       q,
       k,
       v,
@@ -939,7 +939,7 @@ fp8_sdpa_recomp_scalar_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
@@ -953,7 +953,7 @@ fp8_sdpa_recomp_scalar_fwd(
     const double d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
+    const std::optional<at::Tensor>& valid_seq_len,
     c10::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
@@ -988,22 +988,22 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_recomp_bwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const at::Tensor& m,
     const at::Tensor& linv,
-    const c10::optional<at::Tensor>& seed,
+    const std::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
     const double scale,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& d_scale_s,
-    const c10::optional<at::Tensor>& d_scale_do,
-    const c10::optional<at::Tensor>& d_scale_ds,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_ds,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_do,
+    const std::optional<at::Tensor>& d_scale_ds,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_ds,
     const bool is_amax_ds,
     const at::Tensor& fwd_out) {
   PT_EAGER_TRACE;
@@ -1180,7 +1180,7 @@ at::Tensor cdist(
     const at::Tensor& x1,
     const at::Tensor& x2,
     const double p,
-    c10::optional<int64_t> compute_mode) {
+    std::optional<int64_t> compute_mode) {
   PT_EAGER_TRACE;
   PT_OP_INFO("cdist :", DUMP_4ARGS(x1, x2, p, compute_mode));
 
@@ -1554,9 +1554,9 @@ at::Tensor& fp8_gemm_functionalization_glue(
     bool trans_B,
     const at::Tensor& D,
     at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
-    const c10::optional<at::Tensor>& bias,
+    const std::optional<at::Tensor>& A_scale_inv,
+    const std::optional<at::Tensor>& B_scale_inv,
+    const std::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out) {
   auto A_ = get_functional_tensor(A);
@@ -1574,11 +1574,11 @@ at::Tensor& fp8_gemm_functionalization_glue(
                                   bool,
                                   const at::Tensor&,
                                   bool,
-                                  const c10::optional<at::Tensor>&,
+                                  const std::optional<at::Tensor>&,
                                   at::ScalarType,
-                                  const c10::optional<at::Tensor>&,
-                                  const c10::optional<at::Tensor>&,
-                                  const c10::optional<at::Tensor>&,
+                                  const std::optional<at::Tensor>&,
+                                  const std::optional<at::Tensor>&,
+                                  const std::optional<at::Tensor>&,
                                   bool,
                                   at::OptionalIntArrayRef)>();
 

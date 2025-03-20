@@ -178,7 +178,7 @@ void BinaryCrossEntropyFwd::AddNode(
   StackGetter stackGetter(this, stack, "BinaryCrossEntropyFwd::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
   auto target = stackGetter.getNextInput<TensorsPair>();
-  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weight = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   const auto output_shape = BinaryCrossEntropyFwdMetaData(stack)[0].shape;
   const bool is_weight_used = weight.has_value();
@@ -219,8 +219,8 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
       this, stack, "BinaryCrossEntropyWithLogitsFwd::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
   auto target = stackGetter.getNextInput<TensorsPair>();
-  auto weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto pos_weight = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weight = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto pos_weight = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   const auto output_shape =
       BinaryCrossEntropyWithLogitsFwdMetaData(stack)[0].shape;
@@ -268,7 +268,7 @@ void BinaryCrossEntropyBwd::AddNode(
   auto grad = stackGetter.getNextInput<TensorsPair>();
   auto self = stackGetter.getNextInput<TensorsPair>();
   auto target = stackGetter.getNextInput<TensorsPair>();
-  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weights = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   auto bce_meta = BinaryCrossEntropyBwdMetaData(stack)[0];
   const bool is_weights_used = weights.has_value();

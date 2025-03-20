@@ -10,7 +10,7 @@ namespace habana {
 HPU_OP_BACKEND(CastToFp8V2)
 
 
-::std::tuple<at::Tensor,at::Tensor> cast_to_fp8_v2(const at::Tensor & input, const c10::optional<at::Tensor> & scale, bool stochastic_rounding, bool is_amax, at::ScalarType dtype, at::OptionalIntArrayRef scale_shape);
+::std::tuple<at::Tensor,at::Tensor> cast_to_fp8_v2(const at::Tensor & input, const std::optional<at::Tensor> & scale, bool stochastic_rounding, bool is_amax, at::ScalarType dtype, at::OptionalIntArrayRef scale_shape);
 OUTMETA_DECL(CastToFp8V2Meta);
 
 }  // namespace habana

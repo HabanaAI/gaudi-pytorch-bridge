@@ -53,7 +53,7 @@ std::vector<int64_t> LoweringUtil::ComputeOutputShape(
 c10::ScalarType LoweringUtil::GetDtype(
     at::Tensor& result,
     const at::Tensor& self,
-    c10::optional<c10::ScalarType> dtype,
+    std::optional<c10::ScalarType> dtype,
     bool promote_integers) {
   if (dtype.has_value()) {
     return dtype.value();
