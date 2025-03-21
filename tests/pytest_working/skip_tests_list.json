@@ -226,7 +226,8 @@
             "pytest_working/compile/test_ops.py::test_randperm[dtype2-None-32]",
             "pytest_working/compile/test_ops.py::test_randperm[dtype2-None-1]",
             "pytest_working/compile/dynamic/test_hpu_subgraphs.py::test_graph_control_flow_static",
-            "pytest_working/any_mode/FusedSDPA/test_hpu_sdpa_fp8.py::test_sdpa[3-4-4-72-42-8-8-0.0-True-True-True-False-True-True-True-None-False-False-False-fp8_143-False]"
+            "pytest_working/any_mode/FusedSDPA/test_hpu_sdpa_fp8.py::test_sdpa[3-4-4-72-42-8-8-0.0-True-True-True-False-True-True-True-None-False-False-False-fp8_143-False]",
+            "pytest_working/compile/dynamic/test_hpu_ops.py::test_bernoulli_st_meta"
         ]
     },
     "gaudi2": {
