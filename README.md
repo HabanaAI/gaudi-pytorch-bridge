@@ -115,3 +115,12 @@ pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
 - The `-i` flag installs the wheels after they are built.
 - It is recommended to leverage CCache and Icecream for faster compilation. Icecream (icecc) allows using a much larger parallel job count (`-j N`). The `N` depends on your compute cluster size.
 - Sometimes the final build command is interrupted while preparing the environment. In this case you can add `--recreate-venv force` to resolve any potential issues.
+
+### Usage
+
+Once the code building is complete it can be used as shown below.
+```
+import torch # Loads package destined for running on CPU
+import habana_frameworks.torch # Loads HPU plugin
+```
+Using package habana_frameworks is the desired way of accessing code.
