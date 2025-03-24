@@ -52,12 +52,11 @@ accumulate_grads\_                        Yes      Yes      Yes      Yes      Ye
 cast_from_fp8                              No       No       No       No       No        No       No        Yes        No       No
 cast_to_fp8                               Yes      Yes       No       No       No        No       No         No        No       No
 cast_to_fp8_v2                            Yes      Yes       No       No       No        No       No         No        No       No
-cast_to_fp8_v2_hybrid                     Yes      Yes       No       No       No        No       No         No        No       No
+cast_to_fp8_hybrid                        Yes      Yes       No       No       No        No       No         No        No       No
 convert_from_int4                          No       No       No       No       No        No       No         No        No      Yes
 convert_from_uint4                         No       No       No       No       No        No       No         No        No      Yes
 conv2d_fp8                                 No       No       No       No       No        No       No        Yes        No       No
 custom_softmax                             No      Yes       No       No       No        No       No         No        No       No
-fake_quant_fp4                             No      Yes       No       No       No        No       No         No        No       No
 fp8_gemm                                   No       No       No       No       No        No       No        Yes        No       No
 fp8_gemm_v2                                No       No       No       No       No        No       No        Yes        No       No
 in_place_interleave                        No      Yes       No       No       No        No       No        Yes        No       No
@@ -75,8 +74,7 @@ scaled_masked_triangular_softmax          Yes      Yes      Yes       No       N
 scaled_triangular_softmax                 Yes      Yes      Yes       No       No        No       No         No        No       No
 scaled_triangular_softmax_retain          Yes      Yes      Yes       No       No        No       No         No        No       No
 softmax_fp8                                No      Yes       No       No       No        No       No        Yes        No       No
-rms_norm\_                                Yes      Yes      Yes       No       No        No       No         No        No       No
-plain_index                               Yes      Yes      Yes      Yes      Yes       Yes       No         No        No       No
+rms_norm                                  Yes      Yes      Yes       No       No        No       No         No        No       No
 exp_fast_math                              No      Yes       No       No       No        No       No         No        No       No
 sqrt_fast_math                             No      Yes       No       No       No        No       No         No        No       No
 rsqrt_fast_math                            No      Yes       No       No       No        No       No         No        No       No
@@ -94,9 +92,6 @@ fp8_sdpa_bwd                               No       No       No       No       N
 fp8_sdpa_recomp_fwd                        No       No       No       No       No        No       No        Yes        No       No
 fp8_sdpa_recomp_fwd_non_dropout            No       No       No       No       No        No       No        Yes        No       No
 fp8_sdpa_recomp_fwd_dropout                No       No       No       No       No        No       No        Yes        No       No
-fp8_sdpa_recomp_fwd.scalar                 No       No       No       No       No        No       No        Yes        No       No
-fp8_sdpa_recomp_fwd_non_dropout.scalar     No       No       No       No       No        No       No        Yes        No       No
-fp8_sdpa_recomp_fwd_dropout.scalar         No       No       No       No       No        No       No        Yes        No       No
 sum_fp8                                    No       No       No       No       No        No       No        Yes        No       No
 fused_clip_norm                           Yes      Yes       No       No       No        No       No         No        No       No
 ======================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========
