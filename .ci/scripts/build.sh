@@ -306,11 +306,7 @@ build_pytorch_modules()
     set_os_specific_vars
 
     #CI job creates venv for every job. So we need to have python pkg install unconditionally
-    install_pkg=($__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt)
-    if ! __running_in_venv; then
-        install_pkg+=(--user)
-    fi
-    "${install_pkg[@]}"
+    $__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt
 
     pushd $PYTORCH_MODULES_ROOT_PATH
 
@@ -814,11 +810,7 @@ build_pytorch_tb_plugin()
         fi
     fi
 
-    install_cmd=($__pip_cmd install wheel)
-    if ! __running_in_venv; then
-        install_cmd+=(--user)
-    fi
-    "${install_cmd[@]}"
+    $__pip_cmd install wheel
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "pip install failed"
@@ -1464,20 +1456,12 @@ install_requirements_pytorch()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
+    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt
 }
 
 install_requirements_event_plugin()
 {
-    cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
+    $__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt
 }
 
 run_habana_lightning_tests()
@@ -1779,11 +1763,7 @@ install_requirements_pytest()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
+    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt
 }
 
 uninstall_requirements_pytest()
@@ -2186,11 +2166,7 @@ install_pillow_simd()
 {
     $__pip_cmd uninstall -y pillow
     $__pip_cmd uninstall -y pillow-simd
-    cmd=($__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    CC="cc -mavx2" "${cmd[@]}"
+    CC="cc -mavx2" $__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x
 }
 
 # set_python_version to set envs related to python version during build
