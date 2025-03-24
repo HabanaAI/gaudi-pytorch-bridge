@@ -630,7 +630,11 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
     PT_DEVMEM_DEBUG(
         "CS_POOL:: out of memory, when trying to extend high meory for size::",
         size);
-    bin_utils->RemoveFreeChunkFromBin(tail_chunk);
+    // InvalidBinNum means this chunk has been removed before, avoid double
+    // remove
+    if (tail_chunk->bin_index != kInvalidBinNum) {
+      bin_utils->RemoveFreeChunkFromBin(tail_chunk);
+    }
     tail_chunk->used = true;
     log_synDeviceWorkspace(0, size);
     return nullptr;
