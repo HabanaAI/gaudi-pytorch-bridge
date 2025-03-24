@@ -104,7 +104,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_hpu_(
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
     int64_t root_rank,
     int64_t root_tensor,
-    bool async_op,
+    bool asyncOp,
     int64_t timeout) {
   auto tensor_vec = tensors.vec();
   auto work = process_group->getBackend(c10::DeviceType::HPU)
@@ -114,7 +114,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_hpu_(
                           root_rank,
                           root_tensor,
                           std::chrono::milliseconds(timeout),
-                          async_op});
+                          asyncOp});
   return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
       std::move(tensor_vec), work);
 }
@@ -235,14 +235,14 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_hpu_(
     at::Tensor& output_tensor,
     at::Tensor& input_tensor,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
-    bool async_op,
+    bool asyncOp,
     int64_t timeout) {
   auto work =
       process_group->getBackend(c10::DeviceType::HPU)
           ->_allgather_base(
               output_tensor,
               input_tensor,
-              AllgatherOptions{std::chrono::milliseconds(timeout), async_op});
+              AllgatherOptions{std::chrono::milliseconds(timeout), asyncOp});
   return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
 }
 
@@ -357,7 +357,7 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_hpu_(
     at::Tensor& input_tensor,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
     const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    bool async_op,
+    bool asyncOp,
     int64_t timeout) {
   auto work = process_group->getBackend(c10::DeviceType::HPU)
                   ->_reduce_scatter_base(
@@ -366,7 +366,7 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_hpu_(
                       ReduceScatterOptions{
                           *reduce_op.get(),
                           std::chrono::milliseconds(timeout),
-                          async_op});
+                          asyncOp});
   return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
 }
 
@@ -442,7 +442,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_hpu_(
     const std::vector<std::vector<at::Tensor>>& input_tensors,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
     int64_t root_rank,
-    bool async_op,
+    bool asyncOp,
     int64_t timeout) {
   auto output_tensors_vec = output_tensors.vec();
   auto work =
@@ -451,7 +451,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_hpu_(
               output_tensors_vec,
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
               ScatterOptions{
-                  root_rank, std::chrono::milliseconds(timeout), async_op});
+                  root_rank, std::chrono::milliseconds(timeout), asyncOp});
   return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
       std::move(output_tensors_vec), work);
 }
