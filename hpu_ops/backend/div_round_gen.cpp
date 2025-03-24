@@ -99,7 +99,8 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
         binaryop_inputs[1],
         (StrModeFloor == rounding_mode),
         std::move(shape_out),
-        DIV_MODE_OUTPUT_TYPE::QUOTIENT);
+        DIV_MODE_OUTPUT_TYPE::QUOTIENT,
+        final_result_type);
   } else { // if (isIntegralType(final_result_type, true))
 
     // Computation is always done in float or bfloat16

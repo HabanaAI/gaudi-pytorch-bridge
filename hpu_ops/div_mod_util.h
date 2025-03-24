@@ -26,5 +26,6 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
     synTensor syn_denominator,
     bool pyCompatible,
     const std::vector<long int> shape_out,
-    DIV_MODE_OUTPUT_TYPE t);
+    DIV_MODE_OUTPUT_TYPE t,
+    c10::ScalarType output_type);
 } // namespace habana
