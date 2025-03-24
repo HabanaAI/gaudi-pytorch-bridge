@@ -235,7 +235,7 @@ def hpu_inference_initialize(
         mark_non_scales = False
 
     if model is not None:
-        if getenv("PT_HPU_LAZY_MODE", "1") != "0":
+        if getenv("PT_HPU_LAZY_MODE", "0") != "0":
             _mark_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
             _check_params_as_const(model=model, mark_scales=mark_only_scales, mark_non_scales=mark_non_scales)
         else:

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 ###############################################################################
 
 
+import pytest
 from common_test import custom_topk, is_lazy
 
-assert is_lazy, "Legacy custom op works only in lazy mode"
 
-
+@pytest.mark.skip(reason="Legacy custom op is not supported in eager mode")
 def test_custom_topk():
+    assert is_lazy, "Legacy custom op works only in lazy mode"
     custom_topk(False, True)

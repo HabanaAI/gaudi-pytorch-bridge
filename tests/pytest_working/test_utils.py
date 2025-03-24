@@ -54,7 +54,7 @@ def is_gaudi3():
 
 
 def is_lazy():
-    return int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1
+    return int(os.environ.get("PT_HPU_LAZY_MODE", 0)) == 1
 
 
 def evaluate_fwd_kernel(

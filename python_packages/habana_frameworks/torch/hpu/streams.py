@@ -30,7 +30,7 @@ from ._utils import _get_device_index
 
 _int = builtins.int
 
-is_lazy_mode = os.getenv("PT_HPU_LAZY_MODE", "1") != "0"
+is_lazy_mode = os.getenv("PT_HPU_LAZY_MODE", "0") != "0"
 
 
 class _device:

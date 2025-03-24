@@ -62,7 +62,7 @@ class FusedLars(Optimizer):
                 if len(param_list) != 0:
                     htcore.step_closure._mark_step_if_lazy()
 
-                    if os.getenv("PT_HPU_LAZY_MODE", "1") != "0":
+                    if os.getenv("PT_HPU_LAZY_MODE", "0") != "0":
                         lars_impl = _hpex_C.fused_lars
                     else:
                         lars_impl = torch.ops.hpu.optimizer_lars

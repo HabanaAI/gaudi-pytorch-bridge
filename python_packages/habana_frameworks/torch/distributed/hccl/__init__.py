@@ -25,7 +25,7 @@ from habana_frameworks.torch.utils.experimental.distributed_emulation import (
 
 import torch
 
-_lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "1"))
+_lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "0"))
 _lazy_collectives_enabled = os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES", "False").lower() in ["true", "1"]
 if _lazy_mode == 0:
     # PT 2.0 eager mode

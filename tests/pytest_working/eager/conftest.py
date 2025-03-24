@@ -22,5 +22,5 @@ import pytest
 
 @pytest.fixture(autouse=True, scope="package")
 def setup_teardown_env():
-    if int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1:
+    if int(os.environ.get("PT_HPU_LAZY_MODE", 0)) == 1:
         pytest.skip("This test requires PT_HPU_LAZY_MODE=0")

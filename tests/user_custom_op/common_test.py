@@ -22,7 +22,7 @@ from pathlib import Path
 import habana_frameworks.torch.core  # noqa F401
 import torch
 
-is_lazy = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
+is_lazy = os.environ.get("PT_HPU_LAZY_MODE", "0") == "1"
 
 
 def load_library(is_lazy, legacy):

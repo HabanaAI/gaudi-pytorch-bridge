@@ -972,7 +972,7 @@ class ModuleCacher(torch.nn.Module):
         self.priority_keys = []
         self.is_capturing = False
         self.iteration_cnt = -1
-        self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
+        self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "0") == "1"
         self.hpugraph_tracing = False
         # Variables for statistics collection
         self.cached_hits_dict = {}
