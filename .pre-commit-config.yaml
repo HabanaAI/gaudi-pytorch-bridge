@@ -40,9 +40,7 @@ repos:
         entry: scripts/ensure_new_cpp_files_are_added_to_cmake.sh
         language: script
         types: [c++]
-        # TODO: https://jira.habana-labs.com/browse/SW-120634: remove files
-        # from this ticket from `exclude:` below once they're fixed
-        exclude: "^python_packages/habana_frameworks/torch/|\
+        exclude: "python_packages/habana_frameworks/torch/jit/csrc/jit_fork/|\
           ^tests/user_custom_op/|\
           ^pytorch_helpers/habana_helpers/tensor_comparator/synapse/src/infra/(float16|sim_fp16).cpp$|\
           ^scripts/tests/files/"
