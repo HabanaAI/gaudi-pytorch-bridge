@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <ATen/native/transformers/sdp_utils_cpp.h>
 #include "fused_sdpa.h"
 #include "backend/random.h"
 #include "common/dump_args.h"
@@ -24,6 +25,20 @@
 
 namespace habana {
 namespace eager {
+
+int64_t fused_sdp_choice_hpu(
+    [[maybe_unused]] const at::Tensor& query,
+    [[maybe_unused]] const at::Tensor& key,
+    [[maybe_unused]] const at::Tensor& value,
+    [[maybe_unused]] const ::std::optional<at::Tensor>& attn_mask,
+    [[maybe_unused]] double dropout_p,
+    [[maybe_unused]] bool is_causal,
+    [[maybe_unused]] ::std::optional<double> scale,
+    [[maybe_unused]] bool enable_gqa) {
+  // there are five availble SDPBackend (math, flash_attention,
+  // efficient_attention, cudnn_attention, overrideable)
+  return static_cast<int64_t>(sdp::SDPBackend::math);
+}
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_sdpa_fwd_wrap(
     const at::Tensor& q,
@@ -277,6 +292,10 @@ TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   if (OVERRIDE_FSDPA) {
     m.impl("scaled_dot_product_attention", fused_sdpa_autograd_wrap);
   }
+}
+
+TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("_fused_sdp_choice", fused_sdp_choice_hpu);
 }
 
 } // namespace eager
