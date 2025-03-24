@@ -86,6 +86,8 @@ TEST_F(EagerPipelineTest, PipelineThrottling) {
 }
 
 TEST_F(EagerPipelineTest, CompileError) {
+  // make sure the thread pools are initialized
+  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
@@ -97,6 +99,8 @@ TEST_F(EagerPipelineTest, CompileError) {
 }
 
 TEST_F(EagerPipelineTest, ExecError) {
+  // make sure the thread pools are initialized
+  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);

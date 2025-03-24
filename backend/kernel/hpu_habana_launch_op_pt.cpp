@@ -5542,7 +5542,10 @@ void HabanaLaunchOpPT::run(
           std::make_unique<PermutationSetAndSave>(jit_graph_and_meta_data_);
     }
 
-    if (!is_permute_data_cached || enable_caching_) {
+    bool permute_calculation_is_needed = !is_permute_data_cached &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE);
+
+    if (permute_calculation_is_needed) {
       // TODO may be we don't need sync with compile thread
       pipeline_execution.compile_sync();
       CompileSynapseGraphAndPatchTable();
@@ -5551,16 +5554,36 @@ void HabanaLaunchOpPT::run(
             launch_op.ExecuteSynapseGraph();
             launch_op.ClearStatics();
           });
-    } else {
+      return;
+    }
+    // TODO: Implement case for  PT_COMPILE_ONLY_MODE
+    if (enable_caching_ && !permute_calculation_is_needed) {
+      std::promise<void> recipe_done;
+      auto is_recipe_done = recipe_done.get_future();
+      TemporaryRecipeStore::get().Add(
+          cur_rargpsh_, std::move(is_recipe_done), {});
       pipeline_execution.execute(
-          [](habana::HabanaLaunchOpPT& launch_op) mutable {
+          [recipe_done = std::move(recipe_done)](
+              habana::HabanaLaunchOpPT& launch_op) mutable {
             launch_op.CompileSynapseGraphAndPatchTable();
+            recipe_done.set_value();
           },
           [](habana::HabanaLaunchOpPT& launch_op) {
             launch_op.ExecuteSynapseGraph();
             launch_op.ClearStatics();
           });
+      return;
     }
+    // the recipe is cached and the permutation is known or not needed, so we
+    // don't have any dependencies on compilation
+    pipeline_execution.execute(
+        [](habana::HabanaLaunchOpPT& launch_op) {
+          launch_op.CompileSynapseGraphAndPatchTable();
+        },
+        [](habana::HabanaLaunchOpPT& launch_op) {
+          launch_op.ExecuteSynapseGraph();
+          launch_op.ClearStatics();
+        });
   } else {
     if (GET_ENV_FLAG_NEW(PT_COMPILE_ONLY_MODE) &&
         !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
