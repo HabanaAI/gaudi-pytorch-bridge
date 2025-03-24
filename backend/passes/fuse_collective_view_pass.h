@@ -46,18 +46,23 @@ namespace habana {
 class HabanaLaunchOpPT;
 class FuseCollectiveViewPassData;
 
+typedef struct {
+  uint64_t offset;
+  uint64_t numel;
+} ExternalParams;
+
 // Derived class
 class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
  public:
   FuseCollectiveViewPass(HabanaLaunchOpPT* habana_launch_op_ptr)
       : habana_launch_op_ptr_(habana_launch_op_ptr) {}
 
-  std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+  std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
   getInputValPtrToParamsMap() {
     return input_valptr_to_params_map_;
   }
 
-  std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+  std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
   getOutputValPtrToParamsMap() {
     return output_valptr_to_params_map_;
   }
@@ -79,9 +84,9 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   std::string pass_name_ = "fuse_collective_slice_view_pass";
 
   HabanaLaunchOpPT* habana_launch_op_ptr_ = nullptr;
-  std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>
+  std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>
       input_valptr_to_params_map_;
-  std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>
+  std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>
       output_valptr_to_params_map_;
   std::shared_ptr<torch::jit::Graph> original_graph_;
   std::shared_ptr<torch::jit::Graph> cloned_graph_;
@@ -108,21 +113,27 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   void RestoreJITStack(CValuePtrToIValuePtrMap& value_to_ivalue);
   bool CanFuse(CValPtr value, int64_t dim = 0, int64_t step = 1);
   bool NeedCheck(std::shared_ptr<torch::jit::Graph> graph);
+  void GetExternalParams(
+      CValPtr value,
+      int64_t dim,
+      int64_t start,
+      int64_t end,
+      ExternalParams& params);
   std::shared_ptr<torch::jit::Graph> CreateClonedGraph(
       std::shared_ptr<torch::jit::Graph> graph);
   void PatchPTTensorInfo(
       CValPtr value,
       size_t item_size,
       PtTensorInfoShared& ti,
-      std::shared_ptr<synSliceParamsV2> params_ptr,
+      std::shared_ptr<ExternalParams> params_ptr,
       bool is_input = true);
   void ProcessInputPTTensorInfo(
-      std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+      std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
           valptr_to_params_map,
       torch::jit::Node* node,
       habana_helpers::CollectiveKernelInfos::Info& kernel_info);
   void ProcessOutputPTTensorInfo(
-      std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+      std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
           valptr_to_params_map,
       torch::jit::Node* node,
       habana_helpers::CollectiveKernelInfos::Info& kernel_info);
@@ -134,12 +145,12 @@ class FuseCollectiveViewPassData {
   FuseCollectiveViewPassData(std::shared_ptr<FuseCollectiveViewPass> pass)
       : pass_(pass) {}
 
-  std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+  std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
   getInputValPtrToParamsMap() {
     return pass_->getInputValPtrToParamsMap();
   }
 
-  std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+  std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
   getOutputValPtrToParamsMap() {
     return pass_->getOutputValPtrToParamsMap();
   }

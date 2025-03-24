@@ -127,16 +127,59 @@ void FuseCollectiveViewPass::RestoreJITStack(
 }
 
 bool FuseCollectiveViewPass::CanFuse(CValPtr value, int64_t dim, int64_t step) {
-  bool can_fuse = false;
   if (step == 1 && dim == 0) {
     if (auto tensor_type = value->type()->cast<TensorType>()) {
-      auto ndim = tensor_type->sizes().size();
+      auto sizes = tensor_type->sizes();
+      auto ndim = sizes.size();
       if (ndim.has_value() && ndim.value() >= 1) {
-        can_fuse = true;
+        for (size_t dim = 0; dim < ndim.value(); dim++) {
+          if (!sizes[dim].has_value()) {
+            return false;
+          }
+        }
+        return true;
       }
     }
   }
-  return can_fuse;
+  return false;
+}
+
+void FuseCollectiveViewPass::GetExternalParams(
+    CValPtr value,
+    int64_t dim,
+    int64_t start,
+    int64_t end,
+    ExternalParams& params) {
+  if (auto tensor_type = value->type()->cast<TensorType>()) {
+    auto sizes = tensor_type->sizes();
+    auto strides = tensor_type->strides();
+    auto ndim = sizes.size();
+    if (ndim.has_value() &&
+        ndim.value() > uint64_t(dim = at::maybe_wrap_dim(dim, ndim.value())) &&
+        sizes[dim].has_value() && strides[dim].has_value()) {
+      auto normalize_func = [](int64_t idx, int64_t size) -> int64_t {
+        if (size <= 0) {
+          return 0;
+        }
+        if (idx < -size) {
+          idx = 0;
+        }
+        if (idx > size) {
+          idx = size;
+        }
+        if (idx < 0) {
+          idx += size;
+        }
+        return idx;
+      };
+
+      start = normalize_func(start, sizes[dim].value());
+      end = normalize_func(end, sizes[dim].value());
+      auto stride = strides[dim].value();
+      params.offset = start * stride;
+      params.numel = (end - start) * stride;
+    }
+  }
 }
 
 void FuseCollectiveViewPass::FuseSliceInsertOps(
@@ -160,30 +203,26 @@ void FuseCollectiveViewPass::FuseSliceInsertOps(
     auto paramsList =
         torch::jit::toIValue(slice_insert_node->input(2)).value().toIntList();
     if (paramsList.size() == 4) {
-      synSliceParamsV2 params;
-      std::fill_n(params.axes, HABANA_DIM_MAX, 0);
-      std::fill_n(params.starts, HABANA_DIM_MAX, 0);
-      std::fill_n(params.ends, HABANA_DIM_MAX, 0);
-      std::fill_n(params.steps, HABANA_DIM_MAX, 1);
+      ExternalParams params;
 
-      params.axes[0] = paramsList[0];
-      params.starts[0] = paramsList[1];
-      params.ends[0] = paramsList[2];
-      params.steps[0] = paramsList[3];
+      auto dim = paramsList[0];
+      auto start = paramsList[1];
+      auto end = paramsList[2];
+      auto step = paramsList[3];
 
-      bool can_fuse =
-          CanFuse(collective_node->input(0), params.axes[0], params.steps[0]);
+      bool can_fuse = CanFuse(collective_node->input(0), dim, step);
       if (can_fuse) {
         auto real_output = slice_insert_node->input(0);
+        GetExternalParams(real_output, dim, start, end, params);
         input->replaceAllUsesWith(real_output);
         output->replaceAllUsesWith(input);
 
         habana_launch_op_ptr_->CreateOutputReuseInputSynapseTensor(input);
 
-        output->setType(input->type());
+        output->setType(real_output->type());
 
         output_valptr_to_params_map_[output] =
-            std::make_shared<synSliceParamsV2>(params);
+            std::make_shared<ExternalParams>(params);
 
         auto* slice_output = slice_insert_node->output(0);
         slice_output->replaceAllUsesWith(output);
@@ -205,19 +244,11 @@ void FuseCollectiveViewPass::FuseSliceOps(torch::jit::Node* slice_node) {
   bool can_fuse = CanFuse(input, dim, step);
 
   if (can_fuse) {
-    synSliceParamsV2 params;
-    std::fill_n(params.axes, HABANA_DIM_MAX, 0);
-    std::fill_n(params.starts, HABANA_DIM_MAX, 0);
-    std::fill_n(params.ends, HABANA_DIM_MAX, 0);
-    std::fill_n(params.steps, HABANA_DIM_MAX, 1);
-
-    params.axes[0] = dim;
-    params.starts[0] = start;
-    params.ends[0] = end;
-    params.steps[0] = step;
+    ExternalParams params;
+    GetExternalParams(input, dim, start, end, params);
 
     input_valptr_to_params_map_[input] =
-        std::make_shared<synSliceParamsV2>(params);
+        std::make_shared<ExternalParams>(params);
     output->replaceAllUsesWith(input);
     slice_node->removeAllInputs();
     slice_node->destroy();
@@ -233,35 +264,21 @@ void FuseCollectiveViewPass::FuseViewOps(torch::jit::Node* view_node) {
   auto ndim = sizes.size();
 
   if (ndim.has_value() && ndim.value() >= 1) {
-    synSliceParamsV2 params;
-    std::fill_n(params.axes, HABANA_DIM_MAX, 0);
-    std::fill_n(params.starts, HABANA_DIM_MAX, 0);
-    std::fill_n(params.ends, HABANA_DIM_MAX, 0);
-    std::fill_n(params.steps, HABANA_DIM_MAX, 1);
+    ExternalParams params;
 
-    bool can_fuse = false;
     auto it = input_valptr_to_params_map_.find(output);
     if (it == input_valptr_to_params_map_.end()) {
-      if (sizes[0].has_value()) {
-        params.starts[0] = 0;
-        params.ends[0] = sizes[0].value();
-
-        can_fuse = true;
+      if (sizes[0].has_value() && ndim.value() == 1) {
+        GetExternalParams(input, 0, 0, sizes[0].value(), params);
+        input_valptr_to_params_map_[input] =
+            std::make_shared<ExternalParams>(params);
+        output->replaceAllUsesWith(input);
+        view_node->removeAllInputs();
+        view_node->destroy();
       }
     } else {
-      auto strides = tensor_type->strides();
-      if (strides[0].has_value()) {
-        params.starts[0] = it->second->starts[0] / strides[0].value();
-        params.ends[0] = it->second->ends[0] / strides[0].value();
-
-        can_fuse = true;
-      }
-    }
-
-    if (can_fuse) {
       input_valptr_to_params_map_[input] =
-          std::make_shared<synSliceParamsV2>(params);
-
+          std::make_shared<ExternalParams>(*it->second);
       output->replaceAllUsesWith(input);
       view_node->removeAllInputs();
       view_node->destroy();
@@ -347,33 +364,26 @@ void FuseCollectiveViewPass::PatchPTTensorInfo(
     CValPtr value,
     size_t item_size,
     PtTensorInfoShared& ti,
-    std::shared_ptr<synSliceParamsV2> params_ptr,
+    std::shared_ptr<ExternalParams> params_ptr,
     bool is_input) {
-  auto dim = params_ptr->axes[0];
-  auto start = params_ptr->starts[0];
-  auto end = params_ptr->ends[0];
-
   if (auto tensor_type = value->type()->cast<TensorType>()) {
-    auto strides = tensor_type->strides();
-    auto sizes = tensor_type->sizes();
     auto numel = tensor_type->numel();
+    auto external_offset = params_ptr->offset;
+    auto external_numel = params_ptr->numel;
 
-    if (strides[dim].has_value() && sizes[dim].has_value() &&
-        numel.has_value()) {
+    if (numel.has_value() && numel.value() >= external_numel &&
+        numel.value() >= external_offset) {
       if (is_input) {
-        auto external_numel =
-            numel.value() / sizes[dim].value() * (end - start);
         ti->set_external_numel(external_numel);
       }
       ti->set_external(true);
-      auto storage_offset = start * strides[dim].value();
-      ti->set_external_offset(storage_offset * item_size);
+      ti->set_external_offset(external_offset * item_size);
     }
   }
 }
 
 void FuseCollectiveViewPass::ProcessInputPTTensorInfo(
-    std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+    std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
         valptr_to_params_map,
     torch::jit::Node* node,
     habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
@@ -399,7 +409,7 @@ void FuseCollectiveViewPass::ProcessInputPTTensorInfo(
 }
 
 void FuseCollectiveViewPass::ProcessOutputPTTensorInfo(
-    std::unordered_map<CValPtr, std::shared_ptr<synSliceParamsV2>>&
+    std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
         valptr_to_params_map,
     torch::jit::Node* node,
     habana_helpers::CollectiveKernelInfos::Info& kernel_info) {
