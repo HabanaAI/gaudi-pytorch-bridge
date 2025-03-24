@@ -83,7 +83,7 @@ std::vector<at::Tensor> CastToFp8V2Function::backward(
   ScalarType out_dtype = ctx->saved_data["out_dtype"].toScalarType();
 
   auto result =
-      cast_from_fp8_dispatch(grads[0], scale, out_dtype, c10::nullopt);
+      cast_from_fp8_dispatch(grads[0], scale, out_dtype, std::nullopt);
 
   return {
       result,
@@ -119,7 +119,7 @@ std::vector<at::Tensor> CastToFp8V2ScalarFunction::backward(
   ScalarType out_dtype = ctx->saved_data["out_dtype"].toScalarType();
 
   auto result =
-      cast_from_fp8_scalar_dispatch(grads[0], scale, out_dtype, c10::nullopt);
+      cast_from_fp8_scalar_dispatch(grads[0], scale, out_dtype, std::nullopt);
 
   return {
       result,

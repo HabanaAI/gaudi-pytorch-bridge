@@ -640,8 +640,8 @@ void IndexPutBoolEager::AddNode(
         graph,
         index_params,
         bcastOpInd[0].get(), // syn_in(1)
-        c10::nullopt,
-        c10::nullopt,
+        std::nullopt,
+        std::nullopt,
         false);
 
     nonzero_out_shape = nonzero[0].pt_shape();
@@ -1054,8 +1054,8 @@ void IndexPutCompile::AddNode(
           graph,
           index_params,
           bcastOpInd.get(),
-          c10::nullopt,
-          c10::nullopt,
+          std::nullopt,
+          std::nullopt,
           false);
 
       nonzero_out_shape = nonzero[0].pt_shape();

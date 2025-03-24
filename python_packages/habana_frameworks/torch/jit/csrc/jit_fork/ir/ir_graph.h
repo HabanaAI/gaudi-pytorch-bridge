@@ -31,7 +31,6 @@
 #include <ATen/core/ivalue.h>
 #include <ATen/core/jit_type.h>
 #include <c10/util/ArrayRef.h>
-#include <c10/util/Optional.h>
 
 #include <torch/csrc/Export.h>
 #include <torch/csrc/jit/runtime/operator.h>
@@ -217,7 +216,7 @@ struct Graph : std::enable_shared_from_this<Graph> {
   // is passed as an argument.
   Value* packValues(
       at::ArrayRef<Value*> values,
-      c10::OptNameList field_names = c10::nullopt);
+      c10::OptNameList field_names = std::nullopt);
   TORCH_API Node* createDict(
       const TypePtr& key_type,
       const TypePtr& value_type,
@@ -267,8 +266,8 @@ struct Graph : std::enable_shared_from_this<Graph> {
   // Insert constant IValue into the graph.
   TORCH_API Value* insertConstant(
       const IValue& val,
-      std::optional<SourceRange> loc = c10::nullopt,
-      std::optional<ScopePtr> scope = c10::nullopt);
+      std::optional<SourceRange> loc = std::nullopt,
+      std::optional<ScopePtr> scope = std::nullopt);
 
   // Schema-driven insert:
   // This inserts a node into the graph with inputs determined from args and

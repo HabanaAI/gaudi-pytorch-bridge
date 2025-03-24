@@ -22,7 +22,6 @@
 
 #pragma once
 
-#include <c10/util/Optional.h>
 
 #include "jit_fork/frontend/error_report.h"
 #include "jit_fork/frontend/lexer.h"

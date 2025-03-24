@@ -599,7 +599,7 @@ void IndexHabanaOperator::AddNode(
             outshape,
             params,
             size,
-            c10::nullopt));
+            std::nullopt));
         if ((broadcast_to_size_numel == 1) &&
             (repeat_interleaves_needed[dim] == 1) &&
             (repeats_needed[dim] == 1)) {

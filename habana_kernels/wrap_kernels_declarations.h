@@ -46,8 +46,8 @@ void optimizer_adamw_hpu_wrap(
     const double beta2,
     const double epsilon,
     const double weight_decay,
-    std::optional<at::TensorList> exp_avg_scales = c10::nullopt,
-    std::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt);
+    std::optional<at::TensorList> exp_avg_scales = std::nullopt,
+    std::optional<at::TensorList> exp_avg_sq_scales = std::nullopt);
 at::Tensor fused_norm_hpu_wrap(
     std::vector<at::Tensor>& grad,
     const at::Tensor& max_norm,

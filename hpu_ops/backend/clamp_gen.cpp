@@ -44,7 +44,7 @@ OutputMetaDataVector ClampMeta(const at::Stack& stack) {
 
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
 
@@ -79,7 +79,7 @@ static std::shared_ptr<void> FillClampParamsAndSetMinMax(
 std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
   auto result_type = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   if (c10::isFloatingType(result_type)) {
@@ -92,7 +92,7 @@ std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
 std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-          stack, c10::nullopt, false);
+          stack, std::nullopt, false);
 
   c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
@@ -107,7 +107,7 @@ std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
 std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-          stack, c10::nullopt, false);
+          stack, std::nullopt, false);
 
   c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
@@ -126,7 +126,7 @@ SharedMetaDataVector ClampSharedMeta(
     habana_helpers::HabanaExecutionMode) {
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   auto self = stack_tensor(stack, 0);

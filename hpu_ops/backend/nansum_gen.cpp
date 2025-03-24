@@ -102,7 +102,7 @@ void NansumList::AddNode(
   auto compute_type =
       c10::isIntegralType(meta.dtype, true) ? c10::ScalarType::Int : meta.dtype;
 
-  std::optional<synapse_helpers::tensor> castedInput = c10::nullopt;
+  std::optional<synapse_helpers::tensor> castedInput = std::nullopt;
   if (habana_helpers::getInternalDtype(compute_type) !=
       habana_helpers::getInternalDtype(inputType)) {
     castedInput = OpBackend::BuildCast(

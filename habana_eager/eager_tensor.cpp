@@ -27,7 +27,7 @@ HbEagerTensorPool::HbEagerTensorPool() {
 void HbEagerTensorPool::extend_empty_tensor_pool() {
   handle_ = std::async(std::launch::async, [this]() {
     for (size_t i = 0; i < pool_size_; ++i)
-      tensor_pool_other_.push_front(at::empty({}, c10::nullopt));
+      tensor_pool_other_.push_front(at::empty({}, std::nullopt));
   });
 }
 

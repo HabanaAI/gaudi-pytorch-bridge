@@ -30,7 +30,7 @@ SharedMetaDataVector FloorDivideSharedMeta(
   const auto& self = stack.at(0).toTensor();
   const auto& other = stack.at(1).toTensor();
   const auto dtype = habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-                         {self, other}, c10::nullopt, false)
+                         {self, other}, std::nullopt, false)
                          .get_result_dtype();
   const auto selfDim = self.dim();
   const auto otherDim = other.dim();

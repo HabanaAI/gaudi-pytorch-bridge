@@ -30,14 +30,14 @@ void OpAttributeCheck::populate_attribute_checks() {
        {{4, {c10::IValue(1), c10::IValue(1.0)}},
         {5, {c10::IValue(1), c10::IValue(1.0)}}}},
       // checking for divisor_override = None
-      {"avg_pool2d", {{7, {c10::IValue(c10::nullopt)}}}},
+      {"avg_pool2d", {{7, {c10::IValue(std::nullopt)}}}},
       // checking for divisor_override = None
-      {"avg_pool2d_backward", {{8, {c10::IValue(c10::nullopt)}}}},
+      {"avg_pool2d_backward", {{8, {c10::IValue(std::nullopt)}}}},
       // checking for divisor_override = None
-      {"avg_pool2d_backward_out", {{8, {c10::IValue(c10::nullopt)}}}},
+      {"avg_pool2d_backward_out", {{8, {c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined, reduction = Mean or Sum
       {"binary_cross_entropy",
-       {{3, {c10::IValue(false), c10::IValue(c10::nullopt)}},
+       {{3, {c10::IValue(false), c10::IValue(std::nullopt)}},
         {4,
          {c10::IValue(at::Reduction::Reduction::Mean),
           c10::IValue(at::Reduction::Reduction::Sum)}}}},
@@ -45,7 +45,7 @@ void OpAttributeCheck::populate_attribute_checks() {
       // None/undefined,
       // reduction = Mean or Sum
       {"binary_cross_entropy_backward",
-       {{4, {c10::IValue(false), c10::IValue(c10::nullopt)}},
+       {{4, {c10::IValue(false), c10::IValue(std::nullopt)}},
         {5,
          {c10::IValue(at::Reduction::Reduction::Mean),
           c10::IValue(at::Reduction::Reduction::Sum)}}}},
@@ -71,16 +71,16 @@ void OpAttributeCheck::populate_attribute_checks() {
       {"_log_softmax", {{3, {c10::IValue(false)}}}},
       // checking for weights = None/undefined
       {"nll_loss_forward",
-       {{3, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{3, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined
       {"nll_loss2d_forward",
-       {{3, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{3, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined
       {"nll_loss_backward",
-       {{4, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{4, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined
       {"nll_loss2d_backward",
-       {{4, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{4, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for half_to_float = false
       {"_softmax", {{3, {c10::IValue(false)}}}},
       // checking for thresold = 0

@@ -21,9 +21,9 @@ TEST_F(HpuOpTest, EfficientZeroTensor) {
   auto tensor = at::_efficientzerotensor(
       {{3, 2, 3}},
       torch::kFloat32,
-      c10::nullopt,
+      std::nullopt,
       c10::Device(c10::DeviceType::HPU),
-      c10::nullopt);
+      std::nullopt);
   auto expected_tensor = at::_efficientzerotensor(
       {{3, 2, 3}}, at::TensorOptions().dtype(torch::kFloat32));
 

@@ -37,7 +37,7 @@ std::vector<synapse_helpers::tensor> TopK_Helper(
   if (variant == 1)
     Topk_params.axis = get_dim_in_tpc_order(reduction_axis, ndimension);
   at::ScalarType topk_dtype =
-      (out_dtype == c10::nullopt) ? op->ScalarType() : out_dtype.value();
+      (out_dtype == std::nullopt) ? op->ScalarType() : out_dtype.value();
   return OpBackend::BuildNode(
       op,
       graph,

@@ -54,7 +54,7 @@ synapse_helpers::tensor RandPermCommon(
       out_shape,
       params,
       size,
-      c10::nullopt);
+      std::nullopt);
 
   std::vector<synTensor> inputs;
   inputs.emplace_back(arange_op.get());

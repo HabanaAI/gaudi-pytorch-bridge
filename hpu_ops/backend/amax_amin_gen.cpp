@@ -143,7 +143,7 @@ void AminAmax::AddNode(sh::graph& graph, const at::Stack& stack) {
     update_guid_dtype(guid_, c10::ScalarType::Int);
   }
 
-  std::optional<sh::tensor> castedInput = c10::nullopt;
+  std::optional<sh::tensor> castedInput = std::nullopt;
   // Convert bool tensor to 0x00 and 0x01
   if (self.scalar_type() == c10::ScalarType::Bool) {
     castedInput = BuildBoolCast(

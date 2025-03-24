@@ -263,12 +263,12 @@ at::Tensor& uniform_hpu_lazy(
     at::Tensor& self,
     double from = 0,
     double to = 1,
-    std::optional<at::Generator> gen = c10::nullopt);
+    std::optional<at::Generator> gen = std::nullopt);
 at::Tensor& normal_hpu_lazy(
     at::Tensor& self,
     double mean = 0,
     double std = 1,
-    std::optional<at::Generator> gen = c10::nullopt);
+    std::optional<at::Generator> gen = std::nullopt);
 at::Tensor& randperm_hpu_lazy(
     c10::SymInt n,
     std::optional<at::Generator> gen,
@@ -306,7 +306,7 @@ at::Tensor empty_hpu_lazy(
     bool create_storage = true,
     synTensorType tensor_type = DATA_TENSOR,
     std::optional<std::reference_wrapper<const at::Tensor>> base_view =
-        c10::nullopt,
+        std::nullopt,
     bool is_strided = false);
 at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef size,
@@ -316,7 +316,7 @@ at::Tensor empty_strided_hpu_lazy(
     synTensorType tensor_type = DATA_TENSOR,
     int64_t storage_offset = 0,
     std::optional<std::reference_wrapper<const at::Tensor>> base_view =
-        c10::nullopt,
+        std::nullopt,
     bool is_strided = false);
 at::Tensor transpose_hpu_lazy(
     const at::Tensor& self,
@@ -378,8 +378,8 @@ void optimizer_adamw_hpu_lazy(
     const double beta2,
     const double epsilon,
     const double weight_decay,
-    std::optional<at::TensorList> exp_avg_scales = c10::nullopt,
-    std::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt);
+    std::optional<at::TensorList> exp_avg_scales = std::nullopt,
+    std::optional<at::TensorList> exp_avg_sq_scales = std::nullopt);
 at::Tensor fused_norm_hpu_lazy(
     std::vector<at::Tensor>& grad,
     const at::Tensor& max_norm,
@@ -460,12 +460,12 @@ at::Tensor ones_like_hpu_lazy(
 at::Tensor matmul_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
-    std::optional<at::ScalarType> dtype = c10::nullopt);
+    std::optional<at::ScalarType> dtype = std::nullopt);
 std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self,
     const at::Tensor& other,
-    std::optional<at::ScalarType> dtype = c10::nullopt);
+    std::optional<at::ScalarType> dtype = std::nullopt);
 at::Tensor habana_nms_hpu_lazy(
     const at::Tensor& boxes,
     const at::Tensor& scores,

@@ -178,7 +178,7 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
     synTensor input_syn_tensor,
     const at::IntArrayRef input_shape,
     c10::ScalarType dtype,
-    std::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   if (input_shape.size() <= 1 || input_shape[0] == 1) {
     auto norm_mul = OpBackend::BuildNode(
         op,
@@ -358,7 +358,7 @@ void OptimizerLambPhase1::AddNode(
     const bool is_weight_decay = weight_decay != 0.0;
 
     std::optional<int> div_wt_result_index = is_weight_decay
-        ? c10::nullopt
+        ? std::nullopt
         : c10::make_optional<int>(i + 4 * num_params);
 
     std::vector<synapse_helpers::tensor> norm_input;

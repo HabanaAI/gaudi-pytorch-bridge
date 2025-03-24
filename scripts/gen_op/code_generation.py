@@ -141,7 +141,7 @@ def bitwise_ops_alt_guid(guid):
 
 
 def extract_reduction_vars_indices(param_vars, use_int=False):
-    default_id = "-1" if use_int else "c10::nullopt"
+    default_id = "-1" if use_int else "std::nullopt"
     reduction_vars_indices = [default_id] * 3
 
     for i, var in enumerate(param_vars):
@@ -598,7 +598,7 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
             dtype_helper_inputs=", ".join(dtype_helper_inputs),
             type_promo_variant=type_promo_variant,
             safe_cast=str(safe_cast).lower(),
-            fe_call_args=fe_call_args if fe_call_args else "c10::nullopt",
+            fe_call_args=fe_call_args if fe_call_args else "std::nullopt",
             param_vars=", dtype" if "dtype" in param_vars else "",
         )
 

@@ -1679,7 +1679,7 @@ struct DropoutFunction : public Function<DropoutFunction> {
     } else if (p == 1) {
       return input * 0.0;
     }
-    std::optional<at::Generator> gen = c10::nullopt;
+    std::optional<at::Generator> gen = std::nullopt;
     at::Tensor result1, result2;
     std::tie(result1, result2) = _fused_dropout(input, p, gen);
     ctx->save_for_backward({result2});

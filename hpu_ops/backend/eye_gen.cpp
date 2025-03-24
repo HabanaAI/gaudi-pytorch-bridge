@@ -53,7 +53,7 @@ void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::optional<int> finalResultIndex = 0;
   if (meta.dtype == c10::ScalarType::Long) {
     computeDtype = c10::ScalarType::Int;
-    finalResultIndex = c10::nullopt;
+    finalResultIndex = std::nullopt;
   }
 
   auto constant = ConstantHelper(graph, 1.0f, computeDtype, meta.shape);

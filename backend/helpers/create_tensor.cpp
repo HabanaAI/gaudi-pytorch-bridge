@@ -857,7 +857,7 @@ create_tensors(
       std::vector<bool>(tensors.size(), persistent),
       std::vector<bool>(tensors.size(), external),
       std::vector<std::optional<c10::ScalarType>>(
-          tensors.size(), c10::nullopt));
+          tensors.size(), std::nullopt));
 }
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>

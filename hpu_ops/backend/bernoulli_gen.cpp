@@ -59,7 +59,7 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
   auto selfDtype = self.scalar_type();
   auto p = stack.at(1);
   auto seed = stack.at(2);
-  std::optional<at::Tensor> seedOptionalTensor = c10::nullopt;
+  std::optional<at::Tensor> seedOptionalTensor = std::nullopt;
   auto isSeedTensor = seed.isTensor();
   bool seedHasValue;
   if (isSeedTensor) {

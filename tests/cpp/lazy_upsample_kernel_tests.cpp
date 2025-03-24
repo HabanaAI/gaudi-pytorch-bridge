@@ -137,7 +137,7 @@ TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
     std::array<double, 2> scales = {2.0, 3.0};
     std::optional<c10::ArrayRef<double>> scale_factors = scales;
     std::array<int64_t, 2> out_sizes = {8, 21};
-    std::optional<c10::IntArrayRef> out_size = c10::nullopt;
+    std::optional<c10::IntArrayRef> out_size = std::nullopt;
 
     auto out = torch::upsample_nearest2d(mat1, out_size, scale_factors);
     auto grad_out = torch::ones_like(out);

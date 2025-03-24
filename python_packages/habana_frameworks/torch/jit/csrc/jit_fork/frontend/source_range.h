@@ -21,7 +21,6 @@
  */
 
 #pragma once
-#include <c10/util/Optional.h>
 
 #include <algorithm>
 #include <iterator>
@@ -236,7 +235,7 @@ struct TORCH_API Source {
 #else
       c10::string_view text_view,
 #endif
-      std::optional<std::string> filename = c10::nullopt,
+      std::optional<std::string> filename = std::nullopt,
       size_t starting_line_no = 0,
       CopiesString copies_str = COPIES_STRING)
       : filename_(std::move(filename)), starting_line_no_(starting_line_no) {
@@ -253,7 +252,7 @@ struct TORCH_API Source {
 
   explicit Source(
       StringCordView str,
-      std::optional<std::string> filename = c10::nullopt,
+      std::optional<std::string> filename = std::nullopt,
       size_t starting_line_no = 0)
       : text_view_(std::move(str)),
         filename_(std::move(filename)),
@@ -403,7 +402,7 @@ struct TORCH_API SourceRange {
 
   std::optional<std::tuple<std::string, size_t, size_t>> file_line_col() const {
     if (!source_view_ || !source()->filename()) {
-      return c10::nullopt;
+      return std::nullopt;
     }
 
     auto lineno = source_view_->lineno_for_offset(start_);
@@ -426,7 +425,7 @@ struct TORCH_API SourceRange {
 
   std::optional<SourceRange> findSourceRangeThatGenerated() const {
     if (!source_view_) {
-      return c10::nullopt;
+      return std::nullopt;
     }
     return source_view_->findSourceRangeThatGenerated(*this);
   }

@@ -181,7 +181,7 @@ inline std::optional<Tensor> cast(
   if (arg.has_value()) {
     return cast<decltype(*arg)>(to_type, *arg, device_type);
   } else {
-    return c10::nullopt;
+    return std::nullopt;
   }
 }
 

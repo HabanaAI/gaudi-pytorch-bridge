@@ -104,7 +104,7 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   std::vector<sh::tensor> intermediate_syn_helpers;
   std::vector<synTensor> intermediate_syn_tensors{self.syn_t};
 
-  std::optional<int> result_idx = c10::nullopt;
+  std::optional<int> result_idx = std::nullopt;
   auto dims_count = valid_dims.size();
 
   for (size_t i = 0; i < dims_count; ++i) {

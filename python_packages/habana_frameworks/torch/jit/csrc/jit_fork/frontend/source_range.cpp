@@ -179,7 +179,7 @@ size_t SourceRangeHasher::operator()(
 std::optional<SourceRange> Source::findSourceRangeThatGenerated(
     const SourceRange& range) {
   (void)range;
-  return c10::nullopt;
+  return std::nullopt;
 }
 
 void SourceRange::highlight(std::ostream& out) const {

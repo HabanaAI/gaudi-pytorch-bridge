@@ -39,7 +39,6 @@
 #include <ATen/core/ivalue.h>
 #include <ATen/core/jit_type.h>
 #include <c10/util/ArrayRef.h>
-#include <c10/util/Optional.h>
 
 #include <torch/csrc/Export.h>
 #include <torch/csrc/jit/ir/ir.h>
@@ -104,7 +103,7 @@ struct TORCH_API Node {
   // invalidated every time we perform an operation that could potentially
   // change the schema. note: mutable because schema_ is effectively a cache
   mutable const torch::jit::Operator* op_;
-  std::optional<c10::OperatorName> operator_name_ = c10::nullopt;
+  std::optional<c10::OperatorName> operator_name_ = std::nullopt;
   topo_position_t topo_position_ = 0;
   // a managing wrapper for Python to allow invalidation
   std::shared_ptr<Wrap<Node>> wrap_;
@@ -113,7 +112,7 @@ struct TORCH_API Node {
   // is changed, we need to rely on this name
   // to retrieve old schemas to successfully apply upgraders
   // for this operator.
-  std::optional<std::string> historic_schema_name_ = c10::nullopt;
+  std::optional<std::string> historic_schema_name_ = std::nullopt;
 
  protected:
   Node(Graph* graph_, NodeKind kind_); // defined after graph
@@ -304,7 +303,7 @@ struct TORCH_API Node {
     if (auto v = get(name)) {
       return v->template to<T>();
     }
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   // Returns true if the value of input name is statically known
@@ -902,14 +901,14 @@ struct OperatorMap {
   std::optional<T> find(const torch::jit::Operator& op) {
     const auto it = map.find(Symbol::fromQualString(op.schema().name()));
     if (it == map.end()) {
-      return c10::nullopt;
+      return std::nullopt;
     }
     for (auto vit = it->second.begin(); vit != it->second.end(); ++vit) {
       if (vit->first->schema() == op.schema()) {
         return vit->second;
       }
     }
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   // TODO: return iterator

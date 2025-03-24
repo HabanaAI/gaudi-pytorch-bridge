@@ -164,7 +164,7 @@ void RollHabanaOperator::AddNode(
 
     auto is_final_output = !flatten_and_restore && i == (axisElementsCount - 1)
         ? c10::make_optional<int>(0)
-        : c10::nullopt;
+        : std::nullopt;
 
     if (to_shift != 0 && remain_shift != 0) {
       // Calculate the output shape

@@ -605,8 +605,8 @@ TEST_F(EagerKernelTest, DISABLED_SumDimIntOut) {
   torch::Tensor hOut = at::empty_like(hA);
   torch::Tensor Out = at::empty_like(A);
 
-  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, c10::nullopt, Out);
-  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, c10::nullopt, hOut);
+  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, std::nullopt, Out);
+  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, std::nullopt, hOut);
 
   EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu), true);
 }

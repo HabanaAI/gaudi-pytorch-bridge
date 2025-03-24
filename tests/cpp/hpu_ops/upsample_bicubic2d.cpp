@@ -26,13 +26,13 @@ TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale_CL) {
 
   auto expected = torch::upsample_bicubic2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
 
   auto result = torch::upsample_bicubic2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -44,12 +44,12 @@ TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale) {
 
   auto expected = torch::upsample_bicubic2d(
       GetCpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   auto result = torch::upsample_bicubic2d(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -60,10 +60,10 @@ TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale_zero) {
   std::vector<double> scale_factor = {0.6, 0.7};
 
   auto expected = torch::upsample_bicubic2d(
-      GetCpuInput(0), c10::nullopt, /*align_corner*/ true, scale_factor);
+      GetCpuInput(0), std::nullopt, /*align_corner*/ true, scale_factor);
   auto result = torch::upsample_bicubic2d(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   Compare(expected, result);

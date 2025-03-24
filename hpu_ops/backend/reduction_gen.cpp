@@ -52,9 +52,9 @@ SharedMetaDataVector ReductionOpSharedMeta(
   const auto& self = stack_tensor(stack, 0);
 
   std::optional<uint8_t> dimIndex =
-      isListVariant ? c10::make_optional<uint8_t>(1) : c10::nullopt;
+      isListVariant ? c10::make_optional<uint8_t>(1) : std::nullopt;
   std::optional<uint8_t> keepDimIndex =
-      isListVariant ? c10::make_optional<uint8_t>(2) : c10::nullopt;
+      isListVariant ? c10::make_optional<uint8_t>(2) : std::nullopt;
   std::optional<uint8_t> dtypeIndex = isListVariant
       ? c10::make_optional<uint8_t>(3)
       : c10::make_optional<uint8_t>(1);
@@ -163,7 +163,7 @@ static sh::tensor ReductionOpCommon(
       (isSumOutVersion &&
        !areTypesAllowedForSumOut(op->ScalarType(), dtype.value()));
   const std::optional<int> finalResultIndex =
-      isAdditionalCastNeeded ? c10::nullopt : std::optional<int>(0);
+      isAdditionalCastNeeded ? std::nullopt : std::optional<int>(0);
 
   auto result = OpBackend::BuildNode(
       op,
@@ -188,7 +188,7 @@ void ReductionOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   syn_out(0) = ReductionOpCommon(
-      this, graph, syn_in(0), stack, c10::nullopt, c10::nullopt, 1);
+      this, graph, syn_in(0), stack, std::nullopt, std::nullopt, 1);
 }
 
 void ReductionOpList::AddNode(

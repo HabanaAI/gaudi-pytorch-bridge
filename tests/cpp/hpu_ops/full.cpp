@@ -38,13 +38,13 @@ class HpuOpTest : public HpuOpTestUtil {
     auto hpuResult = at::native::full(                             \
         shape,                                                     \
         fillValue,                                                 \
-        default_dtype ? c10::nullopt : c10::make_optional(dtype),  \
-        c10::nullopt,                                              \
+        default_dtype ? std::nullopt : c10::make_optional(dtype),  \
+        std::nullopt,                                              \
         c10::Device(c10::DeviceType::HPU));                        \
     auto cpuResult = at::native::full(                             \
         shape,                                                     \
         fillValue,                                                 \
-        default_dtype ? c10::nullopt : c10::make_optional(dtype)); \
+        default_dtype ? std::nullopt : c10::make_optional(dtype)); \
     Compare(cpuResult, hpuResult, 0, 0);                           \
   }
 

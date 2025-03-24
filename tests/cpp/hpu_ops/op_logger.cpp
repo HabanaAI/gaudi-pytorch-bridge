@@ -30,7 +30,7 @@ TEST(HpuOpLogTest, logger) {
   EXPECT_EQ("2", habana::to_string(2));
 
   // optional int64_t with none
-  std::optional<int64_t> opt = c10::nullopt;
+  std::optional<int64_t> opt = std::nullopt;
   EXPECT_EQ("None", habana::to_string(opt));
 
   // Scalar

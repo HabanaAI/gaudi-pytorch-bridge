@@ -139,9 +139,9 @@ TEST_F(HpuOpTest, sum_0d_keepdim_out) {
 
   int64_t dim = 0;
   auto expected =
-      torch::sum_outf(scalarCpu, dim, true /*keepdim*/, c10::nullopt, outCpu);
+      torch::sum_outf(scalarCpu, dim, true /*keepdim*/, std::nullopt, outCpu);
   auto result =
-      torch::sum_outf(scalarHpu, dim, true /*keepdim*/, c10::nullopt, outHpu);
+      torch::sum_outf(scalarHpu, dim, true /*keepdim*/, std::nullopt, outHpu);
 
   Compare(expected, result);
 }

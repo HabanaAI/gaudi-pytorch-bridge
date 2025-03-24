@@ -64,7 +64,7 @@ class DTypeHelper {
       std::optional<at::Tensor> opt_output,
       DtypePromoteVariant promote_variant,
       bool safe_cast,
-      std::optional<c10::ScalarType> dtype = c10::nullopt,
+      std::optional<c10::ScalarType> dtype = std::nullopt,
       bool double_support = true,
       bool int64_support = true);
 

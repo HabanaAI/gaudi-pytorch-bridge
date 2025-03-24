@@ -14,7 +14,6 @@
  */
 #pragma once
 #include <ATen/core/DimVector.h>
-#include <c10/util/Optional.h>
 #include "hpu_ops/nonzero.h"
 
 namespace habana {

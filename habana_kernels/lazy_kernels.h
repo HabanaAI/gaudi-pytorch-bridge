@@ -1461,10 +1461,10 @@ class LazyOp {
     at::Tensor op_input_tensor = empty_hpu_lazy(
         size,
         self.options(),
-        c10::nullopt,
+        std::nullopt,
         false,
         DATA_TENSOR,
-        c10::nullopt,
+        std::nullopt,
         false);
 
     auto hl_op_input_tensor = GetHbLazyTensor(op_input_tensor);
@@ -1512,10 +1512,10 @@ class LazyOp {
     at::Tensor op_output_tensor = empty_hpu_lazy(
         size,
         self.options(),
-        c10::nullopt,
+        std::nullopt,
         false,
         DATA_TENSOR,
-        c10::nullopt,
+        std::nullopt,
         false);
     auto hl_op_output_tensor = GetHbLazyTensor(op_output_tensor);
     hl_op_output_tensor.IrSetNode(node);
@@ -1623,7 +1623,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
       std::optional<const at::IValue*> output = is_outfn_
           ? c10::make_optional<const at::IValue*>(&inputs.back())
-          : c10::nullopt;
+          : std::nullopt;
       auto dtype_helper =
           habana_helpers::DTypeHelper::binary_op_with_type_promotion(
               inputs, output, safe_cast_check_);

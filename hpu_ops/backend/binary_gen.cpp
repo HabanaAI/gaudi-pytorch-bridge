@@ -221,9 +221,9 @@ static synapse_helpers::tensor createForeachBinaryNode(
   std::vector<synTensor> inputs = syn_inputs;
   std::vector<at::ScalarType> dtypes = {self.scalar_type()};
 
-  at::optional<at::Scalar> alpha = c10::nullopt;
+  at::optional<at::Scalar> alpha = std::nullopt;
   at::ScalarType result_type;
-  at::optional<synapse_helpers::tensor> scalar = c10::nullopt;
+  at::optional<synapse_helpers::tensor> scalar = std::nullopt;
   bool update_guid = true;
 
   if (pt_inputs[1].isTensor()) {
@@ -283,7 +283,7 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
   const auto other = stack.at(OTHER_INDEX);
   auto selfRank = self.dim();
   int64_t otherRank = 1;
-  at::optional<at::Scalar> alpha = c10::nullopt;
+  at::optional<at::Scalar> alpha = std::nullopt;
   bool autocastToF32 = false;
   at::ScalarType resultType;
   std::string updatedGuid = guid;

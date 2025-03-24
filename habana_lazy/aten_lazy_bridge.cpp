@@ -126,7 +126,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
   PT_LAZY_TRACE;
 
   auto t = AtenFromHbLazyTensor(
-      hl_t, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      hl_t, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
   auto impl = GetHbLazyTensorImpl(t);
 
   if (impl->storage().data_ptr() != nullptr) {
@@ -146,7 +146,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
     HbLazyTensor& hl_t_updated = hl_t;
     auto pTensor = hl_t_updated.GetTensorData();
     auto hl_tensor_size_zero = true;
-    if (pTensor != c10::nullopt) {
+    if (pTensor != std::nullopt) {
       auto old_tensor_data = pTensor.value();
       if (old_tensor_data.sizes().size() > 0) {
         for (auto i = 0; i < (int)old_tensor_data.sizes().size(); i++) {
@@ -214,7 +214,7 @@ std::optional<HbLazyTensor> TryGetHbLazyTensor(
   auto const_id = habana::get_tensor_const_id(tensor);
   HbLazyTensorImpl* impl = GetHbLazyTensorImpl(tensor);
   if (impl == nullptr) {
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   HbLazyTensor hl_t = impl->tensor();
@@ -355,10 +355,10 @@ at::Tensor CreateHbLazyTensor(
     if (!is_input_lazy) {
       tensor = AtenFromHbLazyTensor(
           hblazy_tensor,
-          c10::nullopt,
-          c10::nullopt,
-          c10::nullopt,
-          c10::nullopt);
+          std::nullopt,
+          std::nullopt,
+          std::nullopt,
+          std::nullopt);
     } else {
       return tensor;
     }

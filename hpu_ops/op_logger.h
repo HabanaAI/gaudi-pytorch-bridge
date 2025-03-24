@@ -45,11 +45,6 @@ std::string to_string(const std::optional<T>& val) {
 }
 
 template <typename T>
-std::string to_string(const std::optional<at::ArrayRef<T>>& val) {
-  return val.has_value() ? to_string(*val) : "None";
-}
-
-template <typename T>
 std::string to_string(const c10::OptionalArrayRef<T>& val) {
   return val.has_value() ? to_string(*val) : "None";
 }

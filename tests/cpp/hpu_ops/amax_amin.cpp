@@ -182,7 +182,7 @@ HPU_AMINMAX_USUAL_TEST(
     aminmax_dim_none,
     aminmax,
     SIZE({1, 2, 4, 32}),
-    c10::nullopt,
+    std::nullopt,
     false,
     torch::kFloat)
 HPU_AMINMAX_USUAL_TEST(
@@ -231,7 +231,7 @@ HPU_AMINMAX_OUT_TEST(
     aminmax_out_dim_none,
     aminmax_outf,
     SIZE({1, 32, 32}),
-    c10::nullopt,
+    std::nullopt,
     false,
     torch::kFloat)
 HPU_AMINMAX_OUT_TEST(

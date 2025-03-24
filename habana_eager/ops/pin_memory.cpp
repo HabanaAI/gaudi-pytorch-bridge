@@ -14,7 +14,6 @@
  */
 #include <ATen/CPUFunctions.h>
 #include <c10/core/TensorOptions.h>
-#include <c10/util/Optional.h>
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "hpu_ops/op_logger.h"
 

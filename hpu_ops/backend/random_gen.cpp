@@ -160,7 +160,7 @@ std::shared_ptr<void> RandomUniformParams(
 
 std::shared_ptr<void> FillRandomParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
-      stack_tensor(stack, 0).scalar_type(), c10::nullopt, c10::nullopt, size);
+      stack_tensor(stack, 0).scalar_type(), std::nullopt, std::nullopt, size);
 }
 
 std::shared_ptr<void> FillRandomFromParams(
@@ -168,7 +168,7 @@ std::shared_ptr<void> FillRandomFromParams(
     size_t& size) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
-      stack.at(1).isNone() ? c10::nullopt
+      stack.at(1).isNone() ? std::nullopt
                            : c10::make_optional<float>(stack.at(1).toInt()),
       c10::make_optional<float>(stack.at(2).toInt()),
       size);
@@ -177,7 +177,7 @@ std::shared_ptr<void> FillRandomFromParams(
 std::shared_ptr<void> FillRandomToParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
-      c10::nullopt,
+      std::nullopt,
       c10::make_optional<float>(stack.at(1).toInt()),
       size);
 }
@@ -371,7 +371,7 @@ SharedMetaDataVector NormalSharedMeta(
   else
     outputRank = stack.at(SIZE_INDEX).toIntVector().size();
 
-  std::optional<int64_t> seedTensorIndex = c10::nullopt;
+  std::optional<int64_t> seedTensorIndex = std::nullopt;
   if (stack.at(stack.size() - 1).isTensor())
     seedTensorIndex = 2;
   else if (normalVariant == NORMAL_FF && stack.at(3).isTensor())

@@ -154,7 +154,7 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (!o1.has_value() || !o1.value().defined()) {
-      indices.emplace_back(c10::nullopt);
+      indices.emplace_back(std::nullopt);
     } else if (o1.has_value() && o1.value().defined()) {
       const auto& index = o1.value();
       indices.emplace_back(std::move(index));

@@ -87,7 +87,7 @@ void Rrelu_with_noise::AddNode(
   auto upper = stack.at(3).toScalar().to<float>();
   size_t size = 0;
   bool is_functional = is_rrelu_functional(*this);
-  std::optional<int> noise_out_idx{c10::nullopt};
+  std::optional<int> noise_out_idx{std::nullopt};
   if (is_functional) {
     noise_out_idx = 1;
   }

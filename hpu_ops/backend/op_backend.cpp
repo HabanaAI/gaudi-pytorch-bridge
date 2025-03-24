@@ -313,12 +313,12 @@ static std::optional<c10::ScalarType> get_dtype_for_large_scalar(
   if ((guid_.find("mult") == std::string::npos &&
        guid_.find("div") == std::string::npos) ||
       stack.size() < 2 || !stack.at(0).isTensor() || !stack.at(1).isScalar()) {
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   const c10::ScalarType self_type = stack.at(0).toTensor().scalar_type();
   const float value = stack.at(1).toScalar().toFloat();
-  std::optional<c10::ScalarType> dtype = c10::nullopt;
+  std::optional<c10::ScalarType> dtype = std::nullopt;
 
   if (is_value_out_of_scalar_range(value, self_type)) {
     dtype = torch::kFloat;
@@ -343,7 +343,7 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
       get_dtype_for_large_scalar(guid_, stack);
   m_scalar_type = habana_helpers::DTypeHelper::get_compute_dtype(
       op_inputs,
-      c10::nullopt,
+      std::nullopt,
       m_promote_int_to_float
           ? habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat
           : habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
@@ -649,14 +649,14 @@ void OpBackend::PopulateMetadata(
         if (m_promote_type || m_promote_int_to_float) {
           dtype = habana_helpers::DTypeHelper::get_compute_dtype(
               stack,
-              c10::nullopt,
+              std::nullopt,
               m_promote_int_to_float
                   ? habana_helpers::DTypeHelper::DtypePromoteVariant::
                         kPromoteIntToFloat
                   : habana_helpers::DTypeHelper::DtypePromoteVariant::
                         kPromoteToCommon,
               false,
-              c10::nullopt,
+              std::nullopt,
               false,
               false);
         } else {
@@ -976,7 +976,7 @@ sh::tensor OpBackend::BuildRegularCast(
     }
 
     auto is_last = (i + 1) == cast_sequence.size();
-    auto output_index = is_last ? final_result_index : c10::nullopt;
+    auto output_index = is_last ? final_result_index : std::nullopt;
     NodeAttr castnode{
         cast_guid,
         {*input},
@@ -1012,7 +1012,7 @@ sh::tensor OpBackend::BuildCast(
       syn_in,
       sizes,
       from,
-      to == at::kBool ? final_result_index : c10::nullopt);
+      to == at::kBool ? final_result_index : std::nullopt);
 
   if (to == at::kBool || to == at::kChar)
     return boolResult;

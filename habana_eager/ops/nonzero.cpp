@@ -37,7 +37,7 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   // Handle case for empty tensor where we return empty tensor with size
   if (elements == 0) {
     auto shape = c10::DimVector({0, dimensions});
-    auto output = at::empty(shape, hb_options, c10::nullopt);
+    auto output = at::empty(shape, hb_options, std::nullopt);
     return output;
   }
 
@@ -77,13 +77,13 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
     auto shape = c10::DimVector({0, dimensions});
-    auto output = at::empty(shape, hb_options, c10::nullopt);
+    auto output = at::empty(shape, hb_options, std::nullopt);
     return output;
   }
   // Handle case for nonzero scalar input
   if (elements == 1 && dimensions == 0 && end != 0) {
     auto shape = c10::DimVector({end, 0});
-    auto output = at::empty(shape, hb_options, c10::nullopt);
+    auto output = at::empty(shape, hb_options, std::nullopt);
     return output;
   }
   // Add a slice node to capture relevent elements from nonzero node

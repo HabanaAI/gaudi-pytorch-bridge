@@ -100,6 +100,6 @@ repos:
     hooks:
       - id: deprecated-namespaces
         name: Check deprecated namespaces
-        entry: c10::optional
+        entry: c10::(optional|nullopt)|<c10/util/Optional.h>
         language: pygrep
-        files: \.c(pp)?$|\.h(pp)?$
+        files: \.c(pp)?$|\.h(pp)?$|gen_op

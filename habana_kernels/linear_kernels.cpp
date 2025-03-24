@@ -124,7 +124,7 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
   }
 
   check_matmul_params(
-      mat1, mat2, mat1_transposed, mat2_transposed, c10::nullopt);
+      mat1, mat2, mat1_transposed, mat2_transposed, std::nullopt);
 
   auto shape_out = habana::MMOperator::compute_output_shape(
       mat1, mat2, mat1_transposed, mat2_transposed);

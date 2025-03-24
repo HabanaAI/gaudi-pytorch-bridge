@@ -149,7 +149,7 @@ StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor);
 
 StorageExtraMeta* get_storage_extra_meta(
     const c10::TensorImpl* tensor_impl,
-    at::optional<size_t> nbytes = c10::nullopt,
+    at::optional<size_t> nbytes = std::nullopt,
     bool is_contiguous = true);
 
 StorageExtraMeta* get_storage_base_meta(const at::Tensor& tensor);

@@ -34,9 +34,9 @@ using namespace synapse_helpers::layouts;
 
 #define CHECK_NULL_INPUT(out_size, scale)                     \
   HABANA_ASSERT(                                              \
-      !(out_size == c10::nullopt && scale == c10::nullopt) || \
-          (out_size != c10::nullopt &&                        \
-           (scale != c10::nullopt && !scale.isScalar())),     \
+      !(out_size == std::nullopt && scale == std::nullopt) || \
+          (out_size != std::nullopt &&                        \
+           (scale != std::nullopt && !scale.isScalar())),     \
       "Upsample: Must specify exactly one of output_size and scale_factors");
 
 inline void check_null_inputs_2d(
@@ -1244,7 +1244,7 @@ static std::vector<synapse_helpers::tensor> Resize(
     const at::ScalarType& dtype,
     std::shared_ptr<void> params,
     size_t size,
-    std::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = std::nullopt) {
   auto guid = op->GetGuid();
   update_guid_dtype(guid, dtype);
 
@@ -1264,7 +1264,7 @@ static std::vector<synapse_helpers::tensor> Slice(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     const at::ScalarType& dtype,
-    std::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = std::nullopt) {
   auto output_size = outshape.size();
 
   synSliceParamsV2 slice_params{};
@@ -1600,7 +1600,7 @@ void UpSampleNearest2DOperator::AddNode(
         meta.dtype,
         intermediateDtype);
     input[0] = cast_storage->get();
-    final_index = c10::nullopt;
+    final_index = std::nullopt;
   }
 
   size_t size = 0;
@@ -1649,7 +1649,7 @@ synapse_helpers::tensor UpsampleNearestExactFwdCommon(
     cast_storage = OpBackend::BuildCast(
         op, graph, input[0], self.sizes().vec(), meta.dtype, intermediateDtype);
     input[0] = cast_storage->get();
-    final_index = c10::nullopt;
+    final_index = std::nullopt;
   }
 
   auto resize = Resize(

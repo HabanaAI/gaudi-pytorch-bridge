@@ -262,14 +262,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_view_hash", [](at::Tensor t) -> size_t {
     size_t hash = 0;
     auto hl_t = habana_lazy::TryGetHbLazyTensor(t);
-    std::optional<habana_lazy::HbLazyTensor> hl_view = c10::nullopt;
+    std::optional<habana_lazy::HbLazyTensor> hl_view = std::nullopt;
     while (hl_t && hl_t->getDataPtr()->stride_params.has_value()) {
       auto& params = hl_t->getDataPtr()->stride_params.value();
       if (params.optype != habana_lazy::StridedOPType::kStridedOpView) {
         if (hl_view.has_value()) {
           hash = habana_lazy::HbLazyTensorViews::updateViewHash(
               *hl_view, (size_t)hash);
-          hl_view = c10::nullopt;
+          hl_view = std::nullopt;
         }
         hash =
             habana_lazy::HbLazyTensorViews::updateViewHash(*hl_t, (size_t)hash);

@@ -209,8 +209,8 @@ void optimizer_adamw(
     const double epsilon,
     const at::Tensor& weight_decay,
     const bool has_weight_decay,
-    std::optional<at::TensorList> exp_avg_scales = c10::nullopt,
-    std::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt) {
+    std::optional<at::TensorList> exp_avg_scales = std::nullopt,
+    std::optional<at::TensorList> exp_avg_sq_scales = std::nullopt) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
@@ -467,7 +467,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
           seq_padding_type));
 
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -550,7 +550,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
           valid_seq_len,
           seq_padding_type));
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -657,7 +657,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
   }
 
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -787,7 +787,7 @@ fp8_sdpa_recomp_fwd_common(
   }
 
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -1596,7 +1596,7 @@ at::Tensor& fp8_gemm_functionalization_glue(
         B_scale_inv_,
         bias_,
         accumulate,
-        c10::nullopt);
+        std::nullopt);
   }
 
   at::functionalization::impl::replace_(out, tmp_output);

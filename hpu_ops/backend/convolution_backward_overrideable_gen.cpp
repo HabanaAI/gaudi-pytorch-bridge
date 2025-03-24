@@ -588,7 +588,7 @@ void ConvolutionBackwardOverrideable::AddNode(
   IF_CONV1D_EXPAND_TO_2D(weight, 2);
 
 #define COND_FINAL_RES_IDX(condition, false_val)                      \
-  condition ? std::optional<int>{c10::nullopt} : std::optional<int> { \
+  condition ? std::optional<int>{std::nullopt} : std::optional<int> { \
     false_val                                                         \
   }
   if (transposed) {

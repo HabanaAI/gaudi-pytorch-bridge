@@ -57,13 +57,13 @@ std::optional<synapse_helpers::tensor> HandleReductionDtype(
       at::isIntegralType(self.scalar_type(), true)) {
     dtype_val = at::kFloat;
   } else {
-    return c10::nullopt;
+    return std::nullopt;
     // do nothing
   }
   op->SetGuid(update_guid_dtype(guid, dtype_val));
   if (habana_helpers::getInternalDtype(dtype_val) ==
       habana_helpers::getInternalDtype(self.scalar_type())) {
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   op->SetScalarType(dtype_val);

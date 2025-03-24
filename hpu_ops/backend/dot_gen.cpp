@@ -42,10 +42,10 @@ OutputMetaDataVector DotMeta(const at::Stack& stack) {
   meta.shape = DotOutputShape(stack)[0];
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false,
-      c10::nullopt,
+      std::nullopt,
       false,
       false);
 

@@ -19,8 +19,8 @@ namespace habana {
 
 OutputMetaDataVector XlogYMeta(const at::Stack& stack) {
   OutputMetaData meta;
-  std::optional<at::Tensor> output_tensor = c10::nullopt;
-  std::optional<c10::ScalarType> output_type = c10::nullopt;
+  std::optional<at::Tensor> output_tensor = std::nullopt;
+  std::optional<c10::ScalarType> output_type = std::nullopt;
   auto size = stack.size();
   if (size > 2 && stack.at(size - 1).isTensor()) {
     output_tensor = stack.at(size - 1).toTensor();
@@ -60,7 +60,7 @@ SharedMetaDataVector XlogYSharedMeta(
 
   auto result_dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {self, other},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat,
       false);
 

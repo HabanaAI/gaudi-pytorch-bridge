@@ -67,7 +67,7 @@ void Cholesky::AddNode(sh::graph& graph, const at::Stack& stack) {
   ns_EluKernel::Params params{};
   std::optional<int> choleskyResultIndex{0};
   if (upper) {
-    choleskyResultIndex = c10::nullopt;
+    choleskyResultIndex = std::nullopt;
   }
 
   auto result = BuildOp(

@@ -124,7 +124,7 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto castNeeded = c10::isIntegralType(meta.dtype, true);
   auto outType = castNeeded ? at::kFloat : meta.dtype;
   std::optional<int> finalIndex =
-      castNeeded ? c10::nullopt : c10::make_optional<int>(0);
+      castNeeded ? std::nullopt : c10::make_optional<int>(0);
 
   if (len == 0) {
     auto result = habana::OpBackend::BuildOp(

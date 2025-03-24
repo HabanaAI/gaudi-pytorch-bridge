@@ -20,7 +20,6 @@
 #include <c10/core/Storage.h>
 #include <c10/core/TensorImpl.h>
 #include <c10/macros/Macros.h>
-#include <c10/util/Optional.h>
 #include "backend/backend_meta.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"

@@ -226,11 +226,11 @@ OutputMetaDataVector PointwiseMeta(const at::Stack& stack) {
 
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       inputs,
-      c10::nullopt,
+      std::nullopt,
       static_cast<habana_helpers::DTypeHelper::DtypePromoteVariant>(
           type_promotion_kind),
       false,
-      c10::nullopt,
+      std::nullopt,
       true,
       true);
 

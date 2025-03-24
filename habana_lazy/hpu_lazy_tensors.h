@@ -289,7 +289,7 @@ class HbLazyTensor {
   HbLazyTensor(
       ir::Value&& ir_value,
       const at::Device& device,
-      std::optional<at::ScalarType> logical_element_type = c10::nullopt);
+      std::optional<at::ScalarType> logical_element_type = std::nullopt);
   HbLazyTensor(std::shared_ptr<Data> data);
 
   at::Tensor ToTensor(bool detached);
@@ -474,7 +474,7 @@ class HbLazyTensor {
     if (data()->num_views)
       return c10::make_optional(data()->parent_view);
     else
-      return c10::nullopt;
+      return std::nullopt;
   }
 
   void SetTensorLayout(habana::LayoutFormat layout) {

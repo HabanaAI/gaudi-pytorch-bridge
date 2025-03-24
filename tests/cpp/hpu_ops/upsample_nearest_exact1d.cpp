@@ -22,9 +22,9 @@ TEST_F(HpuOpTest, _upsample_nearest_exact1d_fwd_scale) {
   std::vector<double> scale_factor = {2};
 
   auto expected = torch::_upsample_nearest_exact1d(
-      GetCpuInput(0), c10::nullopt, scale_factor);
+      GetCpuInput(0), std::nullopt, scale_factor);
   auto result = torch::_upsample_nearest_exact1d(
-      GetHpuInput(0), c10::nullopt, scale_factor);
+      GetHpuInput(0), std::nullopt, scale_factor);
   Compare(expected, result);
 }
 
@@ -46,7 +46,7 @@ TEST_F(HpuOpTest, _upsample_nearest_exact1d_fwd_out) {
   auto expected = torch::empty({5, 6, 7}, dtype);
   auto result =
       torch::empty({5, 6, 7}, torch::TensorOptions(dtype).device("hpu"));
-  std::optional<double> scales = c10::nullopt;
+  std::optional<double> scales = std::nullopt;
 
   torch::_upsample_nearest_exact1d_outf(GetCpuInput(0), size, scales, expected);
   torch::_upsample_nearest_exact1d_outf(GetHpuInput(0), size, scales, result);
@@ -98,7 +98,7 @@ TEST_F(HpuOpTest, _upsample_nearest_exact1d_bwd_out) {
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(input_size, dtype);
   auto result = expected.to(torch::kHPU);
-  std::optional<double> scales = c10::nullopt;
+  std::optional<double> scales = std::nullopt;
 
   torch::_upsample_nearest_exact1d_backward_outf(
       GetCpuInput(0), out_size, input_size, scales, expected);

@@ -240,7 +240,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, UpsampleNearest2DBwdTest) {
     mat1.set_requires_grad(true);
     std::array<double, 2> scales = {2.0, 3.0};
     std::optional<c10::ArrayRef<double>> scale_factors = scales;
-    std::optional<c10::IntArrayRef> out_size = c10::nullopt;
+    std::optional<c10::IntArrayRef> out_size = std::nullopt;
 
     auto out = torch::upsample_nearest2d(mat1, out_size, scale_factors);
     auto grad_out = torch::ones_like(out);
@@ -394,12 +394,12 @@ TEST_F(LazyDynamicInferOutputMetasTest, upsample_bicubic2d_fwd_scale) {
 
   auto expected = torch::upsample_bicubic2d(
       input1,
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   auto result = torch::upsample_bicubic2d(
       input1hpu,
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
 

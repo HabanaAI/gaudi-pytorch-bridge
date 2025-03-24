@@ -79,7 +79,7 @@ TEST_P(DivideScalarModeOutHpuOpTest, div_out_scalar_mode) {
   const auto& testParams = GetParam();
   const auto dtype = std::get<0>(testParams);
   const auto mode = std::get<1>(testParams);
-  auto result_dtype = (mode == c10::nullopt && !(dtype == torch::kBFloat16))
+  auto result_dtype = (mode == std::nullopt && !(dtype == torch::kBFloat16))
       ? torch::kFloat
       : dtype;
   GenerateInputs(1, dtype);
@@ -104,4 +104,4 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Values<std::optional<c10::string_view>>(
             "floor",
             "trunc",
-            c10::nullopt)));
+            std::nullopt)));

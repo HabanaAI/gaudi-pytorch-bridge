@@ -47,8 +47,8 @@ TEST_F(HpuOpTest, logit_out) {
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::logit_outf(GetCpuInput(0), /*eps*/ c10::nullopt, expected);
-  torch::logit_outf(GetHpuInput(0), /*eps*/ c10::nullopt, result);
+  torch::logit_outf(GetCpuInput(0), /*eps*/ std::nullopt, expected);
+  torch::logit_outf(GetHpuInput(0), /*eps*/ std::nullopt, result);
 
   Compare(expected, result);
 }

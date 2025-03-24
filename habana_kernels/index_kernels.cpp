@@ -452,7 +452,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
           std::vector<c10::IValue> gather_stack{
               IValue(src),
               IValue(topkOp->GetOutputs()[1]),
-              IValue(c10::nullopt),
+              IValue(std::nullopt),
               IValue(dim),
               IValue(sparse_grad)};
           gatherOp->AllocateAndAddSynapseNode(
@@ -850,7 +850,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
 
   auto non_zero_op =
       make_operator<NonZeroOperator>(device_id, c10::ScalarType::Bool);
-  stack = {IValue(indices[0]), IValue{c10::nullopt}};
+  stack = {IValue(indices[0]), IValue{std::nullopt}};
   non_zero_op->SetSynapseInput(p_context_->syn_inputs_[1]);
 
   non_zero_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(2));

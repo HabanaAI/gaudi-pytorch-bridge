@@ -56,7 +56,7 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
   }
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {tensors_},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   return {OutputMetaData{
@@ -81,7 +81,7 @@ SharedMetaDataVector CatSharedMeta(
       [](const at::Tensor& tensor) { return tensor.dim(); });
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {inputs},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   auto firstNon1DElement = std::find_if(

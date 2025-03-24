@@ -50,7 +50,7 @@ SharedMetaDataVector WhereSharedMeta(
 
   auto result_type = habana_helpers::DTypeHelper::get_compute_dtype(
       {self, other},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   whereMeta.outputs_data.emplace_back(self.dim(), result_type);
@@ -67,7 +67,7 @@ void WhereBackend::AddNode(
 
   std::optional<const at::IValue*> output = IsOutputAvailable()
       ? c10::make_optional<const at::IValue*>(&stack.back())
-      : c10::nullopt;
+      : std::nullopt;
 
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(

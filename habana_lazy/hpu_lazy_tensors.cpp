@@ -157,7 +157,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
       if (is_view_out ||
           ((bucket_recent_id.count(id) == 0) && (!is_view) &&
-           (hl_t.getDataPtr()->recent_base == c10::nullopt))) {
+           (hl_t.getDataPtr()->recent_base == std::nullopt))) {
         tensors.emplace_back(hl_t);
       }
     }
@@ -295,7 +295,7 @@ at::Tensor HbLazyTensor::ToTensor(bool detached) {
       if (data()->ir_value) {
         // If we have other authoritive sources, just drop our reference and
         // transfer it to the caller.
-        data()->tensor_data = c10::nullopt;
+        data()->tensor_data = std::nullopt;
       } else {
         // Otherwise we need to make a copy to prevent the caller changing our
         // version.
@@ -381,7 +381,7 @@ bool HbLazyTensor::isStorageAttached() {
   }
 }
 void HbLazyTensor::SetTensorDataNullOpt() {
-  data()->tensor_data = c10::nullopt;
+  data()->tensor_data = std::nullopt;
 }
 
 void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
@@ -399,7 +399,7 @@ void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
 
 std::optional<at::Tensor> HbLazyTensor::GetTensorData() {
   auto tens = data()->tensor_data;
-  if (tens != c10::nullopt) {
+  if (tens != std::nullopt) {
     bool isHPU = tens.value().device().type() == c10::DeviceType::HPU;
     HABANA_ASSERT(isHPU);
   }
@@ -472,7 +472,7 @@ void HbLazyTensor::ClearStrideParams() {
 
 const std::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
   const auto& tens = data()->cpu_tensor_data;
-  if (tens != c10::nullopt) {
+  if (tens != std::nullopt) {
     bool isCPU = tens.value().device().type() == c10::DeviceType::CPU;
     HABANA_ASSERT(isCPU);
   }
@@ -495,10 +495,10 @@ std::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
       // actually we can assert
       return data()->tensor_data;
     } else {
-      return c10::nullopt;
+      return std::nullopt;
     }
   }
-  return c10::nullopt;
+  return std::nullopt;
 }
 
 const c10::Device& HbLazyTensor::GetDevice() const {
@@ -835,7 +835,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
       // strided view output. Such cases should be excluded from deletion
 
       for (auto& hl_t : bucket_hl_t) {
-        hl_t.getDataPtr()->recent_base = c10::nullopt;
+        hl_t.getDataPtr()->recent_base = std::nullopt;
       }
       context->viewContext.view_outputs.clear();
     }
@@ -1499,7 +1499,7 @@ void HbLazyTensor::ExecuteCachedGraph(
     HbLazyTensor& out_tensor = hblazy_tensors_out[i++];
 
     // clear the orig tensor map entries corresponding to cached graph outputs
-    out_tensor.getDataPtr()->recent_base = c10::nullopt;
+    out_tensor.getDataPtr()->recent_base = std::nullopt;
     if (out_tensor.IsHpuGraphOutTensor()) {
       auto st = v.toTensor();
       out_tensor.SetTensorData(st);
@@ -1541,12 +1541,12 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   }
 
   auto aten_t = AtenFromHbLazyTensor(
-      hl_src_updated, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      hl_src_updated, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
   // the original dest data is now stale. Release it if not in op accmulation
   // phase
   if (!dest->IsOpAccumulationInProgress()) {
-    dest->data()->tensor_data = c10::nullopt;
+    dest->data()->tensor_data = std::nullopt;
   }
 
   // loop over the shallow copy vectors to collect the ones that are in use, and

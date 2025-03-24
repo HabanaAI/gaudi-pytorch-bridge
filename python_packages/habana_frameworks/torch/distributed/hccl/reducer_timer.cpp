@@ -28,7 +28,7 @@ class HpuTimer : public Timer {
     int64_t end_time = getTimeRef(end);
     PT_DISTRIBUTED_DEBUG("start time::", start_time, " End time::", end_time);
     if (end_time < start_time) {
-      return c10::nullopt;
+      return std::nullopt;
     }
     return end_time - start_time;
   }

@@ -137,7 +137,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       const auto& index = o1.value();
       indices.emplace_back(std::move(index));
     } else {
-      indices.emplace_back(c10::nullopt);
+      indices.emplace_back(std::nullopt);
     }
   }
 
@@ -284,15 +284,15 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       at::TensorOptions options =
           self.options().dtype(c10::ScalarType::Long).device(c10::kHPU);
       auto generated_index_tensor =
-          at::empty(arange_size, options, c10::nullopt);
+          at::empty(arange_size, options, std::nullopt);
       generated_index_tensor = at::arange(
           0,
           self.sizes().vec()[dim],
           1,
           c10::ScalarType::Long,
-          c10::nullopt,
+          std::nullopt,
           c10::kHPU,
-          c10::nullopt);
+          std::nullopt);
       auto it_repeat_interleave = generated_index_tensor.repeat_interleave(
           repeat_interleaves_needed[dim]);
       indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
@@ -379,7 +379,7 @@ at::Tensor& _index_put_impl_eager(
     if (ind.defined()) {
       indices_out_opt_vec.emplace_back(ind);
     } else {
-      indices_out_opt_vec.emplace_back(c10::nullopt);
+      indices_out_opt_vec.emplace_back(std::nullopt);
     }
   }
 

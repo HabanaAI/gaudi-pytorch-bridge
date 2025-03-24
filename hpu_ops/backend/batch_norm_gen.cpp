@@ -371,12 +371,12 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
               ? NodeAttr::
                     NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
               : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx},
+                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx},
           is_functional
               ? NodeAttr::
                     NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
               : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
+                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
          params.get(),
          params_size});
   } else {
@@ -393,7 +393,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
          {NodeAttr::NodeOutputAttr{
               input_4d_shape,
               op.ScalarType(),
-              (input_dim != 4) ? c10::nullopt : std::optional<int>(0)},
+              (input_dim != 4) ? std::nullopt : std::optional<int>(0)},
           NodeAttr::NodeOutputAttr{
               out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
           NodeAttr::NodeOutputAttr{
@@ -402,12 +402,12 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
               ? NodeAttr::
                     NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
               : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
+                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
           is_functional
               ? NodeAttr::
                     NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
               : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
+                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
          params.get(),
          params_size});
   }
@@ -817,8 +817,8 @@ void BatchNormNoStatsOpBackend::AddNode(
           input,
           weightOpt,
           biasOpt,
-          c10::nullopt,
-          c10::nullopt,
+          std::nullopt,
+          std::nullopt,
           params,
           paramsSize,
           outShapes);
@@ -939,7 +939,7 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   std::optional<int> final_result_index_0 =
       meta[INPUT_GRAD_IDX].shape.size() != 4
-      ? std::optional<int>{c10::nullopt}
+      ? std::optional<int>{std::nullopt}
       : std::optional<int>{INPUT_GRAD_IDX};
   auto bn_out = BuildOp(
       graph,

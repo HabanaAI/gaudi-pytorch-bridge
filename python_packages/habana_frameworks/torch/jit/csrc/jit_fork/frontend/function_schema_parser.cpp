@@ -24,7 +24,6 @@
 
 #include <ATen/core/Reduction.h>
 #include <ATen/core/type_factory.h>
-#include <c10/util/Optional.h>
 #include <c10/util/string_utils.h>
 
 #include <functional>
@@ -49,7 +48,7 @@ struct SchemaParser {
   explicit SchemaParser(const std::string& str)
       : L(std::make_shared<Source>(
             c10::string_view(str),
-            c10::nullopt,
+            std::nullopt,
             0,
             Source::DONT_COPY)),
         type_parser(L, /*parse_complete_tensor_types*/ false) {}

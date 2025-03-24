@@ -37,7 +37,7 @@ TEST_F(HpuOpTest, nan_to_num_out) {
 
   torch::nan_to_num_outf(
       cpu_input,
-      /*nan*/ c10::nullopt,
+      /*nan*/ std::nullopt,
       /*posinf*/ 6.9,
       /*neginf*/ 6.9,
       expected);
@@ -45,7 +45,7 @@ TEST_F(HpuOpTest, nan_to_num_out) {
   auto hpu_input = cpu_input.to(torch::kHPU);
   torch::nan_to_num_outf(
       hpu_input,
-      /*nan*/ c10::nullopt,
+      /*nan*/ std::nullopt,
       /*posinf*/ 6.9,
       /*neginf*/ 6.9,
       result);

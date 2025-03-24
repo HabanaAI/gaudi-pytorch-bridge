@@ -158,7 +158,7 @@ at::Tensor create_empty_tensor(
     bool is_shape_tensor) {
   if (is_shape_tensor) {
     auto pt_tensor = habana_lazy::empty_hpu_lazy(
-        tshape, tensor_options, c10::nullopt, false, SHAPE_TENSOR);
+        tshape, tensor_options, std::nullopt, false, SHAPE_TENSOR);
     return pt_tensor;
   }
   auto pt_tensor = at::empty(tshape, tensor_options);

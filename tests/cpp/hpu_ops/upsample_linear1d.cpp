@@ -25,9 +25,9 @@ TEST_F(HpuOpTest, upsample_linear1d_fwd_scale) {
   std::vector<double> scale_factor = {0.123};
 
   auto expected = torch::upsample_linear1d(
-      GetCpuInput(0), c10::nullopt, /*align_corner*/ true, scale_factor);
+      GetCpuInput(0), std::nullopt, /*align_corner*/ true, scale_factor);
   auto result = torch::upsample_linear1d(
-      GetHpuInput(0), c10::nullopt, /*align_corner*/ true, scale_factor);
+      GetHpuInput(0), std::nullopt, /*align_corner*/ true, scale_factor);
   Compare(expected, result);
 }
 
@@ -48,7 +48,7 @@ TEST_F(HpuOpTest, upsample_linear1d_fwd_out) {
   std::vector<int64_t> size = {7};
   auto expected = torch::empty({5, 6, 7}, TENSOR_TYPE_float);
   auto result = expected.to(torch::kHPU);
-  std::optional<double> scales = c10::nullopt;
+  std::optional<double> scales = std::nullopt;
 
   torch::upsample_linear1d_outf(
       GetCpuInput(0), size, /*align_corner*/ false, scales, expected);
@@ -90,7 +90,7 @@ TEST_F(HpuOpTest, upsample_linear1d_bwd_out) {
   std::vector<int64_t> input_size = {1, 28, 16};
   auto expected = torch::empty(input_size, TENSOR_TYPE_float);
   auto result = expected.to(torch::kHPU);
-  std::optional<double> scales = c10::nullopt;
+  std::optional<double> scales = std::nullopt;
 
   torch::upsample_linear1d_backward_outf(
       GetCpuInput(0),

@@ -282,7 +282,7 @@ void ConvolutionOverrideable::AddNode(
 
   NodeAttr::NodeOutputAttr node_output_attr = {meta.shape, meta.dtype, 0};
   if ((transposed && bias.defined()) || is_conv_1d)
-    node_output_attr.final_result_index = c10::nullopt;
+    node_output_attr.final_result_index = std::nullopt;
 
   auto convOp = BuildOp(
       graph,
@@ -311,7 +311,7 @@ void ConvolutionOverrideable::AddNode(
         sizeof(expandParams))[0]);
 
     std::optional<int> final_result_index_0 =
-        is_conv_1d ? std::optional<int>{c10::nullopt} : std::optional<int>{0};
+        is_conv_1d ? std::optional<int>{std::nullopt} : std::optional<int>{0};
     using namespace std::literals;
     auto addOp = BuildOp(
         graph,

@@ -285,7 +285,7 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     return at::ScalarType::Undefined;
   }
 
-  std::optional<const at::IValue*> output = c10::nullopt;
+  std::optional<const at::IValue*> output = std::nullopt;
   if (m_isInplace) {
     output = &values.front();
   } else if (m_isOutFn) {

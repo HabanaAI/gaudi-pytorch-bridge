@@ -60,7 +60,7 @@ TEST_P(NativeGroupNormTests, GroupNormFwdBwdExecute) {
   const auto [N, C, H, W, G] = groupNormSizes;
 
   const auto [atol, rtol] = dtype == torch::kFloat32
-      ? std::make_tuple(c10::nullopt, c10::nullopt)
+      ? std::make_tuple(std::nullopt, std::nullopt)
       : std::make_tuple(
             std::optional<double>(0.05), std::optional<double>(0.05));
 

@@ -21,10 +21,10 @@ namespace habana {
 struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
   explicit StorageLessWrapperTensorImpl(
       const at::Tensor& rep,
-      at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+      at::optional<caffe2::TypeMeta> data_type = std::nullopt);
 
   explicit StorageLessWrapperTensorImpl(
-      at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+      at::optional<caffe2::TypeMeta> data_type = std::nullopt);
   void release_resources() override;
 
   bool has_storage() const override;
@@ -36,22 +36,22 @@ at::Tensor nonPersistentTensor(
     const at::Tensor& input,
     at::IntArrayRef size,
     const at::TensorOptions& options = {},
-    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
-    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+    at::optional<c10::MemoryFormat> optional_memory_format = std::nullopt,
+    at::optional<caffe2::TypeMeta> data_type = std::nullopt);
 
 at::Tensor nonPersistentTensor(
     at::IntArrayRef size,
     at::IntArrayRef strides,
-    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
-    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+    at::optional<c10::MemoryFormat> optional_memory_format = std::nullopt,
+    at::optional<caffe2::TypeMeta> data_type = std::nullopt);
 
 at::Tensor nonPersistentTensor(
     const at::Tensor& input,
     at::IntArrayRef size,
     at::IntArrayRef strides,
     const at::TensorOptions& options = {},
-    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
-    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+    at::optional<c10::MemoryFormat> optional_memory_format = std::nullopt,
+    at::optional<caffe2::TypeMeta> data_type = std::nullopt);
 
 at::Tensor createPTTensor(const at::Tensor& input, bool is_persistent);
 

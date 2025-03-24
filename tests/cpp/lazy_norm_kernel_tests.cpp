@@ -327,13 +327,13 @@ TEST_F(LazyNormKernelTest, BatchNormAffineFalseForwardExecute) {
   float eps = 1e-5;
   // Training = True
   auto results_cpu = torch::native_batch_norm(
-      input_tensor, c10::nullopt, c10::nullopt, mean, var, true, mom, eps);
+      input_tensor, std::nullopt, std::nullopt, mean, var, true, mom, eps);
   at::Tensor result_cpu = std::get<0>(results_cpu);
   auto curr_mean_cpu = std::get<1>(results_cpu);
   auto results = torch::native_batch_norm(
       tHabanaX,
-      c10::nullopt,
-      c10::nullopt,
+      std::nullopt,
+      std::nullopt,
       tHabanaMean,
       tHabanaVar,
       true,

@@ -40,7 +40,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right, bool is_dynamic) {
-  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, std::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
   VAL_RETURN_IF_UNSUPPORTED_DTYPE2(bucketize, is_dynamic, Scalar, self, boundaries, out_int32, right)

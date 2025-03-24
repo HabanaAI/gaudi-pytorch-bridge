@@ -378,7 +378,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
           input, graph, is_persistent, false, syn_type));
     } else {
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
-          input, graph, is_persistent, false, c10::nullopt, idx, idx));
+          input, graph, is_persistent, false, std::nullopt, idx, idx));
     }
   } else {
     p_context_->syn_inputs_.emplace_back(
@@ -452,7 +452,7 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         graph,
         output_metadata.persistent,
         output_metadata.external,
-        c10::nullopt,
+        std::nullopt,
         output_metadata.name,
         output_metadata.module_name + '.' +
             std::to_string(p_context_->syn_outputs_.size())));

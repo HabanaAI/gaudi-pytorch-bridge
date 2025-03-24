@@ -172,15 +172,15 @@ TEST_F(HpuOpTest, upsample_nearest2d_bwd_out_CL) {
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
       out_size,
       input_size,
-      c10::nullopt,
-      c10::nullopt,
+      std::nullopt,
+      std::nullopt,
       expected);
   torch::upsample_nearest2d_backward_outf(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
       out_size,
       input_size,
-      c10::nullopt,
-      c10::nullopt,
+      std::nullopt,
+      std::nullopt,
       result);
   Compare(expected, result);
 }
@@ -198,10 +198,10 @@ TEST_F(HpuOpTest, upsample_nearest2d_bwd_out) {
       GetCpuInput(0),
       out_size,
       input_size,
-      c10::nullopt,
-      c10::nullopt,
+      std::nullopt,
+      std::nullopt,
       expected);
   torch::upsample_nearest2d_backward_outf(
-      GetHpuInput(0), out_size, input_size, c10::nullopt, c10::nullopt, result);
+      GetHpuInput(0), out_size, input_size, std::nullopt, std::nullopt, result);
   Compare(expected, result);
 }

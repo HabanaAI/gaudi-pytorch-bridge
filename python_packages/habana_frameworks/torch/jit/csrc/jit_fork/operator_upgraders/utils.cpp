@@ -27,7 +27,6 @@
 #include <string>
 #include <vector>
 
-#include <c10/util/Optional.h>
 #include <caffe2/serialize/versions.h>
 
 #include "jit_fork/operator_upgraders/version_map.h"
@@ -52,7 +51,7 @@ std::optional<UpgraderEntry> findUpgrader(
   if (pos != upgraders_for_schema.end()) {
     return *pos;
   }
-  return c10::nullopt;
+  return std::nullopt;
 }
 
 bool isOpCurrentBasedOnUpgraderEntries(

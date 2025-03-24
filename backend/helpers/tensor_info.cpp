@@ -28,7 +28,7 @@ void DMAInputGenerators::populateSeedTensor(
     const PtTensorInfo& ti,
     at::Tensor& dma_tensor) {
   auto gen = torch::get_generator_or_default<torch::CPUGeneratorImpl>(
-      c10::nullopt, habana::detail::getDefaultHPUGenerator());
+      std::nullopt, habana::detail::getDefaultHPUGenerator());
 
   // Acquire lock when using random generators
   std::vector<int> seed_vec;

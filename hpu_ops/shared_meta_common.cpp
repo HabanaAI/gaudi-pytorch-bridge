@@ -204,7 +204,7 @@ SharedMetaDataVector CompareSharedMeta(
   auto outputRank = std::max(selfRank, otherRank);
   auto inputType = habana_helpers::DTypeHelper::get_compute_dtype(
       {self, other},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   if ((guid == "less" || guid == "less_fwd") &&
@@ -245,7 +245,7 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
     bool isAddcdiv = guid == "addcdiv_fwd";
     const bool isOutputIntegral = c10::isIntegralType(dtype, true);
     dtype = (isAddcdiv && isOutputIntegral) ? torch::kFloat32 : dtype;
-    std::optional<SharedMetaData> floorSharedMeta = c10::nullopt;
+    std::optional<SharedMetaData> floorSharedMeta = std::nullopt;
 
     if (isValueTensor) {
       auto valueTensor = value.toTensor();
@@ -334,10 +334,10 @@ SharedMetaDataVector LogicalBinarySharedMeta(
   if (promoteToCommonType) {
     auto computeDtype = habana_helpers::DTypeHelper::get_compute_dtype(
         {self, other},
-        c10::nullopt,
+        std::nullopt,
         habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
         false,
-        c10::nullopt,
+        std::nullopt,
         false,
         false);
     selfDtype = computeDtype;
@@ -479,7 +479,7 @@ SharedMetaDataVector BitwiseLogicalSharedMeta(
   auto other = stack.at(1);
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {self, self},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   auto inputRank = self.isTensor() ? self.toTensor().dim() : 1;

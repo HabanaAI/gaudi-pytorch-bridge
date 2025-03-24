@@ -27,10 +27,10 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
   auto other = x[1].toScalar();
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       get_inputs(),
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat,
       false,
-      c10::nullopt,
+      std::nullopt,
       false,
       false);
   x[1] = habana_lazy::get_tensor_for_scalar(

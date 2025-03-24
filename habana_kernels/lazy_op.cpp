@@ -30,7 +30,7 @@ at::Tensor LazyBinaryOp<at::Tensor>::get_result_overrideable() {
   if (dst_dtype_ == at::ScalarType::Undefined) {
     std::optional<const at::IValue*> output = is_outfn_
         ? c10::make_optional<const at::IValue*>(&inputs.back())
-        : c10::nullopt;
+        : std::nullopt;
     auto dtype_helper =
         habana_helpers::DTypeHelper::binary_op_with_type_promotion(
             inputs, output, safe_cast_check_);

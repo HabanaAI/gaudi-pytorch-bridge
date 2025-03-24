@@ -589,7 +589,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
           c10::Storage(storage_impl->storage()),
           c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
               base_internal_tensor.scalar_type())),
-          c10::nullopt,
+          std::nullopt,
           src.sizes(),
           src.strides(),
           c10::MemoryFormat::Contiguous);
@@ -777,7 +777,7 @@ bool HbLazyTensorViews::HandleViewsD2D(
     auto t = empty_hpu_lazy(
         dst.sizes(),
         dst.options(),
-        c10::nullopt,
+        std::nullopt,
         false /*storage*/,
         DATA_TENSOR);
     auto t_opt = c10::make_optional(t);
@@ -1074,7 +1074,7 @@ void add_strided_view_output_node(
   // pick the most recent version
   auto recent_orig_t = HbLazyTensorViews::get_recent_base_tensor(params.base);
   auto t = AtenFromHbLazyTensor(
-      hl_t, c10::nullopt, params.sizes, c10::nullopt, c10::nullopt);
+      hl_t, std::nullopt, params.sizes, std::nullopt, std::nullopt);
   auto t_opt = c10::make_optional(t);
 
   HbLazyTensorViews::add_strided_view_node(
@@ -1295,7 +1295,7 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
           c10::Storage(storage_impl->storage()),
           c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
               base_internal_tensor.scalar_type())),
-          c10::nullopt,
+          std::nullopt,
           src.sizes(),
           src.strides(),
           c10::MemoryFormat::Contiguous);

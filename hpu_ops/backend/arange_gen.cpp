@@ -273,9 +273,9 @@ OutputMetaDataVector ArangeStartOutMeta(const at::Stack& stack) {
   return ArangeDefaultCommonMeta(
       depth,
       outScalarType,
-      c10::nullopt,
-      c10::nullopt,
-      c10::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
       setToIntegralDType);
 }
 

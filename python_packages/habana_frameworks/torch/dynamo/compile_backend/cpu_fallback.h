@@ -177,7 +177,7 @@ bool check_support(
     //  Acquire GIL for py::args and py::kwargs processing.
     py::gil_scoped_acquire ag;
     stack =
-        torch::jit::createStackForSchema(schema, args, kwargs, c10::nullopt);
+        torch::jit::createStackForSchema(schema, args, kwargs, std::nullopt);
 
     for (const auto& sm : shared_meta) {
       const auto& meta = sm.cast<py::tuple>();

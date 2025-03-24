@@ -71,8 +71,8 @@ TEST_F(LazyReductionKernelTest, SumDimIntOut) {
   torch::Tensor Out = torch::randn({2});
   torch::Tensor hOut = Out.to("hpu");
 
-  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, c10::nullopt, Out);
-  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, c10::nullopt, hOut);
+  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, std::nullopt, Out);
+  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, std::nullopt, hOut);
   auto hOut_cpu = out_hpu.to(torch::kCPU);
   EXPECT_EQ(
       allclose(hOut_cpu, out_cpu, COMMON_ATOL_FLOAT, COMMON_RTOL_FLOAT), true);

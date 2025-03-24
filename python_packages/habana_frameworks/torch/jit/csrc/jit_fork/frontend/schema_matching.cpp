@@ -24,7 +24,6 @@
 
 #include <ATen/core/interned_strings.h>
 #include <ATen/core/jit_type.h>
-#include <c10/util/Optional.h>
 #include <c10/util/irange.h>
 #include <caffe2/serialize/versions.h>
 #include <torch/csrc/jit/api/function_impl.h>
@@ -302,7 +301,7 @@ std::optional<size_t> findInputWithName(
       return i;
     }
   }
-  return c10::nullopt;
+  return std::nullopt;
 }
 
 /// Creates a list with the provided values if each value's type can be matched
@@ -405,7 +404,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
     std::ostream* failure_messages,
     bool allow_conversions) {
   if (isBlockListedSchema(schema)) {
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   auto err = [&]() -> std::ostream& {
@@ -433,7 +432,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
     std::optional<NamedValue> actual_named_value;
     if (arg.name() == "self" && self) {
       actual_named_value = self;
-      self = c10::nullopt;
+      self = std::nullopt;
     } else if (!arg.kwarg_only() && used_args < args.size()) {
       // Try to convert all the remaining non-kwarg arguments (used_args) to a
       // list. Allow zeros(IntArrayRef sizes) to work with zeros(1, 2) or
@@ -458,7 +457,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
               allow_conversions,
               type_env);
           if (!list) {
-            return c10::nullopt;
+            return std::nullopt;
           }
           used_args = args.size();
           positional_inputs.push_back(list);
@@ -478,7 +477,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
           err() << "Argument " << nv.name()
                 << " specified twice in schema, submit a bug report!\n";
         }
-        return c10::nullopt;
+        return std::nullopt;
       }
       used_kwarg[*kwarg_idx] = true;
       actual_named_value = nv;
@@ -491,7 +490,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
         err() << "Argument " << schema.arguments()[schema_i].name()
               << " not provided.\n";
       }
-      return c10::nullopt;
+      return std::nullopt;
     }
 
     // Make sure the actual_named_value found matches the type of arg
@@ -505,16 +504,16 @@ static std::optional<MatchedSchema> tryMatchSchema(
         allow_conversions,
         type_env);
     if (!positional) {
-      return c10::nullopt;
+      return std::nullopt;
     }
     positional_inputs.push_back(positional);
   }
   // check for unused self argument
-  if (self != c10::nullopt) {
+  if (self != std::nullopt) {
     if (failure_messages) {
       err() << "Provided self argument not used in schema.\n";
     }
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   if (schema.is_vararg()) {
@@ -529,7 +528,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
       err() << "Expected at most " << used_args << " arguments "
             << "but found " << args.size() << " positional arguments.\n";
     }
-    return c10::nullopt;
+    return std::nullopt;
   }
   // check for unused kwargs
   for (const auto i : c10::irange(kwargs.size())) {
@@ -542,7 +541,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
           err() << "Keyword argument " << nv.name() << " specified twice.\n";
         }
       }
-      return c10::nullopt;
+      return std::nullopt;
     }
   }
 
@@ -559,7 +558,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
       std::all_of(returns.begin(), returns.end(), [&](const Argument& r) {
         return r.name().length() > 0;
       });
-  c10::OptNameList return_field_names = c10::nullopt;
+  c10::OptNameList return_field_names = std::nullopt;
   if (return_has_field_names) {
     return_field_names =
         fmap(returns, [&](const Argument& r) { return r.name(); });

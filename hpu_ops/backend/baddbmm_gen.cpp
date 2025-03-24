@@ -21,7 +21,7 @@ std::vector<synapse_helpers::tensor> ComputeGEMM(
     synapse_helpers::graph& graph,
     std::vector<synTensor> input_tensor,
     const habana::OutputMetaData& meta,
-    std::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   habana::NodeAttr::NodeOutputAttr gemm_node_output_attr = {
       meta.shape, meta.dtype};
   gemm_node_output_attr.final_result_index = final_idx;
@@ -79,7 +79,7 @@ static std::vector<synapse_helpers::tensor> ComputeBetaSide(
     std::vector<synTensor> input_tensor,
     const OutputMetaData& meta,
     const float beta_val,
-    std::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   synapse_helpers::tensor beta_tensor =
       OpBackend::BuildConstant(op, graph, beta_val, meta.dtype, meta.shape);
 
@@ -100,8 +100,8 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synTensor> input_tensor,
     const OutputMetaData& meta,
     const float alpha_val,
-    std::optional<int> final_idx = c10::nullopt) {
-  std::optional<int> is_gemm_final_node = c10::nullopt;
+    std::optional<int> final_idx = std::nullopt) {
+  std::optional<int> is_gemm_final_node = std::nullopt;
   if (alpha_val == 1.0) {
     is_gemm_final_node = final_idx;
   }

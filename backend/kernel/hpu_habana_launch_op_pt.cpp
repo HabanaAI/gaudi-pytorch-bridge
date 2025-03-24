@@ -647,7 +647,7 @@ void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
   if (populate_seed) {
     int seed = 0;
     if (!syn_graph_ptr_->is_dry_run()) {
-      seed = get_seed_hpu(c10::nullopt);
+      seed = get_seed_hpu(std::nullopt);
     }
     at::Tensor seed_cpu_tensor = at::tensor(seed);
     at::Tensor seed_tensor = at::empty(
@@ -1450,7 +1450,7 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
       if (ivptrsh->isTensor()) {
         opttensorList.emplace_back(ivptrsh->toTensor());
       } else {
-        opttensorList.emplace_back(c10::nullopt);
+        opttensorList.emplace_back(std::nullopt);
       }
     }
     IValPtrShared out_ival = std::make_shared<IVal>(opttensorList);
@@ -1578,7 +1578,7 @@ IValPtrShared MapPrimListConstructNodeInputIShape(
     c10::List<std::optional<at::Tensor>> opttensorList;
     for (const auto& value_in : node_ins) {
       static_cast<void>(value_in);
-      opttensorList.emplace_back(c10::nullopt);
+      opttensorList.emplace_back(std::nullopt);
     }
 
     IValPtrShared out_ival = std::make_shared<IVal>(opttensorList);
@@ -1605,7 +1605,7 @@ at::Tensor createDynamicTensor(
   auto dtype = c10::ScalarType::Int;
 
   at::Tensor tensor = at::detail::empty_generic(
-      at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, c10::nullopt);
+      at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, std::nullopt);
 
   auto tmeta{habana::get_tensor_extra_meta(tensor)};
   tmeta->set_tensor_type(type);
@@ -1623,7 +1623,7 @@ at::Tensor createDynamicTensor(
   constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
 
   at::Tensor tensor = at::detail::empty_generic(
-      at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, c10::nullopt);
+      at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, std::nullopt);
 
   auto tmeta{habana::get_tensor_extra_meta(tensor)};
   tmeta->set_tensor_type(type);

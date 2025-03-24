@@ -31,7 +31,7 @@ at::Tensor& set_source_Storage_storage_offset(
   auto int_storage_offset = storage_offset.as_int_unchecked();
   std::optional<at::IntArrayRef> stride_opt = stride.data() != nullptr
       ? std::optional<at::IntArrayRef>(C10_AS_INTARRAYREF_SLOW(stride))
-      : c10::nullopt;
+      : std::nullopt;
 
   auto hb_tmeta{habana::get_tensor_extra_meta(self)};
   hb_tmeta->set_tensor_pipelined();

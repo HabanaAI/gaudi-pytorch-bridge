@@ -448,7 +448,7 @@ std::ostream& operator<<(std::ostream& out, const Graph& g) {
 
 static void checkSameDevice(const Node* node) {
   bool has_device = false;
-  std::optional<at::Device> device = c10::nullopt;
+  std::optional<at::Device> device = std::nullopt;
   auto checkValue = [&](const Value* v) {
     if (TensorTypePtr type = v->type()->cast<TensorType>()) {
       if (type->device() && !has_device) {
@@ -1345,7 +1345,7 @@ Node::Node(Graph* graph_, NodeKind kind_)
       graph_(graph_),
       owning_block_(nullptr),
       scope_(graph_->current_scope_),
-      callstack_(c10::nullopt),
+      callstack_(std::nullopt),
       op_(nullptr),
       topo_position_(0) {
   graph_->all_nodes.emplace(this);
@@ -1878,7 +1878,7 @@ Value* Graph::packValues(
   if (field_names) {
     auto types = fmap(values, [](Value* v) { return v->type(); });
     named_tuple =
-        TupleType::createNamed(c10::nullopt, field_names.value(), types);
+        TupleType::createNamed(std::nullopt, field_names.value(), types);
   }
   return insertNode(createTuple(values, named_tuple))->output();
 }

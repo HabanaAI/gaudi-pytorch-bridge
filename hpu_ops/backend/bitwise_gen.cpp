@@ -41,7 +41,7 @@ OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
   } else {
     meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
         {stack[0], stack[1]},
-        c10::nullopt,
+        std::nullopt,
         habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
         false);
   }

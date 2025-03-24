@@ -54,7 +54,7 @@ void ExpandOp::AddNode(
     [[maybe_unused]] const at::Stack& inputs) {
   const auto& metadata = GetOutputMetaData(0);
   auto final_result_index =
-      metadata.persistent ? c10::make_optional<int>(0) : c10::nullopt;
+      metadata.persistent ? c10::make_optional<int>(0) : std::nullopt;
   auto broadcast = BroadcastHelper(
       graph, syn_in(0), metadata.shape, metadata.dtype, final_result_index);
   syn_out(0) = std::move(broadcast);

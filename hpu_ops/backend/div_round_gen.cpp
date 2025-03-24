@@ -148,7 +148,7 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
          binaryop_inputs,
          {{shape_out,
            computation_type,
-           isNotNone ? c10::nullopt : c10::make_optional<int>(0)}}});
+           isNotNone ? std::nullopt : c10::make_optional<int>(0)}}});
     if (!isNotNone) {
       // when flow reaches here, computation_type is same as final_result_type,
       // so computation_type can be used as div's return type and that is the
@@ -164,7 +164,7 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
          {divOp.at(0).get()},
          {{shape_out,
            computation_type,
-           bNeedToCastFinalResult ? c10::nullopt
+           bNeedToCastFinalResult ? std::nullopt
                                   : c10::make_optional<int>(0)}}});
     if (!bNeedToCastFinalResult) {
       // when flow reaches here, computation_type is same as final_result_type,

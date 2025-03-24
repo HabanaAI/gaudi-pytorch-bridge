@@ -28,7 +28,7 @@ static c10::ScalarType GetResultDtype(
     bool int_to_float) {
   return habana_helpers::DTypeHelper::
       binary_op_with_optional_int_to_float_promotion(
-             inputs, int_to_float, c10::nullopt, false)
+             inputs, int_to_float, std::nullopt, false)
           .get_result_dtype();
 }
 
@@ -37,7 +37,7 @@ static c10::ScalarType GetCommonDtype(
     bool int_to_float) {
   return habana_helpers::DTypeHelper::
       binary_op_with_optional_int_to_float_promotion(
-             inputs, int_to_float, c10::nullopt, false)
+             inputs, int_to_float, std::nullopt, false)
           .get_common_dtype();
 }
 

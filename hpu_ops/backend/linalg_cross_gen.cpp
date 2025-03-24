@@ -75,7 +75,7 @@ static std::vector<synapse_helpers::tensor> Transpose(
        std::move(input),
        {{outshape,
          op->ScalarType(),
-         is_persistent ? c10::make_optional<int>(0) : c10::nullopt}},
+         is_persistent ? c10::make_optional<int>(0) : std::nullopt}},
        &trans_params,
        sizeof(trans_params)});
 }
@@ -324,7 +324,7 @@ void LinAlgCross::AddNode(
       {concat1[0].get(), concat2[0].get()},
       {{is_scd ? outshape : transpose_shape,
         ScalarType(),
-        is_scd ? c10::make_optional<int>(0) : c10::nullopt}});
+        is_scd ? c10::make_optional<int>(0) : std::nullopt}});
 
   // if syn_dim is scd, move the output of sub
   if (is_scd) {

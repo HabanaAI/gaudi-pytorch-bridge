@@ -23,11 +23,11 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include <c10/macros/Export.h>
-#include <c10/util/Optional.h>
 
 #include "jit_fork/operator_upgraders/version_map.h"
 

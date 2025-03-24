@@ -208,10 +208,10 @@ inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
           // CASE 1: No Nans and Infs special handling:
           // t = 810 us
           //
-          // CASE 2: nan_to_num(c10::nullopt, max_int_val, min_int_val);
+          // CASE 2: nan_to_num(std::nullopt, max_int_val, min_int_val);
           // t = 2190 us (x2.7 with respect to CASE 1)
           //
-          // CASE 3: In place nan_to_num_(c10::nullopt, max_int_val,
+          // CASE 3: In place nan_to_num_(std::nullopt, max_int_val,
           // min_int_val);
           // t = 1050 us (x1.3 with respect to CASE 1)
           // It can't be used as it changes src tensor contents
@@ -229,7 +229,7 @@ inline void validateDownCast(const at::Tensor& src, ScalarType dstScalarType) {
           // source type. Source type extreme values can be out of range for
           // destination type and cause unwanted error.
           src_detached =
-              src_detached.nan_to_num(c10::nullopt, max_int_val, min_int_val);
+              src_detached.nan_to_num(std::nullopt, max_int_val, min_int_val);
           src_max_val = src_detached.max().item().to<SRC_DTYPE>();
           src_min_val = src_detached.min().item().to<SRC_DTYPE>();
           condition = src_max_val <= max_int_val && src_min_val >= min_int_val;
@@ -477,7 +477,7 @@ void lazy_view_fallback_handle(
 
 at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
   const auto& t =
-      empty_hpu_lazy({}, scalar_tensor.options(), c10::nullopt, true);
+      empty_hpu_lazy({}, scalar_tensor.options(), std::nullopt, true);
 
   t.unsafeGetTensorImpl()->set_wrapped_number(true);
 
@@ -936,9 +936,9 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   auto src = src_.contiguous(src_.suggest_memory_format());
   InitSizesAndStrides(
       self,
-      c10::nullopt,
+      std::nullopt,
       self.sizes(),
-      c10::nullopt,
+      std::nullopt,
       self.suggest_memory_format());
   auto exec_mode = get_habana_lazy_executor().getExecutionMode();
   if (exec_mode != kLOWERING) {
@@ -965,9 +965,9 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
       Tensor at_internal_tensor = AtenInternalHbTensor(
           std::move(storage),
           self.dtype(),
-          c10::nullopt,
+          std::nullopt,
           src.sizes(),
-          c10::nullopt,
+          std::nullopt,
           src.suggest_memory_format());
       // Setup the tensor sizes & strides for tensor with dim = 4, else for
       // now assuming contiguous
@@ -1251,10 +1251,10 @@ Tensor empty_as_strided_lazy(
   Tensor at_internal_tensor = AtenInternalHbTensor(
       c10::Storage(storage_impl->storage()),
       self.dtype(),
-      c10::nullopt,
+      std::nullopt,
       size,
       stride,
-      c10::nullopt);
+      std::nullopt);
   if (storage_offset) {
     at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
         storage_offset.value());
@@ -1393,7 +1393,7 @@ Tensor as_strided_hpu(
       stride_in,
       storage_offset_val,
       true /*is_update_view*/,
-      c10::nullopt);
+      std::nullopt);
   if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
     flush_op();
   }
@@ -1421,7 +1421,7 @@ Tensor as_strided_hpu_lazy(
       stride_in,
       storage_offset_val,
       true /*is_update_view*/,
-      c10::nullopt);
+      std::nullopt);
 
   habana::get_and_set_tensor_const(self, out);
   if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
@@ -2285,7 +2285,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       const auto& index = o1.value();
       indices.emplace_back(std::move(index));
     } else {
-      indices.emplace_back(c10::nullopt);
+      indices.emplace_back(std::nullopt);
     }
   }
 
@@ -2431,15 +2431,15 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       at::TensorOptions options =
           self.options().dtype(c10::ScalarType::Long).device(c10::kHPU);
       auto generated_index_tensor =
-          habana_lazy::empty_hpu_lazy(arange_size, options, c10::nullopt);
+          habana_lazy::empty_hpu_lazy(arange_size, options, std::nullopt);
       generated_index_tensor = at::arange(
           0,
           self.sizes().vec()[dim],
           1,
           c10::ScalarType::Long,
-          c10::nullopt,
+          std::nullopt,
           c10::kHPU,
-          c10::nullopt);
+          std::nullopt);
       it = generated_index_tensor;
       auto it_repeat_interleave =
           it.repeat_interleave(repeat_interleaves_needed[dim]);
@@ -2539,7 +2539,7 @@ Tensor& _index_put_impl_hpu_lazy_(
     if (ind.defined()) {
       indices_out_opt_vec.emplace_back(ind);
     } else {
-      indices_out_opt_vec.emplace_back(c10::nullopt);
+      indices_out_opt_vec.emplace_back(std::nullopt);
     }
   }
   c10::List<std::optional<at::Tensor>> indices_out_opt_list(
@@ -2631,7 +2631,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   Tensor nz_shape_tensor;
   std::optional<at::Tensor> nonzero_shape_tensor =
       c10::make_optional(nz_shape_tensor);
-  NonZero k({self, c10::nullopt}, {output_shape, shape_tensor_shape});
+  NonZero k({self, std::nullopt}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -2687,7 +2687,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   using T = std::tuple<at::Tensor, at::Tensor>;
   LazyOp<T> k(
       "hpu::nonzero",
-      {self, c10::nullopt},
+      {self, std::nullopt},
       {output_shape, shape_tensor_shape},
       0);
   // nonzero returns 2 output where and shape tensor
@@ -3140,7 +3140,7 @@ std::vector<Tensor> nonzero_ip_hpu_lazy(const Tensor& self) {
   Tensor nz_shape_tensor;
   std::optional<at::Tensor> nonzero_shape_tensor =
       c10::make_optional(nz_shape_tensor);
-  NonZero k({self, c10::nullopt}, {output_shape, shape_tensor_shape});
+  NonZero k({self, std::nullopt}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -4290,7 +4290,7 @@ Tensor randperm_nogen_hpu_lazy(
   std::vector<int64_t> out_size{n.expect_int()};
   auto out_t =
       empty_hpu_lazy(out_size, options, c10::MemoryFormat::Contiguous, true);
-  out_t = randperm_hpu_lazy(n, c10::nullopt, out_t);
+  out_t = randperm_hpu_lazy(n, std::nullopt, out_t);
   return out_t.to(dtype.value_or(c10::ScalarType::Int));
 }
 
@@ -4478,7 +4478,7 @@ Tensor empty_strided_hpu_lazy(
   at::Tensor empty_tensor = empty_hpu_lazy(
       size,
       options,
-      c10::nullopt,
+      std::nullopt,
       create_storage,
       tensor_type,
       base_view,

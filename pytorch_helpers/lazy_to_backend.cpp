@@ -78,7 +78,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
           new_dtype,
           tensor_type,
           base.sizes(),
-          c10::nullopt,
+          std::nullopt,
           mem_format);
     } else {
       int64_t n_elements = multiply_integers(size);
@@ -102,7 +102,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
           new_dtype,
           tensor_type,
           size,
-          c10::nullopt,
+          std::nullopt,
           mem_format);
     }
 
@@ -156,7 +156,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
       }
 
       at_tensor = AtenFromHbLazyTensor(
-          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format);
+          std::move(hb_tensor), tensor_type, size, std::nullopt, mem_format);
 
       // As its an inplace op and we want this op to execute
       // we want to wind back status of this tensor to registered
@@ -202,11 +202,11 @@ at::Tensor habana_lazy::empty_hpu_lazy(
           key_set,
           tensor_type,
           size,
-          c10::nullopt,
+          std::nullopt,
           mem_format));
     } else {
       return (AtenFromHbLazyTensor(
-          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format));
+          std::move(hb_tensor), tensor_type, size, std::nullopt, mem_format));
     }
   }
 }

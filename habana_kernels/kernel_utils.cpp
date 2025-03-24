@@ -242,7 +242,7 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
     }
     auto dtype_helper =
         habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-            inputs, c10::nullopt, false);
+            inputs, std::nullopt, false);
 
     compute_dtype = dst_dtype = dtype_helper.get_result_dtype();
 

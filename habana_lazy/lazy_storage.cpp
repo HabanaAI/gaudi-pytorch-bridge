@@ -17,7 +17,6 @@
 #include <ATen/Tensor.h>
 #include <c10/core/Storage.h>
 #include <c10/core/TensorImpl.h>
-#include <c10/util/Optional.h>
 
 namespace habana_lazy {
 

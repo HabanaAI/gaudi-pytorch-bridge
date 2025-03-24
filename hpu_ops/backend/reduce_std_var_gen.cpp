@@ -277,7 +277,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
               temp_size,
               output_attr[1].dtype,
               (i == dimsVec.size() - 1) ? c10::make_optional<int>(1)
-                                        : c10::nullopt};
+                                        : std::nullopt};
           intermediate_syn_helpers.emplace_back(std::move(OpBackend::BuildNode(
               op,
               graph,
@@ -479,7 +479,7 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto mean_shape = ReductionOutputShape(self, dims, true)[0];
 
   std::optional<int> finalIndex =
-      keepdim ? c10::make_optional<int>(1) : c10::nullopt;
+      keepdim ? c10::make_optional<int>(1) : std::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0},
       {mean_shape, meta[1].dtype, finalIndex}};
@@ -532,7 +532,7 @@ void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dims, true)[0];
   std::optional<int> finalIndex =
-      keepdim ? c10::make_optional<int>(1) : c10::nullopt;
+      keepdim ? c10::make_optional<int>(1) : std::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0},
       {mean_shape, meta[1].dtype, finalIndex}};

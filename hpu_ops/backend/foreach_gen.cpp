@@ -248,7 +248,7 @@ SharedMetaDataVector CommonForeachBinarySharedMeta(
     auto selfsSize = selfs.size();
     metaVec.reserve(selfsSize);
     const auto& others = stack[OTHER_INDEX];
-    std::optional<c10::List<c10::IValue>> othersList = c10::nullopt;
+    std::optional<c10::List<c10::IValue>> othersList = std::nullopt;
     if (others.isList())
       othersList = others.toList();
 

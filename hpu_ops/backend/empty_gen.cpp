@@ -79,7 +79,7 @@ habana::OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
       layout,
       device,
       pin_memory,
-      c10::nullopt)};
+      std::nullopt)};
 }
 
 habana::OutputMetaDataVector EmptyLikeMeta(const at::Stack& stack) {

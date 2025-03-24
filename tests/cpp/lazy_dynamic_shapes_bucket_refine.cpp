@@ -181,7 +181,7 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
     tensor.set_requires_grad(true);
     std::array<double, 2> scale_array = {2.0, 2.0};
     c10::ArrayRef<double> scale_factors = scale_array;
-    std::optional<c10::IntArrayRef> out_size = c10::nullopt;
+    std::optional<c10::IntArrayRef> out_size = std::nullopt;
 
     auto outHabana =
         torch::upsample_nearest2d(tHabana, out_size, scale_factors);

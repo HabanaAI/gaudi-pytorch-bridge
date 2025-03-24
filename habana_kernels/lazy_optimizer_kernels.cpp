@@ -198,12 +198,12 @@ void optimizer_adamw_hpu_lazy(
           exp_avg_v[i],
           exp_avg_scales_v[i],
           gradients_v[i].scalar_type(),
-          c10::nullopt));
+          std::nullopt));
       exp_avg_sq_scaled.push_back(cast_from_fp8(
           exp_avg_sq_v[i],
           exp_avg_sq_scales_v[i],
           gradients_v[i].scalar_type(),
-          c10::nullopt));
+          std::nullopt));
     }
 
     TensorList gradients = gradients_v;

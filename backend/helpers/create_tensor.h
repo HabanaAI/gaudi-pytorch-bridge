@@ -50,7 +50,7 @@ synapse_helpers::tensor create_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     bool external,
-    const std::optional<c10::ScalarType> dtype = c10::nullopt,
+    const std::optional<c10::ScalarType> dtype = std::nullopt,
     const std::string& name = std::string(),
     const std::string& inference_name = std::string());
 

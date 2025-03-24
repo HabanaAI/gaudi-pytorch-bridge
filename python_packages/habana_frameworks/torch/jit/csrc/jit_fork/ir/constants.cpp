@@ -93,7 +93,7 @@ std::optional<Value*> tryInsertConstant(
     at::Tensor ref = val.toTensor();
     if (!insertableTensor(val.toTensor())) {
       n->destroy();
-      return c10::nullopt;
+      return std::nullopt;
     }
     if (!ref.defined()) {
       n->destroy();
@@ -123,7 +123,7 @@ std::optional<Value*> tryInsertConstant(
       n->output()->setType(val.type());
     } else {
       n->destroy();
-      return c10::nullopt;
+      return std::nullopt;
     }
   } else if (val.isString()) {
     n->s_(attr::value, val.toStringRef());
@@ -149,7 +149,7 @@ std::optional<Value*> tryInsertConstant(
       n->output()->setType(val.type());
     } else {
       n->destroy();
-      return c10::nullopt;
+      return std::nullopt;
     };
   } else if (val.isObject()) {
     const auto& ref = val.toObjectRef();
@@ -161,14 +161,14 @@ std::optional<Value*> tryInsertConstant(
       n->output()->setType(val.type());
     } else {
       n->destroy();
-      return c10::nullopt;
+      return std::nullopt;
     }
   } else if ((val.isGenericDict() && insertableIValue(val)) || (val.isEnum())) {
     n->ival_(attr::value, val);
     n->output()->setType(val.type());
   } else {
     n->destroy();
-    return c10::nullopt;
+    return std::nullopt;
   }
   if (loc)
     n->setSourceRange(*loc);
@@ -179,7 +179,7 @@ std::optional<Value*> tryInsertConstant(
 
 std::optional<IValue> toIValue(const Value* v) {
   if (v->node()->kind() != prim::Constant || v->type()->cast<FunctionType>()) {
-    return c10::nullopt;
+    return std::nullopt;
   }
   const Node* node = v->node();
   const TypePtr& type = v->type();

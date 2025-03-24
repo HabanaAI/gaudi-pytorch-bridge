@@ -26,7 +26,7 @@ at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, boo
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, std::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
   VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, true, self, boundaries, out_int32, right)

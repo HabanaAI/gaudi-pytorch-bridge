@@ -683,7 +683,7 @@ class HabanaOperator {
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
       const c10::Scalar& value,
-      std::optional<at::ScalarType> force_type = c10::nullopt);
+      std::optional<at::ScalarType> force_type = std::nullopt);
 
   template <class T, class U>
   static void CopyVecToHostPtr(const std::vector<T>& vec, void* host_ptr) {

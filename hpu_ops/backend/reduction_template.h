@@ -23,7 +23,7 @@ template <int dim_index, int keepdim_index, int dtype_index>
 OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto convert_index = [](int index) {
-    return index < 0 ? c10::nullopt : c10::make_optional<uint8_t>(index);
+    return index < 0 ? std::nullopt : c10::make_optional<uint8_t>(index);
   };
 
   auto dims = get_dims(stack, convert_index(dim_index));

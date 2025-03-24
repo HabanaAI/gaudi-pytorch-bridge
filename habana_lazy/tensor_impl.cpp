@@ -114,7 +114,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
   habana_lazy::NoAccThread no_acc_thread;
 
   auto aten_t = AtenFromHbLazyTensor(
-      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      m_tensor, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
   auto impl = c10::make_intrusive<HbLazyTensorImpl>(
       HbLazyTensor::Create(aten_t, aten_t.device()));
 
@@ -145,7 +145,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
   habana_lazy::NoAccThread no_acc_thread;
 
   auto aten_t = AtenFromHbLazyTensor(
-      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      m_tensor, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
   auto impl = c10::make_intrusive<HbLazyTensorImpl>(
       HbLazyTensor::Create(aten_t, aten_t.device()));
 
@@ -181,7 +181,7 @@ void HbLazyTensorImpl::handle_view_cycles(
     HbLazyTensor& hl_src,
     HbLazyTensor& hl_dst) {
   auto src_t = AtenFromHbLazyTensor(
-      hl_src, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      hl_src, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
   auto src_updated_t = HbLazyTensorViews::get_recent_base_tensor(src_t);
   auto hl_src_updated = GetHbLazyTensor(src_updated_t);
@@ -194,7 +194,7 @@ void HbLazyTensorImpl::handle_view_cycles(
     auto base_id = GetHbLazyTensorId(recent_base);
 
     auto dst_t = AtenFromHbLazyTensor(
-        hl_dst, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+        hl_dst, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
     auto dst_id = GetHbLazyTensorId(dst_t);
 
     if (dst_id == base_id) {
@@ -205,10 +205,10 @@ void HbLazyTensorImpl::handle_view_cycles(
 
       auto new_base_t = AtenFromHbLazyTensor(
           base_or_parent_impl->m_tensor,
-          c10::nullopt,
+          std::nullopt,
           recent_base.sizes(),
-          c10::nullopt,
-          c10::nullopt);
+          std::nullopt,
+          std::nullopt);
 
       GetHbLazyTensor(new_base_t).SetTensorData(base_tensor_data);
 
@@ -348,7 +348,7 @@ const at::Storage& HbLazyTensorImpl::storage() const {
   // its a bit dangerous and we need to ensure storage calls are made only after
   // backend memory allocation for output tensors
   auto aten_t = AtenFromHbLazyTensor(
-      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      m_tensor, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
   // ensure proper order of locking StridedViewContext and HbContextArena
   // mutexes always first mutex is StridedViewContext to be locked inside

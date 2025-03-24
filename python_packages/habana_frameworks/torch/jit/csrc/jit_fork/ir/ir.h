@@ -38,7 +38,6 @@
 #include <ATen/core/ivalue.h>
 #include <ATen/core/jit_type.h>
 #include <c10/util/ArrayRef.h>
-#include <c10/util/Optional.h>
 
 #include <torch/csrc/Export.h>
 #include <torch/csrc/jit/runtime/operator.h>
@@ -369,14 +368,14 @@ struct FunctionSchemaMap {
   std::optional<T> find(const FunctionSchema& schema) const {
     const auto it = map.find(Symbol::fromQualString(schema.name()));
     if (it == map.end()) {
-      return c10::nullopt;
+      return std::nullopt;
     }
     for (auto vit = it->second.begin(); vit != it->second.end(); ++vit) {
       if (vit->first == schema) {
         return vit->second;
       }
     }
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   // TODO: return iterator

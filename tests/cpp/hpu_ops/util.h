@@ -23,15 +23,15 @@ class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
   void Compare(
       const torch::Tensor& cpu_result,
       const torch::Tensor& hpu_result,
-      std::optional<double> rtol = c10::nullopt,
-      std::optional<double> atol = c10::nullopt) const;
+      std::optional<double> rtol = std::nullopt,
+      std::optional<double> atol = std::nullopt) const;
 
   template <typename... Ts>
   void Compare(
       const std::tuple<Ts...>& cpu_result,
       const std::tuple<Ts...>& hpu_result,
-      std::optional<double> rtol = c10::nullopt,
-      std::optional<double> atol = c10::nullopt) const;
+      std::optional<double> rtol = std::nullopt,
+      std::optional<double> atol = std::nullopt) const;
 
   torch::Tensor& GetCpuInput(int index) {
     return m_cpu_inputs.at(index);
@@ -81,8 +81,8 @@ class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
 
   template <typename T = float>
   T GenerateScalar(
-      std::optional<T> min = c10::nullopt,
-      std::optional<T> max = c10::nullopt) const;
+      std::optional<T> min = std::nullopt,
+      std::optional<T> max = std::nullopt) const;
 
  private:
   const std::vector<int64_t> m_dims = {4, 5, 6};

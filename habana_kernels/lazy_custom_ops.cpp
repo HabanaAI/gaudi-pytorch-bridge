@@ -23,7 +23,7 @@ namespace {
 
 at::Tensor create_h2d_scale(void* scale) {
   auto scale_tensor = habana_lazy::empty_hpu_lazy(
-      {1}, at::ScalarType::Float, c10::nullopt, false, HOST_TO_DEVICE_TENSOR);
+      {1}, at::ScalarType::Float, std::nullopt, false, HOST_TO_DEVICE_TENSOR);
 
   auto hl_params_shape =
       habana_lazy::GetOrCreateHbLazyTensor(scale_tensor, c10::kHPU);

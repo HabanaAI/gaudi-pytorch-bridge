@@ -109,9 +109,9 @@ class HpuSearchSortedOpTest
     at::Tensor hpu_value = cpu_value.to(torch::kHPU);
 
     at::Tensor hpu_result = torch::searchsorted(
-        hpu_sorted, hpu_value, out_int32, right, c10::nullopt, hpu_indices);
+        hpu_sorted, hpu_value, out_int32, right, std::nullopt, hpu_indices);
     at::Tensor cpu_result = torch::searchsorted(
-        cpu_sorted, cpu_value, out_int32, right, c10::nullopt, cpu_indices);
+        cpu_sorted, cpu_value, out_int32, right, std::nullopt, cpu_indices);
 
     Compare(cpu_result, hpu_result);
   }
