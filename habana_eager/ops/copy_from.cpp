@@ -465,7 +465,7 @@ at::Tensor _copy_from(
     if (!same_data_type) {
       auto tmp = at::empty_like(src, src.options().device(dst.device()));
       tmp = _copy_from_h2d(src, tmp, non_blocking);
-      result = _hpu_cast(dst, tmp);
+      result = _copy_from_d2d(tmp, dst);
     } else {
       result = _copy_from_h2d(src, dst, non_blocking);
     }
