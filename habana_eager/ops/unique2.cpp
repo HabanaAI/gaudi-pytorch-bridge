@@ -84,7 +84,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
 
   } else if (!return_inverse != !return_counts) {
     auto hpu_op =
-        habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>>{
+        habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{
             "hpu::_unique2_eager",
             {self, sorted, return_inverse, return_counts},
             {output_shape, valid_count_shape, output_shape},
@@ -115,7 +115,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
     }
 
   } else {
-    auto hpu_op = habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>>{
+    auto hpu_op = habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>{
         "hpu::_unique2_eager",
         {self, sorted, return_inverse, return_counts},
         {output_shape, valid_count_shape},

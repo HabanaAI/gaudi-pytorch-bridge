@@ -454,7 +454,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
   const auto [bias] = get_or_create_tensor<TENSOR_IDX>(
       op, graph, bias_opt, rm_size, c10::ScalarType::Float, 0, biasStorageOpt);
   std::optional<sh::tensor> runningMeanStorageOpt;
-  const auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(
+  auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(
       op,
       graph,
       running_mean_opt,
@@ -462,6 +462,8 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
       c10::ScalarType::Float,
       0,
       runningMeanStorageOpt);
+  running_mean = cast_if_necessary_or_default(
+      &op, graph, running_mean_opt, running_mean, runningMeanStorageOpt);
   std::optional<sh::tensor> runningVarStorageOpt;
   auto [running_var] = get_or_create_tensor<TENSOR_IDX>(
       op,
