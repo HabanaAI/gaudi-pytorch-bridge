@@ -15,7 +15,7 @@
 
 namespace habana {
 
-QRMode_t GetQrMode(c10::string_view mode_str) {
+QRMode_t GetQrMode(std::string_view mode_str) {
   if (mode_str == "complete") {
     return QRMode_t::COMPLETE;
   } else if (mode_str == "r") {

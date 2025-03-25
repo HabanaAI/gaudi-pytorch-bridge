@@ -6270,9 +6270,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -6333,7 +6333,7 @@ fp8_sdpa_recomp_fwd_common(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     T d_scale_q,
     T d_scale_k,
     T d_scale_v,
@@ -6343,7 +6343,7 @@ fp8_sdpa_recomp_fwd_common(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type,
+    std::string_view seq_padding_type,
     c10::ScalarType fwdOutType) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -6471,7 +6471,7 @@ fp8_sdpa_recomp_fwd_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor> d_scale_q,
     const std::optional<at::Tensor> d_scale_k,
     const std::optional<at::Tensor> d_scale_v,
@@ -6481,7 +6481,7 @@ fp8_sdpa_recomp_fwd_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
       (!q_scale_o.has_value()))
@@ -6526,7 +6526,7 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const double d_scale_q,
     const double d_scale_k,
     const double d_scale_v,
@@ -6536,7 +6536,7 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
     fwdOutType = at::ScalarType::BFloat16;
@@ -6572,7 +6572,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,
@@ -6581,7 +6581,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -6667,9 +6667,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   if (p > 0.0) {
@@ -6735,7 +6735,7 @@ fp8_sdpa_recomp_bwd_lazy(
     const bool is_causal,
     const double p,
     const double scale,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,

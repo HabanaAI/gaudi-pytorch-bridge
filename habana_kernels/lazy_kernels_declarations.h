@@ -594,9 +594,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type);
+    std::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const at::Tensor& q,
@@ -606,7 +606,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,
@@ -615,7 +615,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type);
+    std::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const at::Tensor& grad,
@@ -662,7 +662,7 @@ fp8_sdpa_recomp_bwd_lazy(
     const bool is_causal,
     const double p,
     const double scale,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,
@@ -683,9 +683,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type);
+    std::string_view seq_padding_type);
 std::tuple<
     at::Tensor,
     at::Tensor,
@@ -702,7 +702,7 @@ fp8_sdpa_recomp_fwd_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor> d_scale_q,
     const std::optional<at::Tensor> d_scale_k,
     const std::optional<at::Tensor> d_scale_v,
@@ -712,7 +712,7 @@ fp8_sdpa_recomp_fwd_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type);
+    std::string_view seq_padding_type);
 
 std::tuple<
     at::Tensor,
@@ -730,7 +730,7 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const double d_scale_q,
     const double d_scale_k,
     const double d_scale_v,
@@ -740,7 +740,7 @@ fp8_sdpa_recomp_fwd_scalar_lazy(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type);
+    std::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const at::Tensor& grad,
@@ -754,6 +754,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const bool is_causal,
     const double p,
     const double scale,
-    const c10::string_view softmax_mode,
+    const std::string_view softmax_mode,
     const at::Tensor& fwd_out);
 } // namespace habana_lazy

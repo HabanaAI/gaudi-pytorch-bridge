@@ -72,7 +72,7 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
     std::vector<synTensor> binaryop_inputs,
-    const std::optional<c10::string_view>& rounding_mode) {
+    const std::optional<std::string_view>& rounding_mode) {
   // Check if mode is other than None, i.e. "floor" or "trunc"
   bool isNotNone = rounding_mode.has_value();
 
@@ -188,8 +188,8 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
 void DivRoundModeOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  std::optional<c10::string_view> rounding_mode =
-      stack.at(2).toOptional<c10::string_view>();
+  std::optional<std::string_view> rounding_mode =
+      stack.at(2).toOptional<std::string_view>();
   std::vector<synTensor> binaryop_inputs{syn_in(0), syn_in(1)};
   auto out =
       DivCommonFunction(this, graph, stack, binaryop_inputs, rounding_mode);

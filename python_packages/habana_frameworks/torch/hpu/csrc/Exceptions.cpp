@@ -29,7 +29,7 @@ namespace torch {
 
 void processErrorMsgInplace(std::string& str) {
   // Translate Aten types to their respective pytorch ones
-  constexpr std::array<std::pair<c10::string_view, c10::string_view>, 64>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 64>
       changes{{
           {"Variable[SparseHPUByteType]", "torch.hpu.sparse.ByteTensor"},
           {"Variable[SparseHPUCharType]", "torch.hpu.sparse.CharTensor"},

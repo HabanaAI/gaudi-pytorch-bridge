@@ -27,7 +27,7 @@ std::shared_ptr<void> IndexReduceFillParams(
   }
 
   const auto mode = stack.at(4).toStringView();
-  static const std::unordered_map<c10::string_view, IndexReduceMode_t>
+  static const std::unordered_map<std::string_view, IndexReduceMode_t>
       reduceModes = {
           {"amax", IndexReduceMode_t::INDEX_REDUCE_AMAX},
           {"amin", IndexReduceMode_t::INDEX_REDUCE_AMIN},

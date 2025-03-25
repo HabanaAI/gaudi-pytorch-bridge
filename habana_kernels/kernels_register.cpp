@@ -1444,9 +1444,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1484,7 +1484,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,
@@ -1493,7 +1493,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1546,9 +1546,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(

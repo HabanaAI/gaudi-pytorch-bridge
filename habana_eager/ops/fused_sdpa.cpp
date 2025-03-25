@@ -48,9 +48,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_sdpa_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "sdpa_fwd :",

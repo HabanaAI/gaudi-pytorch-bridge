@@ -212,7 +212,7 @@ class StackGetter {
       isDoubleList,
       toDoubleVector,
       "double list")
-  GET_NEXT_INPUT_INTERNAL(c10::string_view, isString, toStringView, "string")
+  GET_NEXT_INPUT_INTERNAL(std::string_view, isString, toStringView, "string")
 #undef GET_NEXT_INPUT_INTERNAL
 
 #undef MATCH_INPUT_INTERNAL_TO_TYPE

@@ -40,8 +40,8 @@ std::string get_synapse_lib_path(void) {
       continue;
     }
 
-    absl::string_view soname{line.c_str() + name_start + 1};
-    absl::string_view sopath{line.c_str() + path_start};
+    std::string_view soname{line.c_str() + name_start + 1};
+    std::string_view sopath{line.c_str() + path_start};
     // in docker the name is libSynapse.so.1
     if (soname == "libSynapse.so" || soname == "libSynapse.so.1") {
       return std::string{sopath};

@@ -26,14 +26,14 @@ std::shared_ptr<void> ScatterReduceParams(
     size_t& size) {
   PARAMS_STUB(ns_ScatterReduceKernel::Params);
   const auto dim = stack.at(DIM_INDEX).toInt();
-  auto reduce = stack.at(REDUCE_INDEX).to<c10::string_view>();
+  auto reduce = stack.at(REDUCE_INDEX).to<std::string_view>();
   auto baseScatterOp = (reduce == "add" || reduce == "multiply");
   auto includeSelf =
       baseScatterOp ? true : stack.at(INCLUDE_SELF_INDEX).toBool();
 
   ScatterReduceMode_t mode;
 
-  static const std::unordered_map<c10::string_view, ScatterReduceMode_t>
+  static const std::unordered_map<std::string_view, ScatterReduceMode_t>
       reduceModes = {
           {"sum", ScatterReduceMode_t::SCATTER_REDUCE_SUM},
           {"add", ScatterReduceMode_t::SCATTER_REDUCE_SUM},

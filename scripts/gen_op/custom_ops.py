@@ -59,8 +59,8 @@ if is_pytorch_older_than("2.7.0"):
         "int[]": "IntArrayRef",
         "int[]?": "OptionalIntArrayRef",
         "int[1]?": "OptionalIntArrayRef",
-        "str": "c10::string_view",
-        "str?": "std::optional<c10::string_view>",
+        "str": "std::string_view",
+        "str?": "std::optional<std::string_view>",
     }
 
     output_types_map = {
@@ -114,8 +114,8 @@ else:
         "int[]": "at::IntArrayRef",
         "int[]?": "at::OptionalIntArrayRef",
         "int[1]?": "at::OptionalIntArrayRef",
-        "str": "c10::string_view",
-        "str?": "::std::optional<c10::string_view>",
+        "str": "std::string_view",
+        "str?": "::std::optional<std::string_view>",
     }
 
     output_types_map = {

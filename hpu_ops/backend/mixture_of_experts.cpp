@@ -219,7 +219,7 @@ MixtureOfExperts::MixtureOfExperts(
           false),
       measurement_mode(measurement_mode) {}
 
-static const std::map<c10::string_view, MoeActivationMode_t> activationModeMap =
+static const std::map<std::string_view, MoeActivationMode_t> activationModeMap =
     {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
      {"relu", MoeActivationMode_t::MOE_ACTIVATION_MODE_RELU},
      {"silu", MoeActivationMode_t::MOE_ACTIVATION_MODE_SILU}};
@@ -233,7 +233,7 @@ std::shared_ptr<void> FillMixtureOfExpertsParams(
     const bool dynamic_scale) {
   const auto permuted_weights = stack.at(permuted_weights_idx).toBool();
   const auto activation_mode =
-      stack.at(permuted_weights_idx + 1).to<c10::string_view>();
+      stack.at(permuted_weights_idx + 1).to<std::string_view>();
   auto activationIterator = activationModeMap.find(activation_mode);
   HABANA_ASSERT(
       activationIterator != activationModeMap.end(),

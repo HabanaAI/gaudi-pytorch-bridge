@@ -234,7 +234,7 @@ static void fillSdpaParams(
     double scale,
     bool is_causal,
     bool is_inference,
-    c10::string_view softmax_mode = "",
+    std::string_view softmax_mode = "",
     unsigned int flags = 0) {
   SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
   if (softmax_mode == "fast") {
@@ -277,9 +277,9 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
@@ -344,7 +344,7 @@ void Fp8SDPAFwd::AddNode(
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto d_scale_q = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto d_scale_k = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto d_scale_v = stackGetter.getNextInput<std::optional<TensorsPair>>();
@@ -353,7 +353,7 @@ void Fp8SDPAFwd::AddNode(
   auto d_scale_s = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto is_amax_s = stackGetter.getNextInput<bool>();
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
@@ -760,9 +760,9 @@ void SDPARecompFwd::AddNode(
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto requires_backward = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
@@ -846,7 +846,7 @@ void Fp8SDPARecompFwd::AddNode(
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto requires_backward = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto d_scale_q =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto d_scale_k =
@@ -865,7 +865,7 @@ void Fp8SDPARecompFwd::AddNode(
   bool is_amax = is_amax_s or is_amax_o;
 
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
@@ -1024,7 +1024,7 @@ void SDPARecompBwd::AddNode(
   auto is_causal = stackGetter.getNextInput<bool>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
   ns_Sdpa::ParamsV3 params{};
@@ -1083,7 +1083,7 @@ void Fp8SDPARecompBwd::AddNode(
   auto is_causal = stackGetter.getNextInput<bool>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto d_scale_q = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto d_scale_k = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto d_scale_v = stackGetter.getNextInput<std::optional<TensorsPair>>();

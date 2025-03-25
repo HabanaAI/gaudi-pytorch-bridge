@@ -53,7 +53,7 @@ uint64_t get_memory_size() {
 SynapseProfilerSource::SynapseProfilerSource() {
   auto env = std::getenv("HABANA_PROFILE");
   bool hpu_profiling_available =
-      (env != nullptr) && (absl::string_view{env} != "0");
+      (env != nullptr) && (std::string_view{env} != "0");
 
   if (!hpu_profiling_available) {
     throw std::runtime_error(

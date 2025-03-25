@@ -176,9 +176,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type);
+    std::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const at::Tensor& q,
@@ -188,7 +188,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,
@@ -197,7 +197,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type);
+    std::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const at::Tensor& grad,
@@ -243,7 +243,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const bool is_causal,
     const double p,
     const double scale,
-    const c10::string_view softmax_mode,
+    const std::string_view softmax_mode,
     const at::Tensor& fwd_out);
 
 namespace vision {

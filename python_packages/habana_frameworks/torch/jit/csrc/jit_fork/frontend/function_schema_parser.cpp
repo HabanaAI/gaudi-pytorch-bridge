@@ -24,7 +24,6 @@
 
 #include <ATen/core/Reduction.h>
 #include <ATen/core/type_factory.h>
-#include <c10/util/string_utils.h>
 
 #include <functional>
 #include <memory>
@@ -47,7 +46,7 @@ namespace {
 struct SchemaParser {
   explicit SchemaParser(const std::string& str)
       : L(std::make_shared<Source>(
-            c10::string_view(str),
+            std::string_view(str),
             std::nullopt,
             0,
             Source::DONT_COPY)),

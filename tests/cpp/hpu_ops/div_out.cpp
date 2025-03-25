@@ -72,7 +72,7 @@ HPU_DIVIDE_OUT_SCALAR_TEST(int8);
 class DivideScalarModeOutHpuOpTest
     : public HpuOpTestUtil,
       public testing::WithParamInterface<
-          std::tuple<c10::ScalarType, std::optional<c10::string_view>>> {};
+          std::tuple<c10::ScalarType, std::optional<std::string_view>>> {};
 
 // Test cases which include both (tensor|scalar) with type_promotion
 TEST_P(DivideScalarModeOutHpuOpTest, div_out_scalar_mode) {
@@ -101,7 +101,7 @@ INSTANTIATE_TEST_SUITE_P(
             torch::kBFloat16,
             torch::kInt,
             torch::kInt8),
-        ::testing::Values<std::optional<c10::string_view>>(
+        ::testing::Values<std::optional<std::string_view>>(
             "floor",
             "trunc",
             std::nullopt)));

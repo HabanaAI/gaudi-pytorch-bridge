@@ -142,7 +142,7 @@ void ScatterWithReduceOperator::AddNode(
   const auto dim = stack.at(1).toInt();
   const auto index = stack.at(2).toTensor();
   const auto value = stack.at(3).toScalar();
-  const auto reduce = stack.at(4).to<c10::string_view>();
+  const auto reduce = stack.at(4).to<std::string_view>();
 
   if (index.dim() == 0) {
     SET_SIZE_STRIDE_1D(index);

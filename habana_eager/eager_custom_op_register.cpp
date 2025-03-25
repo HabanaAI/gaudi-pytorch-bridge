@@ -447,9 +447,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_fwd :",
@@ -532,9 +532,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "sdpa_fwd :",
@@ -608,7 +608,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,
@@ -617,7 +617,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
     const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "fp8_sdpa_fwd :",
@@ -735,7 +735,7 @@ fp8_sdpa_recomp_fwd_common(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     T d_scale_q,
     T d_scale_k,
     T d_scale_v,
@@ -745,7 +745,7 @@ fp8_sdpa_recomp_fwd_common(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type,
+    std::string_view seq_padding_type,
     c10::ScalarType fwdOutType) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
@@ -888,7 +888,7 @@ fp8_sdpa_recomp_fwd(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,
@@ -898,7 +898,7 @@ fp8_sdpa_recomp_fwd(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
 
@@ -944,7 +944,7 @@ fp8_sdpa_recomp_scalar_fwd(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const double d_scale_q,
     const double d_scale_k,
     const double d_scale_v,
@@ -954,7 +954,7 @@ fp8_sdpa_recomp_scalar_fwd(
     const bool is_amax_s,
     const bool is_amax_o,
     const std::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
@@ -995,7 +995,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_recomp_bwd(
     const bool is_causal,
     const double p,
     const double scale,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const std::optional<at::Tensor>& d_scale_q,
     const std::optional<at::Tensor>& d_scale_k,
     const std::optional<at::Tensor>& d_scale_v,

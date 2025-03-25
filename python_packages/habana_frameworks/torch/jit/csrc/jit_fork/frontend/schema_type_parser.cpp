@@ -26,7 +26,6 @@
 #include <ATen/core/jit_type.h>
 #include <ATen/core/symbol.h>
 #include <ATen/core/type_factory.h>
-#include <c10/util/string_utils.h>
 #include <torch/custom_class.h>
 
 #include <algorithm>

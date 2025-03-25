@@ -26,7 +26,7 @@ std::vector<at::Tensor> mixture_of_experts_fwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -38,7 +38,7 @@ at::Tensor mixture_of_experts_recomp_fwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -49,7 +49,7 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -60,7 +60,7 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -80,7 +80,7 @@ std::vector<at::Tensor> mixture_of_experts_bwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::vector<int64_t> router_weights_size);
@@ -94,7 +94,7 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -112,7 +112,7 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::vector<int64_t> router_weights_size);
@@ -125,7 +125,7 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -141,7 +141,7 @@ class MixtureOfExpertsFunction
       const c10::ArrayRef<torch::autograd::Variable>& w2,
       const c10::ArrayRef<torch::autograd::Variable>& w3,
       const bool permuted_weights,
-      const c10::string_view activation,
+      const std::string_view activation,
       const int64_t experts_min,
       const int64_t experts_max) {
     at::AutoDispatchBelowADInplaceOrView g;
@@ -266,7 +266,7 @@ class MixtureOfExpertsRecompFunction
       const c10::ArrayRef<torch::autograd::Variable>& w2,
       const c10::ArrayRef<torch::autograd::Variable>& w3,
       const bool permuted_weights,
-      const c10::string_view activation,
+      const std::string_view activation,
       const int64_t experts_min,
       const int64_t experts_max) {
     at::AutoDispatchBelowADInplaceOrView g;
@@ -369,7 +369,7 @@ class MixtureOfExpertsFusedWeightsFunction
       const c10::ArrayRef<torch::autograd::Variable>& w12,
       const c10::ArrayRef<torch::autograd::Variable>& w3,
       const bool permuted_weights,
-      const c10::string_view activation,
+      const std::string_view activation,
       const int64_t experts_min,
       const int64_t experts_max) {
     at::AutoDispatchBelowADInplaceOrView g;
@@ -484,7 +484,7 @@ class MixtureOfExpertsRecompFusedWeightsFunction
       const c10::ArrayRef<torch::autograd::Variable>& w12,
       const c10::ArrayRef<torch::autograd::Variable>& w3,
       const bool permuted_weights,
-      const c10::string_view activation,
+      const std::string_view activation,
       const int64_t experts_min,
       const int64_t experts_max) {
     at::AutoDispatchBelowADInplaceOrView g;

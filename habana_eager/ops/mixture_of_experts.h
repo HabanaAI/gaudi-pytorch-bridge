@@ -27,7 +27,7 @@ at::Tensor mixture_of_experts(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp);
@@ -39,7 +39,7 @@ at::Tensor mixture_of_experts_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp);
@@ -52,7 +52,7 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const bool measurement_mode);
@@ -65,7 +65,7 @@ mixture_of_experts_fp8_measurement_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const bool measurement_mode);
@@ -83,7 +83,7 @@ at::Tensor mixture_of_experts_fp8(
     const at::TensorList d_scale_w2,
     const at::TensorList d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -98,7 +98,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights(
     const at::TensorList d_scale_w12,
     const at::TensorList d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -115,7 +115,7 @@ at::Tensor mixture_of_experts_fp8_scalars(
     const c10::ArrayRef<double>& d_scale_w2,
     const c10::ArrayRef<double>& d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -130,7 +130,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars(
     const c10::ArrayRef<double>& d_scale_w12,
     const c10::ArrayRef<double>& d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -146,7 +146,7 @@ at::Tensor mixture_of_experts_fp8_dynamic(
     const at::TensorList d_scale_w2,
     const at::TensorList d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -160,7 +160,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_dynamic(
     const at::TensorList d_scale_w12,
     const at::TensorList d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -176,7 +176,7 @@ at::Tensor mixture_of_experts_fp8_scalars_dynamic(
     const c10::ArrayRef<double>& d_scale_w2,
     const c10::ArrayRef<double>& d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -190,7 +190,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars_dynamic(
     const c10::ArrayRef<double>& d_scale_w12,
     const c10::ArrayRef<double>& d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max);
 
@@ -202,7 +202,7 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp);
@@ -214,7 +214,7 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp);

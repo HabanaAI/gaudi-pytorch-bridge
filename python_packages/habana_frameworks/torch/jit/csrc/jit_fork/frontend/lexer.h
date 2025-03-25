@@ -346,7 +346,7 @@ struct TORCH_API SharedParserData {
 #if IS_PYTORCH_AT_LEAST(2, 7)
   bool isNumber(std::string_view str, size_t start, size_t* len) {
 #else
-  bool isNumber(c10::string_view str, size_t start, size_t* len) {
+  bool isNumber(std::string_view str, size_t start, size_t* len) {
 #endif
     char first = str[start];
     // strtod allows numbers to start with + or - or nan or inf
@@ -371,7 +371,7 @@ struct TORCH_API SharedParserData {
 #if IS_PYTORCH_AT_LEAST(2, 7)
   bool isCharCount(char c, std::string_view str, size_t start, int len) {
 #else
-  bool isCharCount(char c, c10::string_view str, size_t start, int len) {
+  bool isCharCount(char c, std::string_view str, size_t start, int len) {
 #endif
     // count checks from [start, start + len)
     return start + len <= str.size() &&
@@ -385,7 +385,7 @@ struct TORCH_API SharedParserData {
 #if IS_PYTORCH_AT_LEAST(2, 7)
   bool isString(std::string_view str, size_t start, size_t* len) {
 #else
-  bool isString(c10::string_view str, size_t start, size_t* len) {
+  bool isString(std::string_view str, size_t start, size_t* len) {
 #endif
     char quote = str[start];
     if (quote != '\"' && quote != '\'')
@@ -422,7 +422,7 @@ struct TORCH_API SharedParserData {
 #if IS_PYTORCH_AT_LEAST(2, 7)
     std::string_view rest_line = str_iter.rest_line();
 #else
-    c10::string_view rest_line = str_iter.rest_line();
+    std::string_view rest_line = str_iter.rest_line();
 #endif
     const std::string type_string = "# type:";
     if (rest_line.size() < type_string.length()) {

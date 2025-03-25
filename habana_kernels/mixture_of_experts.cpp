@@ -35,7 +35,7 @@ std::vector<at::Tensor> mixture_of_experts_fwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_LAZY_OP_TRACE;
@@ -83,7 +83,7 @@ at::Tensor mixture_of_experts_recomp_fwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_LAZY_OP_TRACE;
@@ -133,7 +133,7 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_LAZY_TRACE;
@@ -179,7 +179,7 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_LAZY_TRACE;
@@ -233,7 +233,7 @@ std::vector<at::Tensor> mixture_of_experts_bwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::vector<int64_t> router_weights_size) {
@@ -314,7 +314,7 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_LAZY_OP_TRACE;
@@ -383,7 +383,7 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::vector<int64_t> router_weights_size) {
@@ -456,7 +456,7 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_LAZY_TRACE;
@@ -519,7 +519,7 @@ at::Tensor mixture_of_experts_lazy(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {
@@ -565,7 +565,7 @@ at::Tensor mixture_of_experts_fused_weights_lazy(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {
@@ -610,7 +610,7 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const bool measurement_mode) {
@@ -657,7 +657,7 @@ mixture_of_experts_fp8_measurement_fused_weights_lazy(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const bool measurement_mode) {
@@ -702,7 +702,7 @@ at::Tensor mixture_of_experts_fwd_autograd_lazy(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {
@@ -752,7 +752,7 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd_lazy(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {

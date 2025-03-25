@@ -48,7 +48,7 @@ struct TORCH_API StringCordView {
 #if IS_PYTORCH_AT_LEAST(2, 7)
       std::vector<std::string_view> inputs,
 #else
-      std::vector<c10::string_view> inputs,
+      std::vector<std::string_view> inputs,
 #endif
       std::vector<std::shared_ptr<std::string>> ownerships);
 
@@ -85,7 +85,7 @@ struct TORCH_API StringCordView {
 #if IS_PYTORCH_AT_LEAST(2, 7)
   std::string_view piece(size_t index) const {
 #else
-  c10::string_view piece(size_t index) const {
+  std::string_view piece(size_t index) const {
 #endif
     return pieces_[index];
   }
@@ -172,7 +172,7 @@ struct TORCH_API StringCordView {
 #if IS_PYTORCH_AT_LEAST(2, 7)
     std::string_view rest_line() const {
 #else
-    c10::string_view rest_line() const {
+    std::string_view rest_line() const {
 #endif
       if (line_ >= str_->pieces_.size()) {
         return "";
@@ -181,7 +181,7 @@ struct TORCH_API StringCordView {
 #if IS_PYTORCH_AT_LEAST(2, 7)
       std::string_view cur_line = str_->pieces_[line_];
 #else
-      c10::string_view cur_line = str_->pieces_[line_];
+      std::string_view cur_line = str_->pieces_[line_];
 #endif
       return cur_line.substr(pos_, std::string::npos);
     }
@@ -213,7 +213,7 @@ struct TORCH_API StringCordView {
 #if IS_PYTORCH_AT_LEAST(2, 7)
   std::vector<std::string_view> pieces_;
 #else
-  std::vector<c10::string_view> pieces_;
+  std::vector<std::string_view> pieces_;
 #endif
   std::vector<size_t> accumulated_sizes_;
   std::vector<std::shared_ptr<std::string>> owned_strings_;
@@ -233,7 +233,7 @@ struct TORCH_API Source {
 #if IS_PYTORCH_AT_LEAST(2, 7)
       std::string_view text_view,
 #else
-      c10::string_view text_view,
+      std::string_view text_view,
 #endif
       std::optional<std::string> filename = std::nullopt,
       size_t starting_line_no = 0,
@@ -363,7 +363,7 @@ struct TORCH_API SourceRange {
 #if IS_PYTORCH_AT_LEAST(2, 7)
   const std::string_view token_text() const {
 #else
-  const c10::string_view token_text() const {
+  const std::string_view token_text() const {
 #endif
     size_t size = end() - start();
     return start_iter_.rest_line().substr(0, size);
