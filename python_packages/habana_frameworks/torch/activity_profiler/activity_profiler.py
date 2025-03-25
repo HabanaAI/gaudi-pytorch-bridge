@@ -113,6 +113,12 @@ def register_habana_activity_profiler():
                 return original_activity.CPU
             if activity == torch.profiler.ProfilerActivity.CUDA:
                 return original_activity.CUDA
+            if activity == torch.profiler.ProfilerActivity.XPU:
+                return original_activity.XPU
+            if activity == torch.profiler.ProfilerActivity.MTIA:
+                return original_activity.MTIA
+            if activity == torch.profiler.ProfilerActivity.PrivateUse1:
+                return original_activity.PrivateUse1
 
         def _get_mandatory_events(self):
             if is_lazy():
@@ -141,6 +147,9 @@ def register_habana_activity_profiler():
         CPU = 1
         CUDA = 2
         HPU = 3
+        XPU = 4
+        MTIA = 5
+        PrivateUse1 = 6
 
     torch.profiler.profile = habana_profile
     torch.profiler.ProfilerActivity = HabanaProfilerActivity
