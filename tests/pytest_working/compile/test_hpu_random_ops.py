@@ -308,8 +308,8 @@ def test_multinomial(shape, dtype, replacement):
         diff_2 = torch.abs(result_2_prob - original_prob)
         standard_error = torch.sqrt((original_prob * (1 - original_prob)) / num_samples)
 
-        assert np.alltrue((3 * standard_error > diff_1).numpy())
-        assert np.alltrue((3 * standard_error > diff_2).numpy())
+        assert np.all((3 * standard_error > diff_1).numpy())
+        assert np.all((3 * standard_error > diff_2).numpy())
 
     check_ops_executed_in_jit_ir("habana_multinomial")
 
