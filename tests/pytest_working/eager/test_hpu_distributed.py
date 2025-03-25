@@ -19,7 +19,6 @@
 import pytest
 import torch
 import torch.distributed._functional_collectives as funcol
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from torch.distributed._tensor import (
     Replicate,
     Shard,
@@ -33,10 +32,8 @@ from torch.testing._internal.distributed._tensor.common_dtensor import (
     with_comms,
 )
 
-if not is_pytorch_older_than("2.7.0"):
-    from torch.testing._internal.distributed._tensor.common_dtensor import DEVICE_COUNT
-
 funcol_py = torch.ops.c10d_functional
+CPU_BACKEND = "gloo"
 
 
 def check_devices():
@@ -61,23 +58,19 @@ def mm_all_gather_forward(device_mesh, A, B):
 
 
 class TestLocalMap(DTensorTestBase):
-    def set_hpu_device_type(self):
-        self.device_type = "hpu"
+    @property
+    def backend(self) -> str:
+        return CPU_BACKEND
 
     @property
     def world_size(self):
-        if is_pytorch_older_than("2.7.0"):
-            return 2
-        else:
-            return min(DEVICE_COUNT, 2)
+        return 2
 
     @pytest.mark.skipif(check_devices(), reason="")
     @with_comms
     def test_local_map_out_placements_allreduce(self):
-        if is_pytorch_older_than("2.7.0") and torch.cuda.device_count() < self.world_size:
+        if torch.cuda.device_count() < self.world_size:
             return
-        else:
-            self.set_hpu_device_type()
 
         device_mesh = self.build_device_mesh()
         comm_mode = CommDebugMode()
@@ -123,9 +116,6 @@ class TestLocalMap(DTensorTestBase):
     def test_local_map_out_placements_allgather(self):
 
         # Test 1: wrap out into DTensor w/ `out_placements`
-        if not is_pytorch_older_than("2.7.0"):
-            self.set_hpu_device_type()
-
         device_mesh = self.build_device_mesh()
         comm_mode = CommDebugMode()
 
