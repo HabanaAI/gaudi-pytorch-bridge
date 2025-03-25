@@ -32,9 +32,6 @@ bool IsInt64Supported() {
   // Until issues with failing tests are resolved result shall remain false
   auto result = true;
 
-  if (habana::HPUDeviceContext::get_device().name() == "GAUDI")
-    result = false;
-
   if (IS_ENV_FLAG_DEFINED_NEW(PT_ENABLE_INT64_SUPPORT)) {
     result = GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT);
   }

@@ -36,8 +36,8 @@
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "backend/synapse_helpers/util.h"
 #include "common/utils.h"
-#include "habana_helpers/towl.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/fallback_helper.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
@@ -261,9 +261,6 @@ device::device(
     HABANA_ASSERT(
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES),
         "PT_HPU_ENABLE_LAZY_COLLECTIVES==true required when PT_HPU_ENABLE_SFG==true");
-    HABANA_ASSERT(
-        type_ != synDeviceGaudi,
-        "PT_HPU_ENABLE_SFG==true cannot be used on Gaudi1");
   }
   is_hcl_same_addr_enabled_ =
       GET_ENV_FLAG_NEW(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
@@ -376,7 +373,7 @@ synapse_error_v<device_handle> device::create(
   auto synapse_session =
       synapse_helpers::get_value(std::move(synapse_session_create_result));
 
-  synDeviceType acquired_device_type = synDeviceGaudi;
+  synDeviceType acquired_device_type = synDeviceGaudi2;
   auto s_wsize = std::getenv("WORLD_SIZE")
       ? std::getenv("WORLD_SIZE")
       : std::getenv("OMPI_COMM_WORLD_SIZE");
@@ -644,8 +641,6 @@ device::~device() {
 // only used when generic stream is not used
 uint64_t device::get_compute_stream_count() {
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-    if (type_ == synDeviceGaudi)
-      return 2;
     if (type_ == synDeviceGaudi2)
       return 4;
     if (type_ == synDeviceGaudi3)
@@ -1098,9 +1093,6 @@ void device::flush_stream_events() {
 std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   stream << "synDevice at " << &syn_device;
   switch (syn_device.type()) {
-    case synDeviceGaudi:
-      stream << " Gaudi ";
-      break;
     case synDeviceGaudi2:
       stream << " Gaudi2 ";
       break;
@@ -1240,10 +1232,15 @@ inline bool device::copy_data_to_device_(
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
         done_cb();
-        towl::emitCopyFinished("h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
+        towl::emitCopyFinished(
+            "h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
         locked = nullptr;
       });
-  towl::emitCopyLaunch("h2d", mapped_cpu_data, reinterpret_cast<void*>(locked->at(0)), total_bytes);
+  towl::emitCopyLaunch(
+      "h2d",
+      mapped_cpu_data,
+      reinterpret_cast<void*>(locked->at(0)),
+      total_bytes);
   return true;
 }
 
@@ -1405,7 +1402,12 @@ synapse_error device::copy_data_to_device(
         towl::emitCopyMultipleFinished("h2d", locked);
         locked = nullptr;
       });
-  towl::emitCopyMultipleLaunch("h2d", mapped_srcs.data(), locked_dsts.data(), lens.data(), transfers.size());
+  towl::emitCopyMultipleLaunch(
+      "h2d",
+      mapped_srcs.data(),
+      locked_dsts.data(),
+      lens.data(),
+      transfers.size());
   return {};
 }
 
@@ -1501,11 +1503,16 @@ synapse_error device::copy_data_to_host(
           host_memory_.free((void*)dst_ptr);
         }
         done_cb();
-        towl::emitCopyFinished("d2h", reinterpret_cast<void*>(locked->at(0)), dst_ptr);
+        towl::emitCopyFinished(
+            "d2h", reinterpret_cast<void*>(locked->at(0)), dst_ptr);
         locked = nullptr;
       });
 
-  towl::emitCopyLaunch("d2h", reinterpret_cast<void*>(locked->at(0)), mapped_destination, total_bytes);
+  towl::emitCopyLaunch(
+      "d2h",
+      reinterpret_cast<void*>(locked->at(0)),
+      mapped_destination,
+      total_bytes);
   return {};
 }
 
@@ -1534,11 +1541,18 @@ synapse_error device::copy_data_within_device(
   }
   auto done_cb = [unref_cb, locked]() mutable {
     unref_cb();
-    towl::emitCopyFinished("d2d", reinterpret_cast<void*>(locked->at(0)), reinterpret_cast<void*>(locked->at(1)));
+    towl::emitCopyFinished(
+        "d2d",
+        reinterpret_cast<void*>(locked->at(0)),
+        reinterpret_cast<void*>(locked->at(1)));
     locked = nullptr;
   };
   sem_.add_producer({dst_event_addr}, stream_handle, std::move(done_cb));
-  towl::emitCopyLaunch("d2d", reinterpret_cast<void*>(locked->at(0)), reinterpret_cast<void*>(locked->at(1)), total_bytes);
+  towl::emitCopyLaunch(
+      "d2d",
+      reinterpret_cast<void*>(locked->at(0)),
+      reinterpret_cast<void*>(locked->at(1)),
+      total_bytes);
   return {};
 }
 
@@ -1597,7 +1611,12 @@ synapse_error device::copy_data_within_device(
     record_and_wait_for_event(
         stream_handle, *next_operation_stream, std::move(done_cb));
   }
-  towl::emitCopyMultipleLaunch("d2d", locked_srcs.data(), locked_dsts.data(), lens.data(), transfers.size());
+  towl::emitCopyMultipleLaunch(
+      "d2d",
+      locked_srcs.data(),
+      locked_dsts.data(),
+      lens.data(),
+      transfers.size());
   return {};
 } // namespace synapse_helpers
 
@@ -1781,10 +1800,7 @@ void device::record_and_wait_for_event(
 }
 
 std::set<synDeviceType> device::get_supported_devices() {
-  return {
-      synDeviceType::synDeviceGaudi,
-      synDeviceType::synDeviceGaudi2,
-      synDeviceType::synDeviceGaudi3};
+  return {synDeviceType::synDeviceGaudi2, synDeviceType::synDeviceGaudi3};
 }
 
 void device::synchronize() {

@@ -352,9 +352,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
             always_support_int64_);
 
         size_t element_size = habana_helpers::getHCCLDataSize(hccl_data_type);
-        size_t chunk_size_in_elems =
-            getHCCLSliceSize(habana_helpers::collectiveBroadcast) /
-            element_size;
+        size_t chunk_size_in_elems = INT64_MAX / element_size;
 
         size_t data_offset = 0;
         hcclResult_t hccl_result{hcclSuccess};
@@ -445,9 +443,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
         size_t num_elements = input.numel();
         size_t element_size = c10::elementSize(
             habana_helpers::getInternalDtype(input.scalar_type()));
-        size_t chunk_size =
-            getHCCLSliceSize(habana_helpers::collectiveAllReduce) /
-            element_size;
+        size_t chunk_size = INT64_MAX / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -567,8 +563,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
         size_t num_elements = input.numel();
         size_t element_size = c10::elementSize(
             habana_helpers::getInternalDtype(input.scalar_type()));
-        size_t chunk_size =
-            getHCCLSliceSize(habana_helpers::collectiveReduce) / element_size;
+        size_t chunk_size = INT64_MAX / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -890,9 +885,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
             always_support_int64_);
 
         size_t element_size = habana_helpers::getHCCLDataSize(hccl_data_type);
-        size_t chunk_size_in_elems =
-            getHCCLSliceSize(habana_helpers::collectiveBroadcast) /
-            element_size;
+        size_t chunk_size_in_elems = INT64_MAX / element_size;
 
         size_t data_offset = 0;
         hcclResult_t hccl_result{hcclSuccess};

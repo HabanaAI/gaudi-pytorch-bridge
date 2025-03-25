@@ -194,10 +194,6 @@ static std::string get_guid(
 }
 
 void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  HABANA_ASSERT(
-      HPUDeviceContext::get_device().type() != synDeviceGaudi ||
-          guid_.find("gammaln") == std::string::npos,
-      "foreach_lgamma is not supported on Gaudi");
   size_t params_size = 0;
   auto params = FillParams(stack, params_size);
   const OutputMetaDataVector output_meta = GetOutputMetaData();

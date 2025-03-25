@@ -119,7 +119,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       },
       py::arg("device_id"));
   py::enum_<synDeviceType>(m, "synDeviceType")
-      .value("synDeviceGaudi", synDeviceGaudi)
       .value("synDeviceGaudi2", synDeviceGaudi2)
       .value("synDeviceGaudi3", synDeviceGaudi3)
       .export_values();

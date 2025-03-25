@@ -680,10 +680,6 @@ PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP:
   type: bool
   default: false
 
-PT_HPU_SORT_INDEX_IN_SCATTER_ADD:
-  type: bool
-  default: false
-
 PT_LOG_FILE_AMOUNT:
   type: unsigned
   default: 5

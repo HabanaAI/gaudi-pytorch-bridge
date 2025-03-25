@@ -189,9 +189,7 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::Short) &&
       (self.scalar_type() != c10::ScalarType::Byte) &&
       (self.scalar_type() != c10::ScalarType::Double) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
@@ -268,8 +266,6 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi &&
         self.dim() >
             4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
     return dispatch_fallback<ATEN_OP(nonzero)>::call(
@@ -301,9 +297,7 @@ at::Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
       (self.scalar_type() != c10::ScalarType::Int) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(nonzero_out)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, out));
   }
@@ -321,9 +315,7 @@ at::Tensor hpu_wrap::masked_select(
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(masked_select)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask));
   }
@@ -346,9 +338,7 @@ at::Tensor& hpu_wrap::masked_select_out(
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+      (self.scalar_type() != c10::ScalarType::Half)) {
     return dispatch_fallback<ATEN_OP(masked_select_out)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask, out));
   }

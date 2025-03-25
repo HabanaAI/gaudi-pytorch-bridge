@@ -301,19 +301,6 @@ class SynapseApi : public StubSynapseApi {
       return synSuccess;
     };
 
-    synapse_api_.synDeviceGetInfo = [](const synDeviceId,
-                                       synDeviceInfo* dinfo) {
-      dinfo->deviceType = synDeviceType::synDeviceGaudi;
-      return synSuccess;
-    };
-
-    synapse_api_.synDeviceGetInfoV2 = [](const synDeviceId,
-                                         synDeviceInfoV2* dinfo) {
-      dinfo->deviceType = synDeviceType::synDeviceGaudi;
-      dinfo->deviceIndex = 0;
-      return synSuccess;
-    };
-
     synapse_api_.synRecipeGetAttribute =
         [](uint64_t* retVal,
            const synRecipeAttribute* recipeAttr,

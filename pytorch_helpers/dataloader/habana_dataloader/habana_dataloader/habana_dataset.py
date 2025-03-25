@@ -49,18 +49,12 @@ def _get_rank():
         return 0
 
 
-def isGaudi(device):
-    return device == htexp.synDeviceType.synDeviceGaudi
-
-
 def isGaudi2(device):
     return device == htexp.synDeviceType.synDeviceGaudi2
 
 
 def deviceStr(device):
-    if isGaudi(device):
-        return "gaudi"
-    elif isGaudi2(device):
+    if isGaudi2(device):
         return "gaudi2"
     else:
         raise ValueError("Unsupported device")
@@ -340,7 +334,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                     print(f"Failed to initialize Habana media Dataloader, error: {str(e)}\nFallback to aeon dataloader")
                     self.aeon_fallback_activated = True
 
-            if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
+            if self.aeon_fallback_activated:
                 import habana_dataloader.habana_dl_app
 
                 from .aeon_config import get_aeon_config
@@ -409,7 +403,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
     def __len__(self):
         if self.fallback_activated:
             return super().__len__()
-        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
+        elif self.aeon_fallback_activated:
             return len(self.aeon)
         elif isGaudi2(self.DeviceType):
             return len(self.iterator)
@@ -419,7 +413,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
     def __iter__(self):
         if self.fallback_activated:
             return super().__iter__()
-        elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
+        elif self.aeon_fallback_activated:
             return iter(self.aeon)
         elif isGaudi2(self.DeviceType):
             return iter(self.iterator)
@@ -566,7 +560,7 @@ class HabanaDataLoader:
                     print("Fallback to aeon dataloader as world_size is ", num_instances)
                     self.aeon_fallback_activated = True
 
-            if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
+            if self.aeon_fallback_activated:
                 dataloader_type = SSDDataLoader
             elif isGaudi2(self.DeviceType):
                 dataloader_type = SSDMediaDataLoader

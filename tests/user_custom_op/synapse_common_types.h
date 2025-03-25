@@ -149,7 +149,6 @@ typedef enum synDeviceType {
   synDeviceGoya2 =
       1, // todo: remove once we make sure all other repos don't use it
   synDeviceGreco = synDeviceGoya2,
-  synDeviceGaudi,
   synDeviceGaudi2 = 4,
   synDeviceGaudi3,
   synDeviceEmulator,
