@@ -1017,6 +1017,8 @@ def meta_mixture_of_experts_fwd(
         hidden_states.new_empty(out_shapes[6]),
         hidden_states.new_empty(out_shapes[7]),
         hidden_states.new_empty(out_shapes[8]),
+        hidden_states.new_empty(out_shapes[9]),
+        hidden_states.new_empty(out_shapes[10]),
     ]
 
 
@@ -1045,11 +1047,13 @@ def meta_mixture_of_experts_fwd_fused_weights(
         hidden_states.new_empty(out_shapes[5]),
         hidden_states.new_empty(out_shapes[6]),
         hidden_states.new_empty(out_shapes[7]),
+        hidden_states.new_empty(out_shapes[8]),
+        hidden_states.new_empty(out_shapes[9]),
     ]
 
 
-def common_mixture_of_experts_bwd_meta(grad_tokens_in, weights_lists):
-    outputs = [torch.empty_like(grad_tokens_in)]
+def common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights_size, weights_lists):
+    outputs = [torch.empty_like(grad_tokens_in), grad_tokens_in.new_empty(size=router_weights_size)]
     for weight_list in weights_lists:
         for w in weight_list:
             outputs.append(torch.empty_like(w))
@@ -1059,15 +1063,16 @@ def common_mixture_of_experts_bwd_meta(grad_tokens_in, weights_lists):
 @register_meta([torch.ops.hpu.mixture_of_experts_bwd.default])
 def meta_mixture_of_experts_bwd(
     grad_tokens_in,
-    router_weights,
     chunks_input,
     token_to_chunk,
     token_in_chunk,
     chunks_routing_table,
+    chunks_routing_weights,
     gemm1_out,
     gemm2_out,
     activation_out,
     mult_out,
+    mlp_out,
     w1,
     w2,
     w3,
@@ -1075,29 +1080,32 @@ def meta_mixture_of_experts_bwd(
     activation,
     experts_min,
     experts_max,
+    router_weights_size,
 ):
-    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w1, w2, w3])
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights_size, [w1, w2, w3])
 
 
 @register_meta([torch.ops.hpu.mixture_of_experts_bwd.fused_weights])
 def meta_mixture_of_experts_bwd_fused_weights(
     grad_tokens_in,
-    router_weights,
     chunks_input,
     token_to_chunk,
     token_in_chunk,
     chunks_routing_table,
+    chunks_routing_weights,
     gemm12_out,
     activation_out,
     mult_out,
+    mlp_out,
     w12,
     w3,
     permuted_weights,
     activation,
     experts_min,
     experts_max,
+    router_weights_size,
 ):
-    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w12, w3])
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights_size, [w12, w3])
 
 
 @register_meta([torch.ops.hpu.mixture_of_experts_recomp_bwd.default])
@@ -1114,7 +1122,7 @@ def meta_mixture_of_experts_recomp_bwd(
     experts_min,
     experts_max,
 ):
-    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w1, w2, w3])
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights.shape, [w1, w2, w3])
 
 
 @register_meta([torch.ops.hpu.mixture_of_experts_recomp_bwd.fused_weights])
@@ -1130,7 +1138,7 @@ def meta_mixture_of_experts_recomp_bwd_fused_weights(
     experts_min,
     experts_max,
 ):
-    return common_mixture_of_experts_bwd_meta(grad_tokens_in, [w12, w3])
+    return common_mixture_of_experts_bwd_meta(grad_tokens_in, router_weights.shape, [w12, w3])
 
 
 @register_meta(

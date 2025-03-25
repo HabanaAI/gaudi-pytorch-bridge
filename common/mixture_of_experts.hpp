@@ -66,22 +66,24 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
 
 std::vector<at::Tensor> mixture_of_experts_bwd(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm1_out,
     const at::Tensor& gemm2_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w1,
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size);
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
     const at::Tensor& grad_tokens_in,
@@ -98,20 +100,22 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
 
 std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm12_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max);
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size);
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
     const at::Tensor& grad,
@@ -144,26 +148,17 @@ class MixtureOfExpertsFunction
 
     size_t num_experts = w1.size();
     torch::autograd::variable_list to_save;
-    to_save.reserve(
-        non_list_saved_tensors + weights_per_expert * num_experts +
-        outputs_for_bwd);
-    to_save.push_back(router_weights);
-    to_save.insert(
-        to_save.begin() + non_list_saved_tensors, w1.begin(), w1.end());
-    to_save.insert(
-        to_save.begin() + non_list_saved_tensors + num_experts,
-        w2.begin(),
-        w2.end());
-    to_save.insert(
-        to_save.begin() + non_list_saved_tensors + 2 * num_experts,
-        w3.begin(),
-        w3.end());
+    to_save.reserve(weights_per_expert * num_experts + outputs_for_bwd);
+    to_save.insert(to_save.begin(), w1.begin(), w1.end());
+    to_save.insert(to_save.begin() + num_experts, w2.begin(), w2.end());
+    to_save.insert(to_save.begin() + 2 * num_experts, w3.begin(), w3.end());
 
     ctx->saved_data["num_experts"] = static_cast<int64_t>(num_experts);
     ctx->saved_data["permuted_weights"] = permuted_weights;
     ctx->saved_data["activation"] = activation;
     ctx->saved_data["experts_min"] = experts_min;
     ctx->saved_data["experts_max"] = experts_max;
+    ctx->saved_data["router_weights_size"] = router_weights.sizes();
 
     auto outputs = mixture_of_experts_fwd(
         hidden_states,
@@ -193,57 +188,61 @@ class MixtureOfExpertsFunction
     size_t num_experts = ctx->saved_data["num_experts"].toInt();
 
     auto w1 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_saved_tensors,
-        saved_vars.begin() + non_list_saved_tensors + num_experts);
+        saved_vars.begin(), saved_vars.begin() + num_experts);
     auto w2 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_saved_tensors + num_experts,
-        saved_vars.begin() + non_list_saved_tensors + 2 * num_experts);
+        saved_vars.begin() + num_experts, saved_vars.begin() + 2 * num_experts);
     auto w3 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_saved_tensors + 2 * num_experts,
-        saved_vars.begin() + non_list_saved_tensors + 3 * num_experts);
+        saved_vars.begin() + 2 * num_experts,
+        saved_vars.begin() + 3 * num_experts);
 
     const size_t first_intermediate_fwd_output =
-        non_list_saved_tensors + weights_per_expert * num_experts;
+        weights_per_expert * num_experts;
     const auto& chunks_input = saved_vars[first_intermediate_fwd_output];
     const auto& token_to_chunk = saved_vars[first_intermediate_fwd_output + 1];
     const auto& token_in_chunk = saved_vars[first_intermediate_fwd_output + 2];
     const auto& chunks_routing_table =
         saved_vars[first_intermediate_fwd_output + 3];
-    const auto& gemm1_out = saved_vars[first_intermediate_fwd_output + 4];
-    const auto& gemm2_out = saved_vars[first_intermediate_fwd_output + 5];
-    const auto& activation_out = saved_vars[first_intermediate_fwd_output + 6];
-    const auto& mult_out = saved_vars[first_intermediate_fwd_output + 7];
+    const auto& chunks_router_weights =
+        saved_vars[first_intermediate_fwd_output + 4];
+    const auto& gemm1_out = saved_vars[first_intermediate_fwd_output + 5];
+    const auto& gemm2_out = saved_vars[first_intermediate_fwd_output + 6];
+    const auto& activation_out = saved_vars[first_intermediate_fwd_output + 7];
+    const auto& mult_out = saved_vars[first_intermediate_fwd_output + 8];
+    const auto& mlp_out = saved_vars[first_intermediate_fwd_output + 9];
 
     auto result = mixture_of_experts_bwd(
         grads[0],
-        saved_vars[0],
         chunks_input,
         token_to_chunk,
         token_in_chunk,
         chunks_routing_table,
+        chunks_router_weights,
         gemm1_out,
         gemm2_out,
         activation_out,
         mult_out,
+        mlp_out,
         w1,
         w2,
         w3,
         ctx->saved_data["permuted_weights"].toBool(),
         ctx->saved_data["activation"].toStringRef(),
         ctx->saved_data["experts_min"].toInt(),
-        ctx->saved_data["experts_max"].toInt());
+        ctx->saved_data["experts_max"].toInt(),
+        ctx->saved_data["router_weights_size"].toIntVector());
 
     const size_t num_fwd_inputs =
         non_list_inputs + weights_per_expert * num_experts;
     torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
     grad_input[0] = result[0];
+    grad_input[2] = result[1];
     for (size_t i = 0; i < num_experts; i++) {
-      grad_input[non_list_tensors + i] = result[1 + i];
+      grad_input[non_list_tensors + i] = result[2 + i];
       grad_input[non_list_tensors + num_experts + i] =
-          result[1 + num_experts + i];
+          result[2 + num_experts + i];
       grad_input[non_list_tensors + 2 * num_experts + i] =
-          result[1 + 2 * num_experts + i];
+          result[2 + 2 * num_experts + i];
     }
     return grad_input;
   }
@@ -251,9 +250,8 @@ class MixtureOfExpertsFunction
  private:
   static const size_t weights_per_expert = 3;
   static const size_t non_list_tensors = 3;
-  static const size_t non_list_saved_tensors = 1;
   static const size_t non_list_inputs = 7;
-  static const size_t outputs_for_bwd = 8;
+  static const size_t outputs_for_bwd = 10;
 };
 
 class MixtureOfExpertsRecompFunction
@@ -343,12 +341,13 @@ class MixtureOfExpertsRecompFunction
     torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
     grad_input[0] = result[0];
+    grad_input[2] = result[1];
     for (size_t i = 0; i < num_experts; i++) {
-      grad_input[non_list_tensors + i] = result[1 + i];
+      grad_input[non_list_tensors + i] = result[2 + i];
       grad_input[non_list_tensors + num_experts + i] =
-          result[1 + num_experts + i];
+          result[2 + num_experts + i];
       grad_input[non_list_tensors + 2 * num_experts + i] =
-          result[1 + 2 * num_experts + i];
+          result[2 + 2 * num_experts + i];
     }
     return grad_input;
   }
@@ -377,22 +376,16 @@ class MixtureOfExpertsFusedWeightsFunction
 
     int64_t num_experts = w12.size();
     torch::autograd::variable_list to_save;
-    to_save.reserve(
-        non_list_saved_tensors + weights_per_expert * num_experts +
-        outputs_for_bwd);
-    to_save.push_back(router_weights);
-    to_save.insert(
-        to_save.begin() + non_list_saved_tensors, w12.begin(), w12.end());
-    to_save.insert(
-        to_save.begin() + non_list_saved_tensors + num_experts,
-        w3.begin(),
-        w3.end());
+    to_save.reserve(weights_per_expert * num_experts + outputs_for_bwd);
+    to_save.insert(to_save.begin(), w12.begin(), w12.end());
+    to_save.insert(to_save.begin() + num_experts, w3.begin(), w3.end());
 
     ctx->saved_data["num_experts"] = static_cast<int64_t>(num_experts);
     ctx->saved_data["permuted_weights"] = permuted_weights;
     ctx->saved_data["activation"] = activation;
     ctx->saved_data["experts_min"] = experts_min;
     ctx->saved_data["experts_max"] = experts_max;
+    ctx->saved_data["router_weights_size"] = router_weights.sizes();
 
     auto outputs = mixture_of_experts_fwd_fused_weights(
         hidden_states,
@@ -420,59 +413,63 @@ class MixtureOfExpertsFusedWeightsFunction
     size_t num_experts = ctx->saved_data["num_experts"].toInt();
 
     auto w12 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_saved_tensors,
-        saved_vars.begin() + non_list_saved_tensors + num_experts);
+        saved_vars.begin(), saved_vars.begin() + num_experts);
     auto w3 = torch::autograd::variable_list(
-        saved_vars.begin() + non_list_saved_tensors + num_experts,
-        saved_vars.begin() + non_list_saved_tensors + 2 * num_experts);
+        saved_vars.begin() + num_experts, saved_vars.begin() + 2 * num_experts);
 
     const size_t first_intermediate_fwd_output =
-        non_list_saved_tensors + weights_per_expert * num_experts;
+        weights_per_expert * num_experts;
+
     const auto& chunks_input = saved_vars[first_intermediate_fwd_output];
     const auto& token_to_chunk = saved_vars[first_intermediate_fwd_output + 1];
     const auto& token_in_chunk = saved_vars[first_intermediate_fwd_output + 2];
     const auto& chunks_routing_table =
         saved_vars[first_intermediate_fwd_output + 3];
-    const auto& gemm12_out = saved_vars[first_intermediate_fwd_output + 4];
-    const auto& activation_out = saved_vars[first_intermediate_fwd_output + 5];
-    const auto& mult_out = saved_vars[first_intermediate_fwd_output + 6];
+    const auto& chunks_router_weights =
+        saved_vars[first_intermediate_fwd_output + 4];
+    const auto& gemm12_out = saved_vars[first_intermediate_fwd_output + 5];
+    const auto& activation_out = saved_vars[first_intermediate_fwd_output + 6];
+    const auto& mult_out = saved_vars[first_intermediate_fwd_output + 7];
+    const auto& mlp_out = saved_vars[first_intermediate_fwd_output + 8];
 
     auto result = mixture_of_experts_bwd_fused_weights(
         grads[0],
-        saved_vars[0],
         chunks_input,
         token_to_chunk,
         token_in_chunk,
         chunks_routing_table,
+        chunks_router_weights,
         gemm12_out,
         activation_out,
         mult_out,
+        mlp_out,
         w12,
         w3,
         ctx->saved_data["permuted_weights"].toBool(),
         ctx->saved_data["activation"].toStringRef(),
         ctx->saved_data["experts_min"].toInt(),
-        ctx->saved_data["experts_max"].toInt());
+        ctx->saved_data["experts_max"].toInt(),
+        ctx->saved_data["router_weights_size"].toIntVector());
 
     const size_t num_fwd_inputs =
         non_list_inputs + weights_per_expert * num_experts;
     torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
     grad_input[0] = result[0];
+    grad_input[2] = result[1];
     for (size_t i = 0; i < num_experts; i++) {
-      grad_input[non_list_tensors + i] = result[1 + i];
+      grad_input[non_list_tensors + i] = result[2 + i];
       grad_input[non_list_tensors + num_experts + i] =
-          result[1 + num_experts + i];
+          result[2 + num_experts + i];
     }
     return grad_input;
   }
 
  private:
   static const size_t weights_per_expert = 2;
-  static const size_t non_list_saved_tensors = 1;
   static const size_t non_list_tensors = 3;
   static const size_t non_list_inputs = 7;
-  static const size_t outputs_for_bwd = 7;
+  static const size_t outputs_for_bwd = 9;
 };
 
 class MixtureOfExpertsRecompFusedWeightsFunction
@@ -552,10 +549,11 @@ class MixtureOfExpertsRecompFusedWeightsFunction
     torch::autograd::variable_list grad_input(num_fwd_inputs, at::Tensor());
 
     grad_input[0] = result[0];
+    grad_input[2] = result[1];
     for (size_t i = 0; i < num_experts; i++) {
-      grad_input[non_list_tensors + i] = result[1 + i];
+      grad_input[non_list_tensors + i] = result[2 + i];
       grad_input[non_list_tensors + num_experts + i] =
-          result[1 + num_experts + i];
+          result[2 + num_experts + i];
     }
     return grad_input;
   }

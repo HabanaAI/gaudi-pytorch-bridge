@@ -563,7 +563,7 @@ def test_mixture_of_experts_fwd_bwd(
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype, requires_grad=True)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
-    router_weights = router_weights
+    router_weights = router_weights.detach().requires_grad_(True)
 
     expert_weights_cpu, expert_weights_hpu = generate_expert_weights(
         hidden_dim,
@@ -585,7 +585,7 @@ def test_mixture_of_experts_fwd_bwd(
     w12_hpu = [w.detach().requires_grad_(True) for w in w12_hpu]
 
     hidden_states_hpu = hidden_states.detach().to(hpu).requires_grad_(True)
-    router_weights_hpu = router_weights.to(hpu)
+    router_weights_hpu = router_weights.detach().to(hpu).requires_grad_(True)
 
     def call_moe_fn(fn):
         common_inputs = (
@@ -616,6 +616,7 @@ def test_mixture_of_experts_fwd_bwd(
     check_using_cosine_similarity(result_hpu, result_cpu, cos_sim_tol)
 
     check_using_cosine_similarity(hidden_states_hpu.grad, hidden_states.grad, cos_sim_tol)
+    check_using_cosine_similarity(router_weights_hpu.grad, router_weights.grad, cos_sim_tol)
     for i in range(num_experts):
         if fused_weights:
             w12_grad_reference = torch.cat((expert_weights_cpu[0][i].grad, expert_weights_cpu[1][i].grad), dim=1)
@@ -664,7 +665,7 @@ def test_mixture_of_experts_fwd_bwd_view(
     hidden_states = torch.randn((num_tokens, hidden_dim), dtype=dtype, requires_grad=True)
     router_weights_all = torch.randn((num_tokens, num_experts), dtype=dtype)
     router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
-    router_weights = router_weights
+    router_weights = router_weights.detach().requires_grad_(True)
 
     w12_cpu_original = [
         torch.randn((hidden_dim, 2 * ffn_dim), dtype=dtype, requires_grad=True) for _ in range(num_experts)
@@ -687,7 +688,7 @@ def test_mixture_of_experts_fwd_bwd_view(
     result_cpu.mean().backward()
 
     hidden_states_hpu = hidden_states.detach().to(hpu).requires_grad_(True)
-    router_weights_hpu = router_weights.to(hpu)
+    router_weights_hpu = router_weights.detach().to(hpu).requires_grad_(True)
 
     def call_moe_fn(fn):
         common_inputs = (
@@ -717,6 +718,7 @@ def test_mixture_of_experts_fwd_bwd_view(
     check_using_cosine_similarity(result_hpu, result_cpu, cos_sim_tol)
 
     check_using_cosine_similarity(hidden_states_hpu.grad, hidden_states.grad, cos_sim_tol)
+    check_using_cosine_similarity(router_weights_hpu.grad, router_weights.grad, cos_sim_tol)
     for i in range(num_experts):
         check_using_cosine_similarity(w12_hpu_original[i].grad, w12_cpu_original[i].grad, cos_sim_tol)
         check_using_cosine_similarity(w3_hpu_original[i].grad, w3_cpu_original[i].grad, cos_sim_tol)

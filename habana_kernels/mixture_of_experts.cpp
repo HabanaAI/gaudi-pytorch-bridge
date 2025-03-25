@@ -219,47 +219,52 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
 
 std::vector<at::Tensor> mixture_of_experts_bwd(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm1_out,
     const at::Tensor& gemm2_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w1,
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size) {
   PT_LAZY_OP_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd :",
-      DUMP_17ARGS(
+      DUMP_19ARGS(
           grad_tokens_in,
-          router_weights,
           chunks_input,
           token_to_chunk,
           token_in_chunk,
           chunks_routing_table,
+          chunks_routing_weights,
           gemm1_out,
           gemm2_out,
           activation_out,
           mult_out,
+          mlp_out,
           w1,
           w2,
           w3,
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          router_weights_size));
 
   std::vector<std::vector<int64_t>> out_shapes;
-  out_shapes.reserve(1 + 3 * w1.size());
+  out_shapes.reserve(2 + 3 * w1.size());
   out_shapes.push_back(grad_tokens_in.sizes().vec());
+  out_shapes.push_back(router_weights_size);
   for (size_t i = 0; i < w1.size(); ++i) {
     out_shapes.push_back(w1[i].sizes().vec());
   }
@@ -273,22 +278,24 @@ std::vector<at::Tensor> mixture_of_experts_bwd(
   LazyOp<std::vector<at::Tensor>> op{
       "hpu::mixture_of_experts_bwd",
       {grad_tokens_in,
-       router_weights,
        chunks_input,
        token_to_chunk,
        token_in_chunk,
        chunks_routing_table,
+       chunks_routing_weights,
        gemm1_out,
        gemm2_out,
        activation_out,
        mult_out,
+       mlp_out,
        w1,
        w2,
        w3,
        permuted_weights,
        activation,
        experts_min,
-       experts_max},
+       experts_max,
+       router_weights_size},
       std::move(out_shapes),
       0};
 
@@ -327,8 +334,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
           experts_max));
 
   std::vector<std::vector<int64_t>> out_shapes;
-  out_shapes.reserve(1 + 3 * w1.size());
+  out_shapes.reserve(2 + 3 * w1.size());
   out_shapes.push_back(hidden_states.sizes().vec());
+  out_shapes.push_back(router_weights.sizes().vec());
   for (size_t i = 0; i < w1.size(); ++i) {
     out_shapes.push_back(w1[i].sizes().vec());
   }
@@ -363,43 +371,48 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
 
 std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm12_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size) {
   PT_LAZY_OP_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd.fused_weights :",
-      DUMP_15ARGS(
+      DUMP_17ARGS(
           grad_tokens_in,
-          router_weights,
           chunks_input,
           token_to_chunk,
           token_in_chunk,
           chunks_routing_table,
+          chunks_routing_weights,
           gemm12_out,
           activation_out,
           mult_out,
+          mlp_out,
           w12,
           w3,
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          router_weights_size));
 
   std::vector<std::vector<int64_t>> out_shapes;
-  out_shapes.reserve(1 + 2 * w12.size());
+  out_shapes.reserve(2 + 2 * w12.size());
   out_shapes.push_back(grad_tokens_in.sizes().vec());
+  out_shapes.push_back(router_weights_size);
   for (size_t i = 0; i < w12.size(); ++i) {
     out_shapes.push_back(w12[i].sizes().vec());
   }
@@ -410,20 +423,22 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
   LazyOp<std::vector<at::Tensor>> op{
       "hpu::mixture_of_experts_bwd",
       {grad_tokens_in,
-       router_weights,
        chunks_input,
        token_to_chunk,
        token_in_chunk,
        chunks_routing_table,
+       chunks_routing_weights,
        gemm12_out,
        activation_out,
        mult_out,
+       mlp_out,
        w12,
        w3,
        permuted_weights,
        activation,
        experts_min,
-       experts_max},
+       experts_max,
+       router_weights_size},
       std::move(out_shapes),
       0};
 
@@ -460,8 +475,9 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
           experts_max));
 
   std::vector<std::vector<int64_t>> out_shapes;
-  out_shapes.reserve(1 + 3 * w12.size());
+  out_shapes.reserve(2 + 2 * w12.size());
   out_shapes.push_back(hidden_states.sizes().vec());
+  out_shapes.push_back(router_weights.sizes().vec());
   for (size_t i = 0; i < w12.size(); ++i) {
     out_shapes.push_back(w12[i].sizes().vec());
   }

@@ -199,65 +199,71 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
 
 std::vector<at::Tensor> mixture_of_experts_bwd(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm1_out,
     const at::Tensor& gemm2_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w1,
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd :",
-      DUMP_17ARGS(
+      DUMP_19ARGS(
           grad_tokens_in,
-          router_weights,
           chunks_input,
           token_to_chunk,
           token_in_chunk,
           chunks_routing_table,
+          chunks_routing_weights,
           gemm1_out,
           gemm2_out,
           activation_out,
           mult_out,
+          mlp_out,
           w1,
           w2,
           w3,
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          router_weights_size));
 
   static auto op = torch::Dispatcher::singleton()
                        .findSchemaOrThrow("hpu::mixture_of_experts_bwd", "")
                        .typed<decltype(mixture_of_experts_bwd)>();
   return op.call(
       grad_tokens_in,
-      router_weights,
       chunks_input,
       token_to_chunk,
       token_in_chunk,
       chunks_routing_table,
+      chunks_routing_weights,
       gemm1_out,
       gemm2_out,
       activation_out,
       mult_out,
+      mlp_out,
       w1,
       w2,
       w3,
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      router_weights_size);
 }
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
@@ -309,39 +315,43 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
 
 std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm12_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
     const c10::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd.fused_weights :",
-      DUMP_15ARGS(
+      DUMP_17ARGS(
           grad_tokens_in,
-          router_weights,
           chunks_input,
           token_to_chunk,
           token_in_chunk,
           chunks_routing_table,
+          chunks_routing_weights,
           gemm12_out,
           activation_out,
           mult_out,
+          mlp_out,
           w12,
           w3,
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          router_weights_size));
 
   static auto op =
       torch::Dispatcher::singleton()
@@ -350,20 +360,22 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
 
   return op.call(
       grad_tokens_in,
-      router_weights,
       chunks_input,
       token_to_chunk,
       token_in_chunk,
       chunks_routing_table,
+      chunks_routing_weights,
       gemm12_out,
       activation_out,
       mult_out,
+      mlp_out,
       w12,
       w3,
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      router_weights_size);
 }
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(

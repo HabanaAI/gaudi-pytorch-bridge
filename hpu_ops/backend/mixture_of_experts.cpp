@@ -145,6 +145,7 @@ sizes_vec_template<DimT> MixtureOfExpertsFwdSizes(
       {num_tokens, experts_per_token},
       {num_tokens, experts_per_token},
       {num_chunks},
+      {num_chunks, tokens_per_chunk},
       {num_chunks, tokens_per_chunk, H2}};
   if (fused_weights) {
     H2 = H2 / 2;
@@ -155,6 +156,7 @@ sizes_vec_template<DimT> MixtureOfExpertsFwdSizes(
   if (!fused_weights) {
     results.push_back({num_chunks, tokens_per_chunk, H2});
   }
+  results.push_back({num_chunks, tokens_per_chunk, H});
 
   return results;
 }
@@ -292,6 +294,8 @@ OutputMetaDataVector MixtureOfExpertsFwdMeta(const at::Stack& stack) {
       self_type,
       self_type,
       self_type,
+      self_type,
+      self_type,
       self_type};
 
   const size_t output_number = output_shapes.size();
@@ -310,35 +314,44 @@ OutputMetaDataVector MixtureOfExpertsFwdRecompMeta(const at::Stack& stack) {
 
 OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack) {
   const auto& grad = stack_tensor(stack, 0);
-  const bool is_recompute = stack.size() < 15;
+
+  const bool is_recompute = stack.size() < 17;
   const bool fused_weights =
       is_recompute ? !stack.at(6).isTensorList() : !stack.at(12).isTensorList();
-  const size_t first_weights_index = is_recompute ? 4 : fused_weights ? 9 : 10;
+  const size_t first_weights_index = is_recompute ? 4 : fused_weights ? 10 : 11;
   const size_t num_experts =
       stack.at(first_weights_index).toTensorList().size();
   const size_t weights_per_expert = fused_weights ? 2 : 3;
 
-  OutputMetaDataVector meta(1 + num_experts * weights_per_expert);
+  const size_t router_weights_shape_idx = fused_weights ? 16 : 18;
+  std::vector<int64_t> router_weights_shape = is_recompute
+      ? stack_tensor(stack, 3).sizes().vec()
+      : stack.at(router_weights_shape_idx).toIntVector();
+
+  OutputMetaDataVector meta(2 + num_experts * weights_per_expert);
   meta[0].shape = grad.sizes().vec();
   meta[0].dtype = grad.scalar_type();
 
+  meta[1].shape = router_weights_shape;
+  meta[1].dtype = grad.scalar_type();
+
   const auto& w1 = stack.at(first_weights_index).toTensorList();
   for (size_t i = 0; i < num_experts; ++i) {
-    meta[i + 1].shape = w1[i].sizes().vec();
-    meta[i + 1].dtype = w1[i].scalar_type();
+    meta[i + 2].shape = w1[i].sizes().vec();
+    meta[i + 2].dtype = w1[i].scalar_type();
   }
 
   const auto& w2 = stack.at(first_weights_index + 1).toTensorList();
   for (size_t i = 0; i < num_experts; ++i) {
-    meta[i + 1 + num_experts].shape = w2[i].sizes().vec();
-    meta[i + 1 + num_experts].dtype = w2[i].scalar_type();
+    meta[i + 2 + num_experts].shape = w2[i].sizes().vec();
+    meta[i + 2 + num_experts].dtype = w2[i].scalar_type();
   }
 
   if (!fused_weights) {
     const auto& w3 = stack.at(first_weights_index + 2).toTensorList();
     for (size_t i = 0; i < num_experts; ++i) {
-      meta[i + 1 + 2 * num_experts].shape = w3[i].sizes().vec();
-      meta[i + 1 + 2 * num_experts].dtype = w3[i].scalar_type();
+      meta[i + 2 + 2 * num_experts].shape = w3[i].sizes().vec();
+      meta[i + 2 + 2 * num_experts].dtype = w3[i].scalar_type();
     }
   }
 
@@ -392,7 +405,7 @@ MixtureOfExpertsFwd::MixtureOfExpertsFwd(
     bool recomp)
     : OpBackend(
           device_id,
-          "moe_fwd",
+          "moe_v2_fwd",
           scalar_type,
           std::vector<int>{0},
           {},
@@ -411,7 +424,7 @@ void MixtureOfExpertsFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   const size_t num_experts = stack.at(3).toTensorList().size();
   const size_t weights_per_expert = fused_weights ? 2 : 3;
   const size_t permute_weights_idx = fused_weights ? 5 : 6;
-  const size_t output_number = recomp ? 1 : fused_weights ? 8 : 9;
+  const size_t output_number = recomp ? 1 : fused_weights ? 10 : 11;
 
   std::vector<synTensor> inputs;
   for (size_t i = 0; i < 3 + num_experts * weights_per_expert; i++) {
@@ -422,10 +435,11 @@ void MixtureOfExpertsFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
       stack, size, permute_weights_idx, fused_weights, false, false);
   auto meta = OutputMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
+  const std::string_view guid = recomp ? "moe_fwd"sv : "moe_v2_fwd"sv;
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe_fwd"sv, meta[0].dtype),
+      {get_guid_with_precision(guid, meta[0].dtype),
        std::move(inputs),
        output_attrs,
        params.get(),
@@ -611,19 +625,19 @@ void MixtureOfExpertsFp8ScalarsDynamic::AddNode(
 MixtureOfExpertsBwd::MixtureOfExpertsBwd(
     int device_id,
     c10::ScalarType scalar_type)
-    : OpBackend(device_id, "moe_bwd", scalar_type, {0}, {}, {}, false) {
+    : OpBackend(device_id, "moe_v2_bwd", scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(MixtureOfExpertsBwdMeta);
 }
 
 void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool fused_weights = !stack.at(12).isTensorList();
-  const size_t first_weights_index = fused_weights ? 9 : 10;
+  const size_t first_weights_index = fused_weights ? 10 : 11;
   const size_t num_experts =
       stack.at(first_weights_index).toTensorList().size();
   const size_t weights_per_expert = fused_weights ? 2 : 3;
-  const size_t permute_weights_idx = fused_weights ? 11 : 13;
-  const size_t output_number = 1 + num_experts * weights_per_expert;
-  const size_t non_list_tensors = fused_weights ? 9 : 10;
+  const size_t permute_weights_idx = fused_weights ? 12 : 14;
+  const size_t output_number = 2 + num_experts * weights_per_expert;
+  const size_t non_list_tensors = fused_weights ? 10 : 11;
 
   std::vector<synTensor> inputs;
   for (size_t i = 0; i < non_list_tensors + num_experts * weights_per_expert;
@@ -639,7 +653,7 @@ void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe_bwd"sv, meta[0].dtype),
+      {get_guid_with_precision("moe_v2_bwd"sv, meta[0].dtype),
        std::move(inputs),
        output_attrs,
        params.get(),
@@ -653,7 +667,14 @@ void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
 MixtureOfExpertsRecompBwd::MixtureOfExpertsRecompBwd(
     int device_id,
     c10::ScalarType scalar_type)
-    : OpBackend(device_id, "moe_recomp_bwd", scalar_type, {0}, {}, {}, false) {
+    : OpBackend(
+          device_id,
+          "moe_recomp_v2_bwd",
+          scalar_type,
+          {0},
+          {},
+          {},
+          false) {
   SetOutputMetaFn(MixtureOfExpertsBwdMeta);
 }
 
@@ -664,7 +685,7 @@ void MixtureOfExpertsRecompBwd::AddNode(
   const size_t num_experts = stack.at(4).toTensorList().size();
   const size_t weights_per_expert = fused_weights ? 2 : 3;
   const size_t permute_weights_idx = fused_weights ? 6 : 7;
-  const size_t output_number = 1 + num_experts * weights_per_expert;
+  const size_t output_number = 2 + num_experts * weights_per_expert;
 
   std::vector<synTensor> inputs;
   for (size_t i = 0; i < 4 + num_experts * weights_per_expert; i++) {
@@ -678,7 +699,7 @@ void MixtureOfExpertsRecompBwd::AddNode(
   auto moe_result = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("moe_recomp_bwd"sv, meta[0].dtype),
+      {get_guid_with_precision("moe_recomp_v2_bwd"sv, meta[0].dtype),
        std::move(inputs),
        output_attrs,
        params.get(),
