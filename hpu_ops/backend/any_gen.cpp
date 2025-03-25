@@ -36,6 +36,9 @@ OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
   if (stack.at(1).isInt()) {
     auto dim = stack.at(1).toInt();
     meta.shape = ReductionOutputShape(self, dim, keepdim)[0];
+  } else if (stack.at(1).isNone()) {
+    auto dims = std::vector<int64_t>{};
+    meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
   } else {
     auto dims = stack.at(1).toIntList().vec();
     meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
@@ -109,7 +112,13 @@ static synapse_helpers::tensor AnyCommonFunc(
 
 void AnyDims::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto dims = stack.at(1).toDimVector();
+  auto dims = stack.at(1);
+  c10::DimVector dims_vec;
+  if (dims.isNone()) {
+    dims_vec = std::vector<int64_t>{};
+  } else {
+    dims_vec = dims.toDimVector();
+  }
   bool keepdim = stack.at(2).toBool();
 
   auto any_out = AnyCommonFunc(
@@ -117,7 +126,7 @@ void AnyDims::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       syn_in(0),
       self,
-      dims,
+      dims_vec,
       keepdim,
       AllAnyDimMeta(stack)[0].shape);
   syn_out(0) = std::move(any_out);
