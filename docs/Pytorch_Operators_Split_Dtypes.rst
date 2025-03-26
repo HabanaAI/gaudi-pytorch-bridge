@@ -350,6 +350,7 @@ gt                                       Yes      Yes      Yes     No    torch
 hardshrink                               Yes      Yes      Yes     No    torch
 heaviside                                Yes      Yes      Yes     No    torch
 hypot                                    Yes      Yes      Yes     No    torch
+igamma                                   Yes      No       No      No    torch
 index_copy                               Yes      Yes      Yes     Yes   torch
 index_fill                               Yes      Yes      Yes     Yes   torch
 index_put                                Yes      Yes      No      No    torch
@@ -1283,6 +1284,7 @@ gt                                        Yes      Yes       No        Yes      
 hardshrink                                No       No        No        No       No     torch
 heaviside                                 Yes      Yes       No        No       No     torch
 hypot                                     No       No        No        No       No     torch
+igamma                                    No       No        No        No       No     torch
 index_copy                                Yes      Yes       Yes       Yes      Yes    torch
 index_fill                                Yes      Yes       Yes       Yes      Yes    torch
 index_put                                 No       Yes       No        No       No     torch

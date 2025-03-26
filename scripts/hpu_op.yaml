@@ -4446,6 +4446,7 @@ igamma.out:
   promote_int_to_float: [self]
   guid: igamma_fwd
   op_validator: check-node-with-shared-layer
+  namespaces: [torch]
 
 linalg_cross:
   op_backend: LinAlgCross
