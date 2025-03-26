@@ -29,7 +29,8 @@ void EagerLoweringTask(
     at::Symbol symbol,
     std::vector<at::IValue>&& inputs,
     OutputSpecsOrTensors&& out_spec_or_tensors,
-    EagerOpMetaData&& eager_op_meta_data) {
+    EagerOpMetaData&& eager_op_meta_data,
+    c10::hpu::HPUStream stream) {
   auto lowering_queue_length =
       HPUDeviceContext::lowering_thread().get_active_task_count();
   LOP::emit_event_fast(
@@ -42,7 +43,8 @@ void EagerLoweringTask(
       std::move(symbol),
       std::move(inputs),
       std::move(out_spec_or_tensors),
-      true};
+      true,
+      std::move(stream)};
 
   hlexec.set_eager_op_info(std::move(eager_op_meta_data));
   // Launch the execution
@@ -129,7 +131,8 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
         m_symbol,
         std::move(stack),
         std::move(out_spec_or_tensors),
-        std::move(m_eager_op_meta_data));
+        std::move(m_eager_op_meta_data),
+        c10::hpu::getCurrentHPUStream());
 
   } else {
     // To maintain the order for launch, ensure that all pending tasks in
@@ -137,7 +140,11 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
     habana::eager::JoinPendingPipelineThreads();
 
     habana::eager::EagerExec hlexec{
-        m_symbol, std::move(stack), std::move(out_spec_or_tensors), false};
+        m_symbol,
+        std::move(stack),
+        std::move(out_spec_or_tensors),
+        false,
+        c10::hpu::getCurrentHPUStream()};
 
     hlexec.set_eager_op_info(std::move(m_eager_op_meta_data));
 

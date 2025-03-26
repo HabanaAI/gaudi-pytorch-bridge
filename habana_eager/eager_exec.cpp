@@ -335,7 +335,6 @@ void EagerExec::launch() {
     PT_EAGER_DEBUG("Eager Op :", m_symbol.toQualString(), " Skip lowering ! ");
     return;
   }
-  const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
 
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
@@ -428,7 +427,7 @@ void EagerExec::launch() {
 
     graph_and_meta->SetGraphIndex(graphIndex);
     graph_and_meta->SetOpName(m_graph_name);
-    graph_and_meta->SetHPUStream(stream);
+    graph_and_meta->SetHPUStream(m_stream);
     graph_and_meta->SetFrontendType(habana_helpers::HabanaFrontendTypes::EAGER);
     graph_and_meta->set_is_eager_compiler_supported(eager_compiler_supported);
     graph_and_meta->set_is_shape_agnostic_supported(eager_compiler_supported);

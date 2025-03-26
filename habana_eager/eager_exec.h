@@ -15,6 +15,7 @@
 
 #pragma once
 #include <limits>
+#include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
 
 namespace habana {
@@ -169,12 +170,14 @@ class EagerExec {
       at::Symbol symbol,
       std::vector<at::IValue>&& inputs,
       OutputSpecsOrTensors&& outputs,
-      bool is_pipeline_supported)
+      bool is_pipeline_supported,
+      c10::hpu::HPUStream stream)
       : m_symbol{symbol},
         m_graph_name{symbol.toQualString()},
         m_inputs(std::move(inputs)),
         m_outputs(std::move(outputs)),
-        m_is_pipeline_supported(is_pipeline_supported) {}
+        m_is_pipeline_supported(is_pipeline_supported),
+        m_stream(std::move(stream)) {}
 
   void launch();
 
@@ -212,6 +215,7 @@ class EagerExec {
       std::shared_ptr<torch::jit::Graph>& graph);
   void mark_maybe_grad_view();
   bool m_is_pipeline_supported = true;
+  const c10::hpu::HPUStream m_stream;
 };
 
 std::vector<at::IValue> convert_ivalues_to_backend_tensors(

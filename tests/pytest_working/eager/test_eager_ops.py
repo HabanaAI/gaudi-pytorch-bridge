@@ -1835,3 +1835,30 @@ def test_local_scalar_to_dense():
     t1 = torch.tensor(6, dtype=torch.bfloat16)
     t1_hpu = t1.to("hpu", non_blocking=True)
     assert t1.item() == t1_hpu.item()
+
+
+def test_compute_user_stream():
+    inp_linear = torch.randn(256, 256).to("hpu")
+    linear = torch.nn.Linear(256, 256).to("hpu")
+
+    inp_add = torch.zeros((256, 256), device="hpu")
+    out_add = torch.empty((256, 256), device="hpu")
+
+    # create user stream
+    stream = torch.Stream("hpu")
+    hpu_stream = torch.hpu.Stream(
+        stream_id=stream.stream_id,
+        device_index=stream.device_index,
+        device_type=stream.device_type,
+    )
+
+    # MME OP default compute stream
+    out_linear = linear(inp_linear)
+
+    # TPC ops on different compute stream
+    with torch.hpu.stream(hpu_stream):
+        torch.add(inp_add, 2, out=out_add)
+
+    t1 = out_add.to("cpu")
+    t2 = out_linear.to("cpu")
+    assert t1.shape == t2.shape
