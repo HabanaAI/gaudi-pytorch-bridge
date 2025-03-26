@@ -29,6 +29,7 @@ from torch._functorch.partitioners import (
     min_cut_rematerialization_partition,
     reordering_to_mimic_autograd_engine,
 )
+from torch._inductor.fx_passes.joint_graph import constant_fold_uniform_value
 
 from .passes import is_view_node
 
@@ -102,12 +103,21 @@ def remove_unnecessary_clone(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
     return gm
 
 
+def constant_fold_joint_graph(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
+    constant_fold_uniform_value(gm)
+
+    return gm
+
+
 def hpu_partition(
     joint_module: torch.fx.GraphModule, _joint_inputs, *, num_fwd_outputs
 ) -> tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
     # optimize the joint module before partitioning it
     if hpu_backend_config.remove_unnecessary_clones:
         joint_module = remove_unnecessary_clone(joint_module)
+
+    if hpu_backend_config.joint_graph_constant_folding:
+        joint_module = constant_fold_joint_graph(joint_module)
 
     # optimize the joint module before partitioning it
     # we will fuse the attention module here
@@ -117,6 +127,7 @@ def hpu_partition(
         )
 
         hpu_recursive_joint_graph_passes(joint_module)
+
     try:
         fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
         bw_module = reordering_to_mimic_autograd_engine(bw_module)
