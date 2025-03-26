@@ -243,6 +243,14 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
 
             mutated_inputs.add(node.args[0])
 
+    def update_storage(node, mutated_arg):
+        # Update storage_to_nodes and nodes_to_storage map
+        output_storage, mutated_arg_storage = nodes_to_storage[node], nodes_to_storage[mutated_arg]
+        storage_to_nodes[mutated_arg_storage].extend(storage_to_nodes[output_storage])
+        for n in storage_to_nodes[output_storage]:
+            nodes_to_storage[n] = mutated_arg_storage
+        storage_to_nodes.pop(output_storage)
+
     def any_use_of_views_after_node(node, shared_view_nodes, *, copy_node, mutated_arg):
         node_loc = node_order[node]
         copy_node_loc = node_order[copy_node] if copy_node is not None else None
@@ -300,7 +308,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
                 # Therefore the semantics of the program are that it does not mutate
                 # mutated_arg, so we cannot re-inplace it.
                 return False
-            if list(copy_node.args)[1] != node:
+            if copy_node.args[1] != node and nodes_to_storage[copy_node.args[1]] != nodes_to_storage[node]:
                 # non-trival patterns, like:
                 #   add = torch.ops.aten.add.Tensor(arg1_1, mul)
                 #   copy = torch.ops.aten.copy.default(add, pow_1)
@@ -326,7 +334,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
     replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
     reinplaced_nodes = []
 
-    for node in graph.nodes:
+    for node in reversed(graph.nodes):
         if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:
             mutated_arg = node.args[inplaceable_op.mutated_arg]
             if inplaceable_op.extra_check(node) and can_inplace(node, mutated_arg):
@@ -351,7 +359,8 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
                         replace_dict[copy_node] = copy_node.args[1]
 
                 node.target = inplaceable_op.inplace_op
-                reinplaced_nodes.append((node, inplaceable_op.mutated_arg))
+                reinplaced_nodes.append((node, node.args[inplaceable_op.mutated_arg]))
+                update_storage(*reinplaced_nodes[-1])
                 graph_changed = True
 
     for node, replacement in replace_dict.items():
@@ -364,15 +373,6 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
 
     # Epilogue: remove copy_ nodes that are used for input mutation but no
     # longer needed after reinplace
-    # Update storage_to_nodes and nodes_to_storage map
-    for node, mutated_arg_idx in reinplaced_nodes:
-        mutated_arg = node.args[mutated_arg_idx]
-        output_storage, mutated_arg_storage = nodes_to_storage[node], nodes_to_storage[mutated_arg]
-        storage_to_nodes[mutated_arg_storage].extend(storage_to_nodes[output_storage])
-        for n in storage_to_nodes[output_storage]:
-            nodes_to_storage[n] = mutated_arg_storage
-        storage_to_nodes.pop(output_storage)
-
     for copy_node in copy_nodes.values():
         if copy_node not in replace_dict and nodes_to_storage[copy_node.args[0]] == nodes_to_storage[copy_node.args[1]]:
             copy_node.replace_all_uses_with(copy_node.args[0])

@@ -501,3 +501,42 @@ def test_avoid_cycle():
     compiled_model = torch.compile(model, backend="hpu_backend", dynamic=False)
     with use_eager_fallback():
         results = compiled_model()
+
+
+def test_reinplace_chain_of_inplaceable_ops():
+    """
+    Check whether a copy node, which dst is graph's input and src node
+    is not a direct user of that input will be deleted, under the condition that
+    there is a path, in form of a chain of inplaceable ops, between that
+    graph's input user and src of the copy node.
+    """
+
+    def fn(arg0):
+        x = torch.abs(arg0)
+        arg0 += x
+        arg0 += x
+        arg0 += x
+        return arg0
+
+    example_inputs = [torch.ones((2, 2), device="hpu", dtype=torch.bfloat16)]
+
+    graph_module = make_fx(functionalize(fn))(*example_inputs)
+    ctx = OptimizerContext(
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+    )
+
+    graph_changed = reinplace_test_helper(ctx)
+    assert graph_changed, "pass_reinplace_inplaceable_ops_v2 didn't change the graph"
+
+    reinplaced_fn_str = ctx.graph_module.print_readable(False)
+
+    sub_str = """\
+    def forward(self, arg0_1: "bf16[2, 2]"):
+        # No stacktrace found for following nodes
+        abs_1: "bf16[2, 2]" = torch.ops.aten.abs.default(arg0_1)
+        add: "bf16[2, 2]" = torch.ops.aten.add_.Tensor(arg0_1, abs_1);  arg0_1 = None
+        add_1: "bf16[2, 2]" = torch.ops.aten.add_.Tensor(add, abs_1);  add = None
+        add_2: "bf16[2, 2]" = torch.ops.aten.add_.Tensor(add_1, abs_1);  add_1 = abs_1 = None
+        return add_2
+    """
+    assert sub_str in ctx.graph_module.print_readable(False)
