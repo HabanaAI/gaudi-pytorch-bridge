@@ -20,6 +20,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 
+from .constants import HabanaExecutionMode
 from .op import Op
 
 _DEVICE_STR_TO_ENUM = {
@@ -177,9 +178,21 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         has_op_frontend = self._ctxop.op.get("op_frontend", False)
         has_op_backend = self._ctxop.op.get("op_backend", False)
         has_reduction = self._ctxop.op.get("reduction", False)
+        has_namespaces = self._ctxop.op.get("namespaces", False)
+        has_pytorch_module_names = self._ctxop.op.get("pytorch_module_names", False)
+        has_custom_op_schema = self._ctxop.op.get("custom_op_schema", False)
+        skip_slrg = self._ctxop.op.get("skip_slrg", False)
 
         is_compatible_with_shared_layer = not any([has_op_backend, has_op_frontend, has_early_exit, has_reduction])
         assert is_compatible_with_shared_layer, f"cannot use shared layer for {self._ctxop.opname}"
+        if not has_custom_op_schema and not skip_slrg:
+            assert (
+                has_namespaces
+            ), f"cannot use shared layer for {self._ctxop.opname} - missing namespaces (e.g. torch.nn.functional)"
+            if has_namespaces.count("torch.nn") > 0:
+                assert (
+                    has_pytorch_module_names
+                ), f"cannot use shared layer for {self._ctxop.opname} - missing pytorch_module_names (e.g. AdaptiveAvgPool2d)"
 
         return is_compatible_with_shared_layer
 
@@ -235,8 +248,8 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
             arg_isoutfn,
         ]
         constructor_args = ", ".join(constructor_args)
-
-        return f"static CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
+        prefix = "" if self.execution_mode_for_shared_layer == HabanaExecutionMode.LAZY else "static "
+        return f"{prefix}CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
 
 
 class CheckNodeWithCustomSharedLayerValidatorGenerator(CheckNodeWithSharedLayerValidatorGenerator):
@@ -244,6 +257,18 @@ class CheckNodeWithCustomSharedLayerValidatorGenerator(CheckNodeWithSharedLayerV
         return "VAL_CUSTOM_"
 
     def can_generate(self):
+        has_namespaces = self._ctxop.op.get("namespaces", False)
+        has_pytorch_module_names = self._ctxop.op.get("pytorch_module_names", False)
+        has_custom_op_schema = self._ctxop.op.get("custom_op_schema", False)
+        skip_slrg = self._ctxop.get_skip_slrg()
+        if not has_custom_op_schema and not skip_slrg:
+            assert (
+                has_namespaces
+            ), f"cannot use shared layer for {self._ctxop.opname} - missing namespaces (e.g. torch.nn.functional)"
+            if has_namespaces.count("torch.nn") > 0:
+                assert (
+                    has_pytorch_module_names
+                ), f"cannot use shared layer for {self._ctxop.opname} - missing pytorch_module_names (e.g. AdaptiveAvgPool2d)"
         return True
 
     def get_validator_data_def(self, isoutfn, cpp_sig=""):
@@ -255,11 +280,11 @@ class CheckNodeWithCustomSharedLayerValidatorGenerator(CheckNodeWithSharedLayerV
         arg_shared_meta = ctxop.get_op_validator()
 
         arg_execution_mode = f"habana_helpers::{self.execution_mode_for_shared_layer}".replace(".", "::")
-
+        prefix = "" if self.execution_mode_for_shared_layer == HabanaExecutionMode.LAZY else "static "
         constructor_args = [arg_opname, arg_shared_meta, arg_execution_mode]
         constructor_args = ", ".join(constructor_args)
 
-        return f"static CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
+        return f"{prefix}CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
 
 
 def get_op_validator_generator(ctxop: Op, execution_mode_for_shared_layer) -> OpValidatorGenerator:

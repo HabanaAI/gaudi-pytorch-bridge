@@ -64,6 +64,7 @@ addbmm:
   op_backend: AddBMM
   output_meta: AddBMMMeta
   out_ids: [0]
+  namespaces: ["torch", "torch.Tensor"]
   op_validator: AddBMMSharedMeta
 
 bucketize.Scalar:
@@ -74,6 +75,7 @@ bucketize.Scalar:
   tpc_input_order: [1, 0]
   scalar_ids: [0]
   out_ids: [1]
+  namespaces: ["torch"]
   op_validator: check-node-with-shared-layer
 
 elu:
@@ -84,6 +86,8 @@ elu:
   custom_fill_params: FillEluParams
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: ["torch.nn", "torch.nn.functional"]
+  pytorch_module_names: ["ELU"]
 
 prod.int_out:
   dtypes:

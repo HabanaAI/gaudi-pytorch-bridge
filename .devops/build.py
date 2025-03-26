@@ -871,12 +871,14 @@ def create_collect_binaries_target(pmake, wheels_per_build_envs, cmake_configura
         pmake("\tDESTINATION=$(dir $@);\\")
         pmake("\trm $$DESTINATION/*.so* 2>/dev/null;\\")
         pmake("\trm $$DESTINATION/test_* 2>/dev/null;\\")
+        pmake("\trm $$DESTINATION/slrg 2>/dev/null;\\")
         pmake("\tmkdir -p $$DESTINATION && \\")
         for pt_ver_and_src in lib_versions:
             source = target_absdir(py_ver, pt_ver_and_src.version.label, cmake_config)
             pmake(f'\techo "Copying {pt_ver_and_src.version} targets from {source} to $$DESTINATION" &&\\')
             pmake(f"\tcp -fs {source}/*.so $$DESTINATION && \\")
             pmake(f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\")  # skip if not building tests
+            pmake(f"\t(cp -fs {source}/slrg $$DESTINATION || true) && \\")  # skip if not building slrg
         cmake_config_upper = cmake_config.upper()
         pmake(
             f'\tfind {debugopts_for_find} $$DESTINATION -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
@@ -1311,6 +1313,8 @@ def get_cmake_configurations(args) -> dict[str, list[str]]:
         cmake_flags.set_if_missing("THREAD_SANITIZER", "ON")
     if args.no_cpp_tests:
         cmake_flags.set_if_missing("BUILD_TESTS", "OFF")
+    if args.no_slrg:
+        cmake_flags.set_if_missing("BUILD_SL_REPORT_GENERATOR", "OFF")
     if args.coverage:
         cmake_flags.set_if_missing("CODE_COVERAGE", "ON")
         args.release = False
@@ -1552,6 +1556,12 @@ def parse_args():
         "--no_cpp_tests",
         action="store_true",
         help="Don't build tests. Toggling between -l and full builds requires -c",
+    )
+    parser.add_argument(
+        "-g",
+        "--no_slrg",
+        action="store_true",
+        help="Don't build shared layer report generator. Toggling between -g and full builds requires -c",
     )
     parser.add_argument(
         "--no-swig",
@@ -1951,6 +1961,22 @@ def install_wheels_in_venvs(selected_wheel_configs):
         # else: checked in log_produced_wheels_and_dump_manifest
 
 
+def run_doc_gen(selected_wheel_configs, pt_modules_root):
+    for wheel_config in selected_wheel_configs:
+        if wheel_config.full_wheel_name.startswith("habana_torch_plugin"):
+            run(
+                "python3",
+                f"{pt_modules_root}/sl_report_generator/report_parser.py",
+                f"--path {pt_modules_root}/docs/Pytorch_Operators.rst",
+                venv=wheel_config.venv_dirs[0],
+            )
+            run(
+                "python3",
+                f"{pt_modules_root}/scripts/split_tables_in_pytorch_operators_docs.py",
+                venv=wheel_config.venv_dirs[0],
+            )
+
+
 def add_upstream_versions(wheel_specs: list[WheelSpec], cpu_index_url: str | None) -> list[WheelSpec]:
     for ws in wheel_specs:
         new_pt_versions: set[VersionAndSource] = set()
@@ -2054,6 +2080,8 @@ def main():
 
     if args.install_ext:
         install_wheels_in_venvs(selected_wheel_configs)
+        if not args.no_slrg:
+            run_doc_gen(selected_wheel_configs, pt_modules_root)
 
     print_build_summary(cmake_build_configs, selected_wheel_configs, args)
 

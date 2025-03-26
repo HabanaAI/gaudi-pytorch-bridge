@@ -133,6 +133,10 @@ AVAILABLE_FIELDS = {
     "st_meta",
     "synapse_layouts",
     "tpc_input_order",
+    "namespaces",
+    "pytorch_module_names",
+    "overwritten_op_names_in_slrg",
+    "skip_slrg",
 }
 
 # List of ops that will not be checked for shared layer support.

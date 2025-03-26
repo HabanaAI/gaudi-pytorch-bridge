@@ -521,8 +521,21 @@ SharedMetaDataVector RandomSeedTensorInputSharedMeta(
   auto computeDtype = self.scalar_type();
   SharedMetaData randomSharedMeta{guid};
   if (!isUniform) {
-    randomSharedMeta.inputs_data.push_back(
-        createOptionalNotPresentSharedMetaTensor());
+    // SL isn't able to correctly determine precision type from the first input.
+    // For types half (log_normal_fwd kernel only) and f8 there is no dedicated
+    // kernel and in such case fallback is forced. After fallback there will be
+    // upcast fo f32 and op will be handled correctly.
+    if ((guid.find("log_normal_fwd") != std::string::npos &&
+         (computeDtype == c10::ScalarType::Half ||
+          computeDtype == c10::ScalarType::Float8_e4m3fn ||
+          computeDtype == c10::ScalarType::Float8_e5m2)) ||
+        (guid.find("random_normal_fwd") != std::string::npos &&
+         (computeDtype == c10::ScalarType::Float8_e4m3fn ||
+          computeDtype == c10::ScalarType::Float8_e5m2)))
+      randomSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+    else
+      randomSharedMeta.inputs_data.push_back(
+          createOptionalNotPresentSharedMetaTensor());
     if (computeDtype != c10::ScalarType::BFloat16)
       computeDtype = c10::ScalarType::Float;
   }

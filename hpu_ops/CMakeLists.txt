@@ -67,10 +67,13 @@ set(GENERATED_FILES
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops6.cpp
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops7.cpp
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops8.cpp
-    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp)
+    ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp
+    ${CMAKE_BINARY_DIR}/generated/slrg/registry.cpp)
 
 include(GenOp)
 generate_files("${GENERATED_FILES}" "")
+
+add_custom_target(slrg_gen ALL DEPENDS ${CMAKE_BINARY_DIR}/generated/slrg/registry.cpp)
 
 add_habana_library(
   habana_pytorch_backend_ops

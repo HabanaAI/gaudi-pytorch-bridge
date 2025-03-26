@@ -9,9 +9,11 @@
 namespace habana {
 
 
+class CheckNodeWithSharedLayerValidator;
 at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha);
 OUTMETA_DECL(AddBMMMeta);
 SHARED_LAYER_META_DECL(AddBMMSharedMeta);
+extern CheckNodeWithSharedLayerValidator validator_addbmm;
 
 }  // namespace habana
 

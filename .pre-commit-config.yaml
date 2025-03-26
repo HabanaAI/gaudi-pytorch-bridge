@@ -43,7 +43,8 @@ repos:
         exclude: "python_packages/habana_frameworks/torch/jit/csrc/jit_fork/|\
           ^tests/user_custom_op/|\
           ^pytorch_helpers/habana_helpers/tensor_comparator/synapse/src/infra/(float16|sim_fp16).cpp$|\
-          ^scripts/tests/files/"
+          ^scripts/tests/files/|\
+          ^sl_report_generator/src/executor.cpp"
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 3.0.0
     hooks:

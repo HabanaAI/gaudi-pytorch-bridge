@@ -349,7 +349,7 @@ def generate_op_frontend_hclasses(fgens, classes, header_file, base_class):
     return generate_op_hclasses(fgens, classes, header_file, False, base_class)
 
 
-def generate_header_decls(fgens):
+def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     fill_params = set()
     early_exit_fns = set()
     outshape_fns = set()
@@ -369,9 +369,11 @@ def generate_header_decls(fgens):
     outshape_decls = ""
     outmeta_decls = ""
     shared_layer_meta_decls = ""
+    check_node_with_sl_decls = ""
     stmeta_decls = ""
     fill_params_decls = ""
     fallback_check_decls = ""
+    forward_decls = ""
     for fgen in fgens:
         reg_decls += f"{fgen.rwsig};\n"
 
@@ -391,6 +393,11 @@ def generate_header_decls(fgens):
         shared_layer_meta_decls += build(
             fgen.ctxop.get_shared_layer_meta(), shared_layer_meta_fns, "SHARED_LAYER_META_DECL"
         )
+
+        if gen_check_node_with_sl_val and fgen.ctxop.get_op_validator() is not None:
+            validator_sufix = fgen.op_variant.replace(".", "_")
+            check_node_with_sl_decls += f"extern CheckNodeWithSharedLayerValidator validator_{validator_sufix};\n"
+
         if fgen.ctxop.get_st_meta() is not None and not fgen.ctxop.get_st_meta().startswith("Default"):
             stmeta_decls += build(fgen.ctxop.get_st_meta(), stmeta_fns, "STMETA_DECL")
 
@@ -400,12 +407,17 @@ def generate_header_decls(fgens):
         if fc:
             fallback_check_decls += build(fc[0], fc_fns, "FALLBACK_CHECK", fgen.fc_params)
 
+    if len(check_node_with_sl_decls) > 0:
+        forward_decls += "class CheckNodeWithSharedLayerValidator;\n"
+
     return (
-        reg_decls
+        forward_decls
+        + reg_decls
         + early_exit_decls
         + outshape_decls
         + outmeta_decls
         + shared_layer_meta_decls
+        + check_node_with_sl_decls
         + stmeta_decls
         + fill_params_decls
         + fallback_check_decls
@@ -1395,7 +1407,7 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_fil
     )
 
 
-def generate_frontend(args, fgens, out_dir, namespace="aten"):
+def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
     frontend_func = f"op_frontend_{out_dir}"
     fgens_filtered = [x for x in fgens if getattr(x, frontend_func) is not None]
     ops_count = len(fgens_filtered)
@@ -1424,6 +1436,48 @@ def generate_frontend(args, fgens, out_dir, namespace="aten"):
         dtype_defs += _dtype_defs
         functions += _functions
         torch_regs += _torch_regs
+        op_validator = fgen.ctxop.get_op_validator()
+        if (
+            not is_custom
+            and out_dir == "lazy"
+            and not fgen.ctxop.op.get("custom_op_schema", False)
+            and op_validator is not None
+            and not fgen.ctxop.get_skip_slrg()
+        ):
+            op_name = get_aten_opname(fgen.aten_sig)
+            validator_suffix = op_name.replace(".", "_")
+            # extract input params
+            schema = re.search(r"\((.*?)\)\s*->", fgen.aten_sig)
+            if schema:
+                op_name_parts = op_name.split(".", 1)
+                pure_op_name = op_name_parts[0]
+                schema = schema.group(1).replace(" *,", "")
+                # remove (a), (a!), (b), (b!)...
+                schema = re.sub(r"\([a-z]!?\)", "", schema)
+                # remove (a -> *), (b -> *), ...
+                schema = re.sub(r"\([a-z] -> \*\)", "", schema)
+                # remove default values
+                schema = re.sub(r"=\s*[^,)\s]+", "", schema)
+                # fix schema with double space
+                schema = re.sub(r"\s{2,}", " ", schema)
+                namespaces = fgen.ctxop.op.get("namespaces", None)
+                pytorch_module_names = fgen.ctxop.op.get("pytorch_module_names", None)
+                is_generic_sl_meta = op_validator == "check-node-with-shared-layer"
+                op_validator_map[op_name] = {
+                    "op_name": pure_op_name,
+                    "overload": op_name,
+                    "validator_name": f"validator_{validator_suffix}",
+                    "validator_header_rel_path": f"generated/lazy/{fgen.opgroup}.h",
+                    "generator_name": f"stack_generator_{validator_suffix}",
+                    "schema": schema,
+                    "namespaces": namespaces,
+                    "pytorch_module_names": pytorch_module_names,
+                    "is_generic_sl_meta": is_generic_sl_meta,
+                    "overwritten_op_names_in_slrg": fgen.ctxop.get_overwritten_op_names_in_slrg(),
+                    "executor_name": f"shared_layer_executor_{validator_suffix}",
+                }
+            else:
+                raise Exception(f"Couldn't extract schema input params for {op_name}")
 
         if not is_custom and should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, ops_count):
             print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_file_idx, out_dir, args, namespace)
@@ -1448,7 +1502,7 @@ def generate_frontend(args, fgens, out_dir, namespace="aten"):
             "habana_lazy::LazyOp" if out_dir == "lazy" else "eager::EagerOp",
         )
 
-        header_decls = generate_header_decls(ffgens)
+        header_decls = generate_header_decls(ffgens, out_dir == "lazy")
 
         # Create output files ...
         print(
@@ -1669,7 +1723,6 @@ def generate(args, op_validator_exceptions=constants.OP_VALIDATOR_EXCEPTIONS):
                 print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
                 continue
             fgens_native.append(generate_op(fndef, op_name, ctxop, op_params))
-
     gen_hpu_wrap_ops(fgens_hpu_wrap_lazy, args, "lazy")
     gen_hpu_wrap_ops(fgens_hpu_wrap_eager, args, "eager")
 
@@ -1678,12 +1731,14 @@ def generate(args, op_validator_exceptions=constants.OP_VALIDATOR_EXCEPTIONS):
     generate_backend(args, fgens_native + fgens_quant + fgens_torchvision)
     generate_backend(args, fgens_custom, is_custom=True)
 
+    op_validator_map = {}
     for mode in ["eager", "lazy"]:
-        generate_frontend(args, fgens_native, mode)
-        generate_frontend(args, fgens_custom, mode, namespace="hpu")
-        generate_frontend(args, fgens_quant, mode, namespace="quantized_decomposed")
-        generate_frontend(args, fgens_torchvision, mode, namespace="torchvision")
+        generate_frontend(args, fgens_native, op_validator_map, mode)
+        generate_frontend(args, fgens_custom, op_validator_map, mode, namespace="hpu")
+        generate_frontend(args, fgens_quant, op_validator_map, mode, namespace="quantized_decomposed")
+        generate_frontend(args, fgens_torchvision, op_validator_map, mode, namespace="torchvision")
 
+    generate_slrg_files(args, op_validator_map)
     generate_autograd_ops(args, fgens_autograd)
 
 
@@ -1709,6 +1764,68 @@ def generate_check_kernel_support_sigs(fgen):
     return (
         dtype_defs,
         op_frontend_functions,
+    )
+
+
+def generate_slrg_files(args, op_validator_map):
+    generate_slrg_stack_generators(args, op_validator_map)
+    generate_slrg_registry_h(args)
+    generate_slrg_registry_cpp(args, op_validator_map)
+
+
+def generate_slrg_stack_generators(args, op_validator_map):
+    headers = []
+    for key in op_validator_map.keys():
+        op_validator = op_validator_map[key]
+        headers.append(f'#include "{op_validator["validator_header_rel_path"]}"')
+
+    print(
+        templates._SLRG_VALIDATOR_HEADERS.format(gen=os.path.basename(sys.argv[0]), headers=str.join("\n", headers)),
+        file=gen_h_output_file(args, "slrg/validator_headers"),
+    )
+
+
+def generate_slrg_registry_cpp(args, op_validator_map):
+    generators = []
+    executors = []
+    funcs = []
+    for key in op_validator_map.keys():
+        op_validator = op_validator_map[key]
+        generators.append(
+            f'static SchemaStackGenerator {op_validator["generator_name"]}("{op_validator["schema"]}", "{op_validator["op_name"]}", "{op_validator["overload"]}");'
+        )
+        executor_type = (
+            "GenericSharedLayerExecutor" if op_validator["is_generic_sl_meta"] else "CustomSharedLayerExecutor"
+        )
+        executors.append(
+            f'static {executor_type} {op_validator["executor_name"]}(&{op_validator["generator_name"]}, &habana::{op_validator["validator_name"]});'
+        )
+        if op_validator["namespaces"] is not None:
+            for namespace in op_validator["namespaces"]:
+                op_names = (
+                    op_validator["pytorch_module_names"] if namespace == "torch.nn" else [op_validator["op_name"]]
+                )
+                if op_validator["overwritten_op_names_in_slrg"] is not None and namespace != "torch.nn":
+                    op_names = op_validator["overwritten_op_names_in_slrg"]
+                for op_name in op_names:
+                    funcs.append(
+                        f'  report_generator->register_op({{"{op_name}", "{op_validator["overload"]}", "{namespace}"}}, &{op_validator["executor_name"]});'
+                    )
+    print(
+        templates._SLRG_REGISTRY_CPP.format(
+            gen=os.path.basename(sys.argv[0]),
+            generators=str.join("\n", generators),
+            executors=str.join("\n", executors),
+            funcs=str.join("\n", funcs),
+        ),
+        file=gen_cpp_output_file(args, "slrg/registry"),
+    )
+
+
+def generate_slrg_registry_h(args):
+    print(
+        templates._SLRG_REGISTRY_H.format(gen=os.path.basename(sys.argv[0])),
+        file=gen_h_output_file(args, "slrg/registry"),
     )
 
 

@@ -108,6 +108,6 @@ CheckOptions:
       value: true
 
 FormatStyle: file
-HeaderFilterRegex: 'habana|hpu|pt_ver|pytorch_helpers|python_packages|tests/'
+HeaderFilterRegex: 'habana|hpu|pt_ver|pytorch_helpers|python_packages|tests|sl_report_generator/'
 # WarningsAsErrors: '*'
 ...

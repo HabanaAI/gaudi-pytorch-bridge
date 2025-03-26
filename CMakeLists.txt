@@ -258,7 +258,9 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
           ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
-          $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>)
+          $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
+          ${CMAKE_SOURCE_DIR}/sl_report_generator/$<TARGET_FILE_NAME:habana_pytorch_plugin>)
 
 install(TARGETS habana_pytorch_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
 
@@ -381,7 +383,10 @@ if(BUILD_TESTS)
                    ${CMAKE_BINARY_DIR}/ThirdParty/googletest/ EXCLUDE_FROM_ALL SYSTEM)
   add_subdirectory(tests/cpp)
 endif()
-
+option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" ON)
+if(BUILD_SL_REPORT_GENERATOR)
+  add_subdirectory(sl_report_generator)
+endif()
 option(BUILD_PKGS "Build python packages" OFF)
 option(INSTALL_PKGS "Install python packages" OFF)
 

@@ -43,18 +43,19 @@ c10::ScalarType GetKernelExponentType(const c10::ScalarType dtype) {
 SharedMetaDataVector FrexpSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  auto input = stack_tensor(stack, 0);
-  auto inputType = input.scalar_type();
-  auto rank = input.dim();
+  const auto& input = stack_tensor(stack, 0);
+  const auto inputType = input.scalar_type();
+  auto outputType = inputType;
+  const auto rank = input.dim();
 
   if (c10::isIntegralType(inputType, true))
-    inputType = c10::ScalarType::Float;
+    outputType = c10::ScalarType::Float;
 
-  auto exponentType = GetKernelExponentType(inputType);
+  const auto exponentType = GetKernelExponentType(outputType);
 
   SharedMetaData frexpSharedMeta{"frexp"};
   frexpSharedMeta.inputs_data.emplace_back(rank, inputType);
-  frexpSharedMeta.outputs_data = {{rank, exponentType}, {rank, inputType}};
+  frexpSharedMeta.outputs_data = {{rank, exponentType}, {rank, outputType}};
   return {frexpSharedMeta};
 }
 

@@ -344,9 +344,10 @@ bool is_guid_support_dynamic_shape(const std::string& guid) {
 
 bool CheckNodeWithSharedLayerValidator::Validate(
     const at::Stack& values,
-    bool is_dynamic,
-    bool check_st_h2d,
-    const SharedMetaVector& meta) {
+    const bool is_dynamic,
+    const bool check_st_h2d,
+    const SharedMetaVector& meta,
+    std::optional<SharedLayer::DeviceId> device_stub) {
   auto promoted_type = ComputePromotedType(values);
 
   detail::TensorDescrArray outputs;
@@ -375,50 +376,77 @@ bool CheckNodeWithSharedLayerValidator::Validate(
 
   SharedLayerGuidValidator guidValidator{
       m_guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d};
-  auto validation_result = guidValidator.ValidateGuid();
-
-  if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &&
-      is_dynamic && !is_guid_support_dynamic_shape(m_guid)) {
-    validation_result =
-        SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT;
-  }
-
-  if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
-    // This log line is used by the logging analysis tool. Please be cautious
-    // when changing.
-    PT_OP_INFO(
-        "Shared layer rejected op: ",
-        m_opname,
-        ":  guid=",
-        m_guid,
-        " inputlist=",
-        ToDebugString(inputs),
-        " outputlist=",
-        ToDebugString(outputs),
-        " values=",
-        ToDebugString(values),
-        " is_dynamic=",
-        ToDebugString(is_dynamic),
-        " reason=",
-        ToDebugString(validation_result));
-    PT_OP_INFO("Fallback for op: ", m_opname);
-    return false;
-  } else if (check_st_h2d) {
-    unsigned resultBitMap = 0;
-    if (guidValidator.QueryGuid(&resultBitMap)) {
-      // bit 1: query failed, don't require shape/h2d.
-      m_require_st = !(resultBitMap & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
-      m_require_h2d = !(resultBitMap & SharedLayer::QUERY_H2D_TENSOR_REQ);
+  if (device_stub.has_value()) {
+    unsigned query_bit_map = SharedLayer::QUERY_DATATYPES;
+    unsigned result_bit_map = 0;
+    auto validation_result =
+        guidValidator.QueryGuid(query_bit_map, &result_bit_map, device_stub);
+    if (validation_result != SharedLayer::Return_t::SHARED_LAYER_SUCCESS) {
+      PT_OP_INFO(
+          "Shared Layer Report Generator rejected op: ",
+          m_opname,
+          ":  guid=",
+          m_guid,
+          " inputlist=",
+          ToDebugString(inputs),
+          " outputlist=",
+          ToDebugString(outputs),
+          " values=",
+          ToDebugString(values),
+          " is_dynamic=",
+          ToDebugString(is_dynamic),
+          " reason=INCOMPATIBLE_DATA_TYPE");
+      return false;
     }
-    PT_OP_INFO(
-        "Shared layer op: ",
-        m_opname,
-        ":  guid=",
-        m_guid,
-        " require_shape_tensor=",
-        m_require_st,
-        " require_h2d_tensor=",
-        m_require_h2d);
+  } else {
+    auto validation_result = guidValidator.ValidateGuid();
+
+    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &&
+        is_dynamic && !is_guid_support_dynamic_shape(m_guid)) {
+      validation_result =
+          SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT;
+    }
+
+    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+      // This log line is used by the logging analysis tool. Please be cautious
+      // when changing.
+      PT_OP_INFO(
+          "Shared layer rejected op: ",
+          m_opname,
+          ":  guid=",
+          m_guid,
+          " inputlist=",
+          ToDebugString(inputs),
+          " outputlist=",
+          ToDebugString(outputs),
+          " values=",
+          ToDebugString(values),
+          " is_dynamic=",
+          ToDebugString(is_dynamic),
+          " reason=",
+          ToDebugString(validation_result));
+      PT_OP_INFO("Fallback for op: ", m_opname);
+      return false;
+    } else if (check_st_h2d) {
+      unsigned query_bit_map = 0;
+      unsigned result_bit_map = 0;
+      query_bit_map |= SharedLayer::QUERY_SHAPE_TENSOR_REQ;
+      query_bit_map |= SharedLayer::QUERY_H2D_TENSOR_REQ;
+      if (guidValidator.QueryGuid(query_bit_map, &result_bit_map)) {
+        // bit 1: query failed, don't require shape/h2d.
+        m_require_st = !(result_bit_map & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
+        m_require_h2d = !(result_bit_map & SharedLayer::QUERY_H2D_TENSOR_REQ);
+      }
+      PT_OP_INFO(
+          "Shared layer op: ",
+          m_opname,
+          ":  guid=",
+          m_guid,
+          " require_shape_tensor=",
+          m_require_st,
+          " require_h2d_tensor=",
+          m_require_h2d);
+    }
   }
 
   return true;
@@ -426,8 +454,9 @@ bool CheckNodeWithSharedLayerValidator::Validate(
 
 bool CheckNodeWithSharedLayerValidator::ValidateCustom(
     const at::Stack& values,
-    bool is_dynamic,
-    bool check_st_h2d) {
+    const bool is_dynamic,
+    const bool check_st_h2d,
+    std::optional<SharedLayer::DeviceId> device_stub) {
   for (const auto& meta : m_sharedMetaFunc(values, m_executionMode)) {
     auto inputs = CreateTensorList(meta.inputs_data);
     auto outputs = CreateTensorList(meta.outputs_data);
@@ -440,43 +469,70 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
         is_dynamic,
         check_st_h2d,
         check_st_h2d};
-    auto validation_result = guidValidator.ValidateGuid();
-
-    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
-      // This log line is used by the logging analysis tool. Please be
-      // cautious when changing.
-      PT_OP_INFO(
-          "Shared layer rejected complex op: ",
-          m_opname,
-          ":  guid=",
-          meta.guid,
-          " inputlist=",
-          ToDebugString(inputs),
-          " outputlist=",
-          ToDebugString(outputs),
-          " is_dynamic=",
-          ToDebugString(is_dynamic),
-          " reason=",
-          ToDebugString(validation_result));
-      PT_OP_INFO("Fallback for op: ", m_opname);
-      return false;
-    } else if (check_st_h2d && !m_require_h2d && !m_require_st) {
-      unsigned resultBitMap = 0;
-      if (guidValidator.QueryGuid(&resultBitMap)) {
-        // bit 1: query failed, don't require shape/h2d.
-        // we only need to update if m_require_st/m_require_h2d is false.
-        m_require_st = m_require_st ||
-            !(resultBitMap & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
-        m_require_h2d = m_require_h2d ||
-            !(resultBitMap & SharedLayer::QUERY_H2D_TENSOR_REQ);
+    if (device_stub.has_value()) {
+      unsigned query_bit_map = SharedLayer::QUERY_DATATYPES;
+      unsigned result_bit_map = 0;
+      auto validation_result =
+          guidValidator.QueryGuid(query_bit_map, &result_bit_map, device_stub);
+      if (validation_result != SharedLayer::Return_t::SHARED_LAYER_SUCCESS) {
+        PT_OP_INFO(
+            "Shared Layer Report Generator rejected complex op: ",
+            m_opname,
+            ":  guid=",
+            m_guid,
+            " inputlist=",
+            ToDebugString(inputs),
+            " outputlist=",
+            ToDebugString(outputs),
+            " values=",
+            ToDebugString(values),
+            " is_dynamic=",
+            ToDebugString(is_dynamic),
+            " reason=INCOMPATIBLE_DATA_TYPE");
+        return false;
       }
-      PT_OP_INFO(
-          "Shared layer complex op: ",
-          m_opname,
-          " require_shape_tensor=",
-          m_require_st,
-          " require_h2d_tensor=",
-          m_require_h2d);
+    } else {
+      auto validation_result = guidValidator.ValidateGuid();
+
+      if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+        // This log line is used by the logging analysis tool. Please be
+        // cautious when changing.
+        PT_OP_INFO(
+            "Shared layer rejected complex op: ",
+            m_opname,
+            ":  guid=",
+            meta.guid,
+            " inputlist=",
+            ToDebugString(inputs),
+            " outputlist=",
+            ToDebugString(outputs),
+            " is_dynamic=",
+            ToDebugString(is_dynamic),
+            " reason=",
+            ToDebugString(validation_result));
+        PT_OP_INFO("Fallback for op: ", m_opname);
+        return false;
+      } else if (check_st_h2d && !m_require_h2d && !m_require_st) {
+        unsigned query_bit_map = 0;
+        unsigned result_bit_map = 0;
+        query_bit_map |= SharedLayer::QUERY_SHAPE_TENSOR_REQ;
+        query_bit_map |= SharedLayer::QUERY_H2D_TENSOR_REQ;
+        if (guidValidator.QueryGuid(query_bit_map, &result_bit_map)) {
+          // bit 1: query failed, don't require shape/h2d.
+          // we only need to update if m_require_st/m_require_h2d is false.
+          m_require_st = m_require_st ||
+              !(result_bit_map & SharedLayer::QUERY_SHAPE_TENSOR_REQ);
+          m_require_h2d = m_require_h2d ||
+              !(result_bit_map & SharedLayer::QUERY_H2D_TENSOR_REQ);
+        }
+        PT_OP_INFO(
+            "Shared layer complex op: ",
+            m_opname,
+            " require_shape_tensor=",
+            m_require_st,
+            " require_h2d_tensor=",
+            m_require_h2d);
+      }
     }
   }
 
@@ -553,9 +609,9 @@ bool SharedLayerGuidValidator::fillGuidParamInfo(
 }
 
 template <typename T>
-bool SharedLayerGuidValidator::fillParam(T& params) {
+bool SharedLayerGuidValidator::fillParam(
+    T & params, SharedLayer::DeviceId deviceId) {
   params.apiVersion = 1;
-  auto deviceId = getDeviceType();
   params.deviceId = deviceId;
 
   safe_string_copy<SharedLayer::MAX_NODE_NAME>(m_guid, params.guid.name);
@@ -617,7 +673,7 @@ bool SharedLayerGuidValidator::fillParam(T& params) {
 SharedLayer::Return_t SharedLayerGuidValidator::ValidateGuid() {
   SharedLayer::ParamsV2_t params{};
   PREPARE_IN_OUT_TENSORS();
-  if (!fillParam(params)) {
+  if (!fillParam(params, getDeviceType())) {
     return SharedLayer::Return_t::SHARED_LAYER_FAILED;
   }
   return synSharedLayerValidateGuidV2(&params);
@@ -627,12 +683,17 @@ SharedLayer::Return_t SharedLayerGuidValidator::ValidateGuid() {
  * This function is a wrapper for shared layer query interface.
  */
 SharedLayer::Return_t SharedLayerGuidValidator::QueryGuid(
-    unsigned* resultBitMap) {
+    const unsigned query_bit_map,
+    unsigned* result_bit_map,
+    std::optional<SharedLayer::DeviceId> device_stub) {
   SharedLayer::QueryParams_t params{};
   PREPARE_IN_OUT_TENSORS();
-  // synSharedLayerQueryParams will fill this resultBitMap.
-  params.resultBitMap = resultBitMap;
-  if (!fillParam(params)) {
+  // synSharedLayerQueryParams will fill this result_bit_map.
+  params.queryBitMap = query_bit_map;
+  params.resultBitMap = result_bit_map;
+  SharedLayer::DeviceId deviceId =
+      device_stub.has_value() ? device_stub.value() : getDeviceType();
+  if (!fillParam(params, deviceId)) {
     return SharedLayer::Return_t::SHARED_LAYER_FAILED;
   }
   return synSharedLayerQueryParams(&params);

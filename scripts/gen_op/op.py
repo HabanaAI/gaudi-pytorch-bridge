@@ -142,6 +142,9 @@ class Op:
     def get_only_shared_layer(self):
         return self.op.get("only_shared_layer", False)
 
+    def get_overwritten_op_names_in_slrg(self):
+        return self.op.get("overwritten_op_names_in_slrg", None)
+
     def get_op_validator(self):
         return self.op.get("op_validator", None)
 
@@ -149,6 +152,9 @@ class Op:
         if self.get_op_validator() in [None, "check-node-with-shared-layer"]:
             return None
         return self.get_op_validator()
+
+    def get_skip_slrg(self):
+        return self.op.get("skip_slrg", False)
 
     def get_fallback_check(self):
         return self.op.get("fallback_check", [])
