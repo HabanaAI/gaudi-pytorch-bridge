@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]
@@ -33,6 +33,7 @@ def test_hpu_squeeze(shape):
     expected = fn(shape).to("cpu")
     result = compiled_fn(shape).to("hpu").to("cpu")
     assert torch.equal(result, expected)
+    check_ops_executed_in_jit_ir("squeeze")
 
 
 @pytest.mark.parametrize("shape", shapes)
@@ -46,6 +47,7 @@ def test_hpu_squeeze_dim(shape, dim):
     expected = fn(shape, dim).to("cpu")
     result = compiled_fn(shape, dim).to("hpu").to("cpu")
     assert torch.equal(result, expected)
+    check_ops_executed_in_jit_ir("squeeze")
 
 
 @pytest.mark.parametrize("shape", shapes)
@@ -59,6 +61,7 @@ def test_hpu_squeeze_dims(shape, dims):
     expected = fn(shape, dims).to("cpu")
     result = compiled_fn(shape, dims).to("hpu").to("cpu")
     assert torch.equal(result, expected)
+    check_ops_executed_in_jit_ir("squeeze")
 
 
 @pytest.mark.parametrize("shape", [(1,), (4,)])
@@ -75,3 +78,4 @@ def test_hpu_squeeze_dim0(shape, dim):
     result_hpu = compiled_fn(input_hpu, dim)
 
     assert torch.equal(result_hpu.cpu(), result_cpu)
+    check_ops_executed_in_jit_ir("squeeze")

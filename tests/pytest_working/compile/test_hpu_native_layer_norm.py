@@ -16,7 +16,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 
 
 @pytest.mark.parametrize("shape", [(1, 3, 4, 4)], ids=format_tc)
@@ -39,6 +43,7 @@ def test_native_layer_norm(shape, eps, dtype):
     hpu_results = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)
     cpu_results = fn(cpu_input, cpu_weight, cpu_bias)
     assert torch.allclose(cpu_results[0], hpu_results[0].cpu(), 1e-03)
+    check_ops_executed_in_jit_ir("native_layer_norm")
 
 
 @pytest.mark.parametrize("shape", [(1, 3, 4, 4)], ids=format_tc)
@@ -68,3 +73,4 @@ def test_native_layer_norm_bwd(shape, dtype):
     atol = 5e-02 if dtype == torch.bfloat16 else 1e-05
 
     assert torch.allclose(cpu_results, hpu_results.cpu(), rtol, atol)
+    check_ops_executed_in_jit_ir("native_layer_norm")

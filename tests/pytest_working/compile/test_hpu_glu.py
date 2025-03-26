@@ -16,7 +16,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 
 
 @pytest.mark.parametrize("shape", [[2, 2, 4], [4, 6, 4, 2, 6]], ids=format_tc)
@@ -53,3 +57,4 @@ def test_hpu_glu(shape, dim, backward):
     hpu_output = hpu_compiled_fn(hpu_input, dim).cpu()
 
     assert torch.allclose(cpu_output, hpu_output)
+    check_ops_executed_in_jit_ir("glu")

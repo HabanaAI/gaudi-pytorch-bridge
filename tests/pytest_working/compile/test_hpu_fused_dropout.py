@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 # Fused dropout op on HPU and CPU devices will always give different results.
 # This test checks if:
@@ -53,3 +53,4 @@ def test_exponential(shape, ratio, dtype):
 
     assert torch.any(torch.ne(result_1[0], result_3[0]))
     assert torch.any(torch.ne(result_1[1], result_3[1]))
+    check_ops_executed_in_jit_ir("_fused_dropout")

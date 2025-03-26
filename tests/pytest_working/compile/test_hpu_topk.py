@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16])
@@ -40,3 +40,4 @@ def test_topk(k, dim, largest, sorted, dtype):
     hresult1, hresult2 = compiled_fn(hx, k, dim, largest, sorted)
 
     assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir("topk")

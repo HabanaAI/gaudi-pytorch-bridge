@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long])
@@ -41,6 +41,7 @@ def test_arange(dtype, layout, start, step, end):
     expected = fn(start, layout, step, end, "cpu")
     result = compiled_fn(start, layout, step, end, "hpu").cpu()
     assert torch.equal(result, expected)
+    check_ops_executed_in_jit_ir("arange")
 
 
 # Test for rounding issues in arange op

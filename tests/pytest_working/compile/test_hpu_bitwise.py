@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("dtype", [torch.int8, torch.int, torch.uint8, torch.int16])
@@ -39,6 +39,7 @@ def test_bitwise_tensor(dtype, op_code):
     hresult = compiled_fn(hx, hy)
 
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir(op_code.__name__)
 
 
 @pytest.mark.parametrize("dtype", [torch.int8, torch.int, torch.uint8, torch.int16])
@@ -62,6 +63,7 @@ def test_bitwise_scalar(dtype, op_code):
     hresult = compiled_fn(hx, hy)
 
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir(op_code.__name__)
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
@@ -86,6 +88,7 @@ def test_bitwise_scalar_tensor(dtype, op_code):
     hresult = compiled_fn(hx, hy)
 
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir(op_code.__name__)
 
 
 @pytest.mark.parametrize("dtype", [torch.int8, torch.bool, torch.int, torch.uint8, torch.int16])
@@ -105,3 +108,4 @@ def test_bitwise_not(dtype):
     hresult = compiled_fn(hx)
 
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir("bitwise_not")

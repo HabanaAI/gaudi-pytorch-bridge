@@ -16,7 +16,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
@@ -43,7 +47,9 @@ def test_hpu_convolution(dtype):
     hpu_output = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)
 
     rtol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+
     assert torch.allclose(cpu_output, hpu_output.cpu(), rtol=rtol)
+    check_ops_executed_in_jit_ir("convolution")
 
 
 def test_hpu_convolution_grad_with_view():

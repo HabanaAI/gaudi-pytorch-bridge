@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("op_code", [torch.cumsum])
@@ -35,4 +35,6 @@ def test_cumsum_dim(op_code, dim):
     compiled_fn = compile_function_if_compile_mode(fn)
 
     hresult = compiled_fn(hx, dim)
+
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir("cumsum")

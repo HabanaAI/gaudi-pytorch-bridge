@@ -17,7 +17,7 @@
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shapes", [([10, 4, 5], [10, 5, 3]), ([3, 1, 5], [3, 5, 7])])
@@ -42,4 +42,6 @@ def test_hpu_bmm(shapes, dtype):
 
     cpu_output = cpu_compiled_fn(cpu_input, cpu_mat2)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mat2).cpu()
+
     assert torch.allclose(cpu_output, hpu_output)
+    check_ops_executed_in_jit_ir("bmm")

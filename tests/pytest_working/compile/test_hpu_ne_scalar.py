@@ -16,7 +16,7 @@
 ###############################################################################
 
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 # A test for aten.ne.Scalar op with INT64 dtype
@@ -37,3 +37,4 @@ def test_ne_scalar_int64():
     result = compiled_fn(ht, big_val1)
 
     assert torch.equal(result.to("cpu"), expected)
+    check_ops_executed_in_jit_ir("ne")

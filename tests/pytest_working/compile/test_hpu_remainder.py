@@ -15,7 +15,7 @@
 #
 ###############################################################################
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 def test_remainder_tensor():
@@ -36,6 +36,8 @@ def test_remainder_tensor():
     hresult = compiled_fn(hx, hy)
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
 
+    check_ops_executed_in_jit_ir("remainder")
+
 
 def test_remainder_scalar():
     def fn(input, other):
@@ -53,6 +55,7 @@ def test_remainder_scalar():
 
     hresult = compiled_fn(hx, y)
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir("remainder")
 
 
 def test_remainder_scalar_tensor():
@@ -71,3 +74,4 @@ def test_remainder_scalar_tensor():
 
     hresult = compiled_fn(x, hy)
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+    check_ops_executed_in_jit_ir("remainder")

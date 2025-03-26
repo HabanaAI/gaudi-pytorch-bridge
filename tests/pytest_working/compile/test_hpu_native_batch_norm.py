@@ -17,7 +17,11 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
@@ -56,6 +60,7 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     )
 
     assert torch.allclose(cpu_out[0], hpu_out[0].to("cpu"), equal_nan=True)
+    check_ops_executed_in_jit_ir("_native_batch_norm_legit_no_training")
 
 
 @pytest.mark.parametrize("shape", [[4, 3, 8]], ids=format_tc)

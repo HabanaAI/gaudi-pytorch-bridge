@@ -18,6 +18,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import (
+    check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
     setup_teardown_env_fixture,  # noqa F401
@@ -46,6 +47,8 @@ def test_reduction(op_code):
     else:
         assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
 
+    check_ops_executed_in_jit_ir(op_code.__name__)
+
 
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])
@@ -71,6 +74,8 @@ def test_reduction_dim(op_code, dim, keepdim):
             assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
     else:
         assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+
+    check_ops_executed_in_jit_ir(op_code.__name__)
 
 
 @pytest.mark.parametrize("input", [(4, 2, 6), (4, 3, 3, 2), (5, 3, 3, 2, 2)], ids=format_tc)

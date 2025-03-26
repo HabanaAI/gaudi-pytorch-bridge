@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 @pytest.mark.parametrize("shape", [(1,), (2, 3), (2, 3, 4), (4, 8, 16, 32)])
@@ -36,3 +36,4 @@ def test_gelu(shape, approximate, dtype):
     rtol = 1e-02 if dtype == torch.bfloat16 else 1e-04
     atol = 1e-04
     assert torch.allclose(cpu_result, hpu_result, rtol, atol)
+    check_ops_executed_in_jit_ir("gelu")

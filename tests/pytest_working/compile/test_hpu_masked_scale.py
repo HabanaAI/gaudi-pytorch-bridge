@@ -16,7 +16,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 
 dtypes = [torch.bfloat16, torch.float, torch.float16, torch.int, torch.short, torch.int8]
 
@@ -56,3 +60,4 @@ def test_hpu_masked_scale(dtype, scale, shape):
         rtol = 1e-02
 
     assert torch.allclose(cpu_output, hpu_output, atol=atol, rtol=rtol)
+    check_ops_executed_in_jit_ir("_masked_scale")

@@ -16,7 +16,7 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 # Exponential op on HPU and CPU devices will always give different results.
 # This test checks if:
@@ -51,3 +51,4 @@ def test_exponential(shape, lambd, dtype):
     result_3 = compiled_fn(hpu_input_3).cpu()
 
     assert torch.any(torch.ne(result_1, result_3))
+    check_ops_executed_in_jit_ir("exponential")

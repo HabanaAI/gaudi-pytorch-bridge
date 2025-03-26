@@ -20,7 +20,7 @@ from functools import reduce
 import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
@@ -91,6 +91,7 @@ def test_index_put_long_index(inputs_shape):
     hpu_res = compiled_hpu(t1.to("hpu"), t2, t3.to("hpu"))
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
+    check_ops_executed_in_jit_ir("index_put")
 
 
 @pytest.mark.parametrize("inputs_shape", [(8, 4)])
@@ -118,6 +119,7 @@ def test_index_put_bwd(inputs_shape):
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
     assert torch.allclose(t1.grad, t1h.grad.to("cpu"), rtol=1e-3, atol=1e-3)
+    check_ops_executed_in_jit_ir("index_put")
 
 
 @pytest.mark.parametrize("inputs_shape", [(2, 3, 4)])
@@ -161,6 +163,7 @@ def test_index_put_basic_int(inputs_shape, accumulate):
     hpu_res = compiled_hpu(tensor.to("hpu"), index_list_hpu, values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
+    check_ops_executed_in_jit_ir("index_put")
 
 
 @pytest.mark.parametrize("inputs_shape", [(4, 6)])
@@ -186,6 +189,7 @@ def test_index_put_basic_bool(inputs_shape, ind_shape, accumulate):
     hpu_res = compiled_hpu(tensor.to("hpu"), index_list_hpu, values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
+    check_ops_executed_in_jit_ir("index_put")
 
 
 @pytest.mark.parametrize("inputs_shape", [(5, 6)])
@@ -210,6 +214,7 @@ def test_index_put_basic_mixed(inputs_shape, accumulate):
     hpu_res = compiled_hpu(tensor.to("hpu"), index_list_hpu, values.to("hpu"), accumulate)
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
+    check_ops_executed_in_jit_ir("index_put")
 
 
 @pytest.mark.parametrize("inputs_shape", [(2, 3)])

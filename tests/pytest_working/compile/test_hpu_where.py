@@ -18,7 +18,11 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+)
 
 all_dtypes = [
     torch.bfloat16,
@@ -57,3 +61,4 @@ class TestHpuWhere:
         cpu_result = cpu_torch_compile_func(cpu_x, cpu_input, cpu_other)
 
         torch.allclose(hpu_result.cpu(), cpu_result)
+        check_ops_executed_in_jit_ir("where")
