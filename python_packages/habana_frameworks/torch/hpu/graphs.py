@@ -21,6 +21,7 @@ import copy
 import gc
 import inspect
 import os
+from dataclasses import fields, is_dataclass
 from functools import wraps
 
 import habana_frameworks.torch as htorch
@@ -501,6 +502,8 @@ def input_hash(obj):
         return hash((obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()))
     elif isinstance(obj, collections.UserDict):
         return hash(tuple((k, tuple(input_hash(v_el) for v_el in v)) for k, v in obj.items()))
+    elif is_dataclass(obj):
+        return hash(tuple((field.name, input_hash(getattr(obj, field.name))) for field in fields(obj)))
     else:
         return hash((obj, torch.hpu.is_autocast_hpu_enabled()))
 
