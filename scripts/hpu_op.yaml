@@ -3790,6 +3790,11 @@ lgamma.out:
   guid: gammaln_fwd
   op_validator: check-node-with-shared-layer
 
+igamma.out:
+  promote_int_to_float: [self]
+  guid: igamma_fwd
+  op_validator: check-node-with-shared-layer
+
 linalg_cross:
   op_backend: LinAlgCross
   op_validator: LinAlgCrossSharedMeta
