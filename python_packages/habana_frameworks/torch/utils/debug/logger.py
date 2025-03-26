@@ -109,5 +109,13 @@ def enable_logging(logger_name, logger_level):
     _debug_C.enable_logging(logger_name, log_level.value)
 
 
+def refresh_logging_folder_path():
+    """
+    Helper function to reinitialize logging directory. Directory is read from HABANA_LOGS env var.
+    Useful in a case, when logging dir was changed after habana-torch package initialization.
+    """
+    _debug_C.refresh_hllog_output_dir_from_env()
+
+
 def is_log_python_enabled(log_level):
     return _debug_C.is_log_python_enabled(log_level.value)
