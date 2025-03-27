@@ -66,11 +66,6 @@ sudo ln -s /usr/include/habanalabs/ /usr/include/habanalabs/include
 patch -p1 <$PYTORCH_MODULES_ROOT_PATH/.devops/patches/Intel_Gaudi3_Software.patch
 ```
 
-6. Install the media interface:
-```bash
-sudo cp $PYTORCH_MODULES_ROOT_PATH/.devops/patches/media_pytorch_proxy.h /usr/include/habanalabs/media_pytorch_proxy.h
-```
-
 ### Code Build
 
 Once the one-time setup is complete, you can configure the necessary environment variables and run the build by following the below steps:
@@ -82,7 +77,7 @@ export THIRD_PARTIES_ROOT="$HABANA_SOFTWARE_STACK/3rd-parties"
 
 export HCL_ROOT="$HABANA_SOFTWARE_STACK/HCL/hcl/"
 export HL_LOGGER_INCLUDE_DIRS="$HABANA_SOFTWARE_STACK/HCL/dependencies/swtools_sdk/hl_logger/include;$THIRD_PARTIES_ROOT"
-export MEDIA_ROOT=/usr/include/habanalabs/
+export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")/include
 export SPECS_EXT_ROOT="$HABANA_SOFTWARE_STACK/Intel_Gaudi3_Software/specs_external/"
 export SYNAPSE_ROOT=/usr/include/habanalabs/
 export SYNAPSE_UTILS_ROOT=/usr/include/habanalabs/
