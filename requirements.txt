@@ -1,7 +1,7 @@
 --extra-index-url="https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/pypi-virtual/simple"
 
 auditwheel>=6
-cmake>=3.26.3
+cmake>=3.26.3,<4
 cython
 lark
 ninja>=1.11.1
