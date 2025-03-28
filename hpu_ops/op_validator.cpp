@@ -48,6 +48,8 @@ SharedLayerInitialization _slu_initializer;
 
 SharedLayer::DeviceId synDeviceTypeToSharedLayerType(synDeviceType tp) {
   switch (tp) {
+    case synDeviceGaudi:
+      return SharedLayer::DeviceId::DEVICE_ID_GAUDI;
     case synDeviceGaudi2:
       return SharedLayer::DeviceId::DEVICE_ID_GAUDI2;
     case synDeviceGaudi3:

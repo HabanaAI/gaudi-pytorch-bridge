@@ -968,7 +968,9 @@ sh::tensor OpBackend::BuildRegularCast(
 
     ns_CastKernel::ParamsV3 params{};
     params.round_mode = habana_helpers::get_cast_rounding_mode(to);
-    if (src == c10::ScalarType::Float &&
+    auto device_type{habana::HPUDeviceContext::get_device().type()};
+    if (sh::device_supports_trunc(device_type) &&
+        src == c10::ScalarType::Float &&
         (dst == c10::ScalarType::Char || dst == c10::ScalarType::Byte)) {
       params.mode = CAST_TRUNC;
     }

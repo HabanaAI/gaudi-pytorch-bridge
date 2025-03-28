@@ -115,7 +115,7 @@ function pytorch_usage()
         echo -e "  -d,  --debug                        Use debug test binary"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
-        echo -e "       --dut                          Choose gaudi2 or gaudi3. Default is gaudi2"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or gaudi3. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests, cpp_lazy, cpp_eager]. Default: all"
@@ -162,7 +162,7 @@ function pytorch_usage()
         echo -e "  -s,  --specific-test TEST           Run TEST"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
-        echo -e "       --dut                          Choose gaudi2 or gaudi3. Default is gaudi2"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or gaudi3. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
@@ -177,7 +177,7 @@ function pytorch_usage()
         echo -e "  -s,  --specific-test TEST           Run TEST"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
-        echo -e "       --dut                          Choose gaudi2 or gaudi3. Default is gaudi2"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or gaudi3. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
@@ -932,7 +932,7 @@ run_pytorch_modules_tests()
     local __verbose=""
     local __test_status=0
     local __suite_type="all"
-    local __dut="gaudi2"
+    local __dut="gaudi"
     local __hllog=3
     local __test_case=""
     local __pytest_mode="all"
@@ -1108,7 +1108,19 @@ run_pytorch_modules_tests()
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
     if [ ! -n "$__print_tests" ]; then
-        if [ "$__dut" == "gaudi2" ]; then
+        if [ "$__dut" == "gaudi" ]; then
+            if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
+                echo "Running tests on Gaudi"
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=1 $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
+                __test_status=$?
+            fi
+            if [ $__pt_major_version -eq 2 ]; then
+                if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter $__cpp_rerun_fail)
+                    __test_status=$((__test_status | $?))
+                fi
+            fi
+        elif [ "$__dut" == "gaudi2" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi2"
                 (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=1 $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
@@ -1246,7 +1258,7 @@ run_pytorch_qa_tests()
     local config_file="${__pytorch_qa_test_path}/config/test_order_config.txt"
     local _not_set_testpath=0
     local __aurora_path="${HABANA_PYTORCH_QA_ROOT}/../aurora"
-    local __dut="gaudi2"
+    local __dut="gaudi"
 
     # By default the tox venv installs all the python modules from the external world instead of cached data.
     # This is because there is no config file which pip can use to get this info.
@@ -1364,7 +1376,18 @@ run_pytorch_qa_tests()
     opts_single_op="$__python_cmd -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}" -n 1 --dut ${__dut} "
     test_path=""
 
-    if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi2" ]; then
+    if [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi" ]; then
+        #run pytorch single_op tests with suite_type = ops
+        # run in eager mode
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op.xml" ")
+        __test_status_1=$?
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"strided_lazy_single_op.xml"" --mode lazy --strided)
+        __test_status_2=$?
+        __test_status=$((__test_status_1 | __test_status_2))
+    elif [ "$__pytest_marks" == "-m=drs_dynamic_smoke" ] && [ "$__suite_type" == "ops" ]; then
+       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"single_op_drs_dynamic.xml" " --mode lazy --drs 3 --dynamic)
+        __test_status=$?
+    elif [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "gaudi2" ]; then
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"gc_eager_single_op.xml"" --mode gc_eager)
         __test_status_1=$?
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"lazy_single_op.xml"" --mode lazy )
@@ -1454,7 +1477,7 @@ run_habana_lightning_tests()
     local __verbose=""
     local __test_status=0
     local __suite_type="all"
-    local __dut="gaudi2"
+    local __dut="gaudi"
     local __hllog=3
 
     # parameter while-loop
@@ -1543,7 +1566,7 @@ run_pytorch_lightning_qa_tests()
     local __verbose=""
     local __test_status=0
     local __suite_type="all"
-    local __dut="gaudi2"
+    local __dut="gaudi"
     local __hllog=3
 
     # parameter while-loop
@@ -1645,7 +1668,7 @@ run_lightning_habana_fw_tests()
     local __verbose=""
     local __test_status=0
     local __suite_type="all"
-    local __dut="gaudi2"
+    local __dut="gaudi"
     local __hllog=3
 
     # parameter while-loop

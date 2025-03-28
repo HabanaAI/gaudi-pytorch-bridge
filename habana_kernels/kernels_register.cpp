@@ -15,6 +15,7 @@
 #include <ATen/core/Tensor.h>
 #include <torch/library.h>
 #include "backend/helpers/habana_types.h"
+#include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
 #include "common/random_utils.h"
 #include "generated/lazy/wrap_kernels_declarations.h"
@@ -38,6 +39,12 @@ using namespace torch;
 using namespace at;
 using namespace habana;
 using namespace habana_lazy;
+
+#define FP8_CHECK                                 \
+  HABANA_ASSERT(                                  \
+      synapse_helpers::device_supports_fp8(       \
+          HPUDeviceContext::get_device().type()), \
+      "FP8 data type is not available on this device.")
 
 namespace habana {
 static CheckNodeWithSharedLayerValidator validator_matmul(
@@ -324,7 +331,9 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Float8_e5m2) &&
       (self.scalar_type() != c10::ScalarType::Float8_e4m3fn) &&
-      (self.scalar_type() != c10::ScalarType::Half)) {
+      !(self.scalar_type() == c10::ScalarType::Half &&
+        HPUDeviceContext::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
@@ -345,6 +354,8 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
+        habana::HPUDeviceContext::get_device().type() !=
+            synDeviceType::synDeviceGaudi &&
         self.dim() >
             4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
     return dispatch_fallback<ATEN_OP(nonzero)>::call(
@@ -798,7 +809,9 @@ Tensor hpu_wrap::softmax(
       computeDtype != at::ScalarType::BFloat16 &&
       !((computeDtype == at::ScalarType::Half ||
          computeDtype == at::ScalarType::Float8_e5m2 ||
-         computeDtype == at::ScalarType::Float8_e4m3fn))) {
+         computeDtype == at::ScalarType::Float8_e4m3fn) &&
+        habana::HPUDeviceContext::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
     return dispatch_fallback<ATEN_OP2(softmax, int)>::call(
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, dim, dtype));
   }

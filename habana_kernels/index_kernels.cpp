@@ -344,7 +344,8 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
 
   if (GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
       HPUGlobalConfig::get().getDeterministic() == false &&
-      at::globalContext().deterministicAlgorithms() == false) {
+      at::globalContext().deterministicAlgorithms() == false &&
+      HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
       // Special handling if the length of indices is 1
       if (index.sizes() == 1) {
@@ -404,6 +405,103 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
     }
     SetGuid("unsorted_scatter_add_fwd_f32");
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  } else { // On Gaudi1
+    // "To sort or not to sort, that is the question..."!!
+    // Sorting of index tensor is needed on G1 for functional correctness.
+    // But it may have an impact on perf. So enable sorting using env var
+    // for now.
+    if (GET_ENV_FLAG_NEW(PT_HPU_SORT_INDEX_IN_SCATTER_ADD)) {
+      auto sorted_scatter_add_op = make_operator<SortedScatterAddOperator>(
+          self.device().index(),
+          self.scalar_type()); // TO DO: use common self.device().index(
+      std::vector<synapse_helpers::tensor_or_ref> syn_src;
+      std::vector<at::Tensor> pt_src;
+      // sort only if index.sizes()[dim] > 1
+      // TODO: this check can have issues in dynamic shapes scenario.
+      // Remove this check once SW-124506 is addressed.
+      if (index.sizes()[dim] != 1) {
+        auto topkOp =
+            make_operator<TopkOperator>(this->p_context_->device_id_, "topk");
+        int64_t topk_dim = dim;
+        bool largest = true;
+        bool sorted = true;
+        topkOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+        std::vector<c10::IValue> topk_stack{
+            IValue(index),
+            IValue(index.sizes()[dim]),
+            IValue(topk_dim),
+            IValue(largest),
+            IValue(sorted)};
+        topkOp->AllocateAndAddSynapseNode(
+            graph, topk_stack, OutputMetaDataVector(2));
+
+        // Node: reordered source
+        // If we get to scatter add via the python scatter_add()
+        // operator, src and index tensors will have same dimensions.
+        // But getting here via some other path like scatter_add in
+        // embedding_dense_backward can have src.dim() != index.dim()
+        // When src.dim() == index.dim(), GatherElem(gather_elements guid)
+        // operator will work. But not when src.dim() !=index.dim().
+        // In this case we need to use Gather(gather guid) operator.
+        if (src.dim() == index.dim()) {
+          auto gatherOp = make_operator<GatherElemOperator>(
+              this->p_context_->device_id_, src.scalar_type());
+          gatherOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+          gatherOp->SetSynapseInput(topkOp->GetSynOutputs()[1]);
+          bool sparse_grad = false;
+          std::vector<c10::IValue> gather_stack{
+              IValue(src),
+              IValue(topkOp->GetOutputs()[1]),
+              IValue(std::nullopt),
+              IValue(dim),
+              IValue(sparse_grad)};
+          gatherOp->AllocateAndAddSynapseNode(
+              graph, gather_stack, OutputMetaDataVector(1));
+          pt_src.push_back(std::move(gatherOp->GetOutputs()[0]));
+          syn_src.push_back(std::move(gatherOp->GetSynOutputs()[0]));
+        } else {
+          auto gatherOp = make_operator<GatherOperator>(
+              this->p_context_->device_id_, src.scalar_type());
+          gatherOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+          gatherOp->SetSynapseInput(topkOp->GetSynOutputs()[1]);
+          bool sparse_grad = false;
+          std::vector<c10::IValue> gather_stack{
+              IValue(src),
+              IValue(dim),
+              IValue(topkOp->GetOutputs()[1]),
+              IValue(sparse_grad)};
+          gatherOp->AllocateAndAddSynapseNode(
+              graph, gather_stack, OutputMetaDataVector(1));
+          pt_src.push_back(std::move(gatherOp->GetOutputs()[0]));
+          syn_src.push_back(std::move(gatherOp->GetSynOutputs()[0]));
+        }
+
+        std::vector<c10::IValue> stack{
+            IValue(self),
+            IValue(dim),
+            IValue(topkOp->GetOutputs()[0]),
+            IValue(pt_src[0])};
+        sorted_scatter_add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+        sorted_scatter_add_op->SetSynapseInput(topkOp->GetSynOutputs()[0]);
+        sorted_scatter_add_op->SetSynapseInput(syn_src[0]);
+        sorted_scatter_add_op->AllocateAndAddSynapseNode(
+            graph, stack, output_metadata);
+      } else {
+        std::vector<c10::IValue> stack{
+            IValue(self), IValue(dim), IValue(index), IValue(src)};
+        sorted_scatter_add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+        sorted_scatter_add_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+        sorted_scatter_add_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+        sorted_scatter_add_op->AllocateAndAddSynapseNode(
+            graph, stack, output_metadata);
+      }
+      p_context_->syn_outputs_[0] =
+          std::move(sorted_scatter_add_op->GetSynOutputs()[0]);
+      p_context_->pt_outputs_[0] =
+          std::move(sorted_scatter_add_op->GetOutputs()[0]);
+    } else {
+      AddNodeToSynapseGraph(graph, &params, sizeof(params));
+    }
   }
 }
 
@@ -439,7 +537,8 @@ SharedMetaDataVector IndexAddSharedMeta(
   const bool useUnsortedScatter =
       GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
       HPUGlobalConfig::get().getDeterministic() == false &&
-      at::globalContext().deterministicAlgorithms() == false;
+      at::globalContext().deterministicAlgorithms() == false &&
+      HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi;
 
   SharedMetaData scatterAddFwdSharedMetaV2(
       useUnsortedScatter ? "unsorted_scatter_add_fwd" : "scatter_add_fwd");
@@ -2222,7 +2321,8 @@ void ArangeOperator::AllocateAndAddSynapseNode(
   auto result = inputs[3].toTensor();
 
   // save to be used as input to cast operator if required
-  synapse_helpers::tensor& range_syn_input = std::move(get_syn_input_at(0));
+  synapse_helpers::tensor& range_syn_input =
+      std::move(get_syn_input_at(0));
   bool cast_required =
       !(result.scalar_type() == ScalarType::Int ||
         result.scalar_type() == ScalarType::Float ||

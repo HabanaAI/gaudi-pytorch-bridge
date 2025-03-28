@@ -20,6 +20,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/cast_sequence.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/recipe.h"
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
@@ -112,37 +113,74 @@ static auto get_platform_cast_map() {
       {{c10::ScalarType::Byte, c10::ScalarType::BFloat16}, "cast_u8_to_bf16"},
       {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
       {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
-      {{c10::ScalarType::Float, c10::ScalarType::Half}, "cast_f32_to_f16"},
-      {{c10::ScalarType::Half, c10::ScalarType::Float}, "cast_f16_to_f32"},
-      {{c10::ScalarType::BFloat16, c10::ScalarType::Half}, "cast_bf16_to_f16"},
-      {{c10::ScalarType::Half, c10::ScalarType::BFloat16}, "cast_f16_to_bf16"},
-      {{c10::ScalarType::Short, c10::ScalarType::Half}, "cast_i16_to_f16"},
-      {{c10::ScalarType::Half, c10::ScalarType::Short}, "cast_f16_to_i16"},
-      {{c10::ScalarType::Int, c10::ScalarType::Half}, "cast_i32_to_f16"},
-      {{c10::ScalarType::Half, c10::ScalarType::Int}, "cast_f16_to_i32"},
-      {{c10::ScalarType::Bool, c10::ScalarType::Half}, "cast_i8_to_f16"},
-      {{c10::ScalarType::Char, c10::ScalarType::Half}, "cast_i8_to_f16"},
-      {{c10::ScalarType::Half, c10::ScalarType::Bool}, "cast_f16_to_i8"},
-      {{c10::ScalarType::Half, c10::ScalarType::Char}, "cast_f16_to_i8"},
-      {{c10::ScalarType::Float, c10::ScalarType::Float8_e5m2},
-       "cast_f32_to_f8"},
-      {{c10::ScalarType::BFloat16, c10::ScalarType::Float8_e5m2},
-       "cast_bf16_to_f8"},
-      {{c10::ScalarType::Float8_e5m2, c10::ScalarType::Float},
-       "cast_f8_to_f32"},
-      {{c10::ScalarType::Float8_e5m2, c10::ScalarType::BFloat16},
-       "cast_f8_to_bf16"},
-      // float8_e4m3fn
-      {{c10::ScalarType::Float, c10::ScalarType::Float8_e4m3fn},
-       "cast_f32_to_hf8"},
-      {{c10::ScalarType::BFloat16, c10::ScalarType::Float8_e4m3fn},
-       "cast_bf16_to_hf8"},
-      {{c10::ScalarType::Float8_e4m3fn, c10::ScalarType::Float},
-       "cast_hf8_to_f32"},
-      {{c10::ScalarType::Float8_e4m3fn, c10::ScalarType::BFloat16},
-       "cast_hf8_to_bf16"},
   };
+
   insert_long_casts(cast_map);
+
+  auto type{habana::HPUDeviceContext::get_device().type()};
+  switch (type) {
+    case synDeviceGaudi2:
+    case synDeviceGaudi3:
+      // Half
+      cast_map.insert(
+          {{c10::ScalarType::Float, c10::ScalarType::Half}, "cast_f32_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Float}, "cast_f16_to_f32"});
+      cast_map.insert(
+          {{c10::ScalarType::BFloat16, c10::ScalarType::Half},
+           "cast_bf16_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::BFloat16},
+           "cast_f16_to_bf16"});
+      cast_map.insert(
+          {{c10::ScalarType::Short, c10::ScalarType::Half}, "cast_i16_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Short}, "cast_f16_to_i16"});
+      cast_map.insert(
+          {{c10::ScalarType::Int, c10::ScalarType::Half}, "cast_i32_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Int}, "cast_f16_to_i32"});
+      cast_map.insert(
+          {{c10::ScalarType::Bool, c10::ScalarType::Half}, "cast_i8_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Char, c10::ScalarType::Half}, "cast_i8_to_f16"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Bool}, "cast_f16_to_i8"});
+      cast_map.insert(
+          {{c10::ScalarType::Half, c10::ScalarType::Char}, "cast_f16_to_i8"});
+      break;
+    default:
+      break;
+  }
+
+  if (synapse_helpers::device_supports_fp8(type)) {
+    // float8_e5m2
+    cast_map.insert(
+        {{c10::ScalarType::Float, c10::ScalarType::Float8_e5m2},
+         "cast_f32_to_f8"});
+    cast_map.insert(
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Float8_e5m2},
+         "cast_bf16_to_f8"});
+    cast_map.insert(
+        {{c10::ScalarType::Float8_e5m2, c10::ScalarType::Float},
+         "cast_f8_to_f32"});
+    cast_map.insert(
+        {{c10::ScalarType::Float8_e5m2, c10::ScalarType::BFloat16},
+         "cast_f8_to_bf16"});
+    // float8_e4m3fn
+    cast_map.insert(
+        {{c10::ScalarType::Float, c10::ScalarType::Float8_e4m3fn},
+         "cast_f32_to_hf8"});
+    cast_map.insert(
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Float8_e4m3fn},
+         "cast_bf16_to_hf8"});
+    cast_map.insert(
+        {{c10::ScalarType::Float8_e4m3fn, c10::ScalarType::Float},
+         "cast_hf8_to_f32"});
+    cast_map.insert(
+        {{c10::ScalarType::Float8_e4m3fn, c10::ScalarType::BFloat16},
+         "cast_hf8_to_bf16"});
+  }
   return cast_map;
 }
 

@@ -83,7 +83,9 @@ std::vector<int64_t> compute_nonzero_output_shape(
   auto input_shape = self_params.sizes;
   int64_t dimensions = input_shape.size();
   auto elements = self_params.numel;
-  if ((dimensions <= 4) and (dimensions >= 0) and !use_tpc_impl) {
+  if ((habana::HPUDeviceContext::get_device().type() !=
+       synDeviceType::synDeviceGreco) and
+      (dimensions <= 4) and (dimensions >= 0) and !use_tpc_impl) {
     // Handle Scalar input
     if (dimensions == 0 && elements == 1) {
       std::vector<int64_t> output_shape{64, 1};

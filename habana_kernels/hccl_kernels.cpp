@@ -560,7 +560,9 @@ void HcclAllreduceOperator::RunCollective(
         size_t num_elements = input->get_numel();
         size_t element_size =
             c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
-        size_t chunk_size = INT64_MAX / element_size;
+        size_t chunk_size = habana_helpers::getHCCLSliceSize(
+                                habana_helpers::collectiveAllReduce, true) /
+            element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -643,7 +645,9 @@ void HcclReduceOperator::RunCollective(
         size_t num_elements = input->get_numel();
         size_t element_size =
             c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
-        size_t chunk_size = INT64_MAX / element_size;
+        size_t chunk_size = habana_helpers::getHCCLSliceSize(
+                                habana_helpers::collectiveReduce, true) /
+            element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =

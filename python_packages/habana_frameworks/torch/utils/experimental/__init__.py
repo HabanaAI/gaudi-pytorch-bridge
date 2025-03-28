@@ -61,7 +61,7 @@ def _get_device_type() -> int:
 
 
 def _is_fp16_supported() -> bool:
-    return True
+    return _get_device_type() != synDeviceType.synDeviceGaudi
 
 
 def _compute_stream() -> int:

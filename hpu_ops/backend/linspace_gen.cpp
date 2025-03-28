@@ -102,7 +102,9 @@ SharedMetaDataVector LinspaceOutSharedMeta(
   float endVal =
       isEndScalar ? end.toScalar().to<float>() : end.toTensor().item<float>();
   if (startVal != endVal && stepsVal != 1) {
-    if (dtype == c10::ScalarType::Float) {
+    if (dtype == c10::ScalarType::Float &&
+        habana::HPUDeviceContext::get_device().type() !=
+            synDeviceType::synDeviceGaudi) {
       SharedMetaData linspaceSharedMeta{"linspace"};
       if (!isStartScalar && !isEndScalar)
         linspaceSharedMeta.inputs_data = {
@@ -156,7 +158,9 @@ void LinspaceOut::AddNode(
       using namespace std::literals;
       auto guid = get_guid_with_precision("range"sv, dtype);
       std::vector<synTensor> syn_inputs;
-      if (dtype == c10::ScalarType::Float) {
+      if (dtype == c10::ScalarType::Float &&
+          habana::HPUDeviceContext::get_device().type() !=
+              synDeviceType::synDeviceGaudi) {
         guid = "linspace_f32";
         if (stack.at(0).isTensor() && stack.at(1).isTensor()) {
           syn_inputs.emplace_back(syn_in(0));

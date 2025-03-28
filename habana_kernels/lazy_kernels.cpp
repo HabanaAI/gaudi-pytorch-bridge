@@ -24,6 +24,7 @@
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/random.h"
+#include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
 #include "generated/lazy/fp8_gemm_v2.h"
 #include "habana_helpers/frontend_utils.h"
@@ -66,6 +67,12 @@
 
 using namespace habana;
 using namespace at;
+
+#define FP8_CHECK                                 \
+  HABANA_ASSERT(                                  \
+      synapse_helpers::device_supports_fp8(       \
+          HPUDeviceContext::get_device().type()), \
+      "FP8 data type is not available on this device.")
 
 namespace {
 void AddMemcpy(const Tensor& src, Tensor& dst) {
@@ -2847,6 +2854,14 @@ Tensor& index_add_hpu_lazy_out(
     // tensor size at the relevant dim
     std::string op_name = "hpu::index_add";
 
+    if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+      // dtype smoke tests fails for bool (for scatter_add op) on Gaudi1
+      // so using aten::index_add on it, which uses scatter op.
+      // therefore, the accuracy problem with repeated index values will persist
+      // on Gaudi1
+      op_name = "aten::index_add";
+    }
+
     LazyOp<Tensor> index_add_op(
         op_name, {self, dim_, indices, source, alpha}, {self.sizes().vec()}
         // out_shapes
@@ -2891,6 +2906,14 @@ Tensor& index_add_hpu_lazy_(
     // also the case where index tensor size can be greater than the self
     // tensor size at the relevant dim
     std::string op_name = "hpu::index_add";
+
+    if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
+      // dtype smoke tests fails for bool (for scatter_add op) on Gaudi1
+      // so using aten::index_add on it, which uses scatter op.
+      // therefore, the accuracy problem with repeated index values will persist
+      // on Gaudi1
+      op_name = "aten::index_add";
+    }
 
     LazyOp<Tensor> index_add_op(
         op_name, {self, dim_, indices, source, alpha}, {self.sizes().vec()}
