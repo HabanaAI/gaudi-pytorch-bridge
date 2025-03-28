@@ -536,7 +536,7 @@ build_pytorch_fork()
     local __build_manylinux_whl="false"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __pytorch_next="false"
-    local __use_cxx11_abi="false"
+    local __use_cxx11_abi="true"
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -585,7 +585,7 @@ build_pytorch_fork()
             __pytorch_next="true"
             ;;
         --use-cxx11-abi )
-            __use_cxx11_abi="true"
+            # Only CXX11_ABI builds are permitted now. Flag can be removed after it's no longer used in CI/CD.
             ;;
         -h  | --help )
             usage $__scriptname
@@ -651,12 +651,6 @@ build_pytorch_fork()
        echo "Building torch in Debug mode"
     else
        echo "Building torch in Release mode"
-    fi
-
-    if [[ $__use_cxx11_abi == "true" ]]; then
-      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=1"
-    else
-      __env_vars+=" _GLIBCXX_USE_CXX11_ABI=0"
     fi
 
     echo "Build parameters ${__whl_params}"
