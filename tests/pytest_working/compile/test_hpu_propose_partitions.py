@@ -19,7 +19,6 @@ import copy
 import pytest
 import torch
 import torch.nn as nn
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
     OptimizationPassPlacement,
     OptimizerContext,
@@ -83,22 +82,20 @@ def test_propose_partitions():
         model = Net(input_dim)
         model_c = copy.deepcopy(model)
 
-        hpu_backend_config.use_cpp_partitioner = True
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model = compile_function_if_compile_mode(model, options={"keep_input_mutations": True}).to(
-                torch.device("hpu")
-            )
+            model = compile_function_if_compile_mode(
+                model, options={"keep_input_mutations": True, "use_cpp_partitioner": True}
+            ).to(torch.device("hpu"))
             optim = Adam(model.parameters())
             output_1 = model(input)
             output_1.sum().backward()
             optim.step()
         ops_summary_1 = fga.get_ops_summary()
 
-        hpu_backend_config.use_cpp_partitioner = False
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model_c = compile_function_if_compile_mode(model_c, options={"keep_input_mutations": True}).to(
-                torch.device("hpu")
-            )
+            model_c = compile_function_if_compile_mode(
+                model_c, options={"keep_input_mutations": True, "use_cpp_partitioner": False}
+            ).to(torch.device("hpu"))
             optim = Adam(model_c.parameters())
             output_2 = model_c(input_c)
             output_2.sum().backward()

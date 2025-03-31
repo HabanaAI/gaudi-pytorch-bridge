@@ -470,7 +470,7 @@ class BindedPartitioner {
     InsertionOrderUnorderedMap<Node*, int> assignment;
     InsertionOrderUnorderedMap<int, std::shared_ptr<Partition>>
         partitions_by_id;
-    int new_partition_id = 0;
+    static int new_partition_id = 0;
 
     for (auto it = _nodes.rbegin(); it != _nodes.rend(); it++) {
       Node* node = &(*it);

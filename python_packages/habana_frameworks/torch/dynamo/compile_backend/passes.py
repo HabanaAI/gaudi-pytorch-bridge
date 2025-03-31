@@ -1089,6 +1089,23 @@ def post_process_partitions(
             changed = True
         return changed
 
+    def eagerize_partitions_with_only_view_ops(
+        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+    ):
+        def is_partition_with_only_view_ops(part: Partition):
+            return all(is_view_node(node) for node in part.nodes)
+
+        partition_changed = False
+        for _id, partition in partitions_by_id.items():
+            if not is_partition_with_only_view_ops(partition):
+                continue
+
+            # clear the part to eagerize all view ops
+            partition.nodes = {}
+            partition_changed = True
+
+        return partition_changed
+
     assignments: dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
     partitions_by_id: dict[int, Partition] = {}  # mapping from partition_id to partition
     for partition in current_partitions + current_partitions_non_mergeable:
@@ -1098,13 +1115,15 @@ def post_process_partitions(
             assignments[node] = id
 
     if hpu_backend_config.reassign_full_copy:
-        partition_changed = partition_changed or reassign_full_copy_to_upstream_partition(
-            graph_module, assignments, partitions_by_id
-        )
+        partition_changed = reassign_full_copy_to_upstream_partition(graph_module, assignments, partitions_by_id)
     if hpu_backend_config.reassign_copy_:
-        partition_changed = partition_changed or reassign_copy__to_upstream_partition(
-            graph_module, assignments, partitions_by_id
+        partition_changed = (
+            reassign_copy__to_upstream_partition(graph_module, assignments, partitions_by_id) or partition_changed
         )
+
+    partition_changed = (
+        eagerize_partitions_with_only_view_ops(graph_module, assignments, partitions_by_id) or partition_changed
+    )
 
     return partition_changed
 
