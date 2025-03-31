@@ -137,8 +137,8 @@ def fp8_sdpa_fwd_wrapper(
         recompute = True
 
     if valid_seq_len is not None:
-        assert (
-            is_causal and (requires_backward is False) and (attn_mask is None)
+        assert is_causal and (
+            requires_backward is False
         ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
 
     gqa = is_gqa(q, k)
