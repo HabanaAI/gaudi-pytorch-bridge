@@ -31,14 +31,14 @@ TEST(SynapseHelpersGraphTest, graphAttributes) {
         synapse_device.id(), "attributesTestGraph");
     auto handle = graph.get_graph_handle();
     ASSERT_NE(handle, nullptr);
-    std::vector<uint64_t> getValues = {0, 0};
+    std::vector<synGraphAttributeVal> getValues(2);
     synGraphAttribute att[] = {
         GRAPH_ATTRIBUTE_INFERENCE, GRAPH_ATTRIBUTE_QUANTIZATION};
     ASSERT_EQ(
         synSuccess,
-        synGraphGetAttribute(handle, att, getValues.data(), getValues.size()));
-    ASSERT_EQ(getValues[0], 1);
-    ASSERT_EQ(getValues[1], 1);
+        synGraphGetAttributes(handle, att, getValues.data(), getValues.size()));
+    ASSERT_EQ(getValues[0].iAttrVal, 1);
+    ASSERT_EQ(getValues[1].iAttrVal, 1);
     habana_helpers::DisableInferenceMode();
     habana_helpers::DisableQuantization();
   }

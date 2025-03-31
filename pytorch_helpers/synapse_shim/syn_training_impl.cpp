@@ -349,20 +349,20 @@ synStatus SYN_API_CALL synGraphCompile(
       pRecipeHandle, graphHandle, pRecipeName, pBuildLog);
 }
 
-synStatus SYN_API_CALL synGraphSetAttribute(
+synStatus SYN_API_CALL synGraphSetAttributes(
     synGraphHandle GraphHandle,
     const synGraphAttribute* attributes,
-    const uint64_t* values,
+    const synGraphAttributeVal* values,
     const uint32_t size) {
-  return syn_api->synGraphSetAttribute(GraphHandle, attributes, values, size);
+  return syn_api->synGraphSetAttributes(GraphHandle, attributes, values, size);
 }
 
-synStatus SYN_API_CALL synGraphGetAttribute(
+synStatus SYN_API_CALL synGraphGetAttributes(
     synGraphHandle GraphHandle,
     const synGraphAttribute* attributes,
-    uint64_t* values,
+    synGraphAttributeVal* values,
     const uint32_t size) {
-  return syn_api->synGraphGetAttribute(GraphHandle, attributes, values, size);
+  return syn_api->synGraphGetAttributes(GraphHandle, attributes, values, size);
 }
 
 synStatus SYN_API_CALL

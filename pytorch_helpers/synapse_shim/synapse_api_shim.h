@@ -55,8 +55,8 @@
   visitor(synGraphCompile);                   \
   visitor(synGraphCreate);                    \
   visitor(synGraphCreateEager);               \
-  visitor(synGraphSetAttribute);              \
-  visitor(synGraphGetAttribute);              \
+  visitor(synGraphSetAttributes);             \
+  visitor(synGraphGetAttributes);             \
   visitor(synGraphDuplicate);                 \
   visitor(synGraphInferShapes);               \
   visitor(synGraphDestroy);                   \
