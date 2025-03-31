@@ -36,6 +36,7 @@ from habana_frameworks.torch.utils.internal import Timer
 
 import torch
 import torch.fx
+from torch._inductor.pattern_matcher import stable_topological_sort
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
@@ -124,13 +125,14 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_replace_sym_size,
             pass_inference_fuse_linear,
         ]
-
         return passes
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
             pass_graph_print,
             pass_mark_frozen_params,
             pass_mark_waittensor_downstream_ops,
+            # Doing stable topological sort before partitioning
+            pass_stable_topological_sort,
             # These passes will prepare proper placement for some corner-cases.
             pass_propose_partitions,
             pass_post_process_partitions,
@@ -1802,6 +1804,19 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
         submod = ctx.graph_module.get_submodule(user.target)
         submod.meta["is_reusables"] = is_reusables
         logger.debug(f"Partition {user.target} has reusable input information: {is_reusables}")
+
+    return True
+
+
+def pass_stable_topological_sort(ctx: OptimizerContext):
+    """
+    This pass is supposed to run stable topological sort on the graph.
+    """
+    graph = ctx.graph_module.graph
+    stable_topological_sort(graph)
+
+    ctx.graph_module.graph.lint()
+    ctx.graph_module.recompile()
 
     return True
 
