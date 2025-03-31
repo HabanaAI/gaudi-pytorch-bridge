@@ -1,0 +1,430 @@
+/**
+ * Copyright (c) 2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "kineto_activity_profiler.h"
+#include <fmt/format.h>
+#include <memory>
+#include <sstream>
+#include <string_view>
+#include <vector>
+#include "backend/profiling/profiling.h"
+#include "backend/synapse_helpers/env_flags.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include <kineto/output_base.h>
+#include <kineto/time_since_epoch.h>
+#pragma GCC diagnostic pop
+#include <stack>
+
+namespace {
+std::string toHex(uint64_t handle) {
+  std::stringstream stream;
+  stream << "0x" << std::hex << handle;
+  return stream.str();
+}
+std::string toString(std::string_view str) {
+  return std::string("\"") + std::string(str) + std::string("\"");
+}
+} // namespace
+
+namespace habana {
+namespace profile {
+
+using namespace libkineto;
+using namespace std::chrono;
+GenericTraceActivitySink::GenericTraceActivitySink(
+    std::deque<std::unique_ptr<GenericTraceActivity>>& activities)
+    : activities_{activities} {}
+GenericTraceActivitySink::~GenericTraceActivitySink() = default;
+
+void GenericTraceActivitySink::addCompleteActivity(
+    const Activity& activity,
+    const std::optional<RecipeInfo>& recipeInfo,
+    uint64_t start,
+    uint64_t end) {
+  auto ev = std::make_unique<GenericTraceActivity>(
+      defaultTraceSpan(),
+      mapHabanaTypeToKinetoType(activity.type),
+      static_cast<std::string>(activity.name));
+  ev->startTime = start;
+  ev->endTime = end;
+  ev->device = activity.device;
+  ev->resource = activity.resource;
+  if (recipeInfo) {
+    ev->addMetadata("recipeId", recipeInfo->recipeId);
+    ev->addMetadata("recipeName", toString(recipeInfo->recipeName));
+    ev->addMetadata("streamHandle", toString(toHex(recipeInfo->streamHandle)));
+    ev->addMetadata("eventHandle", toString(toHex(recipeInfo->eventHandle)));
+  }
+  if (activity.type == ActivityType::KERNEL) {
+    ev->addMetadata("device", activity.device);
+  }
+
+  if (!activity.args.empty()) {
+    for (auto kv : activity.args) {
+      std::string value = toString(kv.second);
+      ev->addMetadata(kv.first, value);
+    }
+  }
+
+  activities_.push_back(std::move(ev));
+}
+
+void GenericTraceActivitySink::finishPendingsActivities(uint64_t time) {
+  for (auto& [key, activityStack] : pendingActivities_) {
+    while (!activityStack.empty()) {
+      const PendingActivity& pendingActivity = activityStack.top();
+      addCompleteActivity(
+          pendingActivity.activity,
+          pendingActivity.recipeInfo,
+          pendingActivity.startTime,
+          time);
+      activityStack.pop();
+    }
+  }
+  pendingActivities_.clear();
+}
+
+void GenericTraceActivitySink::addActivity(
+    const Activity& activity,
+    const std::optional<RecipeInfo>& recipeInfo,
+    uint64_t time,
+    bool begin) {
+  std::string key = std::string(activity.name) +
+      std::to_string(activity.device) + std::to_string(activity.resource);
+
+  if (begin) {
+    pendingActivities_[key].push({activity, recipeInfo, time});
+  } else {
+    auto it = pendingActivities_.find(key);
+    if (it != pendingActivities_.end() && !it->second.empty()) {
+      uint64_t start = it->second.top().startTime;
+      addCompleteActivity(activity, recipeInfo, start, time);
+      it->second.pop();
+      if (it->second.empty()) {
+        pendingActivities_.erase(it);
+      }
+    }
+  }
+}
+
+void GenericTraceActivitySink::addMemoryEvent(
+    int64_t device,
+    int64_t resource,
+    int64_t time,
+    uint64_t addr,
+    int64_t bytes,
+    int64_t device_id,
+    int64_t device_type,
+    uint64_t total_allocated,
+    uint64_t total_reserved) {
+  auto ev = std::make_unique<GenericTraceActivity>(
+      defaultTraceSpan(),
+      libkineto::ActivityType::CPU_INSTANT_EVENT,
+      "[memory]");
+  ev->device = device;
+  ev->resource = resource;
+  ev->startTime = time;
+  profiler_event_index_++;
+  ev->addMetadata("Addr", addr);
+  ev->addMetadata("Bytes", bytes);
+  ev->addMetadata("Device Id", device_id);
+  ev->addMetadata("Device Type", device_type);
+  ev->addMetadata("Profiler Event Index", profiler_event_index_);
+  ev->addMetadata("Total Allocated", total_allocated);
+  ev->addMetadata("Total Reserved", total_reserved);
+  activities_.push_back(std::move(ev));
+}
+
+void GenericTraceActivitySink::addDevice(
+    std::string_view name,
+    int64_t device) {
+  int64_t sort_index = device < 8 ? device + 0x1000000ll : device;
+  std::string dev_name = static_cast<std::string>(name);
+  deviceInfos_.push_back({device, sort_index, dev_name, dev_name});
+}
+
+void GenericTraceActivitySink::addResource(
+    std::string_view name,
+    int64_t device,
+    int64_t resource,
+    int64_t sort_index) {
+  resourceInfos_.push_back(
+      {device, resource, sort_index, static_cast<std::string>(name)});
+}
+
+std::string GenericTraceActivitySink::getDeviceDetails() {
+  std::ostringstream oss;
+  oss << fmt::format(R"JSON({{ {} }})JSON", device_properties_.str());
+  return oss.str();
+}
+
+void GenericTraceActivitySink::addDeviceDetails(
+    const std::unordered_map<std::string, std::string>& device_properties) {
+  for (const auto& pair : device_properties) {
+    if (device_properties_.tellp() != 0) {
+      device_properties_ << ", ";
+    }
+    device_properties_ << fmt::format(
+        R"JSON(
+          "{}": "{}")JSON",
+        pair.first,
+        pair.second);
+  }
+}
+
+void GenericTraceActivitySink::addDeviceDetails(
+    const std::unordered_map<std::string, int64_t>& device_properties) {
+  for (const auto& pair : device_properties) {
+    if (device_properties_.tellp() != 0) {
+      device_properties_ << ", ";
+    }
+    device_properties_ << fmt::format(
+        R"JSON(
+          "{}": {})JSON",
+        pair.first,
+        pair.second);
+  }
+}
+
+std::unique_ptr<GenericTraceActivity> GenericTraceActivitySink::constructFlow(
+    const std::string& name,
+    libkineto::ActivityType type,
+    int64_t device,
+    int64_t resource,
+    int64_t time,
+    uint64_t flow_id,
+    bool start) {
+  auto flow =
+      std::make_unique<GenericTraceActivity>(defaultTraceSpan(), type, name);
+  flow->device = device;
+  flow->resource = resource;
+  flow->startTime = time;
+  flow->flow.id = flow_id;
+  flow->flow.type = kLinkAsyncCpuGpu;
+  flow->flow.start = start;
+  return flow;
+}
+
+void GenericTraceActivitySink::addFlowEvent(
+    std::string_view name,
+    std::string_view,
+    const Flow& startFlow,
+    const Flow& finishFlow) {
+  if (GET_ENV_FLAG_NEW(PT_TB_ENABLE_FLOW_EVENTS)) {
+    flow_id_counter_++;
+    std::string flow_name = std::string(name);
+    auto flow_start = constructFlow(
+        flow_name,
+        libkineto::ActivityType::HPU_OP,
+        startFlow.device,
+        startFlow.resource,
+        startFlow.time,
+        flow_id_counter_,
+        true);
+    auto flow_finish = constructFlow(
+        flow_name,
+        libkineto::ActivityType::HPU_OP,
+        finishFlow.device,
+        finishFlow.resource,
+        finishFlow.time,
+        flow_id_counter_,
+        false);
+    activities_.push_back(std::move(flow_start));
+    activities_.push_back(std::move(flow_finish));
+  }
+}
+
+void GenericTraceActivitySink::clear() {}
+
+int64_t GenericTraceActivitySink::transToRelativeTime(int64_t time) {
+  return time;
+}
+
+void GenericTraceActivitySink::processTrace(
+    ActivityLogger& logger,
+    int64_t beginTime,
+    int64_t endTime) {
+  logger.handleTraceStart({}, getDeviceDetails());
+
+  for (auto& deviceInfo : deviceInfos_) {
+    logger.handleDeviceInfo(deviceInfo, beginTime);
+  }
+
+  for (auto& recipeInfo : resourceInfos_) {
+    logger.handleResourceInfo(recipeInfo, beginTime);
+  }
+
+  finishPendingsActivities(endTime);
+}
+
+const TraceSpan& GenericTraceActivitySink::defaultTraceSpan() {
+  static TraceSpan span(0, 0, "PyTorch Profiler", "");
+  return span;
+}
+
+libkineto::ActivityType GenericTraceActivitySink::mapHabanaTypeToKinetoType(
+    ActivityType type) {
+  switch (type) {
+    case ActivityType::KERNEL:
+      return libkineto::ActivityType::CONCURRENT_KERNEL;
+    case ActivityType::RUNTIME:
+      return libkineto::ActivityType::HPU_OP;
+    case ActivityType::MEMCPY:
+      return libkineto::ActivityType::GPU_MEMCPY;
+    case ActivityType::MEMSET:
+      return libkineto::ActivityType::GPU_MEMSET;
+    default:
+      return libkineto::ActivityType::HPU_OP;
+  }
+}
+
+const std::string& HPUActivityProfiler::name() const {
+  return name_;
+}
+
+const std::set<libkineto::ActivityType>& HPUActivityProfiler::
+    availableActivities() const {
+  return supported_activities;
+}
+
+std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
+    configure(
+        const std::set<libkineto::ActivityType>& activity_types,
+        const libkineto::Config& config) {
+  auto start_time_ms =
+      duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+          .count();
+  return configure(start_time_ms, 0, activity_types, config);
+}
+
+std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
+    configure(
+        int64_t ts_ms,
+        int64_t duration_ms,
+        const std::set<libkineto::ActivityType>& activity_types,
+        [[maybe_unused]] const libkineto::Config& config) {
+  auto env = std::getenv("HABANA_PROFILE");
+  bool hpu_profiling_available =
+      (env != nullptr) && (std::string_view{env} != "0");
+
+  bool hpu_profiling_requested =
+      activity_types.find(libkineto::ActivityType::HPU_OP) !=
+          activity_types.end() and
+      GET_ENV_FLAG_NEW(PT_PYTORCH_PROFILER_USE_KINETO);
+
+  if (hpu_profiling_requested) {
+    if (hpu_profiling_available) {
+      auto session =
+          std::make_unique<HpuActivityProfilerSession>(ts_ms, duration_ms);
+      return session;
+    }
+  }
+  return nullptr;
+}
+
+Config& Config::getInstance() {
+  static Config instance;
+  return instance;
+}
+
+void Config::setMemoryProfile(bool value) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  isMemoryProfile = value;
+}
+
+void Config::setBridgeProfile(bool value) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  isBridgeProfile = value;
+}
+
+bool Config::isMemoryProfileEnabled() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return isMemoryProfile;
+}
+
+bool Config::isBridgeProfileEnabled() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return isBridgeProfile;
+}
+
+HpuActivityProfilerSession::HpuActivityProfilerSession(int64_t, int64_t) {
+  status_ = TraceStatus::READY;
+  sink_ = std::make_unique<GenericTraceActivitySink>(activities_);
+  profiler_ = std::make_unique<Profiler>(*sink_);
+  std::vector<std::string> mandatory_events;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    mandatory_events = {
+        "SyncTensorsGraphInternal",
+        "ExecuteCachedGraph",
+        "LaunchSyncTensorsGraph",
+        "hpu_lazy"};
+  } else {
+    mandatory_events = {
+        "LaunchRecipeTask", "add_new_recipe", "launch_recipe", "launch"};
+  }
+  bool memory_profile = Config::getInstance().isMemoryProfileEnabled();
+  bool bridge_profile = Config::getInstance().isBridgeProfileEnabled();
+  profiler_->init_sources(bridge_profile, memory_profile, mandatory_events);
+}
+
+void HpuActivityProfilerSession::start() {
+  profilerStartTs_ =
+      libkineto::timeSinceEpoch(std::chrono::high_resolution_clock::now());
+  profiler_->start();
+  status_ = TraceStatus::RECORDING;
+}
+
+void HpuActivityProfilerSession::stop() {
+  profilerEndTs_ =
+      libkineto::timeSinceEpoch(std::chrono::high_resolution_clock::now());
+  profiler_->stop();
+  status_ = TraceStatus::READY;
+}
+
+void HpuActivityProfilerSession::processTrace(ActivityLogger& logger) {
+  sink_->processTrace(logger, profilerStartTs_, profilerEndTs_);
+
+  for (const auto& activity : activities_) {
+    activity->log(logger);
+  }
+}
+
+std::unique_ptr<CpuTraceBuffer> HpuActivityProfilerSession::getTraceBuffer() {
+  auto buf = std::make_unique<CpuTraceBuffer>();
+  buf->activities.swap(activities_);
+  return buf;
+}
+
+std::unique_ptr<DeviceInfo> HpuActivityProfilerSession::getDeviceInfo() {
+  return {};
+}
+
+std::vector<ResourceInfo> HpuActivityProfilerSession::getResourceInfos() {
+  return {};
+}
+
+std::unique_ptr<IActivityProfiler> register_activity_profiler() {
+  return std::make_unique<HPUActivityProfiler>();
+}
+
+auto register_activity_sink_factory = [] {
+  if (GET_ENV_FLAG_NEW(PT_PYTORCH_PROFILER_USE_KINETO)) {
+    libkineto::api().registerProfilerFactory(register_activity_profiler);
+  }
+  return 0;
+}();
+}; // namespace profile
+}; // namespace habana

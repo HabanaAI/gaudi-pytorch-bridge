@@ -71,6 +71,7 @@ add_habana_library(
   helpers/event_dispatcher.cpp
   profiling/json_activity_profiler.cpp
   profiling/json_file_parser.cpp
+  profiling/kineto_activity_profiler.cpp
   profiling/profiling.cpp
   profiling/trace_sources/synapse_profiler_source.cpp
   profiling/trace_sources/bridge_logs_source.cpp

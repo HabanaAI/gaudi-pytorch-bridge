@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -653,6 +653,11 @@ PT_TB_ENABLE_FLOW_EVENTS:
   type: bool
   default: false
   doc: "Enable flow events in tensorflow"
+
+PT_PYTORCH_PROFILER_USE_KINETO:
+  type: bool
+  default: false
+  doc: "Enables the PyTorch profiler integrated with Kineto."
 
 PT_HPU_ENABLE_GENERIC_STREAM:
   type: bool

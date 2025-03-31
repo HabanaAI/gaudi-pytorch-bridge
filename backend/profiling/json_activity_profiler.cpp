@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <string_view>
 
 #include "backend/profiling/json_file_parser.h"
+#include "backend/profiling/kineto_activity_profiler.h"
 #include "backend/profiling/profiling.h"
 
 namespace habana {
@@ -64,5 +65,11 @@ void start_profiler_session() {
 void stop_profiler_session() {
   JsonActivityProfiler::instance()->stop();
 }
+
+void setup_habana_profiler_configs(bool bridge_profile, bool memory_profile) {
+  Config::getInstance().setBridgeProfile(bridge_profile);
+  Config::getInstance().setMemoryProfile(memory_profile);
+}
+
 }; // namespace profile
 }; // namespace habana

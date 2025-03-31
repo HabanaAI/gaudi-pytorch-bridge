@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("bridge") = "",
       py::arg("memory") = "",
       py::arg("mandatory_events") = "");
+  m.def(
+      "_setup_habana_profiler_configs",
+      [](bool bridge, bool memory) {
+        habana::profile::setup_habana_profiler_configs(bridge, memory);
+      },
+      py::arg("bridge") = "",
+      py::arg("memory") = "");
   m.def(
       "_export_logs",
       [](const std::string& path) {

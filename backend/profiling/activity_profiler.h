@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,5 +27,6 @@ void setup_profiler_sources(
     const std::vector<std::string>& mandatory_events);
 void start_profiler_session();
 void stop_profiler_session();
+void setup_habana_profiler_configs(bool bridge, bool memory);
 }; // namespace profile
 }; // namespace habana

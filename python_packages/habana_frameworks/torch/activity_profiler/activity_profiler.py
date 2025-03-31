@@ -66,7 +66,7 @@ def register_habana_activity_profiler():
                 clean_json(path)
             hpu_profiler._export_logs(path)
 
-    class habana_profile(torch.profiler.profile):
+    class habana_profile_wrapper(torch.profiler.profile):
         def __init__(
             self,
             *,
@@ -151,9 +151,57 @@ def register_habana_activity_profiler():
         MTIA = 5
         PrivateUse1 = 6
 
-    torch.profiler.profile = habana_profile
+    torch.profiler.profile = habana_profile_wrapper
     torch.profiler.ProfilerActivity = HabanaProfilerActivity
     torch.autograd.profiler.profile = habana_autograd_profile_wrapper
 
 
-register_habana_activity_profiler()
+def register_habana_light_activity_profiler():
+    from collections.abc import Callable, Iterable
+    from typing import Any
+
+    class habana_profile_light_wrapper(torch.profiler.profile):
+        def __init__(
+            self,
+            *,
+            activities: Iterable[torch.profiler.ProfilerActivity] | None = None,
+            debug_activities: Iterable[DebugActivity] | None = None,
+            schedule: Callable[[int], torch.profiler.ProfilerAction] | None = None,
+            on_trace_ready: Callable[..., Any] | None = None,
+            record_shapes: bool = False,
+            profile_memory: bool = False,
+            with_stack: bool = False,
+            with_flops: bool = False,
+            with_modules: bool = False,
+            experimental_config: torch._C._profiler._ExperimentalConfig | None = None,
+            use_cuda: bool | None = None
+        ):
+            bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
+            hpu_profiler._setup_habana_profiler_configs(bridge_profile, profile_memory)
+
+            super().__init__(
+                activities=activities,
+                schedule=schedule,
+                on_trace_ready=on_trace_ready,
+                record_shapes=record_shapes,
+                profile_memory=profile_memory,
+                with_stack=with_stack,
+                with_flops=with_flops,
+                with_modules=with_modules,
+                experimental_config=experimental_config,
+                use_cuda=use_cuda,
+            )
+
+    torch.profiler.profile = habana_profile_light_wrapper
+
+
+def register_habana_profiler():
+    import habana_frameworks.torch.internal._bridge_config_C as bc
+
+    if bc.get_pt_pytorch_profiler_use_kineto():
+        register_habana_light_activity_profiler()
+    else:
+        register_habana_activity_profiler()
+
+
+register_habana_profiler()
