@@ -180,3 +180,10 @@ class Op:
     @lazy_support
     def get_acc_thread(self):
         return self.op.get("acc_thread", False)
+
+    def is_eager_op(self):
+        override_fn = self.get_override_fn()
+        if override_fn:
+            if "lazy" in override_fn:
+                return False
+        return True

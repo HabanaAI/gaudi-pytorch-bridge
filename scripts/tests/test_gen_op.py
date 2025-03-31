@@ -36,9 +36,9 @@ from gen_op.code_generation import (
     generate_op_frontend_hclasses,
     get_op_group,
     is_acc_thread_supported,
-    is_eager_op,
     parse_params,
 )
+from gen_op.op import Op
 from gen_op.version_checker import is_pytorch_exactly, is_pytorch_older_than
 
 TORCH_PKG_PATH = torch.__path__[0]
@@ -206,39 +206,19 @@ def test_get_op_group(op, op_group):
     assert result == op_group
 
 
-class CtxOpStub:
-    def __init__(self, props={}):
-        self.properties = props
-
-    def set_property(self, key, value):
-        self.properties[key] = value
-
-    def get_op_frontend_class(self):
-        return self.properties.get("op_frontend_class", None)
-
-    def get_op_backend_class(self):
-        return self.properties.get("op_backend_class", None)
-
-    def get_override_fn(self):
-        return self.properties.get("override_fn", None)
-
-    def get_acc_thread(self):
-        return self.properties.get("acc_thread", None)
-
-
 @pytest.mark.parametrize(
     "frontend_class, override_fn, is_eager",
     [
         ("GeneratorToSeed", None, True),
-        ("some_op", "some_override", False),
+        ("some_op", "some_override_lazy", False),
         ("LazyOp", None, True),
         ("LazyOp", "set_source_Tensor", True),
-        ("LazyOp", "some_op", False),
+        ("LazyOp", "some_op_lazy", False),
     ],
 )
 def test_is_eager_op(frontend_class, override_fn, is_eager):
-    ctxop = CtxOpStub({"op_frontend_class": frontend_class, "override_fn": override_fn})
-    result = is_eager_op(ctxop)
+    ctxop = Op("test_op", {"op_frontend_class": frontend_class, "override_fn": override_fn})
+    result = ctxop.is_eager_op()
     assert result == is_eager
 
 
@@ -253,13 +233,13 @@ def test_is_eager_op(frontend_class, override_fn, is_eager):
     ],
 )
 def test_is_acc_thread_supported(override_fn, acc_thread, rtype, sig, is_acc):
-    ctxop = CtxOpStub({"override_fn": override_fn, "acc_thread": acc_thread})
+    ctxop = Op("test_op", {"override_fn": override_fn, "acc_thread": acc_thread})
     result = is_acc_thread_supported(ctxop, rtype, sig)
     assert result == is_acc
 
 
 class FgenStub:
-    def __init__(self, ctxop=CtxOpStub()):
+    def __init__(self, ctxop: Op):
         self.ctxop = ctxop
 
 
@@ -276,15 +256,15 @@ def test_generate_op_hclasses(is_backend):
         default_class = "OpBackend"
         generate_func = generate_op_backend_hclasses
         macro_suffix = "BACKEND("
-        getter = "op_backend_class"
+        getter = "op_backend"
     else:
         default_class = "LazyOp"
         generate_func = generate_frontend_hclasses
         macro_suffix = f"FRONTEND({base_class}, "
-        getter = "op_frontend_class"
+        getter = "op_frontend"
 
     tested_classes = [default_class, "SomeTemplate", "SomeOp", "CustomClass", "SomeTemplateCustom", "SomeOp"]
-    fgens = [FgenStub(CtxOpStub({getter: x})) for x in tested_classes]
+    fgens = [FgenStub(Op("test_op", {getter: x})) for x in tested_classes]
 
     result = generate_func(fgens, classes, header_file)
     assert (

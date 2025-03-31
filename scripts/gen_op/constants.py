@@ -347,37 +347,3 @@ AUTOCAST_BLOCKLIST = {
     "_batch_norm_with_update",
     "_scaled_dot_product_fused_attention_overrideable",
 }
-
-
-# List of override_fn ops that are supporting eager frontend
-EAGER_OPS_OVERRIDE_FNS_ALLOWLIST = {
-    "_copy_from",
-    "_copy_from_and_resize",
-    "complex_hpu",
-    "as_strided_hpu",
-    "set_",
-    "set_source_Storage",
-    "set_source_Storage_storage_offset",
-    "set_source_Tensor",
-    "view_hpu",
-    "_local_scalar_dense_hpu",
-    "repeat_hpu",
-}
-
-EAGER_CUSTOM_FRONTENDS_ALLOWLIST = {
-    "AddCOpFE",
-    "ArangeFE",
-    "BernoulliFE",
-    "BernoulliFEOut",
-    "ClampFE",
-    "FillFE",
-    "BinaryScalarFE",
-    "GeneratorToSeed",
-    "GeneratorToSeedOut",
-    "IndexFE",
-    "IndexOutFE",
-    "NativeDropoutFE",
-    "TopKFE",
-    "ConvolutionOverrideableFE",
-    "ConvolutionBackwardOverrideableFE",
-}

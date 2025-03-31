@@ -30,8 +30,7 @@ from torchgen.api.unboxing import convert_arguments
 from yaml import CLoader as Loader
 
 from . import code_templates as templates
-from . import constants as constants
-from . import parser
+from . import constants, parser
 from .custom_ops import cpp_from_schema
 from .op import Op
 from .op_validator import get_op_validator_generator
@@ -895,19 +894,6 @@ def handle_return_eager(
     return code
 
 
-# helper function to determine if op supports eager::EagerOp
-def is_eager_op(ctxop):
-    if ctxop.get_op_frontend_class() in constants.EAGER_CUSTOM_FRONTENDS_ALLOWLIST:
-        return True
-    if ctxop.get_op_frontend_class() != "LazyOp":
-        return False
-
-    if ctxop.get_override_fn():
-        return ctxop.get_override_fn() in constants.EAGER_OPS_OVERRIDE_FNS_ALLOWLIST
-
-    return True
-
-
 def get_eager_op_info(opname, ns):
     type = "eager::eagerOpKind::"
     if opname.endswith("_out") or opname.endswith("_grad_input"):
@@ -985,7 +971,7 @@ def eager_frontend(
     )
     code += handle_fallback_check(ctxop, overload, opname, param_vars)
 
-    is_eager_op_supported = is_eager_op(ctxop)
+    is_eager_op_supported = ctxop.is_eager_op()
     if not is_eager_op_supported:
         code += handle_eager_not_supported(param_vars, overload, opname)
 
