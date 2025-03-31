@@ -141,7 +141,6 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
             as_strided_inputs = [input_tensor] + list(as_strided_args[1:])
             as_strided_result = fused_node.target(*as_strided_inputs)
             fill_propagated_tensor_metadata_to_node(as_strided_result, fused_node)
-            fused_node.meta["placement"] = "eager"
 
         leaf_node.replace_all_uses_with(fused_node)
         chain.reverse()
