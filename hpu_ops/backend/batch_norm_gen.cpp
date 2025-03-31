@@ -142,19 +142,7 @@ auto fillBatchNormParams(bool isTraining, float momentum, float epsilon) {
 }
 
 c10::IntArrayRef get_rm_size(const at::Tensor& input) {
-  int rm_size_idx;
-  switch (input.suggest_memory_format()) {
-    case c10::MemoryFormat::ChannelsLast:
-      rm_size_idx = 3;
-      break;
-    case c10::MemoryFormat::ChannelsLast3d:
-      rm_size_idx = 4;
-      break;
-    default:
-      rm_size_idx = 1;
-      break;
-  }
-  return input.sizes()[rm_size_idx];
+  return input.sizes()[1];
 }
 
 synapse_helpers::layouts::SynapseLayoutFormat getSynapseLayout(
@@ -354,29 +342,29 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   bool is_functional = is_batch_norm_functional(op);
 
   std::vector<sh::tensor> bn_out;
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      NodeAttr::NodeOutputAttr{
+          out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
+      NodeAttr::NodeOutputAttr{
+          out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2}};
+  if (is_functional) {
+    output_attrs.emplace_back(NodeAttr::NodeOutputAttr{
+        out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3});
+    output_attrs.emplace_back(NodeAttr::NodeOutputAttr{
+        out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4});
+  }
   if (is_lazy_or_eager || is_no_reshape_op(op)) {
     auto input_4d_shape = input.pt_t.sizes().vec();
+    output_attrs.insert(
+        std::begin(output_attrs),
+        NodeAttr::NodeOutputAttr{
+            input_4d_shape, op.ScalarType(), std::optional<int>(0)});
     bn_out = OpBackend::BuildNode(
         &op,
         graph,
         {get_guid_with_precision("batch_norm_reshape_fwd"sv, op.ScalarType()),
          {input.syn_t, bias, weight, running_mean, running_var},
-         {NodeAttr::NodeOutputAttr{
-              input_4d_shape, op.ScalarType(), std::optional<int>(0)},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx},
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
+         std::move(output_attrs),
          params.get(),
          params_size});
   } else {
@@ -384,41 +372,21 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     const auto [input_4d, input_4d_shape] =
         transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
             op, graph, input, inputStorageOpt);
-    const auto input_dim = input.pt_t.sizes().size();
+    const auto input_dim = input.pt_t.dim();
+    output_attrs.insert(
+        std::begin(output_attrs),
+        NodeAttr::NodeOutputAttr{
+            input_4d_shape,
+            op.ScalarType(),
+            (input_dim != 4) ? std::nullopt : std::optional<int>(0)});
     bn_out = OpBackend::BuildNode(
         &op,
         graph,
         {get_guid_with_precision("batch_norm_fwd"sv, op.ScalarType()),
          {input_4d, bias, weight, running_mean, running_var},
-         {NodeAttr::NodeOutputAttr{
-              input_4d_shape,
-              op.ScalarType(),
-              (input_dim != 4) ? std::nullopt : std::optional<int>(0)},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
-          NodeAttr::NodeOutputAttr{
-              out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
-          is_functional
-              ? NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
-              : NodeAttr::
-                    NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, std::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
+         std::move(output_attrs),
          params.get(),
          params_size});
-  }
-
-  if (running_mean_opt.has_value() && not is_functional) {
-    op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        3, std::move(bn_out[3]), std::get<int>(running_mean_storage_or_idx)});
-  }
-  if (running_var_opt.has_value() && not is_functional) {
-    op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        4, std::move(bn_out[4]), std::get<int>(running_var_storage_or_idx)});
   }
 
   return bn_out;
@@ -532,31 +500,22 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
 
 sizes_vec BatchNormFwdOutputShape(const at::Stack& stack) {
   using namespace BNFwd;
-  auto input_sv = stack[INPUT_IDX].toTensor().sizes().vec();
-  auto mean_sv = stack[RUNNING_MEAN_IDX].isTensor()
-      ? stack[RUNNING_MEAN_IDX].toTensor().sizes().vec()
-      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  auto var_sv = stack[RUNNING_VAR_IDX].isTensor()
-      ? stack[RUNNING_VAR_IDX].toTensor().sizes().vec()
-      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  return {input_sv, mean_sv, var_sv};
+  const auto input_sv = stack[INPUT_IDX].toTensor().sizes().vec();
+  const auto channel_size = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
+  return {input_sv, channel_size, channel_size};
 }
 
 sizes_vec BatchNormNoStatsFwdOutputShape(const at::Stack& stack) {
   using namespace BNNoStatsFwd;
-  auto input_sv = stack[INPUT_IDX].toTensor().sizes().vec();
-  auto mean_sv = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  auto var_sv = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  return {input_sv, mean_sv, var_sv};
+  const auto input_sv = stack[INPUT_IDX].toTensor().sizes().vec();
+  const auto channel_size = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
+  return {input_sv, channel_size, channel_size};
 }
 
 OutputMetaDataVector BatchNormBwdMeta(const at::Stack& stack) {
   using namespace BNBwd;
   auto input = stack_tensor(stack, INPUT_IDX);
-  auto weightBiasShape = (stack.at(WEIGHT_IDX).isTensor() &&
-                          stack.at(WEIGHT_IDX).toTensor().defined())
-      ? stack_tensor(stack, WEIGHT_IDX).sizes().vec()
-      : get_rm_size(input).vec();
+  auto weightBiasShape = get_rm_size(input).vec();
 
   OutputMetaDataVector metaVec(3);
   metaVec[0].shape = input.sizes().vec();
@@ -572,25 +531,15 @@ OutputMetaDataVector BatchNormBwdMeta(const at::Stack& stack) {
 OutputMetaDataVector BatchNormFwdMeta(const at::Stack& stack) {
   using namespace BNFwd;
   const auto& input = stack[INPUT_IDX].toTensor();
-  auto saved_mean_sv =
-      (stack[WEIGHT_IDX].isTensor() && stack[WEIGHT_IDX].toTensor().defined())
-      ? stack[WEIGHT_IDX].toTensor().sizes().vec()
-      : get_rm_size(input).vec();
-  auto saved_istd_sv =
-      (stack[BIAS_IDX].isTensor() && stack[BIAS_IDX].toTensor().defined())
-      ? stack[BIAS_IDX].toTensor().sizes().vec()
-      : get_rm_size(input).vec();
+  const auto channel_size = get_rm_size(stack[INPUT_IDX].toTensor()).vec();
 
   OutputMetaData out_meta;
   out_meta.shape = input.sizes().vec();
   out_meta.dtype = input.scalar_type();
-  OutputMetaData saved_mean_meta;
-  saved_mean_meta.shape = saved_mean_sv;
-  saved_mean_meta.dtype = c10::ScalarType::Float;
-  OutputMetaData saved_istd_meta;
-  saved_istd_meta.shape = saved_istd_sv;
-  saved_istd_meta.dtype = c10::ScalarType::Float;
-  return {out_meta, saved_mean_meta, saved_istd_meta};
+  OutputMetaData saved_mean_istd_meta;
+  saved_mean_istd_meta.shape = channel_size;
+  saved_mean_istd_meta.dtype = c10::ScalarType::Float;
+  return {out_meta, saved_mean_istd_meta, saved_mean_istd_meta};
 }
 
 OutputMetaDataVector BatchNormFunctionalFwdMeta(const at::Stack& stack) {
@@ -716,7 +665,7 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 
   const auto isBackendReshapeNeeded =
-      input.pt_t.sizes().size() != 4 && !is_lazy_or_eager;
+      input.pt_t.dim() != 4 && !is_lazy_or_eager;
 
   // Not needed when reshape is handled by CGUID or is not needed at all
   if (isOutputInfMode() && isBackendReshapeNeeded) {
