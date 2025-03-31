@@ -61,6 +61,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
    protected:
     std::vector<at::Tensor> outputs_;
     std::shared_ptr<habana::HcclCommunicator> comm_;
+    absl::AnyInvocable<bool()> is_coalescing_fn_ = []() { return false; };
     // Time point representing when the work started.
     std::chrono::time_point<std::chrono::steady_clock> workStartTime_;
     c10::intrusive_ptr<at::ivalue::Future> future_;
@@ -106,6 +107,11 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
   void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors) override;
 
   std::shared_ptr<habana::HcclCommunicator> comm_;
+
+  // Postponing submit events is needed because calls within group are
+  // batched and run at groupEnd, due to that submit events before groupEnd
+  // leads to problem with synchronization due to missing events.
+  std::vector<absl::AnyInvocable<void()>> group_submit_events_tasks_queue_;
 };
 
 } // namespace c10d

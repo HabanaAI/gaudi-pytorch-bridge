@@ -203,6 +203,13 @@ void ProcessGroupEagerHCCL::destroy() {
       ", rank:",
       rank_);
 
+  // Synchronization is needed in case where execute thread have outstanding
+  // tasks. In such case destroy may came before tasks are processed. Due to
+  // that segfault can be observed because comm_ is destroyed here and passed to
+  // task as copy, so we have to make sure that outstanding tasks are processed
+  // before destroy. Maybe there's other way to ensure synchronization because
+  // now we're blocking main thread.
+  habana::eager::JoinPendingPipelineThreads();
   hostBarrier();
 
   if (comm_) {
@@ -292,7 +299,14 @@ void Synchronize_Execute_Task(
 
 bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
                                             [[maybe_unused]]) {
+  if (is_coalescing_fn_()) {
+    PT_DISTRIBUTED_DEBUG(
+        "WorkEager::wait | Skip, because work is within group, wait have no effect as operation won't start before groupEnd will be called.");
+    return false;
+  }
+
   PT_DISTRIBUTED_DEBUG("WorkEager::wait");
+
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
 
@@ -343,7 +357,9 @@ void PointToPoint_Execute_Task(
     habana::HcclCommunicator& comm,
     std::unique_ptr<CollectiveContext> ctx,
     PointToPointFn&& fn,
-    int peerRank) {
+    int peerRank,
+    bool is_coalescing,
+    std::vector<absl::AnyInvocable<void()>>& group_submit_events_tasks_queue) {
   auto deviceCtxt = comm.getDeviceCtxt();
   for (auto& input_output : ctx->tensors()) {
     at::Tensor& tensor = input_output.first;
@@ -384,13 +400,30 @@ void PointToPoint_Execute_Task(
     HABANA_ASSERT(hcclSuccess == hccl_result, "P2P call returned error");
 
     recipe_counter.increase();
-    deviceCtxt->submit_events(
-        collective_stream,
-        tensor_storage_ptr,
-        [resource_holder, &recipe_counter]() mutable {
-          resource_holder.reset();
-          recipe_counter.decrease_and_notify();
-        });
+    auto _submit_events_task = [deviceCtxt,
+                                collective_stream,
+                                tensor_storage_ptr,
+                                resource_holder,
+                                &recipe_counter]() mutable {
+      deviceCtxt->submit_events(
+          collective_stream,
+          tensor_storage_ptr,
+          [resource_holder, &recipe_counter]() mutable {
+            resource_holder.reset();
+            recipe_counter.decrease_and_notify();
+          });
+    };
+
+    if (is_coalescing) {
+      PT_DISTRIBUTED_DEBUG(
+          "HCCL point_to_point call within group, postpone submit events after groupEnd");
+      // Postponing submit events is needed because calls within group are
+      // batched and run at groupEnd, due to that submit events before groupEnd
+      // leads to problem with synchronization due to missing events.
+      group_submit_events_tasks_queue.push_back(_submit_events_task);
+    } else {
+      _submit_events_task();
+    }
   }
 
   return;
@@ -428,23 +461,36 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
   if (pipeline_flag) {
     const auto tensors = ctx->tensors();
     habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
-        [comm = comm_,
-         ctx = std::move(ctx),
+        [ctx = std::move(ctx),
          fn = std::move(fn),
-         peerRank]() mutable {
+         peerRank,
+         coalescing_state = coalescing_state_,
+         this]() mutable {
           PointToPoint_Execute_Task(
-              *comm, std::move(ctx), std::move(fn), peerRank);
+              *comm_,
+              std::move(ctx),
+              std::move(fn),
+              peerRank,
+              coalescing_state,
+              group_submit_events_tasks_queue_);
         });
     // Restore the output tensors i.e. copy D2D in the main thread
     // So that such copies are also pipelined.
     restore_output_tensors(tensors, tensors_backend);
   } else {
     habana::eager::JoinPendingPipelineThreads();
-    PointToPoint_Execute_Task(*comm_, std::move(ctx), std::move(fn), peerRank);
+    PointToPoint_Execute_Task(
+        *comm_,
+        std::move(ctx),
+        std::move(fn),
+        peerRank,
+        coalescing_state_,
+        group_submit_events_tasks_queue_);
   }
 
   auto work =
       c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(tensors, comm_);
+  work->is_coalescing_fn_ = [this]() -> bool { return coalescing_state_; };
   return work;
 }
 
@@ -456,7 +502,9 @@ void Collective_Execute_Task(
     habana::HcclCommunicator& comm,
     std::unique_ptr<CollectiveContext> ctx,
     CollectiveFn&& fn,
-    [[maybe_unused]] bool is_allreduce) {
+    [[maybe_unused]] bool is_allreduce,
+    bool is_coalescing,
+    std::vector<absl::AnyInvocable<void()>>& group_submit_events_tasks_queue) {
   PT_DISTRIBUTED_DEBUG("Collective_Execute_Task");
   auto deviceCtxt = comm.getDeviceCtxt();
 
@@ -516,20 +564,37 @@ void Collective_Execute_Task(
     HABANA_ASSERT(hcclSuccess == hccl_result, "Collective call returned error");
 
     recipe_counter.increase();
-    deviceCtxt->submit_events(
-        collective_stream,
-        output_storage_ptr,
-        [resource_holder, &recipe_counter]() mutable {
-          resource_holder.reset();
-          recipe_counter.decrease_and_notify();
-          towl::emitCollectiveFinished("eager");
-        });
-
     towl::emitCollectiveLaunch("eager");
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_SYNC)) {
-      // each rank should wait `output_storage_ptr` mapping shared_event done
-      deviceCtxt->wait_until_address_ready(output_storage_ptr);
+    auto _submit_events_task = [deviceCtxt,
+                                collective_stream,
+                                output_storage_ptr,
+                                resource_holder,
+                                &recipe_counter]() mutable {
+      deviceCtxt->submit_events(
+          collective_stream,
+          output_storage_ptr,
+          [resource_holder, &recipe_counter]() mutable {
+            resource_holder.reset();
+            recipe_counter.decrease_and_notify();
+            towl::emitCollectiveFinished("eager");
+          });
+
+      if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_SYNC)) {
+        // each rank should wait `output_storage_ptr` mapping shared_event done
+        deviceCtxt->wait_until_address_ready(output_storage_ptr);
+      }
+    };
+
+    if (is_coalescing) {
+      PT_DISTRIBUTED_DEBUG(
+          "HCCL collective call within group, postpone submit events after groupEnd");
+      // Postponing submit events is needed because calls within group are
+      // batched and run at groupEnd, due to that submit events before groupEnd
+      // leads to problem with synchronization due to missing events.
+      group_submit_events_tasks_queue.push_back(_submit_events_task);
+    } else {
+      _submit_events_task();
     }
   }
 
@@ -540,7 +605,8 @@ void ProcessGroupEagerHCCL::groupStart() {
   auto _groupStart = [this]() {
     initComms();
     HABANA_ASSERT(
-        hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+      hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+    group_submit_events_tasks_queue_.clear();
   };
 
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
@@ -558,7 +624,17 @@ void ProcessGroupEagerHCCL::groupStart() {
 void ProcessGroupEagerHCCL::groupEnd() {
   auto _groupEnd = [this]() {
     HABANA_ASSERT(
-        hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+      hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+    PT_DISTRIBUTED_DEBUG(
+        "Calling postponed ",
+        group_submit_events_tasks_queue_.size(),
+        " submit events tasks after groupEnd");
+
+    // This can be optimized to submit one event with all addresses
+    // TODO: [SW-223384]
+    for (auto& submit_event_task : group_submit_events_tasks_queue_) {
+      submit_event_task();
+    }
   };
 
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
@@ -613,12 +689,18 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   if (pipeline_flag) {
     const auto input_output_tensors = ctx->tensors();
     habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
-        [comm = comm_,
-         ctx = std::move(ctx),
+        [ctx = std::move(ctx),
          fn = std::move(fn),
-         is_allreduce]() mutable {
+         is_allreduce,
+         coalescing_state = coalescing_state_,
+         this]() mutable {
           Collective_Execute_Task(
-              *comm, std::move(ctx), std::move(fn), is_allreduce);
+              *comm_,
+              std::move(ctx),
+              std::move(fn),
+              is_allreduce,
+              coalescing_state,
+              group_submit_events_tasks_queue_);
         });
     // Restore the output tensors i.e. copy D2D in the main thread
     // So that such copies are also pipelined.
@@ -626,11 +708,17 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   } else {
     habana::eager::JoinPendingPipelineThreads();
     Collective_Execute_Task(
-        *comm_, std::move(ctx), std::move(fn), is_allreduce);
+        *comm_,
+        std::move(ctx),
+        std::move(fn),
+        is_allreduce,
+        coalescing_state_,
+        group_submit_events_tasks_queue_);
   }
 
   auto work =
       c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs, comm_);
+  work->is_coalescing_fn_ = [this]() -> bool { return coalescing_state_; };
   return work;
 }
 

@@ -284,6 +284,8 @@ bool ProcessGroupHcclBase::CoalescedWorkHCCL::wait(
 }
 
 void ProcessGroupHcclBase::startCoalescing() {
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] startCoalescing called");
+
   HABANA_ASSERT(
       habana::HPUDeviceContext::is_device_acquired(),
       "HPU Device not initialized! startCoalescing cannot be done without device init!")
@@ -300,6 +302,8 @@ void ProcessGroupHcclBase::startCoalescing() {
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::endCoalescing() {
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] endCoalescing called");
+
   HABANA_ASSERT(
       coalescing_state_ != 0, "endCoalescing invoked without startCoalescing");
 
