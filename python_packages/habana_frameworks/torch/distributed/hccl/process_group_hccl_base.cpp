@@ -231,7 +231,7 @@ void restoreTensorsize(
 }
 
 bool is_valid_hccl_dtype(hcclDataType_t data_type) {
-  if (data_type == hcclBfloat16 || data_type == hcclFloat) {
+  if (data_type == hcclBfloat16 || data_type == hcclFloat || data_type == hcclFloat16) {
     return true;
   }
   return false;
