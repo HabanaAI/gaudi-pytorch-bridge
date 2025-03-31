@@ -270,9 +270,12 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
   }
 
   // Remove the out tensors from syn inputs
-  p_context_->syn_inputs_.erase(
-      p_context_->syn_inputs_.end() - m_num_out_tensors,
-      p_context_->syn_inputs_.end());
+  // keep input tensors for copy as needed later for dynamic shapes in CGUID
+  if (guid_.find("copy_guid"sv) == std::string::npos) {
+    p_context_->syn_inputs_.erase(
+        p_context_->syn_inputs_.end() - m_num_out_tensors,
+        p_context_->syn_inputs_.end());
+  }
 }
 
 void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {

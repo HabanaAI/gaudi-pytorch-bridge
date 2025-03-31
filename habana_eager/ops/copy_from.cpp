@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,10 +111,8 @@ void _assert_tensors_dtypes(const at::Tensor& src, const at::Tensor& dst) {
 }
 
 at::Tensor _hpu_cast(const at::Tensor& dst, const at::Tensor& src) {
-  // Use dst two times as two syn tensors needed in backend
-  // as copy cguid requires second input to calculate dynamic shapes
   habana::eager::EagerOp<at::Tensor&> hpu_op{
-      "hpu::_copy_from", {src, dst, dst}, {dst.sizes().vec()}, 1};
+      "hpu::_copy_from", {src, dst}, {dst.sizes().vec()}, 1};
   hpu_op.set_eager_op_info(
       {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", 1});
   return hpu_op.call(const_cast<at::Tensor&>(dst));
@@ -411,10 +409,8 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
     // Since _copy_from is neither inplace nor an out variant but pytorch
     // expects to copy to dst, we treat _copy_from as an out variant in the
     // backend with "dst" as the out tensor
-    // Use dst two times as two syn tensors needed in backend
-    // as copy cguid requires second input to calculate dynamic shapes
     habana::eager::EagerOp<at::Tensor&> hpu_op{
-        "hpu::_copy_from", {self, dst, dst}, {dst.sizes().vec()}, 1};
+        "hpu::_copy_from", {self, dst}, {dst.sizes().vec()}, 1};
     hpu_op.set_eager_op_info(
         {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", 1});
     result = hpu_op.call(const_cast<at::Tensor&>(dst));
@@ -477,7 +473,7 @@ at::Tensor _copy_from(
 }
 
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
-  m.def("_copy_from(Tensor self, Tensor dst, Tensor dst2) -> Tensor");
+  m.def("_copy_from(Tensor self, Tensor dst) -> Tensor");
   m.def("identity(Tensor self) -> Tensor");
   m.def(
       "strided_insert(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");

@@ -124,7 +124,7 @@ static void copy_impl(
 }
 
 CopyFrom::CopyFrom(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {}, {}, {}, true) {
+    : OpBackend(device_id, "copy_guid", scalar_type, {}, {}, {}, true) {
   SetOutputMetaFn(CopyFrom::CopyFromMeta);
 }
 
@@ -183,10 +183,10 @@ struct Copy : OpBackend {
 
 template <>
 Copy<true>::Copy(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {}, {0}, {}, false) {}
+    : OpBackend(device_id, "copy_guid", scalar_type, {}, {0}, {}, false) {}
 template <>
 Copy<false>::Copy(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
+    : OpBackend(device_id, "copy_guid", scalar_type, {0}, {}, {}, false) {}
 
 struct ToCopy : OpBackend {
   ToCopy(int device_id, c10::ScalarType scalar_type);
@@ -198,7 +198,7 @@ struct ToCopy : OpBackend {
 };
 
 ToCopy::ToCopy(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
+    : OpBackend(device_id, "copy_guid", scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(ToCopy::ToCopyMeta);
   SetSTMetaFn(ToCopy::ToCopySTMeta);
 }
