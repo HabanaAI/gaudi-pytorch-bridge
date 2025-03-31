@@ -14,7 +14,8 @@ def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLE
 String releaseVersion = extractReleaseVersion()
 def testBuildOsMap = [
     "rh86" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:rhel8.6-${releaseVersion}",
-    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}"
+    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}",
+    "u24" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:ubuntu24.04-${releaseVersion}"
 ]
 
 if (testBuildOsMap.keySet().contains(env.OS_SHORT_NAME)) {
