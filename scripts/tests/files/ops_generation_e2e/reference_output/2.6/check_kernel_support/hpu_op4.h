@@ -50,8 +50,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, int64_t dim, bool keepdim, std::optional<at::ScalarType> dtype, at::Tensor & out, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
   RETURN_IF_UNSUPPORTED_DTYPE2(self, prod, is_dynamic, int_out, self, dim, keepdim, dtype, out)
 
   return true;
@@ -88,8 +87,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, std::optional<at::MemoryFormat> memory_format, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
   RETURN_IF_UNSUPPORTED_DTYPE(self, clone, is_dynamic, self, memory_format)
 
   return true;

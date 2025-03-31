@@ -18,16 +18,9 @@
 import copy
 import re
 from abc import ABC, abstractmethod
-from collections import defaultdict
 
 from .constants import HabanaExecutionMode
 from .op import Op
-
-_DEVICE_STR_TO_ENUM = {
-    "All": "-1",
-    "Gaudi2": "synDeviceGaudi2",
-    "Gaudi3": "synDeviceGaudi3",
-}
 
 
 class OpValidatorGenerator(ABC):
@@ -70,54 +63,38 @@ class OpValidatorGenerator(ABC):
         """
 
 
-def generate_dtype_macro(dtypes, check_implicit_types=True):
-    def generate_line(dd_pairs, suffix=""):
-        code = []
-        for dd_pair in dd_pairs:
-            dev_type, dtypes = dd_pair
-            assert isinstance(dtypes, list)
-            dtypes_set = set(dtypes)
-            assert len(dtypes) == len(dtypes_set), "Found same dtype defined more than once!"
+def generate_dtype_macro(dtypes, check_implicit_types):
+    def generate_line(dtypes, suffix=""):
+        assert isinstance(dtypes, list)
+        dtypes_set = set(dtypes)
+        assert len(dtypes) == len(dtypes_set), "Found same dtype defined more than once!"
 
-            if check_implicit_types:
-                assert not any(x in dtypes_set for x in ["Double", "Bool"]), (
-                    "Double and Bool are not natively supported, they are treated as "
-                    "Float and Char respectively. For instance if Float is a supported "
-                    "dtype, Double is added as a supported dtype by the script."
-                )
-
-            if "Float" in dtypes and "Double" not in dtypes:
-                dtypes.append("Double")
-            if "Char" in dtypes and "Bool" not in dtypes:
-                dtypes.append("Bool")
-            code.append(
-                "{{{}, {{{}}}}}".format(
-                    _DEVICE_STR_TO_ENUM[dev_type],
-                    ", ".join(["at::k" + d for d in dtypes]),
-                )
+        if check_implicit_types:
+            assert not any(x in dtypes_set for x in ["Double", "Bool"]), (
+                "Double and Bool are not natively supported, they are treated as "
+                "Float and Char respectively. For instance if Float is a supported "
+                "dtype, Double is added as a supported dtype by the script."
             )
-        return "  HPU_SUPPORTED_DTYPES(({{{}}}){})\n".format(",\n   ".join(code), ", " + suffix if suffix else "")
+
+        if "Float" in dtypes and "Double" not in dtypes:
+            dtypes.append("Double")
+        if "Char" in dtypes and "Bool" not in dtypes:
+            dtypes.append("Bool")
+        code = "{{-1, {{{}}}}}".format(", ".join(["at::k" + d for d in dtypes]))
+
+        return f"  HPU_SUPPORTED_DTYPES(({{{code}}}){suffix})\n"
 
     if isinstance(dtypes, list):
-        return generate_line([("All", dtypes)])
+        return generate_line(dtypes)
 
-    if isinstance(dtypes, dict) and not any(x in dtypes.keys() for x in _DEVICE_STR_TO_ENUM.keys()):
+    if isinstance(dtypes, dict):
         lines = ""
-        for k, v in dtypes.items():
-            lines += generate_line([("All", v)], k)
+        for input_name, supported_dtypes in dtypes.items():
+            suffix = ", " + input_name
+            lines += generate_line(supported_dtypes, suffix)
         return lines
 
-    assert isinstance(dtypes, dict)
-    if all(isinstance(x, list) for x in dtypes.values()):
-        return generate_line(dtypes.items())
-    dt_map = defaultdict(list)
-    for k, v in dtypes.items():
-        for suffix, dt in v.items():
-            dt_map[suffix].append((k, dt))
-    lines = ""
-    for suffix, arg in dt_map.items():
-        lines += generate_line(arg, suffix)
-    return lines
+    assert False, "Invalid dtypes format"
 
 
 class UseDtypesOpValidatorGenerator(OpValidatorGenerator):
@@ -133,7 +110,8 @@ class UseDtypesOpValidatorGenerator(OpValidatorGenerator):
 
     def get_validator_inline_data_def(self):
         dtypes = copy.deepcopy(self._ctxop.get_dtypes())
-        return generate_dtype_macro(dtypes, self._ctxop.get_lazy() == {})
+        check_implicit_types = self._ctxop.get_lazy() == {}
+        return generate_dtype_macro(dtypes, check_implicit_types)
 
 
 def get_promotion_ids(ctxop, cpp_sig):

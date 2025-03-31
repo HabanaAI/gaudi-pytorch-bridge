@@ -32,8 +32,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE(self, isfinite, is_dynamic, self)
 
   return true;
@@ -100,8 +99,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, std::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE2(input, upsample_bicubic2d, is_dynamic, vec, input, output_size, align_corners, scale_factors)
 
   return true;

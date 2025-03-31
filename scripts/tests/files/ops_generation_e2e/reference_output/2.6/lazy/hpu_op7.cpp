@@ -31,8 +31,7 @@ at::Tensor isfinite(const at::Tensor & self) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, isfinite, self)
 
   LazyOp<at::Tensor> hpu_op{"aten::isfinite", {self}};

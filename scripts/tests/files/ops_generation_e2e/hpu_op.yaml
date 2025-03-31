@@ -22,9 +22,7 @@ __ilshift__.Scalar:
   scalar_ids: [1]
 
 _foreach_add_.Scalar:
-  dtypes:
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  dtypes: [BFloat16, Float, Long, Int, Short, Char, Half]
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
@@ -32,9 +30,7 @@ _foreach_add_.Scalar:
 _fused_dropout:
   output_meta: FusedNativeDropoutMeta
   custom_fill_params: FillFusedNativeDropoutParams
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+  dtypes: [BFloat16, Float, Half]
   op_frontend: GeneratorToSeed
   op_backend: FusedNativeDropout
   out_ids: [0, 0]
@@ -43,9 +39,7 @@ _fused_dropout:
 native_dropout:
   output_meta: FusedNativeDropoutMeta
   custom_fill_params: FillFusedNativeDropoutParams
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+  dtypes: [BFloat16, Float, Half]
   early_exit: NativeDropoutEarlyExit
   op_frontend: NativeDropoutFE
   op_backend: FusedNativeDropout
@@ -57,9 +51,7 @@ as_strided:
   acc_thread: true
 
 addbmm:
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+  dtypes: [BFloat16, Float, Half]
   guid: batch_gemm
   op_backend: AddBMM
   output_meta: AddBMMMeta
@@ -79,9 +71,7 @@ bucketize.Scalar:
   op_validator: check-node-with-shared-layer
 
 elu:
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+  dtypes: [BFloat16, Float, Half]
   guid: elu_fwd
   custom_fill_params: FillEluParams
   out_ids: [0]
@@ -90,16 +80,12 @@ elu:
   pytorch_module_names: ["ELU"]
 
 prod.int_out:
-  dtypes:
-    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
+  dtypes: [BFloat16, Float, Char, Byte, Short, Int, Half]
   guid: reduce_prod_multi_dim_fwd
   safe_cast_check: false
 
 clone:
-  dtypes:
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  dtypes: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: identity
   output_meta: CloneMeta
   out_ids: [0]
@@ -107,25 +93,19 @@ clone:
 
 mul.Scalar_out:
   broadcast: true
-  dtypes:
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  dtypes: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
 
 sort.values_stable:
-  dtypes:
-    Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
-    Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
+  dtypes: [Float, Int, Long, BFloat16, Short, Half]
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
 
 squeeze.dims:
   output_meta: SqueezeDimsMeta
-  dtypes:
-    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+  dtypes: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   guid: squeeze
   op_backend: SqueezeDims
   out_ids: [0]
@@ -134,9 +114,7 @@ squeeze.dims:
     override_fn: squeeze_dims_hpu_lazy
 
 eq.Scalar_out:
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
-    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+  dtypes: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   output_meta: CompareMeta
   scalar_ids: [1]
@@ -145,18 +123,14 @@ eq.Scalar_out:
   handle_bool_inputs: true
 
 isfinite:
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half, Int]
-    Gaudi3: [BFloat16, Float, Half, Int]
+  dtypes: [BFloat16, Float, Half, Int]
   op_backend: _IsFiniteInfNan
   guid: isfinite_fwd
   out_ids: [0]
 
 upsample_bicubic2d.vec:
   only_shared_layer: true
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+  dtypes: [BFloat16, Float, Half]
 
 softmax_fp8:
   custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
@@ -182,18 +156,11 @@ _native_batch_norm_legit:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi2:
-      input: [BFloat16, Float, Half]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
-    Gaudi3:
-      input: [BFloat16, Float, Half]
-      weight: [Float]
-      bias: [Float]
-      running_mean: [Float]
-      running_var: [Float]
+    input: [BFloat16, Float, Half]
+    weight: [Float]
+    bias: [Float]
+    running_mean: [Float]
+    running_var: [Float]
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0]
   synapse_layouts:
@@ -202,17 +169,13 @@ _native_batch_norm_legit:
 
 convolution_backward_overrideable:
   output_meta: ConvolutionOverrideableMetaBwd
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+  dtypes: [BFloat16, Float, Half]
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   out_ids: [0, 0, 0]
 
 native_group_norm:
-  dtypes:
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+  dtypes: [BFloat16, Float]
   guid: native_group_norm_fwd
   custom_fill_params: FillNativeGroupNormParams
   output_meta: GroupNormFwdMeta
@@ -221,9 +184,7 @@ native_group_norm:
 linear_backward:
   output_meta: LinearBackwardMeta
   custom_fill_params: FillLinearBwdParams
-  dtypes:
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+  dtypes: [BFloat16, Float, Half]
   guid: linear_temp_bwd
   out_ids: [0, 0, 0]
 

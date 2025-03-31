@@ -46,8 +46,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, double p, std::optional<at::Generator> generator, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, is_dynamic, self, p, generator)
 
   return true;
@@ -86,8 +85,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & input, double p, std::optional<bool> train, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
   RETURN_IF_UNSUPPORTED_DTYPE(input, native_dropout, is_dynamic, input, p, train)
 
   return true;
