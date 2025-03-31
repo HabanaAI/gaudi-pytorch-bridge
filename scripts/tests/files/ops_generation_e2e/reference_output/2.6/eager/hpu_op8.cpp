@@ -25,7 +25,7 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, sort, values_stable, self, stable, dim, descending, values, indices)
   FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
 

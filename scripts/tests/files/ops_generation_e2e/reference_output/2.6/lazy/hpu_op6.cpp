@@ -31,7 +31,7 @@ at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, squeeze, dims, self, dim)
 
   return habana_lazy::squeeze_dims_hpu_lazy(self, dim);
@@ -48,7 +48,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
 
   LazyOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};

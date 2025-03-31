@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,6 @@
 #define PARAMS1(...) __VA_ARGS__
 #define PARAMS2(...) __VA_ARGS__
 #define INQUOTE(x) #x
-#define FIRST_ARG_(N, ...) N
-#define FIRST_ARG(args) FIRST_ARG_ args
-#define GET_FIRST(...) FIRST_ARG((__VA_ARGS__))
 
 // fallback macros for generated ops
 //

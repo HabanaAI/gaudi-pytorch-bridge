@@ -31,7 +31,7 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_group_norm, input, weight, bias, N, C, HxW, group, eps)
 
   LazyOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::native_group_norm", {input, weight, bias, N, C, HxW, group, eps}};
@@ -47,7 +47,7 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, linear_backward, self, grad_output, weight, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, linear_backward, self, grad_output, weight, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(weight, linear_backward, self, grad_output, weight, output_mask)

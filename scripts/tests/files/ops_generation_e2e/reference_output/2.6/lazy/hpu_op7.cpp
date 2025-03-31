@@ -31,7 +31,7 @@ at::Tensor isfinite(const at::Tensor & self) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, isfinite, self)
 
   LazyOp<at::Tensor> hpu_op{"aten::isfinite", {self}};
@@ -46,7 +46,7 @@ at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other)
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, Tensor_Scalar, self, other)
 
   LazyOp<at::Tensor> hpu_op{"aten::bitwise_left_shift", {self, other}};

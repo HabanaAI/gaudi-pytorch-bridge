@@ -31,11 +31,11 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), weight)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), bias)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), running_mean)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), running_var)
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}), input)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), weight)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), bias)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), running_mean)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), running_var)
   FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
   FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
   FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
@@ -53,7 +53,7 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)

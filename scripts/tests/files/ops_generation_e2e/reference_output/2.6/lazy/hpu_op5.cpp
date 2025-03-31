@@ -34,7 +34,7 @@ at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tens
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, true/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, mul, Scalar_out, self, other, out)
 
   LazyOp<at::Tensor &> hpu_op{"aten::mul", {self, other, out}, BinaryOutputShape};
@@ -51,7 +51,7 @@ at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tens
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, sort, values_stable, self, stable, dim, descending, values, indices)
   FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
 

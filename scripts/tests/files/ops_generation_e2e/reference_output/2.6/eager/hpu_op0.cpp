@@ -25,7 +25,7 @@ at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, Scalar, self, other)
 
   eager::EagerOp<at::Tensor &> hpu_op{"aten::__ilshift__", {self, other}};

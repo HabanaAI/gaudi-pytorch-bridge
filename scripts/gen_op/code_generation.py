@@ -768,15 +768,9 @@ def handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars):
         if rtype.startswith("::std::tuple<at::Tensor"):
             code += f"  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
         elif rtype.startswith("void") and "TensorList" in sig:
-            if sig.count("TensorList") == 1:
-                code += f"  RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, {param_vars[0]})"
-            elif sig.count("TensorList") == 2:
-                code += "  RUN_TENSOR_LIST2_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
-                    fname, f"{param_vars[0]}, {param_vars[1]}"
-                )
-                pass
-            else:
-                raise Exception(f"Only up to 2 TensorList inputs are supported. Sig: {sig}")
+            raise Exception(
+                f"Support for TensorLists inputs was removed, as we don't intend to develop new lazy features and no operator needed it so far. Sig: {sig}"
+            )
         else:
             code += f"  RUN_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
     return code + ";"

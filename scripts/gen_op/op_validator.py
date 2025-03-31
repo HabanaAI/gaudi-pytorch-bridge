@@ -80,9 +80,8 @@ def generate_dtype_macro(dtypes, check_implicit_types):
             dtypes.append("Double")
         if "Char" in dtypes and "Bool" not in dtypes:
             dtypes.append("Bool")
-        code = "{{-1, {{{}}}}}".format(", ".join(["at::k" + d for d in dtypes]))
-
-        return f"  HPU_SUPPORTED_DTYPES(({{{code}}}){suffix})\n"
+        formatted_dtypes = ", ".join([f"at::k{d}" for d in dtypes])
+        return f"  HPU_SUPPORTED_DTYPES(({{{formatted_dtypes}}}){suffix})\n"
 
     if isinstance(dtypes, list):
         return generate_line(dtypes)

@@ -32,7 +32,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
 
   eager::EagerOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};
@@ -49,11 +49,11 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), weight)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), bias)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), running_mean)
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kFloat, at::kDouble}}}), running_var)
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}), input)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), weight)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), bias)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), running_mean)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), running_var)
   FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
   FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
   FALLBACK_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
@@ -71,7 +71,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
@@ -89,7 +89,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_group_norm, input, weight, bias, N, C, HxW, group, eps)
 
   eager::EagerOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::native_group_norm", {input, weight, bias, N, C, HxW, group, eps}};
@@ -105,7 +105,7 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, linear_backward, self, grad_output, weight, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, linear_backward, self, grad_output, weight, output_mask)
   FALLBACK_IF_UNSUPPORTED_DTYPE(weight, linear_backward, self, grad_output, weight, output_mask)
