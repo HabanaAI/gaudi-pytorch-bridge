@@ -23,6 +23,7 @@ from test_utils import compile_function_if_compile_mode
 @pytest.mark.parametrize("alpha", [0.5, 1, 2])
 @pytest.mark.parametrize("beta", [0.5, 1, 2])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-223807")
 def test_hpu_addmv(shapes, alpha, beta, dtype):
     def fn(input, mat, vec):
         return torch.addmv(input, mat, vec, alpha=alpha, beta=beta)

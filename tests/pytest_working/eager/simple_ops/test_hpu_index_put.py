@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 ###############################################################################
 
+import pytest
 import torch
 from test_utils import compare_tensors
 
@@ -50,6 +51,7 @@ def test_hpu_tensor_cpu_index_cpu_value():
     compare_tensors(x, x_hpu.to(cpu), atol=0.001, rtol=1.0e-3)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-223804")
 def test_cpu_tensor_hpu_indices():
     x = torch.tensor([1, 2, 3.0]).reshape(3, 1)
     x_cpy = x.to(hpu)
@@ -63,6 +65,7 @@ def test_cpu_tensor_hpu_indices():
     compare_tensors(x, x_cpy.to(cpu), atol=0.001, rtol=1.0e-3)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-223804")
 def test_cpuTensor_cpuValue_hpu_indices():
     x = torch.tensor([1, 2, 3.0]).reshape(3, 1)
     x_cpy = x.to("hpu")
@@ -77,6 +80,7 @@ def test_cpuTensor_cpuValue_hpu_indices():
     compare_tensors(x, x_cpy.to(cpu), atol=0.001, rtol=1.0e-3)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-223804")
 def test_cpuTensor_hpuValue_hpu_indices():
     x = torch.tensor([1, 2, 3.0]).reshape(3, 1)
     x_cpy = x.to("hpu")

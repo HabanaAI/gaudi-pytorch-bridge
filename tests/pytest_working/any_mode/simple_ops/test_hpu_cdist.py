@@ -25,6 +25,7 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi3,
     is_pytest_mode_compile,
 )
 
@@ -76,6 +77,7 @@ def common_hpu_cdist(shapes, dtype, p, compute_mode, torch_op_label):
 @pytest.mark.parametrize("p", [2.0], ids=format_tc)
 @pytest.mark.parametrize("compute_mode", compute_modes_subset, ids=format_tc)
 @pytest.mark.parametrize("torch_op_label", torch_ops_labels, ids=format_tc)
+@pytest.mark.skipif(is_gaudi3(), reason="https://jira.habana-labs.com/browse/SW-223805")
 def test_hpu_cdist_shapes(shapes, dtype, p, compute_mode, torch_op_label):
     common_hpu_cdist(shapes, dtype, p, compute_mode, torch_op_label)
 

@@ -60,6 +60,9 @@ def pytest_addoption(parser):
     parser.addoption(
         "--dut", action="store", default="gaudi2", help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version"
     )
+    parser.addoption(
+        "--vendor", action="store_true", default=False, help="Collect tests for Vendor CI (skip any simple ops)."
+    )
 
 
 backup_env = pytest.StashKey[Mapping]()
@@ -144,7 +147,13 @@ def pytest_configure(config):
 
 
 def pytest_ignore_collect(collection_path, config):
-    return not bool(pytest.mode in collection_path.parts or "any_mode" in collection_path.parts)
+    if config.getoption("--vendor") and "simple_ops" in collection_path.parts:
+        # Simple op tests not collected in Vendor CI mode
+        return True
+    if not bool(pytest.mode in collection_path.parts or "any_mode" in collection_path.parts):
+        return True
+
+    return None
 
 
 def pytest_unconfigure(config):

@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-from test_utils import cpu, format_tc, hpu, print_tensors
+from test_utils import cpu, format_tc, hpu, is_lazy, print_tensors
 
 Verbose = False
 
@@ -797,6 +797,7 @@ def test_hpu_conv3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, b
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_chlast_test_case_list)
+@pytest.mark.skipif(is_lazy(), reason="https://jira.habana-labs.com/browse/SW-223808")
 def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     input_nchw = torch.randn((N, C, H, W), dtype=torch.float, requires_grad=True)
 

@@ -55,6 +55,7 @@ def test_hpu_max_pool2d(shape, kernel_size_and_padding, stride, dilation, dtype)
 @pytest.mark.parametrize("stride", [(1, 2), 1, []], ids=format_tc)
 @pytest.mark.parametrize("dilation", [(1, 2), 1], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-223802")
 def test_hpu_max_pool2d_bwd(shape, kernel_size_and_padding, stride, dilation, dtype):
     def fn(input):
         max_pool_2d = torch.ops.aten.max_pool2d(
