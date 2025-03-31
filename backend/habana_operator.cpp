@@ -147,7 +147,7 @@ static void launchRecipe(
     recipe->launch(input_buffers, output_buffers, address_lock, stream_handle);
     recipe_counter.increase();
     auto holder = std::make_shared<GenericResourceHolder>();
-    holder->get_address_lock() = std::move(address_lock);
+    holder->set_address_lock(std::move(address_lock));
     const auto& recipe_ptr = recipe->getRecipeHandle();
     // Get the reference to the tensor it is operating on to prevent
     // it from being deallocated while the operation is still in flight.

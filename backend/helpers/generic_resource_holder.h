@@ -160,9 +160,14 @@ class GenericResourceHolder {
     return address_lock_;
   }
 
+  void set_address_lock(
+      std::unique_ptr<synapse_helpers::device_ptr_lock>&& address_lock) {
+    address_lock_ = std::move(address_lock);
+  }
+
   void set_recipe_id(
-      std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe) {
-    recipe_id_ = std::move(recipe);
+      const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe_id) {
+    recipe_id_ = recipe_id;
   }
 
   void set_input_tensors(const std::vector<at::Tensor>& tensors) {
