@@ -25,6 +25,14 @@ testJobConfig:
       gaudi3:
         hwType:
           sim:
+  py_suite_compile_jit_fork:
+    devices:
+      gaudi2:
+        hwType:
+          sim:
+      gaudi3:
+        hwType:
+          sim:
   py_suite_eager:
     devices:
       gaudi2:
