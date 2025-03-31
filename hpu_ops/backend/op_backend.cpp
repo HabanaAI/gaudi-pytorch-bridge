@@ -923,8 +923,31 @@ sh::tensor OpBackend::BuildBoolCast(
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
     std::optional<int> final_result_index) {
+  bool constant_bf16 =
+      (from == c10::ScalarType::Bool &&
+       op->GetExecutionMode() != habana_helpers::HabanaFrontendTypes::EAGER);
+
   // We want either 0x00 or 0x01 stored in bytes when casting from or to Bool.
-  auto zero_tensor = OpBackend::BuildConstant(op, graph, 0, from);
+
+  /* WA: In lazy mode, if the input type is Bool, we should create BFloat16
+     constant and cast it into bool. It is required due to fuser limitation.
+     Constant_bf16 is fusable while constant_i8 is not fusable.
+
+     tpc_fuser/mlir/include/tpc/fuser/Optimizer/Dialect/TPCKernelUnsupported.td
+     */
+  auto zero_tensor = OpBackend::BuildConstant(
+      op, graph, 0, constant_bf16 ? c10::ScalarType::BFloat16 : from);
+
+  if (constant_bf16) {
+    zero_tensor = OpBackend::BuildRegularCast(
+        op,
+        graph,
+        zero_tensor.get(),
+        {1},
+        at::kBFloat16,
+        at::kBool,
+        std::nullopt);
+  }
 
   auto eq = OpBackend::BuildNode(
       op,
