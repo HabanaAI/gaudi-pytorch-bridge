@@ -517,6 +517,9 @@ def copy_to(dst, src):
     elif isinstance(dst, list) or (isinstance(dst, tuple) and not isinstance(dst, torch.Size)):
         for d, s in zip(dst, src, strict=False):
             copy_to(d, s)
+    elif is_dataclass(dst):
+        for field in fields(dst):
+            copy_to(getattr(dst, field.name), getattr(src, field.name))
     elif torch.is_tensor(dst):
         dst.copy_(src, non_blocking=True)
 
@@ -528,6 +531,9 @@ def get_user_input_tensor_list(inputs, tlist):
     elif isinstance(inputs, list) or isinstance(inputs, tuple):
         for inp in inputs:
             tlist = get_user_input_tensor_list(inp, tlist)
+    elif is_dataclass(inputs):
+        for field in fields(inputs):
+            tlist = get_user_input_tensor_list(getattr(inputs, field.name), tlist)
     elif torch.is_tensor(inputs):
         tlist = tlist + (inputs,)
     return tlist
@@ -549,6 +555,9 @@ def extract_tensors(data):
     elif hasattr(data, "__dict__"):
         for value in data.__dict__.values():
             tensors.extend(extract_tensors(value))
+    elif is_dataclass(data):
+        for field in fields(data):
+            tensors.extend(extract_tensors(getattr(data, field.name)))
     return tensors
 
 
