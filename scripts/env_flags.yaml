@@ -656,7 +656,7 @@ PT_TB_ENABLE_FLOW_EVENTS:
 
 PT_PYTORCH_PROFILER_USE_KINETO:
   type: bool
-  default: false
+  default: true
   doc: "Enables the PyTorch profiler integrated with Kineto."
 
 PT_HPU_ENABLE_GENERIC_STREAM:
