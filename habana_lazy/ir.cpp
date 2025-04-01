@@ -125,10 +125,6 @@ std::string Node::ToString() const {
   return ss.str();
 }
 
-std::string Node::GetOpNameString() const {
-  return m_op.toQualString();
-}
-
 std::string Node::ToStringIrGraph() const {
   std::stringstream ss;
   ss << m_op.toQualString() << "{";

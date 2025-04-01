@@ -523,9 +523,6 @@ class HbLazyTensor {
       bool async = false,
       bool collect_sync_tensors = true);
 
-  static void WarnIfOpsIncompatibleWithHPUGraphs(
-      const std::vector<ir::NodePtr>& post_order);
-
   bool is_hpugraph_out_tensor = false;
   static bool switch_dynamic_mode;
   bool is_strided = false;
