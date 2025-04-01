@@ -1313,8 +1313,8 @@ def get_cmake_configurations(args) -> dict[str, list[str]]:
         cmake_flags.set_if_missing("THREAD_SANITIZER", "ON")
     if args.no_cpp_tests:
         cmake_flags.set_if_missing("BUILD_TESTS", "OFF")
-    if args.no_slrg:
-        cmake_flags.set_if_missing("BUILD_SL_REPORT_GENERATOR", "OFF")
+    if args.enable_slrg:
+        cmake_flags.set_if_missing("BUILD_SL_REPORT_GENERATOR", "ON")
     if args.coverage:
         cmake_flags.set_if_missing("CODE_COVERAGE", "ON")
         args.release = False
@@ -1559,9 +1559,9 @@ def parse_args():
     )
     parser.add_argument(
         "-g",
-        "--no_slrg",
+        "--enable_slrg",
         action="store_true",
-        help="Don't build shared layer report generator. Toggling between -g and full builds requires -c",
+        help="Build shared layer report generator. Toggling between -g and full builds requires -c",
     )
     parser.add_argument(
         "--no-swig",
@@ -2080,7 +2080,7 @@ def main():
 
     if args.install_ext:
         install_wheels_in_venvs(selected_wheel_configs)
-        if not args.no_slrg:
+        if args.enable_slrg:
             run_doc_gen(selected_wheel_configs, pt_modules_root)
 
     print_build_summary(cmake_build_configs, selected_wheel_configs, args)
