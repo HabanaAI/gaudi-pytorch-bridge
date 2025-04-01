@@ -1782,12 +1782,14 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
         {
             "dropout",
             {{at::ScalarType::Float,
+              at::ScalarType::Half,
               at::ScalarType::BFloat16,
               at::ScalarType::Double}},
         },
         {
             "dropout_",
             {{at::ScalarType::Float,
+              at::ScalarType::Half,
               at::ScalarType::BFloat16,
               at::ScalarType::Double}},
         },
