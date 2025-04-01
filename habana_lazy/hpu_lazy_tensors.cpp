@@ -1233,6 +1233,38 @@ void PrepareInputOrderMap(
   graph_hash_builder.reset();
 }
 
+void HbLazyTensor::WarnIfOpsIncompatibleWithHPUGraphs(
+    const std::vector<ir::NodePtr>& post_order) {
+  static const std::unordered_set<std::string> incompatible_ops = {
+      "hpu::index_put",
+      "hpu::index_add",
+      "aten::index_select",
+      "aten::select",
+      "hpu::nonzero",
+      "hpu::arange",
+      "hpu::batched_nms"};
+  std::unordered_set<std::string> found_ops;
+  for (auto& node : post_order) {
+    const std::string& opName = node->GetOpNameString();
+    if (incompatible_ops.find(opName) != incompatible_ops.end()) {
+      found_ops.insert(opName);
+    }
+  }
+  if (!found_ops.empty()) {
+    std::stringstream warning_msg;
+    warning_msg
+        << "The following operations used in HPU graphs might result in accuracy issues : ";
+    auto it = found_ops.begin();
+    warning_msg << (*it).substr((*it).find("::") + 2);
+    ++it;
+    for (; it != found_ops.end(); ++it) {
+      warning_msg << ", " << (*it).substr((*it).find("::") + 2);
+    }
+    warning_msg << ".";
+    TORCH_WARN(warning_msg.str());
+  }
+}
+
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
@@ -1362,6 +1394,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   // Save po_data input and output to context for perf mode
   if (context->getCapturing()) {
+    WarnIfOpsIncompatibleWithHPUGraphs(po_data.post_order);
     context->saveInputsAndOutputs(
         po_data.inputs, po_data.outputs, *tensors, indices);
   }

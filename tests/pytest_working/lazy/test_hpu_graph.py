@@ -785,3 +785,119 @@ def test_module_cacher_propnet_rand():
 
     for i in range(6):
         assert torch.allclose(outputs_hpu[i], outputs_hpu_ref[i])
+
+
+class SimpleModelWithIndexPut(torch.nn.Module):
+
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([True, True, True, True, True, True, True])
+        self.value = torch.tensor([1, 2, 3, 128256, 128256, 4, 5], dtype=torch.float32)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output.index_put([self.indices.to(input_ids.device)], self.value.to(input_ids.device))
+        output += 1
+        return output
+
+
+class SimpleModelWithMaskedSelect(torch.nn.Module):
+
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([True, False, True, False, True, False, False])
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.masked_select(output, self.indices.to(input_ids.device))
+        return output
+
+
+class SimpleModelWithIndexAdd(torch.nn.Module):
+
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([0, 2, 4])
+        self.value = torch.tensor([10, 20, 30], dtype=torch.float32)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.index_add(output, 0, self.indices.to(input_ids.device), self.value.to(input_ids.device))
+        output += 1
+        output.to("cpu")
+        return output
+
+
+class SimpleModelWithIndexSelect(torch.nn.Module):
+
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+        self.indices = torch.tensor([1])
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = output.index_select(dim=-1, index=self.indices.to(input_ids.device))
+        output.to("cpu")
+        return output
+
+
+class SimpleModelWithNonZero(torch.nn.Module):
+
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.nonzero(output)
+        output.to("cpu")
+        return output
+
+
+class SimpleModelWithArange(torch.nn.Module):
+
+    def __init__(self, inp_size, out_size):
+        super().__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+
+    def forward(self, input_ids):
+        output = self.Linear1(input_ids)
+        output = torch.arange(1, 8, 1, device=input_ids.device)
+        output.to("cpu")
+        return output
+
+
+def wrap_in_model(model):
+    model_cpu = model(7, 7)
+    model_hpu = model(7, 7)
+    model_hpu = ht.hpu.wrap_in_hpu_graph(model_hpu, disable_tensor_cache=True)
+    return model_cpu, model_hpu
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        SimpleModelWithIndexPut,
+        SimpleModelWithMaskedSelect,
+        SimpleModelWithIndexAdd,
+        SimpleModelWithIndexSelect,
+        SimpleModelWithNonZero,
+        SimpleModelWithArange,
+    ],
+)
+def test_with_hpu_ops(model):
+
+    model_cpu, model_hpu = wrap_in_model(model)
+
+    with pytest.warns(
+        Warning,
+        match=r"The following operations used in HPU graphs might result in accuracy issues :",
+    ):
+        for _ in range(5):
+            input_cpu = torch.randint(1, 7, (7,), dtype=torch.float32)
+            output_cpu = model_cpu(input_cpu)
+            output_hpu = model_hpu(input_cpu.to("hpu")).to("cpu")
