@@ -1257,6 +1257,28 @@ at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
   return hpu_op.call();
 }
 
+void amp_foreach_non_finite_check_and_unscale_inplace(
+    at::TensorList self,
+    at::Tensor& found_inf,
+    const at::Tensor& inv_scale) {
+  // In this op implementation we will multiply by inv_scale and if any inf
+  // value is there inside a tensor we will return found_inf as [1.0] and
+  // modified TensorList
+
+  std::vector<at::Tensor> has_inf;
+  for (auto& tensor : self) {
+    // we can compare 1d bool tensor using logical_or
+    auto temp = torch::logical_or(
+        torch::any(torch::isinf(tensor)), torch::any(torch::isnan(tensor)));
+    has_inf.emplace_back(temp);
+    tensor.mul_(inv_scale);
+  }
+  c10::ArrayRef<at::Tensor> tensor_array_ref(has_inf);
+  auto inf_ref = torch::any(torch::stack(tensor_array_ref), 0, true);
+  found_inf.copy_(inf_ref);
+  return;
+}
+
 } // namespace
 
 namespace habana::eager {
@@ -1515,6 +1537,9 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("cdist", cdist);
   m.impl("dropout", dropout);
   m.impl("one_hot", one_hot_forward);
+  m.impl(
+      "_amp_foreach_non_finite_check_and_unscale_",
+      amp_foreach_non_finite_check_and_unscale_inplace);
 }
 
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
