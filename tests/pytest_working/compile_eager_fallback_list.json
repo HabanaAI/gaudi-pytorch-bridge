@@ -1284,6 +1284,7 @@
         ],
         "gaudi3": [
                 "test_graph_mult_module_split",
-                "test_op_square_inplace_output"
+                "test_op_square_inplace_output",
+                "test_detach"
         ]
 }
