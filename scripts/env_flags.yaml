@@ -892,3 +892,9 @@ PT_HPU_PRINT_DEVICE_CONFIG:
   type: bool
   default: false
   doc: "When this flag is enabled, Gaudi PyTorch Bridge configuration is printed from all ranks upon device acquisition"
+
+PT_HPU_DISALLOW_TORCH_COMPILE:
+  type: bool
+  default: false
+  settable: true
+  doc: "This flag disallows the use of torch.compile."

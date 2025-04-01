@@ -18,6 +18,7 @@
 import logging
 from functools import partial
 
+import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 
 import torch
@@ -54,6 +55,8 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: list[torch.T
     """
     This function implements interface for HPU training/inference backend.
     """
+    if bc.get_pt_hpu_disallow_torch_compile():
+        raise RuntimeError("Use of torch.compile is prohibited by PT_HPU_DISALLOW_TORCH_COMPILE.")
 
     options = kwargs["options"] if "options" in kwargs else None
 
