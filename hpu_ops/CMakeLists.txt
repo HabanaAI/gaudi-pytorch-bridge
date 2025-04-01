@@ -157,6 +157,7 @@ add_habana_library(
   backend/habana_random_ops.cpp
   backend/hardsigmoid_gen.cpp
   backend/hardtanh_gen.cpp
+  backend/histogram_gen.cpp
   backend/hpu_op_helper.cpp
   backend/huber_loss_gen.cpp
   backend/im2col_gen.cpp

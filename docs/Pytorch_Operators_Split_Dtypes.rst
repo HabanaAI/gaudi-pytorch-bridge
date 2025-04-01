@@ -349,6 +349,8 @@ grid_sampler_3d                          Yes      Yes      Yes     No    torch
 gt                                       Yes      Yes      Yes     No    torch
 hardshrink                               Yes      Yes      Yes     No    torch
 heaviside                                Yes      Yes      Yes     No    torch
+histc                                    Yes      No       No      No    torch
+histogram                                Yes      No       No      No    torch
 hypot                                    Yes      Yes      Yes     No    torch
 igamma                                   Yes      No       No      No    torch
 index_copy                               Yes      Yes      Yes     Yes   torch
@@ -746,6 +748,8 @@ gt\_                                     Yes      Yes      Yes     No    torch.T
 hardshrink                               Yes      Yes      Yes     No    torch.Tensor
 heaviside                                Yes      Yes      Yes     No    torch.Tensor
 heaviside\_                              Yes      Yes      Yes     No    torch.Tensor
+histc                                    Yes      No       No      No    torch.Tensor
+histogram                                Yes      No       No      No    torch.Tensor
 hypot                                    Yes      Yes      Yes     No    torch.Tensor
 hypot\_                                  Yes      Yes      Yes     No    torch.Tensor
 index_add\_                              Yes      Yes      Yes     No    torch.Tensor
@@ -1283,6 +1287,8 @@ grid_sampler_3d                           No       No        No        No       
 gt                                        Yes      Yes       No        Yes      Yes    torch
 hardshrink                                No       No        No        No       No     torch
 heaviside                                 Yes      Yes       No        No       No     torch
+histc                                     Yes      Yes       No        No       No     torch
+histogram                                 Yes      Yes       No        No       No     torch
 hypot                                     No       No        No        No       No     torch
 igamma                                    No       No        No        No       No     torch
 index_copy                                Yes      Yes       Yes       Yes      Yes    torch
@@ -1680,6 +1686,8 @@ gt\_                                      Yes      Yes       No        Yes      
 hardshrink                                No       No        No        No       No     torch.Tensor
 heaviside                                 Yes      Yes       No        No       No     torch.Tensor
 heaviside\_                               Yes      Yes       No        No       No     torch.Tensor
+histc                                     Yes      Yes       No        No       No     torch.Tensor
+histogram                                 Yes      Yes       No        No       No     torch.Tensor
 hypot                                     No       No        No        No       No     torch.Tensor
 hypot\_                                   No       No        No        No       No     torch.Tensor
 index_add\_                               No       Yes       No        No       No     torch.Tensor

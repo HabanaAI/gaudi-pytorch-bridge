@@ -3939,6 +3939,53 @@ hardtanh_backward.grad_input:
   op_validator: check-node-with-shared-layer
   skip_slrg: true
 
+histc:
+  output_meta: HistcMeta
+  guid: histogram
+  namespaces: [torch, torch.Tensor]
+  op_backend: Histc
+  custom_fill_params: FillHistcParams
+  out_ids: [0]
+  op_validator: HistcSharedMeta
+
+histc.out:
+  output_meta: HistcMeta
+  guid: histogram
+  namespaces: [torch, torch.Tensor]
+  op_backend: Histc
+  custom_fill_params: FillHistcParams
+  op_validator: HistcSharedMeta
+
+histogram.bin_ct:
+  output_meta: HistogramBinCtMeta
+  guid: histogram
+  namespaces: [torch, torch.Tensor]
+  custom_fill_params: FillHistogramBinCtParams
+  out_ids: [0, 0]
+  op_validator: HistogramBinCtSharedMeta
+
+histogram.bin_ct_out:
+  output_meta: HistogramBinCtMeta
+  guid: histogram
+  namespaces: [torch, torch.Tensor]
+  custom_fill_params: FillHistogramBinCtParams
+  op_validator: HistogramBinCtSharedMeta
+
+histogram.bins_tensor:
+  output_meta: HistogramBinsMeta
+  guid: histogram
+  namespaces: [torch, torch.Tensor]
+  custom_fill_params: FillHistogramBinsParams
+  out_ids: [0, 0]
+  op_validator: HistogramBinsSharedMeta
+
+histogram.bins_tensor_out:
+  output_meta: HistogramBinsMeta
+  guid: histogram
+  namespaces: [torch, torch.Tensor]
+  custom_fill_params: FillHistogramBinsParams
+  op_validator: HistogramBinsSharedMeta
+
 huber_loss:
   custom_fill_params: FillHuberLossFwdParams
   output_meta: HuberLossMeta

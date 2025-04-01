@@ -349,6 +349,8 @@ grid_sampler_3d                          Yes      Yes      Yes     No        No 
 gt                                       Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch
 hardshrink                               Yes      Yes      Yes     No        No       No        No        No       No     torch
 heaviside                                Yes      Yes      Yes     No        Yes      Yes       No        No       No     torch
+histc                                    Yes      No       No      No        Yes      Yes       No        No       No     torch
+histogram                                Yes      No       No      No        Yes      Yes       No        No       No     torch
 hypot                                    Yes      Yes      Yes     No        No       No        No        No       No     torch
 igamma                                   Yes      No       No      No        No       No        No        No       No     torch
 index_copy                               Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
@@ -746,6 +748,8 @@ gt\_                                     Yes      Yes      Yes     No        Yes
 hardshrink                               Yes      Yes      Yes     No        No       No        No        No       No     torch.Tensor
 heaviside                                Yes      Yes      Yes     No        Yes      Yes       No        No       No     torch.Tensor
 heaviside\_                              Yes      Yes      Yes     No        Yes      Yes       No        No       No     torch.Tensor
+histc                                    Yes      No       No      No        Yes      Yes       No        No       No     torch.Tensor
+histogram                                Yes      No       No      No        Yes      Yes       No        No       No     torch.Tensor
 hypot                                    Yes      Yes      Yes     No        No       No        No        No       No     torch.Tensor
 hypot\_                                  Yes      Yes      Yes     No        No       No        No        No       No     torch.Tensor
 index_add\_                              Yes      Yes      Yes     No        No       Yes       No        No       No     torch.Tensor
