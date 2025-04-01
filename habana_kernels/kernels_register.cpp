@@ -399,41 +399,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
   return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
 }
 
-Tensor& hpu_wrap::index_add_out(
-    const Tensor& self,
-    int64_t dim,
-    const Tensor& index,
-    const Tensor& source,
-    const Scalar& alpha,
-    Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "index_add_out :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " index=",
-      to_string(index),
-      " source=",
-      to_string(source),
-      " alpha=",
-      to_string(alpha),
-      " out=",
-      to_string(out));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      index_add_out,
-      PARAMS1(self, index, source, out),
-      PARAMS2(self, dim, index, source, alpha, out))
-  if (self.dim() > 5 || index.dim() > 5 || source.dim() > 5) {
-    return dispatch_fallback<ATEN_OP2(index_add, out)>::call(
-        OpSupportLevel::Value::unsupported_rank,
-        PARAMS2(self, dim, index, source, alpha, out));
-  }
-  return index_add_hpu_lazy_out(self, dim, index, source, alpha, out);
-}
-
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;

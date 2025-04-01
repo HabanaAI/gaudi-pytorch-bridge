@@ -4191,6 +4191,23 @@ im2col.out:
   skip_slrg: true # input.size() inside output_meta
   frontend_blocklist: [eager]
 
+index_add:
+  custom_fill_params: FillIndexAddParams
+  output_meta: IndexAddMeta
+  op_validator: IndexAddSharedMeta
+  guid: index_add_fwd
+  op_backend: IndexAdd
+  out_ids: [0]
+  namespaces: [torch.Tensor]
+
+index_add.out:
+  custom_fill_params: FillIndexAddParams
+  output_meta: IndexAddMeta
+  op_validator: IndexAddSharedMeta
+  guid: index_add_fwd
+  op_backend: IndexAdd
+  namespaces: [torch.Tensor]
+
 index_add_:
   override_fn: index_add_hpu_lazy_
   acc_thread: true
@@ -8396,9 +8413,6 @@ masked_select.out:
   hpu_wrap: true
 
 scatter_add_:
-  hpu_wrap: true
-
-index_add.out:
   hpu_wrap: true
 
 nonzero.out:

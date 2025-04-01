@@ -105,17 +105,6 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
           grad_out, input, mean, invstd, weight, mean_dy, mean_dy_xmu, count));
 }
 
-Tensor& hpu_wrap::index_add_out(
-    const at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Tensor& source,
-    const at::Scalar& alpha,
-    at::Tensor& out) {
-  FALLBACK_UNSUPPORTED_OP2_O(
-      index_add, PARAMS2(self, dim, index, source, alpha, out), out);
-}
-
 // *************************************************
 // BELOW is list of symbols needed to link new frontend plugin but not relevant
 // for eager execution. They will be removed once backend dependencies

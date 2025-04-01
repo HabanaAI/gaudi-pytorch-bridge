@@ -2840,7 +2840,6 @@ Tensor& index_add_hpu_lazy_out(
     const Scalar& alpha,
     Tensor& out) {
   PT_LAZY_TRACE;
-
   handle_collective(self);
   handle_collective(indices);
   handle_collective(source);

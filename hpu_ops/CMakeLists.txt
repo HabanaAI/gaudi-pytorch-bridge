@@ -161,6 +161,7 @@ add_habana_library(
   backend/hpu_op_helper.cpp
   backend/huber_loss_gen.cpp
   backend/im2col_gen.cpp
+  backend/index_add_gen.cpp
   backend/index_copy_gen.cpp
   backend/index_reduce_gen.cpp
   backend/index_fill_gen.cpp

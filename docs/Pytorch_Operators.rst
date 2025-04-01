@@ -752,6 +752,7 @@ histc                                    Yes      No       No      No        Yes
 histogram                                Yes      No       No      No        Yes      Yes       No        No       No     torch.Tensor
 hypot                                    Yes      Yes      Yes     No        No       No        No        No       No     torch.Tensor
 hypot\_                                  Yes      Yes      Yes     No        No       No        No        No       No     torch.Tensor
+index_add                                Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 index_add\_                              Yes      Yes      Yes     No        No       Yes       No        No       No     torch.Tensor
 index_copy                               Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 index_copy\_                             Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
