@@ -1217,6 +1217,15 @@ _pdist_forward:
   op_validator: check-node-with-shared-layer
   skip_slrg: true # TORCH_CHECK inside output_meta
 
+_pdist_backward:
+  output_meta: PdistBwdMeta
+  custom_fill_params: FillPdistBwdParams
+  guid: pdist_bwd
+  out_ids: [1]
+  op_backend: PdistBwd
+  op_validator: PdistBwdSharedMeta
+  namespaces: [torch.ops.aten]
+
 native_dropout:
   output_meta: FusedNativeDropoutMeta
   custom_fill_params: FillFusedNativeDropoutParams
