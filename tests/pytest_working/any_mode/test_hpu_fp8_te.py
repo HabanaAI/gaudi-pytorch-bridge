@@ -1060,7 +1060,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 
                 for m, my_linear in enumerate(my_linears):
                     suffix = f"at iter {iter}, input {i}, module {m}"
-                    if not manual and my_linear.run_cnt < interval or manual:
+                    if not manual and my_linear.fp8_meta["run_cnt"] < interval or manual:
                         assert torch.equal(
                             my_linear.fp8_meta["scaling_fwd"].scale,
                             refs[m]["fwd_scale"],
@@ -1882,7 +1882,7 @@ def test_save_load_te_module_indirectly(
                 skip_opt=True,
                 optimizer=optimizer,
             )
-            if model.output_linear.module.run_cnt < measure_interval:
+            if model.output_linear.module.fp8_meta["run_cnt"] < measure_interval:
                 # FWD scale in fp8_meta has 2 values - [scale of input, scale of weight]
                 fwd_scale_size = 2
                 assert torch.allclose(
