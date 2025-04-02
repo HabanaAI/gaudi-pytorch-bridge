@@ -17,6 +17,7 @@
 #include <algorithm>
 #include "backend/backend_meta.h"
 #include "backend/helpers/collective_kernel_info.h"
+#include "backend/helpers/record_stream_utils.h"
 #include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
@@ -1751,18 +1752,10 @@ void RecipeLauncher::Launch(
         device.register_producer_on_stream(
             std::move(outDevPtr), stream_handle, cleanup_callback);
       }
-      for (auto data_ptr : inDevPtr) {
-        device.get_device_memory().recordStream(
-            // NOLINTNEXTLINE(performance-no-int-to-ptr)
-            reinterpret_cast<void*>(data_ptr),
-            hpu_stream);
-      }
-      for (auto data_ptr : outDevPtr) {
-        device.get_device_memory().recordStream(
-            // NOLINTNEXTLINE(performance-no-int-to-ptr)
-            reinterpret_cast<void*>(data_ptr),
-            hpu_stream);
-      }
+
+      stream_utils::GenericRecordStream(device, hpu_stream, inDevPtr);
+      stream_utils::GenericRecordStream(device, hpu_stream, outDevPtr);
+
       // Launch collective ops
       collective_kernels_info_->Launch(ptRefs, outPtRefs, true);
     }
