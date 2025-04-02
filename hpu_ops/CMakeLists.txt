@@ -212,6 +212,7 @@ add_habana_library(
   backend/native_group_norm_gen.cpp
   backend/ne_gen.cpp
   backend/new_zeros_gen.cpp
+  backend/nf4_ops.cpp
   backend/nll_loss_gen.cpp
   backend/nms_batched.cpp
   backend/nonzero_gen.cpp

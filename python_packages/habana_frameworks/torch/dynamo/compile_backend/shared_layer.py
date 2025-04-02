@@ -48,6 +48,7 @@ hpu_supported_op_list = {
     "cast_to_fp8_v2",
     "convert_from_int4",
     "convert_from_uint4",
+    "dequantize_nf4",
     "conv2d_fp8",
     "ctc_loss_custom",
     "ctc_loss_custom_backward",

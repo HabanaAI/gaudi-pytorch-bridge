@@ -1933,6 +1933,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
+      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
+  m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
   m.def(
@@ -2054,6 +2056,7 @@ TORCH_LIBRARY(hpu, m) {
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
   m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
+  m.impl("hpu::dequantize_nf4", dequantize_nf4_lazy);
   m.impl("hpu::mixture_of_experts", mixture_of_experts_lazy);
   m.impl(
       "hpu::mixture_of_experts.fused_weights",

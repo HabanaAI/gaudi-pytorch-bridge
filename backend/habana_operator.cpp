@@ -376,6 +376,14 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
           guid_ == "convert_from_int4_i32" ? syn_type_int4 : syn_type_uint4;
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
           input, graph, is_persistent, false, syn_type));
+    } else if (
+        // packed_nf4 dtype tensors are exposed to Pytorch via torch.uint8
+        // type, therefore for uint8 ops synTensors must have manually set
+        // syn_type_packed_nf4 type
+        (guid_.find("cast_packed_nf4_to") != std::string::npos) &&
+        input.scalar_type() == c10::ScalarType::Byte) {
+      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
+          input, graph, is_persistent, false, syn_type_packed_nf4));
     } else {
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
           input, graph, is_persistent, false, std::nullopt, idx, idx));

@@ -1257,6 +1257,24 @@ at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
   return hpu_op.call();
 }
 
+at::Tensor dequantize_nf4_impl(
+    const at::Tensor& input,
+    const at::Tensor& absmax,
+    c10::SymInt blocksize,
+    at::IntArrayRef out_shape,
+    at::ScalarType out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_nf4: ",
+      DUMP_5ARGS(input, absmax, blocksize, out_shape, out_dtype));
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::dequantize_nf4",
+      {input, absmax, blocksize, out_shape, out_dtype},
+      {out_shape.vec()}};
+  hpu_op.set_scalar_types({out_dtype});
+  return hpu_op.call();
+}
+
 void amp_foreach_non_finite_check_and_unscale_inplace(
     at::TensorList self,
     at::Tensor& found_inf,
@@ -1291,6 +1309,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
+  m.def(
+      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
   m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
@@ -1531,6 +1551,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fused_clip_norm", fused_clip_norm);
   m.impl("hpu::weight_permutation", weight_permutation);
   m.impl("hpu::one_hot", one_hot_forward);
+  m.impl("hpu::dequantize_nf4", dequantize_nf4_impl);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {

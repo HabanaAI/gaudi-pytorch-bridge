@@ -544,6 +544,12 @@ at::Tensor convert_from_uint4_lazy(
     const at::Tensor& scale,
     const std::optional<at::Tensor>& zero_point,
     at::ScalarType out_dtype);
+at::Tensor dequantize_nf4_lazy(
+    const at::Tensor& input,
+    const at::Tensor& absmax,
+    c10::SymInt blocksize,
+    at::IntArrayRef out_shape,
+    at::ScalarType out_dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,

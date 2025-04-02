@@ -5897,6 +5897,25 @@ at::Tensor convert_from_uint4_lazy(
       "convert_from_uint4", input, scale, zero_point, out_dtype);
 }
 
+at::Tensor dequantize_nf4_lazy(
+    const at::Tensor& input,
+    const at::Tensor& absmax,
+    c10::SymInt blocksize,
+    at::IntArrayRef out_shape,
+    at::ScalarType out_dtype) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "dequantize_nf4 :",
+      DUMP_5ARGS(input, absmax, blocksize, out_shape, out_dtype));
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::dequantize_nf4",
+      {input, absmax, blocksize, out_shape, out_dtype},
+      {out_shape.vec()}};
+  hpu_op.set_scalar_types({out_dtype});
+  RUN_MAYBE_WITH_ACC_THREAD(dequantize_nf4, hpu_op);
+}
+
 inline bool is_main_thread_and_lazy_collectives_enabled() {
   return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) &&
       not(habana_lazy::AccThread::IsAccThreadEnabled() &&

@@ -1353,6 +1353,11 @@ def linear_backward(self, grad_output, weight, output_mask):
     return input_grad, weight_grad, bias_grad
 
 
+@register_meta([torch.ops.hpu.dequantize_nf4.default])
+def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype):
+    return input.new_empty(out_shape, dtype=out_dtype)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 
