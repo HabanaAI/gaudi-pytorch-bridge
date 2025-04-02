@@ -106,6 +106,10 @@ class device_context : std::enable_shared_from_this<device_context> {
     }
   }
 
+  hcclResult_t get_hpu_stream(
+      synStreamHandle stream_handle,
+      synapse_helpers::hpuStream_t* hpu_stream_ptr);
+
  private:
   uint32_t get_sync_tag() const {
     sync_tag_++;

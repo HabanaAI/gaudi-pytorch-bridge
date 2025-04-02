@@ -61,6 +61,24 @@ hcclResult_t device_context::open_device(int device_id) {
   return hcclSuccess;
 }
 
+hcclResult_t device_context::get_hpu_stream(
+    synStreamHandle stream_handle,
+    synapse_helpers::hpuStream_t* hpu_stream_ptr) {
+  PT_DISTRIBUTED_DEBUG(
+      "Calling device_context::get_hpu_stream(stream_handle=",
+      stream_handle,
+      ")");
+
+  if (hpustream_handle_map_.count(stream_handle)) {
+    *hpu_stream_ptr = hpustream_handle_map_[stream_handle];
+    return hcclSuccess;
+  }
+
+  PT_DISTRIBUTED_FATAL(
+      "Unexpected stream_handle passed! No corresponding hpu stream for it");
+  return hcclInvalidArgument;
+}
+
 hcclResult_t device_context::acquire_collective_stream(
     synStreamHandle* stream_handle_ptr) {
   PT_DISTRIBUTED_DEBUG(
@@ -297,7 +315,8 @@ hcclResult_t device_context::submit_events(
   return hcclSuccess;
 }
 
-void device_context::wait_until_address_ready(synapse_helpers::device_ptr address) {
+void device_context::wait_until_address_ready(
+    synapse_helpers::device_ptr address) {
   device_->wait_until_address_ready(address);
 }
 
