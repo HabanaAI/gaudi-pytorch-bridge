@@ -2902,20 +2902,21 @@ div.out:
   broadcast: true
   guid: div
   promote_int_to_float: [self, other]
-  op_backend: Divide
   op_frontend: BinaryScalarFE
+  op_backend: Divide
   namespaces: [torch, torch.Tensor]
   overwritten_op_names_in_slrg: [div, divide]
   op_validator: DivideSharedMeta
 
 div.out_mode:
-  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
-  guid: div
-  op_backend: DivRoundModeOperator
+  guid: round_divide_fwd
+  custom_fill_params: FillDivModeParams
+  promote_to_common_type: [self, other]
   output_meta: DivModeMeta
   namespaces: [torch, torch.Tensor]
   overwritten_op_names_in_slrg: [div, divide]
   op_validator: DivModeSharedMeta
+  op_backend: RoundDivide
 
 div.Scalar:
   guid: div
@@ -2940,22 +2941,24 @@ div_.Scalar:
   op_validator: DivideSharedMeta
 
 div.Scalar_mode:
-  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
-  guid: div
+  guid: round_divide_fwd
+  custom_fill_params: FillDivModeParams
+  promote_to_common_type: [self, other]
   op_frontend: DivMode
-  op_backend: DivRoundModeOperator
+  op_backend: RoundDivide
+  output_meta: DivModeMeta
   out_ids: [0]
   scalar_ids: [1]
-  output_meta: DivModeMeta
   namespaces: [torch, torch.Tensor]
   overwritten_op_names_in_slrg: [div, divide]
   op_validator: DivModeSharedMeta
 
 div_.Scalar_mode:
-  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
-  guid: div
   op_frontend: DivMode
-  op_backend: DivRoundModeOperator
+  op_backend: RoundDivide
+  guid: round_divide_fwd
+  promote_to_common_type: [self, other]
+  custom_fill_params: FillDivModeParams
   inplace_ids: [0]
   scalar_ids: [1]
   namespaces: [torch.Tensor]
@@ -2974,10 +2977,11 @@ div.Tensor:
   op_validator: DivideSharedMeta
 
 div.Tensor_mode:
-  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
-  guid: div
+  promote_to_common_type: [self, other]
+  guid: round_divide_fwd
+  custom_fill_params: FillDivModeParams
   op_frontend: DivMode
-  op_backend: DivRoundModeOperator
+  op_backend: RoundDivide
   output_meta: DivModeMeta
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
@@ -2995,20 +2999,22 @@ div_.Tensor:
   op_validator: DivideSharedMeta
 
 div_.Tensor_mode:
-  fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
-  guid: div
+  promote_to_common_type: [self, other]
+  guid: round_divide_fwd
+  custom_fill_params: FillDivModeParams
   op_frontend: DivMode
-  op_backend: DivRoundModeOperator
+  op_backend: RoundDivide
   inplace_ids: [0]
   namespaces: [torch.Tensor]
   overwritten_op_names_in_slrg: [div_, divide_]
   op_validator: DivModeSharedMeta
 
 div.Scalar_mode_out:
-  fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
-  guid: div
+  guid: round_divide_fwd
+  promote_to_common_type: [self, other]
+  custom_fill_params: FillDivModeParams
   op_frontend: DivMode
-  op_backend: DivRoundModeOperator
+  op_backend: RoundDivide
   output_meta: DivModeMeta
   scalar_ids: [1]
   namespaces: [torch, torch.Tensor]
@@ -3402,7 +3408,7 @@ floor_:
 floor_divide.out:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  guid: floor_divide_fwd
+  guid: round_divide_fwd
   promote_to_common_type: [self, other]
   op_frontend: BinaryScalarFE
   namespaces: [torch, torch.Tensor]
@@ -3411,38 +3417,38 @@ floor_divide.out:
 floor_divide:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  guid: floor_divide_fwd
+  guid: round_divide_fwd
   promote_to_common_type: [self, other]
   out_ids: [0]
+  op_validator: FloorDivideSharedMeta
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
 
 floor_divide_.Tensor:
   custom_fill_params: FillFloorDivideParams
-  guid: floor_divide_fwd
+  guid: round_divide_fwd
   promote_to_common_type: [self, other]
   inplace_ids: [0]
+  op_validator: FloorDivideSharedMeta
   namespaces: [torch.Tensor]
-  op_validator: check-node-with-shared-layer
 
 floor_divide.Scalar:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  guid: floor_divide_fwd
+  guid: round_divide_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
   out_ids: [0]
+  op_validator: FloorDivideSharedMeta
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
 
 floor_divide.Scalar_out:
   custom_fill_params: FillFloorDivideParams
   broadcast: true
-  guid: floor_divide_fwd
+  guid: round_divide_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
+  op_validator: FloorDivideSharedMeta
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
 
 frac:
   guid: frac_fwd

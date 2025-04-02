@@ -21,21 +21,22 @@ std::shared_ptr<void> FillFloorDivideParams(const at::Stack&, size_t& size) {
   PARAMS_STUB(ns_DivModKernel::ParamsV2);
   // using floor mode
   params->isTruncRoundingMode = false;
+  params->isPyCompatible = true;
   return params;
 }
 
 SharedMetaDataVector FloorDivideSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  const auto& self = stack.at(0).toTensor();
-  const auto& other = stack.at(1).toTensor();
+  const auto& self = stack.at(0);
+  const auto& other = stack.at(1);
   const auto dtype = habana_helpers::DTypeHelper::binary_op_with_type_promotion(
                          {self, other}, std::nullopt, false)
                          .get_result_dtype();
-  const auto selfDim = self.dim();
-  const auto otherDim = other.dim();
+  const auto selfDim = self.toTensor().dim();
+  const auto otherDim = other.isTensor() ? other.toTensor().dim() : 1;
 
-  SharedMetaData floorDivideMeta("floor_divide_fwd");
+  SharedMetaData floorDivideMeta("round_divide_fwd");
   floorDivideMeta.inputs_data.emplace_back(selfDim, dtype);
   floorDivideMeta.inputs_data.emplace_back(otherDim, dtype);
   floorDivideMeta.outputs_data.emplace_back(std::max(selfDim, otherDim), dtype);

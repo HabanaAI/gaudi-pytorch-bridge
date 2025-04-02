@@ -124,7 +124,6 @@ add_habana_library(
   backend/deform_conv2d_gen.cpp
   backend/diag_gen.cpp
   backend/div_gen.cpp
-  backend/div_mod_util.cpp
   backend/div_round_gen.cpp
   backend/dot_gen.cpp
   backend/_efficientzerotensor_gen.cpp
