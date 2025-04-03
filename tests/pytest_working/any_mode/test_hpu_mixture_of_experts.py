@@ -433,6 +433,122 @@ def test_mixture_of_experts_fp8(
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
+def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
+    rows, cols = weights_tensorlist[0].shape
+    num_blocks_row = (rows + block_size - 1) // block_size
+    num_blocks_col = (cols + block_size - 1) // block_size
+
+    expert_weights_fp8 = []
+    expert_weight_scales = []
+    for w in weights_tensorlist:
+        scales = torch.zeros((num_blocks_row, num_blocks_col), dtype=torch.float, device="hpu")
+        weights_blocks = w.view(num_blocks_row, block_size, num_blocks_col, block_size).permute(0, 2, 1, 3).contiguous()
+        q_weights_blocks = torch.zeros(
+            (num_blocks_row, num_blocks_col, block_size, block_size), dtype=fp8_dtype, device="hpu"
+        )
+
+        for i in range(num_blocks_row):
+            for j in range(num_blocks_col):
+                weights_block = weights_blocks[i, j, :, :]
+
+                q_weights_block, q_scale = torch.ops.hpu.cast_to_fp8_v2(
+                    weights_block, None, False, True, fp8_dtype, None
+                )
+
+                scales[i, j] = q_scale
+                q_weights_blocks[i, j, :, :] = q_weights_block
+        q_weights_blocks = q_weights_blocks.permute(0, 2, 1, 3).reshape(w.shape)
+        expert_weights_fp8.append(q_weights_blocks)
+        expert_weight_scales.append(scales)
+
+    return (expert_weights_fp8, expert_weight_scales)
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode not implemented")
+@pytest.mark.skipif(not is_pytest_mode_eager(), reason="Need fix in other component")
+@pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
+@pytest.mark.parametrize("activation", ACTIVATIONS)
+@pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
+@pytest.mark.parametrize("ffn_dim", FFN_DIMS)
+@pytest.mark.parametrize("num_experts", NUM_EXPERTS)
+@pytest.mark.parametrize("num_tokens", NUM_TOKENS)
+@pytest.mark.parametrize("fused_weights", FUSED_WEIGHTS)
+@pytest.mark.parametrize("permuted_weights", PERMUTED_WEIGHTS)
+@pytest.mark.parametrize("block_size", [32])
+def test_mixture_of_experts_fp8_blockwise_quant(
+    permuted_weights,
+    fused_weights,
+    num_tokens,
+    num_experts,
+    activation,
+    hidden_dim,
+    ffn_dim,
+    fp8_dtype,
+    block_size,
+):
+    if fp8_dtype == torch.float8_e5m2 and not is_pytest_mode_eager():
+        pytest.skip("Block-wise quantization is supported only for torch.float8_e4m3")
+
+    hidden_states = torch.randn((num_tokens, hidden_dim), dtype=torch.bfloat16)
+    router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16)
+    router_weights, expert_routing_table = torch.topk(router_weights_all, 2)
+
+    hidden_states_hpu = hidden_states.to(hpu)
+    router_weights_hpu = router_weights.to(hpu)
+    expert_routing_table_hpu = expert_routing_table.to(hpu)
+
+    w1_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=torch.bfloat16) for _ in range(num_experts)]
+    w2_cpu = [torch.randn((hidden_dim, ffn_dim), dtype=torch.bfloat16) for _ in range(num_experts)]
+    w3_cpu = [torch.randn((ffn_dim, hidden_dim), dtype=torch.bfloat16) for _ in range(num_experts)]
+    expert_weights_cpu = (w1_cpu, w2_cpu, w3_cpu)
+
+    w1_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w1_cpu]
+    w2_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w2_cpu]
+    w3_hpu = [w.t().to(hpu) if permuted_weights else w.to(hpu) for w in w3_cpu]
+
+    w1_hpu, d_scale_w1_hpu = quantize_blockwise(w1_hpu, block_size, fp8_dtype)
+    w2_hpu, d_scale_w2_hpu = quantize_blockwise(w2_hpu, block_size, fp8_dtype)
+    w3_hpu, d_scale_w3_hpu = quantize_blockwise(w3_hpu, block_size, fp8_dtype)
+
+    mixtral_ref = MixtralSparseMoeBlock(hidden_dim, num_experts, expert_weights_cpu, activation)
+    result_cpu, _ = mixtral_ref(hidden_states, expert_routing_table, router_weights)
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+    cat_dim = 0 if permuted_weights else 1
+    w12_hpu = [torch.cat((w1, w2), dim=cat_dim) for w1, w2 in zip(w1_hpu, w2_hpu, strict=False)]
+    d_scale_w12_hpu = [
+        torch.cat((ds_w1, ds_w2), dim=cat_dim) for ds_w1, ds_w2 in zip(d_scale_w1_hpu, d_scale_w2_hpu, strict=False)
+    ]
+
+    def call_moe_fn():
+        common_inputs = (
+            hidden_states_hpu,
+            expert_routing_table_hpu,
+            router_weights_hpu,
+        )
+        weights = (w12_hpu, w3_hpu) if fused_weights else (w1_hpu, w2_hpu, w3_hpu)
+        weights_scales = (
+            (d_scale_w12_hpu, d_scale_w3_hpu) if fused_weights else (d_scale_w1_hpu, d_scale_w2_hpu, d_scale_w3_hpu)
+        )
+        common_params = (
+            block_size,
+            permuted_weights,
+            activation,
+            0,
+            num_experts - 1,
+        )
+
+        return fn(*common_inputs, *weights, *weights_scales, *common_params)
+
+    with torch.inference_mode():
+        result_hpu = partial(call_moe_fn)()
+
+    check_using_cosine_similarity(result_hpu, result_cpu, 0.9)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("mixture_of_experts")
+
+
 @pytest.mark.skip(reason="On-demand test. Used only for debugging and integration testing")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)

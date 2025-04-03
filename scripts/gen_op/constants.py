@@ -151,6 +151,8 @@ OP_VALIDATOR_EXCEPTIONS = {
     "mixture_of_experts.fp8_dynamic": "custom op",
     "mixture_of_experts.fp8_scalars_dynamic": "custom op",
     "mixture_of_experts.fp8_fused_weights_dynamic": "custom op",
+    "mixture_of_experts.fp8_blockwise": "custom op",
+    "mixture_of_experts.fp8_fused_weights_blockwise": "custom op",
     "cast_to_fp8": "not implemented yet",
     "fp8_gemm": "not implemented yet",
     "_native_batch_norm_legit": "not implemented yet",

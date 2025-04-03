@@ -8849,3 +8849,17 @@ mixture_of_experts.fp8_fused_weights_scalars_dynamic:
   op_backend: MixtureOfExpertsFp8ScalarsDynamic
   frontend_blocklist: [eager]
   out_ids: [2]
+
+mixture_of_experts.fp8_blockwise:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8BlockwiseQuantization
+  frontend_blocklist: [eager]
+  out_ids: [2]
+
+mixture_of_experts.fp8_fused_weights_blockwise:
+  custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  output_meta: MixtureOfExpertsFp8Meta
+  op_backend: MixtureOfExpertsFp8BlockwiseQuantization
+  frontend_blocklist: [eager]
+  out_ids: [2]
