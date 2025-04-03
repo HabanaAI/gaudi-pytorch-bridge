@@ -269,8 +269,20 @@ void collective(
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
       auto resource_holder = std::make_shared<GenericResourceHolder>();
-      resource_holder->add_tensor(in_tensor);
-      resource_holder->add_tensor(out_tensor);
+      if (!(common::IsRecordStreamEnabled() &&
+            GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+        resource_holder->add_tensor(in_tensor);
+        resource_holder->add_tensor(out_tensor);
+      } else {
+        auto& device = habana::HPUDeviceContext::get_device();
+        synapse_helpers::hpuStream_t hpu_stream;
+        deviceCtxt->get_hpu_stream(collective_stream, &hpu_stream);
+
+        void* in_data_ptr = in_tensor.data_ptr();
+        void* out_data_ptr = out_tensor.data_ptr();
+        device.get_device_memory().recordStream(in_data_ptr, hpu_stream);
+        device.get_device_memory().recordStream(out_data_ptr, hpu_stream);
+      }
 
       void* input_address;
       void* output_address;
@@ -400,10 +412,21 @@ void pointToPoint(
           tensor->get_buffer(),
           &tensor_address,
           resource_holder->get_address_lock());
-      for (const auto& t : pt_tensor) {
-        resource_holder->add_pt_tensor(t);
-      }
+      if (!(common::IsRecordStreamEnabled() &&
+            GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+        for (const auto& t : pt_tensor) {
+          resource_holder->add_pt_tensor(t);
+        }
+      } else {
+        auto& device = habana::HPUDeviceContext::get_device();
+        synapse_helpers::hpuStream_t hpu_stream;
+        deviceCtxt->get_hpu_stream(collective_stream, &hpu_stream);
 
+        for (const auto& t : pt_tensor) {
+          void* data_ptr = t.data_ptr();
+          device.get_device_memory().recordStream(data_ptr, hpu_stream);
+        }
+      }
       auto hccl_result = fn(
           tensor, tensor_address, std::move(comm), collective_stream, peerRank);
       HABANA_ASSERT(
