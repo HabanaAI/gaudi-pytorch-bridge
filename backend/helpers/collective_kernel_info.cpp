@@ -76,7 +76,8 @@ size_t CollectiveKernelInfos::Info::Size() const {
 void CollectiveKernelInfos::Launch(
     std::vector<at::Tensor>& pt_inputs,
     std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   HABANA_ASSERT(
       infos_.empty() || GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
   for (const auto& kernel_info : infos_) {
@@ -84,7 +85,7 @@ void CollectiveKernelInfos::Launch(
     habana::CollectiveOperator& collective = *kernel_info.kernel;
     PT_BRIDGE_DEBUG("Running collective op ", collective.GetGuid());
     collective.RunCollective(
-        kernel_info.input_tensor_infos, pt_inputs, pt_outputs, async);
+        kernel_info.input_tensor_infos, pt_inputs, pt_outputs, async, done_cb);
   }
 }
 void CollectiveKernelInfos::ClearAllPtAndSynTensors() {

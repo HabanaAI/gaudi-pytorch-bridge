@@ -181,6 +181,7 @@ void collective(
     std::vector<int64_t> devices,
     std::vector<int64_t> communicator_ids,
     bool async,
+    synapse_helpers::event_done_callback done_cb,
     Fn fn) {
   for (size_t i = 0; i < inputs.size(); ++i) {
     HABANA_ASSERT(
@@ -192,19 +193,21 @@ void collective(
     at::Tensor in_tensor;
     at::Tensor out_tensor;
 
-    for (auto& tensor : pt_inTensor) {
-      if (inputs.at(i)->get_buffer_start() ==
-          tensor.storage().data_ptr().get()) {
-        in_tensor = tensor;
-        break;
+    if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
+      for (auto& tensor : pt_inTensor) {
+        if (inputs.at(i)->get_buffer_start() ==
+            tensor.storage().data_ptr().get()) {
+          in_tensor = tensor;
+          break;
+        }
       }
-    }
 
-    for (auto& tensor : pt_outTensor) {
-      if (outputs.at(i)->get_buffer_start() ==
-          tensor.storage().data_ptr().get()) {
-        out_tensor = tensor;
-        break;
+      for (auto& tensor : pt_outTensor) {
+        if (outputs.at(i)->get_buffer_start() ==
+            tensor.storage().data_ptr().get()) {
+          out_tensor = tensor;
+          break;
+        }
       }
     }
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
@@ -246,6 +249,7 @@ void collective(
                  comm = comm,
                  collective_stream = collective_stream,
                  async = async,
+                 done_cb = done_cb,
                  deviceCtxt = deviceCtxt,
                  event_lists = event_lists,
                  output_storage_ptr = output_storage_ptr,
@@ -322,9 +326,10 @@ void collective(
       deviceCtxt->submit_events(
           collective_stream,
           output_storage_ptr,
-          [resource_holder, &recipe_counter]() mutable {
+          [resource_holder, &recipe_counter, done_cb]() mutable {
             resource_holder.reset();
             recipe_counter.decrease_and_notify();
+            done_cb();
           });
       pr->set_value(hccl_result == hcclSuccess);
 
@@ -362,6 +367,7 @@ void pointToPoint(
     std::vector<int64_t> devices,
     std::vector<int64_t> communicator_ids,
     bool async,
+    synapse_helpers::event_done_callback done_cb,
     Fn fn,
     int peerRank) {
   for (size_t i = 0; i < tensors.size(); ++i) {
@@ -388,6 +394,7 @@ void pointToPoint(
                  collective_stream = collective_stream,
                  peerRank = peerRank,
                  async = async,
+                 done_cb = done_cb,
                  deviceCtxt = deviceCtxt,
                  tensor_storage_ptr = tensor_storage_ptr,
                  pr = pr]() mutable {
@@ -435,9 +442,11 @@ void pointToPoint(
           collective_stream,
           tensor_storage_ptr,
           [resource_holder = std::move(resource_holder),
-           &recipe_counter]() mutable {
+           &recipe_counter,
+           done_cb]() mutable {
             resource_holder.reset();
             recipe_counter.decrease_and_notify();
+            done_cb();
           });
       pr->set_value(hccl_result == hcclSuccess);
 
@@ -497,7 +506,8 @@ void HcclBroadcastOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   collective(
       tensor_inputs,
@@ -507,6 +517,7 @@ void HcclBroadcastOperator::RunCollective(
       {device_id_},
       {comm_id_},
       async,
+      done_cb,
       [scalar_type = scalar_type_, root_rank = root_rank_](
           __attribute__((unused)) PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
@@ -558,7 +569,8 @@ void HcclAllreduceOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   HABANA_ASSERT(
       is_valid_reduction_dtype(getHCCLDataType(scalar_type_)),
       "HCCL supports only float or bfloat16 reduction");
@@ -572,6 +584,7 @@ void HcclAllreduceOperator::RunCollective(
       {device_id_},
       {comm_id_},
       async,
+      done_cb,
       [scalar_type = scalar_type_, reduce_op = reduce_op_](
           __attribute__((unused)) PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
@@ -641,7 +654,8 @@ void HcclReduceOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   HABANA_ASSERT(
       is_valid_reduction_dtype(getHCCLDataType(scalar_type_)),
       "HCCL supports only float or bfloat16 reduction");
@@ -655,6 +669,7 @@ void HcclReduceOperator::RunCollective(
       {device_id_},
       {comm_id_},
       async,
+      done_cb,
       [scalar_type = scalar_type_,
        reduce_op = reduce_op_,
        dst_rank = dst_rank_](
@@ -735,7 +750,8 @@ void HcclAllToAllOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(4)};
 
@@ -748,6 +764,7 @@ void HcclAllToAllOutOperator::RunCollective(
         {device_id_},
         {comm_id_},
         async,
+        done_cb,
         [scalar_type = scalar_type_](
             PtTensorInfoShared& input,
             __attribute__((unused)) PtTensorInfoShared& output,
@@ -778,6 +795,7 @@ void HcclAllToAllOutOperator::RunCollective(
         {device_id_},
         {comm_id_},
         async,
+        done_cb = done_cb,
         [scalar_type = scalar_type_,
          input_t = p_context_->pt_inputs_[0],
          output_t = p_context_->pt_outputs_[0],
@@ -877,7 +895,8 @@ void HcclAllgatherOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(2)};
   collective(
@@ -888,6 +907,7 @@ void HcclAllgatherOutOperator::RunCollective(
       {device_id_},
       {comm_id_},
       async,
+      done_cb,
       [scalar_type = scalar_type_](
           PtTensorInfoShared& input,
           __attribute__((unused)) PtTensorInfoShared& output,
@@ -944,7 +964,8 @@ void HcclReduceScatterOutOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
   std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(3)};
   collective(
@@ -955,6 +976,7 @@ void HcclReduceScatterOutOperator::RunCollective(
       {device_id_},
       {comm_id_},
       async,
+      done_cb,
       [scalar_type = scalar_type_, reduce_op = reduce_op_](
           __attribute__((unused)) PtTensorInfoShared& input,
           PtTensorInfoShared& output,
@@ -1020,7 +1042,8 @@ void HcclSendOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
 
   pointToPoint(
@@ -1029,6 +1052,7 @@ void HcclSendOperator::RunCollective(
       {device_id_},
       {comm_id_},
       async,
+      done_cb,
       [scalar_type = scalar_type_](
           PtTensorInfoShared& input,
           const void* send_buff,
@@ -1083,7 +1107,8 @@ void HcclRecvOperator::RunCollective(
     const std::vector<PtTensorInfoShared>& inputs,
     std::vector<at::Tensor>& pt_inputs,
     [[maybe_unused]] std::vector<at::Tensor>& pt_outputs,
-    bool async) const {
+    bool async,
+    synapse_helpers::event_done_callback done_cb) const {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
 
   pointToPoint(
@@ -1092,6 +1117,7 @@ void HcclRecvOperator::RunCollective(
       {device_id_},
       {comm_id_},
       async,
+      done_cb,
       [scalar_type = scalar_type_](
           PtTensorInfoShared& input,
           void* recv_buff,

@@ -61,7 +61,8 @@ class CollectiveKernelInfos {
   void Launch(
       std::vector<at::Tensor>& pt_inputs,
       std::vector<at::Tensor>& pt_outputs,
-      bool async) const;
+      bool async,
+      synapse_helpers::event_done_callback cleanup_callback) const;
   void ClearAllPtAndSynTensors();
 
   void AddKernel(Info&& info) {

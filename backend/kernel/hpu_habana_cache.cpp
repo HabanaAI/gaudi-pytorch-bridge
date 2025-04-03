@@ -1709,7 +1709,12 @@ void RecipeLauncher::Launch(
             std::move(outDevPtr), stream_handle, cleanup_callback);
       }
       // Launch collective ops
-      collective_kernels_info_->Launch(ptRefs, outPtRefs, true);
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
+        collective_kernels_info_->Launch(
+            ptRefs, outPtRefs, true, cleanup_callback);
+      } else {
+        collective_kernels_info_->Launch(ptRefs, outPtRefs, true, [] {});
+      }
     } else {
       // Use wrapper for resources that must survive async part of the compute.
       auto resource_holder = std::shared_ptr<GenericResourceHolder>(
@@ -1757,7 +1762,12 @@ void RecipeLauncher::Launch(
       stream_utils::GenericRecordStream(device, hpu_stream, outDevPtr);
 
       // Launch collective ops
-      collective_kernels_info_->Launch(ptRefs, outPtRefs, true);
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
+        collective_kernels_info_->Launch(
+            ptRefs, outPtRefs, true, cleanup_callback);
+      } else {
+        collective_kernels_info_->Launch(ptRefs, outPtRefs, true, [] {});
+      }
     }
 
   } else {
@@ -1797,7 +1807,7 @@ void RecipeLauncher::Launch(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 
     // Launch collective ops
-    collective_kernels_info_->Launch(ptRefs, outPtRefs, false);
+    collective_kernels_info_->Launch(ptRefs, outPtRefs, false, [] {});
 
     if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
       auto& device = HPUDeviceContext::get_device();
