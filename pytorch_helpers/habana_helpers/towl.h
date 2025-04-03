@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include <hl_logger/hllog.hpp>
 #include <cstdint>
 #include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/device_types.h"

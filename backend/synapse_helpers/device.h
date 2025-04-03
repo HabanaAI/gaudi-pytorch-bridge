@@ -168,7 +168,7 @@ class device {
       PT_SYNHELPER_DEBUG(
           Logger::formatStatusMsg(status),
           "Failed to get device name for id ",
-          id_);
+          static_cast<int>(id_));
       return "";
     }
     return deviceName;

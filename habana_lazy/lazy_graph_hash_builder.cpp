@@ -187,7 +187,7 @@ void GraphHashBuilder::updateRunningHash(
   addInputTensors(inputs);
   PT_LAZY_DEBUG(
       "Updating running hash of op",
-      op_name,
+      op_name.toQualString(),
       " number of arguments ",
       inputs.size(),
       " ",

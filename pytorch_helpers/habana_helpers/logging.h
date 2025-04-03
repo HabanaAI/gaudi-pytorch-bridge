@@ -28,6 +28,7 @@
 
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
+#define HLLOG_FMT_EXTERNAL
 #include <hl_logger/hllog.hpp>
 #include <synapse_api.h>
 #include <synapse_common_types.h>
