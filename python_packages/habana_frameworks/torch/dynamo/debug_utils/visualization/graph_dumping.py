@@ -37,7 +37,7 @@ logger = get_fx_graph_logger()
 
 
 @auto_map
-def _val(meta_val):
+def val_to_str(meta_val):
     from torch.fx.passes.shape_prop import _extract_tensor_metadata
 
     if not isinstance(meta_val, torch.Tensor):
@@ -62,7 +62,7 @@ def _node_meta_str_(node, dump_inputs_meta):
         return meta_msg, inputs_meta_msg
 
     meta_val = node.meta["val"]
-    meta_msg += str_join(_val(meta_val))
+    meta_msg += str_join(val_to_str(meta_val))
 
     if dump_inputs_meta:
 

@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 ###############################################################################
+import sys
 from enum import Enum
 
 from habana_frameworks.torch.utils import _debug_C
@@ -73,9 +74,11 @@ class Logger:
         self.log(LogLevel.WARN, args)
 
     def error(self, *args):
+        print("[ERROR]", *args, file=sys.stderr)
         self.log(LogLevel.ERROR, args)
 
     def critical(self, *args):
+        print("[CRITICAL]", *args, file=sys.stderr)
         self.log(LogLevel.CRITICAL, args)
 
     def set_store_data(self, enable):

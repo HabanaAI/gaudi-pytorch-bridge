@@ -24,11 +24,8 @@ from collections.abc import Callable
 import torch
 import torch.fx
 from habana_frameworks.torch.internal.bridge_config import bc
-from torch.fx.passes.graph_drawer import HAS_PYDOT, FxGraphDrawer
 
 from ..logger import get_compile_backend_logger
-from .graphml_generator import HAS_NETWORKX, GraphmlGenerator
-from .pbtxt_generator import HAS_PROTOBUF, PbtxtGenerator
 
 logger = get_compile_backend_logger()
 
@@ -52,9 +49,11 @@ class VisualizationStrategy(ABC):
 class SvgVisualizer(VisualizationStrategy):
     @staticmethod
     def is_available():
+        from torch.fx.passes.graph_drawer import HAS_PYDOT
+
         available = HAS_PYDOT
         if not available:
-            logger.warn("Dumping graph to SVG requires `pydot` package to be installed. " "Graphs will not be dumped!")
+            logger.error("Dumping graph to SVG requires `pydot` package to be installed. " "Graphs will not be dumped!")
         return available
 
     @staticmethod
@@ -64,6 +63,8 @@ class SvgVisualizer(VisualizationStrategy):
         directory: os.PathLike,
         node_coloring: Callable,
     ):
+        from torch.fx.passes.graph_drawer import FxGraphDrawer
+
         drawer = FxGraphDrawer(graph_module, graph_name)
         svg_filename = f"{graph_name}.svg"
         file_path = os.path.join(directory, svg_filename)
@@ -77,9 +78,11 @@ VisualizationStrategy.register(SvgVisualizer)
 class GraphmlVisualizer(VisualizationStrategy):
     @staticmethod
     def is_available():
+        from .graphml_generator import HAS_NETWORKX
+
         available = HAS_NETWORKX
         if not available:
-            logger.warn(
+            logger.error(
                 "Dumping graph to GraphML requires `networkx` package to be installed. " "Graphs will not be dumped!"
             )
         return available
@@ -91,6 +94,8 @@ class GraphmlVisualizer(VisualizationStrategy):
         directory: os.PathLike,
         node_coloring: Callable,
     ):
+        from .graphml_generator import GraphmlGenerator
+
         generator = GraphmlGenerator(graph_module, node_coloring)
         generator.run()
         filename = f"{graph_name}.graphml"
@@ -104,9 +109,13 @@ VisualizationStrategy.register(GraphmlVisualizer)
 class PbtxtVisualizer(VisualizationStrategy):
     @staticmethod
     def is_available():
+        from torch.fx.passes.graph_drawer import HAS_PYDOT
+
+        from .pbtxt_generator import HAS_PROTOBUF
+
         available = HAS_PYDOT and HAS_PROTOBUF
         if not available:
-            logger.warn(
+            logger.error(
                 "Dumping graph to pbtxt requires `pydot` and `protobuf` packages to be installed. "
                 "Graphs will not be dumped!"
             )
@@ -119,6 +128,8 @@ class PbtxtVisualizer(VisualizationStrategy):
         directory: os.PathLike,
         node_coloring: Callable,
     ):
+        from .pbtxt_generator import PbtxtGenerator
+
         generator = PbtxtGenerator(graph_module, graph_name)
         generator.run()
         generator.write(directory)
