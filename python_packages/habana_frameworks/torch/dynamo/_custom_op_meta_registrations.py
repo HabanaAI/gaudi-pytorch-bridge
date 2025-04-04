@@ -16,6 +16,7 @@
 ###############################################################################
 
 from habana_frameworks.torch import _hpu_C
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 from torch._decomp import global_decomposition_table
@@ -321,21 +322,40 @@ def meta_optimizer_ema(model_inputs, updated_ema, decay):
     return
 
 
-@register_meta([torch.ops.hpu.optimizer_adamw.default])
-def meta_optimizer_adamw(
-    gradient_vec,
-    weight_vec,
-    exp_avg_vec,
-    exp_avg_sq_vec,
-    lr,
-    neg_step_t,
-    beta1,
-    beta2,
-    epsilon,
-    weight_decay,
-    has_weight_decay,
-):
-    return
+if is_pytorch_older_than("2.7.0"):
+
+    @register_meta([torch.ops.hpu.optimizer_adamw.default])
+    def meta_optimizer_adamw(
+        gradient_vec,
+        weight_vec,
+        exp_avg_vec,
+        exp_avg_sq_vec,
+        lr,
+        neg_step_t,
+        beta1,
+        beta2,
+        epsilon,
+        weight_decay,
+        has_weight_decay,
+    ):
+        return
+
+else:
+
+    @register_meta([torch.ops.hpu.optimizer_adamw.default])
+    def meta_optimizer_adamw(
+        gradient_vec,
+        weight_vec,
+        exp_avg_vec,
+        exp_avg_sq_vec,
+        neg_step_t,
+        beta1,
+        beta2,
+        epsilon,
+        weight_decay,
+        has_weight_decay,
+    ):
+        return
 
 
 @register_meta([torch.ops.hpu.optimizer_sgd.default])
