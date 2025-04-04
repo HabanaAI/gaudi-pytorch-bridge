@@ -18,7 +18,12 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("norm_type", [0.0, 1.0, 2.0, float("inf"), float("-inf"), 1.342, 3.423, -4.234])
@@ -41,4 +46,6 @@ def test_embedding_renorm(norm_type, max_norm, shape):
     result_cpu = fn(input_cpu, indices_cpu)
     result_hpu = compiled_fn(input_hpu, indices_hpu)
 
-    return torch.allclose(result_cpu, result_hpu.cpu())
+    assert torch.allclose(result_cpu, result_hpu.cpu())
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("embedding_renorm")

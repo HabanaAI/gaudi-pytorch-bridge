@@ -17,7 +17,12 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.float32, torch.bfloat16, torch.float16]
 integer_dtypes = [torch.int, torch.int16, torch.uint8, torch.int8]
@@ -43,3 +48,5 @@ def test_hpu_rounding_func(shape, op, dtype):
     hpu_output = fn(hpu_input).cpu()
 
     assert torch.equal(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir(op.__name__)

@@ -16,7 +16,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("shape_and_dim", [((2, 3, 4), -1), ((2, 3, 4), -2)])
@@ -41,3 +45,5 @@ def test_hpu_gather(shape_and_dim, dtype):
     cpu_output = fn(cpu_input, cpu_indices)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_indices).cpu()
     assert torch.equal(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("gather")

@@ -16,7 +16,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.float32, torch.bfloat16]
 
@@ -43,3 +48,5 @@ def test_binary_op_0D_view(op, dtype):
     result_hpu = fn(input_hpu, other_hpu, factors_hpu)
 
     compare_tensors(result_hpu, result_cpu, atol=0.003, rtol=0.003)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir(op.__name__)

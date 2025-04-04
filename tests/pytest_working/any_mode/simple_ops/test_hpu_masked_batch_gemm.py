@@ -17,7 +17,13 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, hpu, is_gaudi2
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    hpu,
+    is_gaudi2,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports masked_batch_gemm op")
@@ -55,3 +61,5 @@ def test_masked_batch_gemm(shape_A, shape_B, transA, transB, dtype):
     tol = 1e-3 if dtype == torch.float else 1e-1
 
     assert torch.allclose(result, result_ref, tol, tol)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("masked_batch_gemm")

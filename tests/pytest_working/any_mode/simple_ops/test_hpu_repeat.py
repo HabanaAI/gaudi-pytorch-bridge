@@ -17,7 +17,12 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.float32, torch.bfloat16, torch.int, torch.int64, torch.float8_e5m2, torch.float8_e4m3fn]
 
@@ -49,3 +54,5 @@ def test_hpu_repeat(shape, repeats, dtype):
     result_h = fn(self_h, repeats)
 
     compare_tensors(result_h, result, atol=0.0, rtol=0.0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("repeat")

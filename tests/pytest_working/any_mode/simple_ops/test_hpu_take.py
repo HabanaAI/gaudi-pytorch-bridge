@@ -16,7 +16,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 dtypes_inputs = [torch.float32, torch.bfloat16, torch.int32]
 dtypes_indicies = [torch.int32, torch.long]
@@ -56,3 +61,5 @@ def test_hpu_take(shape, repeats, dtypes_inputs, dtypes_indicies):
     result_h = f_hpu(input_tensor=input_tensor_h, indicies=indicies_h)
 
     assert torch.equal(result_c, result_h.to("cpu"))
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("take")

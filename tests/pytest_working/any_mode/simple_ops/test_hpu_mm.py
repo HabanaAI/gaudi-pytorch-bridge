@@ -16,7 +16,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("N", [2, 3])
@@ -39,3 +43,5 @@ def test_hpu_mm(N, M, P, dtype):
     cpu_output = fn(cpu_mat1, cpu_mat2)
     hpu_output = hpu_wrapped_fn(hpu_mat1, hpu_mat2).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("mm")

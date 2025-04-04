@@ -42,8 +42,7 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
     def fn(input, other, alpha):
         return func(input, other, alpha=alpha)
 
-    if is_pytest_mode_compile():
-        fn = compile_function_if_compile_mode(fn, options={"reinplace_add": False})
+    fn = compile_function_if_compile_mode(fn, options={"reinplace_add": False})
 
     input = generate_tensor(shape_a, dtype)
     other = generate_tensor(shape_b, dtype)
@@ -67,9 +66,8 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
     else:
         tol = 1e-06
     compare_tensors(result, expected, atol=tol, rtol=tol)
-    if is_pytest_mode_compile():
-        name = "add" if func == torch.add else "sub"
-        check_ops_executed_in_jit_ir(name)
+    if is_pytest_mode_compile() and func.__name__ != "rsub":
+        check_ops_executed_in_jit_ir(func.__name__)
 
 
 @pytest.mark.parametrize("shape_a, shape_b", [[(), ()], [(1,), (2,)], [(4, 4), (1, 1)], [(16, 12), (16, 12)]])

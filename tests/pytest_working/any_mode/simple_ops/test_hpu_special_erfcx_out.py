@@ -17,7 +17,13 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("shape", [[2, 2]], ids=format_tc)
@@ -36,3 +42,5 @@ def test_hpu_special_erfcx_out(shape, dtype):
 
     fn(hpu_input, hpu_output)
     compare_tensors(cpu_output, hpu_output.cpu().to(torch.float), 0.005, 0.03)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("special_erfcx")

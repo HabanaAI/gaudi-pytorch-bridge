@@ -19,7 +19,11 @@ import random
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 supported_dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short, torch.half]
 
@@ -48,6 +52,8 @@ def test_hpu_add_scalar(dtype):
     result_hpu = op(input_hpu, other)
 
     assert torch.allclose(result_hpu.cpu(), result)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("add")
 
 
 @pytest.mark.parametrize("dtype", supported_dtypes)
@@ -64,6 +70,8 @@ def test_hpu_add_scalar_inplace(dtype):
     op(input_hpu, other)
 
     assert torch.allclose(input_hpu.cpu(), input)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("add")
 
 
 @pytest.mark.parametrize("dtype", supported_dtypes)
@@ -82,3 +90,5 @@ def test_hpu_add_scalar_out(dtype):
     op(input_hpu, other, out_hpu)
 
     assert torch.allclose(out_hpu.cpu(), out)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("add")

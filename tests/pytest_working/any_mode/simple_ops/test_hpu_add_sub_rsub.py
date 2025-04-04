@@ -16,7 +16,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.long, torch.short, torch.int, torch.bfloat16, torch.float, torch.float16]
 
@@ -70,3 +75,5 @@ def test_hpu(scalar, shape, alpha, dtype, op):
     atol, rtol = set_precision(dtype)
 
     assert torch.allclose(cpu_output, hpu_output, atol=atol, rtol=rtol)
+    if is_pytest_mode_compile() and op.__name__ != "rsub":
+        check_ops_executed_in_jit_ir(op.__name__)

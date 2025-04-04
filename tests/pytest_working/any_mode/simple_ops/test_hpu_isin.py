@@ -18,7 +18,12 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.float, torch.long, torch.int, torch.short, torch.int8]
 
@@ -53,6 +58,8 @@ def test_isin(elements_shape, test_elements_shape, dtype, invert, out):
         result_hpu = hpu_op(elements_hpu, test_elements_hpu, assume_unique=False, invert=invert)
 
     torch.testing.assert_close(result_cpu, result_hpu.cpu(), rtol=0, atol=0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("isin")
 
 
 @pytest.mark.parametrize("elements_dtype", dtypes, ids=format_tc)
@@ -74,3 +81,5 @@ def test_isin_different_dtypes(elements_dtype, test_elements_dtype2):
     result_hpu = hpu_op(elements_hpu, test_elements_hpu, assume_unique=False, invert=invert)
 
     torch.testing.assert_close(result_cpu, result_hpu.cpu(), rtol=0, atol=0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("isin")

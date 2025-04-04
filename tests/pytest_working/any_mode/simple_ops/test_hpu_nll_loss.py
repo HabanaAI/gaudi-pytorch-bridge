@@ -16,7 +16,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import clear_t_compile_logs, compile_function_if_compile_mode
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("N, C", [(3, 5)])
@@ -37,6 +42,8 @@ def test_hpu_nll_loss_fwd(N, C, reduction, dtype):
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("nll_loss_forward")
 
 
 @pytest.mark.parametrize("N, C", [(3, 5)])
@@ -60,6 +67,8 @@ def test_hpu_nll_loss_bwd(N, C, reduction, dtype):
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("nll_loss_backward")
 
 
 @pytest.mark.parametrize("N, C, H, W", [(14, 4, 192, 160)])
@@ -78,6 +87,8 @@ def test_hpu_nll_loss2d_fwd(N, C, H, W, reduction, dtype):
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("nll_loss2d_forward")
 
 
 @pytest.mark.parametrize("N, C, H, W", [(14, 4, 192, 160)])
@@ -101,6 +112,8 @@ def test_hpu_nll_loss2d_bwd(N, C, H, W, reduction, dtype):
     cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("nll_loss2d_backward")
 
 
 def test_hpu_nll_loss_bwd_st_meta():
@@ -129,3 +142,6 @@ def test_hpu_nll_loss_bwd_st_meta():
         cpu_output = fn(cpu_input, cpu_target)
         hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
         assert torch.allclose(cpu_output, hpu_output)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("nll_loss_backward")

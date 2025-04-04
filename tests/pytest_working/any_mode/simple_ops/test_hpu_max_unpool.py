@@ -18,8 +18,10 @@
 import pytest
 import torch
 from test_utils import (
+    check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
+    is_pytest_mode_compile,
 )
 
 dtypes = [torch.float32, torch.bfloat16, torch.float16]
@@ -52,6 +54,8 @@ def test_hpu_max_unpool2d(shape, dtype, kernel_size, stride, padding):
     )
 
     torch.testing.assert_close(hpu_result.cpu(), cpu_result, rtol=0, atol=0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("max_unpool2d")
 
 
 @pytest.mark.parametrize("shape", [[1, 2, 16, 16, 16], [2, 12, 13, 14]], ids=format_tc)
@@ -81,3 +85,5 @@ def test_hpu_max_unpool3d(shape, dtype, kernel_size, stride, padding):
     )
 
     torch.testing.assert_close(hpu_result.cpu(), cpu_result, rtol=0, atol=0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("max_unpool3d")

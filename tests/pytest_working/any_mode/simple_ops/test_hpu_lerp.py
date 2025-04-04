@@ -17,7 +17,12 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.bfloat16, torch.float, torch.int]
 
@@ -65,3 +70,5 @@ def test_hpu_lerp(shape, scalar_weight, dtype):
     tol = 1e-5 if dtype != torch.bfloat16 else 1e-1
 
     assert torch.allclose(cpu_output, hpu_output, atol=tol, rtol=tol)
+    if is_pytest_mode_compile() and not scalar_weight:
+        check_ops_executed_in_jit_ir("lerp")

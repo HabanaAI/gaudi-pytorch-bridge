@@ -17,7 +17,13 @@
 
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, cpu, hpu
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    cpu,
+    hpu,
+    is_pytest_mode_compile,
+)
 
 
 # optional on list cause fail
@@ -106,3 +112,5 @@ def test_index(shape, indices):
     y_hpu = f_hpu(input_tensor, indices)
 
     assert torch.equal(y_cpu, y_hpu.to(cpu))
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("index")

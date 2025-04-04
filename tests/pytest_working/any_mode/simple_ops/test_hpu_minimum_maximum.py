@@ -16,7 +16,13 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc, is_lazy
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_lazy,
+    is_pytest_mode_compile,
+)
 
 dtypes = [torch.float32, torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
 integer_dtypes = [torch.int]
@@ -56,3 +62,5 @@ def test_hpu_minimum_maximum(shape, op, dtype):
         hpu_output = hpu_output.float()
 
     assert torch.equal(cpu_output, hpu_output)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir(op.__name__)

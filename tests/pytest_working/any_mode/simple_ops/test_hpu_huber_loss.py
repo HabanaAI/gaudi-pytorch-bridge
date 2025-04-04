@@ -16,7 +16,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("shape", [(2, 3), (1, 2, 3, 4)], ids=format_tc)
@@ -54,3 +59,5 @@ def test_hpu_huber_loss(shape, reduction, delta, backward, dtype):
 
     tol = 1e-3 if dtype == torch.bfloat16 else 1e-5
     assert torch.allclose(cpu_output, hpu_output, rtol=tol, atol=tol)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("huber_loss")

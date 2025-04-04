@@ -18,9 +18,11 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import (
+    check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_pytest_mode_compile,
 )
 
 basic_dtypes = extended_dtypes = [torch.float32, torch.bfloat16, torch.int]
@@ -66,6 +68,8 @@ def test_median(dtype, shape):
     hpu_output = hpu_fn(hpu_input)
 
     compare_tensors(hpu_output, cpu_output, atol=0.0, rtol=0.0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("median")
 
 
 @pytest.mark.parametrize("shape", [(20, 10), (2, 4, 6, 8)], ids=format_tc)
@@ -84,6 +88,8 @@ def test_median_dim(dtype, shape, dim, keepdim):
 
     compare_tensors(hpu_output.values, cpu_output.values, atol=0.0, rtol=0.0)
     compare_tensors(hpu_output.indices, cpu_output.indices, atol=0.0, rtol=0.0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("median")
 
 
 @pytest.mark.parametrize("shape", [(20, 10), (2, 4, 6, 8)], ids=format_tc)
@@ -115,6 +121,8 @@ def test_median_dim_out(dtype, shape, dim, keepdim):
 
     compare_tensors(hpu_out[0], cpu_out[0], atol=0.0, rtol=0.0)
     compare_tensors(hpu_out[1], cpu_out[1], atol=0.0, rtol=0.0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("median")
 
 
 @pytest.mark.parametrize("shape", [[1], [20, 10]], ids=format_tc)
@@ -133,3 +141,5 @@ def test_2_iterations(shape, dtype):
     res_cpu = fn(cpu_input)
 
     compare_tensors(res_hpu, res_cpu, atol=0.0, rtol=0.0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("median")

@@ -16,7 +16,14 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode, format_tc, hpu
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compare_tensors,
+    compile_function_if_compile_mode,
+    format_tc,
+    hpu,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.parametrize("shape", [[10, 20]], ids=format_tc)
@@ -38,3 +45,5 @@ def test_hpu_masked_scatter(shape, is_inplace):
     hpu_result = hpu_wrapped_fn(*hpu_args)
 
     compare_tensors([hpu_result], [cpu_result], atol=0, rtol=0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("masked_scatter")
