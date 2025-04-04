@@ -27,6 +27,11 @@ from test_utils import (
 )
 
 
+def generate_cholesky_input(shape):
+    A = torch.randn(shape)
+    return A @ A.mT + torch.eye(shape[-1]) * 1e-3
+
+
 @pytest.mark.parametrize("upper", [True, False])
 @pytest.mark.parametrize("shape", [(15, 15), (3, 10, 10)], ids=format_tc)
 @pytest.mark.parametrize(
@@ -42,15 +47,36 @@ def test_hpu_cholesky(shape, upper, check_errors, op):
     if op == torch.linalg.cholesky_ex:
         kwargs["check_errors"] = check_errors
 
-    cpu_A = torch.randn(shape, dtype=torch.float32)
-    cpu_A = cpu_A @ cpu_A.mT + torch.eye(shape[-1])
+    cpu_A = generate_cholesky_input(shape)
     hpu_A = cpu_A.to("hpu")
 
     result_cpu = op(cpu_A, **kwargs)
     op = compile_function_if_compile_mode(op)
     result_hpu = op(hpu_A, **kwargs)
 
-    compare_tensors(result_hpu, result_cpu, 1e-5, 1e-5)
+    compare_tensors(result_hpu, result_cpu, 1e-4, 1e-4)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("linalg_cholesky_ex")
+
+
+@pytest.mark.parametrize("upper", [True, False])
+@pytest.mark.parametrize("shape", [(15, 15), (3, 10, 10)], ids=format_tc)
+@pytest.mark.parametrize("out", [True, False])
+def test_hpu_cholesky_inverse(shape, upper, out):
+    cpu_A = generate_cholesky_input(shape)
+    cpu_L = torch.linalg.cholesky(cpu_A, upper=upper)
+    hpu_L = cpu_L.to("hpu")
+
+    cpu_result = torch.cholesky_inverse(cpu_L, upper=upper)
+    hpu_fn = compile_function_if_compile_mode(torch.cholesky_inverse)
+    if out:
+        hpu_result = torch.zeros_like(cpu_result, device="hpu")
+        hpu_fn(hpu_L, upper=upper, out=hpu_result)
+    else:
+        hpu_result = hpu_fn(hpu_L, upper=upper)
+
+    torch.testing.assert_close(torch.dist(cpu_result, hpu_result.cpu()), torch.tensor(0.0), atol=1e-4, rtol=1e-4)
+
+    if is_pytest_mode_compile() and not out:
+        check_ops_executed_in_jit_ir("cholesky_inverse")

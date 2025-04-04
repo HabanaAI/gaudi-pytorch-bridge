@@ -13,7 +13,9 @@
  * limitations under the License.
  */
 
+#include "generated/backend/cholesky_inverse.h"
 #include "generated/backend/linalg_cholesky_ex.h"
+#include "habana_helpers/logging.h"
 
 namespace sh = synapse_helpers;
 
@@ -22,12 +24,21 @@ namespace habana {
 OutputMetaDataVector CholeskyMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   std::vector<int64_t> selfShape = self.sizes().vec();
+  const size_t selfRank = self.dim();
   std::vector<int64_t> infoShape(
       std::max<int64_t>(0, static_cast<int64_t>(selfShape.size()) - 2));
 
   for (size_t i = 0; i < infoShape.size(); ++i) {
     infoShape[i] = selfShape[i];
   }
+
+  HABANA_ASSERT(
+      selfRank >= 2,
+      "CholeskyInverse: Input tensor must have at least 2 dimensions.");
+
+  HABANA_ASSERT(
+      selfShape[selfRank - 1] == selfShape[selfRank - 2],
+      "CholeskyInverse: The last two dimensions of the input tensor must be equal.");
 
   return OutputMetaDataVector{
       OutputMetaData(self.scalar_type(), selfShape),
@@ -58,6 +69,46 @@ SharedMetaDataVector CholeskySharedMeta(
   return metaVec;
 }
 
+SharedMetaDataVector CholeskyInverseSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto selfRank = self.dim();
+  const auto dtype = self.scalar_type();
+
+  SharedMetaData choleskyInverseSharedMeta{"cholesky_inverse_fwd"};
+  choleskyInverseSharedMeta.inputs_data.emplace_back(selfRank, dtype);
+  choleskyInverseSharedMeta.outputs_data.emplace_back(selfRank, dtype);
+
+  return {choleskyInverseSharedMeta};
+}
+
+synapse_helpers::tensor performTranspose(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor input,
+    const at::IntArrayRef selfShape,
+    const at::ScalarType selfDtype,
+    std::optional<int> i = std::nullopt) {
+  synTransposeParams transposeParams{};
+  transposeParams.tensorDim = selfShape.size();
+  for (size_t i = 0; i < selfShape.size(); ++i) {
+    transposeParams.permutation[i] = static_cast<TransposePermutationDim>(i);
+  }
+  std::swap(transposeParams.permutation[0], transposeParams.permutation[1]);
+
+  auto transposed = OpBackend::BuildNode(
+      op,
+      graph,
+      {"transpose",
+       {input},
+       {{selfShape, selfDtype, i}},
+       &transposeParams,
+       sizeof(transposeParams)});
+
+  return std::move(transposed[0]);
+}
+
 void Cholesky::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool upper = stack.at(1).toBool();
 
@@ -79,22 +130,8 @@ void Cholesky::AddNode(sh::graph& graph, const at::Stack& stack) {
       sizeof(params));
 
   if (upper) {
-    synTransposeParams transposeParams{};
-    transposeParams.tensorDim = selfShape.size();
-    for (size_t i = 0; i < selfShape.size(); ++i) {
-      transposeParams.permutation[i] = static_cast<TransposePermutationDim>(i);
-    }
-    std::swap(transposeParams.permutation[0], transposeParams.permutation[1]);
-
-    auto transposed = BuildOp(
-        graph,
-        "transpose",
-        {result[0].get()},
-        {{selfShape, meta[0].dtype, 0}},
-        &transposeParams,
-        sizeof(transposeParams));
-
-    syn_out(0) = std::move(transposed[0]);
+    syn_out(0) = std::move(performTranspose(
+        this, graph, result[0].get(), selfShape, meta[0].dtype, 0));
   } else {
     syn_out(0) = std::move(result[0]);
   }
@@ -108,4 +145,34 @@ void Cholesky::AddNode(sh::graph& graph, const at::Stack& stack) {
     syn_out(1) = std::move(info);
   }
 }
+
+void CholeskyInverse::AddNode(sh::graph& graph, const at::Stack& stack) {
+  const auto& self = stack.at(0).toTensor();
+  const bool upper = stack.at(1).toBool();
+  const auto& selfShape = self.sizes();
+  const size_t selfRank = self.dim();
+  std::optional<sh::tensor> transposed{};
+
+  HABANA_ASSERT(
+      selfRank >= 2,
+      "CholeskyInverse: Input tensor must have at least 2 dimensions.");
+
+  HABANA_ASSERT(
+      selfShape[selfRank - 1] == selfShape[selfRank - 2],
+      "CholeskyInverse: The last two dimensions of the input tensor must be equal.");
+
+  if (!upper) {
+    transposed =
+        performTranspose(this, graph, syn_in(0), selfShape, self.scalar_type());
+  }
+
+  auto result = BuildOp(
+      graph,
+      guid_,
+      {transposed.has_value() ? transposed.value().get() : syn_in(0)},
+      {{selfShape, self.scalar_type(), 0}});
+
+  syn_out(0) = std::move(result[0]);
+}
+
 } // namespace habana

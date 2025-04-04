@@ -272,6 +272,7 @@ ceil                                     Yes      Yes      Yes     No    torch
 ceil\_                                   Yes      Yes      Yes     No    torch
 channel_shuffle                          Yes      Yes      Yes     No    torch
 cholesky                                 Yes      No       No      No    torch
+cholesky_inverse                         Yes      No       No      No    torch
 chunk                                    Yes      Yes      No      No    torch
 clamp                                    Yes      Yes      Yes     Yes   torch
 clamp\_                                  Yes      Yes      Yes     Yes   torch
@@ -1212,6 +1213,7 @@ ceil                                      Yes      Yes       Yes       Yes      
 ceil\_                                    Yes      Yes       Yes       Yes      Yes    torch
 channel_shuffle                           Yes      Yes       Yes       Yes      Yes    torch
 cholesky                                  No       No        No        No       No     torch
+cholesky_inverse                          No       No        No        No       No     torch
 chunk                                     No       Yes       No        No       No     torch
 clamp                                     Yes      Yes       Yes       Yes      Yes    torch
 clamp\_                                   Yes      Yes       Yes       Yes      Yes    torch
