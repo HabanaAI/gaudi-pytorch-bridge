@@ -24,7 +24,16 @@ from test_utils import (
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.int, torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [
+    torch.float32,
+    torch.bfloat16,
+    torch.int,
+    torch.short,
+    torch.int8,
+    torch.bool,
+    torch.float8_e5m2,
+    torch.float8_e4m3fn,
+]
 
 
 def common_test(shape, dim, keep_dim, op, dtype):
@@ -34,7 +43,9 @@ def common_test(shape, dim, keep_dim, op, dtype):
     def fn(*args):
         return op(*args)
 
-    if dtype == torch.int:
+    if dtype == torch.bool:
+        input = torch.randint(low=0, high=2, size=shape, dtype=dtype)
+    elif not dtype.is_floating_point:
         input = torch.randint(low=-100, high=100, size=shape, dtype=dtype)
     else:
         input = torch.randn(shape).to(dtype)

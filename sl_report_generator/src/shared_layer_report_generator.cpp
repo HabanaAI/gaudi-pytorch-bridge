@@ -2692,6 +2692,24 @@ void SharedLayerReportGenerator::register_static_exceptions() {
 
   /* INDEX_ADD */
   register_op(
+      {/* op_name */ "index_add",
+       /* overload */ "",
+       /* op_namespace */ "torch"},
+      i32AndFpExceptFp8Executor.get());
+
+  register_op(
+      {/* op_name */ "index_add",
+       /* overload */ "",
+       /* op_namespace */ "torch.Tensor"},
+      i32AndFpExceptFp8Executor.get());
+
+  register_op(
+      {/* op_name */ "index_add",
+       /* overload */ "out",
+       /* op_namespace */ "torch"},
+      i32AndFpExceptFp8Executor.get());
+
+  register_op(
       {/* op_name */ "index_add_",
        /* overload */ "",
        /* op_namespace */ "torch.Tensor"},

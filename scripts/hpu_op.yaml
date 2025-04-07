@@ -4227,6 +4227,7 @@ index_add:
   op_backend: IndexAdd
   out_ids: [0]
   namespaces: [torch.Tensor]
+  skip_slrg: true # HPUDeviceContext::get_device().type() inside output meta
 
 index_add.out:
   custom_fill_params: FillIndexAddParams
@@ -4235,6 +4236,7 @@ index_add.out:
   guid: index_add_fwd
   op_backend: IndexAdd
   namespaces: [torch.Tensor]
+  skip_slrg: true # HPUDeviceContext::get_device().type() inside output meta
 
 index_add_:
   override_fn: index_add_hpu_lazy_
@@ -5299,17 +5301,19 @@ max:
   output_meta: ReduceMinMaxMeta
   custom_fill_params: FillMinMaxParams
   guid: reduce_max_multi_dim_fwd
+  op_backend: MinMax
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: MaxSharedMeta
 
 min:
   output_meta: ReduceMinMaxMeta
   custom_fill_params: FillMinMaxParams
   guid: reduce_min_multi_dim_fwd
+  op_backend: MinMax
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: MinSharedMeta
 
 min.dim:
   guid: reduce_min_multi_dim_fwd

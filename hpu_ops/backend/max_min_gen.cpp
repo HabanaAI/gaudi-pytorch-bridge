@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,6 +62,23 @@ OutputMetaDataVector MinMaxMeta(const at::Stack& stack) {
   return {metaMinMax, metaIndices};
 }
 
+SharedMetaDataVector MinMaxSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& self = stack.at(0).toTensor();
+  auto dtype = self.scalar_type();
+  const auto rank = self.dim();
+
+  if (c10::isIntegralType(dtype, true))
+    dtype = c10::ScalarType::Int;
+
+  SharedMetaData reduceMinMaxMultiDimFwdSharedMeta{guid};
+  reduceMinMaxMultiDimFwdSharedMeta.options.allowLongType = true;
+  reduceMinMaxMultiDimFwdSharedMeta.inputs_data.emplace_back(rank, dtype);
+  reduceMinMaxMultiDimFwdSharedMeta.outputs_data.emplace_back(1, dtype);
+  return {reduceMinMaxMultiDimFwdSharedMeta};
+}
+
 SharedMetaDataVector MinMaxDimSharedMeta(
     const at::Stack& stack,
     const std::string& guid) {
@@ -70,7 +87,7 @@ SharedMetaDataVector MinMaxDimSharedMeta(
   const auto selfDim = self.dim();
   const bool keepDim = stack.at(2).toBool();
 
-  if (dtype == c10::ScalarType::Long)
+  if (c10::isIntegralType(dtype, true))
     dtype = c10::ScalarType::Int;
 
   auto outputDim = selfDim;
@@ -84,6 +101,18 @@ SharedMetaDataVector MinMaxDimSharedMeta(
   reduceMinMaxMultiDimFwdSharedMeta.outputs_data.emplace_back(
       outputDim, c10::ScalarType::Long);
   return {reduceMinMaxMultiDimFwdSharedMeta};
+}
+
+SharedMetaDataVector MinSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MinMaxSharedMeta(stack, "reduce_min_multi_dim_fwd");
+}
+
+SharedMetaDataVector MaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MinMaxSharedMeta(stack, "reduce_max_multi_dim_fwd");
 }
 
 SharedMetaDataVector MinDimSharedMeta(
@@ -110,6 +139,28 @@ std::shared_ptr<void> FillMinMaxDimParams(
   return params;
 }
 
+void MinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  const auto self = stack.at(0).toTensor();
+  const auto meta = ReduceMinMaxMeta(stack);
+  size_t paramsSize = 0;
+  auto params = FillParams(stack, paramsSize);
+  auto precisionType = ScalarType();
+
+  if (c10::isIntegralType(precisionType, true) &&
+      precisionType != c10::ScalarType::Long)
+    update_guid_dtype(guid_, c10::ScalarType::Int);
+
+  auto result = BuildOp(
+      graph,
+      GetGuid(),
+      {syn_in(0)},
+      {{meta[0].shape, meta[0].dtype, 0}},
+      params.get(),
+      paramsSize);
+
+  syn_out(0) = std::move(result[0]);
+}
+
 void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
@@ -120,6 +171,11 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       {meta[0].shape, meta[0].dtype, 0}, {meta[1].shape, meta[1].dtype, 1}};
 
   auto params = FillReductionParams(self.dim(), {dim}, keepdim);
+  auto precisionType = ScalarType();
+
+  if (c10::isIntegralType(precisionType, true) &&
+      precisionType != c10::ScalarType::Long)
+    update_guid_dtype(guid_, c10::ScalarType::Int);
 
   auto result = OpBackend::BuildNode(
       this,
