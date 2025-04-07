@@ -141,6 +141,7 @@ class habana_quantizer(Quantizer):
         self._annotate_linear(model, config)
         self._annotate_matmul(model, config)
         self._annotate_maxpool2d(model, config)
+        self._annotate_sdpa(model, config)
 
         return model
 
@@ -336,6 +337,34 @@ class habana_quantizer(Quantizer):
 
                 nodes_to_mark_annotated = list(p.nodes)
                 _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
+    def _annotate_sdpa(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+        module_partitions = get_source_partitions(
+            gm.graph, [torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default, torch.ops.hpu.sdpa_recomp_fwd]
+        )
+
+        if len(module_partitions) == 0:
+            return
+
+        input_act_qspec = get_input_act_qspec(quantization_config)
+        output_act_qspec = get_output_act_qspec(quantization_config)
+        for module_or_fn_type, partitions in module_partitions.items():
+            if (
+                module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd
+                or module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default
+            ):
+                for p in partitions:
+                    act1_node = p.input_nodes[0]
+                    act2_node = p.input_nodes[1]
+                    act3_node = p.input_nodes[2]
+                    output_node = p.output_nodes[0]
+                    _update_input_qspec_map(p, act1_node, input_act_qspec)
+                    _update_input_qspec_map(p, act2_node, input_act_qspec)
+                    _update_input_qspec_map(p, act3_node, input_act_qspec)
+                    _update_output_qspec(output_node, output_act_qspec)
+
+                    nodes_to_mark_annotated = list(p.nodes)
+                    _mark_nodes_as_annotated(nodes_to_mark_annotated)
 
     def validate(self, model: torch.fx.GraphModule) -> None:
         """validate if the annotated graph is supported by the backend"""
