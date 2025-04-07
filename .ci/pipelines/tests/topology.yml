@@ -56,9 +56,3 @@ testsMap:
     stages:
       Run toplogy tests on gaudi2 asic:
         filter: -t topology_ci -a smoke_gaudi2
-  Test_pytorch_modules_gaudi_asic_topology:
-    dependencies:
-      - AEON
-    stages:
-      Run toplogy tests on gaudi asic:
-        filter: -t topology_ci -a smoke

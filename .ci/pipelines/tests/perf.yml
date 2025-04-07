@@ -54,11 +54,3 @@ testsMap:
     stages:
       Run perf tests gaudi2 asic:
         filter: -a smoke_perf_gaudi2
-  Test_pytorch_modules_gaudi_hls_asic_perf:
-    dependencies:
-      - AEON
-      - TPC_FUSER
-      - TPC_LLVM
-    stages:
-      Run perf tests gaudi asic:
-        filter: -a smoke_perf

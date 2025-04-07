@@ -103,9 +103,6 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
-      gaudi_hls:
-        hwType:
-          asic:
   accuracy:
     devices:
       gaudi2:
