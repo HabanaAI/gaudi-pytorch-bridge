@@ -16,6 +16,7 @@
 #include <ATen/ATen.h>
 #include <ATen/FunctionalTensorWrapper.h>
 #include <ATen/Tensor.h>
+#include <ATen/native/TensorShape.h>
 #include <torch/library.h>
 #include "backend/random.h"
 #include "common/dump_args.h"
@@ -27,7 +28,6 @@
 #include "habana_helpers/logging.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/fp8_ops.h"
-#include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
@@ -1257,6 +1257,15 @@ at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
   return hpu_op.call();
 }
 
+void fsdp_chunk_cat_out(
+    at::TensorList tensors,
+    int64_t dim,
+    int64_t num_chunks,
+    at::Tensor& out) {
+  at::native::_chunk_cat_out(tensors, dim, num_chunks, out);
+  return;
+}
+
 at::Tensor dequantize_nf4_impl(
     const at::Tensor& input,
     const at::Tensor& absmax,
@@ -1595,6 +1604,10 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
 
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   m.impl("dropout", dropout_wrap);
+}
+
+TORCH_LIBRARY_IMPL(fsdp, HPU, m) {
+  m.impl("chunk_cat", fsdp_chunk_cat_out);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
