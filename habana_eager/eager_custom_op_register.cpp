@@ -1297,6 +1297,36 @@ void amp_foreach_non_finite_check_and_unscale_inplace(
   return;
 }
 
+// Refer CPU Implementation:
+// https://github.com/pytorch/pytorch/blob/v2.6.0/torch/csrc/distributed/c10d/quantization/quantization.cpp#L44
+at::Tensor _float_to_bfloat16_hpu(const at::Tensor& input) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("_FloatToBfloat16Quantized: ", DUMP_ARG(input));
+
+  // Currently it supports 2D inputs
+  HABANA_ASSERT(
+      input.ndimension() == 2,
+      "Tensor input must have 2 dimension(s). "
+      "Found ",
+      input.ndimension());
+
+  return input.to(at::ScalarType::BFloat16).view(at::ScalarType::Half);
+}
+
+at::Tensor _bfloat16_to_float_hpu(const at::Tensor& input) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("_Bfloat16QuantizedToFloat: ", DUMP_ARG(input));
+
+  // Currently it supports 2D inputs
+  HABANA_ASSERT(
+      input.ndimension() == 2,
+      "Tensor input must have 2 dimension(s). "
+      "Found ",
+      input.ndimension());
+
+  return input.view(at::ScalarType::BFloat16).to(at::ScalarType::Float);
+}
+
 } // namespace
 
 namespace habana::eager {
@@ -1582,6 +1612,11 @@ TORCH_LIBRARY_IMPL(hpu, Autograd, m) {
   m.impl(
       "hpu::mixture_of_experts.fused_weights",
       mixture_of_experts_fused_weights);
+}
+
+TORCH_LIBRARY_IMPL(quantization, HPU, m) {
+  m.impl("_FloatToBfloat16Quantized", _float_to_bfloat16_hpu);
+  m.impl("_Bfloat16QuantizedToFloat", _bfloat16_to_float_hpu);
 }
 
 } // namespace habana::eager
