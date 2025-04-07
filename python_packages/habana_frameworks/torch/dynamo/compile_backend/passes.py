@@ -2449,7 +2449,7 @@ def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
                 neighbor_nodes_for_view = (
                     bmm_input_left.all_input_nodes + bmm_input_right.all_input_nodes + list(bmm_output.users.keys())
                 )
-                if any(map(is_permute_node, neighbor_nodes_for_view)):
+                if all(map(is_permute_node, neighbor_nodes_for_view)):
                     """
                     here we are checking the view nodes `args` which appears before the bmm and view nodes `outputs` which appears after
                     the bmm are `permute op` or not, if yes we simply skip this bmm node as this is unsafe.
