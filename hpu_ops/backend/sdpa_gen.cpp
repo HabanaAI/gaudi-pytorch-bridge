@@ -229,7 +229,7 @@ sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
 }
 
 static void fillSdpaParams(
-    ns_Sdpa::ParamsV3& params,
+    ns_Sdpa::ParamsV5& params,
     double p,
     double scale,
     bool is_causal,
@@ -248,6 +248,10 @@ static void fillSdpaParams(
   params.is_inference = is_inference;
   params.softmax_mode = sfmx_mode;
   params.flags = flags;
+
+  const auto& device = habana::HPUDeviceContext::get_device();
+  params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
+  params.scale_method_hash_id = device.get_scale_attribute_hash_id();
 }
 
 sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
@@ -286,7 +290,7 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(params, p, scale, is_causal, false, softmax_mode, flags);
 
   std::string guid =
@@ -355,7 +359,7 @@ void Fp8SDPAFwd::AddNode(
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
@@ -466,7 +470,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto scale = stackGetter.getNextInput<double>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
   std::string guid =
@@ -539,7 +543,7 @@ void Fp8SDPABwd::AddNode(
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
   SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
   SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
@@ -769,7 +773,7 @@ void SDPARecompFwd::AddNode(
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(
       params,
       p,
@@ -867,7 +871,7 @@ void Fp8SDPARecompFwd::AddNode(
   auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
@@ -1027,7 +1031,7 @@ void SDPARecompBwd::AddNode(
   auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode);
 
@@ -1097,7 +1101,7 @@ void Fp8SDPARecompBwd::AddNode(
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
   SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
   SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)

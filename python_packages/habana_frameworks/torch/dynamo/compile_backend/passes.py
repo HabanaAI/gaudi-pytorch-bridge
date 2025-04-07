@@ -342,15 +342,22 @@ class InplaceableOp:
 
 def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
     # 0d float CPU scales of fp8 ops are left on the CPU device for H2D optimization.
+    ops_to_scales_idx = {
+        "cast_to_fp8_v2.default": (1, 2),
+        "fp8_gemm_v2.default": (6, 8),
+        "fp8_sdpa_fwd_dropout.default": (8, 14),
+        "fp8_sdpa_fwd_non_dropout.default": (8, 14),
+        "fp8_sdpa_recomp_fwd_dropout.default": (9, 15),
+        "fp8_sdpa_recomp_fwd_non_dropout.default": (9, 15),
+    }
     if (
         h2d_scales_enabled
         and node_arg.meta["output_dtypes"][0] == torch.float
         and node_arg.meta["output_shapes"][0] == torch.Size([])
     ):
-        if node.target.__name__ == "cast_to_fp8_v2.default":
-            return node_arg == node.args[1]
-        if node.target.__name__ == "fp8_gemm_v2.default":
-            return node_arg in (node.args[6], node.args[7])
+        idx_range = ops_to_scales_idx.get(node.target.__name__, None)
+        if idx_range is not None:
+            return node_arg in node.args[slice(*idx_range)]
     return False
 
 

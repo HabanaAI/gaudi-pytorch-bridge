@@ -26,6 +26,14 @@ std::vector<size_t> get_scales_indices(std::string_view node_name) {
     return {1};
   } else if (node_name == "hpu::fp8_gemm_v2"sv) {
     return {6, 7};
+  } else if (node_name == "hpu::fp8_sdpa_fwd_dropout_seed"sv) {
+    return {9, 10, 11, 12, 13, 14};
+  } else if (node_name == "hpu::fp8_sdpa_fwd_non_dropout"sv) {
+    return {8, 9, 10, 11, 12, 13};
+  } else if (node_name == "hpu::fp8_sdpa_recomp_fwd_dropout_seed"sv) {
+    return {10, 11, 12, 13, 14, 15};
+  } else if (node_name == "hpu::fp8_sdpa_recomp_fwd_non_dropout"sv) {
+    return {9, 10, 11, 12, 13, 14};
   }
   return {};
 }
@@ -59,6 +67,7 @@ struct HandleH2dScalesPass {
 
     GraphInputIndexMap org_stack_index_map;
     habana_helpers::createGraphInputStackIndexMap(m_graph, org_stack_index_map);
+    const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
 
     bool changed{false};
     for (const auto node : block->nodes()) {
@@ -83,6 +92,12 @@ struct HandleH2dScalesPass {
         const auto scale_tensor = scale_ivalue.toTensor();
 
         if (scale_tensor.device().type() != c10::DeviceType::CPU) {
+          if (h2d_scales_enabled) {
+            PT_BRIDGE_WARN(
+                "H2D scales flow is enabled, but op ",
+                node_kind,
+                " received non cpu scale.");
+          }
           continue;
         }
         HABANA_ASSERT(

@@ -14,34 +14,11 @@
  */
 #include "generated/lazy/cast_to_fp8_v2.h"
 #include "generated/lazy/fp8_gemm_v2.h"
+#include "habana_kernels/h2d_scales.h"
 #include "habana_kernels/lazy_custom_op_declarations.h"
 #include "habana_kernels/lazy_kernels.h"
 
 using namespace habana;
-
-namespace {
-
-at::Tensor create_h2d_scale(void* scale) {
-  auto scale_tensor = habana_lazy::empty_hpu_lazy(
-      {1}, at::ScalarType::Float, std::nullopt, false, HOST_TO_DEVICE_TENSOR);
-
-  auto hl_params_shape =
-      habana_lazy::GetOrCreateHbLazyTensor(scale_tensor, c10::kHPU);
-  auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-  auto tmeta{get_tensor_extra_meta(hl_param_internal)};
-
-  tmeta->set_host_data(scale, {1}, sizeof(float_t), HostDataType::FLOAT_T);
-
-  return scale_tensor;
-}
-
-bool is_cpu_float_0d_tensor(const std::optional<at::Tensor>& tensor) {
-  return tensor.has_value() and tensor.value().defined() and
-      tensor->device().is_cpu() and
-      tensor->scalar_type() == at::ScalarType::Float and tensor->dim() == 0;
-}
-
-} // namespace
 
 namespace habana_lazy {
 
@@ -54,16 +31,15 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     at::OptionalIntArrayRef scale_shape) {
   PT_LAZY_TRACE;
 
-  std::vector<at::IValue> inputs{
-      input, scale, stochastic_rounding, is_amax, dtype, scale_shape};
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES) and
-      is_cpu_float_0d_tensor(scale)) {
-    inputs[1] = create_h2d_scale(scale->data_ptr());
-    PT_BRIDGE_DEBUG(
-        "CPU Tensor scale of node hpu::cast_to_fp8_v2 was converted to H2D tensor.");
-  }
+  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
   LazyOp<::std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::cast_to_fp8_v2", std::move(inputs)};
+      "hpu::cast_to_fp8_v2",
+      {input,
+       maybe_convert_to_h2d(scale, h2d_scales_enabled, "cast_to_fp8_v2"sv),
+       stochastic_rounding,
+       is_amax,
+       dtype,
+       scale_shape}};
   hpu_op.SetOutputMetaFn(CastToFp8V2Meta);
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op);
 }
@@ -82,27 +58,21 @@ at::Tensor fp8_gemm_v2_lazy(
     at::OptionalIntArrayRef B_scale_shape) {
   PT_LAZY_TRACE;
 
-  std::vector<at::IValue> inputs{
-      A,
-      trans_A,
-      B,
-      trans_B,
-      D,
-      out_dtype,
-      A_scale_inv,
-      B_scale_inv,
-      bias,
-      accumulate,
-      B_scale_shape};
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES) and
-      is_cpu_float_0d_tensor(A_scale_inv) and
-      is_cpu_float_0d_tensor(B_scale_inv)) {
-    inputs[6] = create_h2d_scale(A_scale_inv->data_ptr());
-    inputs[7] = create_h2d_scale(B_scale_inv->data_ptr());
-    PT_BRIDGE_DEBUG(
-        "CPU Tensor scales of node hpu::fp8_gemm_v2 were converted to H2D tensors.");
-  }
-  LazyOp<at::Tensor> hpu_op{"hpu::fp8_gemm_v2", std::move(inputs)};
+  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
+  const std::string_view op_name{"fp8_gemm_v2"};
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::fp8_gemm_v2",
+      {A,
+       trans_A,
+       B,
+       trans_B,
+       D,
+       out_dtype,
+       maybe_convert_to_h2d(A_scale_inv, h2d_scales_enabled, op_name),
+       maybe_convert_to_h2d(B_scale_inv, h2d_scales_enabled, op_name),
+       bias,
+       accumulate,
+       B_scale_shape}};
   hpu_op.SetOutputMetaFn(Fp8GemmV2Meta);
   RUN_MAYBE_WITH_ACC_THREAD(fp8_gemm_v2, hpu_op);
 }

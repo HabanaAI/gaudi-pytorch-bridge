@@ -31,6 +31,7 @@
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
+#include "habana_kernels/h2d_scales.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/loss_kernels.h"
@@ -6528,6 +6529,9 @@ fp8_sdpa_recomp_fwd_lazy(
       (!q_scale_o.has_value()))
     fwdOutType = at::ScalarType::BFloat16;
 
+  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
+  const std::string_view op_name{"fp8_sdpa_recomp_fwd"};
+
   return fp8_sdpa_recomp_fwd_common<std::optional<at::Tensor>>(
       q,
       k,
@@ -6538,12 +6542,12 @@ fp8_sdpa_recomp_fwd_lazy(
       is_causal,
       requires_backward,
       softmax_mode,
-      d_scale_q,
-      d_scale_k,
-      d_scale_v,
-      q_scale_s,
-      q_scale_o,
-      d_scale_s,
+      maybe_convert_to_h2d(d_scale_q, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(d_scale_k, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(d_scale_v, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(q_scale_s, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(q_scale_o, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(d_scale_s, h2d_scales_enabled, op_name),
       is_amax_s,
       is_amax_o,
       valid_seq_len,
@@ -6643,60 +6647,40 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     }
   }
 
+  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
+  const std::string_view op_name{"fp8_sdpa_fwd"};
+
+  std::vector<at::IValue> inputs{
+      q,
+      k,
+      v,
+      attention_mask,
+      p,
+      scale,
+      is_causal,
+      softmax_mode,
+      maybe_convert_to_h2d(d_scale_q, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(d_scale_k, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(d_scale_v, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(q_scale_s, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(q_scale_o, h2d_scales_enabled, op_name),
+      maybe_convert_to_h2d(d_scale_s, h2d_scales_enabled, op_name),
+      is_amax_s,
+      valid_seq_len,
+      seq_padding_type};
+
+  std::string op_backend{"hpu::fp8_sdpa_fwd"};
   if (p > 0.0) {
-    std::optional<Generator> gen;
-    auto seed = habana::get_seed_tensor_hpu(gen);
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::fp8_sdpa_fwd_dropout_seed",
-        {seed,
-         q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         softmax_mode,
-         d_scale_q,
-         d_scale_k,
-         d_scale_v,
-         q_scale_s,
-         q_scale_o,
-         d_scale_s,
-         is_amax_s,
-         valid_seq_len,
-         seq_padding_type},
-        Fp8SDPAFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
-
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_fwd, hpu_op)
-  } else {
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::fp8_sdpa_fwd",
-        {q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         softmax_mode,
-         d_scale_q,
-         d_scale_k,
-         d_scale_v,
-         q_scale_s,
-         q_scale_o,
-         d_scale_s,
-         is_amax_s,
-         valid_seq_len,
-         seq_padding_type},
-        Fp8SDPAFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
-
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_fwd, hpu_op)
+    inputs.insert(inputs.begin(), habana::get_seed_tensor_hpu(std::nullopt));
+    op_backend = "hpu::fp8_sdpa_fwd_dropout_seed";
   }
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      op_backend, std::move(inputs), Fp8SDPAFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_fwd, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(

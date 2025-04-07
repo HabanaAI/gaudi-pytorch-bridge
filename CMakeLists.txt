@@ -185,6 +185,7 @@ add_habana_library(
   habana_kernels/fallback_helper.cpp
   habana_kernels/shape_agnostic_helper.cpp
   habana_kernels/hccl_kernels.cpp
+  habana_kernels/h2d_scales.cpp
   habana_kernels/index_kernels.cpp
   habana_kernels/instance_norm_utils.cpp
   habana_kernels/mixture_of_experts.cpp

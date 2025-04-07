@@ -21,7 +21,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
-from fp8_utils import FP8_MAX, fp8_dtypes, simulateFp8Precision
+from fp8_utils import FP8_MAX, convertExpBiasToScale, fp8_dtypes, simulateFp8Precision
 from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
@@ -1091,52 +1091,133 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
     ht.disable_inference_mode()
 
 
+@pytest.mark.skipif(is_gaudi2(), reason="https://jira.habana-labs.com/browse/SW-224554")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
-@pytest.mark.parametrize("h2d_enabled", [True, False])
 @pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
-def test_h2d_scales(h2d_enabled, src_dtype):
+@pytest.mark.parametrize("batched_tensors", [False, True])
+@pytest.mark.parametrize("fuse_cast", [False, True])
+def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
     ht.enable_inference_mode()
 
     fp8_dtype = torch.float8_e4m3fn
     shape_a = (4, 8)
     shape_b = (8, 16)
-    scales_a = [1.0, 2.0, 0.5]
-    scales_b = [1.0, 4.0, 0.25]
+    if batched_tensors:
+        shape_a = (2, 1) + shape_a
+        shape_b = (2,) + shape_b
 
-    # cast_to_fp8_v2 and fp8_gemm_v2 convert float CPU scale tensor to H2D tensor
-    # when PT_HPU_ENABLE_H2D_SCALES is enabled. For other cases CPU tensor is casted to HPU eagerly
-    # by fx pass, that's why use_eager_fallback is necessary.
-    with bc.env_setting("PT_HPU_ENABLE_H2D_SCALES", h2d_enabled), use_eager_fallback(not h2d_enabled):
+    bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 6, 12, 15]
+    scale_values = convertExpBiasToScale(bias_values)
+    scale_out_values = convertExpBiasToScale((3, 11)) if fuse_cast else (1.0,)
 
-        def fn_hpu(a, b, sa, sb, sa_inv, sb_inv):
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    htexp._set_scale_attributes(True, 10)
+
+    def generate_inputs(scale_a, scale_b, scale_out):
+        a = torch.randn(shape_a, dtype=src_dtype)
+        b = torch.randn(shape_b, dtype=src_dtype)
+        if scale_a == 256.0:
+            a /= 4.0
+        if scale_b == 256.0:
+            b /= 4.0
+        ah = a.to("hpu")
+        bh = b.to("hpu")
+        sa = torch.tensor(sa_val)
+        sb = torch.tensor(sb_val)
+        so = torch.tensor(scale_out)
+
+        return a, b, ah, bh, sa, sb, so
+
+    with bc.env_setting("PT_HPU_ENABLE_H2D_SCALES", True):
+
+        def fn_hpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
             scaled_a, _ = torch.ops.hpu.cast_to_fp8_v2(a, sa, False, False, fp8_dtype)
             scaled_b, _ = torch.ops.hpu.cast_to_fp8_v2(b, sb, False, False, fp8_dtype)
-            return torch.ops.hpu.fp8_gemm_v2(
-                scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
-            )
+            if fuse_cast:
+                return torch.ops.hpu.cast_to_fp8_v2(
+                    torch.ops.hpu.fp8_gemm_v2(
+                        scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+                    ),
+                    scale_out,
+                    False,
+                    False,
+                    fp8_dtype,
+                )[0]
+            else:
+                return torch.ops.hpu.fp8_gemm_v2(
+                    scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+                )
 
-        def fn_cpu(a, b, sa, sb, sa_inv, sb_inv):
+        def fn_cpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
             scaled_a = (a * sa).to(fp8_dtype).to(src_dtype)
             scaled_b = (b * sb).to(fp8_dtype).to(src_dtype)
-            return torch.matmul(scaled_a, scaled_b) * (sa_inv * sb_inv)
+            res = torch.matmul(scaled_a, scaled_b) * (sa_inv * sb_inv)
+            if fuse_cast:
+                res = (res * scale_out).to(fp8_dtype)
+            return res
 
-        fn_hpu = compile_function_if_compile_mode(fn_hpu)
+        fn_hpu = compile_function_if_compile_mode(fn_hpu, dynamic=False)
 
-        for sa_val, sb_val in zip(scales_a, scales_b, strict=False):
-            a = torch.randn(shape_a, dtype=src_dtype)
-            ah = a.to("hpu")
-            b = torch.randn(shape_b, dtype=src_dtype)
-            bh = b.to("hpu")
-            sa = torch.tensor(sa_val)
-            sb = torch.tensor(sb_val)
+        for sa_val in scale_values:
+            for sb_val in scale_values:
+                for so_val in scale_out_values:
+                    a, b, ah, bh, sa, sb, so = generate_inputs(sa_val, sb_val, so_val)
 
-            # Scales as CPU Tensors are intentional.
-            res_hpu = fn_hpu(ah, bh, sa, sb, 1 / sa, 1 / sb)
-            res_cpu = fn_cpu(a, b, sa, sb, 1 / sa, 1 / sb)
+                    # Scales as CPU Tensors are intentional.
+                    res_hpu = fn_hpu(ah, bh, sa, sb, 1 / sa, 1 / sb, so)
+                    res_cpu = fn_cpu(a, b, sa, sb, 1 / sa, 1 / sb, so)
 
-            tol = 1e-5 if src_dtype == torch.float else 0.008
+                    tol = 1e-5 if src_dtype == torch.float else 0.125
 
-            compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
+                    compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
+
+    htexp._set_scale_attributes(False, 0)
+    ht.disable_inference_mode()
+
+
+@pytest.mark.skipif(is_gaudi2(), reason="https://jira.habana-labs.com/browse/SW-224554")
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+def test_sdpa_h2d():
+    ht.enable_inference_mode()
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    htexp._set_scale_attributes(True, 10)
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_sdpa_recomp_fwd)
+    fp8_type = torch.float8_e4m3fn
+
+    q = torch.randn((3, 4, 12, 8)).to(fp8_type).to("hpu")
+    k = torch.randn((3, 4, 8, 8)).to(fp8_type).to("hpu")
+    v = torch.randn((3, 4, 8, 8)).to(fp8_type).to("hpu")
+
+    # Exp biases, converted later to actual scale values.
+    bias_values = [(11, 3, 3, 1, 11, 3), (11, 3, 3, 11, 3, 11)]
+
+    results_h2d = []
+    results_ref = []
+
+    def execute_sdpa(results):
+        for biases in bias_values:
+            scales = tuple(torch.tensor(s) for s in convertExpBiasToScale(biases))
+            res = fn(q, k, v, None, 0.0, 1.0, False, False, "fp32", *scales, False, False, None, "left")[0].cpu()
+            results.append(res)
+
+    # Call sdpa with cpu scales converted to H2D tensors and executed
+    # in optimized way using hw-scaling.
+    with bc.env_setting("PT_HPU_ENABLE_H2D_SCALES", True):
+        execute_sdpa(results_h2d)
+
+    htexp._set_scale_attributes(False, 0)
+
+    # Compile sdpa once again, this time without H2D scaling optimization.
+    # Eager fallback is needed, because cpu scales are copied into HPU.
+    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_sdpa_recomp_fwd)
+    with use_eager_fallback():
+        execute_sdpa(results_ref)
+
+    for res_h2d, res_ref in zip(results_h2d, results_ref, strict=False):
+        compare_tensors(res_h2d, res_ref, atol=0.0, rtol=0.125)
 
     ht.disable_inference_mode()
 
