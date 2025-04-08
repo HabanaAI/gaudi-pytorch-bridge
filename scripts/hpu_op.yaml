@@ -8901,3 +8901,10 @@ mixture_of_experts.fp8_fused_weights_blockwise:
   op_backend: MixtureOfExpertsFp8BlockwiseQuantization
   frontend_blocklist: [eager]
   out_ids: [2]
+
+block_softmax_adjustment:
+  custom_op_schema: "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size) -> Tensor"
+  guid: block_softmax_adjustment
+  out_ids: [0]
+  output_meta: BlockSoftmaxAdjustmentMeta
+  custom_fill_params: BlockSoftmaxAdjustmentParams

@@ -213,6 +213,7 @@ OP_VALIDATOR_EXCEPTIONS = {
     "in_place_interleave_": "custom op",
     "sdpa_recomp_bwd": "custom op",
     "fp8_sdpa_bwd": "custom op",
+    "block_softmax_adjustment": "custom op",
 }
 
 CP_TYPE_CHECK_MAP = {

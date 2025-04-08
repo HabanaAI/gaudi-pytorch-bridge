@@ -123,6 +123,7 @@ hpu_supported_op_list = {
     "run_and_save_rng_state",
     "run_with_rng_state",
     "habana_seed_generator",
+    "block_softmax_adjustment",
 }
 
 # When below flag is enabled, aten.linear and aten.matmul decompositions

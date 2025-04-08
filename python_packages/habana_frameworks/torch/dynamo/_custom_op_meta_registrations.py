@@ -1369,6 +1369,11 @@ def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype):
     return input.new_empty(out_shape, dtype=out_dtype)
 
 
+@register_meta([torch.ops.hpu.block_softmax_adjustment.default])
+def block_softmax_adjustment(block_maxes, block_sums, block_groups, batch_size):
+    return block_maxes.new_empty(block_maxes.shape)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 
