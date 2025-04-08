@@ -534,16 +534,6 @@ at::Tensor& recv_hpu_lazy_(
     int64_t src_rank,
     int64_t tag,
     int64_t comm_id);
-at::Tensor convert_from_int4_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const std::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype);
-at::Tensor convert_from_uint4_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const std::optional<at::Tensor>& zero_point,
-    at::ScalarType out_dtype);
 at::Tensor dequantize_nf4_lazy(
     const at::Tensor& input,
     const at::Tensor& absmax,

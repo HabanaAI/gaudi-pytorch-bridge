@@ -113,6 +113,7 @@ add_habana_library(
   backend/clone_gen.cpp
   backend/compare_gen.cpp
   backend/constant_pad_gen.cpp
+  backend/convert_from_int4_gen.cpp
   backend/convolution_backward_overrideable_gen.cpp
   backend/convolution_overrideable_gen.cpp
   backend/count_nonzero_gen.cpp
@@ -169,7 +170,6 @@ add_habana_library(
   backend/index_select_gen.cpp
   backend/instance_norm_backward_gen.cpp
   backend/instance_norm_gen.cpp
-  backend/int4_ops.cpp
   backend/isfinite_isinf_isnan_gen.cpp
   backend/isin_gen.cpp
   backend/isposneginf_gen.cpp

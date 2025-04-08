@@ -8600,6 +8600,22 @@ cast_to_fp8_hybrid:
   output_meta: CastToFp8HybridMeta
   custom_fill_params: CastToFp8HybridParams
 
+convert_from_int4:
+  custom_op_schema: "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, *, bool disable_fp8_clipping=False) -> Tensor"
+  guid: convert_from_int4
+  op_backend: ConvertFromInt4
+  out_ids: [0]
+  output_meta: ConvertFromInt4Meta
+  frontend_blocklist: [eager]
+
+convert_from_uint4:
+  custom_op_schema: "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, *, bool disable_fp8_clipping=False) -> Tensor"
+  guid: convert_from_uint4
+  op_backend: ConvertFromInt4
+  out_ids: [0]
+  output_meta: ConvertFromInt4Meta
+  frontend_blocklist: [eager]
+
 conv2d_fp8:
   custom_op_schema: "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, SymInt[2] padding=0, SymInt[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor"
   guid: conv2d_fp8

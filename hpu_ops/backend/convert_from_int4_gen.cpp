@@ -13,7 +13,8 @@
  * limitations under the License.
  */
 
-#include "hpu_ops/int4_ops.h"
+#include "generated/backend/convert_from_int4.h"
+#include "generated/backend/convert_from_uint4.h"
 
 namespace sh = synapse_helpers;
 
@@ -29,20 +30,23 @@ OutputMetaDataVector ConvertFromInt4Meta(const at::Stack& stack) {
   return meta;
 }
 
-Int4BaseOp::Int4BaseOp(
-    int device_id,
-    c10::ScalarType scalar_type,
-    const std::string& guid)
-    : OpBackend(device_id, guid, scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(ConvertFromInt4Meta);
-}
-
-void Int4BaseOp::AddNode(sh::graph& graph, const at::Stack& stack) {
+void ConvertFromInt4::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto meta = ConvertFromInt4Meta(stack)[0];
 
   std::vector<synTensor> inputs{syn_in(0), syn_in(1)};
   if (stack[2].isTensor()) {
     inputs.push_back(syn_in(2));
+  }
+
+  ns_CastKernel::ParamsV3 params{};
+  if (meta.dtype == at::ScalarType::Float8_e5m2 or
+      meta.dtype == at::ScalarType::Float8_e4m3fn) {
+    const auto disable_fp8_clip = stack[4].toBool();
+    if (disable_fp8_clip) {
+      PT_BRIDGE_DEBUG("FP8 clipping in ", guid_, " op is disabled.");
+    } else {
+      params.mode = CAST_CLIP;
+    }
   }
 
   using namespace std::literals;
@@ -51,24 +55,11 @@ void Int4BaseOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       graph,
       {get_guid_with_precision("dequantize_4_bit"sv, meta.dtype),
        std::move(inputs),
-       {{meta.shape, meta.dtype, 0}}});
+       {{meta.shape, meta.dtype, 0}},
+       &params,
+       sizeof(params)});
 
   syn_out(0) = std::move(result[0]);
 }
 
-ConvertFromInt4::ConvertFromInt4(int device_id, c10::ScalarType scalar_type)
-    : Int4BaseOp(device_id, scalar_type, "convert_from_int4") {}
-
-ConvertFromUint4::ConvertFromUint4(int device_id, c10::ScalarType scalar_type)
-    : Int4BaseOp(device_id, scalar_type, "convert_from_uint4") {}
-
 } // namespace habana
-
-static const auto& CastKernelRegistry =
-    habana::KernelRegistry()
-        .add(
-            "hpu::convert_from_int4",
-            KERNEL_FN_GLOBAL(habana::ConvertFromInt4))
-        .add(
-            "hpu::convert_from_uint4",
-            KERNEL_FN_GLOBAL(habana::ConvertFromUint4));

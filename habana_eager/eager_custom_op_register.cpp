@@ -1345,10 +1345,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::batch_as_strided(Tensor[] inputs, int[][] sizes, int[][] strides, int[]? storage_offsets=None) -> Tensor[]");
   m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
   m.def(
-      "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def(
-      "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def(
       "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
   m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
   m.def(

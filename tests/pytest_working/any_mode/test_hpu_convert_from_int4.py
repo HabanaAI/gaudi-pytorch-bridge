@@ -26,6 +26,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
+    is_gaudi2,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
 )
@@ -68,14 +69,10 @@ def pack_tensor(input, bits=4):
     return q
 
 
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="convert_from_int4 is not supported in eager mode")
-@pytest.mark.parametrize("packed_shape", [(10,), (4, 6, 4)])
-@pytest.mark.parametrize("variant", ["int4", "uint4"])
-@pytest.mark.parametrize("is_zero_point, packed_zero_point", [(True, True), (True, False), (False, False)])
-@pytest.mark.parametrize("is_scale", [True, False])
-@pytest.mark.parametrize("out_dtype", dtypes)
-def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype):
-    if out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
+def convert_from_int4_common(
+    packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype, scale_dtype, disable_clip=False
+):
+    if out_dtype == torch.float8_e5m2 and (is_zero_point, packed_zero_point) == (True, True) and variant == "uint4":
         pytest.skip("https://jira.habana-labs.com/browse/SW-182397")
 
     fn = getattr(torch.ops.hpu, "convert_from_" + variant)
@@ -100,7 +97,7 @@ def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_poi
     input = input.to(sub_dtype)
 
     scale = (torch.randn(real_shape) * 50.0).to(out_dtype) if is_scale else torch.ones(real_shape).to(out_dtype)
-    scale_hpu = scale.to("hpu")
+    scale_hpu = scale.to(scale_dtype).to("hpu")
 
     zero_point = torch.tensor(0.0)
     zero_point_hpu = None
@@ -116,16 +113,59 @@ def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_poi
             zero_point = (torch.randn(real_shape) * 5.0).to(out_dtype)
             zero_point_hpu = zero_point.to("hpu")
 
-    result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype)
+    result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype, disable_fp8_clipping=disable_clip)
 
     # sub i8/u8 is currently not supported by the bridge
     if packed_zero_point:
         subtraction = (input - zero_point).to(out_dtype).to("hpu")
     else:
         subtraction = input.to("hpu") - zero_point.to("hpu")
-    result = (subtraction * scale.to("hpu")).cpu()
+    result_ref = subtraction * scale.to("hpu")
 
-    compare_tensors(result_hpu, result, atol=0.001, rtol=0.001)
+    return result_hpu, result_ref
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="convert_from_int4 is not supported in eager mode")
+@pytest.mark.parametrize("packed_shape", [(10,), (4, 6, 4)])
+@pytest.mark.parametrize("variant", ["int4", "uint4"])
+@pytest.mark.parametrize("is_zero_point, packed_zero_point", [(True, True), (True, False), (False, False)])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("out_dtype", dtypes)
+def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype):
+    result_hpu, result_ref = convert_from_int4_common(
+        packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype, out_dtype
+    )
+
+    compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("convert_from_" + variant)
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="convert_from_int4 is not supported in eager mode")
+@pytest.mark.parametrize("variant", ["int4", "uint4"])
+@pytest.mark.parametrize("out_dtype", [torch.float8_e4m3fn])
+@pytest.mark.parametrize("disable_clip", [True, False])
+def test_convert_from_int4_clipping(variant, out_dtype, disable_clip):
+    result_hpu, result_ref = convert_from_int4_common(
+        (4, 6, 4), variant, True, True, True, out_dtype, torch.bfloat16, disable_clip
+    )
+
+    if disable_clip:
+        compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
+    else:
+        special_value = "inf" if is_gaudi2() else "nan"
+        special_fn = f"is{special_value}"
+        hpu_res_special_idx = getattr(result_hpu.float(), special_fn)()
+        ref_res_special_idx = getattr(result_ref.float(), special_fn)()
+        assert (
+            hpu_res_special_idx.count_nonzero() == 0
+        ), f"HPU result contain {special_value}s despite enabled clipping."
+        assert ref_res_special_idx.count_nonzero() > 0, f"Ref result is expected to contain {special_value}s."
+        ref_nan_inf_idx = torch.logical_not(ref_res_special_idx).cpu()
+        compare_tensors(
+            result_hpu.cpu().float()[ref_nan_inf_idx], result_ref.cpu().float()[ref_nan_inf_idx], atol=0.001, rtol=0.001
+        )
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("convert_from_" + variant)

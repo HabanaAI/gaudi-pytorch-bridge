@@ -187,6 +187,8 @@ OP_VALIDATOR_EXCEPTIONS = {
     "cast_to_fp8_v2.scalar": "custom op",
     "cast_to_fp8_v2.scalar_list": "custom op",
     "cast_to_fp8_hybrid": "custom op",
+    "convert_from_int4": "custom op",
+    "convert_from_uint4": "custom op",
     "conv2d_fp8": "custom op",
     "conv2d_fp8.scalar": "custom op",
     "custom_softmax": "custom op",

@@ -93,14 +93,11 @@ def meta_convert_from_int4_common(input, out_dtype):
     return input.new_empty(output_shape, dtype=out_dtype)
 
 
-@register_meta([torch.ops.hpu.convert_from_int4.default])
-def meta_convert_from_int4(input, scale, zero_point, out_dtype):
-    return meta_convert_from_int4_common(input, out_dtype)
-
-
-@register_meta([torch.ops.hpu.convert_from_uint4.default])
-def meta_convert_from_uint4(input, scale, zero_point, out_dtype):
-    return meta_convert_from_int4_common(input, out_dtype)
+@register_meta([torch.ops.hpu.convert_from_int4.default, torch.ops.hpu.convert_from_uint4.default])
+def meta_convert_from_int4(input, scale, zero_point, out_dtype, *, disable_fp8_clipping=False):
+    output_shape = list(input.shape)
+    output_shape[-1] *= 8
+    return input.new_empty(output_shape, dtype=out_dtype)
 
 
 @register_meta([torch.ops.hpu.cast_from_fp8.default])
