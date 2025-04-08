@@ -110,3 +110,9 @@ testJobConfig:
         hwType:
           sim:
             cards: 8
+  cd_installation_validation:
+    devices:
+      cpu:
+        hwType:
+          sim:
+            jobTimeout: '30'

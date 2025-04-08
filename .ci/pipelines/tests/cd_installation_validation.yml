@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/test_definition.json
+common:
+  testRepos:
+    - repository: automation
+      githubOrg: habana-internal
+    - repository: pytorch-integration
+      githubOrg: habana-internal
+    - repository: devops/cd_release
+      githubOrg: gerrit
+  dependencies:
+    - HABANA_TRANSFORMER_ENGINE
+    - HUDA
+    - NEURAL_COMPRESSOR_FORK
+    - PT_FORK
+  config:
+    testCommand: ""
+    loadLKD: false
+    releaseFlag: false
+  envVars:
+    RELEASE_VERSION: env.RELEASE_VERSION
+  preTestStages:
+    setup artifacts to mimic cd directory:
+      command: |
+        mkdir ${WORK_ROOT}/artifacts
+        cp ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/* ${WORK_ROOT}/artifacts/
+        cp ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/* ${WORK_ROOT}/artifacts/
+        cp ${TRANSFORMER_ENGINE_FORK_BUILD}/pkgs/* ${WORK_ROOT}/artifacts/
+        cp ${NEURAL_COMPRESSOR_FORK_BUILD}/pkgs/* ${WORK_ROOT}/artifacts/
+        cp ${GPU_MIGRATION_RELEASE_BUILD}/* ${WORK_ROOT}/artifacts/
+    copy installation script:
+      command: cp ${PYTORCH_MODULES_ROOT_PATH}/.devops/cd/scripts/install.sh ${WORK_ROOT}/artifacts/
+    create .env file with torch versions:
+      envVars:
+        RELEASE_VERSION: env.RELEASE_VERSION
+      command: |
+        make -f ${PYTORCH_MODULES_ROOT_PATH}/.devops/cd/build/Makefile collect-pt-versions SRC_DIR=${HABANA_SOFTWARE_STACK} RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=37
+        cp ${PYTORCH_MODULES_ROOT_PATH}/.devops/cd/scripts/.env ${WORK_ROOT}/artifacts/.env
+testsMap:
+  Test_pytorch_modules_cpu_cd_installation_validation:
+    stages:
+      Run installation simulation:
+        filter: |
+          set -x
+          cd ${WORK_ROOT}/artifacts
+          source .env
+          bash ./install.sh ${RELEASE_VERSION} '*' fork
