@@ -242,6 +242,7 @@ arctanh                                  Yes      No       No      No        No 
 arctanh\_                                Yes      No       No      No        No       No        No        No       No     torch
 argmax                                   Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch
 argmin                                   Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch
+argsort                                  Yes      Yes      Yes     No        Yes      Yes       Yes       No       No     torch
 as_strided                               Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 as_strided\_                             Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 asin                                     Yes      No       No      No        Yes      Yes       Yes       Yes      Yes    torch
@@ -643,6 +644,7 @@ arctanh                                  Yes      No       No      No        No 
 arctanh\_                                Yes      No       No      No        No       No        No        No       No     torch.Tensor
 argmax                                   Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch.Tensor
 argmin                                   Yes      Yes      Yes     No        Yes      Yes       No        Yes      Yes    torch.Tensor
+argsort                                  Yes      Yes      Yes     No        Yes      Yes       Yes       No       No     torch.Tensor
 as_strided                               Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 as_strided\_                             Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 asin                                     Yes      No       No      No        Yes      Yes       Yes       Yes      Yes    torch.Tensor

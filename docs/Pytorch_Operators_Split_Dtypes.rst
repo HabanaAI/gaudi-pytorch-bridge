@@ -242,6 +242,7 @@ arctanh                                  Yes      No       No      No    torch
 arctanh\_                                Yes      No       No      No    torch
 argmax                                   Yes      Yes      Yes     No    torch
 argmin                                   Yes      Yes      Yes     No    torch
+argsort                                  Yes      Yes      Yes     No    torch
 as_strided                               Yes      Yes      Yes     Yes   torch
 as_strided\_                             Yes      Yes      Yes     Yes   torch
 asin                                     Yes      No       No      No    torch
@@ -643,6 +644,7 @@ arctanh                                  Yes      No       No      No    torch.T
 arctanh\_                                Yes      No       No      No    torch.Tensor
 argmax                                   Yes      Yes      Yes     No    torch.Tensor
 argmin                                   Yes      Yes      Yes     No    torch.Tensor
+argsort                                  Yes      Yes      Yes     No    torch.Tensor
 as_strided                               Yes      Yes      Yes     Yes   torch.Tensor
 as_strided\_                             Yes      Yes      Yes     Yes   torch.Tensor
 asin                                     Yes      No       No      No    torch.Tensor
@@ -1184,6 +1186,7 @@ arctanh                                   No       No        No        No       
 arctanh\_                                 No       No        No        No       No     torch
 argmax                                    Yes      Yes       No        Yes      Yes    torch
 argmin                                    Yes      Yes       No        Yes      Yes    torch
+argsort                                   Yes      Yes       Yes       No       No     torch
 as_strided                                Yes      Yes       Yes       Yes      Yes    torch
 as_strided\_                              Yes      Yes       Yes       Yes      Yes    torch
 asin                                      Yes      Yes       Yes       Yes      Yes    torch
@@ -1585,6 +1588,7 @@ arctanh                                   No       No        No        No       
 arctanh\_                                 No       No        No        No       No     torch.Tensor
 argmax                                    Yes      Yes       No        Yes      Yes    torch.Tensor
 argmin                                    Yes      Yes       No        Yes      Yes    torch.Tensor
+argsort                                   Yes      Yes       Yes       No       No     torch.Tensor
 as_strided                                Yes      Yes       Yes       Yes      Yes    torch.Tensor
 as_strided\_                              Yes      Yes       Yes       Yes      Yes    torch.Tensor
 asin                                      Yes      Yes       Yes       Yes      Yes    torch.Tensor
