@@ -111,6 +111,10 @@ orchestratorConfig:
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_cpu_cd_installation_validation
+    triggerMap:
+    - repository: pytorch-integration
+      gitHubOrg: habana-internal
   triggerMap:
   - repository: pytorch-integration
     gitHubOrg: habana-internal
