@@ -67,9 +67,8 @@ struct HandleH2dScalesPass {
 
     GraphInputIndexMap org_stack_index_map;
     habana_helpers::createGraphInputStackIndexMap(m_graph, org_stack_index_map);
-    const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
-
     bool changed{false};
+
     for (const auto node : block->nodes()) {
       const auto node_kind = node->kind().toQualString();
       const auto scale_indices = get_scales_indices(node_kind);
@@ -92,12 +91,10 @@ struct HandleH2dScalesPass {
         const auto scale_tensor = scale_ivalue.toTensor();
 
         if (scale_tensor.device().type() != c10::DeviceType::CPU) {
-          if (h2d_scales_enabled) {
-            PT_BRIDGE_WARN(
-                "H2D scales flow is enabled, but op ",
-                node_kind,
-                " received non cpu scale.");
-          }
+          PT_BRIDGE_WARN(
+              "H2D scales flow is enabled, but op ",
+              node_kind,
+              " received non cpu scale.");
           continue;
         }
         HABANA_ASSERT(

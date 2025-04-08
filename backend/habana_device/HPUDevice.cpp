@@ -391,4 +391,9 @@ void set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id) {
   HABANA_ASSERT(device_context.device_);
   device_context.device_->set_scale_attributes(is_hw_aligned, scale_hash_id);
 }
+
+uint32_t get_scale_attribute_hash_id() {
+  HABANA_ASSERT(device_context.device_);
+  return device_context.device_->get_scale_attribute_hash_id();
+}
 } // namespace habana::HPUDeviceContext

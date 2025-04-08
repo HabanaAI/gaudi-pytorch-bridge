@@ -30,6 +30,7 @@
 #include "habana_helpers/thread_pool/thread_pool.h"
 
 #include "habana_eager/eager_view.h"
+#include "pytorch_helpers/habana_helpers/h2d_scales.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
 namespace habana {
@@ -290,7 +291,7 @@ GraphExec::GraphExec(
     }
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES)) {
+  if (habana_helpers::is_h2d_scales_enabled()) {
     // HandleH2dScales must run after dynamic passes, because it needs valid
     // indices of the original stack.
     pass::HandleH2dScales(m_graph, example_inputs, m_idx_of_h2d_scales);

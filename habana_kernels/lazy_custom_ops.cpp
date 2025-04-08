@@ -14,9 +14,10 @@
  */
 #include "generated/lazy/cast_to_fp8_v2.h"
 #include "generated/lazy/fp8_gemm_v2.h"
-#include "habana_kernels/h2d_scales.h"
+#include "habana_kernels/h2d_scales_lazy.h"
 #include "habana_kernels/lazy_custom_op_declarations.h"
 #include "habana_kernels/lazy_kernels.h"
+#include "pytorch_helpers/habana_helpers/h2d_scales.h"
 
 using namespace habana;
 
@@ -31,11 +32,11 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     at::OptionalIntArrayRef scale_shape) {
   PT_LAZY_TRACE;
 
-  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
   LazyOp<::std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::cast_to_fp8_v2",
       {input,
-       maybe_convert_to_h2d(scale, h2d_scales_enabled, "cast_to_fp8_v2"sv),
+       maybe_convert_to_h2d(
+           scale, habana_helpers::is_h2d_scales_enabled(), "cast_to_fp8_v2"sv),
        stochastic_rounding,
        is_amax,
        dtype,
@@ -58,7 +59,7 @@ at::Tensor fp8_gemm_v2_lazy(
     at::OptionalIntArrayRef B_scale_shape) {
   PT_LAZY_TRACE;
 
-  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
+  const auto h2d_scales_enabled = habana_helpers::is_h2d_scales_enabled();
   const std::string_view op_name{"fp8_gemm_v2"};
   LazyOp<at::Tensor> hpu_op{
       "hpu::fp8_gemm_v2",

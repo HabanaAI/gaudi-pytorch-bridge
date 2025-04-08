@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "habana_kernels/h2d_scales.h"
+#include "habana_kernels/h2d_scales_lazy.h"
 #include "backend/backend_meta.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"

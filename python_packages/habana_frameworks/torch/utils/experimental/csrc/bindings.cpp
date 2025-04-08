@@ -134,6 +134,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     habana::HPUDeviceContext::set_scale_attributes(
         is_hw_aligned, scale_hash_id);
   });
+  m.def("get_scale_attribute_hash_id", []() {
+    return habana::HPUDeviceContext::get_scale_attribute_hash_id();
+  });
   m.doc() =
       "This module registers hpu experimental API used by Media internal component.";
 }

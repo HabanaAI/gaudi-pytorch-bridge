@@ -17,7 +17,6 @@
 from enum import Enum
 
 import habana_frameworks.torch.hpu as ht
-import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
@@ -1129,48 +1128,46 @@ def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
 
         return a, b, ah, bh, sa, sb, so
 
-    with bc.env_setting("PT_HPU_ENABLE_H2D_SCALES", True):
-
-        def fn_hpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
-            scaled_a, _ = torch.ops.hpu.cast_to_fp8_v2(a, sa, False, False, fp8_dtype)
-            scaled_b, _ = torch.ops.hpu.cast_to_fp8_v2(b, sb, False, False, fp8_dtype)
-            if fuse_cast:
-                return torch.ops.hpu.cast_to_fp8_v2(
-                    torch.ops.hpu.fp8_gemm_v2(
-                        scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
-                    ),
-                    scale_out,
-                    False,
-                    False,
-                    fp8_dtype,
-                )[0]
-            else:
-                return torch.ops.hpu.fp8_gemm_v2(
+    def fn_hpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
+        scaled_a, _ = torch.ops.hpu.cast_to_fp8_v2(a, sa, False, False, fp8_dtype)
+        scaled_b, _ = torch.ops.hpu.cast_to_fp8_v2(b, sb, False, False, fp8_dtype)
+        if fuse_cast:
+            return torch.ops.hpu.cast_to_fp8_v2(
+                torch.ops.hpu.fp8_gemm_v2(
                     scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
-                )
+                ),
+                scale_out,
+                False,
+                False,
+                fp8_dtype,
+            )[0]
+        else:
+            return torch.ops.hpu.fp8_gemm_v2(
+                scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+            )
 
-        def fn_cpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
-            scaled_a = (a * sa).to(fp8_dtype).to(src_dtype)
-            scaled_b = (b * sb).to(fp8_dtype).to(src_dtype)
-            res = torch.matmul(scaled_a, scaled_b) * (sa_inv * sb_inv)
-            if fuse_cast:
-                res = (res * scale_out).to(fp8_dtype)
-            return res
+    def fn_cpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
+        scaled_a = (a * sa).to(fp8_dtype).to(src_dtype)
+        scaled_b = (b * sb).to(fp8_dtype).to(src_dtype)
+        res = torch.matmul(scaled_a, scaled_b) * (sa_inv * sb_inv)
+        if fuse_cast:
+            res = (res * scale_out).to(fp8_dtype)
+        return res
 
-        fn_hpu = compile_function_if_compile_mode(fn_hpu, dynamic=False)
+    fn_hpu = compile_function_if_compile_mode(fn_hpu, dynamic=False)
 
-        for sa_val in scale_values:
-            for sb_val in scale_values:
-                for so_val in scale_out_values:
-                    a, b, ah, bh, sa, sb, so = generate_inputs(sa_val, sb_val, so_val)
+    for sa_val in scale_values:
+        for sb_val in scale_values:
+            for so_val in scale_out_values:
+                a, b, ah, bh, sa, sb, so = generate_inputs(sa_val, sb_val, so_val)
 
-                    # Scales as CPU Tensors are intentional.
-                    res_hpu = fn_hpu(ah, bh, sa, sb, 1 / sa, 1 / sb, so)
-                    res_cpu = fn_cpu(a, b, sa, sb, 1 / sa, 1 / sb, so)
+                # Scales as CPU Tensors are intentional.
+                res_hpu = fn_hpu(ah, bh, sa, sb, 1 / sa, 1 / sb, so)
+                res_cpu = fn_cpu(a, b, sa, sb, 1 / sa, 1 / sb, so)
 
-                    tol = 1e-5 if src_dtype == torch.float else 0.125
+                tol = 1e-5 if src_dtype == torch.float else 0.125
 
-                    compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
+                compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
 
     htexp._set_scale_attributes(False, 0)
     ht.disable_inference_mode()
@@ -1205,8 +1202,7 @@ def test_sdpa_h2d():
 
     # Call sdpa with cpu scales converted to H2D tensors and executed
     # in optimized way using hw-scaling.
-    with bc.env_setting("PT_HPU_ENABLE_H2D_SCALES", True):
-        execute_sdpa(results_h2d)
+    execute_sdpa(results_h2d)
 
     htexp._set_scale_attributes(False, 0)
 

@@ -168,6 +168,7 @@ add_habana_library(
   pytorch_helpers/habana_helpers/signal_handler.cpp
   pytorch_helpers/habana_helpers/stats.cpp
   pytorch_helpers/habana_helpers/frontend_utils.cpp
+  pytorch_helpers/habana_helpers/h2d_scales.cpp
   pytorch_helpers/habana_helpers/kernels_accumulation.cpp
   pytorch_helpers/habana_helpers/misc_utils.cpp
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
@@ -185,7 +186,7 @@ add_habana_library(
   habana_kernels/fallback_helper.cpp
   habana_kernels/shape_agnostic_helper.cpp
   habana_kernels/hccl_kernels.cpp
-  habana_kernels/h2d_scales.cpp
+  habana_kernels/h2d_scales_lazy.cpp
   habana_kernels/index_kernels.cpp
   habana_kernels/instance_norm_utils.cpp
   habana_kernels/mixture_of_experts.cpp
@@ -272,6 +273,7 @@ add_habana_library(
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/frontend_utils.cpp
+  pytorch_helpers/habana_helpers/h2d_scales.cpp
   pytorch_helpers/habana_helpers/kernels_accumulation.cpp
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/misc_utils.cpp

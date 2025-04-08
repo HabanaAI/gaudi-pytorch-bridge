@@ -31,7 +31,7 @@
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
-#include "habana_kernels/h2d_scales.h"
+#include "habana_kernels/h2d_scales_lazy.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/loss_kernels.h"
@@ -63,6 +63,7 @@
 #include "lazy_kernels_declarations.h"
 #include "lazy_optimizer_kernels.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
+#include "pytorch_helpers/habana_helpers/h2d_scales.h"
 
 #define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
 
@@ -6492,7 +6493,7 @@ fp8_sdpa_recomp_fwd_lazy(
       (!q_scale_o.has_value()))
     fwdOutType = at::ScalarType::BFloat16;
 
-  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
+  const auto h2d_scales_enabled = habana_helpers::is_h2d_scales_enabled();
   const std::string_view op_name{"fp8_sdpa_recomp_fwd"};
 
   return fp8_sdpa_recomp_fwd_common<std::optional<at::Tensor>>(
@@ -6610,7 +6611,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     }
   }
 
-  const auto h2d_scales_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_SCALES);
+  const auto h2d_scales_enabled = habana_helpers::is_h2d_scales_enabled();
   const std::string_view op_name{"fp8_sdpa_fwd"};
 
   std::vector<at::IValue> inputs{

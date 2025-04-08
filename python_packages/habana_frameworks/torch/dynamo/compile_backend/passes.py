@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
+import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import (
@@ -1206,9 +1207,9 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
     assert ctx.graph_module is not None
 
     graph_changed = False
-
     nodes_to_fix_list = []
-    h2d_scales_enabled = bc.get_pt_hpu_enable_h2d_scales()
+    h2d_scales_enabled = htexp._get_scale_attribute_hash_id() > 0 and bc.get_pt_hpu_enable_h2d_scales()
+
     for node in ctx.graph_module.graph.nodes:
         if (
             node.op != "placeholder"
@@ -1265,7 +1266,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     "hpu_cluster" - such OPs will be later placed inside HPU clusters
     """
     assert ctx.graph_module is not None
-    h2d_scales_enabled = bc.get_pt_hpu_enable_h2d_scales()
+    h2d_scales_enabled = htexp._get_scale_attribute_hash_id() > 0 and bc.get_pt_hpu_enable_h2d_scales()
+
     for node in ctx.graph_module.graph.nodes:
         placement = None
         dynamic_call_function = is_call_function_dynamic(node, ctx.is_dynamic) if node.op == "call_function" else False
