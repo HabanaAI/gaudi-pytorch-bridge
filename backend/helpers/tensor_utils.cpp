@@ -14,6 +14,7 @@
  */
 #include "backend/helpers/tensor_utils.h"
 #include <ATen/InferSize.h>
+#include <absl/strings/str_cat.h>
 #include <c10/core/ScalarType.h>
 #include <perf_lib_layer_params.h>
 #include <algorithm>

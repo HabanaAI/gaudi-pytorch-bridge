@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "backend/kernel/hpu_recipe_cache.h"
+#include <absl/strings/str_cat.h>
 #include "backend/kernel/hpu_habana_cache.h"
 #include "habana_serialization/cache_version.h"
 #include "habana_serialization/recipe_cache_config.h"

@@ -23,7 +23,8 @@ add_library(npu::fmt ALIAS fmt)
 
 add_library(hllogger SHARED IMPORTED)
 set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")
-set_target_properties(hllogger PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HL_LOGGER_INCLUDE_DIRS}")
+set_target_properties(hllogger PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                          "$ENV{HL_LOGGER_INCLUDE_DIRS};$ENV{THIRD_PARTIES_ROOT}")
 add_library(npu::hllogger ALIAS hllogger)
 
 add_library(nlohmann_json INTERFACE IMPORTED)

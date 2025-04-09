@@ -51,24 +51,7 @@ git clone --depth 1 --branch v3.4.0 https://github.com/nlohmann/json.git
 sed -i 's/namespace nlohmann/namespace nlohmannV340/; s/nlohmann::/nlohmannV340::/g' json/single_include/nlohmann/json.hpp
 
 popd
-```
-
-4. Set up additional build dependencies:
-```bash
-git clone --depth 1 --branch 1.19.0-561 https://github.com/HabanaAI/HCL.git
-git clone --depth 1 --branch main https://github.com/HabanaAI/Intel_Gaudi3_Software.git
-
 sudo ln -s /usr/include/habanalabs/ /usr/include/habanalabs/include
-```
-
-5. Patch the `Intel_Gaudi3_Software` repository:
-```bash
-patch -p1 <$PYTORCH_MODULES_ROOT_PATH/.devops/patches/Intel_Gaudi3_Software.patch
-```
-
-6. Install the media interface:
-```bash
-sudo cp $PYTORCH_MODULES_ROOT_PATH/.devops/patches/media_pytorch_proxy.h /usr/include/habanalabs/media_pytorch_proxy.h
 ```
 
 ### Code Build
@@ -80,10 +63,10 @@ Once the one-time setup is complete, you can configure the necessary environment
 export HABANA_SOFTWARE_STACK="$(pwd)"
 export THIRD_PARTIES_ROOT="$HABANA_SOFTWARE_STACK/3rd-parties"
 
-export HCL_ROOT="$HABANA_SOFTWARE_STACK/HCL/hcl/"
-export HL_LOGGER_INCLUDE_DIRS="$HABANA_SOFTWARE_STACK/HCL/dependencies/swtools_sdk/hl_logger/include;$THIRD_PARTIES_ROOT"
-export MEDIA_ROOT=/usr/include/habanalabs/
-export SPECS_EXT_ROOT="$HABANA_SOFTWARE_STACK/Intel_Gaudi3_Software/specs_external/"
+export HCL_ROOT=/usr/include/habanalabs/
+export HL_LOGGER_INCLUDE_DIRS=/usr/include/habanalabs/hl_logger
+export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
+export SPECS_EXT_ROOT=/usr/include/habanalabs/
 export SYNAPSE_ROOT=/usr/include/habanalabs/
 export SYNAPSE_UTILS_ROOT=/usr/include/habanalabs/
 

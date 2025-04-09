@@ -29,11 +29,12 @@ target_include_directories(
   metrics_tests
   PRIVATE $ENV{PYTORCH_MODULES_ROOT_PATH}
           $ENV{SWTOOLS_SDK_ROOT}/hl_logger/include/
-          $ENV{THIRD_PARTIES_ROOT}/magic_enum-0.8.1/include
           $ENV{THIRD_PARTIES_ROOT}
           $ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers
           $ENV{PYTORCH_MODULES_ROOT_PATH}/backend/helpers
           $ENV{THIRD_PARTIES_ROOT}/abseil-cpp
-          $ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include
           $ENV{SYNAPSE_ROOT}/include)
-target_link_libraries(metrics_tests "${TORCH_LIBRARIES}")
+target_link_libraries(
+  metrics_tests
+  PUBLIC "${TORCH_LIBRARIES}"
+  PRIVATE npu::hllogger)
