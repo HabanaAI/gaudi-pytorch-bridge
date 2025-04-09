@@ -24,7 +24,6 @@
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/random.h"
-#include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
 #include "generated/lazy/fp8_gemm_v2.h"
 #include "habana_helpers/frontend_utils.h"
@@ -69,12 +68,6 @@
 
 using namespace habana;
 using namespace at;
-
-#define FP8_CHECK                                 \
-  HABANA_ASSERT(                                  \
-      synapse_helpers::device_supports_fp8(       \
-          HPUDeviceContext::get_device().type()), \
-      "FP8 data type is not available on this device.")
 
 namespace {
 void AddMemcpy(const Tensor& src, Tensor& dst) {
