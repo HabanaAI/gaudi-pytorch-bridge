@@ -173,6 +173,7 @@ convolution_backward_overrideable:
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   out_ids: [0, 0, 0]
+  treat_as_dtdf: true
 
 native_group_norm:
   dtypes: [BFloat16, Float]
@@ -180,6 +181,7 @@ native_group_norm:
   custom_fill_params: FillNativeGroupNormParams
   output_meta: GroupNormFwdMeta
   out_ids: [0, 0, 0]
+  treat_as_dtdf: true
 
 linear_backward:
   output_meta: LinearBackwardMeta

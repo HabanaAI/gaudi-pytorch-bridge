@@ -49,6 +49,7 @@
 #  - overwritten_op_names_in_slrg - op names (list) displayed in the report for all namespaces except torch.nn:
 #      e.g. _adaptive_avg_pool2d should be displayed as adaptive_avg_pool2d and adaptive_avg_pool1d
 #  - autograd - used to register backward support for operator
+#  - treat_as_dtdf - used to generate op in eager mode even if it is not dfdt.
 
 _assert_async:
   guid: assert_async
@@ -1618,6 +1619,7 @@ all:
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
   op_backend: All
+  treat_as_dtdf: true
 
 all.all_out:
   output_meta: AllAnyMeta
@@ -1631,6 +1633,7 @@ all.dim:
   op_backend: AllDim
   namespaces: [torch, torch.Tensor]
   out_ids: [0]
+  treat_as_dtdf: true
 
 all.out:
   output_meta: AllAnyDimMeta
@@ -1644,12 +1647,14 @@ all.dims:
   op_backend: AllDims
   namespaces: [torch, torch.Tensor]
   out_ids: [0]
+  treat_as_dtdf: true
 
 all.dims_out:
   output_meta: AllAnyDimMeta
   op_validator: AllSharedMeta
   namespaces: [torch, torch.Tensor]
   op_backend: AllDims
+  treat_as_dtdf: true
 
 amax:
   guid: reduce_max_multi_dim_fwd
@@ -1728,6 +1733,7 @@ any:
   op_backend: Any
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.dim:
   output_meta: AllAnyDimMeta
@@ -1735,6 +1741,7 @@ any.dim:
   op_backend: AnyDim
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.dims:
   output_meta: AllAnyDimMeta
@@ -1742,12 +1749,14 @@ any.dims:
   op_backend: AnyDims
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.dims_out:
   output_meta: AllAnyDimMeta
   op_validator: AnySharedMeta
   op_backend: AnyDims
   namespaces: [torch, torch.Tensor]
+  treat_as_dtdf: true
 
 any.out:
   output_meta: AllAnyDimMeta
@@ -2700,6 +2709,7 @@ complex:
   override_fn: complex_hpu
   op_validator: EmptySharedMeta
   namespaces: [torch]
+  treat_as_dtdf: true
 
 angle:
   guid: angle_fwd
@@ -2734,6 +2744,7 @@ convolution_overrideable:
   overwritten_op_names_in_slrg: [conv1d, conv2d, conv3d, conv_transpose1d, conv_transpose2d, conv_transpose3d]
   namespaces: [torch, torch.nn, torch.nn.functional]
   op_validator: ConvolutionSharedMeta
+  treat_as_dtdf: true
 
 convolution:
   output_meta: ConvolutionOverrideableMeta
@@ -2755,6 +2766,7 @@ convolution_backward_overrideable:
   out_ids: [0, 0, 0]
   op_validator: ConvolutionBwdOverrideableSharedMeta
   skip_slrg: true
+  treat_as_dtdf: true
 
 convolution_backward:
   output_meta: ConvolutionOverrideableMetaBwd
@@ -3778,6 +3790,7 @@ native_group_norm:
   out_ids: [0, 0, 0]
   namespaces: [torch]
   op_validator: NativeGroupNormFwdSharedMeta
+  treat_as_dtdf: true
 
 native_group_norm_backward:
   output_meta: GroupNormBwdMeta
@@ -5722,6 +5735,7 @@ native_layer_norm:
   op_backend: LayerNormHabanaOperator
   output_meta: LayerNormHabanaMeta
   out_ids: [0, 0, 0]
+  treat_as_dtdf: true
 
 native_layer_norm_backward:
   dtypes: [BFloat16, Float, Half]
@@ -6444,6 +6458,7 @@ repeat:
   acc_thread: true
   out_ids: [0]
   namespaces: [torch.Tensor]
+  treat_as_dtdf: true
 
 replication_pad1d:
   output_meta: ReplicationPad1DMeta
@@ -8478,6 +8493,7 @@ _reshape_alias:
 
 _unsafe_view:
   hpu_wrap: true
+  treat_as_dtdf: true
 
 empty.memory_format:
   hpu_wrap: true
@@ -8511,6 +8527,7 @@ _unique2:
 
 repeat_interleave.Tensor:
   hpu_wrap: true
+  treat_as_dtdf: true
 
 batch_norm_elemt:
   hpu_wrap: true
@@ -8538,6 +8555,7 @@ _pin_memory:
 
 is_pinned:
   hpu_wrap: true
+  treat_as_dtdf: true
 
 # Custom ops
 ctc_loss_custom:

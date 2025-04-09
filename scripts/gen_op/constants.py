@@ -137,6 +137,7 @@ AVAILABLE_FIELDS = {
     "pytorch_module_names",
     "overwritten_op_names_in_slrg",
     "skip_slrg",
+    "treat_as_dtdf",
 }
 
 # List of ops that will not be checked for shared layer support.
@@ -245,21 +246,6 @@ else:
         }
     )
 
-# For PT2.0, there are non-mandatory op (from PT2.0 point of view),
-# that we still need to register in the new Eager flow.
-# In order to do it, we overwrite them to default=False, dispatch=True
-NON_MANDATORY_OPS_ALLOWLIST = {
-    "all",
-    "any",
-    "complex",
-    "convolution_overrideable",
-    "convolution_backward_overrideable",
-    "is_pinned",
-    "native_layer_norm",
-    "native_group_norm",
-    "repeat",
-    "_unsafe_view",
-}
 
 AUTOCAST_REPLACEMENTS = (
     ("::std::tuple<at::Tensor,at::Tensor>", "tuple_2_tensors"),

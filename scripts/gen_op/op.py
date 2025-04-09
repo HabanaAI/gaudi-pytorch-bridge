@@ -187,3 +187,6 @@ class Op:
             if "lazy" in override_fn:
                 return False
         return True
+
+    def treat_as_dtdf(self):
+        return self.op.get("treat_as_dtdf", False)

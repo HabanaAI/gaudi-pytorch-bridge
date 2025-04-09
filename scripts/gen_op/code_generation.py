@@ -1026,7 +1026,7 @@ def get_op_group(opname):
 
 
 def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False, ns="aten"):
-    dtdf = fndef.dtdf
+    dtdf = fndef.dtdf or ctxop.treat_as_dtdf()
     tree = parser.parse(fndef.cpp_sig)
     xtree = parser.xparse(fndef.cpp_sig)
     mapsig = parser.create_map_sig(xtree, fndef.cpp_sig)
@@ -1178,9 +1178,6 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
 
 
 def get_dtdf(fields):
-    if any(op in fields["schema"] for op in constants.NON_MANDATORY_OPS_ALLOWLIST):
-        return True
-
     return fields.get("dispatch", "False") == "True" and fields.get("default", "False") == "False"
 
 
@@ -1683,7 +1680,7 @@ def generate(args, op_validator_exceptions=constants.OP_VALIDATOR_EXCEPTIONS):
             assert fndef is not None, f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml."
             op_meta = generate_op_meta(fndef.cpp_sig, op_name)
             fgens_hpu_wrap_lazy.append(op_meta)
-            if fndef.dtdf:
+            if fndef.dtdf or ctxop.treat_as_dtdf():
                 fgens_hpu_wrap_eager.append(op_meta)
         elif ctxop.get_custom_op_schema():
             fndef = fndef_from_schema(ctxop.get_custom_op_schema())
