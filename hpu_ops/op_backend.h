@@ -291,6 +291,16 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef constant_outshape = 1,
       std::optional<int> final_result_index = std::nullopt);
 
+  synapse_helpers::tensor CopyHelper(
+      at::IntArrayRef src_size,
+      c10::ScalarType src_type,
+      at::IntArrayRef dest_size,
+      c10::ScalarType dest_type,
+      synapse_helpers::graph& graph,
+      std::vector<synTensor> inputs,
+      const OutputMetaDataVector meta,
+      std::optional<int> result_index = std::nullopt);
+
   synapse_helpers::tensor ReshapeHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
@@ -443,6 +453,17 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef permutation,
       at::ScalarType dtype,
       std::optional<int> final_result_index = std::nullopt);
+
+  static synapse_helpers::tensor BuildCopy(
+      at::IntArrayRef src_size,
+      c10::ScalarType src_type,
+      at::IntArrayRef dest_size,
+      c10::ScalarType dest_type,
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      std::vector<synTensor> inputs,
+      OutputMetaDataVector meta,
+      std::optional<int> result_index = std::nullopt);
 
   void moveLastOutputTensorAtFront();
 

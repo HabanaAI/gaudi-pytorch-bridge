@@ -15,9 +15,11 @@
 
 #include "generated/backend/_foreach_abs.h"
 #include "generated/backend/_foreach_add.h"
+#include "generated/backend/_foreach_copy.h"
 #include "generated/backend/_foreach_div.h"
 #include "generated/backend/_foreach_zero.h"
 #include "hpu_ops/backend/foreach.h"
+#include "hpu_ops/op_backend.h"
 #include "hpu_ops/shared_meta_common.h"
 
 #define UNARY_FOREACH_SHARED_META(name, guid)                        \
@@ -153,6 +155,10 @@ OutputMetaDataVector ForeachBinaryMeta(const at::Stack& stack) {
   return CommonForeachBinaryMeta(stack, false);
 }
 
+OutputMetaDataVector ForeachCopyMeta(const at::Stack& stack) {
+  return CommonForeachBinaryMeta(stack, false);
+}
+
 static std::string get_guid(
     const std::string& guid,
     const at::ScalarType dtype) {
@@ -213,6 +219,30 @@ void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         params.get(),
         params_size);
     syn_out(i) = std::move(out[0]);
+  }
+}
+
+void ForeachCopy::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(this, stack, "ForeachCopy::AddNode");
+  auto self_tensors = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  auto src_tensors = stackGetter.getNextInput<std::vector<TensorsPair>>();
+  const OutputMetaDataVector output_meta = ForeachCopyMeta(stack);
+  auto n = self_tensors.size();
+  for (size_t i = 0; i < n; i++) {
+    const auto self_tensor = self_tensors[i];
+    const auto src_tensor = src_tensors[i];
+    auto out = CopyHelper(
+        src_tensor.pt_t.sizes(),
+        src_tensor.pt_t.scalar_type(),
+        self_tensor.pt_t.sizes(),
+        self_tensor.pt_t.scalar_type(),
+        graph,
+        {self_tensor.syn_t, src_tensor.syn_t},
+        {output_meta[i]},
+        i);
+    syn_out(i) = std::move(out);
   }
 }
 

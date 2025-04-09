@@ -16,6 +16,7 @@
 #include "hpu_ops/shared_meta_common.h"
 #include <unordered_set>
 #include "backend/helpers/runtime_config.h"
+#include "hpu_ops/backend/foreach.h"
 
 namespace habana {
 
@@ -875,6 +876,41 @@ SharedMetaDataVector OneHotSharedMeta(
   oneHotSharedMeta.inputs_data.emplace_back(rank, dtype);
   oneHotSharedMeta.outputs_data.emplace_back(rank + 1, dtype);
   return {oneHotSharedMeta};
+}
+
+SharedMetaDataVector CommonForeachCopyMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode,
+    SharedMetaCreateFunction sharedMetaCreator) {
+  SharedMetaDataVector metaVec;
+  const auto& selfs = stack[0].toList();
+  auto selfsSize = selfs.size();
+  metaVec.reserve(selfsSize);
+  const auto& others = stack[1].toList();
+  for (size_t i = 0; i < selfsSize; i++) {
+    at::Stack oneIterationStack = {selfs[i], others[i]};
+
+    auto oneIterationSharedMeta =
+        sharedMetaCreator(oneIterationStack, executionMode);
+    metaVec.insert(
+        std::end(metaVec),
+        std::begin(oneIterationSharedMeta),
+        std::end(oneIterationSharedMeta));
+  }
+
+  return metaVec;
+}
+
+SharedMetaDataVector ForeachCopySharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode executionMode) {
+  SharedMetaCreateFunction sharedMetaCreator =
+      [](const at::Stack& stack,
+         habana_helpers::HabanaExecutionMode executionMode) {
+        return CopySharedMeta(stack, executionMode);
+      };
+
+  return CommonForeachCopyMeta(stack, executionMode, sharedMetaCreator);
 }
 
 } // namespace habana

@@ -492,6 +492,15 @@ _foreach_clamp_min_.ScalarList:
   namespaces: [torch]
   op_validator: ForeachClampMinSharedMeta
 
+_foreach_copy:
+  guid: foreach_copy
+  op_backend: ForeachCopy
+  output_meta: ForeachCopyMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy]
+  namespaces: [torch]
+  op_validator: ForeachCopySharedMeta
+
 _foreach_cos:
   guid: cos_fwd
   op_backend: Foreach

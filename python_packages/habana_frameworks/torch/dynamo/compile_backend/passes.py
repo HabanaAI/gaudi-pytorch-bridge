@@ -1294,6 +1294,21 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                 logger.debug(
                     f"{node._pretty_print_target(node.target)} fallback to eager because node was identified as non D2D copy"
                 )
+        elif node.op == "call_function" and "_foreach_copy" in node.target.__name__:
+            args_list_with_node = [node]
+            for arg in node.args:
+                if isinstance(arg, list):
+                    args_list_with_node.extend(arg)
+            assert args_list_with_node is not None
+
+            # Internal HPU copies should be placed in the clusters.
+            if all(n.meta["output_device"].type == "hpu" for n in args_list_with_node):
+                placement = "hpu_cluster"
+            else:
+                placement = "eager"
+                logger.debug(
+                    f"{node._pretty_print_target(node.target)} fallback to eager because node was identified as non D2D copy"
+                )
         elif node.op == "call_function" and node._pretty_print_target(node.target) in host_call_functions:
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node is a host call function")

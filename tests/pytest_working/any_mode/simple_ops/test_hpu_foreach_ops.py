@@ -20,7 +20,13 @@ import random
 
 import pytest
 import torch
-from test_utils import format_tc, is_pytest_mode_compile
+from test_utils import (
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+    is_pytest_mode_lazy,
+    use_eager_fallback,
+)
 
 self_shapes_pull = [(4, 4), (2, 3, 4), (5,), (2, 2, 2, 2)]
 other_shapes_pull = [(1), (2, 1, 1), (5,), (2, 1, 2)]
@@ -687,3 +693,35 @@ def test_foreach_unary_inplace(op):
         ):
             rtol, atol = 3e-5, 0.002
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+@pytest.mark.skipif(is_pytest_mode_lazy(), reason="in lazy mode there is precision issue")
+def test_foreach_copy():
+    self_shapes = random.choices(self_shapes_pull, k=len(dtypes))
+    self_dtypes = dtypes[:]
+
+    self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
+    src_cpu, src_hpu = generate_tensor_list(self_shapes, self_dtypes)
+    if verbose:
+        print("Self shapes:", self_shapes)
+        print("Self dtypes:", self_dtypes)
+
+    def fn(h1, h2):
+        return torch.ops.aten._foreach_copy(h1, h2)
+
+    results_cpu = fn(self_cpu, src_cpu)
+
+    fn = compile_function_if_compile_mode(fn)
+
+    # hpu-hpu tensor list copy
+    results_hpu_hpu = fn(self_hpu, src_hpu)
+    with use_eager_fallback():
+        # hpu-cpu tensor list copy
+        results_hpu_cpu = fn(self_hpu, src_cpu)
+        # cpu-hpu tensor list copy
+        results_cpu_hpu = fn(self_cpu, src_hpu)
+
+    for i in range(len(self_shapes)):
+        torch.testing.assert_close(results_cpu[i], results_hpu_hpu[i].cpu(), equal_nan=True)
+        torch.testing.assert_close(results_cpu[i], results_hpu_cpu[i].cpu(), equal_nan=True)
+        torch.testing.assert_close(results_cpu[i], results_cpu_hpu[i], equal_nan=True)

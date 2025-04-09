@@ -454,6 +454,27 @@ sh::tensor OpBackend::ConstantHelper(
       this, graph, val, force_type, constant_outshape, final_result_index);
 }
 
+synapse_helpers::tensor OpBackend::CopyHelper(
+    at::IntArrayRef src_size,
+    c10::ScalarType src_type,
+    at::IntArrayRef dest_size,
+    c10::ScalarType dest_type,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> inputs,
+    const OutputMetaDataVector meta,
+    std::optional<int> result_index) {
+  return OpBackend::BuildCopy(
+      src_size,
+      src_type,
+      dest_size,
+      dest_type,
+      this,
+      graph,
+      std::move(inputs),
+      meta,
+      result_index);
+}
+
 sh::tensor OpBackend::BroadcastHelper(
     sh::graph& graph,
     synTensor syn_in,
@@ -1105,6 +1126,54 @@ sh::tensor OpBackend::BuildConstant(
          sizeof(params)});
 
     return std::move(constant.at(0));
+  }
+}
+
+sh::tensor OpBackend::BuildCopy(
+    at::IntArrayRef src_size,
+    c10::ScalarType src_type,
+    at::IntArrayRef dest_size,
+    c10::ScalarType dest_type,
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> inputs,
+    OutputMetaDataVector meta,
+    std::optional<int> result_index) {
+  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
+  auto dest_type_cast_type = habana_helpers::DataTypeToCastType(dest_type);
+  auto shape = src_size.vec();
+  if (src_size != dest_size) {
+    shape = at::infer_size(src_size, dest_size);
+    HABANA_ASSERT(
+        shape == dest_size or
+            // broadcast with src [1] to dst [] should be valid
+            (shape.size() == 1 and dest_size.size() == 0),
+        "Cannot broadcast src ",
+        src_size,
+        " to dst ",
+        dest_size);
+
+    ns_Copy::Params params;
+    params.isOutputBool = dest_type == at::ScalarType::Bool;
+    using namespace std::literals;
+    return std::move(OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("copy_fwd"sv, dest_type),
+         inputs,
+         {{meta[0].shape, meta[0].dtype, result_index}},
+         &params,
+         sizeof(params)})[0]);
+  }
+
+  if ((src_type_cast_type == dest_type_cast_type) &&
+      !(dest_type == at::ScalarType::Bool &&
+        src_type == at::ScalarType::Char)) {
+    return OpBackend::BuildIdentity(
+        op, graph, inputs[1], shape, src_type, result_index);
+  } else {
+    return OpBackend::BuildCast(
+        op, graph, inputs[1], shape, src_type, dest_type, result_index);
   }
 }
 
