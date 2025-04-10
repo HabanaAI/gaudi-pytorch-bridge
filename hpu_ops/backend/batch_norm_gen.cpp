@@ -32,6 +32,12 @@ static bool should_cast_from_BF16(std::optional<TensorsPair> tensor_pair_opt) {
   return false;
 }
 
+static bool should_cast_from_Half(std::optional<TensorsPair> tensor_pair_opt) {
+  if (tensor_pair_opt.has_value())
+    return tensor_pair_opt->pt_t.scalar_type() == c10::ScalarType::Half;
+  return false;
+}
+
 static synTensor cast_if_necessary_or_default(
     OpBackend* op,
     sh::graph& graph,
@@ -45,6 +51,15 @@ static synTensor cast_if_necessary_or_default(
         source_opt->syn_t,
         source_opt->pt_t.sizes().vec(),
         c10::ScalarType::BFloat16,
+        c10::ScalarType::Float);
+    return storage->get();
+  } else if (should_cast_from_Half(source_opt)) {
+    storage = OpBackend::BuildCast(
+        op,
+        graph,
+        source_opt->syn_t,
+        source_opt->pt_t.sizes().vec(),
+        c10::ScalarType::Half,
         c10::ScalarType::Float);
     return storage->get();
   }
