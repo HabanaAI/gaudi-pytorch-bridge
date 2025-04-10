@@ -1,5 +1,5 @@
 auditwheel>=6
-cmake>=3.26.3,<4
+cmake>=3.26
 cython
 lark
 ninja>=1.11.1

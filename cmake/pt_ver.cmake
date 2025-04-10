@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-macro(detect_pt_version)
+macro(DETECT_PT_VERSION)
   message(VERBOSE "Detecting PT version...")
   list(
     APPEND
@@ -65,4 +65,4 @@ macro(detect_pt_version)
   list(GET PT_VERSIONS 5 PYTORCH_FORK_MINOR)
 
   message(STATUS "PyTorch version detected: ${TORCH_VERSION}")
-endmacro(detect_pt_version)
+endmacro(DETECT_PT_VERSION)

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,19 +15,19 @@
 #
 ###############################################################################
 
-function(find_absl_targets DIRECTORY)
+function(find_absl_targets directory)
   get_property(
     ABSL_TARGETS_IN_DIRECTORY
-    DIRECTORY "${DIRECTORY}"
+    DIRECTORY "${directory}"
     PROPERTY BUILDSYSTEM_TARGETS)
   list(APPEND ABSL_TARGETS ${ABSL_TARGETS_IN_DIRECTORY})
 
   get_property(
     SUBDIRECTORIES
-    DIRECTORY "${DIRECTORY}"
+    DIRECTORY "${directory}"
     PROPERTY SUBDIRECTORIES)
-  foreach(SUBDIRECTORY IN LISTS SUBDIRECTORIES)
-    find_absl_targets("${SUBDIRECTORY}")
+  foreach(subdirectory IN LISTS SUBDIRECTORIES)
+    find_absl_targets("${subdirectory}")
   endforeach()
 
   return(PROPAGATE ABSL_TARGETS)

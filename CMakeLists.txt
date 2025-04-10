@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
 if(POLICY CMP0076)
   cmake_policy(SET CMP0076 OLD)
@@ -89,11 +89,11 @@ list(
   SYNAPSE_UTILS_ROOT
   BUILD_ROOT_LATEST
   PYTORCH_MODULES_ROOT_PATH)
-foreach(env_var IN LISTS REQUIRED_ENV_VARIABLES)
-  if(DEFINED ENV{${env_var}})
-    message(STATUS "Environment variable ${env_var} exists: $ENV{${env_var}}")
+foreach(req_env_var IN LISTS REQUIRED_ENV_VARIABLES)
+  if(DEFINED ENV{${req_env_var}})
+    message(STATUS "Environment variable ${req_env_var} exists: $ENV{${req_env_var}}")
   else()
-    message(SEND_ERROR "Required environment variable ${env_var} is not defined.")
+    message(SEND_ERROR "Required environment variable ${req_env_var} is not defined.")
   endif()
 endforeach()
 
@@ -391,27 +391,26 @@ endif()
 option(BUILD_PKGS "Build python packages" OFF)
 option(INSTALL_PKGS "Install python packages" OFF)
 
-# additional args will be treated as dependencies - relative to the PACKAGE location
-function(build_or_install_wheel PACKAGE)
-  get_filename_component(name ${PACKAGE} NAME)
-  set(OUTPUT "${CMAKE_BINARY_DIR}/pkgs/${name}")
+# additional args will be treated as dependencies - relative to the package location
+function(build_or_install_wheel package)
+  get_filename_component(name ${package} NAME)
+  set(output "${CMAKE_BINARY_DIR}/pkgs/${name}")
 
-  set(PIP ${Python_EXECUTABLE} -m pip)
+  set(pip ${Python_EXECUTABLE} -m pip)
 
   if(INSTALL_PKGS)
-    set(PIPARGS install -U ${PACKAGE}/)
+    set(pipargs install -U ${package}/)
   else()
-    set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs ${PACKAGE})
+    set(pipargs wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs ${package})
   endif()
 
-  list(TRANSFORM ARGN PREPEND "${PACKAGE}/" OUTPUT_VARIABLE DEPS)
+  list(TRANSFORM ARGN PREPEND "${package}/" OUTPUT_VARIABLE DEPS)
   add_custom_command(
-    OUTPUT ${OUTPUT}
-    COMMAND ${PIP} ${PIPARGS}
-    COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
-    DEPENDS habana_pytorch_plugin habana_pytorch2_plugin
-    DEPENDS ${DEPS})
-  add_custom_target(${name} ALL DEPENDS ${OUTPUT})
+    OUTPUT ${output}
+    COMMAND ${pip} ${pipargs}
+    COMMAND ${CMAKE_COMMAND} -E touch ${output}
+    DEPENDS habana_pytorch_plugin habana_pytorch2_plugin ${DEPS})
+  add_custom_target(${name} ALL DEPENDS ${output})
 endfunction()
 
 if(BUILD_PKGS)

@@ -15,6 +15,7 @@
 #
 ###############################################################################
 
+set(CMAKE_POLICY_VERSION_MINIMUM 3.26)
 include(FetchContent)
 
 FetchContent_Declare(

@@ -15,14 +15,14 @@
 #
 ###############################################################################
 
-function(find_keyword KEYWORD RESULT_VAR)
-  set(${RESULT_VAR}
+function(find_keyword keyword result_var)
+  set(${result_var}
       FALSE
       PARENT_SCOPE)
 
   foreach(arg IN LISTS ARGN)
-    if(arg STREQUAL ${KEYWORD})
-      set(${RESULT_VAR}
+    if(arg STREQUAL ${keyword})
+      set(${result_var}
           TRUE
           PARENT_SCOPE)
       break()
@@ -30,9 +30,9 @@ function(find_keyword KEYWORD RESULT_VAR)
   endforeach()
 endfunction()
 
-function(set_up_warnings TARGET_NAME)
+function(set_up_warnings target_name)
   # TODO: Add -Wconversion
-  target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
+  target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
 
   include(CheckCXXCompilerFlag)
   check_cxx_compiler_flag("-Werror=template-id-cdtor" HAS_WERROR_TEMPLATE_ID_CTOR)
@@ -40,7 +40,7 @@ function(set_up_warnings TARGET_NAME)
   if(HAS_WERROR_TEMPLATE_ID_CTOR)
     # GCC 14.2 emits C++20 related error even in C++17 mode when -Wall is set.
     # As a W/A don't emit error in this case
-    target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=template-id-cdtor)
+    target_compile_options(${target_name} PRIVATE -Wno-error=template-id-cdtor)
   endif()
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")
@@ -48,7 +48,7 @@ function(set_up_warnings TARGET_NAME)
     # bugous maybe-uninitialized warning for std::optional destructor. And this was observed on d10
     # build with gcc8.3.0.
     # As a W/A don't emit error in this case.
-    target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=maybe-uninitialized)
+    target_compile_options(${target_name} PRIVATE -Wno-error=maybe-uninitialized)
   endif()
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
@@ -57,56 +57,56 @@ function(set_up_warnings TARGET_NAME)
     # GCC 13 has a bug with -Wdangling-reference https://gcc.gnu.org/bugzilla/show_bug.cgi?id=107532
     # Similarly with -Warray-bounds affecting std::vector::reserve https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110498
     # As a W/A don't emit error in this case
-    target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=dangling-reference -Wno-error=array-bounds)
+    target_compile_options(${target_name} PRIVATE -Wno-error=dangling-reference -Wno-error=array-bounds)
   endif()
 
   if(PROJECT_IS_TOP_LEVEL)
-    target_compile_options(${TARGET_NAME} PRIVATE -Werror)
+    target_compile_options(${target_name} PRIVATE -Werror)
   endif()
 endfunction()
 
-function(attach_sanitizers_if_requested TARGET_NAME)
+function(attach_sanitizers_if_requested target_name)
   if(SANITIZER)
-    target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr
+    target_compile_options(${target_name} PRIVATE -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr
                                                   -fsanitize-address-use-after-scope -Og)
-    target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=leak -fsanitize=undefined)
+    target_link_options(${target_name} PRIVATE -fsanitize=address -fsanitize=leak -fsanitize=undefined)
   endif()
 
   if(THREAD_SANITIZER)
-    target_compile_options(${TARGET_NAME} PRIVATE -O0 -g3 -fsanitize=thread)
+    target_compile_options(${target_name} PRIVATE -O0 -g3 -fsanitize=thread)
   endif()
 endfunction()
 
-function(allow_code_coverage_if_requested TARGET_NAME)
+function(allow_code_coverage_if_requested target_name)
   if(CODE_COVERAGE)
-    target_compile_options(${TARGET_NAME} PRIVATE --coverage -O0)
-    target_link_libraries(${TARGET_NAME} PRIVATE --coverage)
+    target_compile_options(${target_name} PRIVATE --coverage -O0)
+    target_link_libraries(${target_name} PRIVATE --coverage)
   endif()
 endfunction()
 
-function(add_habana_library TARGET_NAME)
-  add_library(${TARGET_NAME} ${ARGN})
-  add_library(npu::${TARGET_NAME} ALIAS ${TARGET_NAME})
+function(add_habana_library target_name)
+  add_library(${target_name} ${ARGN})
+  add_library(npu::${target_name} ALIAS ${target_name})
 
   find_keyword(INTERFACE IS_INTERFACE ${ARGN})
 
   if(NOT IS_INTERFACE)
-    set_up_warnings(${TARGET_NAME})
-    attach_sanitizers_if_requested(${TARGET_NAME})
-    allow_code_coverage_if_requested(${TARGET_NAME})
+    set_up_warnings(${target_name})
+    attach_sanitizers_if_requested(${target_name})
+    allow_code_coverage_if_requested(${target_name})
   endif()
 endfunction()
 
-function(add_habana_executable TARGET_NAME)
-  add_executable(${TARGET_NAME} ${ARGN})
-  add_executable(npu::${TARGET_NAME} ALIAS ${TARGET_NAME})
+function(add_habana_executable target_name)
+  add_executable(${target_name} ${ARGN})
+  add_executable(npu::${target_name} ALIAS ${target_name})
 
   find_keyword(INTERFACE IS_INTERFACE ${ARGN})
 
   if(NOT IS_INTERFACE)
-    set_up_warnings(${TARGET_NAME})
-    attach_sanitizers_if_requested(${TARGET_NAME})
-    allow_code_coverage_if_requested(${TARGET_NAME})
+    set_up_warnings(${target_name})
+    attach_sanitizers_if_requested(${target_name})
+    allow_code_coverage_if_requested(${target_name})
   endif()
 endfunction()
 

@@ -13,8 +13,6 @@ repos:
     hooks:
       - id: cmake-format
         additional_dependencies: ["pyyaml"]
-  #       - id: cmake-lint
-  #         additional_dependencies: ["pyyaml"]
   - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
     rev: v10.0.1
     hooks:

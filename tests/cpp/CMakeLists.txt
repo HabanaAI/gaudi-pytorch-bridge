@@ -17,7 +17,7 @@
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-set(lazy_tests_src
+set(LAZY_TESTS_SRC
     lazy_graph_passes/test_replace_inplace_ops.cpp
     lazy_add_composite_tests.cpp
     lazy_basic_kernel_tests.cpp
@@ -63,7 +63,7 @@ set(lazy_tests_src
     post_order_tests.cpp
     dry_run_test.cpp)
 
-set(hpu_ops_tests_src
+set(HPU_OPS_TESTS_SRC
     hpu_ops/_assert_async.cpp
     hpu_ops/_masked_scale.cpp
     hpu_ops/adaptive_avg_pool2d.cpp
@@ -280,7 +280,7 @@ list(
   scalar_dtype_range_tests.cpp
   shape_agnostic_tests.cpp)
 
-add_habana_executable(test_pt_integration ${lazy_tests_src} ${hpu_ops_tests_src} ${misc_tests_src})
+add_habana_executable(test_pt_integration ${LAZY_TESTS_SRC} ${HPU_OPS_TESTS_SRC} ${misc_tests_src})
 
 target_compile_definitions(test_pt_integration PRIVATE LAZY_TESTS)
 set_target_properties(test_pt_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
@@ -299,7 +299,7 @@ list(
   common_functions_custom_kernel_tests.cpp
   eager_custom_kernel_tests.cpp)
 
-add_habana_executable(test_pt2_integration ${hpu_ops_tests_src} ${misc_tests_src} ${eager_tests_src})
+add_habana_executable(test_pt2_integration ${HPU_OPS_TESTS_SRC} ${misc_tests_src} ${eager_tests_src})
 target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
 set_target_properties(test_pt2_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 
