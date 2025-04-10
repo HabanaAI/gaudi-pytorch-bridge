@@ -23,4 +23,8 @@ std::optional<at::Tensor> maybe_convert_to_h2d(
     const bool enabled,
     const std::string_view op_name);
 
+void verify_no_h2d_scales(
+    const std::vector<at::TensorList>& scales_lists,
+    std::string_view op_name);
+
 } // namespace habana_lazy

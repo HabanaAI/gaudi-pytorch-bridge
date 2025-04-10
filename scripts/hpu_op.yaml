@@ -8652,6 +8652,9 @@ conv2d_fp8:
   synapse_layouts:
   - [WHCN, SRCK, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN]
+  lazy:
+    acc_thread: true
+    override_fn: conv2d_fp8_lazy
 
 conv2d_fp8.scalar:
   custom_op_schema: "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, SymInt[2] padding=0, SymInt[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor"
@@ -8865,6 +8868,9 @@ mixture_of_experts.fp8:
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
+  lazy:
+    acc_thread: true
+    override_fn: mixture_of_experts_fp8_lazy
 
 mixture_of_experts.fp8_fused_weights:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -8872,6 +8878,9 @@ mixture_of_experts.fp8_fused_weights:
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
+  lazy:
+    acc_thread: true
+    override_fn: mixture_of_experts_fp8_fused_weights_lazy
 
 mixture_of_experts.fp8_scalars:
   custom_op_schema: "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -8893,6 +8902,9 @@ mixture_of_experts.fp8_dynamic:
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
   out_ids: [2]
+  lazy:
+    acc_thread: true
+    override_fn: mixture_of_experts_fp8_dynamic_lazy
 
 mixture_of_experts.fp8_fused_weights_dynamic:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -8900,6 +8912,9 @@ mixture_of_experts.fp8_fused_weights_dynamic:
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
   out_ids: [2]
+  lazy:
+    acc_thread: true
+    override_fn: mixture_of_experts_fp8_fused_weights_dynamic_lazy
 
 mixture_of_experts.fp8_scalars_dynamic:
   custom_op_schema: "hpu::mixture_of_experts.fp8_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"

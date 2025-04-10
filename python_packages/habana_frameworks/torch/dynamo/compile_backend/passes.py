@@ -351,15 +351,31 @@ def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scal
         "fp8_sdpa_recomp_fwd_dropout.default": (9, 15),
         "fp8_sdpa_recomp_fwd_non_dropout.default": (9, 15),
     }
+
     if (
         h2d_scales_enabled
         and node_arg.meta["output_dtypes"][0] == torch.float
         and node_arg.meta["output_shapes"][0] == torch.Size([])
     ):
-        idx_range = ops_to_scales_idx.get(node.target.__name__, None)
+        idx_range = ops_to_scales_idx.get(node.target.__name__)
         if idx_range is not None:
             return node_arg in node.args[slice(*idx_range)]
     return False
+
+
+def _check_unsupported_h2d_ops(node: torch.fx.Node):
+    ops_not_yet_supported = [
+        "conv2d_fp8.default",
+        "mixture_of_experts.fp8",
+        "mixture_of_experts.fp8_fused_weights",
+        "mixture_of_experts.fp8_dynamic",
+        "mixture_of_experts.fp8_fused_weights_dynamic",
+    ]
+
+    node_name = node.target.__name__
+    assert (
+        node_name not in ops_not_yet_supported
+    ), f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
 
 
 def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
@@ -389,6 +405,8 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h
             copy_required = False
         elif _is_cpu_scale_allowed(node, node_arg, h2d_scales_enabled):
             copy_required = False
+        else:
+            _check_unsupported_h2d_ops(node)
     return copy_required
 
 

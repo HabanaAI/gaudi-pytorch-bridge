@@ -67,4 +67,17 @@ std::optional<at::Tensor> maybe_convert_to_h2d(
   return tensor;
 }
 
+void verify_no_h2d_scales(
+    const std::vector<at::TensorList>& scales_lists,
+    std::string_view op_name) {
+  for (const auto scales : scales_lists) {
+    if (not scales.empty() and scales[0].is_cpu()) {
+      HABANA_ASSERT(
+          false,
+          op_name,
+          " doesn't support H2D scales feature yet, but received CPU scales.");
+    }
+  }
+}
+
 } // namespace habana_lazy

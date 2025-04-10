@@ -26,6 +26,18 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     at::ScalarType dtype,
     at::OptionalIntArrayRef scale_shape);
 
+at::Tensor conv2d_fp8_lazy(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const std::optional<at::Tensor>& bias,
+    c10::SymIntArrayRef stride,
+    c10::SymIntArrayRef padding,
+    c10::SymIntArrayRef dilation,
+    int64_t groups,
+    std::optional<at::ScalarType> out_dtype,
+    const std::optional<at::Tensor>& scale_input,
+    const std::optional<at::Tensor>& scale_weight);
+
 at::Tensor fp8_gemm_v2_lazy(
     const at::Tensor& A,
     bool trans_A,
@@ -38,5 +50,67 @@ at::Tensor fp8_gemm_v2_lazy(
     const std::optional<at::Tensor>& bias,
     bool accumulate,
     at::OptionalIntArrayRef B_scale_shape);
+
+at::Tensor mixture_of_experts_fp8_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    at::TensorList w1,
+    at::TensorList w2,
+    at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    at::TensorList d_scale_intermediate_hidden_states,
+    at::TensorList d_scale_w1,
+    at::TensorList d_scale_w2,
+    at::TensorList d_scale_w3,
+    bool permuted_weights,
+    std::string_view activation,
+    int64_t experts_min,
+    int64_t experts_max);
+
+at::Tensor mixture_of_experts_fp8_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    at::TensorList w12,
+    at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    at::TensorList d_scale_intermediate_hidden_states,
+    at::TensorList d_scale_w12,
+    at::TensorList d_scale_w3,
+    bool permuted_weights,
+    std::string_view activation,
+    int64_t experts_min,
+    int64_t experts_max);
+
+at::Tensor mixture_of_experts_fp8_dynamic_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    at::TensorList w1,
+    at::TensorList w2,
+    at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    at::TensorList d_scale_w1,
+    at::TensorList d_scale_w2,
+    at::TensorList d_scale_w3,
+    bool permuted_weights,
+    std::string_view activation,
+    int64_t experts_min,
+    int64_t experts_max);
+
+at::Tensor mixture_of_experts_fp8_fused_weights_dynamic_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    at::TensorList w12,
+    at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    at::TensorList d_scale_w12,
+    at::TensorList d_scale_w3,
+    bool permuted_weights,
+    std::string_view activation,
+    int64_t experts_min,
+    int64_t experts_max);
 
 } // namespace habana_lazy

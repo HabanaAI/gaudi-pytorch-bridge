@@ -1090,6 +1090,33 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
     ht.disable_inference_mode()
 
 
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+def test_conv2d_fp8_h2d():
+    N, C, H, W = (8, 3, 28, 28)
+    out_channels = 16
+    kernel = (2, 2)
+    stride = (1, 1)
+    padding = (0, 0)
+    dilation = (1,)
+    fp8_dtype = torch.float8_e4m3fn
+    out_dtype = torch.bfloat16
+
+    input_hpu = torch.rand((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to("hpu")
+    weight_hpu = torch.rand((out_channels, C, kernel[0], kernel[1]), dtype=out_dtype).to(fp8_dtype).to("hpu")
+    bias_hpu = None
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.conv2d_fp8)
+
+    scale_a = torch.tensor(2.4)
+    scale_b = torch.tensor(1.1)
+
+    with pytest.raises(RuntimeError) as e:
+        fn(input_hpu, weight_hpu, bias_hpu, stride, padding, dilation, 1, out_dtype, scale_a, scale_b).cpu()
+
+    exception_msg = str(e.value.inner_exception) if is_pytest_mode_compile() else str(e)
+    assert "conv2d_fp8.default doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
+
+
 @pytest.mark.skipif(is_gaudi2(), reason="https://jira.habana-labs.com/browse/SW-224554")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 @pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])

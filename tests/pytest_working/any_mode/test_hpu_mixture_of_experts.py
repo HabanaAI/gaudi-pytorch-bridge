@@ -433,6 +433,70 @@ def test_mixture_of_experts_fp8(
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+def test_mixture_of_experts_fp8_h2d():
+    fp8_dtype = torch.float8_e4m3fn
+    permuted_weights = False
+    num_tokens = 32
+    num_experts = 8
+    activation = "silu"
+    hidden_dim = 64
+    ffn_dim = 224
+    fp8_scales = {
+        "d_scale_w1": [4.35, 1.49, 1.12, 2.22, 8.33, 1.28, 2.94, 1.79],
+        "d_scale_w2": [1.10, 2.13, 2.78, 1.22, 3.45, 1.59, 1.35, 1.72],
+        "d_scale_w3": [6.67, 1.09, 2.08, 2.70, 1.56, 1.23, 1.89, 3.85],
+        "d_scale_intermediate_hidden_states": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        "d_scale_hidden_states": 3.17,
+    }
+
+    d_scale_w1 = fp8_scales["d_scale_w1"]
+    d_scale_w2 = fp8_scales["d_scale_w2"]
+    d_scale_w3 = fp8_scales["d_scale_w3"]
+    d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
+    d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
+
+    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
+    router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
+    router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
+    hidden_states_hpu /= d_scale_hidden_states
+
+    _, expert_weights_hpu = generate_expert_weights(
+        hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype, (d_scale_w1, d_scale_w2, d_scale_w3)
+    )
+
+    d_scale_w1 = [torch.tensor(s) for s in d_scale_w1]
+    d_scale_w2 = [torch.tensor(s) for s in d_scale_w2]
+    d_scale_w3 = [torch.tensor(s) for s in d_scale_w3]
+    d_scale_intermediate_hidden_states = [torch.tensor(s) for s in d_scale_intermediate_hidden_states]
+    d_scale_hidden_states = torch.tensor(d_scale_hidden_states)
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+    w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
+
+    with torch.inference_mode(), pytest.raises(RuntimeError) as e:
+        fn(
+            hidden_states_hpu,
+            expert_routing_table_hpu,
+            router_weights_hpu,
+            w1_hpu,
+            w2_hpu,
+            w3_hpu,
+            d_scale_hidden_states,
+            d_scale_intermediate_hidden_states,
+            d_scale_w1,
+            d_scale_w2,
+            d_scale_w3,
+            permuted_weights,
+            activation,
+            0,
+            num_experts - 1,
+        ).cpu()
+
+    exception_msg = str(e.value.inner_exception) if is_pytest_mode_compile() else str(e)
+    assert "mixture_of_experts.fp8 doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
+
+
 def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
     rows, cols = weights_tensorlist[0].shape
     num_blocks_row = (rows + block_size - 1) // block_size
