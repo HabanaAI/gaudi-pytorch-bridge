@@ -16,6 +16,7 @@
 #include <ATen/ATen.h>
 #include <ATen/FunctionalTensorWrapper.h>
 #include <ATen/Tensor.h>
+#include <ATen/native/Resize.h>
 #include <ATen/native/TensorShape.h>
 #include <torch/library.h>
 #include "backend/random.h"
@@ -1257,6 +1258,45 @@ at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
   return hpu_op.call();
 }
 
+void fsdp_split_with_sizes_copy(
+    const at::Tensor& self,
+    at::IntArrayRef split_sizes,
+    int64_t dim,
+    at::TensorList out) {
+  auto tmp = self.split_with_sizes(split_sizes, dim);
+
+  TORCH_CHECK(
+      out.size() == tmp.size(),
+      "split_with_sizes_copy_out() expected an out= argument of size ",
+      tmp.size(),
+      ", got size ",
+      out.size());
+  for (const auto i : c10::irange(out.size())) {
+    if (at::native::resize_output_check(out[i], tmp[i].sizes())) {
+      out[i].resize_(tmp[i].sizes());
+    }
+    TORCH_CHECK(
+        out[i].dtype() == tmp[i].dtype(),
+        "Expected out tensor to have dtype ",
+        tmp[i].dtype(),
+        ", but got ",
+        out[i].dtype(),
+        " instead");
+    TORCH_CHECK(
+        out[i].device() == tmp[i].device(),
+        "Expected out tensor to have device ",
+        tmp[i].device(),
+        ", but got ",
+        out[i].device(),
+        " instead");
+    // out[i].copy_(tmp[i]);
+    // above line is replaced by below line to avoid the following run-time
+    // error RuntimeError: one of the variables needed for gradient computation
+    // has been modified by an inplace operation:
+    const_cast<at::Tensor&>(out[i]) = tmp[i].clone();
+  }
+}
+
 void fsdp_chunk_cat_out(
     at::TensorList tensors,
     int64_t dim,
@@ -1603,6 +1643,7 @@ TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
 }
 
 TORCH_LIBRARY_IMPL(fsdp, HPU, m) {
+  m.impl("split_with_sizes_copy", fsdp_split_with_sizes_copy);
   m.impl("chunk_cat", fsdp_chunk_cat_out);
 }
 
