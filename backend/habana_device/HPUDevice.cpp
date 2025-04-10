@@ -20,6 +20,7 @@
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/scalar_cache.h"
+#include "backend/helpers/event_dispatcher.h"
 #include "backend/synapse_helpers/time_slot.h"
 #include "common/pipeline_deleter.h"
 
@@ -133,6 +134,16 @@ void HPUDeviceContextImpl::ThreadsRelease() {
 }
 
 void HPUDeviceContextImpl::Finish() {
+  synapse_helpers::MemoryStats stats;
+  device_->get_device_memory().get_memory_stats(&stats);
+
+  // last digit is Device::id where the statistics are taken from
+  const std::string pb_name("peak_bytes_" + std::to_string(device_->id()));
+  const std::string pb_val(std::to_string(stats.peak_bytes_in_use));
+
+  habana_helpers::EmitEvent(habana_helpers::EventDispatcher::Topic::CTX_FINISH_BEFORE,
+                            {{pb_name, pb_val}});
+
   lazy_compile_thread_pool_.reset();
   recipe_cache_.reset();
   scalar_cache_.reset();

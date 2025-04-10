@@ -73,6 +73,7 @@ class EventDispatcher {
     GRAPH_COMPILE,
     MARK_STEP,
     PROCESS_EXIT,
+    CTX_FINISH_BEFORE, /** This event emitted just before DeviceContext finished */
     DEVICE_ACQUIRED,
     CUSTOM_EVENT,
     MEMORY_DEFRAGMENTATION,
@@ -142,6 +143,9 @@ inline std::ostream& operator<<(
       break;
     case EventDispatcher::Topic::PROCESS_EXIT:
       o << "PROCESS_EXIT";
+      break;
+    case EventDispatcher::Topic::CTX_FINISH_BEFORE:
+      o << "CTX_FINISH_BEFORE";
       break;
     case EventDispatcher::Topic::DEVICE_ACQUIRED:
       o << "DEVICE_ACQUIRED";
