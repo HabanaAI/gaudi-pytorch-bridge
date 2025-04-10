@@ -148,7 +148,7 @@ SharedMetaDataVector HistogramCommonSharedMeta(
         histogramMeta.inputs_data.push_back(createOptionalNotPresentSharedMetaTensor());
 
     if (has_weights)
-        histogramMeta.inputs_data.emplace_back(1, c10::ScalarType::Float);
+        histogramMeta.inputs_data.emplace_back(1, self.scalar_type());
 
     histogramMeta.outputs_data.emplace_back(1, self.scalar_type());
     histogramMeta.outputs_data.emplace_back(1, self.scalar_type());
