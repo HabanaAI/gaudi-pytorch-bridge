@@ -8672,6 +8672,13 @@ custom_softmax:
   op_backend: CustomSoftmax
   out_ids: [0]
 
+fake_quant_fp4:
+  custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
+  custom_fill_params: FillFakeQuantFp4Params
+  guid: fake_quantize_fp4
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
 fp8_gemm:
   custom_op_schema: "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)"
   output_meta: Fp8GemmV2Meta

@@ -138,6 +138,7 @@ add_habana_library(
   backend/expand_gen.cpp
   backend/exponential_gen.cpp
   backend/eye_gen.cpp
+  backend/fake_quant_fp4_gen.cpp
   backend/fbgemm.cpp
   backend/fill_gen.cpp
   backend/flip_gen.cpp
