@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/fp8_ops.h"
+#include "generated/backend/_fp8_gemm_bwd.h"
 #include "generated/backend/cast_from_fp8.h"
 #include "generated/backend/cast_to_fp8.h"
 #include "generated/backend/cast_to_fp8_v2.h"
@@ -541,6 +542,137 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
        sizeof(params)});
 
   syn_out(0) = std::move(gemm[0]);
+}
+
+/********** Fp8GemmBwdV2 **********/
+
+OutputMetaDataVector Fp8GemmBwdMeta(const at::Stack& stack) {
+  const auto& gradIn = stack_tensor(stack, 0);
+  const auto& A = stack_tensor(stack, 1);
+  const auto& B = stack_tensor(stack, 3);
+
+  OutputMetaDataVector meta = {
+      getMetaFromTensor(A),
+      getMetaFromTensor(B),
+      getMetaFromTensor(gradIn),
+      getMetaFromTensor(gradIn)};
+
+  return meta;
+}
+
+SharedMetaDataVector Fp8GemmBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& gradIn = stack_tensor(stack, 0);
+  const auto& A = stack_tensor(stack, 1);
+  const auto& B = stack_tensor(stack, 3);
+  const auto& AScale = stack.at(5);
+  const auto& BScale = stack.at(6);
+
+  const int gradInDim = gradIn.dim();
+  const int ADim = A.dim();
+  const int BDim = B.dim();
+
+  const int AScaleDim = AScale.isTensor() ? AScale.toTensor().dim() : 0;
+  const int BScaleDim = BScale.isTensor() ? BScale.toTensor().dim() : 0;
+
+  const at::ScalarType gradInDtype = gradIn.scalar_type();
+  const at::ScalarType ADtype = A.scalar_type();
+  const at::ScalarType BDtype = B.scalar_type();
+
+  const at::ScalarType AScaleDtype =
+      AScale.isTensor() ? AScale.toTensor().scalar_type() : gradInDtype;
+  const at::ScalarType BScaleDtype =
+      BScale.isTensor() ? BScale.toTensor().scalar_type() : gradInDtype;
+
+  SharedMetaData sharedMeta("fp8_gemm_bwd");
+  sharedMeta.inputs_data.emplace_back(gradInDim, gradInDtype);
+  sharedMeta.inputs_data.emplace_back(ADim, ADtype);
+  sharedMeta.inputs_data.emplace_back(BDim, BDtype);
+  sharedMeta.inputs_data.emplace_back(AScaleDim, AScaleDtype);
+  sharedMeta.inputs_data.emplace_back(BScaleDim, BScaleDtype);
+
+  sharedMeta.outputs_data.emplace_back(ADim, ADtype);
+  sharedMeta.outputs_data.emplace_back(BDim, BDtype);
+  sharedMeta.outputs_data.emplace_back(gradInDim, gradInDtype);
+  sharedMeta.outputs_data.emplace_back(gradInDim, gradInDtype);
+
+  return {sharedMeta};
+}
+
+void Fp8GemmBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
+  StackGetter stackGetter(this, stack, "Fp8Gemm::AddNode");
+  auto gradIn = stackGetter.getNextInput<TensorsPair>();
+  auto A = stackGetter.getNextInput<TensorsPair>();
+  const bool transA = stackGetter.getNextInput<bool>();
+  auto B = stackGetter.getNextInput<TensorsPair>();
+  const bool transB = stackGetter.getNextInput<bool>();
+  auto scaleAOpt =
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
+  auto scaleBOpt =
+      stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
+  const bool has_bias = stackGetter.getNextInput<bool>();
+  const bool has_acc = stackGetter.getNextInput<bool>();
+
+  std::string guid =
+      get_guid_with_precision("fp8_gemm_bwd"sv, gradIn.pt_t.scalar_type());
+
+  ns_Fp8Gemm::Params params{transA, transB};
+
+  std::vector<synTensor> syn_inputs = {gradIn.syn_t, A.syn_t, B.syn_t};
+  std::vector<sh::tensor> adjusted_scale;
+
+  HandleScale(
+      this,
+      graph,
+      scaleAOpt,
+      A.pt_t,
+      transA,
+      adjusted_scale,
+      syn_inputs,
+      p_context_->device_id_);
+
+  HandleScale(
+      this,
+      graph,
+      scaleBOpt,
+      B.pt_t,
+      transB,
+      adjusted_scale,
+      syn_inputs,
+      p_context_->device_id_);
+
+  auto meta = Fp8GemmBwdMeta(stack);
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
+      {meta[0].shape, meta[0].dtype, 0}, {meta[1].shape, meta[1].dtype, 1}};
+
+  if (has_bias) {
+    output_attrs.push_back({meta[2].shape, meta[2].dtype, 2});
+  }
+  if (has_acc) {
+    output_attrs.push_back({meta[3].shape, meta[3].dtype, 3});
+  }
+
+  auto gemm = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid, syn_inputs, std::move(output_attrs), &params, sizeof(params)});
+
+  syn_out(0) = std::move(gemm[0]);
+  syn_out(1) = std::move(gemm[1]);
+
+  size_t out_idx = 2;
+  if (has_bias) {
+    syn_out(2) = std::move(gemm[out_idx++]);
+  } else {
+    AddUndefinedOutputTensor();
+  }
+
+  if (has_acc) {
+    syn_out(3) = std::move(gemm[out_idx]);
+  } else {
+    AddUndefinedOutputTensor();
+  }
 }
 
 /********** InPlaceInterleave **********/

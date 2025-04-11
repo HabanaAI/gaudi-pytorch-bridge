@@ -34,6 +34,5 @@ class CastToFp8V2Function
 	at::ScalarType dtype,
 	at::OptionalIntArrayRef scale_shape);
 
-
 } // namespace habana
 

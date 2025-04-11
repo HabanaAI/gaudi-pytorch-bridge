@@ -132,6 +132,23 @@ def meta_fp8_gemm(
     return out
 
 
+@register_meta(
+    [torch.ops.hpu._fp8_gemm_bwd.default, torch.ops.hpu._fp8_gemm_bwd.scalar, torch.ops.hpu._fp8_gemm_bwd.scalar_list]
+)
+def meta_fp8_gemm_bwd(
+    gradIn,
+    A,
+    trans_A,
+    B,
+    trans_B,
+    A_scale_inv,
+    B_scale_inv,
+    has_bias,
+    has_acc,
+):
+    return A.new_empty(A.shape), B.new_empty(B.shape), gradIn.new_empty(gradIn.shape), gradIn.new_empty(gradIn.shape)
+
+
 def meta_fp8_gemm_v2_common(
     A,
     trans_A,

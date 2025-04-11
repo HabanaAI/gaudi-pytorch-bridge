@@ -269,6 +269,9 @@ if ({name}_opt.has_value()) {{
 }}
 """
 
+ARRAY_REF_SHARED_LAYER_STRING = """std::vector<{dtype}> {name}_vec = {name}.to<std::vector<{dtype}>>();
+      at::ArrayRef<{dtype}> {name}_base = at::ArrayRef<{dtype}>({name}_vec);"""
+
 AUTO_COMPUTE_TYPE = """  auto compute_type = DTypeHelper::get_compute_dtype({{{dtype_helper_inputs}}}, {fe_call_args}, DTypeHelper::DtypePromoteVariant::k{type_promo_variant}, {safe_cast}/*safe_cast*/{param_vars});
   static_cast<void>(compute_type);
 

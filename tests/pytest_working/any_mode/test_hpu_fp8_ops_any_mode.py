@@ -465,14 +465,21 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
     As_hpu = [A_hpu[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A_hpu]
     Bs = [B[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B]
     Bs_hpu = [B_hpu[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B_hpu]
-    result_ref = [torch.matmul(a.transpose(-2, -1), b) for a, b in zip(As, Bs, strict=False)]
 
-    out_shape = [rr.shape for rr in result_ref]
+    for i in range(len(As)):
+        As[i] = As[i].detach().requires_grad_()
+        As_hpu[i] = As_hpu[i].detach().requires_grad_()
+        Bs[i] = Bs[i].detach().requires_grad_()
+        Bs_hpu[i] = Bs_hpu[i].detach().requires_grad_()
+
+    results_cpu = [torch.matmul(a.transpose(-2, -1), b) for a, b in zip(As, Bs, strict=False)]
+
+    out_shape = [rr.shape for rr in results_cpu]
     bias_tensor = [torch.rand(s, dtype=dtype) * 10 + 30.0 for s in out_shape]
-    bias_tensor_hpu = [t.to(hpu) if bias else None for t in bias_tensor]
+    bias_tensor_hpu = [t.to(hpu).detach().requires_grad_() if bias else None for t in bias_tensor]
 
     out = [torch.full(s, 1000.0, dtype=dtype) for s in out_shape]
-    out_hpu = [t.to(hpu) for t in out]
+    out_hpu = [t.to(hpu).detach().requires_grad_() for t in out]
 
     def fn(
         A_hpu,
@@ -502,9 +509,10 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
         )
         return result
 
-    fn = compile_function_if_compile_mode(fn, dynamic=len(out) > 1)
+    is_dynamic_compilation = len(out) > 1
+    fn = compile_function_if_compile_mode(fn, dynamic=is_dynamic_compilation)
 
-    result = [
+    result_hpu = [
         fn(
             tA,
             scaleA_hpu,
@@ -521,19 +529,37 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
     ]
 
     if bias:
-        result_ref = [rRef + tBias for rRef, tBias in zip(result_ref, bias_tensor, strict=False)]
+        results_cpu = [rRef + tBias for rRef, tBias in zip(results_cpu, bias_tensor, strict=False)]
     if accumulate:
-        result_ref = [rRef + o for rRef, o in zip(result_ref, out, strict=False)]
-    result = [r.cpu() for r in result]
+        results_cpu = [rRef + o for rRef, o in zip(results_cpu, out, strict=False)]
+    result = [r.cpu() for r in result_hpu]
 
     percentage_diff = [
-        torch.abs((((r - rRef) / rRef) * 100).to(torch.int)) for r, rRef in zip(result, result_ref, strict=False)
+        torch.abs((((r - rRef) / rRef) * 100).to(torch.int)) for r, rRef in zip(result, results_cpu, strict=False)
     ]
     for pd in percentage_diff:
         assert np.amax(pd.numpy()) <= 15
 
+    for i in range(len(result)):
+        torch.testing.assert_close(result_hpu[i].cpu(), results_cpu[i], rtol=0.26, atol=0.0)
+
+        # Backward require A and B to have the same number of dimensions and DS are not supported in backward.
+        if A[i].dim() == B[i].dim() and (is_pytest_mode_compile() and not is_dynamic_compilation):
+
+            results_cpu[i].mean().backward(inputs=[results_cpu[i], As[i], Bs[i]])
+            result_hpu[i].backward(results_cpu[i].grad.to(hpu))
+
+            torch.testing.assert_close(As_hpu[i].grad.cpu(), As[i].grad, rtol=0.26, atol=0.0)
+            torch.testing.assert_close(Bs_hpu[i].grad.cpu(), Bs[i].grad, rtol=0.26, atol=0.0)
+
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
+        expected_ops = {"cast_to_fp8_v2", "fp8_gemm_v2"}
+        allowed_fallbacks = set()
+        if A[i].dim() == B[i].dim() and (is_pytest_mode_compile() and not is_dynamic_compilation):
+            expected_ops.add("_fp8_gemm_bwd")
+        if is_pytest_mode_compile() and is_dynamic_compilation:
+            allowed_fallbacks.add("_fp8_gemm_bwd")
+        check_ops_executed_in_jit_ir(expected_ops, allowed_fallbacks=allowed_fallbacks)
 
 
 @pytest.mark.parametrize("bias", [True, False])

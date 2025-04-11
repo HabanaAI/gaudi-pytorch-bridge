@@ -8732,6 +8732,7 @@ fp8_gemm_v2:
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  autograd: true
   op_validator_exception: custom_op
   lazy:
     acc_thread: true
@@ -8742,6 +8743,7 @@ fp8_gemm_v2.scalar:
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  autograd: true
   op_validator_exception: custom_op
 
 fp8_gemm_v2.scalar_list:
@@ -8749,7 +8751,32 @@ fp8_gemm_v2.scalar_list:
   output_meta: Fp8GemmV2Meta
   op_backend: Fp8GemmV2
   out_ids: [0]
+  autograd: true
   op_validator_exception: custom_op
+
+_fp8_gemm_bwd:
+  custom_op_schema: "hpu::_fp8_gemm_bwd(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? A_scale_inv, Tensor? B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
+  guid: fp8_gemm_bwd
+  out_ids: [0]
+  output_meta: Fp8GemmBwdMeta
+  op_backend: Fp8GemmBwd
+  op_validator: Fp8GemmBwdSharedMeta
+
+_fp8_gemm_bwd.scalar:
+  custom_op_schema: "hpu::_fp8_gemm_bwd.scalar(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, float A_scale_inv, float B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
+  guid: fp8_gemm_bwd
+  out_ids: [0]
+  output_meta: Fp8GemmBwdMeta
+  op_backend: Fp8GemmBwd
+  op_validator: Fp8GemmBwdSharedMeta
+
+_fp8_gemm_bwd.scalar_list:
+  custom_op_schema: "hpu::_fp8_gemm_bwd.scalar_list(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, float[] A_scale_inv, float[] B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
+  guid: fp8_gemm_bwd
+  out_ids: [0]
+  output_meta: Fp8GemmBwdMeta
+  op_backend: Fp8GemmBwd
+  op_validator: Fp8GemmBwdSharedMeta
 
 in_place_interleave_:
   custom_op_schema: "hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))"

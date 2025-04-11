@@ -110,8 +110,7 @@ def fallback_if_unsupported(
 ):
     if is_check_kernel_support:
         fallback_string = "RETURN"
-    elif is_custom and (prefix == "VAL_" or prefix == "VAL_CUSTOM_"):
-        prefix = "VAL_"
+    elif is_custom:
         fallback_string = "FAIL_CUSTOM"
     else:
         fallback_string = "FALLBACK"
@@ -1613,7 +1612,7 @@ def create_autograd_frontend(
                 frontend += ", "
         frontend += "};\n}"
     else:
-        frontend += f"  return {autograd_call}"
+        frontend += f"  return {autograd_call}\n}}"
     frontend += "\n\n"
 
     return frontend
@@ -1846,6 +1845,9 @@ def codegen_custom_ops(param_vars, fun_args):
             optional_str = templates.OPTIONAL_STRING.format(name=name)
             func_args += f"{name}_opt_out, "
             base_lines.append(optional_str)
+        elif type_ == "at::ArrayRef<double>":
+            func_args += f"{name}_base, "
+            base_lines.append(templates.ARRAY_REF_SHARED_LAYER_STRING.format(name=name, dtype="double"))
         else:
             base_lines.append(f"{type_} {name}_base = {name}.to<{type_}>();")
             func_args += f"{name}_base, "
@@ -1907,6 +1909,10 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
             if cptype_check is not None:
                 stack_unroll += "&& " if param_idx > 0 else ""
                 stack_unroll += f"ivalue_arr[{idx}].{cptype_check}() "
+                param_idx += 1
+            if cptype == "std::optional<Tensor>":
+                stack_unroll += "&& " if param_idx > 0 else ""
+                stack_unroll += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].isTensor()) "
                 param_idx += 1
         # generates if (true) in case there was no other condition
         if param_idx == 0:

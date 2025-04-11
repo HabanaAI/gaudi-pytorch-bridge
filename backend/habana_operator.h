@@ -328,6 +328,10 @@ class OutputMetaData {
 };
 using OutputMetaDataVector = std::vector<OutputMetaData>;
 
+inline OutputMetaData getMetaFromTensor(const at::Tensor& tensor) {
+  return {tensor.scalar_type(), tensor.sizes().vec()};
+}
+
 using SharedMetaTensor = std::pair<int, at::ScalarType>;
 using SharedMetaVector = std::vector<SharedMetaTensor>;
 

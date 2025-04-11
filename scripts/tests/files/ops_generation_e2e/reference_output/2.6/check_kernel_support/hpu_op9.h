@@ -99,7 +99,7 @@ struct shared_layer_native_group_norm : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 8) {
     auto ivalue_arr = torch::jit::last(stack, 8);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[6].isInt() && ivalue_arr[7].isDouble() ) {
+    if (ivalue_arr[0].isTensor() && (ivalue_arr[1].isNone() || ivalue_arr[1].isTensor()) && (ivalue_arr[2].isNone() || ivalue_arr[2].isTensor()) && ivalue_arr[6].isInt() && ivalue_arr[7].isDouble() ) {
 
       c10::IValue input = std::move(peek(stack, 0, 8));
       c10::IValue weight = std::move(peek(stack, 1, 8));
