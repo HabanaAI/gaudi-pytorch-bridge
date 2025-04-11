@@ -36,6 +36,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "common/utils.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -627,6 +628,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
           [resource_holder, &recipe_counter]() mutable {
             resource_holder.reset();
             recipe_counter.decrease_and_notify();
+            towl::emitCollectiveFinished("lazy");
           });
       pr->set_value(hccl_result == hcclSuccess);
       return true;
@@ -649,6 +651,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
         HABANA_ASSERT(syn_result == synSuccess, "synStreamSynchronize failed");
       }
     }
+    towl::emitCollectiveLaunch("lazy");
   }
 
   for (size_t i = 0; i < in_view_vec.size(); ++i) {
