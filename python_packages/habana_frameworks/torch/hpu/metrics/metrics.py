@@ -212,6 +212,63 @@ class MemoryDefragmentationMetric(Metric):
         self.stop()
 
 
+class DevMemMetric(Metric):
+    """
+    Event hendler for CTX_FINISH_BEFORE which defined in EventDispatcher::Topic
+    Collect any data and keeps maximum values for each key
+
+    Expected "event_param" is two string dictinary
+    First string: any data to form "a key" to be printable
+    Second string: to be converted to numerical value
+    For exemple: ("peak_memory", "123123")
+    """
+
+    def __init__(self):
+        self._handle = None
+        self._stat = {}
+        self._ed = EventDispatcher.instance()
+        self.start()
+
+    def _get_callback(self):
+        def callback(event_params):
+            event_val_dict = dict(event_params)
+
+            for key, value_str in event_val_dict.items():
+                value = int(value_str)
+                exist_val = self._stat.get(key, 0)
+                self._stat[key] = max(value, exist_val)  # keep maximum value
+
+        return callback
+
+    def name(self):
+        return "device_memory"
+
+    def start(self):
+        if not self._handle:
+            self._handle = self._ed.subscribe(EventId.CTX_FINISH_BEFORE)
+
+    def stop(self):
+        self.process()
+        if self._handle:
+            self._ed.unsubscribe(self._handle)
+            self._handle = None
+
+    def stats(self):
+        self.process()
+        return self._stat
+
+    def process(self):
+        if self._handle:
+            self._ed.process(self._handle, self._get_callback())
+
+    def reset(self):
+        self.process()
+        self._stat = {}
+
+    def __del__(self):
+        self.stop()
+
+
 class RecipeCacheMetric(Metric):
     _TOTAL_CACHE_HIT_TAG = "TotalHit"
     _RECIPE_CACHE_HIT_TAG = "RecipeHit"
@@ -424,6 +481,7 @@ def _init_metric_mgr():
     _metric_mgr.register("graph_compilation", GraphCompilationMetric)
     _metric_mgr.register("cpu_fallback", CpuFallbackMetric)
     _metric_mgr.register("memory_defragmentation", MemoryDefragmentationMetric)
+    _metric_mgr.register("device_memory", DevMemMetric)
     if bc.get_pt_hpu_enable_cache_metrics():
         _metric_mgr.register("recipe_cache", RecipeCacheMetric)
 

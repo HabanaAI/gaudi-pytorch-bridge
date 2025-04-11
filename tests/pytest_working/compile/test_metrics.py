@@ -398,7 +398,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -422,7 +422,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         gc_only = [p for p in parsed if p["metric_name"] == "graph_compilation"]
 
         metric_on_process_exit = gc_only[-1]
@@ -439,7 +439,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, "json")
 
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -507,7 +507,7 @@ class TestMetricsDump:
                 payload = f.read()
             parsed = TestMetricsDump._parse_dump(payload, "json")
 
-            assert len(parsed) == 4
+            assert len(parsed) == 5
             metric = parsed[0]
             assert metric["metric_name"] == "graph_compilation"
             assert metric["triggered_by"] == "process_exit"
@@ -539,7 +539,7 @@ class TestMetricsDump:
             payload = f.read()
 
         parsed = TestMetricsDump._parse_dump(payload, format)
-        assert len(parsed) == 4
+        assert len(parsed) == 5
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "user"
