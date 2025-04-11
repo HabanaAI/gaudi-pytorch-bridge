@@ -51,7 +51,6 @@ function pytorch_usage()
         echo -e "       --build-number         Extend whl version number by build number"
         echo -e "       --build-version        Build version used for whl creation"
         echo -e "       --pytorch-next         Build pytorch-next instead of pytorch-fork"
-        echo -e "       --py-version           Python version"
         echo -e "  -h,  --help                 Prints this help"
     fi
 
@@ -66,7 +65,6 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "  -h,  --help                 Prints this help"
     fi
 
@@ -102,7 +100,6 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --no-fe                Disable front-end build"
         echo -e "  -h,  --help                 Prints this help"
     fi
@@ -195,7 +192,6 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-data-version      PytorchData version"
         echo -e "  -h,  --help                 Prints this help"
     fi
@@ -210,7 +206,6 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-text-version      PytorchText version"
         echo -e "  -h,  --help                 Prints this help"
     fi
@@ -225,7 +220,6 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-audio-version     PytorchAudio version"
         echo -e "  -h,  --help                 Prints this help"
     fi
@@ -239,7 +233,6 @@ function pytorch_usage()
         echo -e "  -d,  --debug                Python only code, option ignored"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
-        echo -e "       --py-version           Python version"
         echo -e "       --pt-vision-version    Pytorch Vision version"
         echo -e "  -h,  --help                 Prints this help"
     fi
@@ -298,7 +291,6 @@ build_pytorch_modules()
     if [ -n "$__configure" ]; then
         __check_mandatory_pkgs
         if [ $? -ne 0 ]; then
-            restore_python_version
             return 1
         fi
     fi
@@ -306,7 +298,7 @@ build_pytorch_modules()
     set_os_specific_vars
 
     #CI job creates venv for every job. So we need to have python pkg install unconditionally
-    $__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt
+    pip install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt
 
     pushd $PYTORCH_MODULES_ROOT_PATH
 
@@ -316,7 +308,6 @@ build_pytorch_modules()
     if [ $__result -ne 0 ]; then
         echo "git submodule init failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -325,7 +316,6 @@ build_pytorch_modules()
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -355,7 +345,6 @@ build_pytorch_modules()
         if [ $__result -ne 0 ]; then
             echo "Failed to build dependency packages $__pytorch_module_name"
             popd
-            restore_python_version
             return $__result
         fi
     fi
@@ -365,12 +354,10 @@ build_pytorch_modules()
     if [ $__result -ne 0 ]; then
         echo "Failed to run build.py. Exit code: " $__result
         popd
-        restore_python_version
         return $__result
     fi
 
     popd
-    restore_python_version
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
 }
@@ -548,7 +535,6 @@ build_pytorch_fork()
     local __branch=""
     local __build_manylinux_whl="false"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
-    local __set_py_vers="false"
     local __pytorch_next="false"
     local __use_cxx11_abi="false"
 
@@ -586,11 +572,6 @@ build_pytorch_fork()
             __env_vars+=" PYTORCH_BUILD_VERSION=$2"
             shift
             ;;
-        --py-version )
-             set_python_version $2
-             __set_py_vers="true"
-             shift
-            ;;
         --recursive )
             # No-op. Fork has no dependencies.
             ;;
@@ -608,7 +589,6 @@ build_pytorch_fork()
             ;;
         -h  | --help )
             usage $__scriptname
-            restore_python_version
             return 0
             ;;
         -j  | --jobs )
@@ -621,7 +601,6 @@ build_pytorch_fork()
         *)
             echo Invalid argument: $1
             usage $__scriptname
-            restore_python_version
             return 1
         esac
         shift
@@ -643,7 +622,6 @@ build_pytorch_fork()
     if [ $__result -ne 0 ]; then
         echo "git submodule init failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -652,21 +630,19 @@ build_pytorch_fork()
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
-    $__python_cmd -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "torch requirements installation failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     local __pkg_name="TORCH_PACKAGE_NAME=torch"
@@ -688,18 +664,17 @@ build_pytorch_fork()
         echo "Build Enviornment parameters ${__env_vars}"
     fi
 
-    (set -x;eval ${__env_vars} ${__pkg_name} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} ${__pkg_name} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch fork build failed!"
         popd
-        restore_python_version
         return $__result
     fi
 
     if [ ${__whl_params} != "develop" ];then
         if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
+            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;python $__auditwheel repair $__pytorch/dist/torch*.whl"
             TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
         else
             TORCH_WHL_PATH="$__pytorch_root/dist/"
@@ -717,7 +692,6 @@ build_pytorch_fork()
 
     popd
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -731,7 +705,6 @@ build_pytorch_tb_plugin()
     local __build_package="true"
     local __build_frontend="true"
     local __result
-    local __set_py_vers="false"
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -757,13 +730,8 @@ build_pytorch_tb_plugin()
             __whl_params=" install"
             __build_package=""
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            ;;
         -h  | --help )
             usage $__scriptname
-            restore_python_version
             return 0
             ;;
         esac
@@ -773,7 +741,6 @@ build_pytorch_tb_plugin()
     if [ -n "$__configure" ]; then
         __check_mandatory_pkgs
         if [ $? -ne 0 ]; then
-            restore_python_version
             return 1
         fi
     fi
@@ -786,7 +753,6 @@ build_pytorch_tb_plugin()
     if [ $__result -ne 0 ]; then
         echo "yarn install failed"
         popd
-        restore_python_version
         return $__result
     fi
 
@@ -796,7 +762,6 @@ build_pytorch_tb_plugin()
         if [ $__result -ne 0 ]; then
             echo "front end setup failed"
             popd
-            restore_python_version
             return $__result
         fi
 
@@ -805,28 +770,26 @@ build_pytorch_tb_plugin()
         if [ $__result -ne 0 ]; then
             echo "front end build failed"
             popd
-            restore_python_version
             return $__result
         fi
     fi
 
-    $__pip_cmd install wheel
+    pip install wheel
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "pip install failed"
-        restore_python_version
         return $__result
     fi
 
     pushd $KINETO_ROOT/tb_plugin
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch tb plugin build failed!"
@@ -841,7 +804,6 @@ build_pytorch_tb_plugin()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -853,7 +815,6 @@ build_lightning_habana_fork()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -874,13 +835,8 @@ build_lightning_habana_fork()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            ;;
         -h  | --help )
             usage $__scriptname
-            restore_python_version
             return 0
             ;;
         esac
@@ -890,12 +846,12 @@ build_lightning_habana_fork()
     pushd $LIGHTNING_HABANA_FORK_ROOT
 
     if [ -n "$__configure" ]; then
-        eval ${__env_vars} $__python_cmd setup.py clean
+        eval ${__env_vars} python setup.py clean
     fi
 
     echo "Build parameters for lightning habana ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Lightning habana build failed!"
@@ -910,7 +866,6 @@ build_lightning_habana_fork()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -1211,7 +1166,7 @@ run_pytorch_modules_tests()
       popd
       if [[ "$__pytest_mode" = "eager" ]] ; then
         pushd $PYTORCH_MODULES_ROOT_PATH/tests/user_custom_op/
-        $__python_cmd setup.py install
+        python setup.py install
         (set -x; eval PT_HPU_LAZY_MODE=0 ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
         __test_status=$((__test_status | $?))
         (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
@@ -1348,16 +1303,16 @@ run_pytorch_qa_tests()
 
     if [ -n "$__print_tests" ]; then
         pushd ${__pytorch_qa_test_path}
-        (set -x; $__python_cmd -m pytest -v ${__pytest_marks} --collect-only)
+        (set -x; python -m pytest -v ${__pytest_marks} --collect-only)
         __test_status=$?
         popd
         return $__test_status
     fi
     pushd ${__pytorch_qa_test_path}
 
-    opts="$__python_cmd -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}""
+    opts="python -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}""
     #Adding a separate new variable only for single op params
-    opts_single_op="$__python_cmd -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}" -n 1 --dut ${__dut} "
+    opts_single_op="python -m pytest -v -o junit_logging=all ${__failures} ${__filter} ${__color} "${__pytest_marks}" -n 1 --dut ${__dut} "
     test_path=""
 
     if [ "$__pytest_marks" == "-m=drs_dynamic_smoke" ] && [ "$__suite_type" == "ops" ]; then
@@ -1391,12 +1346,12 @@ run_pytorch_qa_tests()
             return ${__test_status}
        elif [ "$__suite_type" == "rn50_eager_1c" ]; then
             install_requirements_event_plugin
-            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" python -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         elif  [ "$__suite_type" == "rn50_graph_1c" ]; then
             install_requirements_event_plugin
-            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" $__python_cmd -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
+            (set -x; PYTHONPATH="$PYTORCH_TESTS_ROOT:$EVENT_TESTS_PLUGIN_ROOT:$PYTHONPATH" python -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_graph_mode_gaudi2_100_steps "--junit-xml=${__xml}_"rn50_graph_ci_functional.xml"")
             __test_status=$?
             return ${__test_status}
         fi
@@ -1411,7 +1366,7 @@ run_pytorch_qa_tests()
        # Seperate common pytest command into forked and non-forked versions
        opts_forked="$opts --forked"
 
-       $__python_cmd  $PYTORCH_TESTS_ROOT/tests/torch_training_tests/utils/tox_env_collector.py --marker "'${__pytest_marks}'" --opts "'${opts_forked}'" --log-level $__hllog --test-path ${__pytorch_qa_test_path}${test_path} --test-suite $__suite_type
+       python  $PYTORCH_TESTS_ROOT/tests/torch_training_tests/utils/tox_env_collector.py --marker "'${__pytest_marks}'" --opts "'${opts_forked}'" --log-level $__hllog --test-path ${__pytorch_qa_test_path}${test_path} --test-suite $__suite_type
        __test_status=$?
     fi
     popd
@@ -1430,14 +1385,14 @@ run_pytorch_qa_tests()
 
 install_requirements_pytorch()
 {
-    $__pip_cmd uninstall -y wrapt requests gast
-    sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt
+    pip uninstall -y wrapt requests gast
+    sudo -H pip uninstall -y wrapt requests gast
+    pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt
 }
 
 install_requirements_event_plugin()
 {
-    $__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt
+    pip install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt
 }
 
 run_habana_lightning_tests()
@@ -1732,33 +1687,33 @@ run_lightning_habana_fw_tests()
 
 install_lightning_plugin()
 {
-    $__pip_cmd install habana-lightning-plugins --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/habana_pypi/simple
+    pip install habana-lightning-plugins --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/habana_pypi/simple
 }
 
 install_requirements_pytest()
 {
-    $__pip_cmd uninstall -y wrapt requests gast
-    sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt
+    pip uninstall -y wrapt requests gast
+    sudo -H pip uninstall -y wrapt requests gast
+    pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt
 }
 
 uninstall_requirements_pytest()
 {
-    $__pip_cmd uninstall -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt -y
+    pip uninstall -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt -y
 }
 
 clean_pytorch_pkgs()
 {
     echo "-> Removing PyTorch-related packages"
-    $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
-    sudo -H $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
+    pip uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
+    sudo -H pip uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
 }
 
 # Returns an error code 1 if any nvidia-related packages are installed.
 check_no_unwanted_packages_installed() {
     echo "-> Verifying if no unwanted packages are installed"
     local -a faulty_packages
-    faulty_packages=$(! "$__pip_cmd" freeze | grep 'triton\|nvidia')
+    faulty_packages=$(! "pip" freeze | grep 'triton\|nvidia')
     local -r retcode=$?
     readonly faulty_packages
     if [ "$retcode" -ne 0 ]; then
@@ -1780,7 +1735,7 @@ check_proper_pt_version_installed() {
     echo "-> Verifying if the proper PT version is installed ($1)"
     pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops || return 1
 
-    $__python_cmd - <<EOF "$1"
+    python - <<EOF "$1"
 import sys
 from build_profiles.profiles import get_version_literal_and_source as get_profile
 from build_profiles.version import Version
@@ -1813,7 +1768,7 @@ install_pytorch_build_requirements() (
     set -e
 
     echo "-> Installing PT build requirements"
-    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/requirements.txt
+    pip install -r "${PYTORCH_MODULES_ROOT_PATH}"/requirements.txt
 
     check_no_unwanted_packages_installed
 )
@@ -1823,7 +1778,7 @@ install_pytorch_deploy_requirements() (
     set -e
 
     echo "-> Installing PT deployment requirements"
-    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-pytorch.txt
+    pip install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-pytorch.txt
 
     check_no_unwanted_packages_installed
 )
@@ -1833,7 +1788,7 @@ install_pytorch_test_requirements() (
     set -e
 
     echo "-> Installing PT test requirements"
-    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-test.txt
+    pip install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-test.txt
 
     check_no_unwanted_packages_installed
 )
@@ -1843,7 +1798,7 @@ install_pytorch_test_requirements() (
 __print_torch_version_for_profile() {
     pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops >/dev/null || return 1
 
-    $__python_cmd - <<EOF "$1"
+    python - <<EOF "$1"
 import sys
 from build_profiles.profiles import get_version_literal_and_source as get_profile
 print(get_profile(sys.argv[1]).version)
@@ -1954,12 +1909,12 @@ __set_up_pytorch_artifacts_impl() (
     echo "-> Installing PT requirements and artifacts: " "${pip_install_args[@]}"
 
     # Installing in one go should prevent issues with CUDA torch begin pulled in by accident
-    $__pip_cmd install -U "${pip_install_args[@]}"
+    pip install -U "${pip_install_args[@]}"
 
 
     if [ "${GERRIT_PROJECT}" = "lightning-habana-fork" ]; then
         echo "-> Installing ligtning-habana-fork wheels"
-        $__pip_cmd install -U "${LIGHTNING_HABANA_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
+        pip install -U "${LIGHTNING_HABANA_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
     fi
 
     __install_habana_transformer_engine
@@ -1973,7 +1928,7 @@ __install_habana_transformer_engine() {
     hte_whls=$(ls ${TRANSFORMER_ENGINE_FORK_BUILD}/pkgs/*.whl 2>/dev/null | wc -l || true)
     if [ ${hte_whls} -gt 0 ]; then
         echo "  -> Habana Transformer Engine wheel found"
-        $__pip_cmd install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall
+        pip install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall
         echo "  -> Habana Transformer Engine installed"
     else
         echo "  -> Habana Transformer Engine wheel not found"
@@ -2056,7 +2011,7 @@ set_up_pytorch_artifacts_for_testing() (
 
 uninstall_pytorch_artifacts() {
     echo "-> Uninstalling PT artifacts"
-    $__pip_cmd uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchtext torchvision
+    pip uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchtext torchvision
 }
 
 __check_pytorch_dev_py_deps()
@@ -2140,41 +2095,9 @@ __provide_mkl()
 # after torchvision installation
 install_pillow_simd()
 {
-    $__pip_cmd uninstall -y pillow
-    $__pip_cmd uninstall -y pillow-simd
-    CC="cc -mavx2" $__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x
-}
-
-# set_python_version to set envs related to python version during build
-set_python_version()
-{
-    case $1 in
-    "3.8" | "3.10" | "3.11" | "3.12")
-        echo "version $1"
-        ;;
-    *)
-        echo "Usage: $0 <3.8/3.10/3.11/3.12>"
-        return
-        ;;
-    esac
-    export __old_python_ver=$__python_ver
-    export __old_python_cmd=$__python_cmd
-    export __old_pip_cmd=$__pip_cmd
-    export __python_ver=$1
-    export __python_cmd="python${__python_ver}"
-    export __pip_cmd="${__python_cmd} -m pip"
-    echo "__python_ver = ${__python_ver}"
-    echo "__python_cmd = ${__python_cmd}"
-    echo "__pip_cmd    = ${__pip_cmd}"
-}
-
-restore_python_version()
-{
-    if [ "z$__set_py_vers" == "ztrue" ]; then
-        [ "z$__old_python_ver" != "z" ] && export __python_ver=$__old_python_ver
-        [ "z$__old_pip_cmd" != "z" ] && export __pip_cmd=$__old_pip_cmd
-        [ "z$__old_python_cmd" != "z" ] && export __python_cmd=$__old_python_cmd
-    fi
+    pip uninstall -y pillow
+    pip uninstall -y pillow-simd
+    CC="cc -mavx2" pip install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x
 }
 
 get_github_repo()
@@ -2210,7 +2133,6 @@ build_pytorch_text()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_text_version
     # parameter while-loop
@@ -2236,18 +2158,12 @@ build_pytorch_text()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-text-version )
             __pt_text_version="$2"
             shift
             ;;
         -h  | --help )
             usage $__scriptname
-            restore_python_version
             return 0
             ;;
         esac
@@ -2267,7 +2183,7 @@ build_pytorch_text()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     # Replace tcmalloc_minimal with tcmalloc to avoid Segmentation fault during torchtext importing.
@@ -2276,7 +2192,7 @@ build_pytorch_text()
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchtext build failed!"
@@ -2291,7 +2207,6 @@ build_pytorch_text()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -2303,7 +2218,6 @@ build_pytorch_data()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_data_version
     # parameter while-loop
@@ -2327,18 +2241,12 @@ build_pytorch_data()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-data-version )
             __pt_data_version="$2"
             shift
             ;;
         -h  | --help )
             usage $__scriptname
-            restore_python_version
             return 0
             ;;
         esac
@@ -2358,12 +2266,12 @@ build_pytorch_data()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchdata build failed!"
@@ -2378,7 +2286,6 @@ build_pytorch_data()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -2390,7 +2297,6 @@ build_pytorch_audio()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_audio_version
     # parameter while-loop
@@ -2414,18 +2320,12 @@ build_pytorch_audio()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-audio-version )
             __pt_audio_version="$2"
             shift
             ;;
         -h  | --help )
             usage $__scriptname
-            restore_python_version
             return 0
             ;;
         esac
@@ -2445,12 +2345,12 @@ build_pytorch_audio()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchaudio build failed!"
@@ -2465,7 +2365,6 @@ build_pytorch_audio()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -2477,7 +2376,6 @@ build_pytorch_vision()
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
-    local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_vision_version
     local __next_version=false
@@ -2502,11 +2400,6 @@ build_pytorch_vision()
         --install )
             __whl_params=" install"
             ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            shift
-            ;;
         --pt-vision-version )
             __pt_vision_version="$2"
             shift
@@ -2516,7 +2409,6 @@ build_pytorch_vision()
             ;;
         -h  | --help )
             usage $__scriptname
-            restore_python_version
             return 0
             ;;
         esac
@@ -2541,12 +2433,12 @@ build_pytorch_vision()
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        python setup.py clean
     fi
 
     echo "Build parameters ${__whl_params}"
 
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    (set -x;eval ${__env_vars} python setup.py ${__whl_params})
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch torch vision build failed!"
@@ -2561,7 +2453,6 @@ build_pytorch_vision()
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
     return $__result
 }
 
@@ -2575,20 +2466,20 @@ install_pytorch_whls() {
     if [ $whls_count -gt 1 ]; then
         pyfork_revision=$(cd ${PYTORCH_FORK_ROOT} && git rev-parse HEAD)
         echo "installing pyfork version ${pyfork_revision:0:7}"
-        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*${pyfork_revision:0:7}*.whl
+        pip install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*${pyfork_revision:0:7}*.whl
     elif [ $whls_count == 1 ]; then
         printf "Whl detected in ${PYTORCH_FORK_RELEASE_BUILD}/pkgs directory"
-        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
+        pip install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
     else
         echo "Didn't find pytorch_fork whl file"
         exit 1
     fi
-    $__pip_cmd install -U ${PYTORCH_VISION_BUILD}/pkgs/*.whl
+    pip install -U ${PYTORCH_VISION_BUILD}/pkgs/*.whl
     install_pillow_simd
     if [ "${GERRIT_PROJECT}" = "lightning-habana-fork" ];  then
-        $__pip_cmd install -U ${LIGHTNING_HABANA_FORK_BUILD}/pkgs/*.whl --force-reinstall --no-deps
+        pip install -U ${LIGHTNING_HABANA_FORK_BUILD}/pkgs/*.whl --force-reinstall --no-deps
     fi
-    $__pip_cmd install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
+    pip install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
     __install_habana_transformer_engine
 }
 
@@ -2617,7 +2508,7 @@ dsa_debugger()
         return 1
     fi
 
-    local __dsa_debugger_py="$__python_cmd $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/dsa_debugger.py"
+    local __dsa_debugger_py="python $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/dsa_debugger.py"
     ${__dsa_debugger_py} "$@"
 
     return $?
@@ -2631,7 +2522,7 @@ stats_parser()
         return 1
     fi
 
-    local __stats_parser_py="$__python_cmd $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/stats_parser.py"
+    local __stats_parser_py="python $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/stats_parser.py"
     ${__stats_parser_py} "$@"
 
     return $?
