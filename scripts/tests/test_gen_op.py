@@ -102,32 +102,8 @@ def test_ops_generation_e2e(monkeypatch):
     shutil.rmtree(output_dir, ignore_errors=True)
 
     args = Args(output_dir, yaml_path, False, pt_signatures)
-    op_validator_exceptions = {
-        "native_dropout": "",
-        "bitwise_left_shift.Tensor_Scalar": "",
-        "mul.Scalar_out": "",
-        "_foreach_add_.Scalar": "",
-        "_fused_dropout": "",
-        "_reshape_alias": "",
-        "as_strided": "",
-        "squeeze.dims": "",
-        "isfinite": "",
-        "sort.values_stable": "",
-        "convolution_backward_overrideable": "",
-        "prod.int_out": "",
-        "clone": "",
-        "native_group_norm": "",
-        "linear_backward": "",
-        "eq.Scalar_out": "",
-        "__ilshift__.Scalar": "",
-        "softmax_fp8": "",
-        "_native_batch_norm_legit": "",
-        "_deform_conv2d_backward": "",
-        "quantize_per_channel": "",
-        "cast_to_fp8_v2": "",
-        "mixture_of_experts.fp8_fused_weights": "",
-    }
-    generate(args, op_validator_exceptions)
+
+    generate(args)
     args.check_kernel_support = True
     generate_check_kernel_support(args)
 
@@ -318,8 +294,10 @@ def test_parse_params(cpp_sig, out_indices, expected_results):
     assert fc_params == expected_results["fc_params"]
 
 
-def test_check_valid_fields_exception():
+def test_check_valid_fields():
     op_name = "wrong_op"
     op_params = {"guid": "nop", "dtype": ["float"]}
-    with pytest.raises(Exception, match="wrong_op.*dtype"):
-        check_valid_fields(op_name, op_params)
+    check_valid_fields_results = check_valid_fields(op_name, op_params)
+
+    assert len(check_valid_fields_results) == 1
+    assert check_valid_fields_results[0] == "Invalid field for wrong_op: dtype\n"

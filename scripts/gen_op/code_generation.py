@@ -281,8 +281,6 @@ def generate_frontend_functions(fgen, mode):
     # torch registrations
     override_fn = f"habana::{fgen.func}"
     impl = generate_impl(get_aten_opname(fgen.aten_sig), fgen.funsig, override_fn)
-    assert fgen.mapsig not in constants.FN_AUTOGRAD_HPU
-    torch_regs = impl
 
     dtype_defs = generate_dtype_defs(fgen, constants.get_execution_mode_from_string(mode))
 
@@ -292,7 +290,7 @@ def generate_frontend_functions(fgen, mode):
     return (
         dtype_defs,
         op_frontend_functions,
-        torch_regs,
+        impl,
     )
 
 
@@ -532,13 +530,10 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
         param_vars.append(pname)
 
         if cptype == ("Tensor" if is_pytorch_older_than("2.7.0") else "at::Tensor"):
-            if parser.type_is_const(ptype):
-                tfetcher.add(pname)
-            else:
-                tfetcher.add(pname)
-                if not should_skip_inplace_params(fname, pname):
-                    call_args.append(pname)
-                    out_indices.append(i)
+            tfetcher.add(pname)
+            if not parser.type_is_const(ptype) and not should_skip_inplace_params(fname, pname):
+                call_args.append(pname)
+                out_indices.append(i)
 
         if rtype == "void":
             if cptype in (
@@ -1125,7 +1120,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     )
 
 
-def generate_op_meta(cpp_sig, op_name):
+def generate_op_meta(cpp_sig, op_name, op_params):
     xtree = parser.xparse(cpp_sig)
     mapsig = parser.create_map_sig(xtree, cpp_sig)
     rwsig = parser.rewrite_signature(cpp_sig, constants.TYPE_NSMAP) if is_pytorch_older_than("2.7.0") else cpp_sig
@@ -1133,7 +1128,9 @@ def generate_op_meta(cpp_sig, op_name):
     funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
 
     _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: f"{x}")
-    return constants.OpMeta(op_variant=op_name, mapsig=mapsig, funsig=funsig, func=fname)
+    return constants.OpMeta(
+        op_variant=op_name, mapsig=mapsig, funsig=funsig, func=fname, autograd=op_params.get("autograd", False)
+    )
 
 
 def gen_hpu_wrap_ops(op_metas, args, out_dir):
@@ -1148,7 +1145,7 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
         pos = fgen.funsig.find("(")
         impl = generate_impl(fgen.op_variant, fgen.funsig, override_fn)
         header_impls.append(f"{fgen.funsig[:pos]} {fgen.func}{fgen.funsig[pos:]};")
-        if fgen.op_variant in constants.FN_AUTOGRAD_HPU:
+        if fgen.autograd:
             autograd_impls.append(impl)
         else:
             aten_impls.append(impl)
@@ -1225,7 +1222,7 @@ def extract_pt_ops(path, hpu_ops):
         try:
             parser.xparse(cpp_sig)
             op_variant = re.search(r"aten::([^(]*)", m.group(2))[1]
-            all_ops_metas.append(generate_op_meta(cpp_sig, op_variant))
+            all_ops_metas.append(generate_op_meta(cpp_sig, op_variant, {}))
             if op_variant not in hpu_ops:
                 continue
 
@@ -1494,49 +1491,36 @@ def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
         )
 
 
-def check_valid_fields(op_name, op_params):
+def check_valid_fields(op_name, op_params) -> list[str]:
+    exceptions = []
     for field in op_params.keys():
         if field not in constants.AVAILABLE_FIELDS:
-            raise Exception(f"Invalid field for {op_name}: {field}")
+            exceptions.append(f"Invalid field for {op_name}: {field}\n")
+    return exceptions
 
 
-def has_op_validator(op_name, op_params):
-    op_validator_found = False
-    is_custom_op = False
-    wrap_all_versions = False
-    for field in op_params.keys():
-        if field == "hpu_wrap":
-            wrap_all_versions = op_params[field]
-        if field == "op_validator":
-            return True
-        if field == "only_shared_layer":
-            return op_params[field]
-    return wrap_all_versions
+def check_op_validator(op_name, op_params) -> str:
+    if op_params.get("only_shared_layer", False) or op_params.get("hpu_wrap", False):
+        return ""
+    elif "op_validator" not in op_params and "op_validator_exception" not in op_params:
+        return f"{op_name} needed op_validator or op_validator_exception field\n"
+    elif "op_validator" in op_params and "op_validator_exception" in op_params:
+        return f"{op_name} cannot have both op_validator and op_validator_exception fields\n"
+    else:
+        return ""
 
 
-def check_op_params(op_data, op_validator_exceptions):
-    ops_with_validator = []
-    ops_without_validator = []
+def check_op_params(op_data):
+    exceptions = []
 
     for op_name, op_params in op_data:
-        check_valid_fields(op_name, op_params)
+        exceptions.extend(check_valid_fields(op_name, op_params))
+        op_validator_error = check_op_validator(op_name, op_params)
+        if op_validator_error:
+            exceptions.append(op_validator_error)
 
-        if has_op_validator(op_name, op_params):
-            ops_with_validator.append(op_name)
-        else:
-            ops_without_validator.append(op_name)
-
-    ops_with_missing_validator = list(set(ops_without_validator) - set(op_validator_exceptions.keys()))
-    if ops_with_missing_validator:
-        raise Exception(f"Found ops with missing op_validator: {', '.join(ops_with_missing_validator)}")
-
-    unnecessary_validator_exceptions = list(set(ops_with_validator) & set(op_validator_exceptions))
-    if unnecessary_validator_exceptions:
-        raise Exception(
-            f"Found ops in validator exceptions list that have op_validator defined: "
-            f"{', '.join(unnecessary_validator_exceptions)}. Please remove them from"
-            " exceptions list."
-        )
+    if exceptions:
+        raise Exception(f"Found errors during checking yaml params:\n{exceptions}")
 
 
 def get_autograd_class_name(op_name: str) -> str:
@@ -1658,7 +1642,7 @@ def generate_autograd_ops(args, fgens_autograd):
         )
 
 
-def generate(args, op_validator_exceptions=constants.OP_VALIDATOR_EXCEPTIONS):
+def generate(args):
     yaml_ctx = YamlContext(args.yaml)
     pt_ops, errors, all_ops_metas = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
     assert len(errors) == 0
@@ -1671,14 +1655,14 @@ def generate(args, op_validator_exceptions=constants.OP_VALIDATOR_EXCEPTIONS):
     fgens_torchvision = []
     fgens_autograd = []
 
-    check_op_params(yaml_ctx.get_op_data(), op_validator_exceptions)
+    check_op_params(yaml_ctx.get_op_data())
 
     for op_name, op_params in yaml_ctx.get_op_data():
         ctxop = Op(op_name, op_params)
         if ctxop.get_hpu_wrap():
             fndef = pt_ops.get(op_name, None)
             assert fndef is not None, f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml."
-            op_meta = generate_op_meta(fndef.cpp_sig, op_name)
+            op_meta = generate_op_meta(fndef.cpp_sig, op_name, op_params)
             fgens_hpu_wrap_lazy.append(op_meta)
             if fndef.dtdf or ctxop.treat_as_dtdf():
                 fgens_hpu_wrap_eager.append(op_meta)
@@ -1724,8 +1708,6 @@ def generate_check_kernel_support_sigs(fgen):
     op_frontend_functions = ""
 
     # torch registrations
-    assert fgen.mapsig not in constants.FN_AUTOGRAD_HPU
-
     op_validator_generator = get_op_validator_generator(fgen.ctxop, constants.HabanaExecutionMode.COMPILE)
     if op_validator_generator is not None:
         dtype_defs += op_validator_generator.get_validator_data_def(
@@ -2095,7 +2077,7 @@ def generate_check_kernel_support(args):
         if ctxop.get_hpu_wrap():
             fndef = pt_ops.get(op_name, None)
             assert fndef is not None, f"Op {op_name} doesn't exist in the aten namespace."
-            op_meta = generate_op_meta(fndef.cpp_sig, op_name)
+            op_meta = generate_op_meta(fndef.cpp_sig, op_name, op_params)
             fgens_hpu_wrap.append(op_meta)
         elif ctxop.get_custom_op_schema():
             fndef = fndef_from_schema(ctxop.get_custom_op_schema())

@@ -70,11 +70,8 @@ class OpMeta(NamedTuple):
     mapsig: str
     func: str
     funsig: str
+    autograd: bool
 
-
-# List of non-leaf ops we want to override both forward + backward.
-# TODO(https://github.com/pytorch/pytorch/issues/39959)
-FN_AUTOGRAD_HPU = {"matmul", "softmax.int", "dropout"}
 
 if is_pytorch_older_than("2.7.0"):
     TYPE_NSMAP = {
@@ -138,84 +135,9 @@ AVAILABLE_FIELDS = {
     "overwritten_op_names_in_slrg",
     "skip_slrg",
     "treat_as_dtdf",
+    "op_validator_exception",
 }
 
-# List of ops that will not be checked for shared layer support.
-# These exceptions are tracked in SW-213270
-OP_VALIDATOR_EXCEPTIONS = {
-    # op name: reason for lack of op_validator
-    "mixture_of_experts.fp8_fused_weights_scalars": "custom op",
-    "mixture_of_experts.fp8": "custom op",
-    "mixture_of_experts.fp8_scalars": "custom op",
-    "mixture_of_experts.fp8_fused_weights": "custom op",
-    "mixture_of_experts.fp8_fused_weights_scalars_dynamic": "custom op",
-    "mixture_of_experts.fp8_dynamic": "custom op",
-    "mixture_of_experts.fp8_scalars_dynamic": "custom op",
-    "mixture_of_experts.fp8_fused_weights_dynamic": "custom op",
-    "mixture_of_experts.fp8_blockwise": "custom op",
-    "mixture_of_experts.fp8_fused_weights_blockwise": "custom op",
-    "cast_to_fp8": "not implemented yet",
-    "fp8_gemm": "not implemented yet",
-    "_native_batch_norm_legit": "not implemented yet",
-    "_native_batch_norm_legit_no_training": "not implemented yet",
-    "_native_batch_norm_legit.no_stats": "not implemented yet",
-    "_native_batch_norm_legit_functional": "not implemented yet",
-    "native_batch_norm": "not implemented yet",
-    "native_batch_norm.out": "not implemented yet",
-    "native_batch_norm_backward": "not implemented yet",
-    "native_layer_norm": "not implemented yet",
-    "native_layer_norm_backward": "not implemented yet",
-    "_weight_norm_interface": "not implemented yet",
-    "_weight_norm_interface_backward": "not implemented yet",
-    "_prelu_kernel": "not implemented yet",
-    "sdpa_bwd": "custom op",
-    "quantize_per_tensor": "custom op",
-    "quantize_per_tensor.tensor": "custom op",
-    "quantize_per_tensor.tensor2": "custom op",
-    "quantize_per_channel": "custom op",
-    "dequantize_per_channel": "custom op",
-    "dequantize_per_tensor": "custom op",
-    "dequantize_per_tensor.tensor": "custom op",
-    "dequantize_per_tensor.tensor2": "custom op",
-    "deform_conv2d": "custom op",
-    "_deform_conv2d_backward": "custom op",
-    "ctc_loss_custom": "custom op",
-    "ctc_loss_custom_backward": "custom op",
-    "cast_from_fp8": "custom op",
-    "cast_from_fp8.scalar": "custom op",
-    "cast_from_fp8.scalar_list": "custom op",
-    "cast_to_fp8_v2": "custom op",
-    "cast_to_fp8_v2.scalar": "custom op",
-    "cast_to_fp8_v2.scalar_list": "custom op",
-    "cast_to_fp8_hybrid": "custom op",
-    "convert_from_int4": "custom op",
-    "convert_from_uint4": "custom op",
-    "conv2d_fp8": "custom op",
-    "conv2d_fp8.scalar": "custom op",
-    "custom_softmax": "custom op",
-    "fp8_gemm_v2": "custom op",
-    "fp8_gemm_v2.scalar": "custom op",
-    "fp8_gemm_v2.scalar_list": "custom op",
-    "kv_reorder_": "custom op",
-    "scaled_masked_softmax": "custom op",
-    "scaled_masked_triangular_softmax": "custom op",
-    "scaled_triangular_softmax": "custom op",
-    "scaled_triangular_softmax_retain": "custom op",
-    "softmax_fp8": "custom op",
-    "softmax_fp8.Scalar_scales": "custom op",
-    "softmax_fp8.Scalar": "custom op",
-    "ragged_softmax": "custom op",
-    "rms_norm": "custom op",
-    "rms_norm_fast": "custom op",
-    "rms_norm_backward": "custom op",
-    "rms_norm_fast_backward": "custom op",
-    "rotary_pos_embedding": "custom op",
-    "rotary_pos_embedding_backward": "custom op",
-    "in_place_interleave_": "custom op",
-    "sdpa_recomp_bwd": "custom op",
-    "fp8_sdpa_bwd": "custom op",
-    "block_softmax_adjustment": "custom op",
-}
 
 CP_TYPE_CHECK_MAP = {
     "double": "isDouble",
