@@ -316,7 +316,8 @@ class HabanaGraphModule(torch.nn.Module):
             is_reusable = tuple(self.is_reusables)
             if self._has_randoms:
                 inputs = (None, None) + inputs
-                is_reusable = (False, False) + is_reusable
+                if len(is_reusable) > 0:
+                    is_reusable = (False, False) + is_reusable
 
             if self._get_pt_hpu_use_jit_fork:
                 graph = self._jit_ir
