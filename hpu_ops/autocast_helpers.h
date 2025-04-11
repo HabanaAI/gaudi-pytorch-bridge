@@ -319,21 +319,21 @@ struct Hpu_WrapFunction final {
 
 #define Hpu_ADD_NS(RAW_OP) at::RAW_OP
 
-#define Hpu_KERNEL(FUNC, REGISTER_NAME, SIGNATURE)      \
+#define Hpu_KERNEL(FUNC, REGISTER_NAME, ...)            \
   if (lower_list.count(#FUNC)) {                        \
     if (lower_first_ops.count(#FUNC)) {                 \
       m.impl(                                           \
           TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
           &Hpu_WrapFunction<                            \
               Hpu_CastPolicy::lower_first_arg,          \
-              SIGNATURE,                                \
+              __VA_ARGS__,                              \
               &Hpu_ADD_NS(FUNC)>::type::call);          \
     } else {                                            \
       m.impl(                                           \
           TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
           &Hpu_WrapFunction<                            \
               Hpu_CastPolicy::lower_precision_fp,       \
-              SIGNATURE,                                \
+              __VA_ARGS__,                              \
               &Hpu_ADD_NS(FUNC)>::type::call);          \
     }                                                   \
   } else if (fp32_list.count(#FUNC)) {                  \
@@ -341,14 +341,14 @@ struct Hpu_WrapFunction final {
         TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),   \
         &Hpu_WrapFunction<                              \
             Hpu_CastPolicy::fp32,                       \
-            SIGNATURE,                                  \
+            __VA_ARGS__,                                \
             &Hpu_ADD_NS(FUNC)>::type::call);            \
   } else if (promote_list.count(#FUNC)) {               \
     m.impl(                                             \
         TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),   \
         &Hpu_WrapFunction<                              \
             Hpu_CastPolicy::promote,                    \
-            SIGNATURE,                                  \
+            __VA_ARGS__,                                \
             &Hpu_ADD_NS(FUNC)>::type::call);            \
   }
 

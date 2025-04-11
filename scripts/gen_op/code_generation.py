@@ -442,18 +442,28 @@ def gen_cpp_output_file(args, opgroup):
 # for autocast are based on the default lists in autocast_helpers.h file or
 # on the external file provided via env.
 def generate_autocast_ops(op_metas, args):
-    def op_to_skip(function_name, op_name):
-        return (
-            function_name.endswith(("_out", "_"))
-            or any(s in function_name for s in ("_.", "cuda", "cudn", "backward"))
-            or op_name in constants.AUTOCAST_BLOCKLIST
+    def op_to_skip(function_name):
+        return function_name.endswith(("_out", "_")) or any(
+            s in function_name for s in ("_.", "cuda", "cudn", "backward")
         )
 
     def get_registration(op_meta, op_name):
         function_name = op_meta.func
         signature = op_meta.funsig
-        for r in constants.AUTOCAST_REPLACEMENTS:
-            signature = signature.replace(*r)
+        signature_split = signature.split("(")
+        return_type = signature_split[0]
+
+        arguments = signature_split[1]
+        arguments = arguments.replace("SymIntArrayRef", "IntArrayRef")
+        arguments = arguments.replace("c10::SymInt", "int64_t")
+
+        signature = return_type + "(" + arguments
+
+        # If the function signature involves a return type of c10::SymInt
+        # then cpp function name has extra __dispatch_ prefix.
+        if "-> c10::SymInt" in op_meta.mapsig:
+            function_name = "__dispatch_" + function_name
+
         return f'  Hpu_KERNEL({function_name}, "{op_name}", {signature})'
 
     # only ops defined in 'at' namespace are applicable for autocast
@@ -467,7 +477,7 @@ def generate_autocast_ops(op_metas, args):
     ops_registrations = []
     for op_meta in op_metas:
         op_name = op_meta.op_variant
-        if op_to_skip(op_meta.func, op_name) or op_name in ops_not_in_at:
+        if op_to_skip(op_meta.func) or op_name in ops_not_in_at:
             continue
 
         ops_registrations.append(get_registration(op_meta, op_name))
@@ -1739,7 +1749,7 @@ def generate_slrg_stack_generators(args, op_validator_map):
         headers.append(f'#include "{op_validator["validator_header_rel_path"]}"')
 
     print(
-        templates._SLRG_VALIDATOR_HEADERS.format(gen=os.path.basename(sys.argv[0]), headers=str.join("\n", headers)),
+        templates.SLRG_VALIDATOR_HEADERS.format(gen=os.path.basename(sys.argv[0]), headers=str.join("\n", headers)),
         file=gen_h_output_file(args, "slrg/validator_headers"),
     )
 
@@ -1771,7 +1781,7 @@ def generate_slrg_registry_cpp(args, op_validator_map):
                         f'  report_generator->register_op({{"{op_name}", "{op_validator["overload"]}", "{namespace}"}}, &{op_validator["executor_name"]});'
                     )
     print(
-        templates._SLRG_REGISTRY_CPP.format(
+        templates.SLRG_REGISTRY_CPP.format(
             gen=os.path.basename(sys.argv[0]),
             generators=str.join("\n", generators),
             executors=str.join("\n", executors),
@@ -1783,7 +1793,7 @@ def generate_slrg_registry_cpp(args, op_validator_map):
 
 def generate_slrg_registry_h(args):
     print(
-        templates._SLRG_REGISTRY_H.format(gen=os.path.basename(sys.argv[0])),
+        templates.SLRG_REGISTRY_H.format(gen=os.path.basename(sys.argv[0])),
         file=gen_h_output_file(args, "slrg/registry"),
     )
 
