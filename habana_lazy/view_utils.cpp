@@ -1100,7 +1100,8 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
   // view outputs will be added only if the total grad view outputs match the
   // bucket size.
   std::vector<HbLazyTensor> maybe_view_outputs;
-
+  std::lock_guard<std::recursive_mutex> lock(
+      habana_lazy::HbContextArena::Get()->GetMutex());
   for (auto& uid : devctx->tensors_data_opt_order) {
     std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     if (data != nullptr) {

@@ -142,6 +142,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
   HbLazyTensorViews::HandleViewsLiveTensors(
       devctx, is_allreduce, bucket_recent_id);
+  std::lock_guard<std::recursive_mutex> lock(GetMutex());
   for (auto& uid : devctx->tensors_data_opt_order) {
     std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     if (data) {
@@ -162,10 +163,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
       }
     }
   }
-  {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    devctx->clear_tensors_data();
-  }
+  devctx->clear_tensors_data();
   return tensors;
 }
 
