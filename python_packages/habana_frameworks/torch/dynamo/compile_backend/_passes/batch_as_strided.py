@@ -51,7 +51,6 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
     sorted_as_strided_nodes = graph_module.graph.find_nodes(
         op="call_function", target=torch.ops.aten.as_strided.default, sort=True
     )
-
     if len(sorted_as_strided_nodes) <= 1:
         return retval
 
@@ -79,7 +78,6 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
 
         assert len(sorted_partition_nodes) == len(partition_nodes), "Mismatch between as_strideds count"
 
-        # Inserting batch_as_strided node after the last as_strided node of the partition
         with graph_module.graph.inserting_after(sorted_partition_nodes[-1]):
             batch_as_strided_node = graph_module.graph.call_function(
                 torch.ops.hpu.batch_as_strided, (bas_input_nodes, bas_shapes, bas_strides, bas_offsets)
