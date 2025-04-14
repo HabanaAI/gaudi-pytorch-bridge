@@ -695,8 +695,13 @@ PT_HPU_SORT_INDEX_IN_SCATTER_ADD:
 
 PT_LOG_FILE_AMOUNT:
   type: unsigned
-  default: 5
+  default: 50
   doc: "Determine number of files for logging rotation"
+
+PT_LOG_FILE_SIZE_MB:
+  type: unsigned
+  default: 10
+  doc: "Determine max size (MB) of each file for logging rotation"
 
 PT_TOWL_LOG_FILE_AMOUNT:
   type: unsigned

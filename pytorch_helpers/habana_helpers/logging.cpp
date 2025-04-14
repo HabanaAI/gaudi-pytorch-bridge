@@ -49,9 +49,11 @@ static void createModuleLoggerOnDemandForTowl() {
 // log files created when the first message is logged into such logger
 // this is a recommended way of loggers creation
 static void createModuleLoggersOnDemand(LoggerType) {
-  hl_logger::LoggerCreateParams default_params, trace_params;
-  default_params.logFileName = "pytorch_log.txt";
-  default_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
+  hl_logger::LoggerCreateParams logging_params;
+  logging_params.logFileName = "pytorch_log.txt";
+  logging_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
+  logging_params.logFileSize =
+      GET_ENV_FLAG_NEW(PT_LOG_FILE_SIZE_MB) * 1024u * 1024ul;
   hl_logger::createLoggersOnDemand(
       {LoggerType::PT_DEVICE,      LoggerType::PT_KERNEL,
        LoggerType::PT_BRIDGE,      LoggerType::PT_SYNHELPER,
@@ -67,13 +69,14 @@ static void createModuleLoggersOnDemand(LoggerType) {
        LoggerType::PT_CUSTOM,      LoggerType::PT_RECIPE_STATS,
        LoggerType::PT_HPUGRAPH,    LoggerType::PT_CONST_SECTION,
        LoggerType::PT_PYTHON},
-      default_params);
+      logging_params);
 
-  trace_params.logFileName = "pytorch_log.txt";
-  trace_params.defaultLoggingLevel = HLLOG_LEVEL_TRACE;
-  trace_params.forceDefaultLoggingLevel = true;
+  // PT_TRACE logger category is a trick to support generic method
+  // for trace-level logging on any module within PTFuncLog class
+  logging_params.defaultLoggingLevel = HLLOG_LEVEL_TRACE;
+  logging_params.forceDefaultLoggingLevel = true;
+  hl_logger::createLoggerOnDemand(LoggerType::PT_TRACE, logging_params);
 
-  hl_logger::createLoggerOnDemand(LoggerType::PT_TRACE, trace_params);
   // Guarded by additional flag to not enable towl logger
   // by using common flags like LOG_LEVEL_ALL_PT
   if (true or GET_ENV_FLAG_NEW(PT_TOWL_LOG_ENABLE)) {

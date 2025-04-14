@@ -395,7 +395,6 @@ class PTFuncLog {
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD) PT_MOD_SCOPE(MOD, __PRETTY_FUNCTION__, __FUNCTION__)
 
-#define PT_DEVICE_BEGIN PT_MOD_BEGIN(PT_DEVICE)
 #define PT_KERNEL_BEGIN                                           \
   {                                                               \
     bool lazy_mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);          \
@@ -413,22 +412,15 @@ class PTFuncLog {
 #define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PT_KERNEL)
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PT_BRIDGE)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PT_SYNHELPER)
-#define PT_HABHELPER_BEGIN PT_MOD_BEGIN(PT_HABHELPER)
-#define PT_DEVMEM_BEGIN PT_MOD_BEGIN(PT_DEVMEM)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PT_DISTRIBUTED)
-#define PT_LAZY_BEGIN PT_MOD_BEGIN(PT_LAZY)
 
 #define PT_MOD_END(MOD)
 
-#define PT_DEVICE_END PT_MOD_END(PT_DEVICE)
 #define PT_KERNEL_END PT_MOD_END(PT_KERNEL)
 #define PT_OTHER_OPS_END PT_MOD_END(PT_KERNEL)
 #define PT_BRIDGE_END PT_MOD_END(PT_BRIDGE)
 #define PT_SYNHELPER_END PT_MOD_END(PT_SYNHELPER)
-#define PT_HABHELPER_END PT_MOD_END(PT_HABHELPER)
-#define PT_DEVMEM_END PT_MOD_END(PT_DEVMEM)
 #define PT_DISTRIBUTED_END PT_MOD_END(PT_DISTRIBUTED)
-#define PT_LAZY_END PT_MOD_END(PT_LAZY)
 
 #define PT_MOD_SCOPE(MOD, PNAME, NAME)                             \
   std::optional<PTFuncLog> ptFuncLogger{};                         \
