@@ -18,6 +18,7 @@
 
 at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other); // {"schema": "aten::__ilshift__.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)", "dispatch": "True", "default": "False"}
 void _foreach_add_(at::TensorList self, const at::Scalar & scalar); // {"schema": "aten::_foreach_add_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()", "dispatch": "True", "default": "True"}
+void _foreach_log10_(at::TensorList self); // {"schema": "aten::_foreach_log10_(Tensor(a!)[] self) -> ()", "dispatch": "True", "default": "False"}
 ::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, ::std::optional<at::Generator> generator); // {"schema": "aten::_fused_dropout(Tensor self, float p, Generator? generator=None) -> (Tensor, Tensor)", "dispatch": "True", "default": "False"}
 ::std::tuple<at::Tensor,at::Tensor> native_dropout(const at::Tensor & input, double p, ::std::optional<bool> train); // {"schema": "aten::native_dropout(Tensor input, float p, bool? train) -> (Tensor, Tensor)", "dispatch": "True", "default": "False"}
 at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, ::std::optional<c10::SymInt> storage_offset); // {"schema": "aten::as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)", "dispatch": "True", "default": "False"}

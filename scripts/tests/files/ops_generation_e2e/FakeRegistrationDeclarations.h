@@ -18,6 +18,7 @@
 
 Tensor & __ilshift__(Tensor & self, const Scalar & other); // {"schema": "aten::__ilshift__.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)", "dispatch": "True", "default": "False"}
 void _foreach_add_(TensorList self, const Scalar & scalar); // {"schema": "aten::_foreach_add_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()", "dispatch": "True", "default": "False"}
+void _foreach_log10_(at::TensorList self); // {"schema": "aten::_foreach_log10_(Tensor(a!)[] self) -> ()", "dispatch": "True", "default": "False"}
 ::std::tuple<Tensor,Tensor> _fused_dropout(const Tensor & self, double p, std::optional<Generator> generator); // {"schema": "aten::_fused_dropout(Tensor self, float p, Generator? generator=None) -> (Tensor, Tensor)", "dispatch": "True", "default": "False"}
 ::std::tuple<Tensor,Tensor> native_dropout(const Tensor & input, double p, std::optional<bool> train); // {"schema": "aten::native_dropout(Tensor input, float p, bool? train) -> (Tensor, Tensor)", "dispatch": "True", "default": "False"}
 Tensor as_strided(const Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, std::optional<c10::SymInt> storage_offset); // {"schema": "aten::as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)", "dispatch": "True", "default": "False"}

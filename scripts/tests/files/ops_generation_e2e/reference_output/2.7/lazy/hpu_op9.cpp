@@ -10,6 +10,7 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
+#include "_foreach_log10.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
 
@@ -21,6 +22,7 @@ using torch::jit::Stack;
 
 namespace habana {
 
+CheckNodeWithSharedLayerValidator validator__foreach_log10_("_foreach_log10_", UnaryForeachLog10SharedMeta, habana_helpers::HabanaExecutionMode::LAZY);
 
 
 ::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_group_norm(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, c10::SymInt N, c10::SymInt C, c10::SymInt HxW, int64_t group, double eps) {

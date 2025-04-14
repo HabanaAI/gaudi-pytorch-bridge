@@ -63,6 +63,7 @@ class OpGen(NamedTuple):
     fc_params: Any
     op_variant: str
     ns: str
+    only_slrg: bool
 
 
 class OpMeta(NamedTuple):
@@ -115,6 +116,7 @@ AVAILABLE_FIELDS = {
     "lazy",
     "no_compute_flag",
     "only_shared_layer",
+    "only_slrg",
     "op_backend",
     "op_frontend",
     "op_validator",

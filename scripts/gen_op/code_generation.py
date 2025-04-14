@@ -279,12 +279,12 @@ def generate_dtype_defs(fgen, execution_mode_for_shared_layer):
 def generate_frontend_functions(fgen, mode):
     # torch registrations
     override_fn = f"habana::{fgen.func}"
-    impl = generate_impl(get_aten_opname(fgen.aten_sig), fgen.funsig, override_fn)
+    impl = generate_impl(get_aten_opname(fgen.aten_sig), fgen.funsig, override_fn) if not fgen.only_slrg else ""
 
     dtype_defs = generate_dtype_defs(fgen, constants.get_execution_mode_from_string(mode))
 
     op_frontend_functions = fgen.op_frontend_lazy if mode == "lazy" else fgen.op_frontend_eager
-    op_frontend_functions += "\n\n"
+    op_frontend_functions = op_frontend_functions + "\n\n" if op_frontend_functions is not None else ""
 
     return (
         dtype_defs,
@@ -371,7 +371,8 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     fallback_check_decls = ""
     forward_decls = ""
     for fgen in fgens:
-        reg_decls += f"{fgen.rwsig};\n"
+        if not fgen.only_slrg:
+            reg_decls += f"{fgen.rwsig};\n"
 
         early_exit_fun = fgen.ctxop.get_early_exit_fun()
         if early_exit_fun is not None and early_exit_fun not in early_exit_fns:
@@ -1031,6 +1032,7 @@ def get_op_group(opname):
 
 def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False, ns="aten"):
     dtdf = fndef.dtdf or ctxop.treat_as_dtdf()
+    only_slrg = ctxop.get_only_slrg()
     tree = parser.parse(fndef.cpp_sig)
     xtree = parser.xparse(fndef.cpp_sig)
     mapsig = parser.create_map_sig(xtree, fndef.cpp_sig)
@@ -1060,17 +1062,18 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
 
     op_backend = None
     op_backend_class = None
-    if ctxop.get_override_fn():
-        assert (
-            ctxop.get_op_frontend_class() == "LazyOp" and ctxop.get_op_backend_class() == "OpBackend"
-        ), f"{op_name} has defined override_fn, it cannot take op_frontend or op_backend"
-    elif not ctxop.get_only_shared_layer():
-        op_backend_class = f'Gen{op_name.replace(".", "_")}'
-        op_backend = get_op_backend_class_impl(ctxop, fname, op_backend_class, len(call_args), param_vars)
+    if not only_slrg:
+        if ctxop.get_override_fn():
+            assert (
+                ctxop.get_op_frontend_class() == "LazyOp" and ctxop.get_op_backend_class() == "OpBackend"
+            ), f"{op_name} has defined override_fn, it cannot take op_frontend or op_backend"
+        elif not ctxop.get_only_shared_layer():
+            op_backend_class = f'Gen{op_name.replace(".", "_")}'
+            op_backend = get_op_backend_class_impl(ctxop, fname, op_backend_class, len(call_args), param_vars)
 
     op_frontend_eager = None
     blocklisted_frontends = ctxop.get_frontend_blocklist()
-    if dtdf and "eager" not in blocklisted_frontends:
+    if dtdf and "eager" not in blocklisted_frontends and not only_slrg:
         op_frontend_eager = eager_frontend(
             ctxop,
             tfetcher,
@@ -1089,7 +1092,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         ctxop.set_lazy()
 
     op_frontend_lazy = None
-    if is_check_kernel_support or "lazy" not in blocklisted_frontends:
+    if is_check_kernel_support or "lazy" not in blocklisted_frontends and not only_slrg:
         op_frontend_lazy = lazy_frontend(
             ctxop,
             tfetcher,
@@ -1126,6 +1129,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         fc_params=fc_params,
         op_variant=op_name,
         ns=ns,
+        only_slrg=only_slrg,
     )
 
 
@@ -1392,7 +1396,7 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_fil
 
 def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
     frontend_func = f"op_frontend_{out_dir}"
-    fgens_filtered = [x for x in fgens if getattr(x, frontend_func) is not None]
+    fgens_filtered = [x for x in fgens if getattr(x, frontend_func) is not None or (x.only_slrg and out_dir == "lazy")]
     ops_count = len(fgens_filtered)
     num_fgens_per_shard = ops_count // NUM_SHARDS
     gen_file_idx = 0
@@ -2090,21 +2094,22 @@ def generate_check_kernel_support(args):
 
     for op_name, op_params in yaml_ctx.get_op_data():
         ctxop = Op(op_name, op_params)
-        if ctxop.get_hpu_wrap():
-            fndef = pt_ops.get(op_name, None)
-            assert fndef is not None, f"Op {op_name} doesn't exist in the aten namespace."
-            op_meta = generate_op_meta(fndef.cpp_sig, op_name, op_params)
-            fgens_hpu_wrap.append(op_meta)
-        elif ctxop.get_custom_op_schema():
-            fndef = fndef_from_schema(ctxop.get_custom_op_schema())
-            fgen_custom = generate_op(fndef, op_name, ctxop, op_params, True)
-            fgens_custom.append(fgen_custom)
-        else:
-            fndef = pt_ops.get(op_name, None)
-            if fndef is None:
-                print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
-                continue
-            fgens_native.append(generate_op(fndef, op_name, ctxop, op_params, True))
+        if not ctxop.get_only_slrg():
+            if ctxop.get_hpu_wrap():
+                fndef = pt_ops.get(op_name, None)
+                assert fndef is not None, f"Op {op_name} doesn't exist in the aten namespace."
+                op_meta = generate_op_meta(fndef.cpp_sig, op_name, op_params)
+                fgens_hpu_wrap.append(op_meta)
+            elif ctxop.get_custom_op_schema():
+                fndef = fndef_from_schema(ctxop.get_custom_op_schema())
+                fgen_custom = generate_op(fndef, op_name, ctxop, op_params, True)
+                fgens_custom.append(fgen_custom)
+            else:
+                fndef = pt_ops.get(op_name, None)
+                if fndef is None:
+                    print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
+                    continue
+                fgens_native.append(generate_op(fndef, op_name, ctxop, op_params, True))
 
     generate_check_kernel_support_frontend(
         args,

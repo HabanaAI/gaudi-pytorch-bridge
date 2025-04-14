@@ -45,6 +45,7 @@
 #  - override_fn - function for full override of the op frontend and backend.
 #  - lazy - separate flow for lazy mode.
 #  - skip_slrg - skip automatic documentation generation by shared layer report generator (has an effect only in non-custom ops), example: torch.nn.functional
+#  - only_slrg - generate validator only for shared layer report generator purposes
 #  - namespaces - a list of namespaces in which the specified op occurs (for slrg purposes)
 #  - pytorch_module_names - module names (list) associated with the op, required when "torch.nn" appears in the "namespaces" field
 #  - overwritten_op_names_in_slrg - op names (list) displayed in the report for all namespaces except torch.nn:

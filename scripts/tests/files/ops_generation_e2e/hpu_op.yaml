@@ -250,3 +250,8 @@ cast_to_fp8_v2:
   out_ids: [0, 0]
   autograd: true
   op_validator_exception: custom_op
+
+_foreach_log10_:
+  only_slrg: true
+  namespaces: [torch]
+  op_validator: UnaryForeachLog10SharedMeta

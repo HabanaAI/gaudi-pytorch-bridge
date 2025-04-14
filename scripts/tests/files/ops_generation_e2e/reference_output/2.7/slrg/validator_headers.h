@@ -17,4 +17,5 @@
 #include "generated/lazy/addbmm.h"
 #include "generated/lazy/bucketize.h"
 #include "generated/lazy/elu.h"
+#include "generated/lazy/_foreach_log10.h"
 
