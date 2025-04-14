@@ -36,8 +36,21 @@ std::shared_ptr<void> FillDequantizeNF4Params(
 
 void DequantizeNF4::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto meta = DequantizeNF4Meta(stack)[0];
+  auto sizes = stack[0].toTensor().sizes().vec();
   size_t size = 0;
   auto params = FillDequantizeNF4Params(stack, size);
+  // Need to this cast because we are getting uint8 dtype
+  // need to convert to packed_nf4 dtype
+  auto cast_to_NF4 = OpBackend::BuildNode(
+      this,
+      graph,
+      {"reinterpret_cast",
+       {syn_in(0)},
+       {{sizes,
+         c10::ScalarType::Byte,
+         std::nullopt,
+         DATA_TENSOR,
+         syn_type_packed_nf4}}});
   // change the guid dtype based on meta dtype
   guid_ = get_guid_with_precision(
       [] {
@@ -46,7 +59,7 @@ void DequantizeNF4::AddNode(sh::graph& graph, const at::Stack& stack) {
       }(),
       meta.dtype);
 
-  std::vector<synTensor> inputs{syn_in(0), syn_in(1)};
+  std::vector<synTensor> inputs{cast_to_NF4[0].get(), syn_in(1)};
   auto result = OpBackend::BuildNode(
       this,
       graph,
