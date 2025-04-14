@@ -137,12 +137,16 @@ void HPUDeviceContextImpl::Finish() {
   synapse_helpers::MemoryStats stats;
   device_->get_device_memory().get_memory_stats(&stats);
 
-  // last digit is Device::id where the statistics are taken from
-  const std::string pb_name("peak_bytes_" + std::to_string(device_->id()));
+  // Currently statistic is device independent. device_->id() can be added if needed
+  // The backend device maximum bytes in use
+  const std::string pb_name("peak_bytes");
   const std::string pb_val(std::to_string(stats.peak_bytes_in_use));
+  // The backend device internal memory used
+  const std::string wrksp_name("workspace_bytes");
+  const std::string wrksp_val(std::to_string(stats.scratch_mem_in_use));
 
   habana_helpers::EmitEvent(habana_helpers::EventDispatcher::Topic::CTX_FINISH_BEFORE,
-                            {{pb_name, pb_val}});
+                            {{pb_name, pb_val}, {wrksp_name, wrksp_val}});
 
   lazy_compile_thread_pool_.reset();
   recipe_cache_.reset();
