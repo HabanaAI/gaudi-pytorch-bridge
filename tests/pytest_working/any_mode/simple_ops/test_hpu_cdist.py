@@ -30,8 +30,8 @@ from test_utils import (
 )
 
 dtypes = [torch.float32, torch.bfloat16, torch.float16]
-
 tols = {torch.float32: 2e-7, torch.bfloat16: 3e-2, torch.float16: 2e-3}
+tols_bwd = {torch.float32: 1.5e-6, torch.bfloat16: 3e-2, torch.float16: 2e-3}
 
 compute_modes = ["use_mm_for_euclid_dist_if_necessary", "use_mm_for_euclid_dist", "donot_use_mm_for_euclid_dist"]
 compute_mode_default = compute_modes[0]
@@ -66,6 +66,42 @@ def common_hpu_cdist(shapes, dtype, p, compute_mode, torch_op_label):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("_cdist_forward")
+
+
+def common_hpu_cdist_backward(shapes, dtype, p, compute_mode):
+    x1 = torch.rand(shapes[0], dtype=dtype)
+    x2 = torch.rand(shapes[1], dtype=dtype)
+    x1_h = x1.to("hpu")
+    x2_h = x2.to("hpu")
+    x1.requires_grad = True
+    x2.requires_grad = True
+    x1_h.requires_grad = True
+    x2_h.requires_grad = True
+
+    compute_mode = compute_modes.index(compute_mode)
+    compute_mode = None if compute_mode == 0 else compute_mode
+
+    def fn_bwd(x1, x2, p, compute_mode):
+        x1.retain_grad()
+        x2.retain_grad()
+        cdist = torch.ops.aten._cdist_forward(x1, x2, p, compute_mode)
+        grad = torch.ones_like(cdist)
+        cdist.backward(grad)
+        return x1.grad, x2.grad
+
+    fn_bwd_h = compile_function_if_compile_mode(fn_bwd)
+
+    dst = fn_bwd(x1.to(torch.float32), x2.to(torch.float32), p, compute_mode)
+    dst_x1 = dst[0].to(dtype)
+    dst_x2 = dst[1].to(dtype)
+    dst_h_x1, dst_h_x2 = fn_bwd_h(x1_h, x2_h, p, compute_mode)
+
+    tol = tols_bwd[dtype]
+    compare_tensors(dst_h_x1, dst_x1, atol=tol, rtol=tol)
+    compare_tensors(dst_h_x2, dst_x2, atol=tol, rtol=tol)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("_cdist_backward")
 
 
 @pytest.mark.parametrize(
@@ -119,3 +155,13 @@ def test_hpu_cdist_dtypes(shapes, dtype, p, compute_mode, torch_op_label):
 @pytest.mark.parametrize("torch_op_label", torch_ops_labels, ids=format_tc)
 def test_hpu_cdist_ps(shapes, dtype, p, compute_mode, torch_op_label):
     common_hpu_cdist(shapes, dtype, p, compute_mode, torch_op_label)
+
+
+@pytest.mark.parametrize(
+    "shapes", [[(1, 1), (1, 1)], [(1, 3), (1, 3)], [(3, 1), (3, 1)], [(3, 2), (2, 2)], [(3, 4), (4, 4)]], ids=format_tc
+)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+@pytest.mark.parametrize("p", [0.0, 1.0, 2.0, math.inf], ids=format_tc)
+@pytest.mark.parametrize("compute_mode", compute_modes, ids=format_tc)
+def test_hpu_cdist_backward(shapes, dtype, p, compute_mode):
+    common_hpu_cdist_backward(shapes, dtype, p, compute_mode)

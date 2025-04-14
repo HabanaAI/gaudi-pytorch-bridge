@@ -1220,6 +1220,15 @@ _cdist_forward:
   op_validator: check-node-with-shared-layer
   skip_slrg: true # TORCH_CHECK inside output_meta
 
+_cdist_backward:
+  output_meta: CdistBwdMeta
+  custom_fill_params: FillCdistBwdParams
+  guid: cdist_bwd
+  out_ids: [1]
+  op_backend: CdistBwd
+  op_validator: CdistBwdSharedMeta
+  namespaces: [torch.ops.aten]
+
 _pdist_forward:
   output_meta: PdistFwdMeta
   custom_fill_params: FillPdistFwdParams

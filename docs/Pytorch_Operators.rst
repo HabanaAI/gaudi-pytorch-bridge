@@ -520,6 +520,7 @@ zeros                                    Yes      Yes      Yes     Yes       No 
 zeros_like                               Yes      Yes      Yes     Yes       No       Yes       Yes       Yes      Yes    torch
 _local_scalar_dense                      Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.ops.aten
 _pdist_backward                          Yes      Yes      Yes     No        No       No        No        No       No     torch.ops.aten
+_cdist_backward                          Yes      Yes      Yes     No        No       No        No        No       No     torch.ops.aten
 alias                                    Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch.ops.aten
 glu_jvp                                  Yes      Yes      Yes     No        No       No        No        No       No     torch.ops.aten
 im2col                                   Yes      Yes      Yes     No        No       No        No        No       No     torch.ops.aten
