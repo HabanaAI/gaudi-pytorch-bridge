@@ -14,12 +14,12 @@ repos:
       - id: cmake-format
         additional_dependencies: ["pyyaml"]
   - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
-    rev: v10.0.1
+    rev: v16.0.6
     hooks:
       - id: git-clang-format
         exclude: ^(scripts/tests/files/|.devops/patches/)
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
+    rev: 7.2.0
     hooks:
       - id: flake8
         name: TorchFix
@@ -49,7 +49,7 @@ repos:
       - id: forbid-binary
       - id: script-must-have-extension
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.6
+    rev: v0.11.5
     hooks:
       - id: ruff
         args: [--fix]
@@ -86,7 +86,7 @@ repos:
   #             - --fuzzy-match-generates-todo
   #             - --use-current-year
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.29.0
+    rev: v1.37.0
     hooks:
       - id: yamllint
         files: \.ya?ml$

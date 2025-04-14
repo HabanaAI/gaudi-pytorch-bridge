@@ -542,7 +542,7 @@ class HabanaDataLoader:
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get("dataset", args[0] if args else None)
         dataloader_type = None
-        if isinstance(dataset, torchvision.datasets.ImageFolder) or isinstance(dataset, ImageFolderWithManifest):
+        if isinstance(dataset, torchvision.datasets.ImageFolder | ImageFolderWithManifest):
             dataloader_type = ResnetDataLoader
         elif _is_coco_dataset(dataset):
             self.DeviceType = htexp._get_device_type()

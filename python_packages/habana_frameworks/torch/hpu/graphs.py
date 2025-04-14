@@ -528,7 +528,7 @@ def get_user_input_tensor_list(inputs, tlist):
     if isinstance(inputs, dict):
         for inp in inputs.items():
             tlist = get_user_input_tensor_list(inp, tlist)
-    elif isinstance(inputs, list) or isinstance(inputs, tuple):
+    elif isinstance(inputs, list | tuple):
         for inp in inputs:
             tlist = get_user_input_tensor_list(inp, tlist)
     elif is_dataclass(inputs):

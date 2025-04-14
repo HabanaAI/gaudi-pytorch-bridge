@@ -232,7 +232,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         # UP038 Use `X | Y` in `isinstance` call instead of `(X, Y)`
         # however, arg maybe a UnionType which cannot follow the rule UP038. You'll get
         # TypeError: unsupported operand type(s) for |: 'types.UnionType' and 'function
-        if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, namedtuple):
+        if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, namedtuple):  # noqa SIM101
             return self._get_jit_val_from_iterable(arg, parameter)
 
         raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. " "Please report a bug.")

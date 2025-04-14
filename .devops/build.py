@@ -149,7 +149,7 @@ def call_with_error_logging(cmd):
 
 
 def ensure_icecc_setup():
-    lsb_release = sp.check_output("lsb_release -d".split(), encoding="ascii")
+    lsb_release = sp.check_output(["lsb_release", "-d"], encoding="ascii")
     if "Ubuntu" not in lsb_release and "Debian" not in lsb_release:
         log.fatal("--use-icecc flag only supported for dpkg-based distros")
         sys.exit(1)
@@ -160,8 +160,8 @@ def ensure_icecc_setup():
         ensure_iceccd_started()
     else:
         log.info("icecc not installed. Installing and doing setup...")
-        sp.check_call("sudo apt update".split())
-        sp.check_call("sudo apt install icecc -y".split())
+        sp.check_call(["sudo", "apt", "update"])
+        sp.check_call(["sudo", "apt", "install", "icecc", "-y"])
         sp.check_call(
             [
                 "sudo",
@@ -171,7 +171,7 @@ def ensure_icecc_setup():
                 "/etc/icecc/icecc.conf",
             ]
         )
-        sp.check_call("sudo systemctl restart iceccd".split())
+        sp.check_call(["sudo", "systemctl", "restart", "iceccd"])
 
 
 def ensure_iceccd_started():
@@ -179,7 +179,7 @@ def ensure_iceccd_started():
 
     if iceccd_stopped:
         log.info("iceccd was stopped. Trying to start it...")
-        sp.check_call("sudo systemctl start iceccd".split())
+        sp.check_call(["sudo", "systemctl", "start", "iceccd"])
 
 
 def get_release_version():

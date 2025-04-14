@@ -84,18 +84,10 @@ def get_node_args(node: torch.fx.Node):
 
         # There are two cases, resulting unwrapped args could be again a tuple or directly a node.
         # Code assumes something iterable so if it's just a a single node, then do not unwrap it.
-        if (
-            isinstance(node.args[0], tuple)
-            or isinstance(node.args[0], list)
-            or isinstance(node.args[0], torch.fx.immutable_collections.immutable_list)
-        ):
+        if isinstance(node.args[0], tuple | list | torch.fx.immutable_collections.immutable_list):
             args = node.args[0]
 
-    if (
-        isinstance(args, tuple)
-        or isinstance(args, list)
-        or isinstance(args, torch.fx.immutable_collections.immutable_list)
-    ):
+    if isinstance(args, tuple | list | torch.fx.immutable_collections.immutable_list):
         cleaned_args = []
         for arg in args:
             if isinstance(arg, torch.fx.Node):
