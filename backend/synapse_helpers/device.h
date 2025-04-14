@@ -146,6 +146,7 @@ class device {
 
   void cleanup();
   void flush_stream_events();
+  void flush_host_events();
 
   // Function passed here will be called at the begining od device dtor.
   void register_framework_specific_cleanup(

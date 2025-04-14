@@ -36,8 +36,8 @@
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "backend/synapse_helpers/util.h"
 #include "common/utils.h"
-#include "habana_helpers/towl.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/fallback_helper.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
@@ -1068,6 +1068,20 @@ void device::delete_stream(hpuStream_t id) {
   streams_.erase(id);
 }
 
+void device::flush_host_events() {
+  habana_helpers::AutoNoGIL gil_release;
+  std::vector<uint64_t> addrs;
+  {
+    std::unique_lock<std::mutex> lock(host_event_mutex_);
+    for (auto& p : addr_host_event_map_) {
+      addrs.push_back(p.first);
+    }
+  }
+  for (auto addr : addrs) {
+    wait_for_host_event(addr);
+  }
+}
+
 void device::flush_stream_events() {
   habana_helpers::AutoNoGIL gil_release;
   {
@@ -1240,10 +1254,15 @@ inline bool device::copy_data_to_device_(
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
         done_cb();
-        towl::emitCopyFinished("h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
+        towl::emitCopyFinished(
+            "h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
         locked = nullptr;
       });
-  towl::emitCopyLaunch("h2d", mapped_cpu_data, reinterpret_cast<void*>(locked->at(0)), total_bytes);
+  towl::emitCopyLaunch(
+      "h2d",
+      mapped_cpu_data,
+      reinterpret_cast<void*>(locked->at(0)),
+      total_bytes);
   return true;
 }
 
@@ -1405,7 +1424,12 @@ synapse_error device::copy_data_to_device(
         towl::emitCopyMultipleFinished("h2d", locked);
         locked = nullptr;
       });
-  towl::emitCopyMultipleLaunch("h2d", mapped_srcs.data(), locked_dsts.data(), lens.data(), transfers.size());
+  towl::emitCopyMultipleLaunch(
+      "h2d",
+      mapped_srcs.data(),
+      locked_dsts.data(),
+      lens.data(),
+      transfers.size());
   return {};
 }
 
@@ -1501,11 +1525,16 @@ synapse_error device::copy_data_to_host(
           host_memory_.free((void*)dst_ptr);
         }
         done_cb();
-        towl::emitCopyFinished("d2h", reinterpret_cast<void*>(locked->at(0)), dst_ptr);
+        towl::emitCopyFinished(
+            "d2h", reinterpret_cast<void*>(locked->at(0)), dst_ptr);
         locked = nullptr;
       });
 
-  towl::emitCopyLaunch("d2h", reinterpret_cast<void*>(locked->at(0)), mapped_destination, total_bytes);
+  towl::emitCopyLaunch(
+      "d2h",
+      reinterpret_cast<void*>(locked->at(0)),
+      mapped_destination,
+      total_bytes);
   return {};
 }
 
@@ -1534,11 +1563,18 @@ synapse_error device::copy_data_within_device(
   }
   auto done_cb = [unref_cb, locked]() mutable {
     unref_cb();
-    towl::emitCopyFinished("d2d", reinterpret_cast<void*>(locked->at(0)), reinterpret_cast<void*>(locked->at(1)));
+    towl::emitCopyFinished(
+        "d2d",
+        reinterpret_cast<void*>(locked->at(0)),
+        reinterpret_cast<void*>(locked->at(1)));
     locked = nullptr;
   };
   sem_.add_producer({dst_event_addr}, stream_handle, std::move(done_cb));
-  towl::emitCopyLaunch("d2d", reinterpret_cast<void*>(locked->at(0)), reinterpret_cast<void*>(locked->at(1)), total_bytes);
+  towl::emitCopyLaunch(
+      "d2d",
+      reinterpret_cast<void*>(locked->at(0)),
+      reinterpret_cast<void*>(locked->at(1)),
+      total_bytes);
   return {};
 }
 
@@ -1597,7 +1633,12 @@ synapse_error device::copy_data_within_device(
     record_and_wait_for_event(
         stream_handle, *next_operation_stream, std::move(done_cb));
   }
-  towl::emitCopyMultipleLaunch("d2d", locked_srcs.data(), locked_dsts.data(), lens.data(), transfers.size());
+  towl::emitCopyMultipleLaunch(
+      "d2d",
+      locked_srcs.data(),
+      locked_dsts.data(),
+      lens.data(),
+      transfers.size());
   return {};
 } // namespace synapse_helpers
 
@@ -1793,6 +1834,11 @@ void device::synchronize() {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synDeviceSynchronize failed.");
   }
+  if (GET_ENV_FLAG_NEW(PT_WAIT_FOR_ALL_FUTURES_IN_CLEANUP)) {
+    sem_.wait_for_all_futures();
+  }
+  flush_stream_events();
+  flush_host_events();
 }
 
 void device::release() {
