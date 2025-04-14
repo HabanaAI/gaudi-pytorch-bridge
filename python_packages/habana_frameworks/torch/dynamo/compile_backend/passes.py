@@ -354,7 +354,7 @@ def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scal
 
     if (
         h2d_scales_enabled
-        and node_arg.meta["output_dtypes"][0] == torch.float
+        and node_arg.meta["output_dtypes"][0] in [torch.float, torch.bfloat16]
         and node_arg.meta["output_shapes"][0] == torch.Size([])
     ):
         idx_range = ops_to_scales_idx.get(node.target.__name__)

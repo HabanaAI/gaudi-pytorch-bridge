@@ -30,7 +30,7 @@ namespace habana {
 namespace graph {
 
 using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
-using H2dScalesIndices = std::vector<size_t>;
+using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
 
 class GraphExec {
  public:
@@ -104,7 +104,7 @@ class GraphExec {
   bool is_first_launch = true;
   bool m_is_pipeline_supported = false;
   std::shared_ptr<DynamicGraphMetaData> m_dgraph_meta = nullptr;
-  H2dScalesIndices m_idx_of_h2d_scales;
+  H2dScalesIndicesNames m_h2d_scales_idx_names;
   DynamicPatchingData m_ds_patch_data;
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;

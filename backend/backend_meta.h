@@ -83,7 +83,8 @@ enum class HostDataType {
   INT32_T = 1,
   UINT32_T = 2,
   UINT64_T = 3,
-  FLOAT_T = 4
+  FLOAT_T = 4,
+  BFLOAT16_T = 5
 };
 
 inline constexpr std::string_view to_string(const HostDataType& t) {
@@ -98,6 +99,8 @@ inline constexpr std::string_view to_string(const HostDataType& t) {
       return "UINT64";
     case HostDataType::FLOAT_T:
       return "FLOAT";
+    case HostDataType::BFLOAT16_T:
+      return "BFLOAT16";
   }
   return "<UNKNOWN_HOST_DATA_TYPE>";
 }

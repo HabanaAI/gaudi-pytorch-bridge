@@ -22,25 +22,33 @@ namespace habana_lazy {
 
 namespace {
 
-at::Tensor create_h2d_scale(void* scale) {
+at::Tensor create_h2d_scale(const at::Tensor& scale) {
+  const auto dtype = scale.scalar_type();
   auto scale_tensor = habana_lazy::empty_hpu_lazy(
-      {1}, at::ScalarType::Float, std::nullopt, false, HOST_TO_DEVICE_TENSOR);
+      {1}, dtype, std::nullopt, false, HOST_TO_DEVICE_TENSOR);
 
   auto hl_params_shape =
       habana_lazy::GetOrCreateHbLazyTensor(scale_tensor, at::kHPU);
   auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
   auto tmeta{habana::get_tensor_extra_meta(hl_param_internal)};
+  const auto is_float = dtype == at::ScalarType::Float;
 
   tmeta->set_host_data(
-      scale, {1}, sizeof(float_t), habana::HostDataType::FLOAT_T);
+      scale.data_ptr(),
+      {1},
+      is_float ? sizeof(float_t) : sizeof(at::BFloat16),
+      is_float ? habana::HostDataType::FLOAT_T
+               : habana::HostDataType::BFLOAT16_T);
 
   return scale_tensor;
 }
 
-bool is_cpu_float_0d_tensor(const std::optional<at::Tensor>& tensor) {
+bool is_cpu_float_bfloat_0d_tensor(const std::optional<at::Tensor>& tensor) {
   return tensor.has_value() and tensor.value().defined() and
       tensor->device().is_cpu() and
-      tensor->scalar_type() == at::ScalarType::Float and tensor->dim() == 0;
+      (tensor->scalar_type() == at::ScalarType::Float or
+       tensor->scalar_type() == at::ScalarType::BFloat16) and
+      tensor->dim() == 0;
 }
 
 } // namespace
@@ -50,13 +58,13 @@ std::optional<at::Tensor> maybe_convert_to_h2d(
     const bool enabled,
     const std::string_view op_name) {
   if (enabled) {
-    if (is_cpu_float_0d_tensor(tensor)) {
+    if (is_cpu_float_bfloat_0d_tensor(tensor)) {
       PT_BRIDGE_DEBUG(
           "CPU scale of op ",
           op_name,
           " was converted to H2D tensor with value=",
           tensor->item().toDouble());
-      return create_h2d_scale(tensor->data_ptr());
+      return create_h2d_scale(tensor.value());
     } else {
       PT_BRIDGE_WARN(
           "H2D scales flow is enabled, but op ",

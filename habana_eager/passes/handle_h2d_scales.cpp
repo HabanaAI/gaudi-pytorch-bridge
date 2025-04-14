@@ -18,7 +18,7 @@
 
 namespace habana::graph::pass {
 
-using H2dScalesIndices = std::vector<size_t>;
+using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
 
 namespace {
 std::vector<size_t> get_scales_indices(std::string_view node_name) {
@@ -52,8 +52,9 @@ std::vector<size_t> get_scales_indices(std::string_view node_name) {
 struct HandleH2dScalesPass {
   explicit HandleH2dScalesPass(
       std::shared_ptr<torch::jit::Graph> graph,
-      H2dScalesIndices& idx_of_h2d_scales)
-      : m_graph(std::move(graph)), m_idx_of_h2d_scales(idx_of_h2d_scales) {}
+      H2dScalesIndicesNames& h2d_scales_idx_names)
+      : m_graph(std::move(graph)),
+        m_h2d_scales_idx_names(h2d_scales_idx_names) {}
 
   bool run(torch::jit::Stack& stack) {
     PT_EAGER_TRACE;
@@ -97,24 +98,31 @@ struct HandleH2dScalesPass {
               " received non cpu scale.");
           continue;
         }
+
+        const auto dtype = scale_tensor.scalar_type();
         HABANA_ASSERT(
-            scale_tensor.scalar_type() == at::ScalarType::Float,
-            "CPU scale should be Float, got ",
-            scale_tensor.scalar_type());
+            dtype == at::ScalarType::Float or dtype == at::ScalarType::BFloat16,
+            "CPU scale should be Float or BFloat16, got ",
+            dtype);
 
         // Create H2D tensor and set it as a scale input.
-        at::Tensor h2d_tensor = createDynamicTensor(
-            {1}, HOST_TO_DEVICE_TENSOR, at::ScalarType::Float);
+        at::Tensor h2d_tensor =
+            createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, dtype);
+        const auto is_float = dtype == at::ScalarType::Float;
+        const auto el_size = is_float ? sizeof(float_t) : sizeof(at::BFloat16);
+        const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
+                                      : habana::HostDataType::BFLOAT16_T;
+
         auto tmeta{get_tensor_extra_meta(h2d_tensor)};
         tmeta->set_host_size(1);
-        tmeta->set_host_el_size(sizeof(float_t));
-        tmeta->set_host_dt_type(HostDataType::FLOAT_T);
-        tmeta->set_host_total_elem(2 * sizeof(float_t));
+        tmeta->set_host_el_size(el_size);
+        tmeta->set_host_dt_type(dt_type);
+        tmeta->set_host_total_elem(2 * el_size);
 
         org_stack[scale_idx] = torch::jit::IValue(h2d_tensor);
 
         // Store CPU scales indices for later patching.
-        m_idx_of_h2d_scales.push_back(scale_idx);
+        m_h2d_scales_idx_names.emplace_back(scale_idx, node_kind);
         changed = true;
 
         PT_BRIDGE_DEBUG(
@@ -139,15 +147,15 @@ struct HandleH2dScalesPass {
   }
 
   std::shared_ptr<torch::jit::Graph> m_graph;
-  H2dScalesIndices& m_idx_of_h2d_scales;
+  H2dScalesIndicesNames& m_h2d_scales_idx_names;
 };
 
 void HandleH2dScales(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
-    H2dScalesIndices& idx_of_h2d_scales) {
+    H2dScalesIndicesNames& h2d_scales_idx_names) {
   PT_EAGER_TRACE;
-  HandleH2dScalesPass pass{graph, idx_of_h2d_scales};
+  HandleH2dScalesPass pass{graph, h2d_scales_idx_names};
   bool changed{pass.run(stack)};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
