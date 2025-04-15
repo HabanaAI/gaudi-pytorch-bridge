@@ -500,7 +500,7 @@ def test_cached_module_training_fp8(disable_tensor_cache):
         my_linear_test.zero_grad()
 
         # Run recorded graph n times
-        for i in range(0, len(inputs)):
+        for i in range(len(inputs)):
             my_linear_test.set_iteration_count(i)
             out_test = my_linear_test(inputs[i])
             loss_test = out_test.sum()

@@ -11,11 +11,9 @@ target-version = "py312"
 
 # Rules: https://docs.astral.sh/ruff/rules
 [tool.ruff.lint]
-select = ["F","E","W","I","UP","B","C4","EXE","PYI","SIM","ARG","FIX"]
+select = ["F","E","W","I","UP","B","C4","EXE","PYI","SIM","ARG","FIX","PL","N","PIE"]
 ignore = [
-   "E203",
-   "E501",
-   "E721",
+   "E501", # "Line too long" (88 chars)
    "E722",
    "E741",
    "F811",
@@ -28,6 +26,32 @@ ignore = [
    "B904",
    "C417",
    "C420",
+   "PLC0206",
+   "PLE0605",
+   "PLE0704",
+   "PLE1205",
+   "PLR0124",
+   "PLR0402",
+   "PLR0911",
+   "PLR0912",
+   "PLR0913",
+   "PLR0915",
+   "PLR1704",
+   "PLR1711",
+   "PLR1714",
+   "PLR1722",
+   "PLR1730",
+   "PLR2004",
+   "PLR5501",
+   "PLW0120",
+   "PLW0127",
+   "PLW0129",
+   "PLW0211",
+   "PLW0602",
+   "PLW0603",
+   "PLW0604",
+   "PLW1508",
+   "PLW2901",
    "PYI024",
    "PYI026",
    "PYI034",
@@ -50,6 +74,16 @@ ignore = [
    "FIX001",
    "FIX002",
    "FIX004",
+   "N801",
+   "N802",
+   "N803",
+   "N804",
+   "N805",
+   "N806",
+   "N812",
+   "N816",
+   "N818",
+   "N999",
 ]
 
 [tool.ruff.lint.per-file-ignores]

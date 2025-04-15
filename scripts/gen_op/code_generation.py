@@ -747,9 +747,13 @@ def is_acc_thread_supported(ctxop, rtype, sig):
     if ctxop.get_override_fn():
         return ctxop.get_acc_thread()  # only custom lazy func ops that are supported
     return (
-        rtype.startswith("at::Tensor")  # regular, in-place, _out ops
-        or rtype.startswith("const at::Tensor")  # only resize_ op so far, handled as inplace/out (shape change)
-        or rtype.startswith("::std::tuple<at::Tensor")  # tuple ops
+        rtype.startswith(
+            (
+                "at::Tensor",  # regular, in-place, _out ops
+                "const at::Tensor",  # only resize_ op so far, handled as inplace/out (shape change)
+                "::std::tuple<at::Tensor",  # tuple ops
+            )
+        )
         or "TensorList" in sig  # TensorList ops
     )
 
@@ -895,7 +899,7 @@ def handle_return_eager(
 
 def get_eager_op_info(opname, ns):
     type = "eager::eagerOpKind::"
-    if opname.endswith("_out") or opname.endswith("_grad_input"):
+    if opname.endswith(("_out", "_grad_input")):
         type += "InplaceOut"
     elif opname.endswith("_"):
         if opname.endswith("resize_"):

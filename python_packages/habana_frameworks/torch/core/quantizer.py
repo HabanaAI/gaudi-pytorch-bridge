@@ -368,7 +368,6 @@ class habana_quantizer(Quantizer):
 
     def validate(self, model: torch.fx.GraphModule) -> None:
         """validate if the annotated graph is supported by the backend"""
-        pass
 
     @classmethod
     def get_supported_operators(cls) -> list[OperatorConfig]:

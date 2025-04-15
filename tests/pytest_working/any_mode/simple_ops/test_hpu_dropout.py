@@ -30,7 +30,7 @@ from test_utils import (
 def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
     # This loop will help us to verify dropout p value
     # for every seed and its(p) deviation with final result
-    for _ in range(0, 10):
+    for _ in range(10):
         torch.manual_seed(random.randint(-10000, 10000))
         input = torch.randn(shape, requires_grad=True, dtype=dtype).to("hpu")
         dropout_fwd = dropout_fun
@@ -111,7 +111,7 @@ def test_hpu_native_dropout_fwd(p, train, shape, dtype):
 def test_hpu_dropout_bwd(p, train, dtype, native):
     # This loop will help us to verify dropout p value
     # for every seed and its(p) deviation with final result
-    for _ in range(0, 10):
+    for _ in range(10):
         torch.manual_seed(random.randint(-10000, 10000))
         input = torch.randn((32, 48), dtype=dtype)
         input_hpu = input.to("hpu").requires_grad_(True)

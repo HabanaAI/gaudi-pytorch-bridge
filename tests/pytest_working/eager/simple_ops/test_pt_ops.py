@@ -177,11 +177,11 @@ def test_bool_comparison(src_dtype, op_name, is_view):
         return ret
 
     fn = get_fn(op_name)
-    cpu_in = torch.tensor(range(0, 10), device="cpu", dtype=src_dtype) > 5
+    cpu_in = torch.tensor(range(10), device="cpu", dtype=src_dtype) > 5
     cpu_out = convert_boolean_tensors(cpu_in, is_view)
     result_cpu = fn(cpu_in, cpu_out)
 
-    hpu_in = torch.tensor(range(0, 10), device="hpu", dtype=src_dtype) > 5
+    hpu_in = torch.tensor(range(10), device="hpu", dtype=src_dtype) > 5
     hpu_out = convert_boolean_tensors(hpu_in, is_view)
     result_hpu = fn(hpu_in, hpu_out)
 

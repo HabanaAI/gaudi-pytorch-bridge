@@ -35,7 +35,7 @@ def get_line_idx(lines, regex):
 
 def remove_consecutive_entries(list):
     out_list = []
-    for i in range(0, len(list) - 1):
+    for i in range(len(list) - 1):
         if list[i] != list[i + 1] - 1:
             out_list.append(list[i])
     out_list.append(list[-1])

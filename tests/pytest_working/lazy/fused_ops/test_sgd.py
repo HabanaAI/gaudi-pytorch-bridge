@@ -57,7 +57,7 @@ def test_sgd():
     optim_x.add_param_group({"params": [x2]})
 
     # print('before adam.step x ::\n{}'.format(x.to(cpu)))
-    for _ in range(0, cnt):
+    for _ in range(cnt):
         x = torch.add(x1, x2)
 
         # Compute loss
@@ -87,7 +87,7 @@ def test_sgd():
     )
     optim_y.add_param_group({"params": [y2]})
 
-    for _ in range(0, cnt):
+    for _ in range(cnt):
         y = torch.add(y1, y2)
 
         # Compute loss

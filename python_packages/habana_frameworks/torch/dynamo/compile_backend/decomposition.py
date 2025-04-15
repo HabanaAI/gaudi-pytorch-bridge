@@ -498,7 +498,7 @@ def squeeze(input, dim):
 @register_custom_decomposition(torch.ops.aten.squeeze.default, hpu_backend_decompositions_common)
 def squeeze(input):
     inp_size = len(input.size())
-    dim_list = list(range(0, inp_size))
+    dim_list = list(range(inp_size))
     return torch.squeeze(input, dim_list)
 
 
@@ -796,7 +796,7 @@ def index_add(
     if alpha != 1:
         python_type = utils.dtype_to_type(x.dtype)
         torch._check(
-            python_type == bool or utils.is_weakly_lesser_type(type(alpha), python_type),
+            python_type is bool or utils.is_weakly_lesser_type(type(alpha), python_type),
             lambda: f"alpha argument of type {type(alpha)} cannot be safely cast to type {python_type}!",
         )
         tensor = tensor_in * alpha

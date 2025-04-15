@@ -40,8 +40,8 @@ class TestHpuNdimsDynamic:
             sum = torch.ops.aten.sum(view, [0, 2, 4, 6])
             return sum
 
-        shapes = [(2, 9, 16, 8 * (2**i)) for i in range(0, 4)]
-        view_shapes = [(2, 1, 3, 3, 4, 4, 4, 2 * (2**i)) for i in range(0, 4)]
+        shapes = [(2, 9, 16, 8 * (2**i)) for i in range(4)]
+        view_shapes = [(2, 1, 3, 3, 4, 4, 4, 2 * (2**i)) for i in range(4)]
         cpu_input = [torch.rand(shape, dtype=torch.float32) for shape in shapes]
         hpu_input = [input.to("hpu") for input in cpu_input]
 

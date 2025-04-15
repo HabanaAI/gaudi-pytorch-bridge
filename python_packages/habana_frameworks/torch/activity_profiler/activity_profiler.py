@@ -38,7 +38,7 @@ def clean_json(path):
     The cleaned content is then written back to the same file.
     """
     # Define control bytes: 0x00-0x1F and 0x7F
-    control_bytes = set(range(0x00, 0x20))
+    control_bytes = set(range(0x20))
     control_bytes.add(0x7F)
 
     with open(path, "rb") as f:

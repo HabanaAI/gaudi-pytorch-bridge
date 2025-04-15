@@ -178,7 +178,7 @@ def strToList(val):
         val = val[0:-13]
     val = val[1:-1]
     val = val.split(",")
-    for j in range(0, len(val)):
+    for j in range(len(val)):
         val[j] = int(val[j])
     return val
 

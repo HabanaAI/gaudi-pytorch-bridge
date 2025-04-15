@@ -107,9 +107,9 @@ def convert_getitem_op(args: list[jit.Value], kwargs: list[jit.Value]):
     # tuple type as the first argument, we need
     # the equivalent of aten::__getitem__, but for
     # tuple type
-    if type(args[0].type()) == jit.TupleType:
+    if isinstance(args[0].type(), jit.TupleType):
         return "prim::TupleIndex"
-    elif type(args[0].type()) == jit.ListType:
+    elif isinstance(args[0].type(), jit.ListType):
         return "aten::__getitem__"
 
     raise NotImplementedError(f"Not supported argument type: {args[0].type()} for getitem operator.")

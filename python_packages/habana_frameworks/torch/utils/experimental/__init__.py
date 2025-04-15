@@ -127,7 +127,6 @@ def _record_params(model=None, optimizer=None, force_model_update=False):
                         )
                     except:
                         print("Exception in _record_param for optimizer buffer ", param_name)
-                        pass
                     _is_optim_recorded = True
             for buffer_name, buffer in submodule.named_buffers(recurse=False):
                 try:

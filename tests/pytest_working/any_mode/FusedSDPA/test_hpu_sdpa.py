@@ -1414,7 +1414,6 @@ def test_sdpa(
         except ImportError:
             print("Failed to import profiling tools")
             profile_step = -1
-            pass
 
     if profile_step != -1:
         profile_api = SynapseProfilerApi()

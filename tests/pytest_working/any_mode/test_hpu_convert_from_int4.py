@@ -384,10 +384,10 @@ def prepare_data(
         input_unpacked = input
     elif input_values == "range":
         if variant == "int4":
-            range_t_input = torch.tensor(list(range(0, 4)), dtype=torch.int32)
+            range_t_input = torch.tensor(list(range(4)), dtype=torch.int32)
             seq_size = 4
         else:
-            range_t_input = torch.tensor(list(range(0, 8)), dtype=torch.int32)
+            range_t_input = torch.tensor(list(range(8)), dtype=torch.int32)
             seq_size = 8
         shape_w = input.shape
         input_unpacked = (

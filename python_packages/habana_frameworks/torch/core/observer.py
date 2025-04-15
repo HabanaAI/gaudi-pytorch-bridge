@@ -161,8 +161,8 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
             EXP_BIAS_SETS = {
                 (GAUDI2, torch.float8_e4m3fn): [3, 7, 11, 15],
                 (GAUDI2, torch.float8_e5m2): [15],
-                (GAUDI3, torch.float8_e4m3fn): range(0, 63),
-                (GAUDI3, torch.float8_e5m2): range(0, 63),
+                (GAUDI3, torch.float8_e4m3fn): range(63),
+                (GAUDI3, torch.float8_e5m2): range(63),
             }
 
             EXP_WIDTH = {torch.float8_e4m3fn: 4, torch.float8_e5m2: 5}
@@ -364,8 +364,8 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
             EXP_BIAS_SETS = {
                 (GAUDI2, torch.float8_e4m3fn): [3, 7, 11, 15],
                 (GAUDI2, torch.float8_e5m2): [15],
-                (GAUDI3, torch.float8_e4m3fn): range(0, 63),
-                (GAUDI3, torch.float8_e5m2): range(0, 63),
+                (GAUDI3, torch.float8_e4m3fn): range(63),
+                (GAUDI3, torch.float8_e5m2): range(63),
             }
 
             EXP_WIDTH = {torch.float8_e4m3fn: 4, torch.float8_e5m2: 5}

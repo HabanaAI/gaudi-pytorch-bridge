@@ -198,7 +198,7 @@ def test_te_linear_module_cacher(
             ), "fp8_meta scaling_bwd data mismatch at init run"
 
         # Run recorded graph n times
-        for i in range(0, 11):
+        for i in range(11):
             out_test = my_linear_test(inputs[i])
             loss_test = out_test.sum()
             loss_test.backward()

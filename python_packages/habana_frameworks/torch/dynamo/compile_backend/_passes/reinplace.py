@@ -174,7 +174,6 @@ except AttributeError:
     # _c10d_functional ops are only available when torch
     # is built with USE_DISTRIBUTED=1.
     inplaceable_collective_ops = {}
-    pass
 
 
 def construct_inplaceable_ops():

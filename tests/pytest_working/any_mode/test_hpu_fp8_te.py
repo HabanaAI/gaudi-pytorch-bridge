@@ -962,7 +962,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
     device = torch.device("hpu:0")
 
     inputs = []
-    for i in reversed(range(0, max(interval, amax_history_len) * 2)):
+    for i in reversed(range(max(interval, amax_history_len) * 2)):
         inputs.append(
             torch.tensor(
                 [0.1 * 2**i, 0.2 * 2**i, 0.3 * 2**i, 0.4 * 2**i], dtype=dtype, device=device, requires_grad=True
@@ -982,7 +982,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
     my_linears = []
     optimizers = []
     refs = []
-    for i in range(0, 2):
+    for i in range(2):
         my_linears.append(te.Linear(4, 3, bias=True, params_dtype=dtype))
         optimizers.append(torch.optim.SGD(my_linears[i].parameters(), lr=0.1))
         refs.append({})
@@ -1047,7 +1047,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
         FP8GlobalStateManager.set_measurement_mode(True, False)
 
     global_counter = 0
-    for iter in range(0, 2):
+    for iter in range(2):
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
             for i, input in enumerate(inputs):
                 c = i + 1

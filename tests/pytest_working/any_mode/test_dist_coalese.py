@@ -199,7 +199,7 @@ def batch_isend_irecv_hccl_test(rank, world_size, kwargs):
         return torch.empty(size, 1, 4096, dtype=dtype).fill_(value).to("hpu")
 
     p2p_op_list = []
-    for src in range(0, world_size):
+    for src in range(world_size):
         send_tensor = _build_tensor(rank + 1)
         recv_tensor = _build_tensor(src + 1)
         recv_op = dist.P2POp(dist.irecv, recv_tensor, src)
