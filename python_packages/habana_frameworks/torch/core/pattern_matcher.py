@@ -247,6 +247,7 @@ def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
                     logger.debug(
                         f"replace_bmm_quant_dequant_nodes: input0_scale={input0_dequant_node.args[1]}, input1_scale={input1_dequant_node.args[1]}"
                     )
+                    tensor_meta = node.meta.get("tensor_meta", None)
                     gemm_fp8_node = graph.call_function(
                         torch.ops.hpu.fp8_gemm_v2,
                         args=(
@@ -255,7 +256,7 @@ def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
                             node.args[1],
                             is_trans_B,
                             None,
-                            torch.bfloat16,
+                            tensor_meta.dtype,
                             input0_scale_node,
                             input1_scale_node,
                             None,
@@ -377,6 +378,7 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
             weight_scale_node = graph.get_attr(weight_scale_attr)
 
         # input_quant_node.args = (input_quant_node.args[0], ) + (input_scale_node, ) + input_scale_node.args[2:]
+        tensor_meta = node.meta.get("tensor_meta", None)
         with graph.inserting_before(insertion_node):
             graph_changed = True
             gemm_fp8_node = graph.call_function(
@@ -387,7 +389,7 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
                     weight_quant_node,
                     weight_transpose,
                     None,
-                    torch.bfloat16,
+                    tensor_meta.dtype,
                     input_scale_node,
                     weight_scale_node,
                     bias,
