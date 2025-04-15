@@ -100,8 +100,8 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
       executors;
   // below attributes are required for lifetime management of custom generators
   // and executors
-  std::vector<std::shared_ptr<IStackGenerator>> custom_stack_generators;
-  std::vector<std::shared_ptr<SharedLayerExecutor<>>> custom_executors;
+  std::vector<std::unique_ptr<IStackGenerator>> custom_stack_generators;
+  std::vector<std::unique_ptr<SharedLayerExecutor<>>> custom_executors;
 };
 
 } // namespace slrg
