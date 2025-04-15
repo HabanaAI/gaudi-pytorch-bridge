@@ -116,6 +116,7 @@ class HabanaPT2EQuantContext:
         self._converted_gm = []
         self._running_gm_cnt = 0
         self._kvcache_quant_details = {}
+        self._kvcache_details_loaded = {}
         self._convert_settings = {}
 
     def set_kvcache_quant_details(
@@ -126,9 +127,13 @@ class HabanaPT2EQuantContext:
         kvcache_size_prefill=None,
         kvcache_orig_dtype=None,
         kvcache_quant_dtype=None,
+        loaded=False,
     ):
         if kvcache_quant_details:
-            self._kvcache_quant_details = kvcache_quant_details
+            if not loaded:
+                self._kvcache_quant_details = kvcache_quant_details
+            else:
+                self._kvcache_details_loaded = kvcache_quant_details
         else:
             if kvcache_allocation:
                 self._kvcache_quant_details["kvcache_allocation"] = kvcache_allocation
@@ -141,8 +146,11 @@ class HabanaPT2EQuantContext:
             if kvcache_quant_dtype:
                 self._kvcache_quant_details["kvcache_quant_dtype"] = kvcache_quant_dtype
 
-    def get_kvcache_quant_details(self):
-        return self._kvcache_quant_details
+    def get_kvcache_quant_details(self, loaded=False):
+        if not loaded:
+            return self._kvcache_quant_details
+        else:
+            return self._kvcache_details_loaded
 
     def extract_graphs(self, preprocessed=False, prepared=False, converted=False):
         gms = None
@@ -1175,7 +1183,7 @@ def load_pt2e(
             kvcq_details_filename = os.path.join(dir_name, "kvcache_quant_details.pt2")
             kvcache_quant_details = torch.load(kvcq_details_filename, weights_only=False)
             assert kvcache_quant_details is not None
-            habana_pt2e_quant_context.set_kvcache_quant_details(kvcache_quant_details)
+            habana_pt2e_quant_context.set_kvcache_quant_details(kvcache_quant_details, loaded=True)
 
         habana_quantization_map_queue[model_key].append({"task": "inference_after_load", "dir_path": dir_name})
 
