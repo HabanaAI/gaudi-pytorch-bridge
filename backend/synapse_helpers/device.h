@@ -419,9 +419,11 @@ class device {
 
   bool query_default_stream();
 
-  void create_default_stream();
+  void create_default_streams();
 
   stream& get_stream(hpuStream_t id, default_stream_type stream_type = COMPUTE);
+
+  hpuStream_t get_dma_pt_stream(hpuStream_t id, default_stream_type stream_type);
 
   void delete_stream(hpuStream_t id);
 
@@ -499,6 +501,8 @@ class device {
 
   uint64_t get_compute_stream_count();
 
+  void create_default_stream(default_stream_type type, uint64_t availAffinity, bool is_compute_stream);
+
   std::shared_ptr<session> synapse_session_;
 
   synDeviceType type_;
@@ -525,6 +529,7 @@ class device {
   absl::optional<owned_device_ptr> preallocated_reduction_buffer_;
   bool is_hcl_same_addr_enabled_;
 
+  const unsigned generic_stream_limit{32};
   active_recipe_counter recipe_counter_;
   bool host_memory_cache_enabled_;
   unsigned max_dma_copy_retry_count_;
@@ -557,6 +562,7 @@ class device {
   // Only used with old design of stream assignment
   std::unordered_map<default_stream_type, std::unique_ptr<stream>>
       default_streams_;
+  std::unordered_map<default_stream_type, hpuStream_t> dma_streams_mapper;
   bool scale_attribute_is_hw_aligned_{false};
   uint32_t scale_attribute_hash_id_{0};
 };

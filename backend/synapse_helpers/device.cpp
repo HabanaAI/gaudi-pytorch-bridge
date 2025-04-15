@@ -254,7 +254,7 @@ device::device(
       device_memory_{*this},
       recipe_handle_cache_{*this} {
   // create default stream
-  create_default_stream();
+  create_default_streams();
   ReleaseFreeMemory();
   dumpEnvSettings();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG)) {
@@ -661,12 +661,11 @@ uint64_t device::get_compute_stream_count() {
 // situations only use few user streams. CUDA has a limiation
 // of 32 and later stream are assigned in round robin fashion.
 //
-#define GENERIC_STREAM_LIMIT 32
 void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
   std::unique_lock<std::mutex> lock(stream_mutex_);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
     hpu_stream = ++stream_index_;
-    if (stream_index_ <= GENERIC_STREAM_LIMIT) {
+    if (stream_index_ <= generic_stream_limit) {
       uint64_t availAffinity;
       auto status = synDeviceGetNextStreamAffinity(id_, &availAffinity);
       if (synStatus::synSuccess != status) {
@@ -949,7 +948,7 @@ void device::synchronize_default_stream() {
   }
 }
 
-void device::create_default_stream() {
+void device::create_default_streams() {
   std::unique_lock<std::mutex> lock(stream_mutex_);
   uint64_t availAffinity;
   auto status = synDeviceGetNextStreamAffinity(id_, &availAffinity);
@@ -958,35 +957,20 @@ void device::create_default_stream() {
         Logger::formatStatusMsg(status),
         "synDeviceGetNextStreamAffinity failed.");
   }
-  default_streams_[COMPUTE] = absl::make_unique<stream>(*this, true);
+  create_default_stream(COMPUTE, availAffinity, true);
+  create_default_stream(DMA_D2D, availAffinity, false);
+  create_default_stream(DMA_H2D, availAffinity, false);
+  create_default_stream(DMA_D2H, availAffinity, false);
 
-  PT_SYNHELPER_DEBUG(
-      "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
-  status = synStreamSetAffinity(id_, *default_streams_[COMPUTE], availAffinity);
-  if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
-  }
-  default_streams_[DMA_D2D] = absl::make_unique<stream>(*this);
-  PT_SYNHELPER_DEBUG(
-      "STREAM:: DMA_D2D stream handle", *default_streams_[DMA_D2D]);
-  status = synStreamSetAffinity(id_, *default_streams_[DMA_D2D], availAffinity);
-  if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
-  }
-  default_streams_[DMA_H2D] = absl::make_unique<stream>(*this);
-  PT_SYNHELPER_DEBUG(
-      "STREAM:: DMA_H2D stream handle", *default_streams_[DMA_H2D]);
-  status = synStreamSetAffinity(id_, *default_streams_[DMA_H2D], availAffinity);
-  if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
-  }
-  default_streams_[DMA_D2H] = absl::make_unique<stream>(*this);
-  PT_SYNHELPER_DEBUG(
-      "STREAM:: DMA_D2H stream handle", *default_streams_[DMA_D2H]);
-  status = synStreamSetAffinity(id_, *default_streams_[DMA_D2H], availAffinity);
+  dma_streams_mapper[DMA_D2D] = generic_stream_limit + 1;
+  dma_streams_mapper[DMA_H2D] = generic_stream_limit + 2;
+  dma_streams_mapper[DMA_D2H] = generic_stream_limit + 3;
+}
+
+void device::create_default_stream(default_stream_type type, uint64_t availAffinity, bool is_compute_stream) {
+  default_streams_[type] = absl::make_unique<stream>(*this, is_compute_stream);
+  PT_SYNHELPER_DEBUG("STREAM:: default stream", type, "handle", *default_streams_[type]);
+  auto status = synStreamSetAffinity(id_, *default_streams_[type], availAffinity);
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
@@ -1001,26 +985,36 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    stream* stream = nullptr;
     if (id == 0) { // default stream any type stream
-      auto& stream = *default_streams_[stream_type];
-      PT_SYNHELPER_DEBUG(
-          "STREAM:: get stream handle ", stream, " for id::", id);
-      return stream;
-    } else {
+      stream = &(*default_streams_[stream_type]);
+    }
+    else if (id == dma_streams_mapper[DMA_D2D]) {
+      stream = &(*default_streams_[DMA_D2D]);
+    }
+    else if (id == dma_streams_mapper[DMA_H2D]) {
+      stream = &(*default_streams_[DMA_H2D]);
+    }
+    else if (id == dma_streams_mapper[DMA_D2H]) {
+      stream = &(*default_streams_[DMA_D2H]);
+    }
+    else {
       auto index = id;
-      if (id >= GENERIC_STREAM_LIMIT) {
-        index = (id % GENERIC_STREAM_LIMIT);
+      if (id >= generic_stream_limit) {
+        index = (id % generic_stream_limit);
         if (index == 0)
           index = 1; // start round robin from the 1 as 0 is default.
-        else if (index < GENERIC_STREAM_LIMIT)
+        else if (index < generic_stream_limit)
           index += 1;
       }
       auto it = streams_.find(index);
       HABANA_ASSERT(it != streams_.end());
-
-      auto& stream = *it->second;
-      return stream;
+      stream = &(*it->second);
     }
+
+    PT_SYNHELPER_DEBUG(
+      "STREAM:: get stream handle ", *stream, " for id::", id);
+    return *stream;
   } else {
     if (id == 0 || stream_type != COMPUTE) { // any type stream
       auto& stream = *default_streams_[stream_type];
@@ -1059,6 +1053,16 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
       return stream;
     }
   }
+}
+
+hpuStream_t device::get_dma_pt_stream(hpuStream_t id, default_stream_type stream_type) {
+  HABANA_ASSERT(stream_type == DMA_D2D || stream_type == DMA_D2H || stream_type == DMA_H2D,
+    "Invalid DMA stream type::", stream_type);
+
+  if (id == 0) {
+    return dma_streams_mapper[stream_type];
+  }
+  return id;
 }
 
 void device::delete_stream(hpuStream_t id) {

@@ -18,7 +18,7 @@
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/generic_resource_holder.h"
+#include "backend/helpers/copy_operation.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
 #include "habana_eager/eager_context.h"
@@ -273,22 +273,22 @@ void Register_Copy_In_Pipeline(
         reinterpret_cast<uint8_t*>(host_ptr));
   }
 
-  auto resource_holder = std::make_shared<GenericResourceHolder>(
+  auto copy_operation = std::make_shared<CopyOperation>(
       src, dst, non_blocking, stream, host_ptr);
 
   PipelineTaskAllThreads(
-      std::move(resource_holder),
-      [](std::shared_ptr<GenericResourceHolder> rs) {
-        clear_permutation_info(rs->dst());
+      std::move(copy_operation),
+      [](std::shared_ptr<CopyOperation> copy_op) {
+        clear_permutation_info(copy_op->dst());
       },
-      [](std::shared_ptr<GenericResourceHolder>) {},
-      [](std::shared_ptr<GenericResourceHolder> rs) {
+      [](std::shared_ptr<CopyOperation>) {},
+      [](std::shared_ptr<CopyOperation> copy_op) {
         habana_helpers::copy_data_to_device(
-            rs->src(),
-            rs->dst(),
-            rs->non_blocking(),
-            rs->stream(),
-            rs->host_ptr());
+            copy_op->src(),
+            copy_op->dst(),
+            copy_op->non_blocking(),
+            copy_op->stream(),
+            copy_op->host_ptr());
       });
 }
 

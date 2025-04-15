@@ -25,6 +25,7 @@
 #include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_info.h"
+#include "backend/synapse_helpers/device.h"
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
@@ -410,11 +411,20 @@ void habana_helpers::copy_data_to_host(
   }
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
-    // keeps a reference to the tensor it is
-    // operating on to prevent it from being deallocated while the
-    // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
-                         src, dst)]() mutable { rh->release_resources(); };
+
+    std::function<void()> callback = nullptr;
+    if (common::IsRecordStreamEnabled() &&
+        GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(hpu_stream, synapse_helpers::default_stream_type::DMA_D2H);
+      device.get_device_memory().recordStream(src.data_ptr(), dma_stream);
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+        dst)]() mutable { rh->release_resources(); };
+    } else {
+      // keeps a reference to the tensor it is operating on to prevent it
+      // from being deallocated while the operation is still in flight.
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+                      src, dst)]() mutable { rh->release_resources(); };
+    }
 
     habana::HPUDeviceContext::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src_data_ptr),
@@ -484,11 +494,19 @@ void habana_helpers::copy_data_to_device(
       }
     }
 
-    // keeps a reference to the tensor it is
-    // operating on to prevent it from being deallocated while the
-    // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
-                         src, dst)]() mutable { rh->release_resources(); };
+    std::function<void()> callback = nullptr;
+    if (common::IsRecordStreamEnabled() &&
+        GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(hpu_stream, synapse_helpers::default_stream_type::DMA_H2D);
+      device.get_device_memory().recordStream(dst.data_ptr(), dma_stream);
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+        src)]() mutable { rh->release_resources(); };
+    } else {
+      // keeps a reference to the tensor it is operating on to prevent it
+      // from being deallocated while the operation is still in flight.
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+                      src, dst)]() mutable { rh->release_resources(); };
+    }
 
     habana::HPUDeviceContext::copy_data_to_device(
         src.data_ptr(),
@@ -534,13 +552,22 @@ void habana_helpers::copy_data_within_device(
     bool non_blocking) {
   auto device_id = dst.device().index();
   auto& device = habana::HPUDeviceContext::get_device(device_id);
+  synapse_helpers::hpuStream_t current_stream = c10::hpu::getCurrentHPUStream();
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
-    // keeps a reference to the tensor it is
-    // operating on to prevent it from being deallocated while the
-    // operation is still in flight.
-    auto callback = [rh = std::make_shared<GenericResourceHolder>(
-                         src, dst)]() mutable { rh->release_resources(); };
+
+    std::function<void()> callback = nullptr;
+    if (common::IsRecordStreamEnabled() &&
+        GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(current_stream, synapse_helpers::default_stream_type::DMA_D2D);
+      device.get_device_memory().recordStream(src.data_ptr(), dma_stream);
+      device.get_device_memory().recordStream(dst.data_ptr(), dma_stream);
+    } else {
+      // keeps a reference to the tensor it is operating on to prevent it
+      // from being deallocated while the operation is still in flight.
+      callback = [rh = std::make_shared<GenericResourceHolder>(
+                      src, dst)]() mutable { rh->release_resources(); };
+    }
 
     habana::HPUDeviceContext::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
@@ -551,7 +578,7 @@ void habana_helpers::copy_data_within_device(
             dst.storage().data_ptr().get()),
         habana_helpers::GetNBytes(src),
         callback,
-        c10::hpu::getCurrentHPUStream());
+        current_stream);
   } else {
     std::atomic<bool> copyDone{false};
     habana::HPUDeviceContext::copy_data_within_device(
@@ -563,7 +590,7 @@ void habana_helpers::copy_data_within_device(
             dst.storage().data_ptr().get()),
         habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
-        c10::hpu::getCurrentHPUStream());
+        current_stream);
 
     // Release GIL if going to wait
     habana_helpers::AutoNoGIL gil_release;
