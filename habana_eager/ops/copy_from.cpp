@@ -290,22 +290,27 @@ void Register_Copy_In_Pipeline(
             copy_op->stream(),
             copy_op->host_ptr());
       });
+
+  if (not non_blocking) {
+    habana::eager::JoinPendingPipelineThreads();
+  }
 }
 
 void Pipeline_Or_Direct_Copy(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  bool pipeline_flag =
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && non_blocking;
-  if (pipeline_flag) {
+  bool use_pipeline = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
+  if (use_pipeline and non_blocking) {
     // Check if the CPU src tensor is allocated at the pinned memory.
     // non-blocking copy with pinned memory allocation should not be pipelined.
     // as there can be a race condition with CPU tensor inplace operation.
-    pipeline_flag &= (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr()));
+    non_blocking &= (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr()));
+    PT_EAGER_DEBUG(
+        "Ignoring non-blocking flag in copy operation due to pinned memory");
   }
 
-  if (pipeline_flag) {
+  if (use_pipeline) {
     auto src_backend = HbEagerTensorPool::get_backend_tensor(src);
     auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
 
