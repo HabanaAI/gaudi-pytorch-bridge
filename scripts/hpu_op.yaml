@@ -5165,18 +5165,18 @@ maximum.out:
 
 fmax:
   broadcast: true
-  guid: max_fwd
+  op_backend: FMax
   out_ids: [0]
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMaxSharedMeta
 
 fmax.out:
   broadcast: true
-  guid: max_fwd
+  op_backend: FMax
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMaxSharedMeta
 
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
@@ -5372,18 +5372,18 @@ min.dim_min:
 
 fmin:
   broadcast: true
-  guid: min_fwd
+  op_backend: FMin
   out_ids: [0]
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMinSharedMeta
 
 fmin.out:
   broadcast: true
-  guid: min_fwd
+  op_backend: FMin
   promote_to_common_type: [self, other]
   namespaces: [torch, torch.Tensor]
-  op_validator: check-node-with-shared-layer
+  op_validator: FMinSharedMeta
 
 minimum:
   broadcast: true
