@@ -5300,34 +5300,6 @@ void HabanaLaunchOpPT::run(
                 ", syanpse shape inference expects shape or h2d tensor(s) !");
             syn_infer_shapes = false;
           }
-          // ToDO: Remove try run hybrid sif logic once shape tensor(s)
-          // can be queried using shared layer.
-          // Try run hybrid sif with dynamic shapes flag to detect
-          // if shape tensor(s) required for synapse shape inference
-          try {
-            habana::ShapeInference::ResetSifTensorId();
-            std::unordered_map<int64_t, at::Tensor> tmp_map;
-            constexpr bool dynamic_shapes_true = true;
-            if (RunHybridSif<dynamic_shapes_true>(tmp_map)) {
-              jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
-              PT_EAGER_DEBUG(
-                  "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
-                  name_,
-                  ", syanpse shape inference expects shape tensor(s) !");
-              syn_infer_shapes = false;
-            }
-          } catch (std::exception& e) {
-            // RunHybridSif<true> can return TORCH CHECK from
-            // AllocateAndAddSynapseNode if ComputeOutputShape
-            // is not supported or failed during early validation
-            PT_EAGER_DEBUG(
-                "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
-                name_,
-                ", RunHybridSif with dynamic shapes failed ! ",
-                "what(): ",
-                e.what());
-            syn_infer_shapes = false;
-          }
 
           // Try infer shapes using synapse shape inference if possible
           if (syn_infer_shapes) {

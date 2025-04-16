@@ -59,7 +59,7 @@ SharedMetaDataVector CholeskySharedMeta(
 
   SharedMetaDataVector metaVec{choleskySharedMeta};
   const auto has_two_outputs = (stack.size() >= 3) && stack.at(2).isBool();
-  if (has_two_outputs && outputRank > 1) {
+  if (has_two_outputs) {
     SharedMetaData constantSharedMeta{"constant"};
     constantSharedMeta.outputs_data.emplace_back(
         outputRank, c10::ScalarType::Int);
