@@ -255,9 +255,8 @@ def env_var_in_scope(vars=None):
             # restore environment variable
             if orig_vars[key] is not None:
                 os.environ[key] = orig_vars[key]
-            else:
-                if key in os.environ:
-                    del os.environ[key]
+            elif key in os.environ:
+                del os.environ[key]
 
 
 def generic_setup_teardown_env(temp_test_env: dict, callback: Callable | None = None):

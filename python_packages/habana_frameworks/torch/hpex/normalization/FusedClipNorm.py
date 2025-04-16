@@ -49,16 +49,15 @@ class FusedClipNorm:
         if len(norm_list) == 0:
             return torch.tensor(0.0)
 
+        # call old backend for lazy
+        elif is_lazy():
+            with torch.no_grad():
+                total_norm = _hpex_C.fused_norm(norm_list, self.max_norm_t, self.norm_type)
         else:
-            # call old backend for lazy
-            if is_lazy():
-                with torch.no_grad():
-                    total_norm = _hpex_C.fused_norm(norm_list, self.max_norm_t, self.norm_type)
-            else:
-                # append a tensor to the grad list that will serve as a total norm result placeholder
-                norm_list.append(torch.zeros(1).to(self.dtype).to(torch.device("hpu")))
-                with torch.no_grad():
-                    total_norm = torch.ops.hpu.fused_clip_norm(norm_list, self.max_norm_t, self.norm_type)
+            # append a tensor to the grad list that will serve as a total norm result placeholder
+            norm_list.append(torch.zeros(1).to(self.dtype).to(torch.device("hpu")))
+            with torch.no_grad():
+                total_norm = torch.ops.hpu.fused_clip_norm(norm_list, self.max_norm_t, self.norm_type)
 
         htcore.step_closure._mark_step_if_lazy()
 

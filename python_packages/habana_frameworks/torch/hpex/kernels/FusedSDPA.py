@@ -198,11 +198,10 @@ def sdpa_fwd_wrapper(
                     return out, P, dm
                 else:
                     return out, dm
+            elif return_attn_probs:
+                return out, P
             else:
-                if return_attn_probs:
-                    return out, P
-                else:
-                    return out
+                return out
 
         ctx.save_for_backward(q, k, v, P, dm, out)
 

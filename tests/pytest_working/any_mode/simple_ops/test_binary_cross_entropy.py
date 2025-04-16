@@ -17,7 +17,6 @@
 
 import pytest
 import torch
-import torch.nn as nn
 from binary_cross_entropy_utils import (
     binary_cross_entropy_bwd_test,
     binary_cross_entropy_fwd_test,
@@ -33,6 +32,7 @@ from test_utils import (
     is_pytest_mode_lazy,
     setup_teardown_env_fixture,  # noqa F401
 )
+from torch import nn
 
 size = [
     (6,),

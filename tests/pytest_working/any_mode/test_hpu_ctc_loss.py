@@ -18,7 +18,6 @@
 
 import pytest
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.hpex.kernels import CTCLoss
 from test_utils import (
     check_ops_executed_in_jit_ir,
@@ -29,6 +28,7 @@ from test_utils import (
     hpu,
     is_pytest_mode_compile,
 )
+from torch import nn
 
 # Unit tests for Connectionist Temporal Classification loss
 # Tests were parameterized by T, C, N, S, S_min

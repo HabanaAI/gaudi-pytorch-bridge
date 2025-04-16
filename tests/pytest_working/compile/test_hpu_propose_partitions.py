@@ -18,7 +18,6 @@ import copy
 
 import pytest
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
     OptimizationPassPlacement,
     OptimizerContext,
@@ -32,6 +31,7 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import _is_simulator, compile_function_if_compile_mode
+from torch import nn
 from torch._dynamo import compiled_autograd
 from torch.fx import symbolic_trace
 from torch.fx.experimental.proxy_tensor import make_fx

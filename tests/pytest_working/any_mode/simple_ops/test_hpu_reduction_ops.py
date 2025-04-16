@@ -158,7 +158,6 @@ def test_hpu_prod_out(shape, dtype, dim, keepdim):
 
     def fn(input, out):
         torch.ops.aten.prod.int_out(input, dim, keepdim=keepdim, dtype=dtype, out=out)
-        return
 
     cpu_input, hpu_input = generate_inputs(shape, dtype)
     cpu_output = cpu_input.new_empty((cpu_input.shape[0], cpu_input.shape[1]))

@@ -19,7 +19,7 @@
 import os
 from typing import Any
 
-import habana_frameworks.torch.hpu as hpu
+from habana_frameworks.torch import hpu
 
 import torch
 

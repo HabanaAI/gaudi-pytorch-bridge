@@ -1492,13 +1492,12 @@ def test_sdpa(
             O_hpu = sdpa_outs
         else:
             O_hpu, P = sdpa_outs
+    elif not return_attn_probs:
+        O_hpu, DBG_ONLY_dropout_mask_g = sdpa_outs
+        DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
     else:
-        if not return_attn_probs:
-            O_hpu, DBG_ONLY_dropout_mask_g = sdpa_outs
-            DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
-        else:
-            O_hpu, P, DBG_ONLY_dropout_mask_g = sdpa_outs
-            DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
+        O_hpu, P, DBG_ONLY_dropout_mask_g = sdpa_outs
+        DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
 
     if not inference:
         O_hpu.backward(g_hpu)
@@ -1553,10 +1552,9 @@ def test_sdpa(
         compare_tensors(q_t.grad, q_grad_hpu_c, atol=atol, rtol=rtol)
         compare_tensors(k_t.grad, k_grad_hpu_c, atol=grad_k_atol, rtol=rtol)
         compare_tensors(v_t.grad, v_grad_hpu_c, atol=atol, rtol=rtol)
-    else:
-        if return_attn_probs:
-            P_c = P.detach().to("cpu")
-            compare_tensors(P_ref, P_c, atol=atol, rtol=rtol)
+    elif return_attn_probs:
+        P_c = P.detach().to("cpu")
+        compare_tensors(P_ref, P_c, atol=atol, rtol=rtol)
 
     vb_print("Vanilla SDPA FWD Ref vs FSDPA match? = ", torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol))
     if not inference:

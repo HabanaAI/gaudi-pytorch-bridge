@@ -20,8 +20,8 @@ from copy import deepcopy
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
 from test_utils import cpu, format_tc, hpu, is_lazy, print_tensors
+from torch import nn
 
 Verbose = False
 

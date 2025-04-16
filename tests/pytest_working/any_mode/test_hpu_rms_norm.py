@@ -78,11 +78,10 @@ def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, 
 
     if data_in_dtype == gamma_dtype and data_in_dtype == torch.float32:
         tol = 0.001
+    elif fast_math:
+        tol = 0.021
     else:
-        if fast_math:
-            tol = 0.021
-        else:
-            tol = 0.015
+        tol = 0.015
 
     torch.testing.assert_close(
         root_mean_square_norm.to(torch.float32).to(cpu),

@@ -210,11 +210,10 @@ def _parse(lines):
 
             if new_inp:
                 comment = "Recompiled due to new input shape"
+            elif new_out:
+                comment = "Already processed input shape still recompiled and has new output shape. Maybe dyn ops"
             else:
-                if new_out:
-                    comment = "Already processed input shape still recompiled and has new output shape. Maybe dyn ops"
-                else:
-                    comment = "Already processed input shape still recompiled. Maybe dyn ops"
+                comment = "Already processed input shape still recompiled. Maybe dyn ops"
             tmp_list += [(module_name, new_inp, new_out, classnm, filenm, comment)]
             recompiling_modules_count[module_name] = recompiling_modules_count.get(module_name, 0) + 1
         if step_done:

@@ -184,11 +184,10 @@ def get_scale_values(name, t, is_t_amax=False, scale_limit=None):
 def get_d_scale_s(scaleSInv_hpu, inference, is_fwd=True):
     if inference:
         return scaleSInv_hpu
+    elif is_fwd:
+        return None
     else:
-        if is_fwd:
-            return None
-        else:
-            return scaleSInv_hpu
+        return scaleSInv_hpu
 
 
 class TestModel(torch.nn.Module):
@@ -470,10 +469,9 @@ def is_param_combo_valid(
             # TODO: See if we should accept this config and ignore.
             if softmax_mode != "None":
                 return False
-        else:  # inference measurement
-            if fp8_run_out_type == "fp8_143":
-                # reason = " fp8 : inference measurement supports only bf16 in fwd pass out; fp8_run_out_type can not be fp8 type"
-                return False
+        elif fp8_run_out_type == "fp8_143":
+            # reason = " fp8 : inference measurement supports only bf16 in fwd pass out; fp8_run_out_type can not be fp8 type"
+            return False
 
     else:
         # training does supports amax_o measurement only in recompute mode

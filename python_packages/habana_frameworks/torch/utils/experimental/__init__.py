@@ -19,8 +19,8 @@ import enum
 import sys
 import warnings
 
-import habana_frameworks.torch.hpu as hpu
 import habana_frameworks.torch.hpu.memory as htmem
+from habana_frameworks.torch import hpu
 from habana_frameworks.torch.utils import _experimental_C
 from habana_frameworks.torch.utils._experimental_C import synDeviceType
 from habana_frameworks.torch.utils.experimental.detect_recompilation import (

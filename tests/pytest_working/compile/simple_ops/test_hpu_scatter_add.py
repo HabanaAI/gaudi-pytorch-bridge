@@ -15,11 +15,11 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.hpu as hpu
 import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
+from habana_frameworks.torch import hpu
 from test_utils import format_tc
 
 

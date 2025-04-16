@@ -18,8 +18,8 @@
 # Test code for SW-179625
 
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.hpu import random as hpu_random
+from torch import nn
 
 
 # Model with non-aten op Conv1d (torch.nn)

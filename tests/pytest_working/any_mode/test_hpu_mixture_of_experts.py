@@ -21,7 +21,6 @@ from functools import partial
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from compile.test_dynamo_utils import use_eager_fallback
 from test_utils import (
@@ -34,6 +33,7 @@ from test_utils import (
     is_pytest_mode_compile,
     is_pytest_mode_eager,
 )
+from torch import nn
 
 DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16]
 ACTIVATIONS = ["silu"]  # ["gelu", "relu", "silu"]

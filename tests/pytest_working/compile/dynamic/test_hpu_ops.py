@@ -20,7 +20,6 @@ import os
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-import torch.nn as nn
 from compile.test_dynamo_utils import use_eager_fallback
 from test_utils import (
     check_ops_executed_in_jit_ir,
@@ -28,6 +27,7 @@ from test_utils import (
     compare_tensors,
     is_pytest_mode_compile,
 )
+from torch import nn
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")

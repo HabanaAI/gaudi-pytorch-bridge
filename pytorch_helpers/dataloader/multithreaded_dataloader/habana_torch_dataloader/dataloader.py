@@ -32,7 +32,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, Generic, Optional, TypeVar
 
 import torch
-import torch.multiprocessing as multiprocessing
+from torch import multiprocessing
 from torch._utils import ExceptionWrapper
 from torch.utils.data import _utils
 from torch.utils.data.dataset import Dataset, IterableDataset
@@ -299,13 +299,12 @@ class DataLoader(Generic[T_co]):
             if self._dataset_kind == _DatasetKind.Iterable:
                 # See NOTE [ Custom Samplers and IterableDataset ]
                 sampler = _InfiniteConstantSampler()
-            else:  # map-style
-                if shuffle:
-                    # Cannot statically verify that dataset is Sized
-                    # Somewhat related: see NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
-                    sampler = RandomSampler(dataset, generator=generator)  # type: ignore
-                else:
-                    sampler = SequentialSampler(dataset)
+            elif shuffle:
+                # Cannot statically verify that dataset is Sized
+                # Somewhat related: see NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
+                sampler = RandomSampler(dataset, generator=generator)  # type: ignore
+            else:
+                sampler = SequentialSampler(dataset)
 
         if batch_size is not None and batch_sampler is None:
             # auto_collation without custom batch_sampler

@@ -82,13 +82,12 @@ def bfs_search_node(predicate: Callable, queue=[], direction="input"):
         node = queue.pop(0)
         if predicate(node):
             return node
+        elif direction == "input":
+            for arg in node.args:
+                if isinstance(arg, torch.fx.Node):
+                    queue.append(arg)
         else:
-            if direction == "input":
-                for arg in node.args:
-                    if isinstance(arg, torch.fx.Node):
-                        queue.append(arg)
-            else:
-                queue.extend(list(node.users))
+            queue.extend(list(node.users))
     return None
 
 

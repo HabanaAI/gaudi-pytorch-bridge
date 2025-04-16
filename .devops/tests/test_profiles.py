@@ -17,8 +17,8 @@
 
 import os
 
-import build_profiles.profiles as profiles
 import pytest
+from build_profiles import profiles
 from build_profiles.version import Version
 
 

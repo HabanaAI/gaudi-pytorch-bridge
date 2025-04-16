@@ -19,8 +19,7 @@
 import warnings
 from typing import Any
 
-import habana_frameworks.torch.hpu as hpu
-from habana_frameworks.torch import _hpu_C
+from habana_frameworks.torch import _hpu_C, hpu
 
 import torch
 

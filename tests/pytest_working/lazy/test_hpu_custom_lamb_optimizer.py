@@ -20,10 +20,10 @@ import copy
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.optimizers import FusedLamb
 from test_utils import compare_tensors, cpu, hpu
+from torch import nn
 
 
 def reference_lamb_norm(grads, max_grad_norm):

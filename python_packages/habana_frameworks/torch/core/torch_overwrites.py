@@ -397,11 +397,10 @@ def overwrite_torch_functions():
             return [convert_for_pickle(e) for e in obj]
         elif isinstance(obj, tuple):
             return tuple([convert_for_pickle(e) for e in obj])
+        elif isinstance(obj, torch.Tensor):
+            return obj.data.detach().clone().cpu()
         else:
-            if isinstance(obj, torch.Tensor):
-                return obj.data.detach().clone().cpu()
-            else:
-                return obj
+            return obj
 
     @wraps(torch.save)
     def wrap_save(
@@ -646,10 +645,9 @@ def overwrite_native_pt2e_quantization_interface():
         return
 
     NativeFunctions._did_overwrite_native_pt2e_quantization_interface = True
-    import torch.ao.quantization.quantize_pt2e as quantize_pt2e
-
     # PT 2.5 changes add torch.ao.quantization.observer for dynamo tracing
     from torch._dynamo.trace_rules import MOD_INLINELIST
+    from torch.ao.quantization import quantize_pt2e
 
     MOD_INLINELIST.add("torch.ao.quantization.observer")
 

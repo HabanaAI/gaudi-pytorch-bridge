@@ -18,10 +18,9 @@
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.core as htcore
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from test_utils import _kernel_copy_to_device, compare_tensors
+from torch import nn, optim
 
 
 class Net(nn.Module):

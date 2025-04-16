@@ -22,11 +22,11 @@ import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
 from habana_frameworks.torch.hpex.optimizers import (
     FusedLars,
     FusedResourceApplyMomentum,
 )
+from torch import nn
 
 from lars import Lars, ResourceApplyMomentum
 

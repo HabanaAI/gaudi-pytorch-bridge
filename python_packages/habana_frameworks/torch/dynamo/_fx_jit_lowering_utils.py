@@ -24,7 +24,7 @@ except ImportError:
 from collections.abc import Iterable
 from typing import Any
 
-import habana_frameworks.torch._torch_jit_C.jit as jit
+from habana_frameworks.torch._torch_jit_C import jit
 
 import torch
 

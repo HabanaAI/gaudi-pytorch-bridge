@@ -690,7 +690,6 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
             n.replace_all_uses_with(arg_node)
 
         parent_module.graph.eliminate_dead_code()
-        return
 
     def process_nested_submodule(
         parent_module: torch.fx.GraphModule,
@@ -719,7 +718,6 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
         inline_hints_wrapper(parent_module, wrapper_node, submodule)
         parent_module.delete_submodule(submodule_name)
-        return
 
     class StrictRunNode(torch.fx.Interpreter):
         def __init__(self, module: torch.fx.GraphModule):

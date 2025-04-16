@@ -773,15 +773,14 @@ def handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars):
             code += f"  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, {fe_call_args})"
         else:
             code += f"  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op, {fe_call_args})"
+    elif rtype.startswith("::std::tuple<at::Tensor"):
+        code += f"  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
+    elif rtype.startswith("void") and "TensorList" in sig:
+        raise Exception(
+            f"Support for TensorLists inputs was removed, as we don't intend to develop new lazy features and no operator needed it so far. Sig: {sig}"
+        )
     else:
-        if rtype.startswith("::std::tuple<at::Tensor"):
-            code += f"  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
-        elif rtype.startswith("void") and "TensorList" in sig:
-            raise Exception(
-                f"Support for TensorLists inputs was removed, as we don't intend to develop new lazy features and no operator needed it so far. Sig: {sig}"
-            )
-        else:
-            code += f"  RUN_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
+        code += f"  RUN_MAYBE_WITH_ACC_THREAD({fname}, hpu_op)"
     return code + ";"
 
 

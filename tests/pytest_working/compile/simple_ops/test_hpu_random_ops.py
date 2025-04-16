@@ -253,16 +253,15 @@ def test_randint(shape, low, high, is_like, dtype):
             def fn(input, high, dtype, device):
                 return torch.randint_like(input, high, dtype=dtype, device=device)
 
+    elif low:
+
+        def fn(low, high, size, dtype, device):
+            return torch.randint(low, high, size, dtype=dtype, device=device)
+
     else:
-        if low:
 
-            def fn(low, high, size, dtype, device):
-                return torch.randint(low, high, size, dtype=dtype, device=device)
-
-        else:
-
-            def fn(high, size, dtype, device):
-                return torch.randint(high, size, dtype=dtype, device=device)
+        def fn(high, size, dtype, device):
+            return torch.randint(high, size, dtype=dtype, device=device)
 
     compiled_fn = compile_function_if_compile_mode(fn)
 

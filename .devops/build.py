@@ -1813,31 +1813,30 @@ def prepare_wheel_specs(
 ) -> tuple[Version | None, list[WheelSpec]]:
     if wheel_spec:
         wheel_specs = parse_wheel_spec(wheel_spec)
+    elif "all" in requested_pt_versions:
+        wheel_specs = list_wheel_specs_for_specific_pt_versions(set(supported_pt_versions))
     else:
-        if "all" in requested_pt_versions:
-            wheel_specs = list_wheel_specs_for_specific_pt_versions(set(supported_pt_versions))
-        else:
-            pt_versions: set[VersionAndSource] = set()
-            for requested in requested_pt_versions:
-                if requested == "preinstalled":
-                    decide_on_building_with_preinstalled_version(preinstalled_pt_version, pt_versions)
-                elif "://" in requested:  # URI
-                    pt_versions.add(VersionAndSource(Version(requested), "uri"))
-                else:
-                    try:  # support names matching those from 'pt_versions' in profiles.json (e.g. "current")
-                        version_literal_and_source = profiles.get_version_literal_and_source(requested)
-                        if version_literal_and_source is not None:
-                            pt_versions.add(_to_version_and_source(version_literal_and_source))
-                    except KeyError:  # if not given by name, try finding profile by PT version
-                        supported = get_supported_pt_version(Version(requested), supported_pt_versions)
-                        if not supported:
-                            log.fatal(
-                                f"Requested {requested} PT version which is not supported. Currently supported PT"
-                                f" versions are {supported_pt_versions}."
-                            )
-                        pt_versions.add(supported)
-            assert len(pt_versions) > 0
-            wheel_specs = list_wheel_specs_for_specific_pt_versions(pt_versions)
+        pt_versions: set[VersionAndSource] = set()
+        for requested in requested_pt_versions:
+            if requested == "preinstalled":
+                decide_on_building_with_preinstalled_version(preinstalled_pt_version, pt_versions)
+            elif "://" in requested:  # URI
+                pt_versions.add(VersionAndSource(Version(requested), "uri"))
+            else:
+                try:  # support names matching those from 'pt_versions' in profiles.json (e.g. "current")
+                    version_literal_and_source = profiles.get_version_literal_and_source(requested)
+                    if version_literal_and_source is not None:
+                        pt_versions.add(_to_version_and_source(version_literal_and_source))
+                except KeyError:  # if not given by name, try finding profile by PT version
+                    supported = get_supported_pt_version(Version(requested), supported_pt_versions)
+                    if not supported:
+                        log.fatal(
+                            f"Requested {requested} PT version which is not supported. Currently supported PT"
+                            f" versions are {supported_pt_versions}."
+                        )
+                    pt_versions.add(supported)
+        assert len(pt_versions) > 0
+        wheel_specs = list_wheel_specs_for_specific_pt_versions(pt_versions)
     return preinstalled_pt_version, wheel_specs
 
 

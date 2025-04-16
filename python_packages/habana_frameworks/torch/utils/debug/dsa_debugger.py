@@ -37,18 +37,16 @@ def remove_file(path, verbose=True, strict=True):
         if verbose:
             print(f"[INFO] Deleting file {path}")
         os.remove(path)
-    else:
-        if strict:
-            raise ValueError(f"{path} is not a file")
+    elif strict:
+        raise ValueError(f"{path} is not a file")
 
 
 def remove_dir(path, strict=True):
     if os.path.isdir(path):
         print(f"[INFO] Deleting directory {path}")
         shutil.rmtree(path)
-    else:
-        if strict:
-            raise ValueError(f"{path} is not a directory")
+    elif strict:
+        raise ValueError(f"{path} is not a directory")
 
 
 def calc_difference(a, b):
@@ -781,7 +779,7 @@ def main(args):
 
     if args.cmd is not None:
         if args.parallel:
-            import habana_frameworks.torch.hpu as hpu
+            from habana_frameworks.torch import hpu
 
             if hpu.device_count() < 2:
                 print(f"[ERROR]: Found only {hpu.device_count()} HPU device(s). Cannot running in parallel mode.")

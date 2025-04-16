@@ -23,12 +23,12 @@ import time
 
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
-import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
 import numpy as np
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
 from fp8_utils import simulateFp8Precision
+from habana_frameworks.torch.hpex.experimental.transformer_engine import fp8
 from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
     cast_from_fp8,
     cast_to_fp8,

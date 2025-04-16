@@ -19,8 +19,7 @@ import copy
 from typing import Any
 
 import torch
-import torch.fx as fx
-import torch.nn as nn
+from torch import fx, nn
 
 
 def check_for_inference_mode(model):

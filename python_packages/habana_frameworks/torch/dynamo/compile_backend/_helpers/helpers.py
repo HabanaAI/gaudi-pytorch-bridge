@@ -441,7 +441,6 @@ def remove_no_effect_inplace_add(graph_module: torch.fx.GraphModule):
             # this inplace add_ op doesn't have possbility to change the arg, so
             # convert it to out-of-place version.
             node.target = torch.ops.aten.add.Tensor
-    return
 
 
 def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:

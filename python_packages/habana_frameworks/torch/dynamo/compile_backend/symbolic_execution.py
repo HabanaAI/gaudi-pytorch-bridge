@@ -37,7 +37,7 @@ all_expr_hist = {}
 
 
 def substitute_sympyfn(expr):
-    import torch.utils._sympy.functions as functions
+    from torch.utils._sympy import functions
     from torch.utils._sympy.functions import CeilToInt, TruncToInt
 
     def get_torch_sympy_functions():

@@ -22,7 +22,7 @@ import time
 import habana_frameworks.torch as ht
 import torch
 import torch._dynamo
-import torch.nn as nn
+from torch import nn
 
 from tests.pytest_working.test_utils import compile_function_if_compile_mode
 

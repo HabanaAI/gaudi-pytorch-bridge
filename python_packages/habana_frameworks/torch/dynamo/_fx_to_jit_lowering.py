@@ -22,7 +22,7 @@ from typing import Any
 # todo https://jira.habana-labs.com/browse/SW-199903
 # is it better to import here the C module directly
 # or implement all functions calling c module in py module?
-import habana_frameworks.torch._torch_jit_C.jit as jit
+from habana_frameworks.torch._torch_jit_C import jit
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch

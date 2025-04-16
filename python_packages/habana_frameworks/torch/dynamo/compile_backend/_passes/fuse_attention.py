@@ -166,8 +166,6 @@ def add_permute_transpose_clone(gm: torch.fx.GraphModule):
     for u in to_remove:
         gm.graph.erase_node(u)
 
-    return
-
 
 def _sfdp_pattern_bert_large(query, key, value, attn_mask, inv_scale, dropout_p):
     # for BertLarge with dropout

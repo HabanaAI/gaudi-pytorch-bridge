@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -261,12 +261,11 @@ def test_bounds_check(T, B, max_L, bounds_check_mode, weighted, test_case, dtype
 
     if test_case == TestCase.CHECK_ALL_INDICES_ZERO:
         indices[:] = torch.iinfo(dtype).max
-    else:
-        if test_case == TestCase.TEST_OFFSETS_BOUND_ERRORS:
-            if offsets.numel() > 0:
-                offsets[0] = -100
-            if offsets.numel() > 1:
-                offsets[-1] += 100
+    elif test_case == TestCase.TEST_OFFSETS_BOUND_ERRORS:
+        if offsets.numel() > 0:
+            offsets[0] = -100
+        if offsets.numel() > 1:
+            offsets[-1] += 100
 
     indices_copy = indices.clone()
 

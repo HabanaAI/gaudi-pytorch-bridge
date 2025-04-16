@@ -23,9 +23,9 @@ import shutil
 from dataclasses import dataclass
 from filecmp import dircmp
 
-import gen_op.parser as parser
 import pytest
 import torch
+from gen_op import parser
 from gen_op.code_generation import (
     check_valid_fields,
     cpp_from_schema,

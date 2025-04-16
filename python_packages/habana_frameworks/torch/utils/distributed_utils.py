@@ -18,7 +18,7 @@
 
 import warnings
 
-import habana_frameworks.torch.distributed.hccl as hccl
+from habana_frameworks.torch.distributed import hccl
 
 
 def initialize_distributed_hpu():

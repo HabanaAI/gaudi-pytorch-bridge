@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from sys import stdout
 
 import torch.distributed as dist
-import torch.utils.data as data
+from torch.utils import data
 from torchvision import transforms
 
 

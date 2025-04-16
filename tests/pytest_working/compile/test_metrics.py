@@ -252,9 +252,8 @@ def env_var_in_scope(vars={}):
             # restore environment variable
             if orig_vars[key] is not None:
                 os.environ[key] = orig_vars[key]
-            else:
-                if key in os.environ:
-                    del os.environ[key]
+            elif key in os.environ:
+                del os.environ[key]
 
 
 class TestMetricsDump:
@@ -466,7 +465,7 @@ class TestMetricsDump:
     @staticmethod
     def worker_process_for_mp(rank, world_size, call_initialize_dist_hpu):
         if call_initialize_dist_hpu:
-            import habana_frameworks.torch.distributed.hccl as hccl
+            from habana_frameworks.torch.distributed import hccl
 
             hccl.initialize_distributed_hpu(world_size, rank, rank)
 

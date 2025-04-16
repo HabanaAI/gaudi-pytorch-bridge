@@ -16,7 +16,7 @@
 ###############################################################################
 
 import habana_frameworks.torch.dynamo.compile_backend  # noqa
-import habana_frameworks.torch.hpu as hpu
+from habana_frameworks.torch import hpu
 import numpy as np
 import pytest
 import torch
