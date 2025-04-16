@@ -48,6 +48,15 @@ class EqualFn {
   }
 };
 
+// Pair of vector of cached H2D scales and idx of scale that should be used
+// next.
+using ScalesIdxPair = std::pair<std::vector<at::Tensor>, int>;
+using ScalarToScalesMap = std::unordered_map<
+    std::pair<double, at::ScalarType>,
+    ScalesIdxPair,
+    HashFn,
+    EqualFn>;
+
 class SingleTonExecThreadPool {
  public:
   static SingleTonExecThreadPool& Get() {
@@ -306,6 +315,12 @@ class HbExecutionContext {
     return m_user_input_match_index;
   }
 
+  ScalarToScalesMap& getScalarToH2dScalesMapRef() {
+    return m_scalar_to_h2d_scales_map;
+  }
+
+  void updateCurrentIndicesOfH2dScales();
+
   void setMarkedInputs(std::vector<at::Tensor>& marked_user_tensors) {
     m_marked_user_inputs = marked_user_tensors;
   }
@@ -436,6 +451,7 @@ class HbExecutionContext {
   std::unordered_map<int64_t, std::optional<at::Generator>>
       m_seed_tensor_generator_map;
   static std::atomic_uint64_t m_unique_jobid_count;
+  ScalarToScalesMap m_scalar_to_h2d_scales_map;
 
   // unordered map jobid -> synapse_helpers::hpuStream_t
   std::unordered_map<uint64_t, synapse_helpers::hpuStream_t>

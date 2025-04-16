@@ -15,32 +15,117 @@
 
 #include "habana_kernels/h2d_scales_lazy.h"
 #include "backend/backend_meta.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/lazy_executor.h"
 
 namespace habana_lazy {
 
 namespace {
 
-at::Tensor create_h2d_scale(const at::Tensor& scale) {
-  const auto dtype = scale.scalar_type();
+at::Tensor create_h2d_scale_tensor(void* scale_ptr, at::ScalarType dtype) {
   auto scale_tensor = habana_lazy::empty_hpu_lazy(
       {1}, dtype, std::nullopt, false, HOST_TO_DEVICE_TENSOR);
 
-  auto hl_params_shape =
+  auto hl_scale_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(scale_tensor, at::kHPU);
-  auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-  auto tmeta{habana::get_tensor_extra_meta(hl_param_internal)};
+  auto hl_scale_tensor_internal =
+      hl_scale_tensor.CurrentTensorAttached().value();
+  auto tmeta{habana::get_tensor_extra_meta(hl_scale_tensor_internal)};
   const auto is_float = dtype == at::ScalarType::Float;
 
   tmeta->set_host_data(
-      scale.data_ptr(),
+      scale_ptr,
       {1},
       is_float ? sizeof(float_t) : sizeof(at::BFloat16),
       is_float ? habana::HostDataType::FLOAT_T
                : habana::HostDataType::BFLOAT16_T);
 
   return scale_tensor;
+}
+
+at::Tensor create_h2d_scale_tensor(const at::Tensor& scale_tensor) {
+  return create_h2d_scale_tensor(
+      scale_tensor.data_ptr(), scale_tensor.scalar_type());
+}
+
+/**
+ * Creates H2D tensors with all possible hw-aligned scales and their inversions,
+ * so they are picked in runtime by fp8 ops supporting H2D scales instead of
+ * being created each time. Default exp_bias is 7 (only torch.float8_e4m3fn is
+ * supported). Possible exp_bias for gaudi2 is [3, 7, 11, 15], so -1 is added as
+ * an inversion of 15. Possible exp_bias for gaudi3 is [0, 63], so with
+ * inversions it's [-49, 63]
+ */
+bool create_h2d_scale_tensors() {
+  const auto is_gaudi2 =
+      habana::HPUDeviceContext::get_device().type() == synDeviceGaudi2;
+  auto& h2d_scales_map = habana_lazy::get_device_lazy_execution_context()
+                             ->getScalarToH2dScalesMapRef();
+  static constexpr int default_bias = 7;
+  std::vector<int> biases;
+  if (is_gaudi2) {
+    biases = {-1, 3, 7, 11, 15};
+  } else {
+    biases.resize(113);
+    std::iota(biases.begin(), biases.end(), -49);
+  }
+
+  // Stores vector of preallocated H2D tensors and the idx of tensor that should
+  // be used next, for each possible hw-aligned scale value. If necessary, new
+  // H2D tensors are added to vector in runtime. After mark_step, indices are
+  // updated, so all newly allocated tensors are available to pick. For now we
+  // preallocate one H2D tensor for each scale value, but if experiments prove
+  // more is needed, it will be increased in future.
+  auto insert_scales_into_map = [&h2d_scales_map](
+                                    const double scale_value,
+                                    void* scale_ptr,
+                                    const at::ScalarType dtype) {
+    std::pair<double, at::ScalarType> key{scale_value, dtype};
+    ScalesIdxPair scales_and_idx{
+        {create_h2d_scale_tensor(scale_ptr, dtype)}, 0};
+    h2d_scales_map.emplace(std::move(key), std::move(scales_and_idx));
+  };
+
+  for (const auto bias : biases) {
+    double scale_f64 = std::pow(2.0, default_bias - bias);
+    float scale_f32 = static_cast<float>(scale_f64);
+
+    // bfloat16 value is stored in uint16_t.
+    unsigned scale_u32;
+    std::memcpy(&scale_u32, &scale_f32, sizeof(float));
+    uint16_t scale_bf16 = static_cast<uint16_t>(scale_u32 >> 16);
+
+    insert_scales_into_map(scale_f64, &scale_f32, at::ScalarType::Float);
+    insert_scales_into_map(scale_f64, &scale_bf16, at::ScalarType::BFloat16);
+  }
+  return true;
+}
+
+at::Tensor create_h2d_scale(const at::Tensor& scale) {
+  // This happens only once, during the first execution of create_h2d_scale.
+  [[maybe_unused]] static bool h2d_scales_created = create_h2d_scale_tensors();
+
+  const auto dtype = scale.scalar_type();
+  auto& h2d_scales_map = habana_lazy::get_device_lazy_execution_context()
+                             ->getScalarToH2dScalesMapRef();
+  if (h2d_scales_map.count({scale.item().toDouble(), dtype}) == 1) {
+    auto& [scales_vec, current_idx] =
+        h2d_scales_map.at({scale.item().toDouble(), dtype});
+    if (current_idx >= 0) {
+      PT_BRIDGE_DEBUG("H2D scale taken from cache, current idx: ", current_idx);
+      return scales_vec[current_idx--];
+    }
+    const auto new_scale = create_h2d_scale_tensor(scale);
+    scales_vec.push_back(new_scale);
+    PT_BRIDGE_DEBUG(
+        "H2D scale added to cache, current size: ", scales_vec.size());
+    return new_scale;
+  }
+  PT_BRIDGE_DEBUG("H2D scale created from non hw-aligned value.");
+
+  return create_h2d_scale_tensor(scale);
 }
 
 bool is_cpu_float_bfloat_0d_tensor(const std::optional<at::Tensor>& tensor) {

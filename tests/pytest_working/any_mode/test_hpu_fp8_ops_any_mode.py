@@ -1175,8 +1175,8 @@ def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
             b /= 4.0
         ah = a.to("hpu")
         bh = b.to("hpu")
-        sa = torch.tensor(sa_val, dtype=src_dtype)
-        sb = torch.tensor(sb_val, dtype=src_dtype)
+        sa = torch.tensor(scale_a, dtype=src_dtype)
+        sb = torch.tensor(scale_b, dtype=src_dtype)
         so = torch.tensor(scale_out, dtype=src_dtype)
 
         return a, b, ah, bh, sa, sb, so

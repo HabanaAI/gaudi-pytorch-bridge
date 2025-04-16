@@ -1653,6 +1653,7 @@ void HbLazyTensor::StepMarker(
     context->JoinPendingLaunchThread();
   }
   HbLazyTensor::MarkStep(device);
+  context->updateCurrentIndicesOfH2dScales();
   if (switch_dynamic_mode) {
     habana_helpers::DisableRefineDynamicShape();
     switch_dynamic_mode = false;
