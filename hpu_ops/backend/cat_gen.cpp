@@ -53,6 +53,8 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
     if (!ref_out_size.empty()) {
       HABANA_ASSERT(out_size[dim] == ref_out_size[dim], "Cat output mismatch");
     }
+  } else {
+    out_size.push_back(0);
   }
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {tensors_},
