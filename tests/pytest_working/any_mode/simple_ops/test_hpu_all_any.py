@@ -20,6 +20,7 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
 )
 
 zero_size_shapes = [[0], [0, 1], [0, 1, 2]]
@@ -43,7 +44,12 @@ input_shapes_dim = [
 
 ranges = [[0, 5], [1, 5], [-5, -1], [-5, 0], [-5, 5]]
 use_out = [True, False]
-dtypes = [torch.bfloat16, torch.float, torch.float16, torch.short, torch.int, torch.bool]
+dtypes_any = [torch.bfloat16, torch.float, torch.int, torch.bool]
+dtypes_all = dtypes_any + [torch.short]
+if not is_gaudi1():
+    dtypes_any.append(torch.float16)
+    dtypes_any.append(torch.short)
+    dtypes_all.append(torch.float16)
 
 
 def fn(input_tensor, use_out, output_device, op, dim):
@@ -73,7 +79,7 @@ def check(cpu_input, use_out, op, dim):
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("input", input_shapes_dim, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.parametrize("dtype", dtypes_all)
 def test_hpu_all(use_out, input, dtype):
     shape = input[0]
     dim = input[1]
@@ -86,7 +92,7 @@ def test_hpu_all(use_out, input, dtype):
 
 
 @pytest.mark.parametrize("use_out", use_out)
-@pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.parametrize("dtype", dtypes_all)
 @pytest.mark.parametrize("range", ranges)
 def test_hpu_all_ranges(use_out, dtype, range):
     if dtype == torch.bool:
@@ -97,7 +103,7 @@ def test_hpu_all_ranges(use_out, dtype, range):
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("shape", zero_size_shapes, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.parametrize("dtype", dtypes_all)
 def test_hpu_all_zero_size(use_out, shape, dtype):
     cpu_input = torch.empty(shape, dtype=dtype)
     check(cpu_input, use_out, torch.all, None)
@@ -105,7 +111,7 @@ def test_hpu_all_zero_size(use_out, shape, dtype):
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("input", input_shapes_dim, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes_any, ids=format_tc)
 def test_hpu_any(use_out, input, dtype):
     shape = input[0]
     dim = input[1]

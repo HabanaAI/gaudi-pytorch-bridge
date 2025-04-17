@@ -18,11 +18,13 @@
 import pytest
 import torch
 from fp8_utils import fp8_dtypes
-from test_utils import compare_tensors
+from test_utils import compare_tensors, is_gaudi1
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]
-dtypes = [torch.float, torch.bfloat16, torch.int] + fp8_dtypes
+dtypes = [torch.float, torch.bfloat16, torch.int]
+if not is_gaudi1():
+    dtypes = dtypes + fp8_dtypes
 
 
 @pytest.mark.parametrize("shape", shapes)

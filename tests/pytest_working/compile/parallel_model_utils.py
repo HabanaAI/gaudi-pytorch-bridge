@@ -19,8 +19,8 @@ from collections.abc import Callable
 
 import torch
 import torch._dynamo
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 from torch.nn.parameter import Parameter
 
 model_parallel_group = None

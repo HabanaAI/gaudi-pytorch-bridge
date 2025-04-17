@@ -75,6 +75,9 @@ TEST_F(HpuOpTest, topk) {
 }
 
 TEST_F(HpuOpTest, topk_Float16) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
   GenerateInputs(1, {{10, 3, 2}});
   auto k = 3;
   auto dim = 0;

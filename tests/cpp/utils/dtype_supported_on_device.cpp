@@ -12,24 +12,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "device_type_util.h"
+#include "dtype_supported_on_device.h"
 #include "backend/habana_device/HPUGuardImpl.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 
-bool isGaudi() {
+bool IsDtypeSupportedOnCurrentDevice(torch::ScalarType dtype) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi;
-}
-
-bool isGaudi2() {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi2;
-}
-
-bool isGaudi3() {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi3;
+  auto& device = habana::HPUDeviceContext::get_device();
+  switch (device.type()) {
+    case synDeviceGaudi:
+      switch (dtype) {
+        case torch::kFloat16:
+          return false;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+  return true;
 }

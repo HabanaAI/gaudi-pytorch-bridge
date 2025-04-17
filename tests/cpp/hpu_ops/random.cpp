@@ -152,6 +152,9 @@ TEST_F(HpuOpTest, bernoulli_out) {
 }
 
 TEST_F(HpuOpTest, bernoulli_out_2) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
   GenerateInputs(1, {{64, 64}}, torch::kHalf);
   auto input = GetHpuInput(0);
 
@@ -195,6 +198,9 @@ TEST_F(HpuOpTest, bernoulli_out_scalar1) {
 }
 
 TEST_F(HpuOpTest, bernoulli_out_scalar2) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
   GenerateInputs(1, {{64, 64}}, torch::kHalf);
   auto input = GetHpuInput(0);
 
@@ -468,6 +474,9 @@ TEST_F(HpuOpTest, random_to_u8) {
 }
 
 TEST_F(HpuOpTest, random_half) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
   GenerateInputs(1, torch::kHalf);
   SetSeed();
   auto result1 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
@@ -485,6 +494,9 @@ TEST_F(HpuOpTest, random_half) {
 }
 
 TEST_F(HpuOpTest, random_from_half) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
   GenerateInputs(1, torch::kHalf);
   SetSeed();
   auto result1 = GetHpuInput(0).random_(-10, 10);
@@ -502,6 +514,9 @@ TEST_F(HpuOpTest, random_from_half) {
 }
 
 TEST_F(HpuOpTest, random_to_half) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
   GenerateInputs(1, torch::kHalf);
   SetSeed();
   auto result1 = GetHpuInput(0).random_(1000);

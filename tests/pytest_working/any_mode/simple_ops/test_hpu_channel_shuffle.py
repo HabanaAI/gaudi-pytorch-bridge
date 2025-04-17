@@ -21,6 +21,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_gaudi3,
     is_pytest_mode_compile,
     setup_teardown_env_fixture,  # noqa F401
@@ -44,6 +45,9 @@ from test_utils import (
 def test_hpu_channel_shuffle(shape_and_groups, dynamic, dtype, setup_teardown_env_fixture):
     if dynamic and (is_gaudi3() or not pytest.mode == "compile"):
         pytest.skip("Not supported test configuration with dynamic shapes enabled")
+
+    if dtype == torch.float16 and is_gaudi1():
+        pytest.skip("Half is not supported on Gaudi")
 
     def fn(input, model):
         return model(input)

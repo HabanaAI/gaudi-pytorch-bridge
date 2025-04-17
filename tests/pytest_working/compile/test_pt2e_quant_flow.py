@@ -36,6 +36,7 @@ from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import (
     fga_assert_helper,
     inference_env_fixture,  # noqa F401
+    is_gaudi1,
 )
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
@@ -247,6 +248,7 @@ def use_pt2e_quant_flow(
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
@@ -287,6 +289,7 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
         )
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])

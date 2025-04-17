@@ -26,10 +26,13 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
+    is_gaudi1,
     is_gaudi2,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
 )
+
+pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support int4")]
 
 dtypes = [torch.float32, torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
 dtypes_str = ["fp32", "bf16", "f8_e5m2", "f8_e4m3fn"]

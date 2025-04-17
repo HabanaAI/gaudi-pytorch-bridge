@@ -20,10 +20,13 @@ import torch
 from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.float16]
+dtypes = [torch.float32, torch.bfloat16]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize(

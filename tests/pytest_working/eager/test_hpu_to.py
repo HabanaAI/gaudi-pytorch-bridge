@@ -19,7 +19,7 @@ from enum import Enum
 
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc
+from test_utils import compare_tensors, format_tc, is_gaudi1
 
 
 class DeviceMode(Enum):
@@ -33,7 +33,10 @@ dst_formats = [torch.channels_last, torch.contiguous_format]
 
 shapes_strides = [((1, 3, 32, 32), None), ((1, 3, 32, 32), (3072, 1, 96, 3)), ((1, 3, 32, 32), (3072, 1024, 1, 32))]
 
-dtypes = [torch.bfloat16, torch.float, torch.int, torch.float16, torch.short]
+dtypes = [torch.bfloat16, torch.float, torch.int]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
+    dtypes.append(torch.short)
 
 
 # following test validates "to" operator when two input arguments i.e.

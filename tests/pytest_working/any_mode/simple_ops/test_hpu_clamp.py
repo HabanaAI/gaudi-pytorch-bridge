@@ -19,7 +19,7 @@ from enum import Enum
 import numpy as np
 import pytest
 import torch
-from test_utils import compare_tensors, compile_function_if_compile_mode
+from test_utils import compare_tensors, compile_function_if_compile_mode, is_gaudi1
 
 
 class Mode(Enum):
@@ -43,7 +43,9 @@ modes = [
     (Mode.NONE, Mode.TENSOR_FULL),
 ]
 
-dtypes = [torch.float32, torch.bfloat16, torch.int, torch.long, torch.half, torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.long]
+if not is_gaudi1():
+    dtypes += [torch.half, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 LIMIT_SCALE = 10

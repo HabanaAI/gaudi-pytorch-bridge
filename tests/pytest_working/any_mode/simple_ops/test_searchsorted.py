@@ -22,16 +22,18 @@ from test_utils import (
     compile_function_if_compile_mode,
     evaluate_fwd_kernel,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
 dtypes = [
     torch.float,
     torch.bfloat16,
-    torch.float16,
     torch.int,
     torch.long,
 ]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("right", [True, False])

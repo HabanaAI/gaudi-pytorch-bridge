@@ -16,10 +16,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import compile_function_if_compile_mode, format_tc
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
-dtypes = [torch.bfloat16, torch.float, torch.int, torch.short, torch.float8_e5m2, torch.float8_e4m3fn]
+dtypes = [torch.bfloat16, torch.float, torch.int, torch.short]
 dtypes_bwd = [torch.bfloat16, torch.float]
+if not is_gaudi1():
+    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 shapes1d = [[5, 6], [5, 6, 7]]

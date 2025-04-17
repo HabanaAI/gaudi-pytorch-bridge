@@ -21,11 +21,14 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.float16]
+dtypes = [torch.float32, torch.bfloat16]
 integer_dtypes = [torch.int, torch.int16, torch.uint8, torch.int8]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 3, 4]])

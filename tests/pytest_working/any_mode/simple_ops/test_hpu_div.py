@@ -16,9 +16,11 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import format_tc, is_gaudi1
 
-dtypes = [torch.bfloat16, torch.float, torch.float16]
+dtypes = [torch.bfloat16, torch.float]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("input_shape", [[2, 2, 3], [4, 2, 5, 2], [2, 1, 3, 3, 2]])

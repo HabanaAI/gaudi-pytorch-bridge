@@ -18,9 +18,12 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc
+from test_utils import compare_tensors, format_tc, is_gaudi1
 
-dtypes = [torch.float32, torch.bfloat16, torch.int, torch.bool, torch.float8_e5m2, torch.float8_e4m3fn, torch.long]
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.bool]
+
+if not is_gaudi1():
+    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn, torch.long]
 
 
 @pytest.mark.parametrize(

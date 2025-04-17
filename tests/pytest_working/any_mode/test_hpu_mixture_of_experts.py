@@ -29,6 +29,7 @@ from test_utils import (
     cpu,
     format_tc,
     hpu,
+    is_gaudi1,
     is_gaudi2,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
@@ -255,6 +256,7 @@ def mixture_of_experts_eager(
     return final_hidden_states
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -334,6 +336,7 @@ def test_mixture_of_experts(
         check_ops_executed_in_jit_ir(op_name)
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -433,6 +436,7 @@ def test_mixture_of_experts_fp8(
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 def test_mixture_of_experts_fp8_h2d():
     fp8_dtype = torch.float8_e4m3fn
@@ -528,6 +532,7 @@ def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
     return (expert_weights_fp8, expert_weight_scales)
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode not implemented")
 @pytest.mark.skipif(not is_pytest_mode_eager(), reason="Need fix in other component")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
@@ -613,6 +618,7 @@ def test_mixture_of_experts_fp8_blockwise_quant(
         check_ops_executed_in_jit_ir("mixture_of_experts")
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skip(reason="On-demand test. Used only for debugging and integration testing")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -720,6 +726,7 @@ def test_compare_graph_modes_to_eager_decomposition(
     check_using_cosine_similarity(result_hpu, result_eager.cpu(), 0.95 if dynamic_scale else 0.99)
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -822,6 +829,7 @@ def test_mixture_of_experts_fwd_bwd(
         check_ops_executed_in_jit_ir(op_names)
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)

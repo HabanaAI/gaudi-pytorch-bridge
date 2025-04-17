@@ -24,6 +24,7 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -46,10 +47,14 @@ test_data = [
     (torch.int64, -42),
     (torch.int64, 123456789123456789),
     (torch.int64, -123456789123456789),
-    (torch.float8_e5m2, 16.0),
-    (torch.float8_e4m3fn, 16.0),
-    (torch.float16, 42.0),
 ]
+
+if not is_gaudi1():
+    test_data += [
+        (torch.float8_e5m2, 16.0),
+        (torch.float8_e4m3fn, 16.0),
+        (torch.float16, 42.0),
+    ]
 
 
 @pytest.mark.parametrize("size", [(1,), (1, 1), (2, 3)], ids=format_tc)

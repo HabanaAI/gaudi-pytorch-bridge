@@ -23,6 +23,7 @@ import torch
 from test_utils import (
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
     is_pytest_mode_lazy,
     use_eager_fallback,
@@ -34,7 +35,10 @@ other_shapes_pull = [(1), (2, 1, 1), (5,), (2, 1, 2)]
 scalar_list = [2.0, 3, 0.5]
 k_list = [5, 9]
 
-dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short, torch.int8, torch.float16]
+dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short, torch.int8]
+
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 verbose = False
 
@@ -494,7 +498,9 @@ def test_compound_foreach_scalarlist_inplace(op, k):
     torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
 
-lerp_dtypes = [torch.float, torch.bfloat16, torch.float16]
+lerp_dtypes = [torch.float, torch.bfloat16]
+if not is_gaudi1:
+    lerp_dtypes.append(torch.float16)
 
 
 def generate_foreach_lerp_input(k, optional_scalar):
@@ -597,6 +603,8 @@ def test_foreach_lerp_inplace(k, optional_scalar):
     ],
 )
 def test_foreach_unary(op):
+    if op == torch._foreach_lgamma and is_gaudi1():
+        pytest.skip(reason="foreach_lgamma is unsupported for Gaudi")
 
     self_shapes = random.choices(self_shapes_pull, k=len(dtypes))
     self_dtypes = dtypes[:]
@@ -666,6 +674,8 @@ non_integer_foreach_unary_inplace_ops = [
 
 @pytest.mark.parametrize("op", integer_foreach_unary_inplace_ops + non_integer_foreach_unary_inplace_ops)
 def test_foreach_unary_inplace(op):
+    if op == torch._foreach_lgamma_ and is_gaudi1():
+        pytest.skip(reason="foreach_lgamma is unsupported for Gaudi")
 
     self_dtypes = [dtype for dtype in dtypes if dtype.is_floating_point or op in integer_foreach_unary_inplace_ops]
     self_shapes = random.choices(self_shapes_pull, k=len(self_dtypes))

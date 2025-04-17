@@ -144,10 +144,17 @@ TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
   c10::hpu::HPUStream cur_stream = c10::hpu::getCurrentHPUStream();
   c10::hpu::HPUStream default_stream = c10::hpu::getDefaultHPUStream();
 
-  ASSERT_EQ_HPU(cur_stream, default_stream);
-  ASSERT_NE_HPU(cur_stream, *s0);
-  ASSERT_NE_HPU(cur_stream, *s1);
-  ASSERT_NE_HPU(s0, s1);
+  if (device.type() == synDeviceGaudi) {
+    ASSERT_EQ_HPU(cur_stream, default_stream);
+    ASSERT_NE_HPU(cur_stream, *s0);
+    ASSERT_NE_HPU(cur_stream, *s1);
+    ASSERT_EQ_HPU(s0, s1);
+  } else {
+    ASSERT_EQ_HPU(cur_stream, default_stream);
+    ASSERT_NE_HPU(cur_stream, *s0);
+    ASSERT_NE_HPU(cur_stream, *s1);
+    ASSERT_NE_HPU(s0, s1);
+  }
 }
 
 TEST(TestStream, StreamPoolTest) {

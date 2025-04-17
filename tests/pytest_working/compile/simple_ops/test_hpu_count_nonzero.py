@@ -19,7 +19,7 @@
 import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import format_tc, is_gaudi1
 
 params = [
     ([8, 2, 3], [0, 2]),
@@ -32,11 +32,13 @@ params = [
 dtypes = [
     torch.bfloat16,
     torch.float,
-    torch.float16,
     torch.int,
     torch.short,
     torch.bool,
 ]
+
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("shape, dim", params, ids=format_tc)

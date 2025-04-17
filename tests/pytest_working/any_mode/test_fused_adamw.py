@@ -23,7 +23,7 @@ from habana_frameworks.torch.hpex.optimizers import FusedAdamW
 from habana_frameworks.torch.hpex.optimizers.distributed import (
     FusedAdamW as DistributedFusedAdamW,
 )
-from test_utils import format_tc, is_pytest_mode_compile
+from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
 from torch.optim import AdamW
 
 lr = 0.1
@@ -31,8 +31,12 @@ betas = (0.9, 0.99)
 weight_decay = 0.1
 eps = 1.0e-6
 shapes = [(3, 4), (5, 6)]
-moments_dtypes = [None, torch.bfloat16, torch.float32, (torch.float8_e4m3fn, torch.float8_e5m2)]
+moments_dtypes = [None, torch.bfloat16, torch.float32]
 dtypes = [torch.bfloat16, torch.float32]
+
+
+if not is_gaudi1():
+    moments_dtypes.append((torch.float8_e4m3fn, torch.float8_e5m2))
 
 
 class Net(torch.nn.Module):

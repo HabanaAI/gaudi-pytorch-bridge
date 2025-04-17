@@ -25,11 +25,15 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_gaudi3,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.float16]
+dtypes = [torch.float32, torch.bfloat16]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
+
 tols = {torch.float32: 2e-7, torch.bfloat16: 3e-2, torch.float16: 2e-3}
 tols_bwd = {torch.float32: 1.5e-6, torch.bfloat16: 3e-2, torch.float16: 2e-3}
 

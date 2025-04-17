@@ -14,6 +14,7 @@
  */
 
 #include "../utils/device_type_util.h"
+#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {
@@ -103,6 +104,9 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define KTHVALUE_TESTS(TEST_NAME, DTYPE)                  \
   TEST_F(HpuOpTest, TEST_NAME) {                          \
+    if (!IsDtypeSupportedOnCurrentDevice(DTYPE)) {        \
+      GTEST_SKIP();                                       \
+    }                                                     \
     if (isGaudi3()) {                                     \
       GTEST_SKIP() << "Test skipped on Gaudi3.";          \
     }                                                     \
@@ -116,6 +120,9 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define KTHVALUE_VALUES_TESTS(TEST_NAME, DTYPE)                         \
   TEST_F(HpuOpTest, TEST_NAME) {                                        \
+    if (!IsDtypeSupportedOnCurrentDevice(DTYPE)) {                      \
+      GTEST_SKIP();                                                     \
+    }                                                                   \
     if (isGaudi3()) {                                                   \
       GTEST_SKIP() << "Test skipped on Gaudi3.";                        \
     }                                                                   \

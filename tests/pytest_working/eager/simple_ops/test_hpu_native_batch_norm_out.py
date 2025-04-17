@@ -17,9 +17,11 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors, format_tc, hpu
+from test_utils import compare_tensors, format_tc, hpu, is_gaudi1
 
-dtypes = [torch.bfloat16, torch.float, torch.half]
+dtypes = [torch.bfloat16, torch.float]
+if not is_gaudi1():
+    dtypes.append(torch.half)
 
 shapes = [(2, 3, 4, 5), (4, 3, 8), (3, 2, 4, 5, 2, 3)]
 

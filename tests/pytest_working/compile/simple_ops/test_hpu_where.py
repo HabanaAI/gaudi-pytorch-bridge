@@ -22,6 +22,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
 )
 
 all_dtypes = [
@@ -40,6 +41,8 @@ all_dtypes = [
 class TestHpuWhere:
     @staticmethod
     def test_where_torch_compile(dtype):
+        if is_gaudi1() and dtype == torch.half:
+            pytest.skip("Half is not supported on Gaudi.")
 
         def fn(x, input, other):
             return torch.where(x > 0, input, other)

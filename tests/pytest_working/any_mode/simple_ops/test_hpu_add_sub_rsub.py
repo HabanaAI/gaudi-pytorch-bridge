@@ -20,10 +20,13 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.long, torch.short, torch.int, torch.bfloat16, torch.float, torch.float16]
+dtypes = [torch.long, torch.short, torch.int, torch.bfloat16, torch.float]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 def generate_tensors(shape, dtype):

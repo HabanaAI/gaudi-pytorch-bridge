@@ -22,12 +22,14 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
 dtypes = [torch.float32, torch.bfloat16, torch.int, torch.int8]
 fp8_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]
-dtypes += fp8_dtypes
+if not is_gaudi1():
+    dtypes += fp8_dtypes
 
 
 @pytest.mark.parametrize("memory_format", [None, torch.contiguous_format], ids=format_tc)

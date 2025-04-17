@@ -21,19 +21,13 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
-dtypes = [
-    torch.float32,
-    torch.bfloat16,
-    torch.int,
-    torch.short,
-    torch.int8,
-    torch.bool,
-    torch.float8_e5m2,
-    torch.float8_e4m3fn,
-]
+dtypes = [torch.float32, torch.bfloat16, torch.int]
+if not is_gaudi1():
+    dtypes += [torch.short, torch.int8, torch.bool, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 def common_test(shape, dim, keep_dim, op, dtype):
