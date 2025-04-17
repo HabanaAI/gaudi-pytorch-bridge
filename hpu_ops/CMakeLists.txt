@@ -122,6 +122,7 @@ add_habana_library(
   backend/ctc_loss_custom_gen.cpp
   backend/ctc_loss_gen.cpp
   backend/cumsum_gen.cpp
+  backend/calculate_scale_for_cast_gen.cpp
   backend/custom_softmax_gen.cpp
   backend/deform_conv2d_gen.cpp
   backend/diag_gen.cpp

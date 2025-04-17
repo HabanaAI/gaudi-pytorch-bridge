@@ -1381,6 +1381,16 @@ def linear_backward(self, grad_output, weight, output_mask):
     return input_grad, weight_grad, bias_grad
 
 
+@register_meta([torch.ops.hpu.calculate_scale_for_cast.default])
+def meta_calculate_scale_for_cast(
+    input, maxMode, scaleMode, reduceAxis=0, reduceKeepdim=False, fullscale=1.0, backoff=1.0
+):
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int(
+        "calculate_scale_for_cast", [input], [maxMode, reduceAxis, reduceKeepdim]
+    )[0]
+    return input.new_empty(out_shape, dtype=input.dtype)
+
+
 @register_meta([torch.ops.hpu.dequantize_nf4.default])
 def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype):
     return input.new_empty(out_shape, dtype=out_dtype)
