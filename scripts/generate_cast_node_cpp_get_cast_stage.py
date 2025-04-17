@@ -29,10 +29,11 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--npu_stack_directory", "-d", type=str, required=True)
 
-devices = ["gaudi2", "gaudi3"]
+devices = ["gaudi", "gaudi2", "gaudi3"]
 files_with_cast_kernels = {
-    devices[0]: "/tpc_kernels/src/kernel_factory_gaudi2.cpp",
-    devices[1]: "/tpc_kernels/src/kernel_factory_gaudi3.cpp",
+    devices[0]: "/tpc_kernels/src/kernel_factory_gaudi.cpp",
+    devices[1]: "/tpc_kernels/src/kernel_factory_gaudi2.cpp",
+    devices[2]: "/tpc_kernels/src/kernel_factory_gaudi3.cpp",
 }
 
 sign_id = 0
@@ -40,12 +41,9 @@ exp_id = 1
 mant_id = 2
 
 # (sign, exponent, mantissa) bits
-num_bits_gaudi2 = {
+num_bits_gaudi = {
     "f32": (1, 8, 23),
     "bf16": (1, 8, 7),
-    "f16": (1, 5, 10),
-    "f8": (1, 5, 2),
-    "hf8": (1, 4, 3),
     "i8": (1, 0, 7),
     "i16": (1, 0, 15),
     "i32": (1, 0, 31),
@@ -53,12 +51,18 @@ num_bits_gaudi2 = {
     "u8": (0, 0, 8),
 }
 
+num_bits_gaudi2 = num_bits_gaudi.copy()
+num_bits_gaudi2["f8"] = (1, 5, 2)
+num_bits_gaudi2["hf8"] = (1, 4, 3)
+num_bits_gaudi2["f16"] = (1, 5, 10)
+
 num_bits_gaudi3 = num_bits_gaudi2.copy()
 
 
 num_bits = {
-    devices[0]: num_bits_gaudi2,
-    devices[1]: num_bits_gaudi3,
+    devices[0]: num_bits_gaudi,
+    devices[1]: num_bits_gaudi2,
+    devices[2]: num_bits_gaudi3,
 }
 
 cast_types = {}

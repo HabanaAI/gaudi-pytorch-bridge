@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "backend/synapse_helpers/device_helpers.h"
 #include "generated/backend/where.h"
 #include "habana_helpers/dtype_helpers.h"
 
@@ -114,7 +115,6 @@ FALLBACK_CHECK(
   switch (result_type) {
     case torch::kBool:
     case torch::kInt32:
-    case torch::kHalf:
     case torch::kBFloat16:
     case torch::kFloat32:
     case torch::kFloat64:
@@ -125,6 +125,10 @@ FALLBACK_CHECK(
     // When Int64 isn't supported kInt64 is actually of type Int32
     case torch::kInt64:
       return true;
+    case torch::kHalf: {
+      return synapse_helpers::device_supports_fp16(
+          HPUDeviceContext::get_device().type());
+    }
     default:
       return false;
   }
