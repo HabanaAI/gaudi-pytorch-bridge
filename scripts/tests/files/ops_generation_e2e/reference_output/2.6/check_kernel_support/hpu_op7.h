@@ -44,7 +44,7 @@ struct shared_layer_upsample_bicubic2d : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 4) {
     auto ivalue_arr = torch::jit::last(stack, 4);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[2].isBool() && ivalue_arr[3].isList() ) {
+    if (ivalue_arr[0].isTensor() && ivalue_arr[2].isBool() && (ivalue_arr[3].isNone() || ivalue_arr[3].isList()) ) {
 
       c10::IValue input = std::move(peek(stack, 0, 4));
       c10::IValue output_size = std::move(peek(stack, 1, 4));

@@ -1915,9 +1915,12 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
             cptype_check = get_cp_type_check(cptype)
             if cptype_check is not None:
                 stack_unroll += "&& " if param_idx > 0 else ""
-                stack_unroll += f"ivalue_arr[{idx}].{cptype_check}() "
+                if cptype.find("std::optional") != -1:
+                    stack_unroll += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].{cptype_check}()) "
+                else:
+                    stack_unroll += f"ivalue_arr[{idx}].{cptype_check}() "
                 param_idx += 1
-            if cptype == "std::optional<Tensor>":
+            elif cptype == "std::optional<Tensor>":
                 stack_unroll += "&& " if param_idx > 0 else ""
                 stack_unroll += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].isTensor()) "
                 param_idx += 1
@@ -2008,7 +2011,6 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
         functions, dtype_defs = generate_functions_code(fgens, fgen_pos, native_func_dict, functions, dtype_defs)
 
         if should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, len(unique_func_map)):
-
             file_name = gen_h_output_file(args, f"{OUT_DIR}/hpu_op{gen_file_idx}")
             print(
                 templates.CPP_HEADER_CHECK_KERNEL_SUPPORT.format(
