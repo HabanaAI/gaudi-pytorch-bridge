@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include <ATen/core/Tensor.h>
+#include <ATen/native/transformers/sdp_utils_cpp.h>
 #include <torch/library.h>
 #include "backend/helpers/habana_types.h"
 #include "common/dump_args.h"
@@ -1676,6 +1677,20 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
   return DropoutFunction::apply(input, p, train);
 }
 
+int64_t fused_sdp_choice_hpu(
+    [[maybe_unused]] const at::Tensor& query,
+    [[maybe_unused]] const at::Tensor& key,
+    [[maybe_unused]] const at::Tensor& value,
+    [[maybe_unused]] const ::std::optional<at::Tensor>& attn_mask,
+    [[maybe_unused]] double dropout_p,
+    [[maybe_unused]] bool is_causal,
+    [[maybe_unused]] ::std::optional<double> scale,
+    [[maybe_unused]] bool enable_gqa) {
+  // there are five availble SDPBackend (math, flash_attention,
+  // efficient_attention, cudnn_attention, overrideable)
+  return static_cast<int64_t>(sdp::SDPBackend::math);
+}
+
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(
@@ -2078,10 +2093,11 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
       TORCH_FN(torchvision_nms_hpu_wrap));
 }
 
-// We need to override matmul implementation also for inference,
-// to have the same implementation as matmul forward in autograd.
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  // We need to override matmul implementation also for inference,
+  // to have the same implementation as matmul forward in autograd.
   m.impl("matmul", matmul_inference);
+  m.impl("_fused_sdp_choice", fused_sdp_choice_hpu);
 }
 
 TORCH_LIBRARY(hccl, m) {
