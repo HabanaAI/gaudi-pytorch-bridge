@@ -983,10 +983,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
     std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
 
-  IntArrayRef size_in{sizes};
-  auto size = size_in;
-  std::vector<int64_t> initvec{1};
-  size = (size_in.vec().size() == 0) ? initvec : size_in;
+  IntArrayRef size{sizes};
 
   std::vector<at::Tensor> input_pt_vec;
   std::vector<int64_t> expandedSizes;

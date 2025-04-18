@@ -87,6 +87,7 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
     // increase in host time
     auto t = dst;
     auto t_opt = c10::make_optional(t);
+
     HbLazyTensorViews::add_expand_lazy(
         src, dst.sizes().vec(), false /*implicit*/, t_opt);
     return;
@@ -1778,7 +1779,7 @@ Tensor add_tensor_hpu_lazy(
   PT_LAZY_TRACE;
 
   LazyBinaryOp<at::Tensor> k{
-      "hpu::add",
+      "aten::add",
       {self, other, alpha},
       false,
       true,
@@ -1799,7 +1800,7 @@ Tensor add_scalar_hpu_lazy(
     const Scalar& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> op{"hpu::add", {self, other, alpha}, {self.sizes().vec()}};
+  LazyOp<at::Tensor> op{"aten::add", {self, other, alpha}, {self.sizes().vec()}};
   RUN_MAYBE_WITH_ACC_THREAD(add, op)
 }
 
@@ -4775,17 +4776,6 @@ Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
   // since it is throwing errors in that case we are forced to add this
   // work-around. E.g. self.sizes() = {1} size_in = {0}
   // TBD: Investigate and raise a JIRA on GC.
-  auto size_vec = size_in.vec();
-  auto flattened_size = std::accumulate(
-      size_vec.begin(), size_vec.end(), 1, std::multiplies<int64_t>());
-
-  if (flattened_size == 0) {
-    auto result = empty_hpu_lazy(
-        size_in.vec(), self.options(), self.suggest_memory_format(), true);
-    auto hl_result = GetHbLazyTensor(result);
-    flush_op();
-    return result;
-  }
 
   auto out = at::native::expand(self, size_in, implicit);
 
