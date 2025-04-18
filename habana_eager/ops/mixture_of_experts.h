@@ -194,6 +194,36 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars_dynamic(
     const int64_t experts_min,
     const int64_t experts_max);
 
+at::Tensor mixture_of_experts_fp8_blockwise(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const at::TensorList d_scale_w1,
+    const at::TensorList d_scale_w2,
+    const at::TensorList d_scale_w3,
+    const int64_t block_size,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max);
+
+at::Tensor mixture_of_experts_fp8_fused_weights_blockwise(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const int64_t block_size,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max);
+
 at::Tensor mixture_of_experts_fwd_autograd(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
