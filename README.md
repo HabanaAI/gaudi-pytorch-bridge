@@ -54,6 +54,11 @@ popd
 sudo ln -s /usr/include/habanalabs/ /usr/include/habanalabs/include
 ```
 
+4. Install the requirements:
+```bash
+pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
+```
+
 ### Code Build
 
 Once the one-time setup is complete, you can configure the necessary environment variables and run the build by following the below steps:
