@@ -174,7 +174,6 @@ class TestHpuIndexPut:
         hpu_indices = [torch.tensor(x).to("hpu") if x is not None else x for x in indices]
         cpu_value = torch.full(values_shape, 100, dtype=torch.float)
         hpu_value = cpu_value.to("hpu")
-        accumulate = accumulate
 
         hpu_wrapped_fn = compile_function_if_compile_mode(fn)
 

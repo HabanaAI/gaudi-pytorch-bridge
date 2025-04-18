@@ -156,7 +156,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
             if is_submod_dynamic and optim_output_sif_ds:
                 jit_node_shape_propagation(jit_ir, submod_updated)
 
-        is_reusables: list[bool] = submod.meta["is_reusables"] if "is_reusables" in submod.meta else []
+        is_reusables: list[bool] = submod.meta.get("is_reusables", [])
         syngraph_module = get_callable_recipe(
             jit_ir,
             submod,

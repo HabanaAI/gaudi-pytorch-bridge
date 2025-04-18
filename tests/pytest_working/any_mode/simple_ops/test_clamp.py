@@ -145,7 +145,6 @@ def test_hpu_clamp_min_max_inplace(dtype, input_shape, min_shape, max_shape, sca
         if scalar:
             min = min.flatten()[-1].item()
         kernel_params["min"] = min
-    kernel_name = kernel_name
 
     evaluate_fwd_inplace_kernel(
         in_out_tensor=input,

@@ -220,9 +220,8 @@ class TestMetricsAPI:
         assert metric is None
 
     def test_get_nonexisting_local_metric(self):
-        with pytest.raises(MetricNotFound):
-            with metric_localcontext("non-existing") as m:
-                pass
+        with pytest.raises(MetricNotFound), metric_localcontext("non-existing") as m:
+            pass
 
 
 def set_flag_in_env(name: str, value):

@@ -43,7 +43,7 @@ from test_utils import (
     indirect=True,
 )
 def test_hpu_channel_shuffle(shape_and_groups, dynamic, dtype, setup_teardown_env_fixture):
-    if dynamic and (is_gaudi3() or not pytest.mode == "compile"):
+    if dynamic and (is_gaudi3() or pytest.mode != "compile"):
         pytest.skip("Not supported test configuration with dynamic shapes enabled")
 
     if dtype == torch.float16 and is_gaudi1():

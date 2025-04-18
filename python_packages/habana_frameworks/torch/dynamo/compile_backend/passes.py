@@ -2171,7 +2171,7 @@ def pass_reinplace_add_ops(ctx: OptimizerContext):
             and src0.meta["output_dtypes"][0] == src1.meta["output_dtypes"][0]
             and src0.meta["output_dtypes"][0] in (torch.float32, torch.bfloat16, torch.float16)
         )
-        is_eligible = is_float_dtype and not src0.op == "placeholder" and not is_view_op(src0)
+        is_eligible = is_float_dtype and src0.op != "placeholder" and not is_view_op(src0)
         if not is_eligible:
             return False
 

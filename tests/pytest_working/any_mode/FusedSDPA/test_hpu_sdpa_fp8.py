@@ -1306,46 +1306,47 @@ def test_sdpa(
         )
 
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
-    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
-        # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
-        with ht.sdp_kernel(enable_recompute=recompute):
+    # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
+    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast), ht.sdp_kernel(
+        enable_recompute=recompute
+    ):
 
-            model = TestModel(
-                d_scale_q=scaleQInv_hpu,
-                d_scale_k=scaleKInv_hpu,
-                d_scale_v=scaleVInv_hpu,
-                q_scale_s=q_scale_s,
-                q_scale_o=q_scale_o,
-                d_scale_s=get_d_scale_s(scaleSInv_hpu, inference, is_fwd=True),
-                is_amax_s=is_amax_s,
-                is_amax_o=is_amax_o,
-                inference=inference,
-                is_scalar_run=scalar_run,
-            )
+        model = TestModel(
+            d_scale_q=scaleQInv_hpu,
+            d_scale_k=scaleKInv_hpu,
+            d_scale_v=scaleVInv_hpu,
+            q_scale_s=q_scale_s,
+            q_scale_o=q_scale_o,
+            d_scale_s=get_d_scale_s(scaleSInv_hpu, inference, is_fwd=True),
+            is_amax_s=is_amax_s,
+            is_amax_o=is_amax_o,
+            inference=inference,
+            is_scalar_run=scalar_run,
+        )
 
-            if inference:
-                # make scale tensors constant
-                _mark_params_as_const(model)
-                _check_params_as_const(model)
+        if inference:
+            # make scale tensors constant
+            _mark_params_as_const(model)
+            _check_params_as_const(model)
 
-            sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
+        sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
 
-            # O_hpu, amax_s, amax_o = sdpa_fn(
-            fwd_pass_outputs = sdpa_fn(
-                model,
-                q_hpu,
-                k_hpu,
-                v_hpu,
-                attn_mask=attn_mask_hpu,
-                dropout_p=dropout_p,
-                is_causal=is_causal,
-                softmax_mode=softmax_mode,
-            )
+        # O_hpu, amax_s, amax_o = sdpa_fn(
+        fwd_pass_outputs = sdpa_fn(
+            model,
+            q_hpu,
+            k_hpu,
+            v_hpu,
+            attn_mask=attn_mask_hpu,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+            softmax_mode=softmax_mode,
+        )
 
-            if recompute and inference is False:
-                O_hpu, m, linv, seed, amax_s, amax_o = fwd_pass_outputs
-            else:
-                O_hpu, amax_s, amax_o = fwd_pass_outputs
+        if recompute and inference is False:
+            O_hpu, m, linv, seed, amax_s, amax_o = fwd_pass_outputs
+        else:
+            O_hpu, amax_s, amax_o = fwd_pass_outputs
 
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
 

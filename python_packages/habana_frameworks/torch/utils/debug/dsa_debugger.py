@@ -274,8 +274,8 @@ class DivergenceAnalyzer:
             shutil.move(source_path, destination_path)
 
     def compare_databases(self, db_static, db_dynamic):
-        assert not (os.path.getsize(db_static) == 0), f"db file {db_static} is empty"
-        assert not (os.path.getsize(db_dynamic) == 0), f"db file {db_dynamic} is empty"
+        assert os.path.getsize(db_static) != 0, f"db file {db_static} is empty"
+        assert os.path.getsize(db_dynamic) != 0, f"db file {db_dynamic} is empty"
 
         conn1 = sqlite3.connect(db_static)
         conn2 = sqlite3.connect(db_dynamic)
@@ -352,7 +352,7 @@ class DivergenceAnalyzer:
         # Validate if tensor names match for all common entries
         tensor_names_static = [item[idx_tensor_name] for item in tensors_static[:compare_len]]
         tensor_names_dynamic = [item[idx_tensor_name] for item in tensors_dynamic[:compare_len]]
-        if not tensor_names_static == tensor_names_dynamic:
+        if tensor_names_static != tensor_names_dynamic:
             self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing.")
             if self.cfg.cache:
                 self.log("[ERROR] Check with --cache 0.")

@@ -1471,24 +1471,25 @@ def test_sdpa(
 
     sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
 
-    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
-        # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
-        with ht.sdp_kernel(enable_recompute=recompute):
-            sdpa_outs = sdpa_fn(
-                q_hpu,
-                k_hpu,
-                v_hpu,
-                attn_mask_hpu,
-                dropout_p,
-                is_causal,
-                None,
-                softmax_mode,
-                None,
-                None,
-                "left",
-                return_dropout_mask,
-                return_attn_probs,
-            )
+    # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
+    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast), ht.sdp_kernel(
+        enable_recompute=recompute
+    ):
+        sdpa_outs = sdpa_fn(
+            q_hpu,
+            k_hpu,
+            v_hpu,
+            attn_mask_hpu,
+            dropout_p,
+            is_causal,
+            None,
+            softmax_mode,
+            None,
+            None,
+            "left",
+            return_dropout_mask,
+            return_attn_probs,
+        )
 
     if not return_dropout_mask:
         if not return_attn_probs:

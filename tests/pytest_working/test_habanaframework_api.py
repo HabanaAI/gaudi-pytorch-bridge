@@ -45,9 +45,8 @@ def test_basic_apis():
         with env_var_in_scope({"HLS_MODULE_ID": "1"}):
             htorch.hpu.set_device(1)
             print(os.getenv("HLS_MODULE_ID"))
-        with env_var_in_scope({"HLS_MODULE_ID": "0"}):
-            with htorch.hpu.device(0):
-                print(os.getenv("HLS_MODULE_ID"))
+        with env_var_in_scope({"HLS_MODULE_ID": "0"}), htorch.hpu.device(0):
+            print(os.getenv("HLS_MODULE_ID"))
 
     htorch.core.mark_step()
 

@@ -120,9 +120,7 @@ def get_version_args(profile):
 def get_args_for_profile(profile_name):
     profiles_json = get_profiles_json()
     selected_profile = profiles_json["profiles"][profile_name]
-    additional_build_flags = (
-        selected_profile["additional_build_flags"] if "additional_build_flags" in selected_profile else []
-    )
+    additional_build_flags = selected_profile.get("additional_build_flags", [])
     version_args = get_version_args(selected_profile)
     return additional_build_flags + version_args
 

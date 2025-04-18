@@ -585,18 +585,14 @@ def _native_pt2e_quantization_interface(name):
         overwrite_native_pt2e_quantization_interface()
     if NativeFunctions.org_export is None:
         overwrite_export_function()
-    if name == "export":
-        return NativeFunctions.org_export
-    elif name == "prepare_pt2e":
-        return NativeFunctions.org_prepare_pt2e
-    elif name == "convert_pt2e":
-        return NativeFunctions.org_convert_pt2e
-    elif name == "save_pt2e":
-        return NativeFunctions.org_save_pt2e
-    elif name == "load_pt2e":
-        return NativeFunctions.org_load_pt2e
-    else:
-        return None
+
+    return {
+        "export": NativeFunctions.org_export,
+        "prepare_pt2e": NativeFunctions.org_prepare_pt2e,
+        "convert_pt2e": NativeFunctions.org_convert_pt2e,
+        "save_pt2e": NativeFunctions.org_save_pt2e,
+        "load_pt2e": NativeFunctions.org_load_pt2e,
+    }.get(name)
 
 
 def overwrite_export_function():

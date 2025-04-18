@@ -42,7 +42,7 @@ from test_utils import (
 class TestHpuMaskedMixedDevices:
     @staticmethod
     def test_hpu_masked_mixed_devices(shape, value, scalar_value, dynamic, dtype, setup_teardown_env_fixture):
-        if dynamic and (is_gaudi3() or not pytest.mode == "compile"):
+        if dynamic and (is_gaudi3() or pytest.mode != "compile"):
             pytest.skip("Not supported test configuration")
 
         def fn(input, mask, value):

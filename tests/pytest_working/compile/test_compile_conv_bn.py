@@ -108,17 +108,15 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C, inference_env_f
 
     compiled_function = compile_function_if_compile_mode(raw_function)
 
-    with torch.no_grad():
-        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
-            x_hpu = x_hpu.to(torch.bfloat16)
-            output_hpu = compiled_function(x_hpu)
-            output_hpu = output_hpu.to(torch.float32)
+    with torch.no_grad(), torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
+        x_hpu = x_hpu.to(torch.bfloat16)
+        output_hpu = compiled_function(x_hpu)
+        output_hpu = output_hpu.to(torch.float32)
 
-    with torch.no_grad():
-        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
-            x2_hpu = x2_hpu.to(torch.bfloat16)
-            output2_hpu = compiled_function(x2_hpu)
-            output2_hpu = output2_hpu.to(torch.float32)
+    with torch.no_grad(), torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
+        x2_hpu = x2_hpu.to(torch.bfloat16)
+        output2_hpu = compiled_function(x2_hpu)
+        output2_hpu = output2_hpu.to(torch.float32)
     output_hpu_cpu = output_hpu.to(cpu)
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
@@ -173,18 +171,17 @@ def test_hpu_const_marking(inference_env_fixture):
         return model_hpu(tensor)
 
     compiled_function = compile_function_if_compile_mode(raw_function)
-    with env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}):
-        with torch.no_grad():
-            with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
-                x_hpu = x_hpu.to(torch.bfloat16)
-                output_hpu = compiled_function(x_hpu)
-                output_hpu = output_hpu.to(torch.float32)
+    with env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}), torch.no_grad(), torch.autocast(
+        device_type="hpu", dtype=torch.bfloat16, enabled=True
+    ):
+        x_hpu = x_hpu.to(torch.bfloat16)
+        output_hpu = compiled_function(x_hpu)
+        output_hpu = output_hpu.to(torch.float32)
 
-    with torch.no_grad():
-        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
-            x2_hpu = x2_hpu.to(torch.bfloat16)
-            output2_hpu = compiled_function(x2_hpu)
-            output2_hpu = output2_hpu.to(torch.float32)
+    with torch.no_grad(), torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
+        x2_hpu = x2_hpu.to(torch.bfloat16)
+        output2_hpu = compiled_function(x2_hpu)
+        output2_hpu = output2_hpu.to(torch.float32)
 
     output_hpu_cpu = output_hpu.to(cpu)
     output2_hpu_cpu = output2_hpu.to(cpu)

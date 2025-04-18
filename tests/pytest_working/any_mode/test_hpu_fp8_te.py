@@ -564,11 +564,11 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     hpu_linear = te.Linear(w_hpu.shape[1], w_hpu.shape[0], bias=False, skip_weight_param_allocation=True)
 
     out_0, grad_in_0, grad_w_0 = _train_step(in_hpu, w_hpu, hpu_linear)
-    if not out_of_scale_tensor == "grad":
+    if out_of_scale_tensor != "grad":
         assert not torch.equal(out_0, ref_out)
-    if not out_of_scale_tensor == "weight":
+    if out_of_scale_tensor != "weight":
         assert not torch.equal(grad_w_0, grad_w_ref)
-    if not out_of_scale_tensor == "input":
+    if out_of_scale_tensor != "input":
         assert not torch.equal(grad_in_0, grad_in_ref)
 
     out_1, grad_in_1, grad_w_1 = _train_step(in_hpu, w_hpu, hpu_linear)

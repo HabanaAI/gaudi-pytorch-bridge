@@ -474,10 +474,9 @@ def test_reinplace_index_copy_pt2e():
     k_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
     v_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False).to("hpu")
 
-    with use_eager_fallback():
-        with torch.no_grad():
-            model = get_model_with_observer(model)
-            calibrate_result = model(x, k_cache, v_cache, token_idx, cache_idx)
+    with use_eager_fallback(), torch.no_grad():
+        model = get_model_with_observer(model)
+        calibrate_result = model(x, k_cache, v_cache, token_idx, cache_idx)
 
 
 def test_avoid_cycle():

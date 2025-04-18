@@ -489,7 +489,7 @@ def habana_quant_backend(
         override_composite_ops,
     )
 
-    options = kwargs["options"] if "options" in kwargs else None
+    options = kwargs.get("options")
     with habana_quant_backend_config.patch(options), override_composite_ops():
         return aot_autograd(
             fw_compiler=habana_quant_backend_config.patch(options)(

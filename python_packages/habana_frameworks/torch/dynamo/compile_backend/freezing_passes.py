@@ -212,11 +212,12 @@ def freeze(
     )
 
     try:
-        with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
-            with mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
-                # Disabling autocast in fake tensor propagation as autocasting has been
-                # already done and all dtypes has been already deduced.
-                constant_fold(gm=aot_autograd_gm)
+        with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(
+            enabled=False, device_type="cpu"
+        ), mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
+            # Disabling autocast in fake tensor propagation as autocasting has been
+            # already done and all dtypes has been already deduced.
+            constant_fold(gm=aot_autograd_gm)
     except Exception as e:
         logger.warn(
             "Got exception in constant folding:\n%s",
