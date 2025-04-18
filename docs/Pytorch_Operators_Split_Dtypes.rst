@@ -518,9 +518,9 @@ xlogy\_                                  Yes      Yes      Yes     No    torch
 zero\_                                   Yes      Yes      Yes     Yes   torch
 zeros                                    Yes      Yes      Yes     Yes   torch
 zeros_like                               Yes      Yes      Yes     Yes   torch
+_cdist_backward                          Yes      Yes      Yes     No    torch.ops.aten
 _local_scalar_dense                      Yes      Yes      Yes     Yes   torch.ops.aten
 _pdist_backward                          Yes      Yes      Yes     No    torch.ops.aten
-_cdist_backward                          Yes      Yes      Yes     No    torch.ops.aten
 alias                                    Yes      Yes      Yes     Yes   torch.ops.aten
 glu_jvp                                  Yes      Yes      Yes     No    torch.ops.aten
 im2col                                   Yes      Yes      Yes     No    torch.ops.aten
@@ -1406,7 +1406,7 @@ rsqrt\_                                   Yes      Yes       Yes       Yes      
 rsub                                      Yes      Yes       Yes       Yes      Yes    torch
 scalar_tensor                             Yes      Yes       Yes       Yes      Yes    torch
 scatter                                   Yes      Yes       Yes       Yes      Yes    torch
-scatter_add                               No       No        No        No       No     torch
+scatter_add                               Yes      Yes       Yes       Yes      Yes    torch
 scatter_reduce                            No       No        No        No       No     torch
 searchsorted                              Yes      Yes       No        No       No     torch
 select                                    Yes      Yes       Yes       Yes      Yes    torch
@@ -1463,9 +1463,9 @@ xlogy\_                                   Yes      Yes       Yes       Yes      
 zero\_                                    Yes      Yes       Yes       Yes      Yes    torch
 zeros                                     No       Yes       Yes       Yes      Yes    torch
 zeros_like                                No       Yes       Yes       Yes      Yes    torch
+_cdist_backward                           No       No        No        No       No     torch.ops.aten
 _local_scalar_dense                       Yes      Yes       Yes       Yes      Yes    torch.ops.aten
 _pdist_backward                           No       No        No        No       No     torch.ops.aten
-_cdist_backward                           No       No        No        No       No     torch.ops.aten
 alias                                     Yes      Yes       Yes       Yes      Yes    torch.ops.aten
 glu_jvp                                   No       No        No        No       No     torch.ops.aten
 im2col                                    No       No        No        No       No     torch.ops.aten
@@ -1822,8 +1822,8 @@ rsqrt                                     Yes      Yes       Yes       Yes      
 rsqrt\_                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
 scatter                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
 scatter\_                                 Yes      Yes       Yes       Yes      Yes    torch.Tensor
-scatter_add                               No       No        No        No       No     torch.Tensor
-scatter_add\_                             No       No        No        No       No     torch.Tensor
+scatter_add                               Yes      Yes       Yes       Yes      Yes    torch.Tensor
+scatter_add\_                             Yes      Yes       Yes       Yes      Yes    torch.Tensor
 scatter_reduce                            No       No        No        No       No     torch.Tensor
 scatter_reduce\_                          No       No        No        No       No     torch.Tensor
 select                                    Yes      Yes       Yes       Yes      Yes    torch.Tensor
