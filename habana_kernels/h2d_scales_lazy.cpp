@@ -24,7 +24,11 @@ namespace habana_lazy {
 
 namespace {
 
-at::Tensor create_h2d_scale_tensor(void* scale_ptr, at::ScalarType dtype) {
+at::Tensor create_h2d_scale_tensor(
+    void* scale_ptr,
+    at::ScalarType dtype,
+    void** alloc_pointer = nullptr,
+    void** h2d_pointer = nullptr) {
   auto scale_tensor = habana_lazy::empty_hpu_lazy(
       {1}, dtype, std::nullopt, false, HOST_TO_DEVICE_TENSOR);
 
@@ -34,13 +38,33 @@ at::Tensor create_h2d_scale_tensor(void* scale_ptr, at::ScalarType dtype) {
       hl_scale_tensor.CurrentTensorAttached().value();
   auto tmeta{habana::get_tensor_extra_meta(hl_scale_tensor_internal)};
   const auto is_float = dtype == at::ScalarType::Float;
+  const auto scale_value_size =
+      is_float ? sizeof(float_t) : sizeof(at::BFloat16);
+  const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
+                                : habana::HostDataType::BFLOAT16_T;
 
-  tmeta->set_host_data(
-      scale_ptr,
-      {1},
-      is_float ? sizeof(float_t) : sizeof(at::BFloat16),
-      is_float ? habana::HostDataType::FLOAT_T
-               : habana::HostDataType::BFLOAT16_T);
+  if (nullptr == alloc_pointer and nullptr == h2d_pointer) {
+    // Allocate memory for a single H2D scale tensor. This is the case for scale
+    // tensors added to cache in runtime.
+    tmeta->set_host_data(scale_ptr, {1}, scale_value_size, dt_type);
+  } else {
+    // Use memory from preallocated chunk. This is the case for the initial
+    // cache of H2D scales tensors created at startup. Set the host and compile
+    // pointer from preallocated chunk and increment the h2d_pointer to point to
+    // end of current H2D.
+    const auto host_total_elem = 2 * scale_value_size;
+
+    tmeta->set_host_size(1);
+    tmeta->set_host_el_size(scale_value_size);
+    tmeta->set_host_dt_type(dt_type);
+    tmeta->set_host_total_elem(host_total_elem);
+    tmeta->set_alloc_ptr(*alloc_pointer);
+    tmeta->set_host_ptr(*h2d_pointer);
+    char* ptr = static_cast<char*>(*h2d_pointer) + host_total_elem;
+    *h2d_pointer = static_cast<char*>(ptr + host_total_elem);
+    tmeta->set_compile_host_ptr(ptr);
+    tmeta->update_host_data(scale_ptr, {1}, scale_value_size, true);
+  }
 
   return scale_tensor;
 }
@@ -72,19 +96,32 @@ bool create_h2d_scale_tensors() {
     std::iota(biases.begin(), biases.end(), -49);
   }
 
+  static constexpr size_t float_size = sizeof(float_t);
+  static constexpr size_t bfloat_size = sizeof(at::BFloat16);
+  const size_t h2d_memory_required =
+      4 * biases.size() * (float_size + bfloat_size);
+
+  // Allocate the total H2D required in single chunk.
+  void* alloc_pointer{nullptr};
+  auto& device = habana::HPUDeviceContext::get_device();
+  device.get_host_memory().uncached_malloc(&alloc_pointer, h2d_memory_required);
+  void* h2d_pointer{alloc_pointer};
+
   // Stores vector of preallocated H2D tensors and the idx of tensor that should
   // be used next, for each possible hw-aligned scale value. If necessary, new
   // H2D tensors are added to vector in runtime. After mark_step, indices are
   // updated, so all newly allocated tensors are available to pick. For now we
   // preallocate one H2D tensor for each scale value, but if experiments prove
   // more is needed, it will be increased in future.
-  auto insert_scales_into_map = [&h2d_scales_map](
+  auto insert_scales_into_map = [&h2d_scales_map, &alloc_pointer, &h2d_pointer](
                                     const double scale_value,
                                     void* scale_ptr,
                                     const at::ScalarType dtype) {
     std::pair<double, at::ScalarType> key{scale_value, dtype};
     ScalesIdxPair scales_and_idx{
-        {create_h2d_scale_tensor(scale_ptr, dtype)}, 0};
+        {create_h2d_scale_tensor(
+            scale_ptr, dtype, &alloc_pointer, &h2d_pointer)},
+        0};
     h2d_scales_map.emplace(std::move(key), std::move(scales_and_idx));
   };
 
@@ -92,10 +129,8 @@ bool create_h2d_scale_tensors() {
     double scale_f64 = std::pow(2.0, default_bias - bias);
     float scale_f32 = static_cast<float>(scale_f64);
 
-    // bfloat16 value is stored in uint16_t.
-    unsigned scale_u32;
-    std::memcpy(&scale_u32, &scale_f32, sizeof(float));
-    uint16_t scale_bf16 = static_cast<uint16_t>(scale_u32 >> 16);
+    // at::BFloat16 is stored internally in uint16_t.
+    at::BFloat16 scale_bf16 = at::BFloat16(scale_f32);
 
     insert_scales_into_map(scale_f64, &scale_f32, at::ScalarType::Float);
     insert_scales_into_map(scale_f64, &scale_bf16, at::ScalarType::BFloat16);

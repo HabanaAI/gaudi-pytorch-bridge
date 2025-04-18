@@ -42,6 +42,7 @@ set(LAZY_TESTS_SRC
     lazy_execution_test.cpp
     lazy_fill_kernel_tests.cpp
     lazy_forward_running_hash_tests.cpp
+    lazy_h2d_scales_test.cpp
     lazy_index_kernel_tests.cpp
     lazy_jit_graph_tests.cpp
     lazy_linear_kernel_tests.cpp
