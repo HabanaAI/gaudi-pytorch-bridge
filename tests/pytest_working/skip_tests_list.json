@@ -449,15 +449,7 @@
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-True-True]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-True-False]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-True]",
-            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-False]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape0-32]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape1-38]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape2-72]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape3-88]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape0-32]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape1-38]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape2-72]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape3-88]"
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[False-float8_e4m3fn-bfloat16-False-False-False]"
         ],
         "compile": [
             "pytest_working/compile/test_compile_conv_bn.py::test_hpu_conv_and_batch_norm_2d_fwd_compile_only[16-224-224-3]",
