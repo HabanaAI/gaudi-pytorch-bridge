@@ -270,11 +270,12 @@ auto get_or_create_tensor(
     const c10::ScalarType& scalar_type,
     const at::Scalar& val,
     std::optional<synapse_helpers::tensor>& tensorStorageOpt) {
-  if (not tensor.has_value()) {
-    tensorStorageOpt = op.BuildConstant(&op, graph, val, scalar_type, size);
-    return std::make_tuple(TensorDataGetter<Is>{}(*tensorStorageOpt)...);
+  if (tensor.has_value() && tensor->pt_t.defined()) {
+    return std::make_tuple(TensorDataGetter<Is>{}(*tensor)...);
   }
-  return std::make_tuple(TensorDataGetter<Is>{}(*tensor)...);
+
+  tensorStorageOpt = op.BuildConstant(&op, graph, val, scalar_type, size);
+  return std::make_tuple(TensorDataGetter<Is>{}(*tensorStorageOpt)...);
 }
 
 } // namespace habana
