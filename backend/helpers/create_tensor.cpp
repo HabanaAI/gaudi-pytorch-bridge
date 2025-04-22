@@ -333,12 +333,6 @@ synapse_helpers::tensor create_tensor(
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   auto tensor_shape = tensor.sizes().vec();
 
-  // int4/uint4 data comes to the bridge packed into int32 tensors,
-  // so the real tensor shape must have FCD dimension multiplied by 8
-  if (synType == syn_type_int4 || synType == syn_type_uint4) {
-    tensor_shape.back() *= 8;
-  }
-
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
       (graph.is_optim_output_sif_enabled() == false ||

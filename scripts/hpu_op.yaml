@@ -8674,21 +8674,19 @@ cast_to_fp8_hybrid:
   op_validator_exception: custom_op
 
 convert_from_int4:
-  custom_op_schema: "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, *, bool disable_fp8_clipping=False) -> Tensor"
+  custom_op_schema: "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, Tensor? group_index=None, *, bool disable_fp8_clipping=False) -> Tensor"
   guid: convert_from_int4
   op_backend: ConvertFromInt4
   out_ids: [0]
   output_meta: ConvertFromInt4Meta
-  frontend_blocklist: [eager]
   op_validator_exception: custom_op
 
 convert_from_uint4:
-  custom_op_schema: "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, *, bool disable_fp8_clipping=False) -> Tensor"
+  custom_op_schema: "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype, Tensor? group_index=None, *, bool disable_fp8_clipping=False) -> Tensor"
   guid: convert_from_uint4
   op_backend: ConvertFromInt4
   out_ids: [0]
   output_meta: ConvertFromInt4Meta
-  frontend_blocklist: [eager]
   op_validator_exception: custom_op
 
 conv2d_fp8:

@@ -26,10 +26,10 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
+    format_tc,
     is_gaudi1,
     is_gaudi2,
     is_pytest_mode_compile,
-    is_pytest_mode_eager,
 )
 
 pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support int4")]
@@ -116,7 +116,7 @@ def convert_from_int4_common(
             zero_point = (torch.randn(real_shape) * 5.0).to(out_dtype)
             zero_point_hpu = zero_point.to("hpu")
 
-    result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype, disable_fp8_clipping=disable_clip)
+    result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype, None, disable_fp8_clipping=disable_clip)
 
     # sub i8/u8 is currently not supported by the bridge
     if packed_zero_point:
@@ -128,12 +128,11 @@ def convert_from_int4_common(
     return result_hpu, result_ref
 
 
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="convert_from_int4 is not supported in eager mode")
-@pytest.mark.parametrize("packed_shape", [(10,), (4, 6, 4)])
+@pytest.mark.parametrize("packed_shape", [(10,), (4, 6, 4)], ids=format_tc)
 @pytest.mark.parametrize("variant", ["int4", "uint4"])
 @pytest.mark.parametrize("is_zero_point, packed_zero_point", [(True, True), (True, False), (False, False)])
 @pytest.mark.parametrize("is_scale", [True, False])
-@pytest.mark.parametrize("out_dtype", dtypes)
+@pytest.mark.parametrize("out_dtype", dtypes, ids=format_tc)
 def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype):
     result_hpu, result_ref = convert_from_int4_common(
         packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype, out_dtype
@@ -145,7 +144,80 @@ def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_poi
         check_ops_executed_in_jit_ir("convert_from_" + variant)
 
 
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="convert_from_int4 is not supported in eager mode")
+def int8_to_int4(value):
+    return ((value + 8) % 16 - 8).to(torch.int8)
+
+
+@pytest.mark.parametrize("packed_shape", [(6, 2)], ids=format_tc)
+@pytest.mark.parametrize("random_group_index", [True, False])
+def test_convert_from_int4_group_index_zero_point(packed_shape, random_group_index):
+    out_dtype = torch.bfloat16
+    # weights - zero_points are done on 8bit
+    sub_dtype = torch.int8
+
+    fn = torch.ops.hpu.convert_from_int4
+    fn = compile_function_if_compile_mode(fn)
+
+    real_shape = list(packed_shape)
+    real_shape[-1] = real_shape[-1] * 8
+
+    input = torch.randint(0, 16, real_shape, dtype=torch.int)
+    input_hpu = torch.tensor(pack_int4_into_int32(input, packed_shape), dtype=torch.int).to("hpu")
+    input = torch.where(input > 7, input - 16, input)
+    input = input.to(sub_dtype)
+    scale = (torch.randn(real_shape) * 50.0).to(torch.bfloat16)
+    scale_hpu = scale.to("hpu")
+    zero_point = torch.randint(1, 5, real_shape, dtype=torch.int)
+    zero_point_hpu = torch.tensor(pack_int4_into_int32(zero_point, packed_shape), dtype=torch.int).to("hpu")
+    zero_point = zero_point.to(sub_dtype)
+    if random_group_index:
+        group_index = torch.randperm(real_shape[1], dtype=torch.int32)
+    else:
+        group_index = torch.arange(start=0, end=real_shape[1], dtype=torch.int32)
+    group_index_hpu = group_index.to("hpu")
+    result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype, group_index_hpu)
+    result_ref = torch.zeros_like(input, dtype=out_dtype)
+    subtraction = torch.zeros_like(input, dtype=sub_dtype)
+    for rowj in range(real_shape[0]):
+        for i in range(real_shape[1]):
+            subtraction[rowj][i] = (input[rowj][i] - zero_point[rowj][group_index[i]]).to(sub_dtype)
+            result_ref[rowj][i] = scale[rowj][group_index[i]] * int8_to_int4(subtraction[rowj][i])
+
+    compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("convert_from_int4")
+
+
+@pytest.mark.parametrize("packed_shape", [(6, 2)], ids=format_tc)
+@pytest.mark.parametrize("random_group_index", [True, False])
+def test_convert_from_int4_group_index(packed_shape, random_group_index):
+    out_dtype = torch.bfloat16
+    fn = torch.ops.hpu.convert_from_int4
+    fn = compile_function_if_compile_mode(fn)
+    real_shape = list(packed_shape)
+    real_shape[-1] = real_shape[-1] * 8
+    input = torch.randint(0, 16, real_shape, dtype=torch.int)
+    input_hpu = torch.tensor(pack_int4_into_int32(input, packed_shape), dtype=torch.int).to("hpu")
+    input = torch.where(input > 7, input - 16, input)
+    input = input.to(torch.int8)
+    scale = (torch.randn(real_shape) * 50.0).to(torch.bfloat16)
+    scale_hpu = scale.to("hpu")
+    if random_group_index:
+        group_index = torch.randperm(real_shape[1], dtype=torch.int32)
+    else:
+        group_index = torch.arange(start=0, end=real_shape[1], dtype=torch.int32)
+    group_index_hpu = group_index.to("hpu")
+    result_hpu = fn(input_hpu, scale_hpu, None, out_dtype, group_index_hpu)
+    result_ref = torch.zeros_like(input, dtype=out_dtype)
+    for rowj in range(real_shape[0]):
+        for i in range(real_shape[1]):
+            result_ref[rowj][i] = scale[rowj][group_index[i]] * input[rowj][i]
+    compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("convert_from_int4")
+
+
 @pytest.mark.parametrize("variant", ["int4", "uint4"])
 @pytest.mark.parametrize("out_dtype", [torch.float8_e4m3fn])
 @pytest.mark.parametrize("disable_clip", [True, False])
@@ -429,7 +501,6 @@ def prepare_data_for_hpu(bits, group_size, cuda_qweight, cuda_qzeros, cuda_scale
     return hpu_preprocessing(wf, cuda_qweight, cuda_qzeros, cuda_scales, bits, group_size)
 
 
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="convert_from_int4 is not supported in eager mode")
 @pytest.mark.parametrize("infeatures, outfeatures", [(64, 64)])
 @pytest.mark.parametrize("variant", ["uint4"])
 @pytest.mark.parametrize(
