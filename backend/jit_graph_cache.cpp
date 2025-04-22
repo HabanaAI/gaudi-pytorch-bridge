@@ -323,6 +323,31 @@ size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
     }
     cnt++;
   }
+
+  std::unordered_set<void*> buff_to_syn_tensor_set_;
+  cnt = 0;
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto pt_tensor = input.toTensor();
+      auto tmeta = get_tensor_extra_meta(pt_tensor, true);
+      if (!(tmeta && tmeta->is_shape_tensor())) {
+        void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
+        bool is_duplicate_syn_tensor{
+            (pt_tensor_buffer_start != nullptr &&
+             buff_to_syn_tensor_set_.count(pt_tensor_buffer_start))};
+        if (is_duplicate_syn_tensor) {
+          sym_hash_code = at::hash_combine(sym_hash_code, cnt);
+          sym_hash_code =
+              at::hash_combine(sym_hash_code, true /* duplicate mem section */);
+        }
+        if (pt_tensor_buffer_start != nullptr) {
+          buff_to_syn_tensor_set_.insert(pt_tensor_buffer_start);
+        }
+      }
+    }
+    cnt++;
+  }
+
   return sym_hash_code;
 }
 
