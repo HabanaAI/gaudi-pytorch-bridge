@@ -462,6 +462,7 @@ class Node {
 
   virtual std::string ToString() const;
   virtual std::string ToStringIrGraph() const;
+  std::string GetOpNameString() const;
 
   void AddInput(const Value& value);
 
