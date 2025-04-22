@@ -1258,7 +1258,7 @@ at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
   return hpu_op.call();
 }
 
-void fsdp_split_with_sizes_copy(
+void split_with_sizes_copy(
     const at::Tensor& self,
     at::IntArrayRef split_sizes,
     int64_t dim,
@@ -1297,13 +1297,12 @@ void fsdp_split_with_sizes_copy(
   }
 }
 
-void fsdp_chunk_cat_out(
+at::Tensor& _chunk_cat_out(
     at::TensorList tensors,
     int64_t dim,
     int64_t num_chunks,
     at::Tensor& out) {
-  at::native::_chunk_cat_out(tensors, dim, num_chunks, out);
-  return;
+  return at::native::_chunk_cat_out(tensors, dim, num_chunks, out);
 }
 
 at::Tensor dequantize_nf4_impl(
@@ -1642,15 +1641,12 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl(
       "_amp_foreach_non_finite_check_and_unscale_",
       amp_foreach_non_finite_check_and_unscale_inplace);
+  m.impl("split_with_sizes_copy.out", TORCH_FN(split_with_sizes_copy));
+  m.impl("_chunk_cat.out", TORCH_FN(_chunk_cat_out));
 }
 
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   m.impl("dropout", dropout_wrap);
-}
-
-TORCH_LIBRARY_IMPL(fsdp, HPU, m) {
-  m.impl("split_with_sizes_copy", fsdp_split_with_sizes_copy);
-  m.impl("chunk_cat", fsdp_chunk_cat_out);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
