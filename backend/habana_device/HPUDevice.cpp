@@ -30,6 +30,7 @@ struct HPUDeviceContextImpl {
   std::unique_ptr<habana_helpers::SingleThreadPool> garbage_collection_thread_;
   synapse_helpers::device_handle device_;
   std::unique_ptr<backend::ScalarCache> scalar_cache_;
+  std::unique_ptr<backend::H2dScalesCache> h2d_scales_cache_;
 
   std::unique_ptr<RecipeCacheLRU> recipe_cache_;
 
@@ -115,6 +116,7 @@ void HPUDeviceContextImpl::Init() {
       true, []() { c10::setThreadName("Pipeline Lowering Thread"); });
   constant_information_ = ConstantInformationPtr();
   scalar_cache_ = std::make_unique<backend::ScalarCache>();
+  h2d_scales_cache_ = std::make_unique<backend::H2dScalesCache>();
 
   HPURegistrar::get_hpu_registrar().register_thread_deleter(
       []() { device_context.ThreadsRelease(); });
@@ -151,6 +153,7 @@ void HPUDeviceContextImpl::Finish() {
   lazy_compile_thread_pool_.reset();
   recipe_cache_.reset();
   scalar_cache_.reset();
+  h2d_scales_cache_.reset();
 
   constant_information_->ClearChecksumInformation();
 
@@ -227,6 +230,11 @@ habana_helpers::ThreadPool& lazy_compile_thread_pool() {
 backend::ScalarCache& scalar_cache() {
   HABANA_ASSERT(device_context.scalar_cache_);
   return *device_context.scalar_cache_;
+}
+
+backend::H2dScalesCache& h2d_scales_cache() {
+  HABANA_ASSERT(device_context.h2d_scales_cache_);
+  return *device_context.h2d_scales_cache_;
 }
 
 synapse_helpers::device& syn_device() {

@@ -294,6 +294,8 @@ GraphExec::GraphExec(
   if (habana_helpers::is_h2d_scales_enabled()) {
     // HandleH2dScales must run after dynamic passes, because it needs valid
     // indices of the original stack.
+    [[maybe_unused]] static bool scales_created =
+        HPUDeviceContext::h2d_scales_cache().CreateH2dScales();
     pass::HandleH2dScales(m_graph, example_inputs, m_h2d_scales_idx_names);
   }
 
@@ -380,21 +382,52 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   return new_stack;
 }
 
+// Patching H2D scale tensors created in HandleH2dScales pass
+// with values from CPU tensors.
 void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
-  // Patching H2D scale tensors created in HandleH2dScales pass
-  // with values from CPU tensors.
+  PT_EAGER_TRACE;
+  // Patching hw-aligned scales with preallocated H2D tensors.
+  const auto& h2d_scales_cache = HPUDeviceContext::h2d_scales_cache();
+  std::vector<size_t> non_hw_scales_indices;
 
+  for (const auto& [idx, node_name] : m_h2d_scales_idx_names) {
+    const auto& cpu_scale = orig_stack[idx].toTensor();
+    HABANA_ASSERT(cpu_scale.is_cpu(), "Expected scale as a CPU tensor.");
+    const auto scale_value = cpu_scale.item().toDouble();
+
+    auto maybe_h2d_scale =
+        h2d_scales_cache.TryGetH2dScale(scale_value, cpu_scale.scalar_type());
+
+    std::string_view caching_message;
+    if (maybe_h2d_scale.has_value()) {
+      // Update the original stack with the H2D tensor.
+      orig_stack[idx] = torch::jit::IValue(maybe_h2d_scale.value());
+      caching_message = "from cache ";
+    } else {
+      non_hw_scales_indices.push_back(idx);
+    }
+
+    PT_BRIDGE_DEBUG(
+        "CPU scale of op ",
+        node_name,
+        " was patched ",
+        caching_message,
+        "into H2D tensor with value=",
+        scale_value);
+  }
+
+  // Patching non-hw-aligned scales with newly created H2D tensors.
   // Calculate total H2D size required for scale tensors. Scale tensor
   // always contain one float or bfloat16 value, so total size depends directly
   // on the number of CPU scale tensors and their dtypes.
   const size_t float_count = std::count_if(
-      m_h2d_scales_idx_names.begin(),
-      m_h2d_scales_idx_names.end(),
-      [&orig_stack](const auto& idx_name) {
-        return orig_stack[idx_name.first].toTensor().scalar_type() ==
+      non_hw_scales_indices.begin(),
+      non_hw_scales_indices.end(),
+      [&orig_stack](const auto non_hw_idx) {
+        return orig_stack[non_hw_idx].toTensor().scalar_type() ==
             at::ScalarType::Float;
       });
-  const size_t bfloat_count = m_h2d_scales_idx_names.size() - float_count;
+  const size_t bfloat_count = non_hw_scales_indices.size() - float_count;
 
   static constexpr size_t float_size = sizeof(float_t);
   static constexpr size_t bfloat_size = sizeof(at::BFloat16);
@@ -410,41 +443,14 @@ void GraphExec::PatchScaleH2dTensors(torch::jit::Stack& orig_stack) {
   }
   void* h2d_pointer{alloc_pointer};
 
-  for (const auto& [idx, node_name] : m_h2d_scales_idx_names) {
-    const auto& cpu_scale = orig_stack[idx].toTensor();
-    HABANA_ASSERT(cpu_scale.is_cpu(), "Expected scale as a CPU tensor.");
-
-    const auto dtype = cpu_scale.scalar_type();
-    at::Tensor h2d_tensor =
-        createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, dtype);
-    auto tmeta{get_tensor_extra_meta(h2d_tensor)};
-
-    const auto is_float = dtype == at::ScalarType::Float;
-    const auto scale_value_size = is_float ? float_size : bfloat_size;
-    const auto host_total_elem = 2 * scale_value_size;
-    const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
-                                  : habana::HostDataType::BFLOAT16_T;
-
-    // Set the host and compile pointer from allocated chunk and
-    // increment the h2d_pointer to point to end of current H2D
-    tmeta->set_host_size(1);
-    tmeta->set_host_el_size(scale_value_size);
-    tmeta->set_host_dt_type(dt_type);
-    tmeta->set_host_total_elem(host_total_elem);
-    tmeta->set_alloc_ptr(alloc_pointer);
-    tmeta->set_host_ptr(h2d_pointer);
-    char* ptr = static_cast<char*>(h2d_pointer) + host_total_elem;
-    h2d_pointer = static_cast<char*>(ptr + host_total_elem);
-    tmeta->set_compile_host_ptr(ptr);
-    tmeta->update_host_data(cpu_scale.data_ptr(), {1}, scale_value_size, true);
-
-    PT_BRIDGE_DEBUG(
-        "CPU scale of op ",
-        node_name,
-        " was patched into H2D tensor with value=",
-        cpu_scale.item().toDouble());
-
-    orig_stack[idx] = torch::jit::IValue(h2d_tensor);
+  for (const auto non_hw_idx : non_hw_scales_indices) {
+    const auto& cpu_scale = orig_stack[non_hw_idx].toTensor();
+    orig_stack[non_hw_idx] =
+        torch::jit::IValue(h2d_scales_cache.CreateH2dTensorScale(
+            cpu_scale.data_ptr(),
+            cpu_scale.scalar_type(),
+            alloc_pointer,
+            h2d_pointer));
   }
 }
 

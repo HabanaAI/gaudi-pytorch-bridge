@@ -25,6 +25,7 @@ add_habana_library(
   jitgraph_utils.cpp
   create_pt_tensor.cpp
   backend_meta.cpp
+  h2d_scales_cache.cpp
   habana_operator.cpp
   scalar_cache.cpp
   random.cpp

@@ -14,6 +14,7 @@
  */
 #pragma once
 #include <c10/core/Device.h>
+#include "backend/h2d_scales_cache.h"
 #include "backend/kernel/constant_information.h"
 #include "backend/kernel/hpu_recipe_cache.h"
 #include "backend/scalar_cache.h"
@@ -84,6 +85,7 @@ RecipeCacheLRU& recipe_cache();
 void recipe_cache_clear();
 void flush_disk_cache();
 backend::ScalarCache& scalar_cache();
+backend::H2dScalesCache& h2d_scales_cache();
 // TODO id should be removed
 synapse_helpers::device& get_device(int id = 0);
 

@@ -1146,28 +1146,20 @@ def test_conv2d_fp8_h2d():
     assert "conv2d_fp8.default doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
 
 
-@pytest.mark.skipif(is_gaudi2(), reason="https://jira.habana-labs.com/browse/SW-224554")
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
-@pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
-@pytest.mark.parametrize("batched_tensors", [False, True])
-@pytest.mark.parametrize("fuse_cast", [False, True])
-def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
+def common_h2d_scales(src_dtype, batched_tensors, fuse_cast, scale_values, scale_out_values, is_hw_aligned):
     ht.enable_inference_mode()
 
     fp8_dtype = torch.float8_e4m3fn
-    shape_a = (4, 8)
+    # change shape to generate different graphs for hw/non-hw modes
+    shape_a = (4, 8) if is_hw_aligned else (6, 8)
     shape_b = (8, 16)
     if batched_tensors:
         shape_a = (2, 1) + shape_a
         shape_b = (2,) + shape_b
 
-    bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 6, 12, 15]
-    scale_values = convertExpBiasToScale(bias_values)
-    scale_out_values = convertExpBiasToScale((3, 11)) if fuse_cast else (1.0,)
-
     import habana_frameworks.torch.utils.experimental as htexp
 
-    htexp._set_scale_attributes(True, 10)
+    htexp._set_scale_attributes(is_hw_aligned, 10)
 
     def generate_inputs(scale_a, scale_b, scale_out):
         a = torch.randn(shape_a, dtype=src_dtype)
@@ -1229,7 +1221,28 @@ def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
     ht.disable_inference_mode()
 
 
-@pytest.mark.skipif(is_gaudi2(), reason="https://jira.habana-labs.com/browse/SW-224554")
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+@pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("batched_tensors", [False, True])
+@pytest.mark.parametrize("fuse_cast", [False, True])
+def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
+    bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 6, 12, 15]
+    scale_values = convertExpBiasToScale(bias_values)
+    scale_out_values = convertExpBiasToScale((3, 11)) if fuse_cast else (1.0,)
+
+    common_h2d_scales(src_dtype, batched_tensors, fuse_cast, scale_values, scale_out_values, is_hw_aligned=True)
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+@pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("fuse_cast", [False, True])
+def test_non_hw_h2d_scales(src_dtype, fuse_cast):
+    scale_values = (2.5, 0.7)
+    scale_out_values = (0.4, 3.0) if fuse_cast else (1.0,)
+
+    common_h2d_scales(src_dtype, False, fuse_cast, scale_values, scale_out_values, is_hw_aligned=False)
+
+
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 def test_sdpa_h2d():
     ht.enable_inference_mode()
