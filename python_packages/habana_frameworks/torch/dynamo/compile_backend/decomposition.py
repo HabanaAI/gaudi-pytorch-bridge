@@ -816,7 +816,7 @@ def index_add(
 
     # Follow the implementation used in HPU Lazy mode
     expanded_sizes = [1] * tensor.dim()
-    if len(index):
+    if len(index.size()):
         expanded_sizes[dim] = index.shape[0]
     else:
         expanded_sizes[dim] = 1
