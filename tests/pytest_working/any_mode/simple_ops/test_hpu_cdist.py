@@ -77,6 +77,8 @@ def common_hpu_cdist_backward(shapes, dtype, p, compute_mode):
     x2 = torch.rand(shapes[1], dtype=dtype)
     x1_h = x1.to("hpu")
     x2_h = x2.to("hpu")
+    x1 = x1.float()
+    x2 = x2.float()
     x1.requires_grad = True
     x2.requires_grad = True
     x1_h.requires_grad = True
@@ -86,8 +88,6 @@ def common_hpu_cdist_backward(shapes, dtype, p, compute_mode):
     compute_mode = None if compute_mode == 0 else compute_mode
 
     def fn_bwd(x1, x2, p, compute_mode):
-        x1.retain_grad()
-        x2.retain_grad()
         cdist = torch.ops.aten._cdist_forward(x1, x2, p, compute_mode)
         grad = torch.ones_like(cdist)
         cdist.backward(grad)
@@ -95,7 +95,7 @@ def common_hpu_cdist_backward(shapes, dtype, p, compute_mode):
 
     fn_bwd_h = compile_function_if_compile_mode(fn_bwd)
 
-    dst = fn_bwd(x1.to(torch.float32), x2.to(torch.float32), p, compute_mode)
+    dst = fn_bwd(x1, x2, p, compute_mode)
     dst_x1 = dst[0].to(dtype)
     dst_x2 = dst[1].to(dtype)
     dst_h_x1, dst_h_x2 = fn_bwd_h(x1_h, x2_h, p, compute_mode)

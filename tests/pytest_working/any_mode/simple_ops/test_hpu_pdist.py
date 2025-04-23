@@ -20,7 +20,6 @@ import math
 
 import pytest
 import torch
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
@@ -65,17 +64,17 @@ def common_hpu_pdist(shape, dtype, p, torch_op_label):
 def common_hpu_pdist_backward(shape, dtype, p):
     src = torch.rand(shape, dtype=dtype)
     src_h = src.to("hpu")
+    src = src.float()
     src.requires_grad = True
     src_h.requires_grad = True
 
     def fn_bwd(input, p):
-        input.retain_grad()
         pdist = torch.ops.aten._pdist_forward(input, p)
         grad = torch.ones_like(pdist)
         pdist.backward(grad)
         return input.grad
 
-    dst = fn_bwd(src.float(), p).to(dtype)
+    dst = fn_bwd(src, p).to(dtype)
 
     fn_bwd_h = compile_function_if_compile_mode(fn_bwd)
 
@@ -84,7 +83,7 @@ def common_hpu_pdist_backward(shape, dtype, p):
     tol = tols_bwd[dtype] * shape[-1]
     compare_tensors(dst_h, dst, atol=tol, rtol=tol)
 
-    if is_pytest_mode_compile() and is_pytorch_older_than("2.7.0"):
+    if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("_pdist_backward")
 
 
