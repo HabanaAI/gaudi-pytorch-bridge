@@ -89,9 +89,6 @@ repos:
     hooks:
       - id: yamllint
         files: \.ya?ml$
-        # TODO: fix issues and stop excluding .ci when time allows:
-        # https://jira.habana-labs.com/browse/SW-121821
-        exclude: ^.ci/
   - repo: local
     hooks:
       - id: deprecated-namespaces

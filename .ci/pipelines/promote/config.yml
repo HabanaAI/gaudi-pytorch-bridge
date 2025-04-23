@@ -87,7 +87,7 @@ orchestratorConfig:
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_optimum_habana_models_promote
     # PT Gaudi2 Optimum Habana Models Job <End>
   codeCoverageConfig:
-  - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
+    - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
   coverityConfig:
   coverityConfig_stageSilentMode: true
 stepConfig:
