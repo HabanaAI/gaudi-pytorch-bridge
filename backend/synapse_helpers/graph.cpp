@@ -25,6 +25,7 @@
 #include <iterator>
 #include <ostream>
 #include <type_traits>
+#include <chrono>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
@@ -612,13 +613,23 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
 
   auto name = get_unique_recipe_name(name_, eager_mode_);
 
+  auto compile_start_time = std::chrono::high_resolution_clock::now();
   status = synGraphCompile(
       &recipe_handle->syn_recipe_handle_, graph_handle_, name.c_str(), nullptr);
+  auto compile_end_time = std::chrono::high_resolution_clock::now();
+  auto compile_duration = std::chrono::duration<double, std::milli>(compile_end_time - compile_start_time).count();
 
-  HABANA_ASSERT(
-      status == synStatus::synSuccess,
-      "Graph compile failed. synStatus=",
-      Logger::formatStatusMsg(status));
+  if (status == synStatus::synSuccess) {
+      uint64_t workspace_size = query_workspace_size(*recipe_handle);
+      towl::emitRecipeCompileSuccess(*recipe_handle, workspace_size, name, compile_duration);
+  } else {
+      std::string error_info = absl::StrFormat("name %s synStatus %s", name, Logger::formatStatusMsg(status));
+      towl::emitRecipeCompileFailed(error_info, compile_duration);
+      HABANA_ASSERT(
+          false,
+          "Graph compile failed. Recipe: ", name, ", synStatus=", Logger::formatStatusMsg(status));
+  }
+
   END_TIME_MEASURE("Synapse graph compilation took");
   in_execution_phase_ = true;
   recipe_handle->graph_is_empty_ = graph_is_empty_;

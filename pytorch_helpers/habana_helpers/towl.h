@@ -50,6 +50,15 @@ void emitCopyFinished(const char* tag, void* src, void* dst);
 void emitCopyMultipleLaunch(const char* tag, const uint64_t* srcs, const uint64_t* dsts, const uint64_t* sizes, size_t num_copies);
 void emitCopyMultipleFinished(const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked);
 
+void emitRecipeCompileSuccess(
+    const synapse_helpers::graph::recipe_handle& recipe_handle,
+    uint64_t workspace_size,
+    const std::string& name,
+    double compile_duration);
+
+void emitRecipeCompileFailed(
+    const std::string& error_info,
+    double compile_duration);
 } // namespace impl
 
 /*
@@ -98,6 +107,19 @@ _MAKE_TOWL_ENTRYPOINT(
     (const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked),
     (tag, locked));
 
+_MAKE_TOWL_ENTRYPOINT(
+    emitRecipeCompileSuccess,
+    (const synapse_helpers::graph::recipe_handle& recipe_handle,
+      uint64_t workspace_size,
+      const std::string& name,
+      double compile_duration),
+    (recipe_handle, workspace_size, name, compile_duration));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitRecipeCompileFailed,
+    (const std::string& error_info,
+      double compile_duration),
+    (error_info, compile_duration));
 } // namespace
 
 void configure(bool enable, std::string config);

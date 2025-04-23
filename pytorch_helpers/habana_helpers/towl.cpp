@@ -56,6 +56,7 @@ struct Config {
   bool log_devmem_buf = true;
   bool log_devmem_summary = true;
   bool log_recipe = true;
+  bool log_recipe_compile = true;
   bool log_python = true;
   bool log_collective = true;
   bool log_copy = true;
@@ -332,6 +333,34 @@ void emitCopyMultipleFinished(const char* tag, std::shared_ptr<synapse_helpers::
     PT_TOWL_DEBUG("copy.multiple.finished ", tag,
                   " dst ", reinterpret_cast<void*>(locked->at(i)));
   }
+}
+
+void emitRecipeCompileSuccess(
+  const synapse_helpers::graph::recipe_handle& recipe_handle,
+  uint64_t workspace_size,
+  const std::string& name,
+  double compile_duration) {
+  if (not config.log_recipe_compile)
+    return;
+  PT_TOWL_DEBUG(
+      "recipe.compile.success name ",
+      name,
+      " handle ",
+      fmt::ptr(recipe_handle.syn_recipe_handle_),
+      " workspace ",
+      workspace_size,
+      " compile_time_ms ",
+      compile_duration);
+}
+
+void emitRecipeCompileFailed(const std::string& error_info, double compile_duration) {
+  if (not config.log_recipe_compile)
+    return;
+  PT_TOWL_DEBUG(
+      "recipe.compile.failed ",
+      error_info,
+      " compile_time_ms ",
+      compile_duration);
 }
 
 } // namespace towl::impl
