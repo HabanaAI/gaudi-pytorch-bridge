@@ -44,6 +44,7 @@ void SharedLayerReportGenerator::register_exceptions() {
   register_multilabel_margin_loss_exception();
   register_nll_loss_forward_exception();
   register_nll_loss_forward_output_exception();
+  register_optimizer_resource_apply_momentum_exception();
   register_reflection_pad_exception();
   register_replication_pad_exception();
   register_scatter_add__exception();
@@ -1291,6 +1292,65 @@ void SharedLayerReportGenerator::register_nll_loss_forward_output_exception() {
       {/* op_name */ "nll_loss",
        /* overload */ "output",
        /* op_namespace */ "torch.nn.functional"},
+      custom_executors.back().get());
+}
+
+void SharedLayerReportGenerator::
+    register_optimizer_resource_apply_momentum_exception() {
+  custom_stack_generators.push_back(
+      std::make_unique<StackGenerator>(StackGenerator(
+          {InputDescriptor{
+               /* name */ "params_momentum_buf_list",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ true,
+               /* values */ std::nullopt,
+               /* is_array */ true,
+               /* array_length */ 2},
+           InputDescriptor{
+               /* name */ "dp_list",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ true,
+               /* values */ std::nullopt,
+               /* is_array */ true,
+               /* array_length */ 1},
+           InputDescriptor{
+               /* name */ "momentum",
+               /* type */ InputType::NATIVE_FLOAT,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ std::nullopt,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ std::nullopt,
+               /* values */ std::vector<std::any>{1.0f},
+               /* is_array */ false,
+               /* array_length */ std::nullopt}},
+          /* blacklisted_precision_types */ {},
+          /* whitelisted_precision_types */ {},
+          "optimizer_resource_apply_momentum",
+          "optimizer_resource_apply_momentum")));
+
+  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(),
+      &habana::validator_optimizer_resource_apply_momentum));
+
+  register_op(
+      {/* op_name */ "optimizer_resource_apply_momentum",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu.optimizer"},
       custom_executors.back().get());
 }
 

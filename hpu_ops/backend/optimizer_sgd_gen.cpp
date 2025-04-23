@@ -19,6 +19,69 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
+SharedMetaDataVector OptimizerSgdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& gradients = stack.at(0).toTensorVector();
+  const auto& weights = stack.at(1).toTensorVector();
+  const auto& lr = stack.at(2).toTensor();
+  auto precision_type = gradients[0].scalar_type();
+  if (at::isFloatingType(precision_type))
+    precision_type = at::ScalarType::Float;
+
+  SharedMetaDataVector shared_meta_vec;
+  size_t weights_size = weights.size();
+  for (size_t i = 0; i < weights_size; ++i) {
+    const auto& gradient = gradients[i];
+    const auto& weight = weights[i];
+    SharedMetaData optimizer_shared_meta{"optimizer_sgd_bwd"};
+    optimizer_shared_meta.inputs_data = {
+        {gradient.dim(), precision_type},
+        {weight.dim(), precision_type},
+        {lr.dim(), precision_type}};
+    optimizer_shared_meta.outputs_data.emplace_back(
+        weight.dim(), precision_type);
+    shared_meta_vec.push_back(optimizer_shared_meta);
+  }
+
+  return shared_meta_vec;
+}
+
+SharedMetaDataVector OptimizerSgdMomentumSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& gradients = stack.at(0).toTensorVector();
+  const auto& weights = stack.at(1).toTensorVector();
+  const auto& momentums = stack.at(2).toTensorVector();
+  const auto& epoch_num = stack.at(3).toTensor();
+  const auto& lr = stack.at(4).toTensor();
+  const auto& mom = stack.at(5).toTensor();
+  auto precision_type = gradients[0].scalar_type();
+  if (at::isFloatingType(precision_type))
+    precision_type = at::ScalarType::Float;
+
+  SharedMetaDataVector shared_meta_vec;
+  size_t weights_size = weights.size();
+  for (size_t i = 0; i < weights_size; ++i) {
+    const auto& gradient = gradients[i];
+    const auto& weight = weights[i];
+    const auto& momentum = momentums[i];
+    SharedMetaData optimizer_shared_meta{"optimizer_sgd_bwd"};
+    optimizer_shared_meta.inputs_data = {
+        {gradient.dim(), precision_type},
+        {weight.dim(), precision_type},
+        {momentum.dim(), precision_type},
+        {epoch_num.dim(), precision_type},
+        {lr.dim(), precision_type},
+        {mom.dim(), precision_type}};
+    optimizer_shared_meta.outputs_data = {
+        {weight.dim(), precision_type}, {momentum.dim(), precision_type}};
+    shared_meta_vec.push_back(optimizer_shared_meta);
+  }
+
+  return shared_meta_vec;
+}
+
 class OptimizerFusedSGDOperator : public OpBackend {
  public:
   OptimizerFusedSGDOperator(int device_id, c10::ScalarType scalar_type)

@@ -109,6 +109,71 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
   return std::make_tuple(std::move(result[0]), std::move(updated_scale[0]));
 }
 
+SharedMetaDataVector GetMomentInFp8WithScaleSharedMeta(
+    const at::Tensor& input,
+    const at::Tensor& old_scale,
+    const at::ScalarType& precision_type,
+    const at::ScalarType& dest_dtype) {
+  SharedMetaDataVector shared_meta_vec;
+  shared_meta_vec.reserve(9);
+
+  const auto input_rank = input.dim();
+  SharedMetaData abs_shared_meta{"abs"};
+  abs_shared_meta.inputs_data.emplace_back(input_rank, precision_type);
+  abs_shared_meta.outputs_data = abs_shared_meta.inputs_data;
+  shared_meta_vec.push_back(abs_shared_meta);
+
+  SharedMetaData amax_shared_meta{"reduce_max_multi_dim_fwd"};
+  amax_shared_meta.inputs_data = abs_shared_meta.outputs_data;
+  amax_shared_meta.outputs_data.emplace_back(1, precision_type);
+  shared_meta_vec.push_back(amax_shared_meta);
+
+  SharedMetaTensor constant_tensor{1, precision_type};
+  SharedMetaData amax_div_shared_meta{"div_fwd"};
+  amax_div_shared_meta.inputs_data = {
+      constant_tensor, amax_shared_meta.outputs_data[0]};
+  amax_div_shared_meta.outputs_data = amax_shared_meta.outputs_data;
+  shared_meta_vec.push_back(amax_div_shared_meta);
+
+  SharedMetaData amax_log_shared_meta{"log2_fwd"};
+  amax_log_shared_meta.inputs_data = amax_div_shared_meta.outputs_data;
+  amax_log_shared_meta.outputs_data = amax_log_shared_meta.inputs_data;
+  shared_meta_vec.push_back(amax_log_shared_meta);
+
+  SharedMetaData exp_shared_meta{"floor_fwd"};
+  exp_shared_meta.inputs_data = amax_log_shared_meta.outputs_data;
+  exp_shared_meta.outputs_data = exp_shared_meta.inputs_data;
+  shared_meta_vec.push_back(exp_shared_meta);
+
+  SharedMetaData new_scale_shared_meta{"pow_fwd"};
+  new_scale_shared_meta.inputs_data = {
+      constant_tensor, exp_shared_meta.outputs_data[0]};
+  new_scale_shared_meta.outputs_data = {new_scale_shared_meta.inputs_data[1]};
+  shared_meta_vec.push_back(new_scale_shared_meta);
+
+  SharedMetaData mask_shared_meta{"greater_fwd"};
+  mask_shared_meta.inputs_data = {
+      new_scale_shared_meta.outputs_data[0], constant_tensor};
+  mask_shared_meta.outputs_data.emplace_back(1, at::ScalarType::Bool);
+  shared_meta_vec.push_back(mask_shared_meta);
+
+  SharedMetaData updated_scale_shared_meta{"where_fwd"};
+  updated_scale_shared_meta.inputs_data = {
+      mask_shared_meta.outputs_data[0],
+      new_scale_shared_meta.outputs_data[0],
+      {old_scale.dim(), precision_type}};
+  updated_scale_shared_meta.outputs_data.emplace_back(1, precision_type);
+  shared_meta_vec.push_back(updated_scale_shared_meta);
+
+  SharedMetaData convert_to_fp8_shared_meta{"convert_to_fp8"};
+  convert_to_fp8_shared_meta.inputs_data = {
+      {input_rank, precision_type}, updated_scale_shared_meta.outputs_data[0]};
+  convert_to_fp8_shared_meta.outputs_data.emplace_back(input_rank, dest_dtype);
+  shared_meta_vec.push_back(convert_to_fp8_shared_meta);
+
+  return shared_meta_vec;
+}
+
 class OptimizerFusedAdamWOperator : public OpBackend {
  public:
   OptimizerFusedAdamWOperator(int device_id, c10::ScalarType scalar_type)
@@ -138,6 +203,194 @@ void OptimizerFusedAdamWOperator::CustomHandler(sh::graph&, at::Stack& stack) {
       stack.at(11) = tensor_list_2.value();
     }
   }
+}
+
+SharedMetaDataVector OptimizerAdamWSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& gradient_vec = stack.at(0).toTensorVector();
+  const auto& weight_vec = stack.at(1).toTensorVector();
+  const auto& exp_avg_vec = stack.at(2).toTensorVector();
+  const auto& exp_avg_sq_vec = stack.at(3).toTensorVector();
+  const auto& neg_step_t = stack.at(4).toTensor();
+  const auto& weight_decay = stack.at(8).toTensor();
+  const auto has_weight_decay = stack.at(9).toBool();
+  const auto& exp_avg_scales =
+      stack.at(10).to<std::optional<std::vector<at::Tensor>>>();
+  const auto& exp_avg_sq_scales =
+      stack.at(11).to<std::optional<std::vector<at::Tensor>>>();
+  auto precision_type = gradient_vec.front().scalar_type();
+  const auto first_moment_dtype = exp_avg_vec.front().scalar_type();
+  const bool is_fp8 = at::isFloat8Type(first_moment_dtype);
+  precision_type = is_fp8
+      ? precision_type
+      : at::promote_types(precision_type, first_moment_dtype);
+
+  SharedMetaTensor constant_tensor{1, precision_type};
+  SharedMetaDataVector shared_meta_vec;
+  size_t vec_size = gradient_vec.size();
+  for (size_t i = 0; i < vec_size; ++i) {
+    const auto& gradient = gradient_vec[i];
+    const auto gradient_rank = gradient.dim();
+    const auto& weight = weight_vec[i];
+    const auto& exp_avg = exp_avg_vec[i];
+    const auto exp_avg_rank = exp_avg.dim();
+    const auto exp_avg_dtype = exp_avg.scalar_type();
+    const auto& exp_avg_sq = exp_avg_sq_vec[i];
+    const auto exp_avg_sq_rank = exp_avg_sq.dim();
+    const auto exp_avg_sq_dtype = exp_avg_sq.scalar_type();
+
+    if (is_fp8) {
+      if (exp_avg_scales.has_value()) {
+        const auto& exp_avg_scale = exp_avg_scales.value()[i];
+        SharedMetaData exp_avg_convert_from_fp8_shared_meta{"convert_from_fp8"};
+        exp_avg_convert_from_fp8_shared_meta.inputs_data.emplace_back(
+            exp_avg_rank, exp_avg_dtype);
+        exp_avg_convert_from_fp8_shared_meta.inputs_data.emplace_back(
+            exp_avg_scale.dim(), exp_avg_scale.scalar_type());
+        exp_avg_convert_from_fp8_shared_meta.outputs_data.emplace_back(
+            exp_avg_rank, precision_type);
+        shared_meta_vec.push_back(exp_avg_convert_from_fp8_shared_meta);
+      }
+      if (exp_avg_sq_scales.has_value()) {
+        const auto& exp_avg_sq_scale = exp_avg_sq_scales.value()[i];
+        SharedMetaData exp_avg_sq_convert_from_fp8_shared_meta{
+            "convert_from_fp8"};
+        exp_avg_sq_convert_from_fp8_shared_meta.inputs_data.emplace_back(
+            exp_avg_sq_rank, exp_avg_sq_dtype);
+        exp_avg_sq_convert_from_fp8_shared_meta.inputs_data.emplace_back(
+            exp_avg_sq_scale.dim(), exp_avg_sq_scale.scalar_type());
+        exp_avg_sq_convert_from_fp8_shared_meta.outputs_data.emplace_back(
+            exp_avg_sq_rank, precision_type);
+        shared_meta_vec.push_back(exp_avg_sq_convert_from_fp8_shared_meta);
+      }
+    }
+
+    SharedMetaData exp_avg_mul_beta_shared_meta{"mult_fwd"};
+    exp_avg_mul_beta_shared_meta.inputs_data.emplace_back(
+        exp_avg_rank, precision_type);
+    exp_avg_mul_beta_shared_meta.inputs_data.push_back(constant_tensor);
+    exp_avg_mul_beta_shared_meta.outputs_data.emplace_back(
+        exp_avg_rank, precision_type);
+    shared_meta_vec.push_back(exp_avg_mul_beta_shared_meta);
+
+    SharedMetaData grad_scaled_shared_meta{"mult_fwd"};
+    grad_scaled_shared_meta.inputs_data.emplace_back(
+        gradient_rank, precision_type);
+    grad_scaled_shared_meta.inputs_data.push_back(constant_tensor);
+    grad_scaled_shared_meta.outputs_data.emplace_back(
+        gradient_rank, precision_type);
+    shared_meta_vec.push_back(grad_scaled_shared_meta);
+
+    SharedMetaData exp_avg_add_shared_meta{"add_fwd"};
+    exp_avg_add_shared_meta.inputs_data.push_back(
+        exp_avg_mul_beta_shared_meta.outputs_data[0]);
+    exp_avg_add_shared_meta.inputs_data.push_back(
+        grad_scaled_shared_meta.outputs_data[0]);
+    exp_avg_add_shared_meta.outputs_data = grad_scaled_shared_meta.outputs_data;
+    shared_meta_vec.push_back(exp_avg_add_shared_meta);
+
+    if (is_fp8 && exp_avg_scales.has_value()) {
+      const auto& exp_avg_scale = exp_avg_scales.value()[i];
+      auto fp8_with_scale_meta_vec = GetMomentInFp8WithScaleSharedMeta(
+          exp_avg, exp_avg_scale, precision_type, exp_avg_dtype);
+      shared_meta_vec.insert(
+          std::end(shared_meta_vec),
+          std::begin(fp8_with_scale_meta_vec),
+          std::end(fp8_with_scale_meta_vec));
+    }
+    SharedMetaData gradient_sq_shared_meta{"mult_fwd"};
+    gradient_sq_shared_meta.inputs_data = {
+        {gradient_rank, precision_type}, {gradient_rank, precision_type}};
+    gradient_sq_shared_meta.outputs_data.emplace_back(
+        gradient_rank, precision_type);
+    shared_meta_vec.push_back(gradient_sq_shared_meta);
+
+    SharedMetaData gradient_sq_scaled_shared_meta{"mult_fwd"};
+    gradient_sq_scaled_shared_meta.inputs_data = {
+        gradient_sq_shared_meta.outputs_data[0], constant_tensor};
+    gradient_sq_scaled_shared_meta.outputs_data =
+        gradient_sq_shared_meta.outputs_data;
+    shared_meta_vec.push_back(gradient_sq_scaled_shared_meta);
+
+    SharedMetaData exp_avg_sq_mul_beta_shared_meta{"mult_fwd"};
+    exp_avg_sq_mul_beta_shared_meta.inputs_data = {
+        {exp_avg_sq_rank, precision_type}, constant_tensor};
+    exp_avg_sq_mul_beta_shared_meta.outputs_data.emplace_back(
+        exp_avg_sq_rank, precision_type);
+    shared_meta_vec.push_back(exp_avg_sq_mul_beta_shared_meta);
+
+    SharedMetaData exp_avg_sq_add_shared_meta{"add_fwd"};
+    exp_avg_sq_add_shared_meta.inputs_data = {
+        exp_avg_sq_mul_beta_shared_meta.outputs_data[0],
+        gradient_sq_scaled_shared_meta.outputs_data[0]};
+    exp_avg_sq_add_shared_meta.outputs_data.emplace_back(
+        gradient_rank, precision_type);
+    shared_meta_vec.push_back(exp_avg_sq_add_shared_meta);
+
+    if (is_fp8 && exp_avg_sq_scales.has_value()) {
+      const auto& exp_avg_sq_scale = exp_avg_sq_scales.value()[i];
+      auto fp8_with_scale_meta_vec = GetMomentInFp8WithScaleSharedMeta(
+          exp_avg_sq, exp_avg_sq_scale, precision_type, exp_avg_sq_dtype);
+      shared_meta_vec.insert(
+          std::end(shared_meta_vec),
+          std::begin(fp8_with_scale_meta_vec),
+          std::end(fp8_with_scale_meta_vec));
+    }
+
+    SharedMetaData exp_avg_sq_sqrt_shared_meta{"sqrt_fwd"};
+    exp_avg_sq_sqrt_shared_meta.inputs_data.emplace_back(
+        exp_avg_sq_rank, precision_type);
+    exp_avg_sq_sqrt_shared_meta.outputs_data =
+        exp_avg_sq_sqrt_shared_meta.inputs_data;
+    shared_meta_vec.push_back(exp_avg_sq_sqrt_shared_meta);
+
+    SharedMetaData denom_shared_meta{"add_fwd"};
+    denom_shared_meta.inputs_data = {
+        exp_avg_sq_sqrt_shared_meta.outputs_data[0], constant_tensor};
+    denom_shared_meta.outputs_data = exp_avg_sq_sqrt_shared_meta.outputs_data;
+    shared_meta_vec.push_back(denom_shared_meta);
+
+    SharedMetaData ratio_shared_meta{"div_fwd"};
+    ratio_shared_meta.inputs_data = {
+        exp_avg_add_shared_meta.outputs_data[0],
+        denom_shared_meta.outputs_data[0]};
+    ratio_shared_meta.outputs_data = exp_avg_add_shared_meta.outputs_data;
+    shared_meta_vec.push_back(ratio_shared_meta);
+
+    SharedMetaData scaled_ratio_shared_meta{"mult_fwd"};
+    scaled_ratio_shared_meta.inputs_data = {
+        ratio_shared_meta.outputs_data[0], {neg_step_t.dim(), precision_type}};
+    scaled_ratio_shared_meta.outputs_data = ratio_shared_meta.outputs_data;
+    shared_meta_vec.push_back(scaled_ratio_shared_meta);
+
+    if (has_weight_decay) {
+      SharedMetaData weight_mul_shared_meta{"mult_fwd"};
+      weight_mul_shared_meta.inputs_data.emplace_back(
+          weight.dim(), precision_type);
+      weight_mul_shared_meta.inputs_data.emplace_back(
+          weight_decay.dim(), precision_type);
+      weight_mul_shared_meta.outputs_data.push_back(
+          weight_mul_shared_meta.inputs_data[0]);
+      shared_meta_vec.push_back(weight_mul_shared_meta);
+
+      SharedMetaData result_shared_meta{"add_fwd"};
+      result_shared_meta.inputs_data = {
+          weight_mul_shared_meta.outputs_data[0],
+          scaled_ratio_shared_meta.outputs_data[0]};
+      result_shared_meta.outputs_data = weight_mul_shared_meta.outputs_data;
+      shared_meta_vec.push_back(result_shared_meta);
+    } else {
+      SharedMetaData result_shared_meta{"add_fwd"};
+      result_shared_meta.inputs_data = {
+          {weight.dim(), precision_type},
+          scaled_ratio_shared_meta.outputs_data[0]};
+      result_shared_meta.outputs_data.push_back(
+          result_shared_meta.inputs_data[0]);
+      shared_meta_vec.push_back(result_shared_meta);
+    }
+  }
+  return shared_meta_vec;
 }
 
 void OptimizerFusedAdamWOperator::AddNode(

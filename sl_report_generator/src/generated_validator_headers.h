@@ -36,6 +36,7 @@
 #include "generated/lazy/multilabel_margin_loss_forward.h"
 #include "generated/lazy/nll_loss2d_forward.h"
 #include "generated/lazy/nll_loss_forward.h"
+#include "generated/lazy/optimizer_resource_apply_momentum.h"
 #include "generated/lazy/reflection_pad1d.h"
 #include "generated/lazy/reflection_pad2d.h"
 #include "generated/lazy/reflection_pad3d.h"

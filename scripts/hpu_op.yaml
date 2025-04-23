@@ -9081,3 +9081,57 @@ block_softmax_adjustment:
   output_meta: BlockSoftmaxAdjustmentMeta
   custom_fill_params: BlockSoftmaxAdjustmentParams
   op_validator_exception: custom_op
+
+optimizer_adamw:
+  custom_op_schema: "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales=None, Tensor(e!)[]? exp_avg_sq_scales=None) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerAdamWSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_ema:
+  custom_op_schema: "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerEmaSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lamb_fused_norm:
+  custom_op_schema: "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor"
+  only_slrg: true
+  op_validator: OptimizerLambNormSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lamb_phase1:
+  custom_op_schema: "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, Tensor bias_correction1, Tensor bias_correction2, float weight_decay) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerLambPhase1SharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lamb_phase2:
+  custom_op_schema: "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, Tensor neg_step, float wd, bool use_lamb) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerLambPhase2SharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_lars:
+  custom_op_schema: "hpu::optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor lr) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerLarsSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_resource_apply_momentum:
+  custom_op_schema: "hpu::optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerResourceApplyMomentumSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_sgd:
+  custom_op_schema: "hpu::optimizer_sgd(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerSgdSharedMeta
+  namespaces: [torch.hpu.optimizer]
+
+optimizer_sgd_momentum:
+  custom_op_schema: "hpu::optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor(d!) mom, float wd, float damp, bool nesterov) -> Tensor[]"
+  only_slrg: true
+  op_validator: OptimizerSgdMomentumSharedMeta
+  namespaces: [torch.hpu.optimizer]

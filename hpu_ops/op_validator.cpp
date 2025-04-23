@@ -481,7 +481,7 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
             "Shared Layer Report Generator rejected complex op: ",
             m_opname,
             ":  guid=",
-            m_guid,
+            meta.guid,
             " inputlist=",
             ToDebugString(inputs),
             " outputlist=",

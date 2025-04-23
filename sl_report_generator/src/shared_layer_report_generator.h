@@ -81,6 +81,7 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_multilabel_margin_loss_exception();
   void register_nll_loss_forward_exception();
   void register_nll_loss_forward_output_exception();
+  void register_optimizer_resource_apply_momentum_exception();
   void register_reflection_pad_exception();
   void register_replication_pad_exception();
   void register_scatter_add__exception();
