@@ -4582,6 +4582,12 @@ igamma.out:
   op_validator: check-node-with-shared-layer
   namespaces: [torch]
 
+igammac.out:
+  promote_int_to_float: [self]
+  guid: igammac_fwd
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
 linalg_cross:
   op_backend: LinAlgCross
   op_validator: LinAlgCrossSharedMeta

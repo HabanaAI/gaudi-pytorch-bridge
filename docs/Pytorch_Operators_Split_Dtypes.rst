@@ -354,7 +354,8 @@ heaviside                                Yes      Yes      Yes     No    torch
 histc                                    Yes      No       No      No    torch
 histogram                                Yes      No       No      No    torch
 hypot                                    Yes      Yes      Yes     No    torch
-igamma                                   Yes      No       No      No    torch
+igamma                                   Yes      Yes      Yes     No    torch
+igammac                                  Yes      Yes      Yes     No    torch
 index_add                                Yes      Yes      Yes     No    torch
 index_copy                               Yes      Yes      Yes     Yes   torch
 index_fill                               Yes      Yes      Yes     Yes   torch
@@ -1300,6 +1301,7 @@ histc                                     Yes      Yes       No        No       
 histogram                                 Yes      Yes       No        No       No     torch
 hypot                                     No       No        No        No       No     torch
 igamma                                    No       No        No        No       No     torch
+igammac                                   No       No        No        No       No     torch
 index_add                                 No       Yes       No        No       No     torch
 index_copy                                Yes      Yes       Yes       Yes      Yes    torch
 index_fill                                Yes      Yes       Yes       Yes      Yes    torch
