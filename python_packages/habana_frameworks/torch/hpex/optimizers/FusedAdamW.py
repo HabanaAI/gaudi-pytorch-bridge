@@ -83,6 +83,9 @@ class FusedAdamW(Optimizer):
         self.modified_wd_list.clear()
 
         for group in self.param_groups:
+            # WA from SW-225846 auto_functionalized_v2 fallback issue
+            # should remove this graph break after fixing SW-226681
+            torch._dynamo.graph_break()
             htcore.step_closure._mark_step_if_lazy()
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list = [], [], [], []
 
