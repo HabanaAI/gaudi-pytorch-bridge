@@ -656,8 +656,8 @@ class WheelSpec:
 
 
 def parse_wheel_spec(wheel_spec: str):
-    retval = list(map(lambda x: WheelSpec(serialized_spec=x), wheel_spec))
-    whl_name_list = list(map(lambda x: x.wheel_name, retval))
+    retval = [WheelSpec(serialized_spec=spec) for spec in wheel_spec]
+    whl_name_list = [x.wheel_name for x in retval]
     if len(whl_name_list) != len(set(whl_name_list)):
         raise RuntimeError("Duplicate wheel names detected in current configuration")
     return retval
@@ -915,7 +915,7 @@ def create_wheel_target_for_single_python(
     verbose,
 ):
     venv_dir = venv_dirs[0]
-    pt_wheel_vers = ",".join(map(lambda x: str(x.version), pt_vers))
+    pt_wheel_vers = ",".join(str(x.version) for x in pt_vers)
 
     wheel_name = wheel_name_and_src.wheel_name
     wheel_target = "wheel_" + wheel_name

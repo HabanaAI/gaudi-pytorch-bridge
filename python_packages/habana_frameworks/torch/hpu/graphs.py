@@ -771,8 +771,8 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
         cache.clear()
 
     def clear_inputs():
-        for h in cache:
-            cache[h].graph.clear_inputs()
+        for _, cached in cache.items():
+            cached.graph.clear_inputs()
 
     module.clear_inputs = clear_inputs
     module.clear_cache = clear_cache

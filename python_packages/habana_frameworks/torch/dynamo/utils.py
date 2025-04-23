@@ -19,7 +19,7 @@
 def auto_map(f):
     def wrapper(x, *args, **kwargs):
         if isinstance(x, list | tuple):
-            return type(x)(map(lambda y: wrapper(y, *args, **kwargs), x))
+            return type(x)(wrapper(y, *args, **kwargs) for y in x)
         return f(x, *args, **kwargs)
 
     return wrapper

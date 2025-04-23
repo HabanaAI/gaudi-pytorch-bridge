@@ -199,7 +199,7 @@ def get_cmakelists_supported_vers():
     return ";".join(
         {
             f"{version[0]}\\.{version[1]}\\..*"
-            for version in map(lambda ver_source: ver_source.version.split("."), get_available_versions())
+            for version in (ver_source.version.split(".") for ver_source in get_available_versions())
         }
     )
 

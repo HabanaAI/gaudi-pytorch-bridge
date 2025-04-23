@@ -255,10 +255,10 @@ def env_var_in_scope(vars=None):
     try:
         yield
     finally:
-        for key in orig_vars.keys():
+        for key, orig_var in orig_vars.items():
             # restore environment variable
-            if orig_vars[key] is not None:
-                os.environ[key] = orig_vars[key]
+            if orig_var is not None:
+                os.environ[key] = orig_var
             elif key in os.environ:
                 del os.environ[key]
 

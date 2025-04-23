@@ -1198,7 +1198,7 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             if len(args) == 1 and isinstance(args[0], tuple):
                 args = args[0]
             assert all(
-                map(lambda x: isinstance(x, torch.fx.Node), args)
+                isinstance(x, torch.fx.Node) for x in args
             ), "Currently we are assuming that all args of output should be Nodes"
             meta_val = tuple([a.meta.get("val", None) for a in args])
 
@@ -1846,11 +1846,10 @@ def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
         user_to_last_used_args[node] = []
         map_arg(node.args, lambda arg: register_last_uses(arg, node))
 
-    for user in user_to_last_used_args:
+    for user, last_used_args in user_to_last_used_args.items():
         if user.op != "call_module":
             continue
 
-        last_used_args = user_to_last_used_args[user]
         is_reusables: list[bool] = []
         for arg in user.args:
             is_last_use = arg in last_used_args

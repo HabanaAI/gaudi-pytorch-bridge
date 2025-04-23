@@ -719,8 +719,8 @@ def test_view(ttl, inout):
         if result is not None:
             tensors[td.store_result] = result
 
-    for key in cpu_tensors.keys():
-        result_cpu = cpu_tensors[key]
+    for key, cpu_tensor in cpu_tensors.items():
+        result_cpu = cpu_tensor
         result_hpu = hpu_tensors[key]
         if isinstance(result_cpu, list):
             result_cpu = torch.cat(result_cpu[:])

@@ -246,18 +246,18 @@ def _parse(lines):
                 created_nodes[rhs].add_self_as_child(lhs_node)
 
     potential_dyn_modules = set()
-    for step in recompiling_modules:
-        for mdlname, newinp, _, _, _, _ in recompiling_modules[step]:
+    for _, module in recompiling_modules.items():
+        for mdlname, newinp, _, _, _, _ in module:
             if not newinp:
                 potential_dyn_modules.update([mdlname])
 
     treeinfo = []
     treeinfo, _ = _process_tree(created_nodes[top_module_name], treeinfo, potential_dyn_modules)
-    for step_idx in recompiling_modules:
-        for idx, (module_name, new_inp, new_out, classnm, filenm, comment) in enumerate(recompiling_modules[step_idx]):
+    for _, module in recompiling_modules.items():
+        for idx, (module_name, new_inp, new_out, classnm, filenm, comment) in enumerate(module):
             if "Already processed input shape still recompiled" in comment and module_name not in treeinfo:
                 comment += ". Could be due to dynamic child"
-                recompiling_modules[step_idx][idx] = (module_name, new_inp, new_out, classnm, filenm, comment)
+                module[idx] = (module_name, new_inp, new_out, classnm, filenm, comment)
     return recompiling_modules, recompiling_modules_count, treeinfo, top_module_name, created_nodes
 
 
@@ -466,8 +466,8 @@ def const_shape_dataloader(dl, maxlen):
         const_shape_dt[shp_key] = const_shape_dt[shp_key] + [dt]
 
     maxlength = -1
-    for k in const_shape_dt:
-        currlen = len(const_shape_dt[k])
+    for k, const_shape in const_shape_dt.items():
+        currlen = len(const_shape)
         assert currlen < maxlen
         if maxlength < currlen:
             maxlength = currlen

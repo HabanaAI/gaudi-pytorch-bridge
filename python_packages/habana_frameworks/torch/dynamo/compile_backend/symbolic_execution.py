@@ -177,7 +177,7 @@ class HPUExprPrinter(ExprPrinterPT):
 
     # WARNING: this is dangerous for Triton, which has C-style modulus
     def _print_PythonMod(self, expr):
-        return " % ".join(map(lambda e: self._paren(e, PRECEDENCE["Atom"] - 0.5), map(self._print, expr.args)))
+        return " % ".join(self._paren(e, PRECEDENCE["Atom"] - 0.5) for e in map(self._print, expr.args))
 
     # WARNING: this is dangerous for Triton, which has C-style modulus
     def _print_FloorDiv(self, expr):

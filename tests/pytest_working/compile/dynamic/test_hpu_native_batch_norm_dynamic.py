@@ -22,11 +22,16 @@ from test_utils import compile_function_if_compile_mode, format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-@pytest.mark.parametrize("shape", [(2, 2, 3, 3, 4)], ids=format_tc)
+@pytest.mark.parametrize("base_shape", [(2, 2, 3, 3, 4)], ids=format_tc)
 @pytest.mark.parametrize("params", [{"training": True, "momentum": 0.1, "eps": 1e-5}], ids=format_tc)
-def test_hpu_native_batch_norm_legit_functional_3d_dynamic(dtype, shape, params):
+def test_hpu_native_batch_norm_legit_functional_3d_dynamic(dtype, base_shape, params):
 
-    shapes = [shape, np.multiply(shape, 2), np.multiply(shape, 3), np.multiply(shape, 4)]
+    broadcasted_shapes = [
+        base_shape,
+        np.multiply(base_shape, 2),
+        np.multiply(base_shape, 3),
+        np.multiply(base_shape, 4),
+    ]
 
     def fn(input, running_mean, running_var, weight, bias):
         return torch.nn.functional.batch_norm(
@@ -44,7 +49,7 @@ def test_hpu_native_batch_norm_legit_functional_3d_dynamic(dtype, shape, params)
 
     atol, rtol = (1e-2, 1e-2) if dtype == torch.bfloat16 else (1e-6, 1e-6)
 
-    for shape in shapes:
+    for shape in broadcasted_shapes:
         C = shape[1]
 
         input = torch.randn(tuple(shape), dtype=dtype)
