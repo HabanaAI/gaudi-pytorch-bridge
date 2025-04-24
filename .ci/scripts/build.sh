@@ -1725,8 +1725,28 @@ uninstall_requirements_pytest()
 clean_pytorch_pkgs()
 {
     echo "-> Removing PyTorch-related packages"
-    pip uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
-    sudo -H pip uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
+    # shellcheck disable=SC2207
+    local -r packages_to_uninstall=(
+        hb-torch
+        torch
+        torch-debug
+
+        hmp
+        gather2d-cpp
+        HabanaEmbeddingBag-cpp
+        habanaOptimizerSparseSgd-cpp
+        preproc-cpp
+        habanaOptimizerSparseAdagrad-cpp
+
+        habana-torch-dataloader
+        habana-torch
+        habana-torch-plugin
+
+        triton
+        $(pip freeze | grep -E 'nvidia-.*-cu[0-9]+' | cut -d '=' -f 1)
+    )
+    pip uninstall -y "${packages_to_uninstall[@]}"
+    sudo -H pip uninstall -y "${packages_to_uninstall[@]}"
 }
 
 # Returns an error code 1 if any nvidia-related packages are installed.
