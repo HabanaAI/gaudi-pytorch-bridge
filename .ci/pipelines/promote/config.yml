@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://artifactory-kfs.habana-labs.com:443/artifactory/devops-generic-dev-local/json-ci-yaml-schemas/promote_config.json
 orchestratorConfig:
-  cron: "H H/3 * * *"
+  cron: "H H(6-18)/3 * * *"
   retriggerThreshold: "3"
   testConfig:
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
