@@ -403,7 +403,10 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       p_context_->pt_outputs_[0] = std::move(cast_op3->GetOutputs()[0]);
       return;
     }
-    SetGuid("unsorted_scatter_add_fwd_f32");
+    const std::string guid = (self.scalar_type() == at::ScalarType::Int)
+        ? "unsorted_scatter_add_fwd_i32"
+        : "unsorted_scatter_add_fwd_f32";
+    SetGuid(guid);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   } else { // On Gaudi1
     // "To sort or not to sort, that is the question..."!!
