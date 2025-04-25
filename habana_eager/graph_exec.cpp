@@ -31,7 +31,10 @@
 
 #include "habana_eager/eager_view.h"
 #include "pytorch_helpers/habana_helpers/h2d_scales.h"
+#include "pytorch_helpers/habana_helpers/towl.h"
 #include "pytorch_helpers/visualize/visualize.h"
+
+#include <chrono>
 
 namespace habana {
 namespace graph {
@@ -492,7 +495,13 @@ void GraphExec::RunPass(
     std::function<bool()> pass,
     bool dump_graphs,
     const std::string& pass_name) {
+  auto start = std::chrono::high_resolution_clock::now();
   auto graph_changed = pass();
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+  std::string msg = "[COMPILE] JIT pass " + pass_name + " took (ms): ";
+  towl::emitMetrics(msg, static_cast<float>(duration.count()));
   if (graph_changed && dump_graphs)
     visualize::DumpEagerOrCompileGraph(
         m_graph, m_graph_name + "_jit_after_" + pass_name);

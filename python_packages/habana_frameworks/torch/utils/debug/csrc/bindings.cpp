@@ -189,6 +189,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("towl_print", [](const std::string& msg) {
     towl::emitPythonString(msg);
   });
+  m.def("towl_emit_metrics", [](const std::string& name, float value) {
+    towl::emitMetrics(name, value);
+  });
   m.def("towl_configure", [](bool flag, std::string config) {
     towl::configure(flag, config);
   });

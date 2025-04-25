@@ -59,6 +59,9 @@ void emitRecipeCompileSuccess(
 void emitRecipeCompileFailed(
     const std::string& error_info,
     double compile_duration);
+
+void emitMetrics(const std::string& name, float value);
+
 } // namespace impl
 
 /*
@@ -106,6 +109,10 @@ _MAKE_TOWL_ENTRYPOINT(
     emitCopyMultipleFinished,
     (const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked),
     (tag, locked));
+_MAKE_TOWL_ENTRYPOINT(
+    emitMetrics,
+    (const std::string& name, float value),
+    (name, value));
 
 _MAKE_TOWL_ENTRYPOINT(
     emitRecipeCompileSuccess,

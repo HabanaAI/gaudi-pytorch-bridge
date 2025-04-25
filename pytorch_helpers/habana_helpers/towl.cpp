@@ -43,13 +43,14 @@ int GetRankFromEnv() {
  * separated by semicolon.
  *
  * Parameters:
- *  log_devmem=[0|1]    - enables devmem logging category
- *  log_recipe=[0|1]    - enables recipe logging category
- *  log_python=[0|1]    - enables python logging category
- *  log_collective=[0|1]- enables collective logging category
- *  log_copy=[0|1]      - enables copy logging category
- *  rank=int            - logs only under given rank (determined by env RANK)
- *  any_rank=[0|1]      - ignore `rank` option and always log events
+ *  log_devmem=[0|1]       - enables devmem logging category
+ *  log_recipe=[0|1]       - enables recipe logging category
+ *  log_python=[0|1]       - enables python logging category
+ *  log_collective=[0|1]   - enables collective logging category
+ *  log_copy=[0|1]         - enables copy logging category
+ *  log_metrics=[0|1]      - enables metrics logging category
+ *  rank=int               - logs only under given rank (determined by env RANK)
+ *  any_rank=[0|1]         - ignore `rank` option and always log events
  */
 
 struct Config {
@@ -60,6 +61,7 @@ struct Config {
   bool log_python = true;
   bool log_collective = true;
   bool log_copy = true;
+  bool log_metrics = false;
   int rank = -1;
   bool any_rank = false;
 
@@ -107,6 +109,7 @@ struct Config {
           config.log_python = flag;
           config.log_collective = flag;
           config.log_copy = flag;
+          config.log_metrics = flag;
         } else if (key == "log_devmem_buf") {
           config.log_devmem_buf = value == "1";
         } else if (key == "log_devmem_summary") {
@@ -119,6 +122,8 @@ struct Config {
           config.log_collective = value == "1";
         } else if (key == "log_copy") {
           config.log_copy = value == "1";
+        } else if (key == "log_metrics") {
+          config.log_metrics = value == "1";
         } else if (key == "rank") {
           if (value == "any") {
             config.any_rank = true;
@@ -159,6 +164,7 @@ struct Config {
     PT_TOWL_WARN("Config log_python=", config.log_python);
     PT_TOWL_WARN("Config log_collective=", config.log_collective);
     PT_TOWL_WARN("Config log_copy=", config.log_copy);
+    PT_TOWL_WARN("Config log_metrics=", config.log_metrics);
     PT_TOWL_WARN(
         "Config rank=",
         config.rank,
@@ -361,6 +367,13 @@ void emitRecipeCompileFailed(const std::string& error_info, double compile_durat
       error_info,
       " compile_time_ms ",
       compile_duration);
+}
+
+void emitMetrics(const std::string& name, float value) {
+  if (not config.log_metrics)
+    return;
+  std::string msg = name + std::to_string(value);
+  PT_TOWL_DEBUG(msg);
 }
 
 } // namespace towl::impl

@@ -207,3 +207,7 @@ def _towl_configure(flag: bool, config=""):
 
 def _towl_print(text: str):
     _debug_C.towl_print(text)
+
+
+def _towl_emit_metrics(name: str, value: float):
+    _debug_C.towl_emit_metrics(name, value)
