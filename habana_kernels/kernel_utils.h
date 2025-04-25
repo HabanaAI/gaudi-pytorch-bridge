@@ -58,6 +58,14 @@ std::vector<int64_t> compute_broadcast_shape(
     const at::Tensor& arg1,
     const at::Tensor& arg2);
 
+// Utility function to get or create the output tensor
+// If the output tensor is already allocated, use it. If not, create it
+at::Tensor get_or_create_output_tensor(
+    synapse_helpers::graph& graph,
+    const habana::OutputMetaData& output_metadata,
+    const at::Tensor& proxy,
+    at::IntArrayRef shape);
+
 } // namespace habana_helpers
 
 // CastOut Operator

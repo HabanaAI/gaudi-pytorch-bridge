@@ -2137,13 +2137,11 @@ void SliceOperator::AllocateAndAddSynapseNode(
     shape = compute_output_shape(self, dim, start, end, step);
   }
 
-  Tensor output = habana::createPTTensor(
+  auto output = habana_helpers::get_or_create_output_tensor(
+      graph,
+      output_metadata.at(0),
       self,
-      shape,
-      self.options(),
-      self.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-
+      shape);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   if (has_shape_tensor) {
@@ -3027,12 +3025,11 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
 
   auto shape = UnsqueezeOperator::compute_output_shape(input, dim);
 
-  auto output = habana::createPTTensor(
-      input,
-      shape,
-      input.options(),
-      input.suggest_memory_format(),
-      output_metadata.at(0).persistent);
+  auto output = habana_helpers::get_or_create_output_tensor(
+    graph,
+    output_metadata.at(0),
+    input,
+    shape);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   const auto syn_axis = input.dim() - dim;

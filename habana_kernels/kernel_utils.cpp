@@ -325,6 +325,24 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
   return out_size;
 }
 
+at::Tensor habana_helpers::get_or_create_output_tensor(
+    synapse_helpers::graph& graph,
+    const habana::OutputMetaData& output_metadata,
+    const at::Tensor& proxy,
+    at::IntArrayRef shape) {
+  if (!graph.is_dry_run() &&
+      output_metadata.allocated_tensor.has_value()) {
+    return output_metadata.allocated_tensor.value();
+  } else {
+    return habana::createPTTensor(
+        proxy,
+        shape,
+        proxy.options(),
+        proxy.suggest_memory_format(),
+        output_metadata.persistent);
+  }
+}
+
 /**
  * @brief CastKernel params structure
  */

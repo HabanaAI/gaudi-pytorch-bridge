@@ -447,3 +447,63 @@ def test_leaf_views_post_fx_partitions():
     hpu_out = hpu_model(t1.to("hpu"), t2.to("hpu"))
 
     assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
+
+
+def test_leaf_unsqueeze_post_partition():
+    """
+    In this test, the "unsafe_index" gets executed eagerly causing
+    a graph break. The "unsqueeze" becomes a leaf node in the first
+    submodule and returned for used by the second submodule.
+    """
+
+    def fn(input):
+        x = input * 3
+        # unsqueeze becomes a leaf node and returns from the first module.
+        y = torch.ops.aten.unsqueeze(input, 0)
+        z = y / 3
+        idx = torch.arange(64, device=input.device).to(torch.int64)
+        v = torch.ops.aten._unsafe_index(z, [None, idx])
+        w = y + v
+        return w
+
+    compiled_fn = compile_function_if_compile_mode(fn, options={"use_eager_fallback": True})
+
+    t = torch.rand(64, dtype=torch.float32)
+
+    # cpu
+    ref_out = fn(t)
+
+    # hpu
+    hpu_out = compiled_fn(t.to("hpu"))
+
+    assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
+
+
+def test_leaf_slice_post_partition():
+    """
+    In this test, the "unsafe_index" gets executed eagerly causing
+    a graph break. The "slice" becomes a leaf node in the first
+    submodule and returned for used by the second submodule.
+    """
+
+    def fn(input):
+        x = input * 3
+        # slice becomes a leaf node and returns from the first module.
+        y = x[0:64]
+        z = y / 3
+        idx = torch.arange(64, device=input.device).to(torch.int64)
+        v = torch.ops.aten._unsafe_index(z, [idx])
+        w = y + v
+        return w
+
+    compiled_fn = compile_function_if_compile_mode(fn, options={"use_eager_fallback": True})
+
+    t = torch.rand(128, dtype=torch.float32)
+
+    # cpu
+    ref_out = fn(t)
+
+    # hpu
+    hpu_out = compiled_fn(t.to("hpu"))
+
+    assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
