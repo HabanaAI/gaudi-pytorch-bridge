@@ -55,10 +55,10 @@
     "next": {
       "version": "2.7.0",
       "default_source": "build",
-      "cpu_index_url": "https://download.pytorch.org/whl/nightly/cpu",
+      "cpu_index_url": "default",
       "extras": {
-        "torchvision": "v0.22.0-rc4",
-        "torchaudio": "v2.7.0-rc5",
+        "torchvision": "v0.22.0",
+        "torchaudio": "v2.7.0",
         "torchtext": "v0.18.0",
         "torchdata": "v0.11.0"
       }
