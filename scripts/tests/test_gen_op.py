@@ -49,6 +49,10 @@ with open(profiles_path, encoding="utf-8") as profiles_json:
 
 pytestmark = [
     pytest.mark.skipif(
+        is_pytorch_older_than("2.7.0"),
+        reason="Remove gen_op tests for PyTorch 2.6, as no new commits will be merged until PyTorch 2.7 is released",
+    ),
+    pytest.mark.skipif(
         is_pytorch_older_than(current_pytorch_version), reason="Only newest PyTorch version should be validated"
     ),
     pytest.mark.xfail(
@@ -88,15 +92,7 @@ def test_ops_generation_e2e(monkeypatch):
     output_dir = os.path.join(test_path, "output")
     reference_dir = os.path.join(test_path, "files/ops_generation_e2e/reference_output", ref_output_dir)
     yaml_path = os.path.join(test_path, "files/ops_generation_e2e/hpu_op.yaml")
-    pt_signatures = os.path.join(
-        test_path,
-        "files/ops_generation_e2e",
-        (
-            "FakeRegistrationDeclarations.h"
-            if is_pytorch_older_than("2.7.0")
-            else "FakeRegistrationDeclarationsFuture.h"
-        ),
-    )
+    pt_signatures = os.path.join(test_path, "files/ops_generation_e2e/FakeRegistrationDeclarations.h")
 
     shutil.rmtree(output_dir, ignore_errors=True)
 
@@ -120,44 +116,24 @@ def test_ops_generation_e2e(monkeypatch):
     shutil.rmtree(output_dir)
 
 
-if is_pytorch_older_than("2.7.0"):
-    SCHEMA_CPP_LIST = [
-        (
-            "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)",
-            "::std::tuple<Tensor,Tensor,Tensor> native_batch_norm(const Tensor & input, const std::optional<Tensor> & weight, const std::optional<Tensor> & bias, const std::optional<Tensor> & running_mean, const std::optional<Tensor> & running_var, bool training, double momentum, double eps)",
-        ),
-        (
-            "aten::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor",
-            "Tensor index_add(const Tensor & self, int64_t dim, const Tensor & index, const Tensor & source, const Scalar & alpha)",
-        ),
-        (
-            "hpu::cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor",
-            "Tensor cross_entropy_loss(const Tensor & self, const Tensor & target, const std::optional<Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing)",
-        ),
-        (
-            "aten::normal.float_float(float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor",
-            "Tensor normal(double mean, double std, c10::SymIntArrayRef size, std::optional<Generator> generator, std::optional<ScalarType> dtype, std::optional<Layout> layout, std::optional<Device> device, std::optional<bool> pin_memory)",
-        ),
-    ]
-else:
-    SCHEMA_CPP_LIST = [
-        (
-            "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)",
-            "::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_batch_norm(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, const ::std::optional<at::Tensor> & running_mean, const ::std::optional<at::Tensor> & running_var, bool training, double momentum, double eps)",
-        ),
-        (
-            "aten::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor",
-            "at::Tensor index_add(const at::Tensor & self, int64_t dim, const at::Tensor & index, const at::Tensor & source, const at::Scalar & alpha)",
-        ),
-        (
-            "hpu::cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor",
-            "at::Tensor cross_entropy_loss(const at::Tensor & self, const at::Tensor & target, const ::std::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing)",
-        ),
-        (
-            "aten::normal.float_float(float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor",
-            "at::Tensor normal(double mean, double std, c10::SymIntArrayRef size, ::std::optional<at::Generator> generator, ::std::optional<at::ScalarType> dtype, ::std::optional<at::Layout> layout, ::std::optional<at::Device> device, ::std::optional<bool> pin_memory)",
-        ),
-    ]
+SCHEMA_CPP_LIST = [
+    (
+        "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)",
+        "::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_batch_norm(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, const ::std::optional<at::Tensor> & running_mean, const ::std::optional<at::Tensor> & running_var, bool training, double momentum, double eps)",
+    ),
+    (
+        "aten::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor",
+        "at::Tensor index_add(const at::Tensor & self, int64_t dim, const at::Tensor & index, const at::Tensor & source, const at::Scalar & alpha)",
+    ),
+    (
+        "hpu::cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor",
+        "at::Tensor cross_entropy_loss(const at::Tensor & self, const at::Tensor & target, const ::std::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing)",
+    ),
+    (
+        "aten::normal.float_float(float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor",
+        "at::Tensor normal(double mean, double std, c10::SymIntArrayRef size, ::std::optional<at::Generator> generator, ::std::optional<at::ScalarType> dtype, ::std::optional<at::Layout> layout, ::std::optional<at::Device> device, ::std::optional<bool> pin_memory)",
+    ),
+]
 
 
 @pytest.mark.parametrize("schema, cpp", SCHEMA_CPP_LIST)
@@ -275,8 +251,6 @@ def test_generate_op_hclasses(is_backend):
     ],
 )
 def test_parse_params(cpp_sig, out_indices, expected_results):
-    if is_pytorch_older_than("2.7.0"):
-        cpp_sig = cpp_sig.replace("at::", "")
     tree = parser.parse(cpp_sig)
     rwxtree = parser.xparse(cpp_sig)
     params = parser.get_parameters(tree)

@@ -31,8 +31,7 @@ at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, ::std:
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, prod, int_out, self, dim, keepdim, dtype, out)
 
   LazyOp<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}};
@@ -47,8 +46,7 @@ at::Tensor clone(const at::Tensor & self, ::std::optional<at::MemoryFormat> memo
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, clone, self, memory_format)
 
   LazyOp<at::Tensor> hpu_op{"aten::clone", {self, memory_format}};

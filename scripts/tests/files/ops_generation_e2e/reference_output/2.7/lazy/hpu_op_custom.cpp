@@ -23,7 +23,7 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_exp_fast_math("exp_fast_math", "exp_fast_math_fwd", {0}, {}, nullptr, {}, false, false, false, false);
+CheckNodeWithSharedLayerValidator validator_exp_fast_math("exp_fast_math", "exp_fast_math_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
 at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const ::std::optional<at::Tensor> & input_scale, const ::std::optional<at::Tensor> & output_scale, const ::std::optional<at::Tensor> & inv_attn_heads, const ::std::optional<at::Tensor> & fused_add) {

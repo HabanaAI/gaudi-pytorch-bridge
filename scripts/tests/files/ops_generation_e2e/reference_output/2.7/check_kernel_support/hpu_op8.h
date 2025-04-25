@@ -34,7 +34,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, const at::Scalar & other, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
   RETURN_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, is_dynamic, Tensor_Scalar, self, other)
 
   return true;
@@ -46,7 +46,7 @@ struct shared_layer__native_batch_norm_legit : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 8) {
     auto ivalue_arr = torch::jit::last(stack, 8);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[3].isTensor() && ivalue_arr[4].isTensor() && ivalue_arr[5].isBool() && ivalue_arr[6].isDouble() && ivalue_arr[7].isDouble() ) {
+    if (ivalue_arr[0].isTensor() && (ivalue_arr[1].isNone() || ivalue_arr[1].isTensor()) && (ivalue_arr[2].isNone() || ivalue_arr[2].isTensor()) && ivalue_arr[3].isTensor() && ivalue_arr[4].isTensor() && ivalue_arr[5].isBool() && ivalue_arr[6].isDouble() && ivalue_arr[7].isDouble() ) {
 
       c10::IValue input = std::move(peek(stack, 0, 8));
       c10::IValue weight = std::move(peek(stack, 1, 8));
@@ -93,16 +93,11 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), weight)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), bias)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_mean)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_var)
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}), input)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), weight)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), bias)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), running_mean)
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kDouble}), running_var)
   RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
   RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
   RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)

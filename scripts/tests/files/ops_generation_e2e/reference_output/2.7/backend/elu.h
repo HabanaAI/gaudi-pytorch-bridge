@@ -9,9 +9,7 @@
 namespace habana {
 
 
-class CheckNodeWithSharedLayerValidator;
 at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale);
-extern CheckNodeWithSharedLayerValidator validator_elu;
 FILL_PARAMS_DECL(FillEluParams);
 
 }  // namespace habana

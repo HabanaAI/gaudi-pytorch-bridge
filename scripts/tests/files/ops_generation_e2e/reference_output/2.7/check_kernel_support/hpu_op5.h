@@ -39,8 +39,7 @@ bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out, b
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, true/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}))
   RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, mul, is_dynamic, Scalar_out, self, other, out)
 
   return true;
@@ -85,8 +84,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, ::std::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}))
   RETURN_IF_UNSUPPORTED_DTYPE2(self, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
   RETURN_IF_UNSUPPORTED_DTYPE2(values, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
 

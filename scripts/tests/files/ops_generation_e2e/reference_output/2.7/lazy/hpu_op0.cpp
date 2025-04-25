@@ -31,7 +31,7 @@ at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, Scalar, self, other)
 
   LazyOp<at::Tensor &> hpu_op{"aten::__ilshift__", {self, other}};
@@ -46,8 +46,7 @@ void _foreach_add_(at::TensorList self, const at::Scalar & scalar) {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}))
 
   LazyOp<void> hpu_op{"aten::_foreach_add_", {self, scalar}};
   RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(_foreach_add_, hpu_op, self);

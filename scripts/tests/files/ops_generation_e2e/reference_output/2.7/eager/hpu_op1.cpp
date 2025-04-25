@@ -25,8 +25,7 @@ namespace habana {
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
 
   GeneratorToSeed<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"aten::_fused_dropout", {self, p, generator}};

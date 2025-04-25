@@ -85,8 +85,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool,3> output_mask, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   RETURN_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
   RETURN_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
   RETURN_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
@@ -100,7 +99,7 @@ struct shared_layer_native_group_norm : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 8) {
     auto ivalue_arr = torch::jit::last(stack, 8);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[6].isInt() && ivalue_arr[7].isDouble() ) {
+    if (ivalue_arr[0].isTensor() && (ivalue_arr[1].isNone() || ivalue_arr[1].isTensor()) && (ivalue_arr[2].isNone() || ivalue_arr[2].isTensor()) && ivalue_arr[6].isInt() && ivalue_arr[7].isDouble() ) {
 
       c10::IValue input = std::move(peek(stack, 0, 8));
       c10::IValue weight = std::move(peek(stack, 1, 8));
@@ -147,8 +146,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, int64_t N, int64_t C, int64_t HxW, int64_t group, double eps, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kDouble}))
   RETURN_IF_UNSUPPORTED_DTYPE(input, native_group_norm, is_dynamic, input, weight, bias, N, C, HxW, group, eps)
 
   return true;
@@ -182,8 +180,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, const at::Tensor & grad_output, const at::Tensor & weight, ::std::array<bool,3> output_mask, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
   RETURN_IF_UNSUPPORTED_DTYPE(self, linear_backward, is_dynamic, self, grad_output, weight, output_mask)
   RETURN_IF_UNSUPPORTED_DTYPE(grad_output, linear_backward, is_dynamic, self, grad_output, weight, output_mask)
   RETURN_IF_UNSUPPORTED_DTYPE(weight, linear_backward, is_dynamic, self, grad_output, weight, output_mask)

@@ -9,10 +9,8 @@
 namespace habana {
 
 
-class CheckNodeWithSharedLayerValidator;
 at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right);
 OUTMETA_DECL(BucketizeMeta);
-extern CheckNodeWithSharedLayerValidator validator_bucketize_Scalar;
 FILL_PARAMS_DECL(FillBucketizeParams);
 
 }  // namespace habana
