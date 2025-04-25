@@ -23,7 +23,7 @@ bash habanalabs-installer.sh install -t base -y
 sudo ln -s /usr/lib/habanalabs/libaeon.so.1 /usr/lib/habanalabs/libaeon.so
 ```
 
-1. Prepare the Intel Gaudi PyTorch bridge repository and install a proper version of the Gaudi-enabled `torch` wheel:
+2. Prepare the Intel Gaudi PyTorch bridge repository and install a proper version of the Gaudi-enabled `torch` wheel:
 
 ```bash
 export HABANA_SOFTWARE_STACK="$(pwd)"
@@ -36,7 +36,7 @@ EOF
 "${PYTORCH_MODULES_ROOT_PATH}"/scripts/install_torch_fork.sh "$VERSION" "$BUILD"
 ```
 
-1. Set up the required 3rd party code:
+3. Set up the required 3rd party code:
 ```bash
 mkdir 3rd-parties
 pushd 3rd-parties
@@ -51,7 +51,6 @@ git clone --depth 1 --branch v3.4.0 https://github.com/nlohmann/json.git
 sed -i 's/namespace nlohmann/namespace nlohmannV340/; s/nlohmann::/nlohmannV340::/g' json/single_include/nlohmann/json.hpp
 
 popd
-sudo ln -s /usr/include/habanalabs/ /usr/include/habanalabs/include
 ```
 
 4. Install the requirements:
@@ -68,12 +67,12 @@ Once the one-time setup is complete, you can configure the necessary environment
 export HABANA_SOFTWARE_STACK="$(pwd)"
 export THIRD_PARTIES_ROOT="$HABANA_SOFTWARE_STACK/3rd-parties"
 
-export HCL_ROOT=/usr/include/habanalabs/
+export HCL_INCLUDE_DIR=/usr/include/habanalabs/
 export HL_LOGGER_INCLUDE_DIRS=/usr/include/habanalabs/hl_logger
 export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
 export SPECS_EXT_ROOT=/usr/include/habanalabs/
-export SYNAPSE_ROOT=/usr/include/habanalabs/
-export SYNAPSE_UTILS_ROOT=/usr/include/habanalabs/
+export SYNAPSE_INCLUDE_DIR=/usr/include/habanalabs/
+export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/
 
 export BUILD_ROOT="$HOME/builds"
 export BUILD_ROOT_LATEST=/usr/lib/habanalabs/

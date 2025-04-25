@@ -17,7 +17,7 @@
 
 # define fmt target, so other deps will not compile it from sources. Otherwise we have conflicts
 add_library(fmt INTERFACE IMPORTED)
-set_target_properties(fmt PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include/")
+set_target_properties(fmt PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include")
 target_compile_definitions(fmt INTERFACE FMT_HEADER_ONLY)
 add_library(npu::fmt ALIAS fmt)
 
@@ -43,10 +43,10 @@ else()
 endif()
 
 add_library(hcl INTERFACE IMPORTED)
-set_target_properties(hcl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HCL_ROOT}/include")
+set_target_properties(hcl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HCL_INCLUDE_DIR}")
 add_library(npu::hcl ALIAS hcl)
 
-set_target_properties(Synapse PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_ROOT}/include")
+set_target_properties(Synapse PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_INCLUDE_DIR}")
 target_link_libraries(Synapse INTERFACE npu::hcl)
 add_library(npu::Synapse ALIAS Synapse)
 
@@ -66,7 +66,7 @@ else()
   message(STATUS "Embedded specs repo not found. Will build without HLML support")
 endif()
 
-set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_ROOT}/include")
+set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_INCLUDE_DIR}")
 target_link_libraries(SynapseUtils INTERFACE npu::Synapse npu::specs_external)
 add_library(npu::SynapseUtils ALIAS SynapseUtils)
 

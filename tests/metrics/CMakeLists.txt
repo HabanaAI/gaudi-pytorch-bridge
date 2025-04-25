@@ -33,7 +33,7 @@ target_include_directories(
           $ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers
           $ENV{PYTORCH_MODULES_ROOT_PATH}/backend/helpers
           $ENV{THIRD_PARTIES_ROOT}/abseil-cpp
-          $ENV{SYNAPSE_ROOT}/include)
+          $ENV{SYNAPSE_INCLUDE_DIR})
 target_link_libraries(
   metrics_tests
   PUBLIC "${TORCH_LIBRARIES}"

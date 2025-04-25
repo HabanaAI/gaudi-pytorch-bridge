@@ -1692,7 +1692,7 @@ class ManylinuxRunner:
             f" -e BUILD_ROOT={os.environ['BUILD_ROOT']}"
             f" -e THIRD_PARTIES_ROOT={os.environ['THIRD_PARTIES_ROOT']}"
             f" -e SYNAPSE_ROOT={os.environ['SYNAPSE_ROOT']}"
-            f" -e HCL_ROOT={os.environ['HCL_ROOT']}"
+            f" -e HCL_INCLUDE_DIR={os.environ['HCL_INCLUDE_DIR']}"
             f" -e MEDIA_ROOT={os.environ['MEDIA_ROOT']}"
             f" -e CODEC_ROOT={os.environ['CODEC_ROOT']}"
             f" -e SPECS_EXT_ROOT={os.environ['SPECS_EXT_ROOT']}"

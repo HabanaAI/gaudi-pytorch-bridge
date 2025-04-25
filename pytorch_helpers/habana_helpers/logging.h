@@ -26,6 +26,7 @@
 #include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
 
+#include <fmt/compile.h>
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
 #define HLLOG_FMT_EXTERNAL
