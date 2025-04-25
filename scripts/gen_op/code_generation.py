@@ -1920,7 +1920,9 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
                 else:
                     stack_unroll += f"ivalue_arr[{idx}].{cptype_check}() "
                 param_idx += 1
-            elif cptype == "std::optional<Tensor>":
+            elif cptype == (
+                "std::optional<Tensor>" if is_pytorch_older_than("2.7.0") else "::std::optional<at::Tensor>"
+            ):
                 stack_unroll += "&& " if param_idx > 0 else ""
                 stack_unroll += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].isTensor()) "
                 param_idx += 1
