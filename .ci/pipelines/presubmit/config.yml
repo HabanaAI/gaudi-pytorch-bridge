@@ -42,7 +42,6 @@ orchestratorConfig:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
-    silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
