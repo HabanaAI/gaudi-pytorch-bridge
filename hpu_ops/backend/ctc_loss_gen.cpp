@@ -19,6 +19,7 @@ namespace habana {
 
 OutputMetaDataVector CtcLossMeta(const at::Stack& stack) {
   auto log_probs = stack_tensor(stack, 0);
+  TORCH_CHECK(log_probs.numel() > 0, "log_probs tensor must not be empty");
   auto log_probs_sizes = log_probs.sizes(); // (T, N, C) or (T, C)
   auto targets_sizes = stack_tensor(stack, 1).sizes(); // (N, S)
 
