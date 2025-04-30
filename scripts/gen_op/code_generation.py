@@ -1839,25 +1839,26 @@ def codegen_torchgen(f):
     return code
 
 
-def codegen_custom_ops(param_vars, fun_args):
+@local.parametrize(use_const_ref_for_mutable_tensors=False, use_ilistref_for_tensor_lists=False)
+def codegen_custom_ops(param_vars, aten_args):
+    from torchgen.api.unboxing import argumenttype_ivalue_convert
+    from torchgen.model import Type
+
     func_args = ""
     ivalue_lines = []
     base_lines = []
 
-    for i, (name, type_) in enumerate(zip(param_vars, fun_args, strict=False)):
-        type_ = type_.replace("const ", "").replace("&", "").strip()
+    for i, (name, type_) in enumerate(zip(param_vars, aten_args, strict=False)):
         ivalue_lines.append(f"c10::IValue {name} = std::move(peek(stack, {i}, {len(param_vars)}));")
 
-        if type_ == "at::OptionalIntArrayRef":
-            optional_str = templates.OPTIONAL_STRING.format(name=name)
-            func_args += f"{name}_opt_out, "
-            base_lines.append(optional_str)
-        elif type_ == "at::ArrayRef<double>":
-            func_args += f"{name}_base, "
-            base_lines.append(templates.ARRAY_REF_SHARED_LAYER_STRING.format(name=name, dtype="double"))
-        else:
-            base_lines.append(f"{type_} {name}_base = {name}.to<{type_}>();")
-            func_args += f"{name}_base, "
+        out_name, _, code, decl = argumenttype_ivalue_convert(
+            Type.parse(type_),
+            name,
+        )
+
+        func_args += out_name + ", "
+        base_lines.extend(decl)
+        base_lines.extend(code)
 
     func_args = func_args[:-2]
 
@@ -1868,76 +1869,117 @@ def codegen_custom_ops(param_vars, fun_args):
     return templates.STACK_POP_CODE_FORMAT_.format(code_str, args_str, func_args)
 
 
-def generate_stack_pop(fgens, fgen_pos, native_func_dict):
-    struct_def = f"struct shared_layer_{fgens[fgen_pos[0]].func} : SharedLayerOp {{\n"
-    stack_unroll = "bool func(torch::jit::Stack &stack, bool is_dynamic) {\n"
+def generate_params_dtype_check(param_types: list[Any]) -> str:
+    are_dtypes = False
+    dtype_check_code = ""
 
-    funsig = fgens[fgen_pos[0]].funsig
-    fun_args = re.split(",", re.split(r"\(|\)", funsig)[1])
+    for idx, ptype in enumerate(param_types):
+        cptype = parser.type_core(ptype)
+        cptype_check = get_cp_type_check(cptype)
+        if cptype_check is not None:
+            dtype_check_code += "&& " if are_dtypes else ""
+            if cptype.find("std::optional") != -1:
+                dtype_check_code += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].{cptype_check}()) "
+            else:
+                dtype_check_code += f"ivalue_arr[{idx}].{cptype_check}() "
+            are_dtypes = True
+
+        elif cptype == "::std::optional<at::Tensor>":
+            dtype_check_code += "&& " if are_dtypes else ""
+            dtype_check_code += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].isTensor()) "
+            are_dtypes = True
+    # generates if (true) in case there was no other condition
+    if not are_dtypes:
+        dtype_check_code += "true"
+
+    return dtype_check_code
+
+
+def generate_impl_call(aten_sig, native_func_dict, param_vars, is_custom_op):
+    aten_sig_name = aten_sig[0 : aten_sig.find("(")]
+    aten_sig_name = aten_sig_name.split("::")[1] if "::" in aten_sig_name else aten_sig_name
+
+    if aten_sig_name in native_func_dict and not is_custom_op:
+        return codegen_torchgen(native_func_dict[aten_sig_name])
+    else:
+        # Extract params from the signature
+        aten_sig_types = re.split(r",(?!\d)", re.split(r"\(|\)", aten_sig)[1])
+        # Extract type from param, e.g., "Tensor? a=None" to "Tensor?"
+        aten_sig_types = [x.strip().split(" ")[0] for x in aten_sig_types]
+        # Remove digits, e.g., "SynInt[2]" to "SynInt[]"
+        aten_sig_types = [re.sub(r"\d", "", x) for x in aten_sig_types]
+        # Remove "*" param
+        aten_sig_types = filter(lambda type: type != "*", aten_sig_types)
+        return codegen_custom_ops(param_vars, aten_sig_types)
+
+
+def generate_param_vars_and_dtypes(fgen: constants.OpGen) -> tuple[list[str], list[Any]]:
+    param_vars = []
+    param_types = []
+    for param in parser.get_parameters(fgen.tree):
+        ptype = parser.param_type(param)
+        pname = parser.param_name(param)
+        param_types.append(ptype)
+        param_vars.append(pname)
+    if len(param_types) != len(param_vars):
+        print("Error in generating ", fgen.func)
+
+    return param_vars, param_types
+
+
+def sort_fgen_pos_by_params_size(fgens, fgen_pos):
     param_nums = []
     for pos in fgen_pos:
         fun_args = re.split(r",(?!\d)", re.split(r"\(|\)", fgens[pos].funsig)[1])
         param_nums.append(len(fun_args))
-    param_nums, fgen_pos = (list(t) for t in zip(*sorted(zip(param_nums, fgen_pos, strict=False)), strict=False))
+    _, fgen_pos = (list(t) for t in zip(*sorted(zip(param_nums, fgen_pos, strict=False)), strict=False))
+    return fgen_pos
+
+
+def generate_stack_size_code_with_first_flag(
+    pos_idx: int, param_vars: list[str], param_types: list[Any], first_stack_pop: bool, num_param_fun: int
+) -> tuple[str, bool]:
+    stack_size_code = ""
+    if pos_idx == 0:
+        stack_size_code += f"  if (stack.size() == {len(param_vars)}) {{\n"
+    elif num_param_fun != len(param_types):
+        stack_size_code += f"  }}\n  if (stack.size() == {len(param_vars)}) {{\n"
+        first_stack_pop = True
+    num_param_fun = len(param_types)
+    stack_size_code += (
+        f"    auto ivalue_arr = torch::jit::last(stack, {len(param_types)});\n    if ("
+        if first_stack_pop
+        else "    else if ("
+    )
+
+    return stack_size_code, False
+
+
+def generate_stack_pop(fgens, fgen_pos, native_func_dict):
+    struct_def = f"struct shared_layer_{fgens[fgen_pos[0]].func} : SharedLayerOp {{\n"
+    stack_unroll = "bool func(torch::jit::Stack &stack, bool is_dynamic) {\n"
+
+    fgen_pos = sort_fgen_pos_by_params_size(fgens, fgen_pos)
+
     num_param_fun = 0
     first_stack_pop = True
     for pos_idx, pos in enumerate(fgen_pos):
-        funsig = fgens[pos].funsig
-        fun_args = re.split(r",(?!\d)", re.split(r"\(|\)", funsig)[1])
-        params = parser.get_parameters(fgens[pos].tree)
-        param_vars = []
-        param_types = []
+        fgen = fgens[pos]
+        param_vars, param_types = generate_param_vars_and_dtypes(fgen)
 
-        for p in params:
-            ptype = parser.param_type(p)
-            cptype = parser.type_core(ptype)
-            pname = parser.param_name(p)
-            param_types.append(ptype)
-            param_vars.append(pname)
-        if len(param_types) != len(param_vars):
-            print("Error in generating ", fgens[pos].func)
-        if pos_idx == 0:
-            stack_unroll += f"  if (stack.size() == {len(param_vars)}) {{\n"
-        elif num_param_fun != len(param_types):
-            stack_unroll += f"  }}\n  if (stack.size() == {len(param_vars)}) {{\n"
-            first_stack_pop = True
-        num_param_fun = len(param_types)
-        stack_unroll += (
-            f"    auto ivalue_arr = torch::jit::last(stack, {len(param_types)});\n    if ("
-            if first_stack_pop
-            else "    else if ("
+        stack_size_code, first_stack_pop = generate_stack_size_code_with_first_flag(
+            pos_idx, param_vars, param_types, first_stack_pop, num_param_fun
         )
-        first_stack_pop = False
-        param_idx = 0
+        stack_unroll += stack_size_code
 
-        for idx, ptype in enumerate(param_types):
-            cptype = parser.type_core(ptype)
-            cptype_check = get_cp_type_check(cptype)
-            if cptype_check is not None:
-                stack_unroll += "&& " if param_idx > 0 else ""
-                if cptype.find("std::optional") != -1:
-                    stack_unroll += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].{cptype_check}()) "
-                else:
-                    stack_unroll += f"ivalue_arr[{idx}].{cptype_check}() "
-                param_idx += 1
-            elif cptype == (
-                "std::optional<Tensor>" if is_pytorch_older_than("2.7.0") else "::std::optional<at::Tensor>"
-            ):
-                stack_unroll += "&& " if param_idx > 0 else ""
-                stack_unroll += f"(ivalue_arr[{idx}].isNone() || ivalue_arr[{idx}].isTensor()) "
-                param_idx += 1
-        # generates if (true) in case there was no other condition
-        if param_idx == 0:
-            stack_unroll += "true"
+        stack_unroll += generate_params_dtype_check(param_types)
+
         stack_unroll += ") {\n"
 
-        aten_sig = fgens[pos].aten_sig
-        aten_sig_name = aten_sig[0 : aten_sig.find("(")]
-        aten_sig_name = aten_sig_name.split("::")[1] if "::" in aten_sig_name else aten_sig_name
-        if aten_sig_name in native_func_dict:
-            stack_unroll += codegen_torchgen(native_func_dict[aten_sig_name])
-        else:
-            stack_unroll += codegen_custom_ops(param_vars, fun_args)
+        aten_sig = fgen.aten_sig
+        stack_unroll += generate_impl_call(
+            aten_sig, native_func_dict, param_vars, fgen.ctxop.get_custom_op_schema() is not None
+        )
     stack_unroll += "  }\n  return false;\n}\n"
     struct_def += stack_unroll
     struct_def += "private:\n"

@@ -33,10 +33,14 @@ from gen_op.code_generation import (
     generate_check_kernel_support,
     generate_op_backend_hclasses,
     generate_op_frontend_hclasses,
+    generate_param_vars_and_dtypes,
+    generate_params_dtype_check,
+    generate_stack_size_code_with_first_flag,
     get_op_group,
     is_acc_thread_supported,
     parse_params,
 )
+from gen_op.constants import OpGen
 from gen_op.op import Op
 from gen_op.version_checker import is_pytorch_exactly, is_pytorch_older_than
 
@@ -274,3 +278,87 @@ def test_check_valid_fields():
 
     assert len(check_valid_fields_results) == 1
     assert check_valid_fields_results[0] == "Invalid field for wrong_op: dtype\n"
+
+
+# Function to generate OpGen, becuase OpGen is a large struct and some tests only need part of it fields it currently accept only small subset of fields.
+# Extend this function to other fields if needed
+def get_op_gen(*, tree=None):
+    op_gen = OpGen(
+        tree=tree,
+        xtree=None,
+        rwxtree=None,
+        func="",
+        xfunc="",
+        op_frontend_eager="",
+        op_frontend_lazy="",
+        op_backend="",
+        cname="",
+        sig="",
+        rwsig="",
+        cppsig="",
+        funsig="",
+        mapsig="",
+        aten_sig="",
+        dtdf=False,
+        ctxop=Op("test_op", {}),
+        opgroup="test_op_group",
+        fc_params=[],
+        op_variant="test_op_variant",
+        ns="test_ns",
+        only_slrg=False,
+    )
+    return op_gen
+
+
+@pytest.mark.parametrize(
+    "cpp_sig, expected_vars, expected_dtypes",
+    [
+        ("void _foreach_add_(TensorList self, const Scalar & scalar)", ["self", "scalar"], ["TensorList", "Scalar"]),
+        (
+            "Tensor clone(const Tensor & self, std::optional<MemoryFormat> memory_format)",
+            ["self", "memory_format"],
+            ["Tensor", "std::optional<MemoryFormat>"],
+        ),
+    ],
+)
+def test_generate_param_vars_and_dtypes(cpp_sig, expected_vars, expected_dtypes):
+    tree = parser.parse(cpp_sig)
+    fgen = get_op_gen(tree=tree)
+    vars, dtypes = generate_param_vars_and_dtypes(fgen)
+    assert vars == expected_vars
+
+    dtypes = [parser.type_core(x) for x in dtypes]
+    assert dtypes == expected_dtypes
+
+
+@pytest.mark.parametrize(
+    "cpp_sig, expected_dtype_check_code",
+    [
+        (
+            "Tensor op_with_optional_tensor(const at::Tensor & grad_in, const ::std::optional<at::Tensor> & A_scale_inv)",
+            "ivalue_arr[0].isTensor() && (ivalue_arr[1].isNone() || ivalue_arr[1].isTensor()) ",
+        ),
+        ("Tensor exp_fast_math(const at::Tensor & self)", "ivalue_arr[0].isTensor() "),
+    ],
+)
+def test_generate_params_dtype_check(cpp_sig, expected_dtype_check_code):
+    tree = parser.parse(cpp_sig)
+    fgen = get_op_gen(tree=tree)
+    _, param_dtypes = generate_param_vars_and_dtypes(fgen)
+
+    dtype_check_code = generate_params_dtype_check(param_dtypes)
+
+    assert dtype_check_code == expected_dtype_check_code
+
+
+def test_generate_stack_size_code_with_first_flag():
+    cpp_sig = "::std::tuple<Tensor,Tensor> rms_norm(const Tensor & data_in, const Tensor & gamma, double epsilon)"
+    tree = parser.parse(cpp_sig)
+    fgen = get_op_gen(tree=tree)
+    vars, dtypes = generate_param_vars_and_dtypes(fgen)
+
+    stack_size_code, _ = generate_stack_size_code_with_first_flag(0, vars, dtypes, True, 0)
+    expected_stack_size_code = (
+        "  if (stack.size() == 3) {\n" "    auto ivalue_arr = torch::jit::last(stack, 3);\n" "    if ("
+    )
+    assert stack_size_code == expected_stack_size_code
