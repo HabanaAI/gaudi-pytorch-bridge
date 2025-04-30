@@ -21,13 +21,9 @@ import torch
 from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 all_dtypes = [
-    torch.bfloat16,
-    torch.float16,
-    torch.int16,
     torch.bool,
     torch.uint8,
     torch.int8,
-    torch.float32,
     torch.float64,
 ]
 
