@@ -833,18 +833,15 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   }
 
   const auto& output_tensors_pt = habana_op->GetOutputs();
-  const auto& excluded_out_indices =
-      habana_op->GetSynOutputIndicesExcludedInNode();
 
   HABANA_ASSERT(
-      output_nodes.size() ==
-          output_tensors_pt.size() - excluded_out_indices.size(),
+      output_nodes.size() == output_tensors_pt.size(),
       "HabanaFusionOp Lowering of node : ",
       node->kind().toQualString(),
       " Number of output nodes ",
       output_nodes.size(),
       " doesnt match the generated ",
-      output_tensors_pt.size() - excluded_out_indices.size());
+      output_tensors_pt.size());
 
   size_t output_nodes_idx = 0, output_tensor_idx = 0;
 
@@ -935,53 +932,50 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   };
 
   for (sh::tensor& out_tensor_syn : habana_op->GetSynOutputs()) {
-    if (excluded_out_indices.find(output_tensor_idx) ==
-        excluded_out_indices.end()) {
-      IValPtrShared ivpsh =
-          std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
-      value_to_ivalue_[output_nodes[output_nodes_idx]] = ivpsh;
+    IValPtrShared ivpsh =
+        std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
+    value_to_ivalue_[output_nodes[output_nodes_idx]] = ivpsh;
 
-      // For some kernels, like the inplace ones, the kernel output is always
-      // created as persistent. Patching table needs to be updated accordingly
-      // for such tensors.
-      if (use_persistent_tensors_ || out_tensor_syn.is_persistent()) {
-        const auto& out_val = output_nodes[output_nodes_idx];
-        auto ti = ProcessPersistentNodeOutput(ivpsh, out_val, out_tensor_syn);
+    // For some kernels, like the inplace ones, the kernel output is always
+    // created as persistent. Patching table needs to be updated accordingly
+    // for such tensors.
+    if (use_persistent_tensors_ || out_tensor_syn.is_persistent()) {
+      const auto& out_val = output_nodes[output_nodes_idx];
+      auto ti = ProcessPersistentNodeOutput(ivpsh, out_val, out_tensor_syn);
 
-        handle_permutes(ti, out_tensor_syn, ivpsh);
+      handle_permutes(ti, out_tensor_syn, ivpsh);
 
-        // persistent intermediate synapse tensor i.e. out_tensor_syn
-        if (false == isInGraphOutputs(out_val)) {
-          intermediate_syn_tensors_count_++;
-        }
-        // Add node output tinfo i.e. graph output for multiple nodes graph
-        // to get shape via shape inference, for ex strided insert
-        // ToDo: Fix output shape info from frontend for strided insert
-        //       when adding node params patching support.
-        constexpr bool use_output_shape = true;
-        bool shape_agn_flag = enable_shape_agnostic_caching_ &&
-            (intermediate_syn_tensors_count_ > 0);
-        handle_shape_inf(ti, use_output_shape, shape_agn_flag);
-      } else if (enable_shape_agnostic_caching_) {
-        // For shape agnostic flow for eager we need non-persistent info as well
-        // Try maintaing it in another struct other than dtensor info struct
-        PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
-            out_tensor_syn.name(),
-            out_tensor_syn.id(),
-            out_tensor_syn.get(),
-            out_tensor_syn.tensor_type(),
-            out_tensor_syn.pt_shape());
-        constexpr bool use_output_shape = true;
-        handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
-        // non-persistent intermediate synapse tensor
+      // persistent intermediate synapse tensor i.e. out_tensor_syn
+      if (false == isInGraphOutputs(out_val)) {
         intermediate_syn_tensors_count_++;
       }
-
-      handle_postprocess(
-          output_nodes, output_nodes_idx, output_tensor_idx, out_tensor_syn);
-
-      output_nodes_idx++;
+      // Add node output tinfo i.e. graph output for multiple nodes graph
+      // to get shape via shape inference, for ex strided insert
+      // ToDo: Fix output shape info from frontend for strided insert
+      //       when adding node params patching support.
+      constexpr bool use_output_shape = true;
+      bool shape_agn_flag = enable_shape_agnostic_caching_ &&
+          (intermediate_syn_tensors_count_ > 0);
+      handle_shape_inf(ti, use_output_shape, shape_agn_flag);
+    } else if (enable_shape_agnostic_caching_) {
+      // For shape agnostic flow for eager we need non-persistent info as well
+      // Try maintaing it in another struct other than dtensor info struct
+      PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
+          out_tensor_syn.name(),
+          out_tensor_syn.id(),
+          out_tensor_syn.get(),
+          out_tensor_syn.tensor_type(),
+          out_tensor_syn.pt_shape());
+      constexpr bool use_output_shape = true;
+      handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
+      // non-persistent intermediate synapse tensor
+      intermediate_syn_tensors_count_++;
     }
+
+    handle_postprocess(
+        output_nodes, output_nodes_idx, output_tensor_idx, out_tensor_syn);
+
+    output_nodes_idx++;
     output_tensor_idx++;
     cur_sif_tidx++;
   }

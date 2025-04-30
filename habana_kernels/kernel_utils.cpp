@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -421,8 +421,6 @@ void CastOutOperator::AllocateAndAddSynapseNode(
 
   ns_CastKernel::Params params =
       synapse_cast_params_builder(output.scalar_type());
-  p_context_->params_.emplace<ns_CastKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
@@ -484,9 +482,6 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   } else {
     params.constant.f = value.to<float>();
   }
-
-  p_context_->params_.emplace<ns_ConstantKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   if (input.dim() == 0) {
     SET_SIZE_STRIDE_1D(input);

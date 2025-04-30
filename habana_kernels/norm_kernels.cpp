@@ -65,8 +65,6 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
   params.threshold.f = 0.0;
   params.momentum = static_cast<float>(momentum);
   params.epsilon = static_cast<float>(eps);
-  p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -831,8 +829,6 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
   params.epsilon = static_cast<float>(eps);
   params.threshold.f = 0.0;
   params.isTraining = training;
-  p_context_->params_.emplace<ns_BatchNormKernel::ParamsV2>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -975,8 +971,6 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   params.epsilon = static_cast<float>(eps);
   params.threshold.f = 0.0;
   params.isTraining = training;
-  p_context_->params_.emplace<ns_BatchNormKernel::ParamsV2>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

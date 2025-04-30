@@ -133,9 +133,6 @@ void GatherOperator::AllocateAndAddSynapseNode(
   ns_GatherKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
 
-  p_context_->params_.emplace<ns_GatherKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -223,9 +220,6 @@ void GatherElemOperator::AllocateAndAddSynapseNode(
   ns_GatherElementsKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
 
-  p_context_->params_.emplace<ns_GatherElementsKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -291,9 +285,6 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
 
   ns_ScatterKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
-
-  p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -339,8 +330,6 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
 
   ns_ScatterKernel::Params params;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
-  p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   if (GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
       HPUGlobalConfig::get().getDeterministic() == false &&
@@ -1609,8 +1598,6 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
   for (int i = indices_shape.size() - 1, j = 0; i >= 0; --i, ++j) {
     params.origIndicesShape[j] = indices_shape[i];
   }
-  p_context_->params_.emplace<ns_ScatterNDKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   graph.add_node(
       std::move(syn_inputs),
@@ -2214,8 +2201,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
   auto result = inputs[3].toTensor();
 
   // save to be used as input to cast operator if required
-  synapse_helpers::tensor& range_syn_input =
-      std::move(get_syn_input_at(0));
+  synapse_helpers::tensor& range_syn_input = std::move(get_syn_input_at(0));
   bool cast_required =
       !(result.scalar_type() == ScalarType::Int ||
         result.scalar_type() == ScalarType::Float ||
@@ -2610,9 +2596,6 @@ void Unique_Operator::AllocateAndAddSynapseNode(
   // dim = -5 returns flattened result(unique elements over all dimesions)
   params.dim = -5;
 
-  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
   synDataType synType = syn_type_int32;
   AllocateSynapseOutput(
@@ -2714,9 +2697,6 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   params.returnInverse = 1; // When set to 1 will return Inverse
   params.returnCounts = 1; // When set to 1 will return Counts
   params.dim = self.dim() - dim - 1;
-
-  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
 
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
   synDataType synType = syn_type_int32;
@@ -2848,9 +2828,6 @@ void UniqueOperator::AllocateAndAddSynapseNode(
     params.sorted = sorted;
   // dim = -5 returns flattened result(unique elements over all dimesions)
   params.dim = -5;
-
-  p_context_->params_.emplace<ns_UniqueKernel::ParamsV2>(params);
-  p_context_->params_size_ = sizeof(params);
 
   AllocateSynapseOutput(graph, output_feature_map, output_metadata.at(0));
   synDataType synType = syn_type_uint32;

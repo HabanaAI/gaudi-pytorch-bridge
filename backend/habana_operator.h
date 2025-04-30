@@ -275,11 +275,7 @@ class PytorchKernelContext {
   // tensors, so additional handling is needed.
   std::deque<PtInputIdxAndSynHelpTensor> syn_implicit_outputs_;
 
-  std::set<unsigned int> excluded_output_indices_;
   size_t recipe_key_;
-
-  absl::any params_;
-  size_t params_size_;
   bool is_duplicate_input_{false};
   std::deque<synapse_helpers::tensor_or_ref> syn_input_orig_;
   std::optional<synapse_helpers::tensor_or_ref> syn_seed_;
@@ -386,14 +382,9 @@ std::string get_guid_with_precision(
 
 // Utility method for checked get from deque
 template <class T>
-inline T& get_checked(
-    std::deque<T>& d, size_t index) {
+inline T& get_checked(std::deque<T>& d, size_t index) {
   HABANA_ASSERT(
-      index < d.size(),
-      "index ",
-      index,
-      "is out of range ",
-      d.size());
+      index < d.size(), "index ", index, "is out of range ", d.size());
   return d[index];
 }
 
@@ -591,10 +582,6 @@ class HabanaOperator {
 
   virtual std::deque<synapse_helpers::tensor_or_ref>& GetSynInputs() const {
     return p_context_->syn_inputs_;
-  }
-
-  virtual std::set<unsigned int>& GetSynOutputIndicesExcludedInNode() const {
-    return p_context_->excluded_output_indices_;
   }
 
   virtual const std::vector<HabanaOperatorPtr> GetKernels() const {

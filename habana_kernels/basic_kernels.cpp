@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -328,7 +328,6 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
-  p_context_->params_size_ = 0;
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 
@@ -363,7 +362,6 @@ void IdentityOperator::AllocateAndAddSynapseNode(
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   }
 
-  p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
@@ -394,7 +392,6 @@ void DummyOperator::AllocateAndAddSynapseNode(
   at::Tensor output;
   int out_index = inputs.size() - 1;
   output = inputs[out_index].toTensor();
-  p_context_->params_size_ = 0;
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[out_index],

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,9 +57,6 @@ std::vector<int64_t> CatOperator::compute_output_shape(
 auto CatOperator::CreateParamsAndAddToContext(int64_t axis) {
   synConcatenateParams params;
   params.axis = axis;
-  p_context_->params_.emplace<synConcatenateParams>(params);
-  p_context_->params_size_ = sizeof(params);
-
   return params;
 }
 
@@ -286,9 +283,6 @@ void TransposeOperator::AllocateAndAddSynapseNode(
       params.permutation[self.dim() - 1 - dim0],
       params.permutation[self.dim() - 1 - dim1]);
 
-  p_context_->params_.emplace<synTransposeParamsNDims>(params);
-  p_context_->params_size_ = sizeof(params);
-
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -407,8 +401,6 @@ void PermuteOperator::AllocateAndAddSynapseNode(
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
 
-  p_context_->params_.emplace<synTransposeParamsNDims>(params);
-  p_context_->params_size_ = sizeof(params);
   AllocateSynapseOutput(graph, output, mdata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -539,7 +531,6 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       self.sizes(),
       " Size of output: ",
       output.sizes());
-  p_context_->params_size_ = 0;
 
   if (inputs[1].isIntList()) {
     // Allocate Shape tensor
