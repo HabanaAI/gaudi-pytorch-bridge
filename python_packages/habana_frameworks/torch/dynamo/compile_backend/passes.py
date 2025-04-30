@@ -487,6 +487,14 @@ def is_constant_for_lift_fresh_copy(node: torch.fx.Node, arg: torch.fx.Node) -> 
     )
 
 
+def is_copy_op(node: torch.fx.Node) -> bool:
+    return node.op == "call_function" and node.target.__name__.split(".")[0] in [
+        "_to_copy",
+        "_foreach_copy",
+        "_foreach_copy_",
+    ]
+
+
 def optimize_graph(
     stage: OptimizationPassPlacement,
     graph_module: torch.fx.GraphModule,
@@ -1296,38 +1304,29 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         elif node.op == "call_function" and is_higher_order_node(node):
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node is a higher order node")
-        elif node.op == "call_function" and "to_copy" in node.target.__name__:
-            input_node = None
-            for arg in node.args:
-                if isinstance(arg, torch.fx.Node):
-                    input_node = arg
-                    break
-
-            assert input_node is not None
-
-            # Internal HPU copies should be placed in the clusters.
-            if all(n.meta["output_device"].type == "hpu" for n in [input_node, node]):
-                placement = "hpu_cluster"
-            else:
-                placement = "eager"
-                logger.debug(
-                    f"{node._pretty_print_target(node.target)} fallback to eager because node was identified as non D2D copy"
-                )
-        elif node.op == "call_function" and "_foreach_copy" in node.target.__name__:
+        elif node.op == "call_function" and is_copy_op(node):
             args_list_with_node = [node]
-            for arg in node.args:
-                if isinstance(arg, list):
-                    args_list_with_node.extend(arg)
-            assert args_list_with_node is not None
+
+            if node.target.__name__.split(".")[0] == "_to_copy":
+                input_node = None
+                for arg in node.args:
+                    if isinstance(arg, torch.fx.Node):
+                        input_node = arg
+                        break
+
+                assert input_node is not None
+                args_list_with_node.append(input_node)
+            else:  # foreach_copy
+                for arg in node.args:
+                    if isinstance(arg, list):
+                        args_list_with_node.extend(arg)
 
             # Internal HPU copies should be placed in the clusters.
             if all(n.meta["output_device"].type == "hpu" for n in args_list_with_node):
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
-                logger.debug(
-                    f"{node._pretty_print_target(node.target)} fallback to eager because node was identified as non D2D copy"
-                )
+                logger.debug(f"Node {node}: eager placement as node is a non D2D copy")
         elif node.op == "call_function" and node._pretty_print_target(node.target) in host_call_functions:
             placement = "eager"
             logger.debug(f"Node {node}: eager placement as node is a host call function")

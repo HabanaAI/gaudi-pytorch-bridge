@@ -596,6 +596,73 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(
     assert not found_forbidden, f"These forbidden ops were found in the JIT IR graph: {found_forbidden}"
 
 
+def check_eager_fallback_reason(op_name, reason, *, is_fallback=True, exception=None):
+    import re
+
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
+
+    fallback_data = fallback_logger.data
+
+    pattern_reason = (
+        r"\[PT_COMPILE\] Fallback reason: (.*)"
+        if is_fallback
+        else r"added to graph without shared layer validation. Reason: (.*)"
+    )
+    pattern_fallback = r"\[PT_COMPILE\] Node: (\w+) requires fallback: (\w+)"
+
+    reason_matched = False
+    fallback_matched = False
+    actual_reason = "Reason not found in logs"
+
+    is_fallback_str = "True" if is_fallback else "False"
+
+    for log in fallback_data:
+        m_reason = re.search(pattern_reason, log)
+        m_fallback = re.match(pattern_fallback, log)
+        if m_reason:
+            actual_reason = m_reason.group(1)
+            if actual_reason == reason:
+                reason_matched = True
+        elif m_fallback:
+            op = m_fallback.group(1)
+            actual_fallback = m_fallback.group(2)
+            if op == op_name and actual_fallback == is_fallback_str:
+                fallback_matched = True
+
+    assert reason_matched, f"Fallback reason doesn't match, expected: {reason}, actual: {actual_reason}"
+    assert fallback_matched, f"Fallback doesn't match, expected: {is_fallback} for op: {op_name}"
+    if exception:
+        assert f"Node: {op_name} requires fallback: True" in str(exception.value)
+
+
+def check_eager_placement_reason(op_name, reason, *, exception=None, full_op_name=""):
+    import re
+
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+
+    placement_data = graph_logger.data
+    pattern_fallback = r"Node (\w+): (.*)"
+
+    reason_matched = False
+    actual_reason = "Reason not found in logs"
+
+    for log in placement_data:
+        m_fallback = re.search(pattern_fallback, log)
+        if m_fallback:
+            op = m_fallback.group(1)
+            actual_reason = m_fallback.group(2)
+            if op == op_name and actual_reason == reason:
+                reason_matched = True
+
+    assert reason_matched, f"Fallback reason doesn't match, expected: {reason}, actual: {actual_reason}"
+    if exception:
+        assert f"Eager fallback in nodes: ['{op_name}:{full_op_name}']" in str(exception.value)
+
+
 def get_fuser_debug_logs_path():
     return os.path.join(os.environ["HABANA_LOGS"], "fuser_debug_logs")
 

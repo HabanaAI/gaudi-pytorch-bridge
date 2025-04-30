@@ -22,7 +22,7 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 
 import torch
 
-from ._shared_layer_C import check_cpu_fallback_op
+from ._shared_layer_C import shared_layer_validation
 from .random_utils import HABANA_CHECKPOINT_OPS
 
 logger = get_compile_backend_logger()
@@ -184,32 +184,22 @@ hpu_ds_fallback_list = {
 }
 
 
-META_SHAPE_CHANGED = "Meta output shape changed."
+META_SHAPE_CHANGED_EXCEPTION = "Meta output shape changed."
 
 
 # Returns True when the index.hacked_twin op needs to fallback to eager
 def check_for_conditional_eager_fallback(node, op_name, is_dynamic):
-    if op_name != "index":
-        return False
-    eager_fallback = False
+    if op_name not in hpu_conditional_fallback_op_list:
+        return False, ""
     if is_dynamic:
-        eager_fallback = True
-    t = node.args[0]
+        return True, "Dynamic shape is not supported for this op"
+
     indices = node.args[1]
     for index in indices:
-        # None indices are not supported inside graph
-        if index is None:
-            eager_fallback = True
-            break
-        index_dtype = index.meta["output_dtypes"]
-        # Only HPU indices are supported
-        if not (
-            index.meta["output_device"] == torch.device("hpu") or index.meta["output_device"] == torch.device("hpu:0")
-        ):
-            eager_fallback = True
-            break
-        # Long and Bool indices mix are supported
-    return eager_fallback
+        # None indices or non-hpu indices are not supported inside graph
+        if index is None or index.meta["output_device"].type != "hpu":
+            return True, "Indices are None or not on HPU device"
+    return False, ""
 
 
 # Returns False when the index_put op needs to fallback to eager
@@ -255,34 +245,38 @@ def index_put_support_check(node, is_dynamic):
 
 def check_for_default_op_support(op_name, node, is_dynamic):
     if op_name == "index_put":
-        return index_put_support_check(node, is_dynamic)
+        supported = index_put_support_check(node, is_dynamic)
+        reason = "Conditional graph support for index_put op" if supported else ""
+        return supported, reason
     if op_name in hpu_supported_op_list:
-        return True
+        return True, "Graph support based on hpu_supported_op_list"
     if op_name in hpu_supported_ops_restricted:
         restrictions = hpu_supported_ops_restricted[op_name]
         parameter = node.val_kwargs.get(restrictions[0])
         if parameter in restrictions[1]:
-            return True
+            return True, "Graph support based on hpu_supported_ops_restricted"
     # Enable torch.compile for user's CustomOp API
     if hasattr(node.target, "namespace") and node.target.namespace == "custom_op":
-        return True
-    return False
+        return True, "Graph support for user's CustomOp"
+    return False, ""
 
 
 def check_for_default_fallback(op_name, node, is_dynamic=False):
     if op_name in hpu_fallback_op_list:
-        return True
+        return True, "Default fallback based on hpu_fallback_op_list"
     # Support of activation checkpoint random ops is determined based on
     # the actual random op support.
-    if op_name == "run_and_save_rng_state":
-        return str(node.val_args[0]) not in HABANA_CHECKPOINT_OPS
-    if op_name == "run_with_rng_state":
-        return str(node.val_args[1]) not in HABANA_CHECKPOINT_OPS
+    if op_name in ["run_and_save_rng_state", "run_with_rng_state"]:
+        idx = 0 if op_name == "run_and_save_rng_state" else 1
+        random_op = str(node.val_args[idx])
+        do_fallback = random_op not in HABANA_CHECKPOINT_OPS
+        reason = f"Random op {random_op} not supported in activation_checkpoint flow" if do_fallback else ""
+        return do_fallback, reason
     unsupported_types = {"permute": torch.int64}
     if op_name in unsupported_types:
         for output_dtype in node.meta["output_dtypes"]:
             if output_dtype == unsupported_types[op_name]:
-                return True
+                return True, f"Op not supported with dtype: {output_dtype}"
 
     # https://github.com/pytorch/pytorch/issues/75465
     # bool has issue with JIT scalar representation
@@ -292,12 +286,12 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
     if op_name in bool_fallback_list:
         for idx in bool_fallback_list[op_name]:
             if isinstance(node.args[idx], bool):
-                return True
+                return True, "Op not supported with bool Scalar"
 
     # If op is in hpu_ds_fallback_list and dynamic shape is enabled,
     # eager fallback will take place
     if op_name in hpu_ds_fallback_list and is_dynamic:
-        return True
+        return True, "Op not supported in dynamic shapes flow"
 
     # representing scalar float value NaN in JIT fails, by being pasted as
     # literal nan and interpreted as reference to global variable nan imported
@@ -307,9 +301,9 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
             continue
 
         if arg != arg:
-            return True
+            return True, "Scalar NaN is not supported in graph mode"
 
-    return False
+    return False, ""
 
 
 def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
@@ -317,89 +311,107 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     This function is supposed to ask shared layer whether specific
     node is supported by the device.
     """
-    do_fallback = False
+
+    def execute_fallback(do_fallback, reason=""):
+        if do_fallback:
+            # This log line is used by the logging analysis tool. Please be cautious
+            # when changing.
+            logger.warn("Fallback required. Node: {} Target: {} Meta: {}", node, node.target, node.meta)
+            logger.warn("Node.args: {}, Node.kwargs: {}", args, kwargs)
+            logger.warn("Fallback reason: {}", reason)
+        elif reason:
+            logger.debug(
+                "Node: {} Target: {}, added to graph without shared layer validation. Reason: {}",
+                node,
+                str(node.target),
+                reason,
+            )
+
+        fallback_log = f"Node: {node} requires fallback: {do_fallback}"
+        logger.debug(fallback_log)
+        assert hpu_backend_config.use_eager_fallback or do_fallback is False, fallback_log
+
+        return do_fallback
+
     assert node.op == "call_function"
-    if node.meta["output_device"].type == "hpu":
-        args, kwargs = node.val_args, node.val_kwargs
-        arg_types = []
-        op_name = node.target.__name__.split(".")[0]
-        # some ops execute in eager mode, but if some conditions are satisfied
-        # they can be part of the larger graph
-        conditional_eager_fallback = check_for_conditional_eager_fallback(node, op_name, is_dynamic)
-        conditional_add_to_graph = op_name in hpu_conditional_fallback_op_list and not conditional_eager_fallback
+    output_device = node.meta["output_device"].type
+    if output_device != "hpu":
+        logger.debug("Node: {} requires fallback: False, due to non-hpu output device: {}", node, output_device)
+        return False
 
-        if check_for_default_fallback(op_name, node, is_dynamic) or conditional_eager_fallback:
-            do_fallback = True
-            logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
-        elif not check_for_default_op_support(op_name, node, is_dynamic) or conditional_add_to_graph:
-            for arg in args:
-                arg_types.append(type(arg))
-            normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
-            if normalized_args is None:
-                args = args[::-1]
-                arg_types = arg_types[::-1]
-                normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
-            if normalized_args is not None:
-                args, kwargs = normalized_args
-                try:
-                    # Extracts unerlying values from sym nodes
-                    def convert(val):
-                        if isinstance(val, torch.SymInt | torch.SymFloat | torch.SymBool):
-                            return val.node.hint
-                        # if list, then check if it contains any sym node
-                        elif isinstance(val, list):
-                            return [convert(i) for i in val]
-                        return val
+    args, kwargs = node.val_args, node.val_kwargs
+    arg_types = []
+    op_name = node.target.__name__.split(".")[0]
 
-                    concrete_args = tuple(convert(arg) for arg in args)
-                    concrete_kwargs = {key: convert(val) for key, val in kwargs.items()}
-                    # Sometimes we get only number, but tensor is required
-                    allow_numbers_as_tensors = torch._C._should_allow_numbers_as_tensors(
-                        node.target._schema.name.split("::")[-1].split(".")[0]
-                    )
+    default_fallback, reason = check_for_default_fallback(op_name, node, is_dynamic)
+    if default_fallback:
+        return execute_fallback(True, reason)
 
-                    output_shapes = str(node.meta["output_shapes"])
+    # some ops execute in eager mode, but if some conditions are satisfied
+    # they can be part of the larger graph
+    conditional_eager_fallback, reason = check_for_conditional_eager_fallback(node, op_name, is_dynamic)
+    if conditional_eager_fallback:
+        return execute_fallback(True, reason)
 
-                    shared_meta = [
-                        (len(shape), dtype)
-                        for shape, dtype in zip(node.meta["output_shapes"], node.meta["output_dtypes"], strict=False)
-                    ]
-                    do_fallback = check_cpu_fallback_op(
-                        op_name,
-                        node.target._schema,
-                        allow_numbers_as_tensors,
-                        is_dynamic,
-                        shared_meta,
-                        *concrete_args,
-                        **concrete_kwargs,
-                    )
-                    assert str(node.meta["output_shapes"]) == output_shapes, META_SHAPE_CHANGED
-                    if do_fallback:
-                        logger.debug(
-                            "Fallback required - check_cpu_fallback_op. Target: %s",
-                            node.target,
-                        )
-                except Exception as e:
-                    if str(e) == META_SHAPE_CHANGED:
-                        raise Exception(f"Shared layer modified node output shape in {node.target}. Aborting.")
-                    logger.debug(
-                        "Fallback required - Exception raised in check for fallback. Target: %s. Exception: %s",
-                        node.target,
-                        str(e),
-                    )
-                    do_fallback = True
-            else:
-                do_fallback = True
+    conditional_graph_support, reason = check_for_default_op_support(op_name, node, is_dynamic)
+    if conditional_graph_support:
+        return execute_fallback(False, reason)
 
-    if do_fallback:
-        # This log line is used by the logging analysis tool. Please be cautious
-        # when changing.
-        logger.warn("Fallback required. Node: %s Target: %s Meta: %s", node, node.target, node.meta)
-        logger.warn("Node.args: %s, Node.kwargs: %s", args, kwargs)
-    logger.debug("Node: %s requires fallback: %s", node, do_fallback)
+    for arg in args:
+        arg_types.append(type(arg))
+    normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
 
-    assert (
-        hpu_backend_config.use_eager_fallback or do_fallback is False
-    ), f"Node: {node} requires fallback: {do_fallback}"
+    if normalized_args is None:
+        args = args[::-1]
+        arg_types = arg_types[::-1]
+        normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
 
-    return do_fallback
+    if normalized_args is None:
+        return execute_fallback(True, "Failed to normalize function")
+
+    args, kwargs = normalized_args
+    reason = ""
+    try:
+        # Extracts underlying values from sym nodes
+        def convert(val):
+            if isinstance(val, torch.SymInt | torch.SymFloat | torch.SymBool):
+                return val.node.hint
+            # if list, then check if it contains any sym node
+            elif isinstance(val, list):
+                return [convert(i) for i in val]
+            return val
+
+        concrete_args = tuple(convert(arg) for arg in args)
+        concrete_kwargs = {key: convert(val) for key, val in kwargs.items()}
+        # Sometimes we get only number, but tensor is required
+        allow_numbers_as_tensors = torch._C._should_allow_numbers_as_tensors(
+            node.target._schema.name.split("::")[-1].split(".")[0]
+        )
+
+        output_shapes = str(node.meta["output_shapes"])
+
+        shared_meta = [
+            (len(shape), dtype)
+            for shape, dtype in zip(node.meta["output_shapes"], node.meta["output_dtypes"], strict=False)
+        ]
+        do_fallback = not shared_layer_validation(
+            op_name,
+            node.target._schema,
+            allow_numbers_as_tensors,
+            is_dynamic,
+            shared_meta,
+            *concrete_args,
+            **concrete_kwargs,
+        )
+        assert str(node.meta["output_shapes"]) == output_shapes, META_SHAPE_CHANGED_EXCEPTION
+        if do_fallback:
+            reason = "Shared layer validation failed"
+            logger.debug(reason)
+    except Exception as e:
+        if str(e) == META_SHAPE_CHANGED_EXCEPTION:
+            raise Exception(f"Shared layer modified node output shape in {node.target}. Aborting.")
+        reason = f"Exception raised in shared layer validation. Exception: {str(e)}"
+        logger.debug(reason)
+        do_fallback = True
+
+    return execute_fallback(do_fallback, reason)
