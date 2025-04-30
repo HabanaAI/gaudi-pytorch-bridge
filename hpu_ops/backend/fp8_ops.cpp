@@ -154,6 +154,16 @@ void HandleScale(
   }
 }
 
+inline SharedMetaTensor getSharedMetaTensorFromScale(const at::IValue& scale) {
+  if (scale.isNone()) {
+    return createOptionalNotPresentSharedMetaTensor();
+  } else if (scale.isTensor()) {
+    return getSharedMetaFromTensor(scale.toTensor());
+  } else {
+    return {1, at::ScalarType::Float};
+  }
+}
+
 } // namespace fp8
 
 using namespace habana::fp8;
@@ -443,6 +453,29 @@ OutputMetaDataVector Fp8GemmV2Meta(const at::Stack& stack) {
   }
   meta.dtype = stack[5].toScalarType();
   return {meta};
+}
+
+SharedMetaDataVector Fp8GemmSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& A = stack_tensor(stack, 0);
+  const at::Tensor& B = stack_tensor(stack, 2);
+
+  SharedMetaData sharedMeta("fp8_gemm");
+  // CGUID inputs order is: A, B, scales, bias, D
+  sharedMeta.inputs_data.push_back(getSharedMetaFromTensor(A));
+  sharedMeta.inputs_data.push_back(getSharedMetaFromTensor(B));
+  sharedMeta.inputs_data.push_back(getSharedMetaTensorFromScale(stack.at(6)));
+  sharedMeta.inputs_data.push_back(getSharedMetaTensorFromScale(stack.at(7)));
+  sharedMeta.inputs_data.push_back(
+      getSharedMetaFromOptionalTensor(stack.at(8).toOptional<at::Tensor>()));
+  sharedMeta.inputs_data.push_back(
+      getSharedMetaFromOptionalTensor(stack.at(4).toOptional<at::Tensor>()));
+
+  sharedMeta.outputs_data.emplace_back(
+      std::max(A.dim(), B.dim()), stack.at(5).toScalarType());
+
+  return {sharedMeta};
 }
 
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -759,13 +792,36 @@ OutputMetaDataVector Conv2dFp8Meta(const at::Stack& stack) {
   const auto dilation =
       expand_param_if_needed(stack[5].toIntList().vec(), "dilation", 2);
   const auto out_dtype =
-      stack[7].toOptional<c10::ScalarType>().value_or(at::ScalarType::BFloat16);
+      stack[7].toOptional<at::ScalarType>().value_or(at::ScalarType::BFloat16);
 
   OutputMetaData meta;
   meta.dtype = out_dtype;
   meta.shape = ComputeConv2dOutputSize(
       input_shape, weight_shape, stride, padding, dilation);
   return {meta};
+}
+
+SharedMetaDataVector Conv2dFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& inputTensor = stack_tensor(stack, 0);
+  const std::optional<at::Tensor> biasTensor =
+      stack.at(2).toOptional<at::Tensor>();
+  const at::ScalarType outDtype =
+      stack.at(7).toOptional<at::ScalarType>().value_or(
+          at::ScalarType::BFloat16);
+
+  SharedMetaData sharedMeta("conv2d_fp8");
+  sharedMeta.inputs_data.push_back(getSharedMetaFromTensor(inputTensor));
+  sharedMeta.inputs_data.push_back(
+      getSharedMetaFromTensor(stack_tensor(stack, 1)));
+  sharedMeta.inputs_data.push_back(getSharedMetaFromOptionalTensor(biasTensor));
+  sharedMeta.inputs_data.push_back(getSharedMetaTensorFromScale(stack.at(8)));
+  sharedMeta.inputs_data.push_back(getSharedMetaTensorFromScale(stack.at(9)));
+
+  sharedMeta.outputs_data.emplace_back(inputTensor.dim(), outDtype);
+
+  return {sharedMeta};
 }
 
 static synConvolutionParams FillConv2dFp8Params(

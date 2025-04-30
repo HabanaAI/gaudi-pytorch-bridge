@@ -335,6 +335,16 @@ inline SharedMetaTensor createOptionalNotPresentSharedMetaTensor() {
   return {0, at::ScalarType::Undefined};
 }
 
+inline SharedMetaTensor getSharedMetaFromTensor(const at::Tensor& tensor) {
+  return {tensor.dim(), tensor.scalar_type()};
+}
+
+inline SharedMetaTensor getSharedMetaFromOptionalTensor(
+    const std::optional<at::Tensor>& tensor) {
+  return tensor.has_value() ? getSharedMetaFromTensor(tensor.value())
+                            : createOptionalNotPresentSharedMetaTensor();
+}
+
 struct SharedMetaData {
   struct SharedMetaValidationOptions {
     bool allowLongType = false;
