@@ -1381,6 +1381,20 @@ def linear_backward(self, grad_output, weight, output_mask):
     return input_grad, weight_grad, bias_grad
 
 
+@register_meta([torch.ops.hpu.mamba_pscan.default])
+def mamba_pscan(state, x, dt, A, B):
+    out_shape = x.shape
+    out_shape[2] = state.shape[2]
+    out = state.new_empty(out_shape, dtype=state.dtype)
+    return out
+
+
+@register_meta([torch.ops.hpu.mamba_pscan_update.default])
+def mamba_pscan_update(state, x, C, D, z):
+    out = x.new_empty(x.shape, dtype=x.dtype)
+    return out
+
+
 @register_meta([torch.ops.hpu.calculate_scale_for_cast.default])
 def meta_calculate_scale_for_cast(
     input, maxMode, scaleMode, reduceAxis=0, reduceKeepdim=False, fullscale=1.0, backoff=1.0

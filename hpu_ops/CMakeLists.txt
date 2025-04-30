@@ -295,6 +295,8 @@ add_habana_library(
   backend/where_gen.cpp
   backend/xlogy_gen.cpp
   backend/zero_gen.cpp
+  backend/mamba_pscan_gen.cpp
+  backend/mamba_pscan_update_gen.cpp
   common/batched_matmul_output_shape.cpp
   common/convolution_gen.cpp
   common/fp8_ops.cpp

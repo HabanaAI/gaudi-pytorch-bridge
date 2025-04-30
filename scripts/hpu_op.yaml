@@ -9135,3 +9135,17 @@ optimizer_sgd_momentum:
   only_slrg: true
   op_validator: OptimizerSgdMomentumSharedMeta
   namespaces: [torch.hpu.optimizer]
+
+mamba_pscan:
+  custom_op_schema: "hpu::mamba_pscan(Tensor state, Tensor x, Tensor dt, Tensor A, Tensor B) -> Tensor"
+  guid: mamba_pscan_fwd
+  out_ids: [0]
+  output_meta: MambaPscanMeta
+  op_validator_exception: custom_op
+
+mamba_pscan_update:
+  custom_op_schema: "hpu::mamba_pscan_update(Tensor state, Tensor x, Tensor C, Tensor D, Tensor z) -> Tensor"
+  guid: mamba_pscan_update_fwd
+  out_ids: [0]
+  output_meta: MambaPscanUpdateMeta
+  op_validator_exception: custom_op

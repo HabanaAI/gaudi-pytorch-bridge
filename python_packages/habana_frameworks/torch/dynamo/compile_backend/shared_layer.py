@@ -124,6 +124,8 @@ hpu_supported_op_list = {
     "run_with_rng_state",
     "habana_seed_generator",
     "block_softmax_adjustment",
+    "mamba_pscan",
+    "mamba_pscan_update",
 }
 
 # When below flag is enabled, aten.linear and aten.matmul decompositions
