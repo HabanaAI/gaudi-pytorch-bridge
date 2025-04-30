@@ -8895,7 +8895,8 @@ rms_norm:
   out_ids: [0, 0]
   output_meta: RMSNormMeta
   custom_fill_params: RMSNormParams
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rms_norm_fast:
   custom_op_schema: "hpu::rms_norm_fast(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
@@ -8903,7 +8904,8 @@ rms_norm_fast:
   out_ids: [0, 0]
   output_meta: RMSNormMeta
   custom_fill_params: RMSNormFastParams
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rms_norm_backward:
   custom_op_schema: "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)"
@@ -8911,7 +8913,8 @@ rms_norm_backward:
   out_ids: [0, 0]
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rms_norm_fast_backward:
   custom_op_schema: "hpu::rms_norm_fast_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)"
@@ -8919,7 +8922,8 @@ rms_norm_fast_backward:
   out_ids: [0, 0]
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rotary_pos_embedding:
   custom_op_schema: "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"

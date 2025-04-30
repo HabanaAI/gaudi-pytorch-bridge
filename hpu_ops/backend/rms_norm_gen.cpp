@@ -36,7 +36,7 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
   first_output.dtype = data_in_dtype;
   OutputMetaData second_output;
   second_output.shape = inverse_root_mean_square_sizes;
-  second_output.dtype = data_in_dtype;
+  second_output.dtype = c10::ScalarType::Float;
   return {first_output, second_output};
 }
 
@@ -79,7 +79,7 @@ OutputMetaDataVector RMSNormBwdMeta(const at::Stack& stack) {
 
   auto type = data_in.scalar_type();
   bool types_match = true;
-  for (std::size_t i{0}; i < 4; ++i) {
+  for (std::size_t i{0}; i < 3; ++i) {
     if (type != stack.at(i).toTensor().scalar_type()) {
       types_match = false;
       break;
