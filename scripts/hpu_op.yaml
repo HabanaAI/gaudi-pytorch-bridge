@@ -7120,6 +7120,7 @@ _safe_softmax:
   op_validator: SoftmaxSharedMeta
   out_ids: [0]
   namespaces: [torch]
+  treat_as_dtdf: true
 
 _softmax.out:
   custom_fill_params: FillSoftmaxForwardParams
