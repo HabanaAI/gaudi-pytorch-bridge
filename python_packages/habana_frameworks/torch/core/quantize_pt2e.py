@@ -694,9 +694,9 @@ def convert_to_module_name(input_str):
 def create_kvcache_module_name(input_str, annotation):
     assert input_str != "" and annotation != ""
     string_array = input_str.split(".")
-    assert len(string_array) >= 3
+    assert len(string_array) >= 1
 
-    kvcache_module_name = ".".join(string_array[:3]) + ".self_attn." + annotation
+    kvcache_module_name = ".".join(string_array[:-1]) + ".self_attn." + annotation
     return kvcache_module_name
 
 
