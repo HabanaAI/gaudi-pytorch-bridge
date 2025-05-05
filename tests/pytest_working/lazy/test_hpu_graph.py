@@ -893,3 +893,27 @@ def test_with_hpu_ops(model):
         output_cpu = model_cpu(input_cpu)
         output_hpu = model_hpu(input_cpu.to("hpu")).to("cpu")
         compare_tensors(output_hpu, output_cpu, atol=0.001, rtol=1.0e-3)
+
+
+def test_inplace_view_test():
+    class InplaceOpNet(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x=None):
+            x.add_(1)
+            x = x * x.mean()
+            return x
+
+    model = InplaceOpNet()
+    model.to("hpu")
+
+    model_hpugraph = ht.hpu.wrap_in_hpu_graph(model, disable_tensor_cache=True)
+
+    for _ in range(4):
+        x = torch.randn(4, 1).to("hpu")
+        y = torch.randn(4, 1).to("hpu")
+        x = y[: len(y)]
+        z_hpu = model_hpugraph(x)
+        z = model(x)
+        assert torch.allclose(z_hpu, z)

@@ -250,6 +250,15 @@ std::unordered_set<int64_t> get_hb_base_tensor_id_list_if_view(
   return view_t_list;
 }
 
+bool IsNodeSliceOrStridedInsert(const habana_lazy::ir::NodePtr& mp_node) {
+  if (mp_node && !mp_node->is_control_edge()) {
+    std::string_view node_name = mp_node->op().toQualString();
+    return node_name == "hpu::slice_insert" ||
+        node_name == "hpu::strided_insert";
+  }
+  return false;
+}
+
 void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -264,21 +273,17 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
     return;
   }
 
-  std::unordered_set<int64_t> user_out_hblazy_tid_set;
   for (size_t graphIdx = 0; graphIdx < captured_graphs.size(); graphIdx++) {
     auto single_graph = captured_graphs[graphIdx];
     HABANA_ASSERT(
-        ((single_graph->prev_graph_interdep_out_t_list_.size() == 0) &&
-         (single_graph->user_out_indices_tlist_.size() == 0)),
-        "Error:mark_user_outputs is called more than once for the same graph?");
-    for (auto& out_tensor : single_graph->hblazy_tensors_out_) {
-      user_out_hblazy_tid_set.emplace(out_tensor.getTensorUniqueId());
-    }
+        single_graph->prev_graph_interdep_out_t_list_.empty() &&
+            single_graph->user_out_indices_tlist_.empty(),
+        "Error: mark_user_outputs called more than once for the same graph?");
   }
 
   // Go over all captured SingleHPUGraphs
   for (size_t graphIdx = 0; graphIdx < captured_graphs.size(); graphIdx++) {
-    auto single_graph = captured_graphs[graphIdx];
+    auto& single_graph = captured_graphs[graphIdx];
     if (single_graph->graph_) {
       // This set shows have the indices of user_output tensors in
       // hblazy_tensors_out_
@@ -291,69 +296,61 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
       }
 
       // Find the interdependant tensors
-      auto out_pos = 0;
-      for (auto& t : outputs) {
-        size_t idx = 0;
-        auto user_out_hbl_t = habana_lazy::GetHbLazyTensor(t);
-        auto base_view_tids =
+      for (size_t out_pos = 0; out_pos < outputs.size(); out_pos++) {
+        auto user_out_hbl_t = habana_lazy::GetHbLazyTensor(outputs[out_pos]);
+        const auto base_view_tids =
             get_hb_base_tensor_id_list_if_view(user_out_hbl_t);
         [[maybe_unused]] auto& ir_value = user_out_hbl_t.CurrentIrValue();
-        for (auto& out_tensor : single_graph->hblazy_tensors_out_) {
-          auto isSameHbTensor = out_tensor.getTensorUniqueId() ==
-              user_out_hbl_t.getTensorUniqueId();
-
-          if ((isSameHbTensor) ||
-              isExists(base_view_tids, out_tensor.getTensorUniqueId())) {
+        for (size_t idx = 0; idx < single_graph->hblazy_tensors_out_.size();
+             ++idx) {
+          auto& out_tensor = single_graph->hblazy_tensors_out_[idx];
+          auto tid = out_tensor.getTensorUniqueId();
+          if (tid == user_out_hbl_t.getTensorUniqueId() ||
+              base_view_tids.count(tid)) {
             // This is used for replay to match the user out tensor indices
-            single_graph->user_out_indices_tlist_.emplace_back(
-                std::make_pair(out_pos, idx));
+            single_graph->user_out_indices_tlist_.emplace_back(out_pos, idx);
             // This is used later during replay
             user_out_tensors_idx_set.insert(idx);
           }
-          idx++;
         }
-        out_pos++;
       }
 
       // Go over all outputs from the current SingleHPUGraph
       for (size_t outIdx = 0; outIdx < single_graph->hblazy_tensors_out_.size();
            outIdx++) {
         auto& out_tensor = single_graph->hblazy_tensors_out_[outIdx];
+        const auto tid = out_tensor.getTensorUniqueId();
 
         // exclude view tensors &  Inplace tensors
-        bool isViewTensor = false;
-        bool isInputTensor = false;
-        if ((out_tensor.getDataPtr()->stride_params.has_value()) ||
-            (out_tensor.IsCollective())) {
-          isViewTensor = true;
-        }
+        bool is_view = out_tensor.getDataPtr()->stride_params.has_value() ||
+            out_tensor.IsCollective();
+        bool is_input = input_lazyt_id_set.count(tid) &&
+            !user_out_tensors_idx_set.count(outIdx);
 
-        if (isExists(input_lazyt_id_set, out_tensor.getTensorUniqueId()) &&
-            !isExists(user_out_tensors_idx_set, outIdx)) {
-          hblazy_tensors_in_out_.emplace_back(out_tensor);
-          isInputTensor = true;
+        if (is_input) {
+          hblazy_tensors_in_out_.push_back(out_tensor);
           PT_BRIDGE_DEBUG(
-              "Graph: ",
-              graphIdx,
-              " Input found for output id: ",
-              out_tensor.getTensorUniqueId());
+              "Graph: ", graphIdx, " Input found for output id: ", tid);
         }
 
+        // Exclude slice_insert/strided_insert nodes which will come as part of
+        // inplace ops
+        bool is_inplace = IsNodeSliceOrStridedInsert(
+            single_graph->output_vals_[outIdx].mp_node);
         // Check if any of the following SingleHPUGraphs use this output as an
         // input
         size_t last_use = 0;
-        bool is_inter_dependent = false;
+        bool is_interdependent = false;
         // if its not an useroutput or if its not inplace
-        if (!isInputTensor && !isViewTensor &&
-            !isExists(user_out_tensors_idx_set, outIdx)) {
+        if (!is_input && !is_view && !is_inplace &&
+            !user_out_tensors_idx_set.count(outIdx)) {
           for (size_t j = graphIdx + 1; j < captured_graphs.size(); j++) {
             auto next_graph = captured_graphs[j];
             // Go over all the inputs in the following SingleHPUGraph
             for (auto& hbt_in : next_graph->hblazy_tensors_in_) {
               // Found a match
-              if (hbt_in.getTensorUniqueId() ==
-                  out_tensor.getTensorUniqueId()) {
-                is_inter_dependent = true;
+              if (hbt_in.getTensorUniqueId() == tid) {
+                is_interdependent = true;
                 last_use = j;
                 break;
               }
@@ -370,10 +367,9 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
 
         // Can start freeing memory for output tensors that have no dependency.
         // SetHpuGraphOutTensor mark to false so that next replay it can be
-        // freed
-        // Or if its an all_reduce output
-        if (!isInputTensor && !isViewTensor && !is_inter_dependent &&
-            !isExists(user_out_tensors_idx_set, outIdx)) {
+        // freed Or if its an all_reduce output
+        if (!is_input && !is_view && !is_inplace && !is_interdependent &&
+            !user_out_tensors_idx_set.count(outIdx)) {
           out_tensor.SetHpuGraphOutTensor(false);
           out_tensor.SetTensorDataNullOpt();
         }
