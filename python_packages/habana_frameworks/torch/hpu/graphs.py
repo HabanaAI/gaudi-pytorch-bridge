@@ -136,7 +136,8 @@ class HPUGraph:
             _hpu_C.destroy(self.hpu_graph)
 
     def __del__(self):
-        self.reset()
+        if hasattr(self, "hpu_graph"):
+            self.reset()
 
     def get_user_input_match_indices(self):
         return _hpu_C.get_user_input_match_indices(self.hpu_graph)
