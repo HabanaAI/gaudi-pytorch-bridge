@@ -48,4 +48,18 @@ void CustomSoftmax::AddNode(
 
   syn_out(0) = std::move(output[0]);
 }
+
+SharedMetaDataVector CustomSoftmaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack_tensor(stack, 0);
+  const int flavor = stack.at(1).toInt();
+
+  SharedMetaData sharedMeta(flavor == 0 ? "softmax_fwd" : "custom_softmax_fwd");
+  sharedMeta.inputs_data = {getSharedMetaFromTensor(input)};
+  sharedMeta.outputs_data = {getSharedMetaFromTensor(input)};
+
+  return {sharedMeta};
+}
+
 } // namespace habana
