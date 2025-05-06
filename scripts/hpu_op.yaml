@@ -8736,6 +8736,7 @@ fake_quant_fp4:
   guid: fake_quantize_fp4
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 fp8_gemm:
   custom_op_schema: "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)"
@@ -8782,6 +8783,7 @@ _fp8_gemm_bwd:
   output_meta: Fp8GemmBwdMeta
   op_backend: Fp8GemmBwd
   op_validator: Fp8GemmBwdSharedMeta
+  namespaces: [torch.hpu]
 
 _fp8_gemm_bwd.scalar:
   custom_op_schema: "hpu::_fp8_gemm_bwd.scalar(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, float A_scale_inv, float B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
@@ -8790,6 +8792,7 @@ _fp8_gemm_bwd.scalar:
   output_meta: Fp8GemmBwdMeta
   op_backend: Fp8GemmBwd
   op_validator: Fp8GemmBwdSharedMeta
+  namespaces: [torch.hpu]
 
 _fp8_gemm_bwd.scalar_list:
   custom_op_schema: "hpu::_fp8_gemm_bwd.scalar_list(Tensor grad_in, Tensor A, bool trans_A, Tensor B, bool trans_B, float[] A_scale_inv, float[] B_scale_inv, bool has_bias, bool has_accumulate) -> (Tensor, Tensor, Tensor, Tensor)"
@@ -8798,6 +8801,7 @@ _fp8_gemm_bwd.scalar_list:
   output_meta: Fp8GemmBwdMeta
   op_backend: Fp8GemmBwd
   op_validator: Fp8GemmBwdSharedMeta
+  namespaces: [torch.hpu]
 
 in_place_interleave_:
   custom_op_schema: "hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))"
@@ -8827,6 +8831,8 @@ masked_batch_gemm:
   guid: masked_batch_gemm
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
+  skip_slrg: true #HPUDeviceContext::get_device().type() in custom_fill_params
 
 ragged_softmax:
   custom_op_schema: "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor"
@@ -8953,6 +8959,7 @@ sum_fp8:
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 sdpa_bwd:
   custom_op_schema: "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
@@ -8966,24 +8973,28 @@ exp_fast_math:
   guid: exp_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 sqrt_fast_math:
   custom_op_schema: "hpu::sqrt_fast_math(Tensor self) -> Tensor"
   guid: sqrt_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 rsqrt_fast_math:
   custom_op_schema: "hpu::rsqrt_fast_math(Tensor self) -> Tensor"
   guid: rsqrt_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 reciprocal_fast_math:
   custom_op_schema: "hpu::reciprocal_fast_math(Tensor self) -> Tensor"
   guid: reciprocal_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 calculate_scale_for_cast:
   custom_op_schema: "hpu::calculate_scale_for_cast(Tensor input, int maxMode, int scaleMode, int reduceAxis=0, bool reduceKeepdim=False, float fullscale=1.0, float backoff=1.0) -> Tensor"
@@ -8992,6 +9003,7 @@ calculate_scale_for_cast:
   guid: calculate_scale_for_cast
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8:
   custom_op_schema: "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"

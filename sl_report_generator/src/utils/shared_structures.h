@@ -126,6 +126,8 @@ struct Report {
     for (auto type : supported_types)
       support_map[type] = true;
   }
+  Report(bool fp4_support, bool int4_support)
+      : fp4_support(fp4_support), int4_support(int4_support) {}
   Report() = default;
 
   bool& operator[](const c10::ScalarType& precision_type);
@@ -136,6 +138,9 @@ struct Report {
   }
 
   friend std::ostream& operator<<(std::ostream&, const Report&);
+
+  bool fp4_support = false;
+  bool int4_support = false;
 
  private:
   std::unordered_map<c10::ScalarType, bool> support_map;

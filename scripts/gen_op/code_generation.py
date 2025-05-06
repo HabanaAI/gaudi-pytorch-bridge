@@ -1428,16 +1428,16 @@ def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
         torch_regs += _torch_regs
         op_validator = fgen.ctxop.get_op_validator()
         if (
-            not is_custom
-            and out_dir == "lazy"
-            and not fgen.ctxop.op.get("custom_op_schema", False)
+            out_dir == "lazy"
             and op_validator is not None
             and not fgen.ctxop.get_skip_slrg()
+            and (not is_custom or (is_custom and fgen.ctxop.op.get("custom_op_schema", None) is not None))
         ):
-            op_name = get_aten_opname(fgen.aten_sig)
+            sig = fgen.aten_sig if not is_custom else fgen.ctxop.op.get("custom_op_schema")
+            op_name = get_aten_opname(sig)
             validator_suffix = op_name.replace(".", "_")
             # extract input params
-            schema = re.search(r"\((.*?)\)\s*->", fgen.aten_sig)
+            schema = re.search(r"\((.*?)\)\s*->", sig)
             if schema:
                 op_name_parts = op_name.split(".", 1)
                 pure_op_name = op_name_parts[0]
@@ -1454,7 +1454,7 @@ def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
                 pytorch_module_names = fgen.ctxop.op.get("pytorch_module_names", None)
                 is_generic_sl_meta = op_validator == "check-node-with-shared-layer"
                 op_validator_map[op_name] = {
-                    "op_name": pure_op_name,
+                    "op_name": pure_op_name if not is_custom else op_name,
                     "overload": op_name,
                     "validator_name": f"validator_{validator_suffix}",
                     "validator_header_rel_path": f"generated/lazy/{fgen.opgroup}.h",

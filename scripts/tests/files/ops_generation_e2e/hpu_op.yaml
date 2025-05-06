@@ -216,6 +216,7 @@ exp_fast_math:
   guid: exp_fast_math_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 quantize_per_channel:
   custom_fill_params: FillQuantizePerChannelParams

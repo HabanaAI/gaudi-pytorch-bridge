@@ -1966,7 +1966,7 @@ def run_doc_gen(selected_wheel_configs, pt_modules_root):
             run(
                 "python3",
                 f"{pt_modules_root}/sl_report_generator/report_parser.py",
-                f"--path {pt_modules_root}/docs/Pytorch_Operators.rst",
+                f"--path {pt_modules_root}/docs",
                 venv=wheel_config.venv_dirs[0],
             )
             run(

@@ -204,6 +204,8 @@ std::ostream& operator<<(std::ostream& os, const Report& report) {
   for (const auto& type : report.support_map)
     os << slrg::report_precision_types_string[type.first] << ":"
        << (type.second ? "true" : "false") << ", ";
+  os << "Fp4: " << (report.fp4_support ? "true" : "false") << ", ";
+  os << "Int4: " << (report.int4_support ? "true" : "false");
   os << "}\n";
   return os;
 }

@@ -15,7 +15,7 @@
 #
 ###############################################################################
 
-_DOC_FILE = """
+DOC_FILE = """
 .. _pytorch-operators:
 
 ****************************
@@ -53,14 +53,66 @@ PyTorch Operators Support Summary
 {operators_torch_ops}\
 ====================================  ======== ======== ======== ======= ========= ========= ========= ======== ========  ======================"""
 
-_DOC_RST_ROW = """{op_name}     {fp32}      {bf16}      {fp16}     {fp8}       {int64}      {int32}       {int16}       {int8}      {bool}    {namespace}
+DOC_RST_ROW = """{op_name}     {fp32}      {bf16}      {fp16}     {fp8}       {int64}      {int32}       {int16}       {int8}      {bool}    {namespace}
+"""
+
+CUSTOM_DOC_FILE = """
+.. _pytorch-custom-operators:
+
+****************************
+PyTorch Custom Operators
+****************************
+
+Overview
+========
+
+This document summarizes the SynapseAI® Software PyTorch supported custom operators for
+Habana® Gaudi®. Note that the operators listed below support only selected
+variants and limited optional parameters for Gaudi.
+
+The ops in the lists below are available under the torch.ops.hpu namespace.
+The supported dtypes indicate the input dtypes and any given operator may support output dtypes not listed here.
+For example: cast_from_fp8 supports FP8 inputs but FP32 and BF16 outputs, but the output types are not mentioned here.
+
+
+Custom Fused Optimizers Support Summary
+=======================================
+
+.. rst-class:: datatable
+
+====================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========
+**Custom Optimizers**                 **FP32** **BF16** **FP16** **INT64** **INT32** **INT8** **BOOL**  **FP8**  **FP4**  **INT4**
+====================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========
+{optimizer_operators}\
+====================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========
+
+All of the custom fused optimizers are exposed under their own wrapper functions.
+For more details on their usage see :ref:`custom_operators`.
+Custom optimizers are only supported in Lazy and Eager modes of execution.
+
+Custom Operators Support Summary
+=================================
+
+.. rst-class:: datatable
+
+======================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========
+**Custom Operator**                     **FP32** **BF16** **FP16** **INT64** **INT32** **INT8** **BOOL**  **FP8**  **FP4**  **INT4**
+======================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========
+{custom_operators}\
+======================================  ======== ======== ======== ========= ========= ======== ======== ========= ======== ========"""
+
+CUSTOM_DOC_RST_OPTIMIZER_ROW = """{op_name}     {fp32}      {bf16}      {fp16}      {int64}       {int32}       {int8}     {bool}       {fp8}       {fp4}      {int4}
+"""
+CUSTOM_DOC_RST_ROW = """{op_name}    {fp32}      {bf16}      {fp16}      {int64}       {int32}       {int8}      {bool}      {fp8}       {fp4}      {int4}
 """
 
 OPERATOR_NAME_MAX_LENGTH = 36
+WIDE_OPERATOR_NAME_MAX_LENGTH = 38
 
 
-def get_operator_name_with_spacer(op_name: str) -> str:
-    return op_name + " " * (OPERATOR_NAME_MAX_LENGTH - len(op_name))
+def get_operator_name_with_spacer(op_name: str, is_wide_name: bool = False) -> str:
+    max_length = WIDE_OPERATOR_NAME_MAX_LENGTH if is_wide_name else OPERATOR_NAME_MAX_LENGTH
+    return op_name + " " * (max_length - len(op_name))
 
 
 def get_support_value(is_supported: bool) -> str:
