@@ -35,28 +35,6 @@ OutputMetaDataVector ScaledMaskedTriangularSoftmaxMeta(const at::Stack& stack) {
   return {meta};
 }
 
-SharedMetaDataVector ScaledMaskedTriangularSoftmaxSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  const at::Tensor& input = stack_tensor(stack, 0);
-  const at::Tensor& startEnd = stack_tensor(stack, 1);
-  const at::ScalarType outDtype =
-      stack.at(6).toOptional<c10::ScalarType>().value_or(input.scalar_type());
-
-  SharedMetaData flattenFwdSharedMeta("flatten_fwd");
-  flattenFwdSharedMeta.inputs_data = {getSharedMetaFromTensor(startEnd)};
-  flattenFwdSharedMeta.outputs_data = {{1, startEnd.scalar_type()}};
-
-  SharedMetaData sharedMeta("scaled_masked_triangular_softmax_fwd");
-
-  sharedMeta.inputs_data = {
-      getSharedMetaFromTensor(input), {1, startEnd.scalar_type()}};
-
-  sharedMeta.outputs_data.emplace_back(input.dim(), outDtype);
-
-  return {flattenFwdSharedMeta, sharedMeta};
-}
-
 void ScaledMaskedTriangularSoftmax::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
