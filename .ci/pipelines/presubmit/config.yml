@@ -104,6 +104,7 @@ orchestratorConfig:
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pt_next/Test_dependent_Build_pt_next_u22
+    silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
