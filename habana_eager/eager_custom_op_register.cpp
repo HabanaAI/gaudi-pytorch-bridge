@@ -1289,11 +1289,7 @@ void split_with_sizes_copy(
         ", but got ",
         out[i].device(),
         " instead");
-    // out[i].copy_(tmp[i]);
-    // above line is replaced by below line to avoid the following run-time
-    // error RuntimeError: one of the variables needed for gradient computation
-    // has been modified by an inplace operation:
-    const_cast<at::Tensor&>(out[i]) = tmp[i].clone();
+    out[i].copy_(tmp[i]);
   }
 }
 
