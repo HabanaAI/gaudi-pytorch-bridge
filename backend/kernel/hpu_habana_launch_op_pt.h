@@ -287,12 +287,8 @@ class HabanaLaunchOpPT {
     return intermediate_tensors_ptr_sh_;
   }
 
-  bool get_enable_2stage_pipeline() const {
-    return enable_2stage_pipeline_;
-  }
-
-  bool get_enable_4stage_pipeline() const {
-    return enable_4stage_pipeline_;
+  bool is_pipeline_enabled() const {
+    return enable_pipeline_;
   }
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> get_hpu_op_recipe()
@@ -382,8 +378,7 @@ class HabanaLaunchOpPT {
   // enable_graph_caching_---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_eager_caching_---------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // enable_shape_agnostic_caching_------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  // enable_2stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  // enable_4stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // enable_pipeline_--------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_optim_output_sif_------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_fast_shape_inf_--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // cur_ds_token_-----------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
@@ -396,7 +391,7 @@ class HabanaLaunchOpPT {
   // dma_inputs_-------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // syn_launch_info_--------------------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
   // external_tensor_info_indexes_-------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
-  // permutation_saver_-------------------///----------------------------------------///---------------Write---------------///----------------Write--------------///------------NA
+  // permutation_saver_------------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
   // hpu_op_recipe_----------------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   // is_shape_agnostic_supported_--------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // jit_graph_cache_hit_count_----------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
@@ -545,8 +540,7 @@ class HabanaLaunchOpPT {
   bool enable_graph_caching_{false};
   bool enable_eager_caching_{false};
   bool enable_shape_agnostic_caching_{false};
-  bool enable_2stage_pipeline_{false};
-  bool enable_4stage_pipeline_{false};
+  bool enable_pipeline_{false};
   bool enable_fast_shape_inf_{false};
   bool enable_optim_output_sif_{false};
 

@@ -43,7 +43,7 @@ void Copy_Scalar_To_Host_Empty_Compile_Task(
       std::move(dst),
       size,
       std::move(stream));
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     habana::HPUDeviceContext::execute_thread().waitWorkComplete();
   }
 }
@@ -59,7 +59,7 @@ void Copy_Scalar_To_Host_Empty_Lowering_Task(
       std::move(dst),
       size,
       std::move(stream));
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete();
   }
 }

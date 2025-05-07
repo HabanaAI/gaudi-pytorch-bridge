@@ -125,7 +125,7 @@ void LoweringTask(
     std::optional<std::vector<std::vector<int64_t>>> output_shapes) {
   PipelineCall pipeline_call;
 
-  bool sync_with_compile_stage = !launch_op->get_enable_4stage_pipeline();
+  bool sync_with_compile_stage = !launch_op->is_pipeline_enabled();
 
   launch_op->run(
       stack, nullptr, allocated_outputs, output_shapes, false, pipeline_call);
@@ -269,12 +269,9 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   auto frontend_type_eager_or_compile =
       ((front_end_type == habana_helpers::HabanaFrontendTypes::EAGER) ||
        (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE));
-  enable_2stage_pipeline_ =
-      jit_graph_and_meta_data_->get_is_pipeline_supported();
-  enable_4stage_pipeline_ = enable_2stage_pipeline_ &&
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE) &&
+  enable_pipeline_ = jit_graph_and_meta_data_->get_is_pipeline_supported() &&
       frontend_type_eager_or_compile;
-  PT_DYNAMIC_SHAPE_DEBUG("Enable 4 stage pipeline = ", enable_4stage_pipeline_);
+  PT_DYNAMIC_SHAPE_DEBUG("Enable eager/compile stage pipeline = ", enable_pipeline_);
 
   graph_symint_hash_ =
       optimized_jit_graph_and_meta_data->get_graph_symint_hash();
@@ -4455,7 +4452,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
         current_dbipsh_->get_statistics()->DumpAndNextStep();
       }
 
-      if (!enable_4stage_pipeline_) {
+      if (!is_pipeline_enabled()) {
         if (!dry_run_) {
           recipe_launcher_->Launch(
               hpu_stream_,
@@ -4899,7 +4896,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
         dma_inputs_);
   }
 
-  if (!get_enable_2stage_pipeline()) {
+  if (!jit_graph_and_meta_data_->get_is_pipeline_supported()) {
     // Update the stack from the recipe itself
     UpdateRecipeOutputs();
   }
@@ -5115,8 +5112,6 @@ void HabanaLaunchOpPT::run(
     }
   }
 
-  auto is_enable_4stage_pipeline = enable_4stage_pipeline_;
-
   // eager and graph recipe caching :: begin
   if (enable_caching_ && maybe_static_recipe_) {
     HABANA_ASSERT(
@@ -5169,7 +5164,7 @@ void HabanaLaunchOpPT::run(
       } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-        if (!is_enable_4stage_pipeline) {
+        if (!is_pipeline_enabled()) {
           ExecuteSynapseCache();
         } else {
           pipeline_execution.execute(
@@ -5495,8 +5490,7 @@ void HabanaLaunchOpPT::run(
   map_shape_.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
 
-  if ((eager_mode || compile_mode) &&
-      jit_graph_and_meta_data_->get_is_pipeline_supported()) {
+  if (enable_pipeline_) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
     bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
@@ -6157,7 +6151,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   SynBuildCache cache;
   BuildSynapseGraph(syn_graph, cache);
 
-  if (enable_4stage_pipeline_) {
+  if (is_pipeline_enabled()) {
     bool is_dynamic_recipe = is_dynamic_graph &&
         (graph_input_info.min_input_tshapes !=
          graph_input_info.max_input_tshapes);

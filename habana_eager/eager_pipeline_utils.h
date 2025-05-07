@@ -124,7 +124,7 @@ class PipeliningExecutor {
   static void LoweringStage(T&& pipe_task) {
     pipe_task.LoweringCall();
 
-    if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
       habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete();
       habana::HPUDeviceContext::execute_thread().waitWorkComplete();
       pipe_task.CompileCall();

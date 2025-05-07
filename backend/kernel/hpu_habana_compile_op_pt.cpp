@@ -38,9 +38,6 @@ void CompileSynapseTaskWrapper(
 
   if (func)
     func(launch_op);
-
-  if (!launch_op.get_enable_4stage_pipeline())
-    HPUDeviceContext::execute_thread().waitWorkComplete();
 }
 }; // namespace HabanaLaunchOpPipeline
 
