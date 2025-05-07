@@ -62,7 +62,10 @@ from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
-from ._passes.reorder_custom_ops import pass_reorder_custom_ops
+from ._passes.reorder_custom_ops import (
+    pass_post_reorder_custom_ops,
+    pass_reorder_custom_ops,
+)
 from ._passes.utils import (
     ColorGraph,
     OptimizationPassPlacement,
@@ -142,6 +145,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fuse_partitions,
             pass_add_fused_op_metadata,
             pass_reorder_collectives,
+            pass_post_reorder_custom_ops,
             pass_make_symints_available,
             pass_fuse_view_chains,
             pass_batch_as_strided_groups,
