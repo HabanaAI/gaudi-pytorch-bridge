@@ -26,6 +26,7 @@
 #include <kineto/output_base.h>
 #include <kineto/time_since_epoch.h>
 #pragma GCC diagnostic pop
+#include <torch/csrc/profiler/orchestration/observer.h>
 #include <stack>
 
 namespace {
@@ -305,8 +306,7 @@ std::unique_ptr<libkineto::IActivityProfilerSession> HPUActivityProfiler::
         const std::set<libkineto::ActivityType>& activity_types,
         const libkineto::Config& config) {
   auto start_time_ms =
-      duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-          .count();
+      libkineto::timeSinceEpoch(std::chrono::high_resolution_clock::now());
   return configure(start_time_ms, 0, activity_types, config);
 }
 
@@ -340,19 +340,13 @@ Config& Config::getInstance() {
   return instance;
 }
 
-void Config::setMemoryProfile(bool value) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  isMemoryProfile = value;
-}
-
 void Config::setBridgeProfile(bool value) {
   std::lock_guard<std::mutex> lock(mutex_);
   isBridgeProfile = value;
 }
 
-bool Config::isMemoryProfileEnabled() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return isMemoryProfile;
+bool HpuActivityProfilerSession::isMemoryProfileEnabled() {
+  return torch::profiler::impl::getProfilerConfig().profile_memory;
 }
 
 bool Config::isBridgeProfileEnabled() {
@@ -362,6 +356,9 @@ bool Config::isBridgeProfileEnabled() {
 
 HpuActivityProfilerSession::HpuActivityProfilerSession(int64_t, int64_t) {
   status_ = TraceStatus::READY;
+}
+
+void HpuActivityProfilerSession::start() {
   sink_ = std::make_unique<GenericTraceActivitySink>(activities_);
   profiler_ = std::make_unique<Profiler>(*sink_);
   std::vector<std::string> mandatory_events;
@@ -375,12 +372,10 @@ HpuActivityProfilerSession::HpuActivityProfilerSession(int64_t, int64_t) {
     mandatory_events = {
         "LaunchRecipeTask", "add_new_recipe", "launch_recipe", "launch"};
   }
-  bool memory_profile = Config::getInstance().isMemoryProfileEnabled();
-  bool bridge_profile = Config::getInstance().isBridgeProfileEnabled();
-  profiler_->init_sources(bridge_profile, memory_profile, mandatory_events);
-}
 
-void HpuActivityProfilerSession::start() {
+  bool bridge_profile = Config::getInstance().isBridgeProfileEnabled();
+  profiler_->init_sources(
+      bridge_profile, isMemoryProfileEnabled(), mandatory_events);
   profilerStartTs_ =
       libkineto::timeSinceEpoch(std::chrono::high_resolution_clock::now());
   profiler_->start();

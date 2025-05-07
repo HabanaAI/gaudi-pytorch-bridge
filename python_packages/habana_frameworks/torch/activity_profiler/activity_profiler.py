@@ -21,6 +21,10 @@ import habana_frameworks.torch.utils._activity_profiler_C as hpu_profiler
 from habana_frameworks.torch.utils.internal import is_lazy
 
 import torch
+from torch.autograd import (
+    DeviceType,
+    _ProfilerResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +84,7 @@ def register_habana_activity_profiler():
             with_flops: bool = False,
             with_modules: bool = False,
             experimental_config: torch._C._profiler._ExperimentalConfig | None = None,
-            use_cuda: bool | None = None
+            use_cuda: bool | None = None,
         ):
             activities = (
                 (torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU)
@@ -160,6 +164,45 @@ def register_habana_light_activity_profiler():
     from collections.abc import Callable, Iterable
     from typing import Any
 
+    class _ProxyProfilerResult:
+        """
+        Wraps a real `_ProfilerResult` and delegates every method expect `events()`.
+        By default, time calculations for HPU events produce incorrect values for
+        time and total %.
+        This is a workaround for the issue SW-224979.
+        """
+
+        def __init__(self, real: _ProfilerResult):
+            self._real = real
+            self._filtered_events = None
+
+        def events(self):
+            if self._filtered_events is None:
+                evts = self._real.events()
+                # Drop HPU and CUDA (default-runtime-type) device events
+                self._filtered_events = [
+                    e for e in evts if e.device_type() != DeviceType.HPU and e.device_type() != DeviceType.CUDA
+                ]
+            return self._filtered_events
+
+        def __getattr__(self, name):
+            # delegate all other attributes/methods to the real result
+            return getattr(self._real, name)
+
+    class habana_autograd_profile_wrapper(torch.autograd.profiler.profile):
+        def export_chrome_trace(self, path):
+            super().export_chrome_trace(path)
+            # W/A for issue https://github.com/pytorch/pytorch/issues/146900
+            # Should be removed once the issue is fixed.
+            if getattr(self, "with_stack", False):
+                clean_json(path)
+            hpu_profiler._export_logs(path)
+
+        def _parse_kineto_results(self, result: _ProfilerResult):
+            filtered_result = _ProxyProfilerResult(result)
+            # call the original on the filtered result
+            return super()._parse_kineto_results(filtered_result)
+
     class habana_profile_light_wrapper(torch.profiler.profile):
         def __init__(
             self,
@@ -174,10 +217,10 @@ def register_habana_light_activity_profiler():
             with_flops: bool = False,
             with_modules: bool = False,
             experimental_config: torch._C._profiler._ExperimentalConfig | None = None,
-            use_cuda: bool | None = None
+            use_cuda: bool | None = None,
         ):
             bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
-            hpu_profiler._setup_habana_profiler_configs(bridge_profile, profile_memory)
+            hpu_profiler._setup_habana_profiler_configs(bridge_profile)
 
             super().__init__(
                 activities=activities,
@@ -193,6 +236,7 @@ def register_habana_light_activity_profiler():
             )
 
     torch.profiler.profile = habana_profile_light_wrapper
+    torch.autograd.profiler.profile = habana_autograd_profile_wrapper
 
 
 def register_habana_profiler():

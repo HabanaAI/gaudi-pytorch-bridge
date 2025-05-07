@@ -66,9 +66,8 @@ void stop_profiler_session() {
   JsonActivityProfiler::instance()->stop();
 }
 
-void setup_habana_profiler_configs(bool bridge_profile, bool memory_profile) {
+void setup_habana_profiler_configs(bool bridge_profile) {
   Config::getInstance().setBridgeProfile(bridge_profile);
-  Config::getInstance().setMemoryProfile(memory_profile);
 }
 
 }; // namespace profile

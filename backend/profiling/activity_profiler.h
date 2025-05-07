@@ -27,6 +27,6 @@ void setup_profiler_sources(
     const std::vector<std::string>& mandatory_events);
 void start_profiler_session();
 void stop_profiler_session();
-void setup_habana_profiler_configs(bool bridge, bool memory);
+void setup_habana_profiler_configs(bool bridge);
 }; // namespace profile
 }; // namespace habana

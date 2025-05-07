@@ -29,7 +29,7 @@ namespace {
 uint64_t nowNanos() {
   return static_cast<uint64_t>(
       std::chrono::duration_cast<std::chrono::nanoseconds>(
-          std::chrono::system_clock::now().time_since_epoch())
+          std::chrono::high_resolution_clock::now().time_since_epoch())
           .count());
 }
 } // namespace
@@ -122,7 +122,6 @@ struct BridgeLogsSourceImpl : public TraceSource {
       std::string name = "thread " + std::to_string(entry.first) + " (" + entry.second + ")";
       output.addResource(name, pid, entry.first);
     }
-    output.addDevice("Bridge Logs", pid);
     events_.clear();
   }
   TraceSourceVariant get_variant() override {
