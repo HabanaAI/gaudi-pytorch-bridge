@@ -35,6 +35,7 @@
 #include "hpu_ops/shared_meta_common.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "habana_helpers/pt_version_check.h"
 
 using namespace torch;
 using namespace at;
@@ -108,7 +109,11 @@ Tensor hpu_wrap::_pin_memory(
 Tensor hpu_wrap::bincount(
     const Tensor& self,
     const std::optional<Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength) {
+#else
     int64_t minlength) {
+#endif
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("bincount :", DUMP_3ARGS(self, weights, minlength));
