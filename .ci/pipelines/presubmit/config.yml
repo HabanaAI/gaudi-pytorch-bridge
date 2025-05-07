@@ -119,7 +119,5 @@ orchestratorConfig:
   triggerMap:
   - repository: pytorch-integration
     gitHubOrg: habana-internal
-  - repository: pytorch-fork
-    gitHubOrg: habana-internal
   - repository: lightning-habana-fork
     gitHubOrg: habana-internal
