@@ -37,7 +37,6 @@ class GraphExec {
   GraphExec(
       size_t recipe_id,
       std::shared_ptr<torch::jit::Graph> graph,
-      const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       bool dynamic,
       bool inference,
@@ -80,8 +79,7 @@ class GraphExec {
   void RunPass(
       std::function<bool()> pass,
       bool dump_graphs,
-      const std::string& pass_name,
-      int& pass_counter);
+      const std::string& pass_name);
   std::string LogRecipeInfo(torch::jit::Stack& example_inputs);
   bool IsDynamicGraph();
   void ProcessDynamicGraph(torch::jit::Stack& example_inputs);

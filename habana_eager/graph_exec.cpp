@@ -13,9 +13,6 @@
  * limitations under the License.
  */
 #include "habana_eager/graph_exec.h"
-#include <algorithm>
-#include <cstddef>
-#include <string>
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/dynamic_shape_info.h"
@@ -215,7 +212,6 @@ void GraphExec::LaunchRecipeTask(
 GraphExec::GraphExec(
     size_t recipe_id,
     std::shared_ptr<torch::jit::Graph> graph,
-    const std::string& parent_graph_name,
     torch::jit::Stack& example_inputs,
     bool dynamic,
     bool inference,
@@ -238,10 +234,7 @@ GraphExec::GraphExec(
       m_mark_dynamic(mark_dynamic && dynamic) {
   PT_EAGER_TRACE;
 
-  m_graph_name = parent_graph_name;
-  if (m_graph_name.find("_fx") != std::string::npos)
-    m_graph_name.replace(m_graph_name.find("fx"), 2, "jit") + "_" + std::to_string(recipe_id);
-
+  m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
   m_is_pipeline_supported = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
 
   // Temporailly record the original jit graph input to reusable info map
@@ -501,8 +494,7 @@ std::string GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
 void GraphExec::RunPass(
     std::function<bool()> pass,
     bool dump_graphs,
-    const std::string& pass_name,
-    int& pass_ordinal) {
+    const std::string& pass_name) {
   auto start = std::chrono::high_resolution_clock::now();
   auto graph_changed = pass();
   auto end = std::chrono::high_resolution_clock::now();
@@ -512,8 +504,7 @@ void GraphExec::RunPass(
   towl::emitMetrics(msg, static_cast<float>(duration.count()));
   if (graph_changed && dump_graphs)
     visualize::DumpEagerOrCompileGraph(
-        m_graph,
-        m_graph_name + "-" + std::to_string(pass_ordinal++) + "-" + pass_name);
+        m_graph, m_graph_name + "_jit_after_" + pass_name);
 }
 
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
@@ -522,20 +513,17 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   auto dump_graphs =
       std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "all" ||
       std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "compile";
-  int pass_ordinal = 0; // Makes sure that dumped graph files alphabetical order
-                        // corresponds to execution order
+
   if (dump_graphs)
     visualize::DumpEagerOrCompileGraph(
-        m_graph,
-        m_graph_name + "-" + std::to_string(pass_ordinal++) + "-before_passes");
+        m_graph, m_graph_name + "_jit_graph_before_passes");
   RunPass(
       [this, &example_inputs]() {
         return pass::MarkParamsAsConst(
             this->m_graph, example_inputs, m_const_indexes);
       },
       dump_graphs,
-      "MarkParamsAsConst",
-      pass_ordinal);
+      "MarkParamsAsConst");
   RunPass(
       [this, &example_inputs]() {
         return pass::HandleInputViews(
@@ -545,28 +533,23 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
             this->m_range_infos);
       },
       dump_graphs,
-      "HandleInputViews",
-      pass_ordinal);
+      "HandleInputViews");
   RunPass(
       [this]() { return pass::ReplaceGetItemWithListUnpack(this->m_graph); },
       dump_graphs,
-      "ReplaceGetItemWithListUnpack",
-      pass_ordinal);
+      "ReplaceGetItemWithListUnpack");
   RunPass(
       [this]() { return pass::HandleTupleOnOutput(this->m_graph); },
       dump_graphs,
-      "HandleTupleOnOutput",
-      pass_ordinal);
+      "HandleTupleOnOutput");
   RunPass(
       [this]() { return pass::AddAttributeAlpha(this->m_graph); },
       dump_graphs,
-      "AddAttributeAlpha",
-      pass_ordinal);
+      "AddAttributeAlpha");
   RunPass(
       [this]() { return pass::RemoveDetachOp(this->m_graph); },
       dump_graphs,
-      "RemoveDetachOp",
-      pass_ordinal);
+      "RemoveDetachOp");
 
   if (m_has_preallocated_outputs) {
     RunPass(
@@ -575,14 +558,12 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
               this->m_graph, this->m_outputs_order);
         },
         dump_graphs,
-        "GetOutputsOrderInGraph",
-        pass_ordinal);
+        "GetOutputsOrderInGraph");
   } else {
     RunPass(
         [this]() { return pass::RemoveDummyOutput(this->m_graph); },
         dump_graphs,
-        "RemoveDummyOutput",
-        pass_ordinal);
+        "RemoveDummyOutput");
   }
 }
 

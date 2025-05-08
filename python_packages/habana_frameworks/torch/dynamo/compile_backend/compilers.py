@@ -41,7 +41,7 @@ from .internal import (
 
 def _gen_graph_name():
     current_ordinal = _gen_graph_name.ordinal
-    graph_name = f"graph_{current_ordinal:04d}_base_fx"
+    graph_name = f"fx_graph_{current_ordinal:04d}"
     _gen_graph_name.ordinal = current_ordinal + 1
     return graph_name
 

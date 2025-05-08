@@ -426,7 +426,7 @@ class HabanaLaunchOpPT {
   std::string name_ = std::string();
   size_t graph_index_ = 0;
   std::shared_ptr<torch::jit::Graph> jit_ir_graph_;
-  std::string syn_graph_name_ = std::string();
+  std::string id_str_ = std::string();
   std::string op_strs_ = std::string();
   size_t graph_key_ = 0;
   size_t graph_key_with_perm_ = 0;
@@ -792,8 +792,11 @@ class HabanaLaunchOpPT {
       const HabanaOperatorPtr&,
       torch::jit::Node*);
   const std::string& GetSynapseGraphName() {
-    return syn_graph_name_;
+    return SetAndGetSynapseGraphName(name_, graph_index_);
   }
+  std::string& SetAndGetSynapseGraphName(
+      const std::string& name,
+      size_t g_index);
   void SetOpName(const std::string& name);
   PtTensorInfoShared ProcessPersistentNodeOutput(
       const IValPtrShared& ivpsh,

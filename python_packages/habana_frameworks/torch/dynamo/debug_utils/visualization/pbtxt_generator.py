@@ -101,11 +101,7 @@ if HAS_PROTOBUF and HAS_PYDOT:
             dot_graphs = drawer.get_all_dot_graphs()
 
             for key in dot_graphs.keys():
-                proto_graph_name = key
-                if "fused" in proto_graph_name:  # move fused_x to conform with the rest of the naming convention
-                    name_split = proto_graph_name.split("_fused")
-                    proto_graph_name = name_split[0].replace("base", "fused" + name_split[1])
-                self.proto_graphs[proto_graph_name] = self.__parse_to_netron_graph(dot_graphs[key])
+                self.proto_graphs[key] = self.__parse_to_netron_graph(dot_graphs[key])
 
         def write(self, graph_folder_path):
             for key, graph in self.proto_graphs.items():

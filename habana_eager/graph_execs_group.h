@@ -36,7 +36,6 @@ struct GraphExecsGroup {
   GraphExecsGroup(
       size_t recipe_id,
       std::shared_ptr<torch::jit::Graph> graph,
-      const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       const std::vector<bool>& is_reusable,
       bool dynamic,
@@ -62,7 +61,6 @@ struct GraphExecsGroup {
  private:
   size_t m_graph_group_index;
   std::shared_ptr<torch::jit::Graph> m_original_graph;
-  std::string m_parent_graph_name;
   std::string m_graphs_group_name;
   bool m_dynamic;
   bool m_inference;
