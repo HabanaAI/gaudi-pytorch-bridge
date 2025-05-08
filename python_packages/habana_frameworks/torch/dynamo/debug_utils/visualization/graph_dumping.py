@@ -145,7 +145,6 @@ def dump_fx_graph(
 
     if last_pass is None and stage != OptimizationPassPlacement.PRE_PLACEMENT:
         return
-
     if last_pass is not None:
         graph_log_name = f"{graph_name} <{stage} after `{last_pass}`>"
         graph_file_name = f"{graph_name}-{stage.value}-{stage.name}-{pass_counter}-{last_pass}"

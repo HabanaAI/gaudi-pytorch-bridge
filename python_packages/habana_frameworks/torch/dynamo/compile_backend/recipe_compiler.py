@@ -189,7 +189,7 @@ class HabanaGraphModule(torch.nn.Module):
 
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
-        self._name = f"{parent_graph_name}_{repr(graph_module)}"[:-2]
+        self._name = parent_graph_name.replace("base", f"{repr(graph_module)}"[:-2])
         self._jit_ir = jit_ir
         self._fx_module = graph_module
         self._in_to_out_dups = graph_module.meta.get("in_to_out_dups", None)
@@ -326,6 +326,7 @@ class HabanaGraphModule(torch.nn.Module):
 
             self._recipe_id = graph_compile(
                 graph=graph,
+                parent_graph_name=self._name,
                 inputs=inputs,
                 is_reusable=is_reusable,
                 dynamic=self._dynamic,
