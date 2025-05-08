@@ -197,6 +197,18 @@ void emitDeviceMemoryDeallocated(void* ptr) {
   PT_TOWL_DEBUG("devmem.free ", ptr);
 }
 
+void emitDeviceMemoryAllocSuccess(void* ptr, std::size_t size, bool is_workspace) {
+  if (not config.log_devmem_buf)
+    return;
+  PT_TOWL_DEBUG("devmem.alloc.success ptr ", ptr, " size ", size, " workspace ", is_workspace);
+}
+
+void emitDeviceMemoryAllocFailed(std::size_t size, bool is_workspace) {
+  if (not config.log_devmem_buf)
+    return;
+  PT_TOWL_DEBUG("devmem.alloc.failed size ", size, " workspace ", is_workspace);
+}
+
 const char* getTensorTypeName(synTensorType tp) {
 #define _N(n) \
   case n:     \

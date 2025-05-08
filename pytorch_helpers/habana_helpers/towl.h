@@ -30,6 +30,8 @@ void emitDeviceMemoryAllocated(
     std::size_t size,
     std::uint64_t stream);
 void emitDeviceMemoryDeallocated(void* ptr);
+void emitDeviceMemoryAllocSuccess(void* ptr, std::size_t size, bool is_workspace);
+void emitDeviceMemoryAllocFailed(std::size_t size, bool is_workspace);
 void emitDeviceMemorySnapshot();
 void emitRecipeLaunch(
     const synapse_helpers::graph::recipe_handle& recipe_handle,
@@ -127,6 +129,16 @@ _MAKE_TOWL_ENTRYPOINT(
     (const std::string& error_info,
       double compile_duration),
     (error_info, compile_duration));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitDeviceMemoryAllocSuccess,
+    (void* ptr, std::size_t size, bool is_workspace),
+    (ptr, size, is_workspace));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitDeviceMemoryAllocFailed,
+    (std::size_t size, bool is_workspace),
+    (size, is_workspace));
 } // namespace
 
 void configure(bool enable, std::string config);

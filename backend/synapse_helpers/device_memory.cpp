@@ -181,6 +181,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
     if ((void*)ptr == nullptr) {
       memory_reporter_event_create(device_, MEM_REPORTER_ALLOC_FAILS);
       PT_DEVMEM_DEBUG("pooling allocator failed, requested size ", size);
+      towl::emitDeviceMemoryAllocFailed(size, is_workspace);
       status = synFail;
     }
     log_synDeviceMemStats(*this);
@@ -190,6 +191,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
         to_hexstring(ptr),
         " aligned size::",
         block_align(size));
+    towl::emitDeviceMemoryAllocSuccess(*v_ptr, size, is_workspace);
   } else {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
@@ -198,9 +200,11 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
           Logger::formatStatusMsg(status),
           "synDeviceMalloc failed, requested size ",
           size);
+      towl::emitDeviceMemoryAllocFailed(size, is_workspace);
     } else {
       *v_ptr = reinterpret_cast<void*>(ptr);
       log_synDeviceMemStats(*this);
+      towl::emitDeviceMemoryAllocSuccess(*v_ptr, size, is_workspace);
     }
   }
 
