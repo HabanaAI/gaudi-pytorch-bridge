@@ -299,6 +299,16 @@ c10::intrusive_ptr<c10d::Work> allgather_into_tensor_coalesced_hpu_(
 }
 #endif
 
+bool supportsCoalescing_([
+    [maybe_unused]] const c10::intrusive_ptr<c10d::ProcessGroup>&
+                             process_group) {
+  return process_group->getBackend(c10::DeviceType::HPU)->supportsCoalescing();
+}
+
+TORCH_LIBRARY_IMPL(c10d, HPU, m) {
+  m.impl("supportsCoalescing", supportsCoalescing_);
+}
+
 void startCoalescing_(
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group) {
   return process_group->getBackend(c10::DeviceType::HPU)->startCoalescing();

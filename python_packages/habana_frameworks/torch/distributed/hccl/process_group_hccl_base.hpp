@@ -139,6 +139,10 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       int srcRank,
       int tag) override;
 
+  bool supportsCoalescing() {
+    return true;
+  }
+
   void startCoalescing() override;
 
   c10::intrusive_ptr<Work> endCoalescing() override;

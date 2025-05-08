@@ -166,6 +166,10 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
 
   void destroy();
 
+  bool supportsCoalescing() {
+    return true;
+  }
+
   void startCoalescing() override;
 
   c10::intrusive_ptr<Work> endCoalescing() override;
