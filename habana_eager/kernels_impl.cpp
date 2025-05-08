@@ -34,7 +34,6 @@
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
-#include "habana_helpers/pt_version_check.h"
 
 using namespace at;
 using namespace habana;
@@ -223,11 +222,7 @@ at::Tensor& hpu_wrap::_index_put_impl_(
 at::Tensor hpu_wrap::bincount(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
-#if IS_PYTORCH_AT_LEAST(2, 8)
-    c10::SymInt minlength) {
-#else
     int64_t minlength) {
-#endif
   PT_EAGER_TRACE;
   PT_OP_INFO("bincount :", DUMP_3ARGS(self, weights, minlength));
   static const std::array<c10::ScalarType, 5> valid_self_types = {
