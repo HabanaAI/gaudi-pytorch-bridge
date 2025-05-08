@@ -14,6 +14,7 @@
  */
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/fp8_ops.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 
 namespace sh = synapse_helpers;
@@ -647,6 +648,7 @@ void OptimizerFusedAdamWOperator::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_adamw",
-    KERNEL_FN(OptimizerFusedAdamWOperator));
+static auto& OptimizerKernelsKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::optimizer_adamw",
+        habana::OptimizerFusedAdamWOperator);

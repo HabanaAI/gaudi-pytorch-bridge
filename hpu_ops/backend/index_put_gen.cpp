@@ -14,6 +14,7 @@
  */
 #include <ATen/core/DimVector.h>
 #include "hpu_ops/backend/nonzero.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/index_put.h"
 #include "hpu_ops/topk_util.h"
 
@@ -1170,14 +1171,17 @@ void IndexPutCompile::AddNode(
 
 } // namespace habana
 
-static const auto& IndexPutKernelRegistry = habana::KernelRegistry().add(
-    "hpu::_index_put_impl_eager",
-    KERNEL_FN_GLOBAL(habana::IndexPutEager));
+static const auto& IndexPutKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::_index_put_impl_eager",
+        habana::IndexPutEager);
 
-static const auto& IndexPutboolKernelRegistry = habana::KernelRegistry().add(
-    "hpu::_index_put_impl_bool_eager",
-    KERNEL_FN_GLOBAL(habana::IndexPutBoolEager));
+static const auto& IndexPutboolKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::_index_put_impl_bool_eager",
+        habana::IndexPutBoolEager);
 
-static const auto& IndexPutAtenKernelRegistry = habana::KernelRegistry().add(
-    "aten::index_put.hacked_twin",
-    KERNEL_FN_GLOBAL(habana::IndexPutCompile));
+static const auto& IndexPutAtenKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "aten::index_put.hacked_twin",
+        habana::IndexPutCompile);

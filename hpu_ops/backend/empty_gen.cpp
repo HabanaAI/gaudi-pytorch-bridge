@@ -185,7 +185,7 @@ void EmptyBackendDs::AddNode(
 
 static const auto& EmptyKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::empty_like", KERNEL_FN_GLOBAL(habana::EmptyLike))
-        .add("aten::empty.memory_format", KERNEL_FN_GLOBAL(habana::Empty))
-        .add("aten::empty_strided", KERNEL_FN_GLOBAL(habana::EmptyStrided))
-        .add("hpu::empty_ds", KERNEL_FN_GLOBAL(habana::EmptyBackendDs));
+        .REGISTER_HPU_BACKEND("aten::empty_like", habana::EmptyLike)
+        .REGISTER_HPU_BACKEND("aten::empty.memory_format", habana::Empty)
+        .REGISTER_HPU_BACKEND("aten::empty_strided", habana::EmptyStrided)
+        .REGISTER_HPU_BACKEND("hpu::empty_ds", habana::EmptyBackendDs);

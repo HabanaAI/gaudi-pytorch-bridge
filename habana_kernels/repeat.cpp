@@ -25,6 +25,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -385,6 +386,8 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
 
 static auto& RepeatKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator))
-        .add("hpu::repeat_inlv_ht", KERNEL_FN(RepeatInlvOperatorHT))
-        .add("hpu::repeat_ht", KERNEL_FN(RepeatOperatorHT));
+        .REGISTER_HPU_BACKEND("hpu::repeat_inlv", habana::RepeatInlvOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::repeat_inlv_ht",
+            habana::RepeatInlvOperatorHT)
+        .REGISTER_HPU_BACKEND("hpu::repeat_ht", habana::RepeatOperatorHT);

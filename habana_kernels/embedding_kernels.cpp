@@ -33,6 +33,7 @@
 #include "habana_kernels/topk_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -332,9 +333,11 @@ void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
 
 static auto& EmbeddingKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::constant_pad_nd_lazy", KERNEL_FN(PadOperator))
-        .add("hpu::constant_pad_nd_ht", KERNEL_FN(PadOperatorHT))
-        .add("hpu::embedding_bag_sum", KERNEL_FN(EmbeddingBagSumOperator))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd_lazy", habana::PadOperator)
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd_ht", habana::PadOperatorHT)
+        .REGISTER_HPU_BACKEND(
+            "hpu::embedding_bag_sum",
+            habana::EmbeddingBagSumOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::embedding_bag_sum_bwd_out",
-            KERNEL_FN(EmbeddingBagSumBwdKernelModeOperator));
+            habana::EmbeddingBagSumBwdKernelModeOperator);

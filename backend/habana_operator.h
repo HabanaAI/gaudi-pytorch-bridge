@@ -70,28 +70,6 @@ const std::string NO_TPC = "[NoTPCKernel]";
     out.unsafeGetTensorImpl()->set_sizes_and_strides(  \
         at::IntArrayRef{}, at::IntArrayRef{});         \
   }
-
-#define KERNEL_FN_DROP_ARG2(className)                     \
-  [](const int device_id, c10::ScalarType node_type) {     \
-    static_cast<void>(node_type);                          \
-    return std::make_shared<habana::className>(device_id); \
-  }
-
-#define KERNEL_FN(className)                                          \
-  [](const int device_id, c10::ScalarType node_type) {                \
-    return std::make_shared<habana::className>(device_id, node_type); \
-  }
-
-#define KERNEL_FN_ARG(className, arg)                                      \
-  [](const int device_id, c10::ScalarType node_type) {                     \
-    return std::make_shared<habana::className>(device_id, node_type, arg); \
-  }
-
-#define KERNEL_FN_GLOBAL(className)                           \
-  [](const int device_id, c10::ScalarType node_type) {        \
-    return std::make_shared<className>(device_id, node_type); \
-  }
-
 namespace habana {
 
 class HabanaOperator;

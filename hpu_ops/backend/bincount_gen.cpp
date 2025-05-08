@@ -67,6 +67,7 @@ void BinCount::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 } // namespace habana
 
-static const auto& BinCountKernelRegistry = habana::KernelRegistry().add(
-    "hpu::bincount_backend",
-    KERNEL_FN_GLOBAL(habana::BinCount));
+static const auto& BinCountKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::bincount_backend",
+        habana::BinCount);

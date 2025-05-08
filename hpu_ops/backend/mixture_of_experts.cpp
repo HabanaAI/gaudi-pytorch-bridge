@@ -17,6 +17,7 @@
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "hpu_ops/custom_op_outshape.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/mixture_of_experts.h"
 
 namespace sh = synapse_helpers;
@@ -218,6 +219,11 @@ MixtureOfExperts::MixtureOfExperts(
           {},
           false),
       measurement_mode(measurement_mode) {}
+
+MixtureOfExpertsMeasurementMode::MixtureOfExpertsMeasurementMode(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : MixtureOfExperts(device_id, scalar_type, true){};
 
 static const std::map<std::string_view, MoeActivationMode_t> activationModeMap =
     {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
@@ -429,6 +435,16 @@ MixtureOfExpertsFwd::MixtureOfExpertsFwd(
     SetOutputMetaFn(MixtureOfExpertsFwdMeta);
   }
 }
+
+MixtureOfExpertsFwdNoRecomp::MixtureOfExpertsFwdNoRecomp(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : MixtureOfExpertsFwd(device_id, scalar_type, false){};
+
+MixtureOfExpertsFwdRecomp::MixtureOfExpertsFwdRecomp(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : MixtureOfExpertsFwd(device_id, scalar_type, true){};
 
 void MixtureOfExpertsFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool fused_weights = !stack.at(5).isTensorList();
@@ -761,37 +777,39 @@ void MixtureOfExpertsRecompBwd::AddNode(
 
 static const auto& MixtureOfExpertsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::mixture_of_experts", KERNEL_FN_ARG(MixtureOfExperts, false))
-        .add(
+        .REGISTER_HPU_BACKEND(
+            "hpu::mixture_of_experts",
+            habana::MixtureOfExperts)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_fwd",
-            KERNEL_FN_ARG(MixtureOfExpertsFwd, false))
-        .add(
+            habana::MixtureOfExpertsFwdNoRecomp)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_recomp_fwd",
-            KERNEL_FN_ARG(MixtureOfExpertsFwd, true))
-        .add(
+            habana::MixtureOfExpertsFwdRecomp)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_fwd.fused_weights",
-            KERNEL_FN_ARG(MixtureOfExpertsFwd, false))
-        .add(
+            habana::MixtureOfExpertsFwdNoRecomp)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_recomp_fwd.fused_weights",
-            KERNEL_FN_ARG(MixtureOfExpertsFwd, true))
-        .add(
+            habana::MixtureOfExpertsFwdRecomp)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_bwd",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsBwd))
-        .add(
+            habana::MixtureOfExpertsBwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_bwd.fused_weights",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsBwd))
-        .add(
+            habana::MixtureOfExpertsBwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_recomp_bwd",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsRecompBwd))
-        .add(
+            habana::MixtureOfExpertsRecompBwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_recomp_bwd.fused_weights",
-            KERNEL_FN_GLOBAL(habana::MixtureOfExpertsRecompBwd))
-        .add(
+            habana::MixtureOfExpertsRecompBwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts.fused_weights",
-            KERNEL_FN_ARG(MixtureOfExperts, false))
-        .add(
+            habana::MixtureOfExperts)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_fp8_measurement",
-            KERNEL_FN_ARG(MixtureOfExperts, true))
-        .add(
+            habana::MixtureOfExpertsMeasurementMode)
+        .REGISTER_HPU_BACKEND(
             "hpu::mixture_of_experts_fp8_measurement.fused_weights",
-            KERNEL_FN_ARG(MixtureOfExperts, true));
+            habana::MixtureOfExpertsMeasurementMode);

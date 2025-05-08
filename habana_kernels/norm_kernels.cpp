@@ -1014,12 +1014,16 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
 
 static auto& NormKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::native_batch_norm_training",
-            KERNEL_FN(BatchNormForwardOperator))
-        .add("hpu::native_batch_norm_inf", KERNEL_FN(BatchNormInfOperator))
-        .add(
+            habana::BatchNormForwardOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::native_batch_norm_inf",
+            habana::BatchNormInfOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::native_batch_norm_backward",
-            KERNEL_FN(BatchNormBackwardOperator))
-        .add("hpu::fused_norm_", KERNEL_FN(FusedNormOperator))
-        .add("hpu::fused_norm_lazy", KERNEL_FN(FusedNormLazyOperator));
+            habana::BatchNormBackwardOperator)
+        .REGISTER_HPU_BACKEND("hpu::fused_norm_", habana::FusedNormOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::fused_norm_lazy",
+            habana::FusedNormLazyOperator);

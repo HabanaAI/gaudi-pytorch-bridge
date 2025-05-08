@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/roi_align.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -202,7 +203,7 @@ void RoiAlignBackward::AddNode(
 
 static const auto& RoiAlignKernelRegistry =
     habana::KernelRegistry()
-        .add("torchvision::roi_align", KERNEL_FN_GLOBAL(habana::RoiAlign))
-        .add(
+        .REGISTER_HPU_BACKEND("torchvision::roi_align", habana::RoiAlign)
+        .REGISTER_HPU_BACKEND(
             "torchvision::_roi_align_backward",
-            KERNEL_FN_GLOBAL(habana::RoiAlignBackward));
+            habana::RoiAlignBackward);

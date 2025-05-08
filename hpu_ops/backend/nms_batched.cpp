@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/nms_batched.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace sh = synapse_helpers;
 
@@ -121,6 +122,7 @@ void NmsBatched::AddNode(
 
 } // namespace habana
 
-static const auto& NmsBatchedKernelRegistry = habana::KernelRegistry().add(
-    "hpu::batched_nms_eager",
-    KERNEL_FN_GLOBAL(habana::NmsBatched));
+static const auto& NmsBatchedKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::batched_nms_eager",
+        habana::NmsBatched);

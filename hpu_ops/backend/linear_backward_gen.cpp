@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/linear_backward.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/linear_backward.h"
 #include "hpu_ops/op_backend.h"
 
@@ -96,7 +97,7 @@ LinearBackward::LinearBackward(int device_id, c10::ScalarType scalar_type)
 // are overriden in eager and torch.compile.
 static const auto& LinearBackwardKernelRegistry =
     GET_ENV_FLAG_NEW(PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER)
-    ? habana::KernelRegistry().add(
+    ? habana::KernelRegistry().REGISTER_HPU_BACKEND(
           "hpu::linear_backward",
-          KERNEL_FN_GLOBAL(habana::LinearBackward))
+          habana::LinearBackward)
     : habana::KernelRegistry();

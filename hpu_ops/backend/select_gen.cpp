@@ -14,6 +14,7 @@
  */
 
 #include "generated/backend/select.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace {
 
@@ -145,4 +146,6 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 } // namespace habana
 
 static auto& SelectKernelRegistry =
-    habana::KernelRegistry().add("aten::select.int", KERNEL_FN(SelectHpu));
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "aten::select.int",
+        habana::SelectHpu);

@@ -1941,63 +1941,59 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
 
 static auto& BasicKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::habana_d2d_memcpy_other", KERNEL_FN_GLOBAL(MemCopyOperator))
-        .add("hpu::control_edge_", KERNEL_FN_GLOBAL(DummyOperator))
-        .add("hpu::as_strided_lazy_", KERNEL_FN_GLOBAL(AsStridedOperator))
-        .add("hpu::strided_view", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_cl", KERNEL_FN_GLOBAL(StridedViewClOperator))
-        .add("hpu::strided_view_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_ds_h2d", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_cl_ds", KERNEL_FN_GLOBAL(StridedViewClOperator))
-        .add("hpu::strided_view_out", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_orig_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::habana_d2d_memcpy_other", MemCopyOperator)
+        .REGISTER_HPU_BACKEND("hpu::control_edge_", DummyOperator)
+        .REGISTER_HPU_BACKEND("hpu::as_strided_lazy_", AsStridedOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_cl", StridedViewClOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_ds", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_ds_h2d", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_cl_ds", StridedViewClOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_out", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_orig_ds", StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_orig_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_out_orig_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::strided_view_out_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_view_out_ds", StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_out_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_view_out_orig_ds",
-            KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("hpu::slice_insert", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::slice_insert_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::slice_insert_ds_ht", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::slice_scatter_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
-        .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add(
+            StridedViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_insert", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_insert_ds", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_insert_ds_ht", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_scatter_ds", SliceInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_insert", StridedInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_insert_ds", StridedInsertOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_insert_orig_ds",
-            KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add(
+            StridedInsertOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_insert_orig_ds_h2d",
-            KERNEL_FN_GLOBAL(StridedInsertOperator))
-        .add(
-            "hpu::strided_insert_cl",
-            KERNEL_FN_GLOBAL(StridedInsertClOperator))
-        .add(
+            StridedInsertOperator)
+        .REGISTER_HPU_BACKEND("hpu::strided_insert_cl", StridedInsertClOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::strided_insert_cl_ds",
-            KERNEL_FN_GLOBAL(StridedInsertClOperator))
-        .add(
-            "hpu::as_strided_layout",
-            KERNEL_FN_GLOBAL(AsStridedLayoutOperator))
-        .add("hpu::identity", KERNEL_FN_GLOBAL(IdentityOperator))
-        .add("aten::alias", KERNEL_FN_GLOBAL(IdentityOperator))
-        .add("aten::as_strided", KERNEL_FN_GLOBAL(StridedViewOperator))
-        .add("aten::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperator))
-        .add("hpu::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperatorDSUtil))
-        .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
-        .add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
-        .add(
+            StridedInsertClOperator)
+        .REGISTER_HPU_BACKEND("hpu::as_strided_layout", AsStridedLayoutOperator)
+        .REGISTER_HPU_BACKEND("hpu::identity", IdentityOperator)
+        .REGISTER_HPU_BACKEND("aten::alias", IdentityOperator)
+        .REGISTER_HPU_BACKEND("aten::as_strided", StridedViewOperator)
+        .REGISTER_HPU_BACKEND("aten::slice_scatter", SliceScatterOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_scatter", SliceScatterOperatorDSUtil)
+        .REGISTER_HPU_BACKEND("aten::select_scatter", SelectScatterOperator)
+        .REGISTER_HPU_BACKEND("hpu::select_scatter", SelectScatterOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::as_strided_scatter",
-            KERNEL_FN_GLOBAL(AsStridedScatterOperator))
-        .add(
+            AsStridedScatterOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::as_strided_scatter_orig",
-            KERNEL_FN_GLOBAL(AsStridedScatterOperator))
-        .add(
+            AsStridedScatterOperator)
+        .REGISTER_HPU_BACKEND(
             "aten::as_strided_scatter",
-            KERNEL_FN_GLOBAL(AsStridedScatterOperator));
+            AsStridedScatterOperator);

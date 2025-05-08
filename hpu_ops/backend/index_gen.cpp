@@ -20,6 +20,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/backend/arange.h"
 #include "hpu_ops/common/index.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/indexing_ops_helper.h"
 
 namespace habana {
@@ -863,6 +864,7 @@ void SimpleIndexCompileOperator::AddNode(
 
 } // namespace habana
 
-static const auto& IndexAtenKernelRegistry = habana::KernelRegistry().add(
-    "aten::index.Tensor_hacked_twin",
-    KERNEL_FN_GLOBAL(habana::SimpleIndexCompileOperator));
+static const auto& IndexAtenKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "aten::index.Tensor_hacked_twin",
+        habana::SimpleIndexCompileOperator);

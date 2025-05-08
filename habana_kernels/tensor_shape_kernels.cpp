@@ -32,6 +32,7 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -718,17 +719,17 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
 
 static const auto& TensorShapeKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
-        .add("hpu::permute_cl", KERNEL_FN_GLOBAL(PermuteCLOperator))
-        .add("hpu::permute_weight", KERNEL_FN_GLOBAL(PermuteOperator))
-        .add("hpu::permuted_weight_restride", KERNEL_FN_GLOBAL(PermuteOperator))
-        .add("aten::t", KERNEL_FN_GLOBAL(TOperator))
-        .add("aten::transpose.int", KERNEL_FN_GLOBAL(TransposeOperator))
-        .add("aten::reshape", KERNEL_FN_GLOBAL(ReshapeOperator))
-        .add("hpu::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
-        .add("hpu::expand_ds", KERNEL_FN_GLOBAL(BroadcastOperator))
-        .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("hpu::view_neg", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("hpu::reshape", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("aten::_unsafe_view", KERNEL_FN_GLOBAL(ViewOperator));
+        .REGISTER_HPU_BACKEND("aten::permute", PermuteOperator)
+        .REGISTER_HPU_BACKEND("hpu::permute_cl", PermuteCLOperator)
+        .REGISTER_HPU_BACKEND("hpu::permute_weight", PermuteOperator)
+        .REGISTER_HPU_BACKEND("hpu::permuted_weight_restride", PermuteOperator)
+        .REGISTER_HPU_BACKEND("aten::t", TOperator)
+        .REGISTER_HPU_BACKEND("aten::transpose.int", TransposeOperator)
+        .REGISTER_HPU_BACKEND("aten::reshape", ReshapeOperator)
+        .REGISTER_HPU_BACKEND("hpu::expand", BroadcastOperator)
+        .REGISTER_HPU_BACKEND("hpu::expand_ds", BroadcastOperator)
+        .REGISTER_HPU_BACKEND("aten::view", ViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::view", ViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::view_neg", ViewOperator)
+        .REGISTER_HPU_BACKEND("hpu::reshape", ViewOperator)
+        .REGISTER_HPU_BACKEND("aten::_unsafe_view", ViewOperator);

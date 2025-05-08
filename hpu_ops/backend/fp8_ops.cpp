@@ -924,6 +924,7 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 } // namespace habana
 
-static const auto& CastKernelRegistry = habana::KernelRegistry().add(
-    "hpu::in_place_interleave",
-    KERNEL_FN_GLOBAL(habana::InPlaceInterleave));
+static const auto& CastKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::in_place_interleave",
+        habana::InPlaceInterleave);

@@ -26,6 +26,7 @@
 #include "habana_kernels/unary_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "hpu_ops/backend/reduction_template.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -1032,23 +1033,27 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
 static auto& OptimizerKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerSparseSgd",
-            KERNEL_FN(OptimizerSparseSgdOperator))
-        .add(
+            habana::OptimizerSparseSgdOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerSparseAdagrad",
-            KERNEL_FN(OptimizerSparseAdagradOperator))
-        .add("hpu::habanaOptimizerAdamW", KERNEL_FN(OptimizerAdamwOperator))
-        .add(
+            habana::OptimizerSparseAdagradOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::habanaOptimizerAdamW",
+            habana::OptimizerAdamwOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerFusedAdagrad",
-            KERNEL_FN(OptimizerFusedAdagradOperator))
-        .add("hpu::habanaOptimizerSgd", KERNEL_FN(OptimizerFusedSGDOperator))
-        .add(
+            habana::OptimizerFusedAdagradOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::habanaOptimizerSgd",
+            habana::OptimizerFusedSGDOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerSgdMomentum",
-            KERNEL_FN(OptimizerFusedSGDMomentumOperator))
-        .add(
+            habana::OptimizerFusedSGDMomentumOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerLars",
-            KERNEL_FN(OptimizerFusedLarsOperatorLazy))
-        .add(
+            habana::OptimizerFusedLarsOperatorLazy)
+        .REGISTER_HPU_BACKEND(
             "hpu::habanaOptimizerFusedEMA",
-            KERNEL_FN(OptimizerFusedEMAOperator));
+            habana::OptimizerFusedEMAOperator);

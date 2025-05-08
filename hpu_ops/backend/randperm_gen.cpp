@@ -18,6 +18,7 @@
 #include "hpu_ops/backend/arange.h"
 #include "hpu_ops/common/arange_gen.h"
 #include "hpu_ops/habana_random_ops.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 synapse_helpers::tensor RandPermCommon(
@@ -344,6 +345,6 @@ HabanaRandPermDS::HabanaRandPermDS(int device_id, c10::ScalarType scalar_type)
 static const auto& HabanaRandomKernelRegistry =
     habana::KernelRegistry()
         .REGISTER_RANDOM_CHECKPOINT_OP(randperm, RandPerm)
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_randperm_ht",
-            KERNEL_FN_GLOBAL(habana::HabanaRandPermDS));
+            habana::HabanaRandPermDS);

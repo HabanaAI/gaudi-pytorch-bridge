@@ -14,6 +14,7 @@
  */
 
 #include "backend/habana_operator.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/repeat_interleave.h"
 
 namespace habana {
@@ -97,6 +98,6 @@ void RepeatInterleave::AddNode(
 } // namespace habana
 
 static const auto& HabanaRepeatInterleaveKernelRegistry =
-    habana::KernelRegistry().add(
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
         "aten::repeat_interleave.Tensor",
-        KERNEL_FN_GLOBAL(habana::RepeatInterleave));
+        habana::RepeatInterleave);

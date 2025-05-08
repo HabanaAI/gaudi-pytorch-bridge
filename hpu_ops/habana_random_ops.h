@@ -78,14 +78,14 @@
   DEFINE_RANDOM_CHECKPOINT_BASE_OP(op)    \
   DEFINE_RANDOM_CHECKPOINT_BACKWARD_OP(op)
 
-#define REGISTER_RANDOM_CHECKPOINT_OP(name, Name)                   \
-  add("hpu::habana_" #name, KERNEL_FN_GLOBAL(habana::Habana##Name)) \
-      .add(                                                         \
-          "hpu::habana_" #name "_checkpoint",                       \
-          KERNEL_FN_GLOBAL(habana::Habana##Name##Checkpoint))       \
-      .add(                                                         \
-          "hpu::habana_" #name "_checkpoint_backward",              \
-          KERNEL_FN_GLOBAL(habana::Habana##Name##CheckpointBwd))
+#define REGISTER_RANDOM_CHECKPOINT_OP(name, Name)                  \
+  REGISTER_HPU_BACKEND("hpu::habana_" #name, habana::Habana##Name) \
+      .REGISTER_HPU_BACKEND(                                       \
+          "hpu::habana_" #name "_checkpoint",                      \
+          habana::Habana##Name##Checkpoint)                        \
+      .REGISTER_HPU_BACKEND(                                       \
+          "hpu::habana_" #name "_checkpoint_backward",             \
+          habana::Habana##Name##CheckpointBwd)
 
 namespace habana {
 

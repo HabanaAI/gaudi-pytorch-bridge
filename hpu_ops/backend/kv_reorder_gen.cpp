@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/kv_reorder.h"
 
 namespace habana {
@@ -69,4 +70,6 @@ void KvReorderCommon::AddNode(
 } // namespace habana
 
 static auto& KvReorderKernelRegistry =
-    habana::KernelRegistry().add("hpu::kv_reorder", KERNEL_FN(KvReorder));
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::kv_reorder",
+        habana::KvReorder);

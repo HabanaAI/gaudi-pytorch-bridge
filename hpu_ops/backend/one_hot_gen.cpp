@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/one_hot.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace {
 constexpr int64_t DEFAULT_NUM_OF_CLASSES = -1;
@@ -59,6 +60,7 @@ struct OneHot : OpBackend {
 
 } // namespace habana
 
-static const auto& OneHotKernelRegistry = habana::KernelRegistry().add(
-    "hpu::one_hot",
-    KERNEL_FN_GLOBAL(habana::OneHot));
+static const auto& OneHotKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::one_hot",
+        habana::OneHot);

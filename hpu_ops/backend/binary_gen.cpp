@@ -611,6 +611,7 @@ OutputMetaDataVector MulMeta(const at::Stack& stack) {
 
 } // namespace habana
 
-static const auto& ForeachKernelRegistry = habana::KernelRegistry().add(
-    "hpu::custom_foreach_add_",
-    KERNEL_FN_GLOBAL(habana::CustomForeachAdd));
+static const auto& ForeachKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::custom_foreach_add_",
+        habana::CustomForeachAdd);

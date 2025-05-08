@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/unique2.h"
 
 namespace habana {
@@ -93,6 +94,7 @@ void Unique2Eager::AddNode(
 }
 } // namespace habana
 
-static const auto& UniqueKernelRegistry = habana::KernelRegistry().add(
-    "hpu::_unique2_eager",
-    KERNEL_FN_GLOBAL(habana::Unique2Eager));
+static const auto& UniqueKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::_unique2_eager",
+        habana::Unique2Eager);

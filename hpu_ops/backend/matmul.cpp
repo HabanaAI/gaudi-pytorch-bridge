@@ -16,6 +16,7 @@
 #include "hpu_ops/matmul.h"
 #include "backend/helpers/runtime_config.h"
 #include "hpu_ops/common/batched_matmul_output_shape.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace sh = synapse_helpers;
 
@@ -248,6 +249,6 @@ MatmulBwd::MatmulBwd(int device_id, c10::ScalarType scalar_type)
 static const auto& MatmulKernelRegistry =
     GET_ENV_FLAG_NEW(PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER)
     ? habana::KernelRegistry()
-          .add("hpu::matmul", KERNEL_FN_GLOBAL(habana::Matmul))
-          .add("hpu::matmul_bwd", KERNEL_FN_GLOBAL(habana::MatmulBwd))
+          .REGISTER_HPU_BACKEND("hpu::matmul", habana::Matmul)
+          .REGISTER_HPU_BACKEND("hpu::matmul_bwd", habana::MatmulBwd)
     : habana::KernelRegistry();

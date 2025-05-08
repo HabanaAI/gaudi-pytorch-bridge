@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/habana_random_ops.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -487,9 +488,9 @@ static const auto& HabanaRandomKernelRegistry =
         .REGISTER_RANDOM_CHECKPOINT_OP(randn, Randn)
         .REGISTER_RANDOM_CHECKPOINT_OP(randint, Randint)
         .REGISTER_RANDOM_CHECKPOINT_OP(uniform, Uniform)
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_seed_generator",
-            KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator))
-        .add("hpu::habana_rand_st", KERNEL_FN_GLOBAL(habana::HabanaRand))
-        .add("hpu::habana_randn_st", KERNEL_FN_GLOBAL(habana::HabanaRandn))
-        .add("hpu::habana_randint_st", KERNEL_FN_GLOBAL(habana::HabanaRandint));
+            habana::HabanaSeedGenerator)
+        .REGISTER_HPU_BACKEND("hpu::habana_rand_st", habana::HabanaRand)
+        .REGISTER_HPU_BACKEND("hpu::habana_randn_st", habana::HabanaRandn)
+        .REGISTER_HPU_BACKEND("hpu::habana_randint_st", habana::HabanaRandint);

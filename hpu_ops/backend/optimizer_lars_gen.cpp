@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/stack_getter.h"
 #include "perf_lib_layer_params.h"
 
@@ -333,6 +334,7 @@ void OptimizerFusedLarsOperator::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_lars",
-    KERNEL_FN(OptimizerFusedLarsOperator));
+static auto& OptimizerKernelsKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::optimizer_lars",
+        habana::OptimizerFusedLarsOperator);

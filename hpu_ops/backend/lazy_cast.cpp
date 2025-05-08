@@ -15,6 +15,7 @@
 
 #include "hpu_ops/lazy_cast.h"
 #include "backend/helpers/cast_sequence.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -217,9 +218,9 @@ void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::copy", KERNEL_FN_GLOBAL(habana::Copy<false>))
-        .add("aten::copy_", KERNEL_FN_GLOBAL(habana::Copy<true>))
-        .add("aten::_to_copy", KERNEL_FN_GLOBAL(habana::ToCopy))
-        .add("hpu::_copy_from", KERNEL_FN_GLOBAL(habana::CopyFrom))
-        .add("hpu::cast", KERNEL_FN_GLOBAL(habana::LazyCast))
-        .add("hpu::habana_cast_sr_mode", KERNEL_FN_GLOBAL(habana::LazyCast));
+        .REGISTER_HPU_BACKEND("aten::copy", habana::Copy<false>)
+        .REGISTER_HPU_BACKEND("aten::copy_", habana::Copy<true>)
+        .REGISTER_HPU_BACKEND("aten::_to_copy", habana::ToCopy)
+        .REGISTER_HPU_BACKEND("hpu::_copy_from", habana::CopyFrom)
+        .REGISTER_HPU_BACKEND("hpu::cast", habana::LazyCast)
+        .REGISTER_HPU_BACKEND("hpu::habana_cast_sr_mode", habana::LazyCast);

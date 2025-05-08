@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/linear.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/linear.h"
 #include "hpu_ops/op_backend.h"
 
@@ -71,7 +72,7 @@ Linear::Linear(int device_id, c10::ScalarType scalar_type)
 // are overriden in eager and torch.compile.
 static const auto& LinearKernelRegistry =
     GET_ENV_FLAG_NEW(PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER)
-    ? habana::KernelRegistry().add(
+    ? habana::KernelRegistry().REGISTER_HPU_BACKEND(
           "hpu::linear",
-          KERNEL_FN_GLOBAL(habana::Linear))
+          habana::Linear)
     : habana::KernelRegistry();

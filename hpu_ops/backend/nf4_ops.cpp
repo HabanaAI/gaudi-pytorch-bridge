@@ -14,6 +14,7 @@
  */
 
 #include "hpu_ops/nf4_ops.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace sh = synapse_helpers;
 
@@ -87,6 +88,7 @@ DequantizeNF4::DequantizeNF4(int device_id, c10::ScalarType scalar_type)
 
 } // namespace habana
 
-static const auto& CastKernelRegistry = habana::KernelRegistry().add(
-    "hpu::dequantize_nf4",
-    KERNEL_FN_GLOBAL(habana::DequantizeNF4));
+static const auto& CastKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::dequantize_nf4",
+        habana::DequantizeNF4);

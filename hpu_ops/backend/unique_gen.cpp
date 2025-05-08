@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/unique.h"
-
 namespace habana {
 
 UniqueEager::UniqueEager(int device_id, c10::ScalarType scalar_type)
@@ -81,6 +81,7 @@ void UniqueEager::AddNode(
 }
 } // namespace habana
 
-static const auto& UniqueKernelRegistry = habana::KernelRegistry().add(
-    "hpu::_unique_eager",
-    KERNEL_FN_GLOBAL(habana::UniqueEager));
+static const auto& UniqueKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::_unique_eager",
+        habana::UniqueEager);

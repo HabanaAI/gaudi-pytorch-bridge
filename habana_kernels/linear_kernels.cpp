@@ -902,8 +902,8 @@ void habana::MatMulBwdOperator::AllocateAndAddSynapseNode(
 
 static auto& LinearKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::mm_t", habana::MMOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::matmul_backward",
-            KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
-        .add("aten::matmul", KERNEL_FN_DROP_ARG2(MatMulOperator));
+            habana::MatmulBackwardOperator)
+        .REGISTER_HPU_BACKEND("aten::matmul", habana::MatMulOperator);

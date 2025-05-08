@@ -14,6 +14,7 @@
  */
 
 #include "habana_helpers/logging.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/instance_norm.h"
 
 namespace habana {
@@ -129,6 +130,6 @@ void InstanceNorm::AddNode(
 } // namespace habana
 
 static const auto& InstanceNormForwardKernelRegistry =
-    habana::KernelRegistry().add(
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
         "hpu::instance_norm",
-        KERNEL_FN_GLOBAL(habana::InstanceNorm));
+        habana::InstanceNorm);

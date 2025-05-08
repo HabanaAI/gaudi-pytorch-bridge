@@ -3020,21 +3020,23 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
 
 static auto& IndexKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::scatter_add", KERNEL_FN(ScatterAddOperator))
-        .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))
-        .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))
-        .add("aten::index_put", KERNEL_FN(IndexPutOperator))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::scatter_add", habana::ScatterAddOperator)
+        .REGISTER_HPU_BACKEND("hpu::scatter_nd", habana::ScatterNdOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::scatter_nd_onnx",
+            habana::ScatterNdONNXOperator)
+        .REGISTER_HPU_BACKEND("aten::index_put", habana::IndexPutOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::index_put_normal_and_neg_indices",
-            KERNEL_FN(IndexPutOperator))
-        .add("hpu::index_put", KERNEL_FN(IndexPutOperator2))
-        .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
-        .add("hpu::slice", KERNEL_FN(SliceOperator))
-        .add("hpu::slice_ds", KERNEL_FN(SliceOperator))
-        .add("hpu::slice_ht", KERNEL_FN(SliceOperator))
-        .add("hpu::index_add", KERNEL_FN(IndexAddOperator))
-        .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
-        .add("hpu::_unique", KERNEL_FN(Unique_Operator))
-        .add("hpu::unique_dim", KERNEL_FN(UniqueDimOperator))
-        .add("aten::squeeze.dim", KERNEL_FN(SqueezeOperator))
-        .add("aten::unsqueeze", KERNEL_FN(UnsqueezeOperator));
+            habana::IndexPutOperator)
+        .REGISTER_HPU_BACKEND("hpu::index_put", habana::IndexPutOperator2)
+        .REGISTER_HPU_BACKEND("aten::slice.Tensor", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_ds", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::slice_ht", habana::SliceOperator)
+        .REGISTER_HPU_BACKEND("hpu::index_add", habana::IndexAddOperator)
+        .REGISTER_HPU_BACKEND("hpu::_unique2", habana::UniqueOperator)
+        .REGISTER_HPU_BACKEND("hpu::_unique", habana::Unique_Operator)
+        .REGISTER_HPU_BACKEND("hpu::unique_dim", habana::UniqueDimOperator)
+        .REGISTER_HPU_BACKEND("aten::squeeze.dim", habana::SqueezeOperator)
+        .REGISTER_HPU_BACKEND("aten::unsqueeze", habana::UnsqueezeOperator);

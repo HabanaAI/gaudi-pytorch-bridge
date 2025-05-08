@@ -26,18 +26,31 @@ struct MixtureOfExperts : OpBackend {
   MixtureOfExperts(
       int device_id,
       c10::ScalarType scalar_type,
-      bool measurement_mode);
+      bool measurement_mode = false);
   void AddNode(sh::graph&, const at::Stack&) override;
 
  private:
   bool measurement_mode;
 };
+
+struct MixtureOfExpertsMeasurementMode : MixtureOfExperts {
+  MixtureOfExpertsMeasurementMode(int device_id, c10::ScalarType scalar_type);
+};
+
 struct MixtureOfExpertsFwd : OpBackend {
   MixtureOfExpertsFwd(int device_id, c10::ScalarType scalar_type, bool recomp);
   void AddNode(sh::graph&, const at::Stack&) override;
 
  private:
   const bool recomp;
+};
+
+struct MixtureOfExpertsFwdRecomp : MixtureOfExpertsFwd {
+  MixtureOfExpertsFwdRecomp(int device_id, c10::ScalarType scalar_type);
+};
+
+struct MixtureOfExpertsFwdNoRecomp : MixtureOfExpertsFwd {
+  MixtureOfExpertsFwdNoRecomp(int device_id, c10::ScalarType scalar_type);
 };
 
 struct MixtureOfExpertsBwd : OpBackend {

@@ -213,4 +213,6 @@ InferOutputMetaRetType KlDivOperator::InferOutputMeta(
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static auto& LossKernelsKernelRegistry =
-    habana::KernelRegistry().add("aten::kl_div", KERNEL_FN(KlDivOperator));
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "aten::kl_div",
+        habana::KlDivOperator);

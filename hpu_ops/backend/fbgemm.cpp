@@ -32,25 +32,46 @@ LazyPermuteSparseDataCommon::LazyPermuteSparseDataCommon(
           {},
           false) {}
 
-LazyPermute1DSparseData::LazyPermute1DSparseData(
+LazyPermute1DSparseDataWithWeights::LazyPermute1DSparseDataWithWeights(
     int device_id,
-    c10::ScalarType scalar_type,
-    bool hasWeights)
-    : LazyPermuteSparseDataCommon(device_id, scalar_type, true, hasWeights) {}
+    c10::ScalarType scalar_type)
+    : LazyPermuteSparseDataCommon(device_id, scalar_type, true, true) {}
 
-LazyPermute2DSparseData::LazyPermute2DSparseData(
-    int device_id,
-    c10::ScalarType scalar_type,
-    bool hasWeights)
-    : LazyPermuteSparseDataCommon(device_id, scalar_type, false, hasWeights) {}
-
-void LazyPermute1DSparseData::AddNode(
+void LazyPermute1DSparseDataWithWeights::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   LazyPermuteSparseDataCommon::AddLazyPermuteSparseDataNode(graph, stack, true);
 }
 
-void LazyPermute2DSparseData::AddNode(
+LazyPermute1DSparseDataWithoutWeights::LazyPermute1DSparseDataWithoutWeights(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : LazyPermuteSparseDataCommon(device_id, scalar_type, true, false) {}
+
+void LazyPermute1DSparseDataWithoutWeights::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  LazyPermuteSparseDataCommon::AddLazyPermuteSparseDataNode(graph, stack, true);
+}
+
+LazyPermute2DSparseDataWithWeights::LazyPermute2DSparseDataWithWeights(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : LazyPermuteSparseDataCommon(device_id, scalar_type, false, true) {}
+
+void LazyPermute2DSparseDataWithWeights::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  LazyPermuteSparseDataCommon::AddLazyPermuteSparseDataNode(
+      graph, stack, false);
+}
+
+LazyPermute2DSparseDataWithoutWeights::LazyPermute2DSparseDataWithoutWeights(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : LazyPermuteSparseDataCommon(device_id, scalar_type, false, false) {}
+
+void LazyPermute2DSparseDataWithoutWeights::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   LazyPermuteSparseDataCommon::AddLazyPermuteSparseDataNode(
@@ -186,24 +207,24 @@ void LazySplitPermuteCat::AddNode(
 
 static const auto& FBGEMMKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_permute_1D_sparse_data",
-            KERNEL_FN_ARG(LazyPermute1DSparseData, true))
-        .add(
+            habana::LazyPermute1DSparseDataWithWeights)
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_permute_1D_sparse_data_without_weights",
-            KERNEL_FN_ARG(LazyPermute1DSparseData, false))
-        .add(
+            habana::LazyPermute1DSparseDataWithoutWeights)
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_permute_2D_sparse_data",
-            KERNEL_FN_ARG(LazyPermute2DSparseData, true))
-        .add(
+            habana::LazyPermute2DSparseDataWithWeights)
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_permute_2D_sparse_data_without_weights",
-            KERNEL_FN_ARG(LazyPermute2DSparseData, false))
-        .add(
+            habana::LazyPermute2DSparseDataWithoutWeights)
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_expand_into_jagged_permute",
-            KERNEL_FN_GLOBAL(habana::LazyExpandIntoJaggedPermute))
-        .add(
+            habana::LazyExpandIntoJaggedPermute)
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_bounds_check_indices",
-            KERNEL_FN_GLOBAL(habana::LazyBoundsCheckIndices))
-        .add(
+            habana::LazyBoundsCheckIndices)
+        .REGISTER_HPU_BACKEND(
             "hpu::habana_split_permute_cat",
-            KERNEL_FN_GLOBAL(habana::LazySplitPermuteCat));
+            habana::LazySplitPermuteCat);

@@ -14,6 +14,7 @@
  */
 
 #include "habana_helpers/logging.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/instance_norm_backward.h"
 
 namespace habana {
@@ -118,6 +119,6 @@ void InstanceNormBackward::AddNode(
 } // namespace habana
 
 static const auto& InstanceNormBackwardKernelRegistry =
-    habana::KernelRegistry().add(
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
         "hpu::instance_norm_backward",
-        KERNEL_FN_GLOBAL(habana::InstanceNormBackward));
+        habana::InstanceNormBackward);

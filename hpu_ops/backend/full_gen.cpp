@@ -93,9 +93,9 @@ FullOperatorDS::FullOperatorDS(int device_id, c10::ScalarType scalar_type)
 }
 } // namespace habana
 
-static const auto& HabanaFullKernelRegistry = habana::KernelRegistry().add(
-    "aten::full",
-    KERNEL_FN_GLOBAL(habana::FullBE));
-static const auto& FullOpKernelRegistry = habana::KernelRegistry().add(
-    "hpu::full_ds",
-    KERNEL_FN_GLOBAL(habana::FullOperatorDS));
+static const auto& HabanaFullKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND("aten::full", habana::FullBE);
+static const auto& FullOpKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::full_ds",
+        habana::FullOperatorDS);

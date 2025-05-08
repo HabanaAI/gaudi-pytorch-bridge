@@ -214,6 +214,7 @@ void FusedClipNormOp::AddNode(
 
 } // namespace habana
 
-static const auto& FusedClipNormKernelRegistry = habana::KernelRegistry().add(
-    "hpu::fused_clip_norm",
-    KERNEL_FN_GLOBAL(habana::FusedClipNormOp));
+static const auto& FusedClipNormKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::fused_clip_norm",
+        habana::FusedClipNormOp);

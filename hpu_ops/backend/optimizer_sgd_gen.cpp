@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include <perf_lib_layer_params.h>
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/stack_getter.h"
 
 namespace sh = synapse_helpers;
@@ -223,7 +224,9 @@ void OptimizerFusedSGDMomentumOperator::AddNode(
 
 static auto& OptimizerKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::optimizer_sgd", KERNEL_FN(OptimizerFusedSGDOperator))
-        .add(
+        .REGISTER_HPU_BACKEND(
+            "hpu::optimizer_sgd",
+            habana::OptimizerFusedSGDOperator)
+        .REGISTER_HPU_BACKEND(
             "hpu::optimizer_sgd_momentum",
-            KERNEL_FN(OptimizerFusedSGDMomentumOperator));
+            habana::OptimizerFusedSGDMomentumOperator);

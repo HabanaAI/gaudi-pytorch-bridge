@@ -19,6 +19,7 @@
 #include "generated/backend/sdpa_recomp_bwd.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/fp8_utils.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace fp8 = habana::fp8;
 namespace sh = synapse_helpers;
@@ -1175,41 +1176,41 @@ void Fp8SDPARecompBwd::AddNode(
 
 static const auto& SDPAKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::sdpa_fwd_dropout_seed", KERNEL_FN_GLOBAL(habana::SDPAFwd))
-        .add("hpu::sdpa_fwd_non_dropout", KERNEL_FN_GLOBAL(habana::SDPAFwd))
-        .add("hpu::sdpa_fwd", KERNEL_FN_GLOBAL(habana::SDPAFwd))
-        .add("hpu::sdpa_recomp_fwd", KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
-        .add(
+        .REGISTER_HPU_BACKEND("hpu::sdpa_fwd_dropout_seed", habana::SDPAFwd)
+        .REGISTER_HPU_BACKEND("hpu::sdpa_fwd_non_dropout", habana::SDPAFwd)
+        .REGISTER_HPU_BACKEND("hpu::sdpa_fwd", habana::SDPAFwd)
+        .REGISTER_HPU_BACKEND("hpu::sdpa_recomp_fwd", habana::SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::sdpa_recomp_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
-        .add(
+            habana::SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::sdpa_recomp_fwd_dropout_seed",
-            KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
-        .add("hpu::fp8_sdpa_fwd", KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
+            habana::SDPARecompFwd)
+        .REGISTER_HPU_BACKEND("hpu::fp8_sdpa_fwd", habana::Fp8SDPAFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_fwd_dropout_seed",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
+            habana::Fp8SDPAFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
+            habana::Fp8SDPAFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_dropout_seed",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd.scalar",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
+            habana::Fp8SDPARecompFwd)
+        .REGISTER_HPU_BACKEND(
             "hpu::fp8_sdpa_recomp_bwd",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompBwd));
+            habana::Fp8SDPARecompBwd);

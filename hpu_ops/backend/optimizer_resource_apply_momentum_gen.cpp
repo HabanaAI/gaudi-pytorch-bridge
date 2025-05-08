@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/stack_getter.h"
 
 namespace sh = synapse_helpers;
@@ -133,6 +134,7 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_resource_apply_momentum",
-    KERNEL_FN(OptimizerFusedResourceApplyMomentumOperator));
+static auto& OptimizerKernelsKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::optimizer_resource_apply_momentum",
+        habana::OptimizerFusedResourceApplyMomentumOperator);

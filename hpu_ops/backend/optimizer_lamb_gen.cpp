@@ -15,6 +15,7 @@
 
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "backend/create_pt_tensor.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -842,12 +843,12 @@ void OptimizerLambPhase2::AddNode(
 
 static const auto& LambKernelRegistry =
     habana::KernelRegistry()
-        .add(
+        .REGISTER_HPU_BACKEND(
             "hpu::optimizer_lamb_fused_norm",
-            KERNEL_FN_GLOBAL(habana::OptimizerLambNorm))
-        .add(
+            habana::OptimizerLambNorm)
+        .REGISTER_HPU_BACKEND(
             "hpu::optimizer_lamb_phase1",
-            KERNEL_FN_GLOBAL(habana::OptimizerLambPhase1))
-        .add(
+            habana::OptimizerLambPhase1)
+        .REGISTER_HPU_BACKEND(
             "hpu::optimizer_lamb_phase2",
-            KERNEL_FN_GLOBAL(habana::OptimizerLambPhase2));
+            habana::OptimizerLambPhase2);

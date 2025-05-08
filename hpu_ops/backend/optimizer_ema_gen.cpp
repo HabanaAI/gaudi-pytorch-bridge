@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 #include "hpu_ops/stack_getter.h"
 #include "perf_lib_layer_params.h"
@@ -143,6 +144,7 @@ void OptimizerFusedEmaOperator::AddNode(
 
 } // namespace habana
 
-static auto& OptimizerKernelsKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_ema",
-    KERNEL_FN(OptimizerFusedEmaOperator));
+static auto& OptimizerKernelsKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::optimizer_ema",
+        habana::OptimizerFusedEmaOperator);

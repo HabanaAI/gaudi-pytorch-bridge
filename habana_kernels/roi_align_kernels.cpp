@@ -23,6 +23,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/roi_align_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace habana;
 
@@ -312,5 +313,7 @@ void QuadTreeFwdImplOperator::AllocateAndAddSynapseNode(
 
 static auto& RoiAlignKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::roi_align_fwd", KERNEL_FN(RoiAlignFwdOperator))
-        .add("hpu::roi_align_bwd", KERNEL_FN(RoiAlignBwdOperator));
+        .REGISTER_HPU_BACKEND("hpu::roi_align_fwd", habana::RoiAlignFwdOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::roi_align_bwd",
+            habana::RoiAlignBwdOperator);

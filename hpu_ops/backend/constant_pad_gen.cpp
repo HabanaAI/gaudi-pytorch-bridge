@@ -268,7 +268,5 @@ void ConstantPadDS::AddNode(
 
 static const auto& HabanaRandomKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::constant_pad_nd", KERNEL_FN_GLOBAL(habana::ConstantPadDS))
-        .add(
-            "hpu::constant_pad_nd_ds",
-            KERNEL_FN_GLOBAL(habana::ConstantPadDS));
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd", habana::ConstantPadDS)
+        .REGISTER_HPU_BACKEND("hpu::constant_pad_nd_ds", habana::ConstantPadDS);

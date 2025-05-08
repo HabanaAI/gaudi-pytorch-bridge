@@ -26,6 +26,7 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 
@@ -464,7 +465,7 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
 
 static auto& BinaryInplaceKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::add_.Tensor", KERNEL_FN(AddInplaceOperator))
-        .add("hpu::add_.Scalar", KERNEL_FN(AddInplaceOperator))
-        .add("aten::add_.Tensor", KERNEL_FN(AddInplaceOperator))
-        .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator));
+        .REGISTER_HPU_BACKEND("hpu::add_.Tensor", habana::AddInplaceOperator)
+        .REGISTER_HPU_BACKEND("hpu::add_.Scalar", habana::AddInplaceOperator)
+        .REGISTER_HPU_BACKEND("aten::add_.Tensor", habana::AddInplaceOperator)
+        .REGISTER_HPU_BACKEND("aten::add_.Scalar", habana::AddInplaceOperator);

@@ -163,6 +163,7 @@ void NonZeroEager::AddNode(
 }
 } // namespace habana
 
-static const auto& NonZeroKernelRegistry = habana::KernelRegistry().add(
-    "hpu::nonzero_eager",
-    KERNEL_FN_GLOBAL(habana::NonZeroEager));
+static const auto& NonZeroKernelRegistry =
+    habana::KernelRegistry().REGISTER_HPU_BACKEND(
+        "hpu::nonzero_eager",
+        habana::NonZeroEager);

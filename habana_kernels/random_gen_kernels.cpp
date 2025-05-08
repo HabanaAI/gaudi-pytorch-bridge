@@ -21,6 +21,7 @@
 #include "backend/create_pt_tensor.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 
@@ -266,6 +267,10 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
 
 static auto& RandomGenKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
-        .add("hpu::randperm_out_ds_ht", KERNEL_FN(RandpermOperatorHT))
-        .add("hpu::habana_random_seed", KERNEL_FN(HabanaRandomSeedOperator));
+        .REGISTER_HPU_BACKEND("hpu::randperm_out", habana::RandpermOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::randperm_out_ds_ht",
+            habana::RandpermOperatorHT)
+        .REGISTER_HPU_BACKEND(
+            "hpu::habana_random_seed",
+            habana::HabanaRandomSeedOperator);
