@@ -21,6 +21,7 @@
 #include <torch/script.h>
 #include <torch/version.h>
 #include "backend/habana_operator.h"
+#include "habana_helpers/pt_version_check.h"
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
@@ -28,7 +29,11 @@ namespace habana_lazy {
 at::Tensor bincount_hpu_lazy(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength);
+#else
     int64_t minlength);
+#endif
 at::Tensor _copy_from(
     const at::Tensor& self,
     const at::Tensor& dst,

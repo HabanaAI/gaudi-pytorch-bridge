@@ -28,6 +28,7 @@
 #include "common/dump_args.h"
 #include "generated/lazy/fp8_gemm_v2.h"
 #include "habana_helpers/frontend_utils.h"
+#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
@@ -1896,14 +1897,22 @@ c10::ScalarType bincount_output_dtype(
 Tensor bincount_hpu_lazy(
     const Tensor& self,
     const std::optional<Tensor>& weights,
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    c10::SymInt minlength) {
+#else
     int64_t minlength) {
+#endif
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
   auto elements = self.numel();
 
   if (elements == 0) {
+#if IS_PYTORCH_AT_LEAST(2, 8)
+    auto shape = DimVector{minlength.expect_int()};
+#else
     auto shape = DimVector{minlength};
+#endif
     return at::zeros(shape, TensorOptions(kHPU).dtype(at::kLong));
   }
   const auto self_dtype = self.scalar_type();
@@ -1914,7 +1923,11 @@ Tensor bincount_hpu_lazy(
 
   auto max_in_input =
       static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
+#if IS_PYTORCH_AT_LEAST(2, 8)
+  int64_t length = std::max(max_in_input + 1, minlength.expect_int());
+#else
   int64_t length = std::max(max_in_input + 1, minlength);
+#endif
   std::vector<int64_t> shape{length};
   // Add bincount node
   LazyOp<at::Tensor> hpu_op{
