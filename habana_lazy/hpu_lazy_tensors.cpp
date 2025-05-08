@@ -1241,10 +1241,13 @@ void HbLazyTensor::WarnIfOpsIncompatibleWithHPUGraphs(
       "hpu::nonzero",
       "hpu::arange",
       "hpu::batched_nms"};
+  static std::unordered_set<std::string> already_warned_ops;
+
   std::unordered_set<std::string> found_ops;
-  for (auto& node : post_order) {
+  for (const auto& node : post_order) {
     const std::string& opName = node->GetOpNameString();
-    if (incompatible_ops.find(opName) != incompatible_ops.end()) {
+    if (incompatible_ops.find(opName) != incompatible_ops.end() &&
+        already_warned_ops.find(opName) == already_warned_ops.end()) {
       found_ops.insert(opName);
     }
   }
@@ -1260,6 +1263,9 @@ void HbLazyTensor::WarnIfOpsIncompatibleWithHPUGraphs(
     }
     warning_msg << ".";
     TORCH_WARN(warning_msg.str());
+
+    // Add these ops to the already-warned set
+    already_warned_ops.insert(found_ops.begin(), found_ops.end());
   }
 }
 
@@ -1392,7 +1398,14 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   // Save po_data input and output to context for perf mode
   if (context->getCapturing()) {
-    WarnIfOpsIncompatibleWithHPUGraphs(po_data.post_order);
+    const char* rank = std::getenv("RANK");
+    const char* ompi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
+    // Determine process rank, default to "0" if both are unset
+    std::string process_rank = (rank) ? rank : (ompi_rank) ? ompi_rank : "0";
+    // Print warning only for the main process to avoid flooding of warnings
+    if (process_rank == "0") {
+      WarnIfOpsIncompatibleWithHPUGraphs(po_data.post_order);
+    }
     context->saveInputsAndOutputs(
         po_data.inputs, po_data.outputs, *tensors, indices);
   }
