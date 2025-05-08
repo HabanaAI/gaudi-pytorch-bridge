@@ -30,6 +30,8 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+#include <algorithm>
+#include <unordered_map>
 
 #include "backend/synapse_helpers/env_flags.h"
 #include "profiler.h"
@@ -38,7 +40,9 @@
 #define EVENT_TABLE_SIZE 10000000
 #define STAGE_INITIALIZER \
   { 0, 0, 0, 0, 0 }
-#define NUM_BUCKETS 5
+#define NUM_EXPONENTIAL_BUCKETS 3
+#define NUM_EQUIDISTANT_BUCKETS 5
+#define NUM_TOP_OPS 5
 
 namespace LOP {
 
@@ -108,37 +112,99 @@ struct Compare {
   }
 };
 
+// Calculate adaptive cutoff (90th percentile by default)
+uint64_t calculate_adaptive_cutoff(
+  std::vector<uint64_t>& event_times,
+  uint64_t max_time,
+  double percentile = 0.9) {
+  if (event_times.empty()) {
+      return max_time;
+  }
+  std::sort(event_times.begin(), event_times.end());
+  uint64_t cutoff_index = static_cast<uint64_t>(event_times.size() * percentile);
+  return event_times[cutoff_index];
+}
+
+// create buckets: initialization and filling
+void create_buckets(
+    const std::vector<Event>& events,
+    uint64_t min_time,
+    uint64_t max_time,
+    uint64_t adaptive_cutoff,
+    uint64_t jit_cache_hit_count_threshold,
+    std::vector<uint64_t>& buckets,
+    uint64_t& equidistant_bucket_size,
+    uint64_t& exponential_range,
+    uint64_t& exponential_base) {
+  // Initialize equidistant and exponential buckets
+  uint64_t equidistant_range = adaptive_cutoff - min_time;
+  equidistant_bucket_size = std::max(equidistant_range / NUM_EQUIDISTANT_BUCKETS, (uint64_t)1);
+
+  exponential_range = max_time - adaptive_cutoff;
+  exponential_base = (exponential_range > 0) ? std::pow(2, NUM_EXPONENTIAL_BUCKETS) : 1;
+
+  for (const auto& event : events) {
+    if (event.jit_cache_hit_count > jit_cache_hit_count_threshold && !event.is_begin) {
+      uint64_t event_time = event.stage_time;
+      if (event_time <= adaptive_cutoff) { // Equidistant bucket
+        uint64_t offset = (event_time > min_time) ? (event_time - min_time) : 0;
+        uint64_t bucket_index = std::min(offset / equidistant_bucket_size, (uint64_t)(NUM_EQUIDISTANT_BUCKETS - 1));
+        buckets[bucket_index]++;
+      } else { // Exponential bucket
+        uint64_t offset = event_time - adaptive_cutoff;
+        uint64_t bucket_index = NUM_EQUIDISTANT_BUCKETS; // Start after equidistant buckets
+        while (offset > 0 && bucket_index < (NUM_EQUIDISTANT_BUCKETS + NUM_EXPONENTIAL_BUCKETS - 1)) {
+          offset /= 2; // Exponential decay
+          bucket_index++;
+        }
+        buckets[bucket_index]++;
+      }
+    }
+  }
+}
+
 void print_histogram(
     uint64_t min_time,
     uint64_t max_time,
     const std::vector<Event>& events,
     FILE* metrics_file) {
-  uint64_t range = (max_time > min_time) ? (max_time - min_time + 1) : 1;
-  uint64_t bucket_size = std::max(range / NUM_BUCKETS, (uint64_t)1);
-  std::vector<uint64_t> buckets(NUM_BUCKETS, 0);
+  std::vector<uint64_t> event_times;
   uint64_t jit_cache_hit_count_threshold =
       GET_ENV_FLAG_NEW(PT_HPU_LOP_JIT_WARM_UP_STEPS);
   for (const auto& event : events) {
     if (event.jit_cache_hit_count > jit_cache_hit_count_threshold) {
       if (event.is_begin)
         continue;
-      uint64_t offset = (event.stage_time > min_time) ? (event.stage_time - min_time) : 0;
-      uint64_t bucket_index = std::min(offset / bucket_size, (uint64_t)(NUM_BUCKETS - 1));
-      buckets[bucket_index]++;
+      event_times.push_back(event.stage_time);
     }
   }
+  uint64_t adaptive_cutoff = calculate_adaptive_cutoff(event_times, max_time);
+
+  std::vector<uint64_t> buckets(NUM_EQUIDISTANT_BUCKETS + NUM_EXPONENTIAL_BUCKETS, 0);
+  uint64_t equidistant_bucket_size, exponential_range, exponential_base;
+  create_buckets(events, min_time, max_time, adaptive_cutoff,
+    jit_cache_hit_count_threshold, buckets,
+    equidistant_bucket_size, exponential_range, exponential_base);
 
   fprintf(metrics_file, " ------------------------------------------\n");
   fprintf(metrics_file, " Time Range (ns)\tFrequency\n");
   fprintf(metrics_file, " ------------------------------------------\n");
 
-  for (int i = 0; i < NUM_BUCKETS; ++i) {
-    uint64_t bucket_min = min_time + i * bucket_size;
-    uint64_t bucket_max = (i == NUM_BUCKETS - 1)
-      ? max_time : (bucket_min + bucket_size - 1);
-    fprintf(
-        metrics_file, " [%lu, %lu]\t%lu\n", bucket_min, bucket_max, buckets[i]);
+  for (int i = 0; i < NUM_EQUIDISTANT_BUCKETS; ++i) { // print equidistant buckets
+    uint64_t bucket_min = min_time + i * equidistant_bucket_size;
+    uint64_t bucket_max = (i == NUM_EQUIDISTANT_BUCKETS - 1)
+      ? adaptive_cutoff : (bucket_min + equidistant_bucket_size - 1);
+    fprintf(metrics_file, " [%lu, %lu]\t%lu\n", bucket_min, bucket_max, buckets[i]);
   }
+  uint64_t prev_max = adaptive_cutoff;
+  for (int i = 0; i < NUM_EXPONENTIAL_BUCKETS; ++i) {
+    uint64_t bucket_min = prev_max + 1;
+    uint64_t bucket_max = (i == NUM_EXPONENTIAL_BUCKETS - 1)
+      ? max_time : (bucket_min + (1 << i) * exponential_range / exponential_base - 1);
+    fprintf(metrics_file, " [%lu, %lu]\t%lu\n", bucket_min, bucket_max, buckets[NUM_EQUIDISTANT_BUCKETS + i]);
+    prev_max = bucket_max;
+  }
+
   fprintf(metrics_file, " ------------------------------------------\n");
 }
 
@@ -282,7 +348,7 @@ void ProfilerEngine::flush() {
 
             top_num_buckets_ops_time[pipeline_stage].emplace(
                 event.op_name, stage_time);
-            if (top_num_buckets_ops_time[pipeline_stage].size() > NUM_BUCKETS)
+            if (top_num_buckets_ops_time[pipeline_stage].size() > NUM_TOP_OPS)
               top_num_buckets_ops_time[pipeline_stage].pop();
 
             stage_total_time[pipeline_stage] += stage_time;
