@@ -359,6 +359,9 @@ auto get_or_create_tensor(
   bool fn(                                \
       habana_helpers::IShapeList& inputs, \
       habana_helpers::IShapeList& outputs);
+#define OUTPUT_MASK_HANDLER_DECL(fn)                 \
+  std::tuple<at::Tensor, at::Tensor, at::Tensor> fn( \
+      std::tuple<at::Tensor, at::Tensor, at::Tensor>, std::array<bool, 3>);
 
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;

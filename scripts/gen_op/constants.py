@@ -138,6 +138,7 @@ AVAILABLE_FIELDS = {
     "skip_slrg",
     "treat_as_dtdf",
     "op_validator_exception",
+    "handle_output_mask",
 }
 
 

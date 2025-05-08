@@ -353,6 +353,7 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     shared_layer_meta_fns = set()
     stmeta_fns = set()
     fc_fns = set()
+    output_mask_handler_fns = set()
 
     def build(fn, fns_set, macro, args=[]):
         if fn and fn not in fns_set:
@@ -370,6 +371,7 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     fill_params_decls = ""
     fallback_check_decls = ""
     forward_decls = ""
+    output_mask_handler_decls = ""
     for fgen in fgens:
         if not fgen.only_slrg:
             reg_decls += f"{fgen.rwsig};\n"
@@ -385,6 +387,9 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
                 early_exit_decls += f"{rtype}{early_exit_fun}(unsigned eePath, {args};\n"
                 early_exit_fns.add(early_exit_fun)
         outshape_decls += build(fgen.ctxop.get_custom_output_shape(), outshape_fns, "OUTSHAPE_DECL")
+        output_mask_handler_decls += build(
+            fgen.ctxop.handle_output_mask(), output_mask_handler_fns, "OUTPUT_MASK_HANDLER_DECL"
+        )
 
         outmeta_decls += build(fgen.ctxop.get_output_meta(), outmeta_fns, "OUTMETA_DECL")
         shared_layer_meta_decls += build(
@@ -418,6 +423,7 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
         + stmeta_decls
         + fill_params_decls
         + fallback_check_decls
+        + output_mask_handler_decls
     )
 
 
@@ -875,7 +881,15 @@ def handle_eager_not_supported(param_vars, overload, opname):
 
 
 def handle_return_eager(
-    rtype, fname, fe_call_args, is_eager_op_supported, call_args, inplace_op_info, is_custom_op_out_variant
+    rtype,
+    fname,
+    fe_call_args,
+    is_eager_op_supported,
+    call_args,
+    inplace_op_info,
+    is_custom_op_out_variant,
+    param_vars,
+    handle_output_mask,
 ):
     eager_op_info_args = (
         len(call_args)
@@ -890,7 +904,12 @@ def handle_return_eager(
         f"require_st, "
         f"{eager_op_info_args}}});\n"
     )
-    code += "  {}hpu_op.call({})".format("" if rtype == "void" else "return ", fe_call_args)
+    if handle_output_mask:
+        code += "  {}hpu_op.call({});".format("auto res = ", fe_call_args)
+        code += "\n"
+        code += f"  return {handle_output_mask}(res, {param_vars[len(param_vars)-1]})"
+    else:
+        code += "  {}hpu_op.call({})".format("" if rtype == "void" else "return ", fe_call_args)
     if not is_eager_op_supported:
         code += "  */\n"
     return code
@@ -1011,6 +1030,8 @@ def eager_frontend(
         call_args,
         inplace_op_info,
         ctxop.get_is_custom_op_out_variant(),
+        param_vars,
+        ctxop.handle_output_mask(),
     )
     return code + ";\n}"
 

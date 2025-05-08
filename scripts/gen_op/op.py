@@ -193,3 +193,6 @@ class Op:
 
     def treat_as_dtdf(self):
         return self.op.get("treat_as_dtdf", False)
+
+    def handle_output_mask(self):
+        return self.op.get("handle_output_mask", None)

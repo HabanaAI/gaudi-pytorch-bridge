@@ -52,6 +52,7 @@
 #      e.g. _adaptive_avg_pool2d should be displayed as adaptive_avg_pool2d and adaptive_avg_pool1d
 #  - autograd - used to register backward support for operator
 #  - treat_as_dtdf - used to generate op in eager mode even if it is not dfdt.
+#  - handle_output_mask - used to return 0-D tensors at positions in output_mask where bits are set to 0 (for backward operators that get output_mask bool array).
 
 _assert_async:
   guid: assert_async
@@ -5769,6 +5770,7 @@ native_layer_norm_backward:
   op_backend: LayerNormBwdHabanaOperator
   output_meta: LayerNormBwdMeta
   out_ids: [0, 0, 0]
+  handle_output_mask: LayerNormBwdOutputMaskFn
   op_validator_exception: not implemented yet
 
 ne.Tensor_out:
