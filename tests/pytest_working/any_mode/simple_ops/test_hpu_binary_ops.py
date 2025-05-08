@@ -20,6 +20,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
+    format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
 )
@@ -89,6 +90,26 @@ def test_mul_trunc(shape_a, shape_b, dtype):
 
     expected = torch.mul(input, other)
     result = fn(input_hpu, other_hpu)
+
+    compare_tensors(result, expected, atol=0, rtol=0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("mul")
+
+
+@pytest.mark.parametrize("shape_a", [(), (1,), (4, 4), (16, 12)], ids=format_tc)
+@pytest.mark.parametrize("scalar", [True, False], ids=format_tc)
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.int8], ids=format_tc)
+def test_mul_scalar_trunc(shape_a, scalar, dtype):
+    def fn(input, other):
+        return torch.mul(input, other)
+
+    fn = compile_function_if_compile_mode(fn)
+
+    input = torch.randint(low=torch.iinfo(dtype).min, high=torch.iinfo(dtype).max, size=shape_a, dtype=dtype)
+    input_hpu = input.to("hpu")
+
+    expected = torch.mul(input, scalar)
+    result = fn(input_hpu, scalar)
 
     compare_tensors(result, expected, atol=0, rtol=0)
     if is_pytest_mode_compile():

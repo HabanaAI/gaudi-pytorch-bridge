@@ -63,9 +63,6 @@ def test_full(size, dtype, fill_value):
     if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() is False:
         pytest.skip(reason="fill_value exceed int32 range which is unsupported")
 
-    if is_pytest_mode_compile() and dtype == torch.bool:
-        pytest.skip(reason="For bool input fallback to eager is expected in compile mode")
-
     def fn(size, fill_value, device, dtype):
         return torch.full(size, fill_value, device=device, dtype=dtype)
 

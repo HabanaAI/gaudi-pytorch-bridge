@@ -272,16 +272,6 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
             if output_dtype == unsupported_types[op_name]:
                 return True, f"Op not supported with dtype: {output_dtype}"
 
-    # https://github.com/pytorch/pytorch/issues/75465
-    # bool has issue with JIT scalar representation
-    # in the bool_fallback_list key is op_name and value is a list of
-    # arguments that cannot be of type bool
-    bool_fallback_list: dict[str, list[int]] = {"full": [1], "mul": [1]}
-    if op_name in bool_fallback_list:
-        for idx in bool_fallback_list[op_name]:
-            if isinstance(node.args[idx], bool):
-                return True, "Op not supported with bool Scalar"
-
     # If op is in hpu_ds_fallback_list and dynamic shape is enabled,
     # eager fallback will take place
     if op_name in hpu_ds_fallback_list and is_dynamic:

@@ -80,16 +80,6 @@ def test_unsupported_random_activation_checkpoint():
     )
 
 
-def test_unsupported_scalar_bool():
-    fn = compile_function_if_compile_mode(torch.mul)
-
-    input = torch.randint(low=0, high=2, size=(2, 2), dtype=torch.bool).to("hpu")
-    with pytest.raises(Exception) as e_info:
-        fn(input, True)
-
-    check_eager_fallback_reason("mul", "Op not supported with bool Scalar", exception=e_info)
-
-
 def run_sdpa(dynamic):
     fn = compile_function_if_compile_mode(torch.ops.hpu.sdpa_recomp_fwd, dynamic=dynamic)
 

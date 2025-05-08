@@ -207,10 +207,6 @@ class FxToJitLowering(torch.fx.Interpreter):
         if isinstance(arg, jit.Value):
             return arg
 
-        cache_key = (type(arg), tuple(arg) if isinstance(arg, list) else arg)
-        if cache_key in self.const_cache:
-            return self.const_cache[cache_key]
-
         converter = TYPE_TO_JIT_TYPE.find(type(arg))
         if converter:
             jit_type = converter(arg)
@@ -223,10 +219,21 @@ class FxToJitLowering(torch.fx.Interpreter):
                     # If jit_type mismatchs the parameter type, we need to convert it.
                     element_type = parameter.type.getElementType()
                     jit_type = jit.ListType(element_type)
+                elif (
+                    isinstance(jit_type, jit.BoolType)
+                    and hasattr(parameter, "type")
+                    and (parameter.type.kind() == "NumberType" or parameter.type.kind() == "TensorType")
+                ):
+                    arg = int(arg)
+                    jit_type = TYPE_TO_JIT_TYPE.find(type(arg))(arg)
 
-                new_const = self.jit_ir.insertConstant(arg, jit_type)
-                self.const_cache[cache_key] = new_const
-                return new_const
+                cache_key = (type(arg), tuple(arg) if isinstance(arg, list) else arg)
+                if cache_key in self.const_cache:
+                    return self.const_cache[cache_key]
+                else:
+                    new_const = self.jit_ir.insertConstant(arg, jit_type)
+                    self.const_cache[cache_key] = new_const
+                    return new_const
 
         # A workaround, should be isinstance(arg, (list, tuple, namedtuple)), but lintrule force a syntax of
         # UP038 Use `X | Y` in `isinstance` call instead of `(X, Y)`
