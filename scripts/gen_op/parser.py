@@ -131,29 +131,6 @@ def typed_child(t, n, ttype):
     return c
 
 
-def rewrite_sig(tree, orig_sig, emit_fn=lambda x: 0):
-    emit = StringEmit(orig_sig)
-    emit_string(tree, emit, emit_fn)
-    return str(emit)
-
-
-def rewrite_signature(sig, tmap):
-    def rewrite(t):
-        if t.type == "TNAME":
-            new_type = tmap.get(t.value, None)
-            if new_type is not None:
-                t.value = new_type
-
-    def emit_fn(t):
-        if isinstance(t, lark.lexer.Token):
-            return 0
-        return -1 if t.data == "param_defval" else 0
-
-    xtree = _XPARSER.parse(sig)
-    for_every_token(xtree, rewrite)
-    return rewrite_sig(xtree, sig, emit_fn=emit_fn)
-
-
 def create_stdfunc_sig(tree, orig_sig):
     def emit_fn(t):
         if isinstance(t, lark.lexer.Token):

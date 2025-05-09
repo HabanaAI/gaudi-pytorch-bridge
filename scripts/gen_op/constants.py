@@ -21,7 +21,6 @@ from typing import Any, NamedTuple
 from lark.tree import Tree
 
 from .op import Op
-from .version_checker import is_pytorch_older_than
 
 
 class HabanaExecutionMode(Enum):
@@ -44,7 +43,6 @@ class FuncDef(NamedTuple):
 class OpGen(NamedTuple):
     tree: Tree
     xtree: Tree
-    rwxtree: Tree
     func: str
     xfunc: str
     op_frontend_eager: str | None
@@ -52,7 +50,6 @@ class OpGen(NamedTuple):
     op_backend: str
     cname: str
     sig: str
-    rwsig: str
     cppsig: str
     funsig: str
     mapsig: str
@@ -72,30 +69,6 @@ class OpMeta(NamedTuple):
     func: str
     funsig: str
     autograd: bool
-
-
-if is_pytorch_older_than("2.7.0"):
-    TYPE_NSMAP = {
-        "Tensor": "at::Tensor",
-        "TensorList": "at::TensorList",
-        "Scalar": "at::Scalar",
-        "Storage": "at::Storage",
-        "IntArrayRef": "at::IntArrayRef",
-        "OptionalIntArrayRef": "at::OptionalIntArrayRef",
-        "ArrayRef": "at::ArrayRef",
-        "Generator": "at::Generator",
-        "Layout": "at::Layout",
-        "ScalarType": "at::ScalarType",
-        "Device": "c10::Device",
-        "MemoryFormat": "at::MemoryFormat",
-        "QScheme": "at::QScheme",
-        "Dimname": "at::Dimname",  # namedtensor-only
-        "DimnameList": "at::DimnameList",  # namedtensor-only
-        "ITensorListRef": "at::ITensorListRef",
-        "OptionalSymIntArrayRef": "at::OptionalSymIntArrayRef",
-    }
-else:
-    TYPE_NSMAP = {}
 
 
 AVAILABLE_FIELDS = {
@@ -146,27 +119,10 @@ CP_TYPE_CHECK_MAP = {
     "double": "isDouble",
     "bool": "isBool",
     "int64_t": "isInt",
+    "at::Scalar": "isScalar",
+    "at::Tensor": "isTensor",
+    "at::ITensorListRef": "isTensorList",
+    "at::TensorList": "isTensorList",
+    "::std::optional<at::ArrayRef>": "isList",
+    "at::IntArrayRef": "isList",
 }
-
-if is_pytorch_older_than("2.7.0"):
-    CP_TYPE_CHECK_MAP.update(
-        {
-            "Scalar": "isScalar",
-            "Tensor": "isTensor",
-            "ITensorListRef": "isTensorList",
-            "TensorList": "isTensorList",
-            "std::optional<ArrayRef>": "isList",
-            "IntArrayRef": "isList",
-        }
-    )
-else:
-    CP_TYPE_CHECK_MAP.update(
-        {
-            "at::Scalar": "isScalar",
-            "at::Tensor": "isTensor",
-            "at::ITensorListRef": "isTensorList",
-            "at::TensorList": "isTensorList",
-            "::std::optional<at::ArrayRef>": "isList",
-            "at::IntArrayRef": "isList",
-        }
-    )

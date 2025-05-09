@@ -31,7 +31,6 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import habana_frameworks.torch.utils.debug as htdebug
 from habana_frameworks.torch.utils import _weights_only_unpickler
 from habana_frameworks.torch.utils.internal import is_lazy
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 
 import torch
 from torch.distributed.constants import default_pg_timeout
@@ -601,38 +600,21 @@ def overwrite_export_function():
         return
 
     NativeFunctions._did_overwrite_export_function = True
-    if is_pytorch_older_than("2.7.0"):
-        NativeFunctions.org_export = torch._export.capture_pre_autograd_graph
+    NativeFunctions.org_export = torch.export.export_for_training
 
-        # wrap capture_pre_autograd_graph
-        @wraps(torch._export.capture_pre_autograd_graph)
-        def wrap_capture_pre_autograd_graph(
-            f: torch.nn.Module,
-            args: tuple[Any] = None,
-            kwargs: dict[str, Any] | None = None,
-            dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
-        ) -> torch.nn.Module:
-            from habana_frameworks.torch.core.quantize_pt2e import export
+    # wrap export_for_training
+    @wraps(torch.export.export_for_training)
+    def wrap_export_for_training(
+        f: torch.nn.Module,
+        args: tuple[Any] = None,
+        kwargs: dict[str, Any] | None = None,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
+    ) -> torch.nn.Module:
+        from habana_frameworks.torch.core.quantize_pt2e import export
 
-            return export(f, args, kwargs, dynamic_shapes)
+        return export(f, args, kwargs, dynamic_shapes)
 
-        torch._export.capture_pre_autograd_graph = wrap_capture_pre_autograd_graph
-    else:
-        NativeFunctions.org_export = torch.export.export_for_training
-
-        # wrap capture_export_for_training
-        @wraps(torch.export.export_for_training)
-        def wrap_export_for_training(
-            f: torch.nn.Module,
-            args: tuple[Any] = None,
-            kwargs: dict[str, Any] | None = None,
-            dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
-        ) -> torch.nn.Module:
-            from habana_frameworks.torch.core.quantize_pt2e import export
-
-            return export(f, args, kwargs, dynamic_shapes)
-
-        torch.export.export_for_training = wrap_export_for_training
+    torch.export.export_for_training = wrap_export_for_training
 
 
 def overwrite_native_pt2e_quantization_interface():

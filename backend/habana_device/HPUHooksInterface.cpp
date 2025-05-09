@@ -37,7 +37,6 @@ bool HPUHooks::hasHPU() const {
   return true;
 }
 
-#if IS_PYTORCH_AT_LEAST(2, 7)
 bool HPUHooks::isBuilt() const {
   return true;
 }
@@ -45,7 +44,6 @@ bool HPUHooks::isBuilt() const {
 bool HPUHooks::isAvailable() const {
   return hasHPU();
 }
-#endif
 
 at::Device HPUHooks::getDeviceFromPtr(void*) const {
   // TODO add check if pointer valid

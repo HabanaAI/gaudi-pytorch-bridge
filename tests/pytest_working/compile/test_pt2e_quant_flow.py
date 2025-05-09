@@ -18,6 +18,7 @@
 
 import random
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
@@ -26,12 +27,6 @@ from habana_frameworks.torch.core.quantizer import (
     _update_input_qspec_map,
     habana_quant_config_symmetric,
 )
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
-
-if is_pytorch_older_than("2.7.0"):
-    from habana_frameworks.torch.core.quantizer import habana_quantizer
-
-import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import (
     fga_assert_helper,
@@ -185,42 +180,23 @@ def use_pt2e_quant_flow(
     inputs0 = inputs0.to(HPU)
     inputs1 = inputs1.to(HPU)
     inputs2 = inputs2.to(HPU)
-    if is_pytorch_older_than("2.7.0"):
-        example_inputs0 = [
-            inputs0,
-        ]
-        example_inputs1 = [
-            inputs1,
-        ]
-        example_inputs2 = [
-            inputs2,
-        ]
-    else:
-        example_inputs0 = (inputs0,)
-        example_inputs1 = (inputs1,)
-        example_inputs2 = (inputs2,)
+    example_inputs0 = (inputs0,)
+    example_inputs1 = (inputs1,)
+    example_inputs2 = (inputs2,)
 
     model.to(device=HPU)
     model.eval()
 
     with torch.no_grad():
-        if is_pytorch_older_than("2.7.0"):
-            from torch._export import capture_pre_autograd_graph
+        from torch.export import export_for_training
 
-            if pass_input_during_export:
-                model = capture_pre_autograd_graph(model, example_inputs0)
-            else:
-                model = capture_pre_autograd_graph(model)
+        if pass_input_during_export:
+            model = export_for_training(model, example_inputs0)
         else:
-            from torch.export import export_for_training
+            model = export_for_training(model)
 
-            if pass_input_during_export:
-                model = export_for_training(model, example_inputs0)
-            else:
-                model = export_for_training(model)
-
-            if isinstance(model, torch.export.exported_program.ExportedProgram):
-                model = model.module()
+        if isinstance(model, torch.export.exported_program.ExportedProgram):
+            model = model.module()
 
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
             from torch.ao.quantization.quantize_pt2e import prepare_pt2e
@@ -257,13 +233,9 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
     with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", True), bc.env_setting(
         "PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False
     ):
-        if is_pytorch_older_than("2.7.0"):
-            quantizer = habana_quantizer()
-            quant_config = habana_quant_config_symmetric(quant_dtype)
-            quantizer.set_global(quant_config)
-        else:
-            quant_config = habana_quant_config_symmetric(quant_dtype)
-            quantizer = custom_quantizer(quant_config)
+
+        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quantizer = custom_quantizer(quant_config)
 
         expected_op_count = {
             "after_prepare_pt2e": {

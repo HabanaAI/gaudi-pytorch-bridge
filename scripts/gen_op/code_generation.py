@@ -34,7 +34,6 @@ from . import constants, parser
 from .custom_ops import cpp_from_schema
 from .op import Op
 from .op_validator import get_op_validator_generator
-from .version_checker import is_pytorch_older_than
 
 
 def torch_library_fragment(custom_schema_regs):
@@ -374,15 +373,15 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     output_mask_handler_decls = ""
     for fgen in fgens:
         if not fgen.only_slrg:
-            reg_decls += f"{fgen.rwsig};\n"
+            reg_decls += f"{fgen.sig};\n"
 
         early_exit_fun = fgen.ctxop.get_early_exit_fun()
         if early_exit_fun is not None and early_exit_fun not in early_exit_fns:
             pattern = fgen.func + "("
-            func_pos = fgen.rwsig.find(pattern)
+            func_pos = fgen.sig.find(pattern)
             if func_pos >= 0:
-                rtype = fgen.rwsig[:func_pos]
-                args = fgen.rwsig[func_pos + len(pattern) :]
+                rtype = fgen.sig[:func_pos]
+                args = fgen.sig[func_pos + len(pattern) :]
                 early_exit_decls += f"unsigned {early_exit_fun}Condition({args};\n"
                 early_exit_decls += f"{rtype}{early_exit_fun}(unsigned eePath, {args};\n"
                 early_exit_fns.add(early_exit_fun)
@@ -545,21 +544,19 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
 
         param_vars.append(pname)
 
-        if cptype == ("Tensor" if is_pytorch_older_than("2.7.0") else "at::Tensor"):
+        if cptype == "at::Tensor":
             tfetcher.add(pname)
             if not parser.type_is_const(ptype) and not should_skip_inplace_params(fname, pname):
                 call_args.append(pname)
                 out_indices.append(i)
 
         if rtype == "void":
-            if cptype in (
-                ["TensorList", "Tensor"] if is_pytorch_older_than("2.7.0") else ["at::TensorList", "at::Tensor"]
-            ):
+            if cptype in ["at::TensorList", "at::Tensor"]:
                 call_args.append(pname)
                 if out_ids is not None:
                     out_indices.append(i)
 
-        elif rtype == "const at::Tensor &" and cptype == ("Tensor" if is_pytorch_older_than("2.7.0") else "at::Tensor"):
+        elif rtype == "const at::Tensor &" and cptype == "at::Tensor":
             call_args.append(pname)
             out_indices.append(i)
 
@@ -1060,19 +1057,13 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     tree = parser.parse(fndef.cpp_sig)
     xtree = parser.xparse(fndef.cpp_sig)
     mapsig = parser.create_map_sig(xtree, fndef.cpp_sig)
-    rwsig = (
-        parser.rewrite_signature(fndef.cpp_sig, constants.TYPE_NSMAP)
-        if is_pytorch_older_than("2.7.0")
-        else fndef.cpp_sig
-    )
-    rwxtree = parser.xparse(rwsig)
     params = parser.get_parameters(tree)
     aten_sig = fndef.aten_sig
-    funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
+    funsig = parser.create_stdfunc_sig(xtree, fndef.cpp_sig)
     opgroup = get_op_group(op_name)
-    rtype = parser.get_return_type_str(rwxtree, rwsig)
+    rtype = parser.get_return_type_str(xtree, fndef.cpp_sig)
 
-    sig, fname, xfname = parser.get_function_signature(rwxtree, rwsig, lambda x: f"{x}")
+    sig, fname, xfname = parser.get_function_signature(xtree, fndef.cpp_sig, lambda x: f"{x}")
 
     if is_check_kernel_support:
         sig = prepare_sig_for_kernel_support(sig)
@@ -1134,7 +1125,6 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
     return constants.OpGen(
         tree=tree,
         xtree=xtree,
-        rwxtree=rwxtree,
         func=fname,
         xfunc=xfname,
         op_frontend_eager=op_frontend_eager,
@@ -1142,7 +1132,6 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         op_backend=op_backend,
         cname=op_backend_class,
         sig=fndef.cpp_sig,
-        rwsig=rwsig,
         cppsig=sig,
         mapsig=mapsig,
         funsig=funsig,
@@ -1160,11 +1149,9 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
 def generate_op_meta(cpp_sig, op_name, op_params):
     xtree = parser.xparse(cpp_sig)
     mapsig = parser.create_map_sig(xtree, cpp_sig)
-    rwsig = parser.rewrite_signature(cpp_sig, constants.TYPE_NSMAP) if is_pytorch_older_than("2.7.0") else cpp_sig
-    rwxtree = parser.xparse(rwsig)
-    funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
+    funsig = parser.create_stdfunc_sig(xtree, cpp_sig)
 
-    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: f"{x}")
+    _, fname, _ = parser.get_function_signature(xtree, cpp_sig, lambda x: f"{x}")
     return constants.OpMeta(
         op_variant=op_name, mapsig=mapsig, funsig=funsig, func=fname, autograd=op_params.get("autograd", False)
     )
@@ -1576,7 +1563,7 @@ def generate_autograd_functions_h_file(fgens_autograd: list[constants.OpGen]) ->
         input_params = ",\n\t  ".join(input_params.split(", "))
 
         return_type = fgen.sig.split(" ")[0]
-        inputs = fgen.rwsig.split("(")[1][:-1].replace(", ", ",\n\t")
+        inputs = fgen.sig.split("(")[1][:-1].replace(", ", ",\n\t")
 
         dispatch_op_name = f"{fgen.op_variant}_dispatch"
         dispatch_op_name = dispatch_op_name.replace(".", "_")
@@ -1651,7 +1638,7 @@ def generate_autograd_functions_cpp_file(fgens_autograd: list[constants.OpGen]) 
     dispatch_functions = ""
     impls = "TORCH_LIBRARY_IMPL(hpu, AutogradHPU, m) {\n"
     for fgen in fgens_autograd:
-        inputs = fgen.rwsig.split("(")[1][:-1].replace(", ", ",\n\t")
+        inputs = fgen.sig.split("(")[1][:-1].replace(", ", ",\n\t")
 
         input_names = re.findall(r"\b(\w+)\b(?=[,)])", fgen.cppsig[fgen.cppsig.find(fgen.func) :])
         input_names_len = len(input_names)

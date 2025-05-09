@@ -27,7 +27,6 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_fake_propagation,
     pass_reinplace_inplaceable_ops_v2,
 )
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import compile_function_if_compile_mode
 from torch.func import functionalize
 from torch.fx.experimental.proxy_tensor import make_fx
@@ -421,20 +420,13 @@ def get_model_with_observer(model):
         habana_quantizer,
     )
     from torch.ao.quantization.quantize_pt2e import prepare_pt2e
-
-    if is_pytorch_older_than("2.7.0"):
-        from torch._export import capture_pre_autograd_graph
-    else:
-        from torch.export import export_for_training
+    from torch.export import export_for_training
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(torch.float8_e4m3fn)
     quantizer.set_global(quant_config)
 
-    if is_pytorch_older_than("2.7.0"):
-        exported_model = capture_pre_autograd_graph(model)
-    else:
-        exported_model = export_for_training(model)
+    exported_model = export_for_training(model)
     prepared_model = prepare_pt2e(exported_model, quantizer)
 
     return prepared_model

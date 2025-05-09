@@ -53,10 +53,6 @@ with open(profiles_path, encoding="utf-8") as profiles_json:
 
 pytestmark = [
     pytest.mark.skipif(
-        is_pytorch_older_than("2.7.0"),
-        reason="Remove gen_op tests for PyTorch 2.6, as no new commits will be merged until PyTorch 2.7 is released",
-    ),
-    pytest.mark.skipif(
         is_pytorch_older_than(current_pytorch_version), reason="Only newest PyTorch version should be validated"
     ),
     pytest.mark.xfail(
@@ -256,12 +252,12 @@ def test_generate_op_hclasses(is_backend):
 )
 def test_parse_params(cpp_sig, out_indices, expected_results):
     tree = parser.parse(cpp_sig)
-    rwxtree = parser.xparse(cpp_sig)
+    xtree = parser.xparse(cpp_sig)
     params = parser.get_parameters(tree)
-    rtype = parser.get_return_type_str(rwxtree, cpp_sig)
-    funsig = parser.create_stdfunc_sig(rwxtree, cpp_sig)
+    rtype = parser.get_return_type_str(xtree, cpp_sig)
+    funsig = parser.create_stdfunc_sig(xtree, cpp_sig)
 
-    _, fname, _ = parser.get_function_signature(rwxtree, cpp_sig, lambda x: f"{x}")
+    _, fname, _ = parser.get_function_signature(xtree, cpp_sig, lambda x: f"{x}")
 
     param_vars, call_args, out_indices, fc_params, _ = parse_params(params, fname, rtype, [], funsig, out_indices)
 
@@ -280,13 +276,12 @@ def test_check_valid_fields():
     assert check_valid_fields_results[0] == "Invalid field for wrong_op: dtype\n"
 
 
-# Function to generate OpGen, becuase OpGen is a large struct and some tests only need part of it fields it currently accept only small subset of fields.
+# Function to generate OpGen, because OpGen is a large struct and some tests only need part of it fields it currently accept only small subset of fields.
 # Extend this function to other fields if needed
 def get_op_gen(*, tree=None):
     op_gen = OpGen(
         tree=tree,
         xtree=None,
-        rwxtree=None,
         func="",
         xfunc="",
         op_frontend_eager="",
@@ -294,7 +289,6 @@ def get_op_gen(*, tree=None):
         op_backend="",
         cname="",
         sig="",
-        rwsig="",
         cppsig="",
         funsig="",
         mapsig="",

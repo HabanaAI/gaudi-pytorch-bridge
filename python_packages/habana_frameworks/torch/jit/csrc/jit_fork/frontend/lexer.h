@@ -343,11 +343,7 @@ struct TORCH_API SharedParserData {
   // 2. handle comment or newline
   //
 
-#if IS_PYTORCH_AT_LEAST(2, 7)
   bool isNumber(std::string_view str, size_t start, size_t* len) {
-#else
-  bool isNumber(std::string_view str, size_t start, size_t* len) {
-#endif
     char first = str[start];
     // strtod allows numbers to start with + or - or nan or inf
     // http://en.cppreference.com/w/cpp/string/byte/strtof
@@ -368,11 +364,7 @@ struct TORCH_API SharedParserData {
     return *len > 0;
   }
 
-#if IS_PYTORCH_AT_LEAST(2, 7)
   bool isCharCount(char c, std::string_view str, size_t start, int len) {
-#else
-  bool isCharCount(char c, std::string_view str, size_t start, int len) {
-#endif
     // count checks from [start, start + len)
     return start + len <= str.size() &&
         std::count(str.begin() + start, str.begin() + start + len, c) == len;
@@ -382,11 +374,7 @@ struct TORCH_API SharedParserData {
   // strings can be enclosed with 1 or 3 single or double quotes
   // if enclosed with 3 quotes newlines are valid
   // as elsewhere, backslash and new line should be ignored
-#if IS_PYTORCH_AT_LEAST(2, 7)
   bool isString(std::string_view str, size_t start, size_t* len) {
-#else
-  bool isString(std::string_view str, size_t start, size_t* len) {
-#endif
     char quote = str[start];
     if (quote != '\"' && quote != '\'')
       return false;
@@ -419,11 +407,7 @@ struct TORCH_API SharedParserData {
   }
 
   bool isTypeComment(StringCordView::Iterator str_iter) {
-#if IS_PYTORCH_AT_LEAST(2, 7)
     std::string_view rest_line = str_iter.rest_line();
-#else
-    std::string_view rest_line = str_iter.rest_line();
-#endif
     const std::string type_string = "# type:";
     if (rest_line.size() < type_string.length()) {
       return false;
