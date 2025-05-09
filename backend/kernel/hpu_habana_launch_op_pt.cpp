@@ -5101,7 +5101,7 @@ void HabanaLaunchOpPT::run(
           graph_symint_hash_,
           graph_perm_hash_);
 
-      if (execution_mode_ == habana_helpers::HabanaFrontendTypes::LAZY &&
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1 &&
           GET_ENV_FLAG_NEW(PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK)) {
         auto context = habana_lazy::get_device_lazy_execution_context();
         if (context->getCapturing())
