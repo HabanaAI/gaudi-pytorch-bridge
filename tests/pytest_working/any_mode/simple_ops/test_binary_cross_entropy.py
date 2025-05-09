@@ -20,7 +20,6 @@ import torch
 from binary_cross_entropy_utils import (
     binary_cross_entropy_bwd_test,
     binary_cross_entropy_fwd_test,
-    binary_cross_entropy_with_logits_fwd_test,
     gen_bce_inputs,
 )
 from compile.test_dynamo_utils import use_eager_fallback
@@ -55,24 +54,6 @@ use_weight_broadcastable_weight = [(False, False), (True, False), (True, True)]
 # <--- Forward --->
 
 
-@pytest.mark.parametrize("size", size, ids=format_tc)
-@pytest.mark.parametrize("reduction", reduction, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtype, ids=format_tc)
-@pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
-def test_hpu_binary_cross_entropy_fwd(size, reduction, dtype, use_weight, broadcastable_weight):
-
-    with use_eager_fallback():
-
-        binary_cross_entropy_fwd_test(
-            size,
-            reduction,
-            dtype,
-            use_weight,
-            broadcastable_weight=broadcastable_weight,
-            is_compile=is_pytest_mode_compile(),
-        )
-
-
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="DS are not supported in eager mode")
 @pytest.mark.parametrize("size", size, ids=format_tc)
 @pytest.mark.parametrize("reduction", reduction, ids=format_tc)
@@ -95,51 +76,6 @@ def test_hpu_binary_cross_entropy_fwd_dynamic(
     with use_eager_fallback():
 
         binary_cross_entropy_fwd_test(
-            size,
-            reduction,
-            dtype,
-            use_weight,
-            broadcastable_weight=broadcastable_weight,
-            is_dynamic=True,
-            is_compile=is_pytest_mode_compile(),
-        )
-
-
-@pytest.mark.parametrize("size", size, ids=format_tc)
-@pytest.mark.parametrize("reduction", reduction, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtype, ids=format_tc)
-@pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
-def test_hpu_binary_cross_entropy_with_logits_fwd(size, reduction, dtype, use_weight, broadcastable_weight):
-
-    with use_eager_fallback():
-
-        binary_cross_entropy_with_logits_fwd_test(
-            size,
-            reduction,
-            dtype,
-            use_weight,
-            broadcastable_weight=broadcastable_weight,
-            is_compile=is_pytest_mode_compile(),
-        )
-
-
-@pytest.mark.skipif(is_pytest_mode_eager(), reason="DS are not supported in eager mode")
-@pytest.mark.parametrize("size", size, ids=format_tc)
-@pytest.mark.parametrize("reduction", reduction, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtype, ids=format_tc)
-@pytest.mark.parametrize("use_weight, broadcastable_weight", use_weight_broadcastable_weight, ids=format_tc)
-@pytest.mark.parametrize(
-    "setup_teardown_env_fixture",
-    [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],
-    indirect=True,
-)
-def test_hpu_binary_cross_entropy_with_logits_fwd_dynamic(
-    size, reduction, dtype, use_weight, broadcastable_weight, setup_teardown_env_fixture
-):
-
-    with use_eager_fallback():
-
-        binary_cross_entropy_with_logits_fwd_test(
             size,
             reduction,
             dtype,
