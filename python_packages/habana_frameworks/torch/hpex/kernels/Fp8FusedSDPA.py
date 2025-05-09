@@ -107,9 +107,14 @@ def fp8_sdpa_fwd_wrapper(
     valid_seq_len=None,
     seq_padding_type="left",
     recompute=None,
+    requires_grad=None,
 ):
 
-    requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
+    requires_backward = (
+        q.requires_grad or k.requires_grad or v.requires_grad or requires_grad
+        if requires_grad is None
+        else requires_grad
+    )
 
     # Handle zero sized tensors(for now only in inference) by returning a dummy output.
     if requires_backward is False:
@@ -275,6 +280,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
         valid_seq_len=None,
         seq_padding_type="left",
         recompute=None,
+        requires_grad=None,
     ):
         return fp8_sdpa_fwd_wrapper(
             ctx,
@@ -297,6 +303,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
             valid_seq_len=valid_seq_len,
             seq_padding_type=seq_padding_type,
             recompute=recompute,
+            requires_grad=requires_grad,
         )
 
     @staticmethod
@@ -324,6 +331,7 @@ def dump_api_params(
     valid_seq_len=None,
     seq_padding_type="left",
     recompute=None,
+    requires_grad=None,
 ):
     def print_t_info(name, t, is_scale=False):
         if t is not None:
@@ -356,6 +364,7 @@ def dump_api_params(
     print_t_info("valid_seq_len", valid_seq_len)
     print("seq_padding_type : ", seq_padding_type)
     print("recmpute : ", recompute)
+    print("requires_grad : ", requires_grad)
     print("=" * 90)
 
 
@@ -379,6 +388,7 @@ def fp8_fused_sdpa(
     valid_seq_len=None,
     seq_padding_type="left",
     recompute=None,
+    requires_grad=None,
 ):
     dump_api_params(
         q,
@@ -400,6 +410,7 @@ def fp8_fused_sdpa(
         valid_seq_len,
         seq_padding_type,
         recompute,
+        requires_grad,
     )
     outputs = Fp8FusedSDPA.apply(
         q,
@@ -421,6 +432,7 @@ def fp8_fused_sdpa(
         valid_seq_len,
         seq_padding_type,
         recompute,
+        requires_grad,
     )
 
     return outputs
