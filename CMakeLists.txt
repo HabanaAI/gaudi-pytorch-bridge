@@ -73,7 +73,7 @@ find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy)
 find_package(Torch REQUIRED)
 find_package(ZLIB REQUIRED)
 
-include(pt_ver)
+include(VersionChecker)
 detect_pt_version()
 
 list(

@@ -34,9 +34,6 @@ else()
   set(PYBIND_INSTALL_DIRNAME "lib/fork_pybind")
 endif()
 
-include(pt_ver)
-detect_pt_version()
-
 target_compile_options(bindings INTERFACE -fopenmp -fpermissive)
 target_link_libraries(
   bindings
