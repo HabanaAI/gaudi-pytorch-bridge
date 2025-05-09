@@ -144,10 +144,6 @@ def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_poi
         check_ops_executed_in_jit_ir("convert_from_" + variant)
 
 
-def int8_to_int4(value):
-    return ((value + 8) % 16 - 8).to(torch.int8)
-
-
 @pytest.mark.parametrize("packed_shape", [(6, 2)], ids=format_tc)
 @pytest.mark.parametrize("random_group_index", [True, False])
 def test_convert_from_int4_group_index_zero_point(packed_shape, random_group_index):
@@ -181,7 +177,7 @@ def test_convert_from_int4_group_index_zero_point(packed_shape, random_group_ind
     for rowj in range(real_shape[0]):
         for i in range(real_shape[1]):
             subtraction[rowj][i] = (input[rowj][i] - zero_point[rowj][group_index[i]]).to(sub_dtype)
-            result_ref[rowj][i] = scale[rowj][group_index[i]] * int8_to_int4(subtraction[rowj][i])
+            result_ref[rowj][i] = scale[rowj][group_index[i]] * subtraction[rowj][i]
 
     compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
 
