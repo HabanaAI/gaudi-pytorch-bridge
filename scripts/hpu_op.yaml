@@ -9148,6 +9148,7 @@ optimizer_resource_apply_momentum:
   only_slrg: true
   op_validator: OptimizerResourceApplyMomentumSharedMeta
   namespaces: [torch.hpu.optimizer]
+  skip_slrg: true # Exception - params_momentum_buf_list minimum 2 elements in list
 
 optimizer_sgd:
   custom_op_schema: "hpu::optimizer_sgd(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor[]"
