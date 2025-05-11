@@ -244,6 +244,7 @@ add_habana_library(
   backend/reduce_std_var_gen.cpp
   backend/reduction_gen.cpp
   backend/reduction_template.cpp
+  backend/renorm_gen.cpp
   backend/reflection_pad_gen.cpp
   backend/repeat_gen.cpp
   backend/repeat_interleave_gen.cpp

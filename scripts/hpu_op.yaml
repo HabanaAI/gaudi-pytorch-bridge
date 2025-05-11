@@ -3164,6 +3164,19 @@ embedding_renorm:
   op_validator: check-node-with-shared-layer
   skip_slrg: true
 
+renorm.out:
+  custom_fill_params: FillRenormParams
+  guid: renorm
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+
+renorm:
+  custom_fill_params: FillRenormParams
+  guid: renorm
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch]
+  out_ids: [0]
+
 equal:
   guid: equal_pt_fwd
   custom_fill_params: FillEqualParams

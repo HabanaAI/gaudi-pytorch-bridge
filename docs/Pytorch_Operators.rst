@@ -450,6 +450,7 @@ reciprocal\_                             Yes      Yes      Yes     Yes       Yes
 relu                                     Yes      Yes      Yes     No        No       No        No        No       No     torch
 relu\_                                   Yes      Yes      Yes     No        No       No        No        No       No     torch
 remainder                                Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
+renorm                                   Yes      Yes      Yes     No        No       No        No        No       No     torch
 reshape                                  Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
 resolve_conj                             Yes      Yes      No      No        No       No        No        No       No     torch
 resolve_neg                              Yes      Yes      No      No        No       No        No        No       No     torch
