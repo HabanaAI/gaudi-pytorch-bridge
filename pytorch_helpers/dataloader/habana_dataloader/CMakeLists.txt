@@ -23,10 +23,17 @@ set_target_properties(habana_dl_app PROPERTIES PREFIX "")
 target_include_directories(habana_dl_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_directories(habana_dl_app PRIVATE $ENV{BUILD_ROOT_LATEST})
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
-target_link_libraries(
-  habana_dl_app
-  PUBLIC torch nlohmann_json aeon ${TORCH_PYTHON_LIBRARY}
-  PRIVATE Python::Python)
+if(SKIP_AEON)
+  target_link_libraries(
+    habana_dl_app
+    PUBLIC torch nlohmann_json ${TORCH_PYTHON_LIBRARY}
+    PRIVATE Python::Python)
+else()
+  target_link_libraries(
+    habana_dl_app
+    PUBLIC torch nlohmann_json aeon ${TORCH_PYTHON_LIBRARY}
+    PRIVATE Python::Python)
+endif()
 if(UPSTREAM_COMPILE)
   set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
   install(TARGETS habana_dl_app LIBRARY DESTINATION habana_torch_dataloader/upstream)

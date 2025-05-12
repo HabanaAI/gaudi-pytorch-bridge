@@ -1320,6 +1320,8 @@ def get_cmake_configurations(args) -> dict[str, list[str]]:
         args.release = False
         args.build_all = False
         log.info("Enforcing build type to debug, since code coverage is enabled.")
+    if args.skip_aeon:
+        cmake_flags.set_if_missing("SKIP_AEON", "ON")
     cmake_flags.set_if_missing("BUILD_PKGS", "OFF")  # wheel builds are now handled in multi-build Makefile
 
     build_type = "CMAKE_BUILD_TYPE"
@@ -1613,6 +1615,11 @@ def parse_args():
         "--upstream-compile",
         action="store_true",
         help="Additionally compile with upstream fork",
+    )
+    parser.add_argument(
+        "--skip-aeon",
+        action="store_true",
+        help="Do not link aeon library",
     )
 
     args = parser.parse_args()
