@@ -142,6 +142,7 @@ class Output {
   std::optional<SmallSizeVec> sizes;
   std::optional<at::ScalarType> scalar_type;
   uint64_t unique_id;
+  int64_t tensor_id;
 };
 using OutputList = std::vector<Output>;
 

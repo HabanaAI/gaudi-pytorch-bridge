@@ -426,6 +426,9 @@ Output::Output(const Value& v)
   sizes = v.get_sizes();
   scalar_type = v.get_scalar_type();
   unique_id = v.get_unique_id();
+  tensor_id = 0;
+  if (v.DataPtrValidAndNotExpired())
+    tensor_id = v.GetHbLazyTensorUniqueId();
 }
 
 std::string Output::ToString() const {
@@ -436,6 +439,7 @@ std::string Output::ToString() const {
     std::replace(name.begin(), name.end(), ':', '_');
     ss << "_" << name;
   }
+  ss << " Unique ID:" << tensor_id;
   return ss.str();
 }
 
