@@ -1172,6 +1172,24 @@ def test_op_scalar_div():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+def test_op_scalar_div2():
+    inputs = [(4, 4), (4, 4), (4, 4)]
+    scalars = [2, 3, 4]
+
+    def raw_function(x, s):
+        return torch.ops.aten.div.Scalar(x, s)
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for s1, s2 in zip(inputs, scalars, strict=False):
+        t1 = torch.randn(s1, requires_grad=False)
+        result = raw_function(t1, s2)
+        t1_hpu = t1.to("hpu")
+        h_result = compiled_fn(t1_hpu, s2)
+        h = h_result.to("cpu")
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
 def test_op_randperm():
     os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
     input_n = [8, 9, 10, 11, 12]

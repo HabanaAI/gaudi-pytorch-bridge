@@ -382,7 +382,9 @@ def _check_unsupported_h2d_ops(node: torch.fx.Node):
     ), f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
 
 
-def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
+def _is_cpu_scalar_copy_required(
+    node: torch.fx.Node, arg_idx: int, node_arg: torch.fx.Node, h2d_scales_enabled: bool
+) -> bool:
     # This is list of scalar OPs
     scalar_ops = [
         "topk",
@@ -404,7 +406,13 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h
     copy_required = True
     if node.op == "call_function":
         node_target = node.target.__name__.split(".")[0]
-        if node_arg.type in [int, float] and node_target in scalar_ops:
+        if node.target.__name__.split(".")[-1] == "Scalar":
+            copy_required = False
+        elif (
+            node_arg.type in [int, float]
+            and isinstance(node.target._schema, torch.FunctionSchema)
+            and node.target._schema.arguments[arg_idx].type.annotation_str in ["number", "int"]
+        ) or (node_arg.type in [int, float] and node_target in scalar_ops):
             assert node_arg.meta["output_device"] == torch.device("cpu")
             copy_required = False
         elif _is_cpu_scale_allowed(node, node_arg, h2d_scales_enabled):
@@ -1250,11 +1258,11 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
             and node.meta["output_device"].type == "hpu"
             and not is_backward_checkpoint_op(node)
         ):
-            for arg in node.args:
+            for arg_idx, arg in enumerate(node.args):
                 if (
                     isinstance(arg, torch.fx.Node)
                     and ("output_device" in arg.meta and arg.meta["output_device"].type != "hpu")
-                    and _is_cpu_scalar_copy_required(node, arg, h2d_scales_enabled)
+                    and _is_cpu_scalar_copy_required(node, arg_idx, arg, h2d_scales_enabled)
                 ):
                     nodes_to_fix_list.append(node)
                     break
