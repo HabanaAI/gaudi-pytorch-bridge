@@ -163,6 +163,13 @@ ref_input_shape_map() {
 
 std::unordered_set<std::string>& disabled_jit_ir_ops() {
   static std::unordered_set<std::string> set;
+  static bool initialized = false;
+
+  if (!initialized) {
+    set.insert("aten::convolution_backward_overrideable");
+    initialized = true;
+  }
+
   return set;
 };
 
