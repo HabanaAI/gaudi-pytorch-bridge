@@ -3,8 +3,6 @@ orchestratorConfig:
   cron: "H H(6-18)/3 * * *"
   retriggerThreshold: "3"
   testConfig:
-    - testToLaunch: habana-internal/pt_next/Test_dependent_Build_pt_next_u22
-      silentMode: true
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
