@@ -17,7 +17,6 @@
 
 
 import torch
-from torch._ops import OpOverload as TorchOpOverload
 from torch._subclasses.fake_tensor import FakeTensorMode
 
 from .._helpers.helpers import propagate_meta
@@ -103,6 +102,26 @@ def wrap_random_ops(sub_module: torch.fx.GraphModule):
     return additional_random_args
 
 
+def skip_faketensor_propagation(node):
+    if node.op != "call_function":
+        return False
+
+    # after pass pass_remove_unnecessary_bmm_view, it will make bmm op consume
+    # non-3D input tensors and cause "batch 1must be a 3D tensor" error.
+    # So just skip the second fake_propagation for bmm node.
+    if node.target.__name__.split(".")[0] == "bmm":
+        return True
+
+    # skip inplace ops to avoid broadcast shape mismatch error
+    # assuming inplace op's metadata is the same as the out-of-place version's
+    if node.target.__name__.split(".")[0].endswith("_") or node.target == torch.ops.hpu.weight_permutation:
+        # the add_ node in wrap_random ops function should do this faketensor propagation
+        if node.name == "add__tensor":
+            return False
+        else:
+            return True
+
+
 def propagate_for_random_ops(
     graph_module: torch.fx.GraphModule, args, additional_inputs: tuple[torch.Tensor, torch.Tensor]
 ):
@@ -126,18 +145,11 @@ def propagate_for_random_ops(
 
         def run_node(self, node: torch.fx.Node):
             args = kwargs = result = None
-            if SymExprNodeManager.node_name in node.name:
+            if SymExprNodeManager.node_name in node.name and node.op != "placeholder":
                 result = node.meta["val"]
                 args, kwargs = self.fetch_args_kwargs_from_env(node)
-            elif (isinstance(node.target, TorchOpOverload) and node.target._name == "aten::bmm") or (
-                hasattr(node.target, "default")
-                and isinstance(node.target.default, TorchOpOverload)
-                and node.target.default._name == "aten::bmm"
-            ):
-                # dealing with special cases
-                # after pass pass_remove_unnecessary_bmm_view, it will make bmm op consume
-                # non-3D input tensors and cause "batch 1must be a 3D tensor" error.
-                # So just skip the second fake_propagation for bmm node.
+            elif skip_faketensor_propagation(node):
+                # skip the fake tensor propagation for some special cases
                 result = node.meta["val"]
                 args, kwargs = self.fetch_args_kwargs_from_env(node)
                 node.val_args = args
