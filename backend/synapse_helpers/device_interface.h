@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2025 Intel Corporation
+ * Copyright (c) 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,28 +13,21 @@
  * limitations under the License.
  */
 #pragma once
-
-#include <memory>
-#include <mutex>
-
-#include "backend/synapse_helpers/synapse_error.h" // IWYU pragma: keep
+#include <synapse_api_types.h>
 
 namespace synapse_helpers {
 
-class session {
+class device_interface {
  public:
-  ~session();
-  static synapse_error_v<std::shared_ptr<session>> get_or_create();
-  session(const session&) = delete;
-  session(session&&) = delete;
-  session& operator=(const session&) = delete;
-  session& operator=(session&&) = delete;
+  virtual ~device_interface() = default;
 
- private:
-  static std::weak_ptr<session> opened_session;
-  static std::mutex session_create_mutex;
+  // Device id as assigned by Synapse during device acquire.
+  // Note this is unrelated to module ID, e.g., multiple devices acquired in
+  // different processes can have the same ID here.
+  virtual synDeviceId id() const = 0;
 
-  session() = default;
+  // Informs whether host memory allocations are cached.
+  virtual bool HostMemoryCacheEnabled() const = 0;
 };
 
 } // namespace synapse_helpers

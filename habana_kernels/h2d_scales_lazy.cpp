@@ -46,7 +46,7 @@ at::Tensor create_h2d_scale_tensor(
   if (nullptr == alloc_pointer and nullptr == h2d_pointer) {
     // Allocate memory for a single H2D scale tensor. This is the case for scale
     // tensors added to cache in runtime.
-    tmeta->set_host_data(scale_ptr, {1}, scale_value_size, dt_type);
+    tmeta->set_host_data(scale_ptr, 1, scale_value_size, dt_type);
   } else {
     // Use memory from preallocated chunk. This is the case for the initial
     // cache of H2D scales tensors created at startup. Set the host and compile
@@ -63,7 +63,7 @@ at::Tensor create_h2d_scale_tensor(
     char* ptr = static_cast<char*>(*h2d_pointer) + host_total_elem;
     *h2d_pointer = static_cast<char*>(ptr + host_total_elem);
     tmeta->set_compile_host_ptr(ptr);
-    tmeta->update_host_data(scale_ptr, {1}, scale_value_size, true);
+    tmeta->update_host_data(scale_ptr, 1, scale_value_size, true);
   }
 
   return scale_tensor;

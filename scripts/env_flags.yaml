@@ -903,3 +903,13 @@ PT_HPU_DISALLOW_TORCH_COMPILE:
   default: false
   settable: true
   doc: "This flag disallows the use of torch.compile."
+
+PT_HPU_HUGE_PAGES_LIMIT_MB:
+  type: unsigned
+  default: 0
+  doc: "This flag sets the limit for huge pages in MB for current worker. If set to 0, default limit of 2MB * HugePages_Total // count_of_Gaudis_in_the_system is applied."
+
+PT_HPU_HUGE_PAGES_POPULATE:
+  type: bool
+  default: false
+  doc: "This flag enables MAP_POPULATE for huge pages."

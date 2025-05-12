@@ -264,6 +264,7 @@ list(
   synapse_helpers_graph_test.cpp
   tensor_usage.cpp
   type_promotion_tests.cpp
+  # test_host_memory.cpp # Disabled until possibility to mock GC API without affecting other tests is found
   user_stream_tests.cpp
   utils/check_device_type.cpp
   utils/device_type_util.cpp
@@ -315,6 +316,8 @@ target_link_libraries(
           habana_pytorch_plugin
           gtest
           gtest_main
+          gmock
+          gmock_main
           util
           pthread
           stdc++
@@ -338,6 +341,8 @@ target_link_libraries(
           habana_pytorch2_plugin
           gtest
           gtest_main
+          gmock
+          gmock_main
           util
           pthread
           stdc++

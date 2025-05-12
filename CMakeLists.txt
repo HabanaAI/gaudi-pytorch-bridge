@@ -18,7 +18,10 @@
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
 if(POLICY CMP0076)
+  set(ORIGINAL_CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
+  set(CMAKE_WARN_DEPRECATED OFF)
   cmake_policy(SET CMP0076 OLD)
+  set(CMAKE_WARN_DEPRECATED ${ORIGINAL_CMAKE_WARN_DEPRECATED})
 endif()
 
 include(CMakeDependentOption)
@@ -380,8 +383,11 @@ install(TARGETS habana_pytorch2_plugin LIBRARY DESTINATION habana_torch_plugin/l
 option(BUILD_TESTS "Build gtest binaries" ON)
 
 if(BUILD_TESTS)
+  set(ORIGINAL_CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
+  set(CMAKE_WARN_DEPRECATED OFF)
   add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13/"
                    ${CMAKE_BINARY_DIR}/ThirdParty/googletest/ EXCLUDE_FROM_ALL SYSTEM)
+  set(CMAKE_WARN_DEPRECATED ${ORIGINAL_CMAKE_WARN_DEPRECATED})
   add_subdirectory(tests/cpp)
 endif()
 option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
