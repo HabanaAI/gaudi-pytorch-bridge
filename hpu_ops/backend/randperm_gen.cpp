@@ -176,7 +176,7 @@ void RandPermOp::AddNode(
 //===----------------------------------------------------------------------===//
 // This is the implementation of custom RandPerm op in `torch.compile`
 //===----------------------------------------------------------------------===//
-OutputMetaData HabanaRandPermMetaCommon(const at::Stack& stack) {
+OutputMetaDataVector HabanaRandPermMeta(const at::Stack& stack) {
   OutputMetaData meta;
 
   meta.shape = {stack.at(1).toInt()};
@@ -185,18 +185,10 @@ OutputMetaData HabanaRandPermMetaCommon(const at::Stack& stack) {
   meta.dtype = stack.at(dtype_index)
                    .toOptional<at::ScalarType>()
                    .value_or(c10::ScalarType::Long);
-  return meta;
+  return {meta};
 }
 
-OutputMetaDataVector HabanaRandPermMeta(const at::Stack& stack) {
-  return {HabanaRandPermMetaCommon(stack)};
-}
-
-OutputMetaDataVector HabanaRandPermCheckpointMeta(const at::Stack& stack) {
-  return {SeedOutputMeta(), HabanaRandPermMetaCommon(stack)};
-}
-
-void HabanaRandPermBase::AddNode(
+void HabanaRandPerm::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   HABANA_ASSERT(
@@ -211,39 +203,9 @@ void HabanaRandPermBase::AddNode(
       this, graph, std::nullopt, syn_in(0), out_dtype, out_shape, n);
 }
 
-HabanaRandPermBase::HabanaRandPermBase(
-    int device_id,
-    c10::ScalarType scalar_type,
-    bool is_deterministic)
-    : HabanaRandomBase(
-          device_id,
-          "randperm",
-          scalar_type,
-          {0},
-          is_deterministic) {
+HabanaRandPerm::HabanaRandPerm(int device_id, c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, "randperm", scalar_type, {0}) {
   SetOutputMetaFn(HabanaRandPermMeta);
-}
-
-void HabanaRandPermCheckpoint::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto seed =
-      BuildOp(graph, "identity", {syn_in(0)}, {{{}, at::ScalarType::Int, 0}});
-  syn_out(0) = std::move(seed[0]);
-
-  int n = stack.at(1).toInt();
-  const auto meta = HabanaRandPermMeta(stack)[0];
-  auto out_dtype = meta.dtype;
-  auto out_shape = meta.shape;
-  syn_out(1) = RandPermCommon(
-      this, graph, std::nullopt, syn_in(0), out_dtype, out_shape, n, 1);
-}
-
-HabanaRandPermCheckpoint::HabanaRandPermCheckpoint(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : HabanaRandCheckpointBase(device_id, "randperm", scalar_type, {0, 0}) {
-  SetOutputMetaFn(HabanaRandPermCheckpointMeta);
 }
 
 size_t GetMInMaxSifOffsetRP(bool dry_run, size_t data_size) {
@@ -336,7 +298,7 @@ void HabanaRandPermDS::AddNode(
 }
 
 HabanaRandPermDS::HabanaRandPermDS(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandomBase(device_id, "random_uniform", scalar_type, {0}, false) {
+    : HabanaRandomBase(device_id, "random_uniform", scalar_type, {0}) {
   SetOutputMetaFn(HabanaRandPermMetaDS);
 }
 
@@ -344,7 +306,5 @@ HabanaRandPermDS::HabanaRandPermDS(int device_id, c10::ScalarType scalar_type)
 
 static const auto& HabanaRandomKernelRegistry =
     habana::KernelRegistry()
-        .REGISTER_RANDOM_CHECKPOINT_OP(randperm, RandPerm)
-        .REGISTER_HPU_BACKEND(
-            "hpu::habana_randperm_ht",
-            habana::HabanaRandPermDS);
+        .REGISTER_HABANA_RANDOM_OP(randperm, RandPerm)
+        .REGISTER_HABANA_RANDOM_OP(randperm_ht, RandPermDS);

@@ -23,8 +23,9 @@ namespace habana {
 namespace graph {
 namespace pass {
 
-struct AddAttributeAlphaPass {
-  explicit AddAttributeAlphaPass(std::shared_ptr<torch::jit::Graph> graph)
+struct AddDeterministicAttributePass {
+  explicit AddDeterministicAttributePass(
+      std::shared_ptr<torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
 
   bool run() {
@@ -47,16 +48,18 @@ struct AddAttributeAlphaPass {
   }
 
   bool processNode(torch::jit::Node* node, bool deterministic) {
-    node->i_(torch::jit::attr::deterministic, deterministic);
+    constexpr auto attr = torch::jit::attr::deterministic;
+    const bool maybe_already_set = node->hasAttribute(attr) and node->i(attr);
+    node->i_(attr, deterministic or maybe_already_set);
     return true;
   }
 
   std::shared_ptr<torch::jit::Graph> m_graph;
 };
 
-bool AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph) {
+bool AddDeterministicAttribute(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
-  AddAttributeAlphaPass pass{graph};
+  AddDeterministicAttributePass pass{graph};
   bool changed{pass.run()};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);

@@ -23,7 +23,7 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 import torch
 
 from ._shared_layer_C import shared_layer_validation
-from .random_utils import HABANA_CHECKPOINT_OPS
+from .random_utils import HABANA_RANDOM_OPS
 
 logger = get_compile_backend_logger()
 
@@ -43,6 +43,7 @@ hpu_supported_op_list = {
     # is no aten::instance_norm_backward that could be overridden by hpu implementation
     "instance_norm_backward",
     # Custom ops
+    "block_softmax_adjustment",
     "cast_from_fp8",
     "cast_to_fp8_hybrid",
     "cast_to_fp8_v2",
@@ -54,6 +55,8 @@ hpu_supported_op_list = {
     "custom_softmax",
     "in_place_interleave",
     "kv_reorder",
+    "mamba_pscan",
+    "mamba_pscan_update",
     "mixture_of_experts_fp8_measurement",
     "one_hot",
     "rotary_pos_embedding",
@@ -112,9 +115,6 @@ hpu_supported_op_list = {
     "run_and_save_rng_state",
     "run_with_rng_state",
     "habana_seed_generator",
-    "block_softmax_adjustment",
-    "mamba_pscan",
-    "mamba_pscan_update",
 }
 
 # When below flag is enabled, aten.linear and aten.matmul decompositions
@@ -258,7 +258,7 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
     if op_name in ["run_and_save_rng_state", "run_with_rng_state"]:
         idx = 0 if op_name == "run_and_save_rng_state" else 1
         random_op = str(node.val_args[idx])
-        do_fallback = random_op not in HABANA_CHECKPOINT_OPS
+        do_fallback = random_op not in HABANA_RANDOM_OPS
         reason = f"Random op {random_op} not supported in activation_checkpoint flow" if do_fallback else ""
         return do_fallback, reason
     unsupported_types = {"permute": torch.int64}

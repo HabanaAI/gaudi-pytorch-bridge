@@ -24,53 +24,11 @@ from .._helpers.helpers import propagate_meta
 from ..random_utils import (
     backward_random_op_inputs,
     is_backward_checkpoint_op,
-    is_multi_output_op,
     is_random_op,
+    is_run_and_save_rng_state,
     random_op_inputs,
 )
 from ..symbolic_execution import SymExprNodeManager
-
-
-def _flatten_meta(node):
-    def traverse(values, flat_list, depth):
-        for v in values:
-            # avoid flatten shape and layout
-            if (depth < 1) and isinstance(v, tuple | list) and v:
-                traverse(v, flat_list, depth + 1)
-            else:
-                flat_list.append(v)
-
-    def flatten_value(values):
-        if isinstance(values, tuple | list):
-            v_list = []
-            traverse(values, v_list, 0)
-            if isinstance(values, tuple):
-                return tuple(v_list)
-            return v_list
-        else:
-            return values
-
-    if node.meta:
-        updated_meta = {}
-        for k, values in node.meta.items():
-            updated_meta[k] = flatten_value(values)
-
-        node.meta.update(updated_meta)
-
-
-def _correct_meta(node):
-    if node.meta:
-        updated_meta = {}
-        for k, values in node.meta.items():
-            if not (isinstance(values, tuple | list) and len(values) > 1):
-                continue
-            # avoid break shape and layout
-            if k in ["output_strides", "output_shapes"] and (not isinstance(values[0], tuple | list)):
-                continue
-
-            updated_meta[k] = (values[0]) if isinstance(values, tuple) else [values[0]]
-
-        node.meta.update(updated_meta)
 
 
 def wrap_random_ops(sub_module: torch.fx.GraphModule):
@@ -95,6 +53,7 @@ def wrap_random_ops(sub_module: torch.fx.GraphModule):
                 random_node = sub_module.graph.call_function(*backward_random_op_inputs(node))
                 node.replace_all_uses_with(random_node, propagate_meta=True)
                 random_node.meta.update(node.meta)
+                random_node.meta["deterministic"] = True
                 sub_module.graph.erase_node(node)
 
         sub_module.recompile()
@@ -113,28 +72,26 @@ def wrap_random_ops(sub_module: torch.fx.GraphModule):
         )
         _ = sub_module.graph.call_function(torch.ops.aten.add_.Tensor, (counter_pl, nbr_of_random), {})
 
-    multi_output_ops = []
-
     for i, node in enumerate(random_ops):
         with sub_module.graph.inserting_before(node):
             seed = sub_module.graph.call_function(torch.select, (seeds, 0, i), {})
             random_node = sub_module.graph.call_function(*random_op_inputs(node, seed))
-            node.replace_all_uses_with(random_node, propagate_meta=True)
-            random_node.meta.update(node.meta)
-            if is_multi_output_op(node):
-                multi_output_ops.append(random_node)
-            sub_module.graph.erase_node(node)
 
-    for node in multi_output_ops:
-        # flatten tuple and list inside meta
-        _flatten_meta(node)
-        for getitem in list(node.users):
-            if getitem.args[1] == 1:
-                # only keep the first element
-                _correct_meta(getitem)
-                for selector in list(getitem.users):
-                    idx = selector.args[1]
-                    selector.args = (node, idx + 1)
+            if is_run_and_save_rng_state(node):
+                random_node.meta["deterministic"] = True
+                for getitem_node in list(node.users):
+                    index = getitem_node.args[1]
+                    if index not in [0, 1]:
+                        raise AssertionError(f"Expecting {node} to produce only two outputs")
+
+                    new_out = seed if index == 0 else random_node
+                    getitem_node.replace_all_uses_with(new_out, propagate_meta=False)
+                    sub_module.graph.erase_node(getitem_node)
+            else:
+                node.replace_all_uses_with(random_node, propagate_meta=True)
+                random_node.meta.update(node.meta)
+
+            sub_module.graph.erase_node(node)
 
     sub_module.recompile()
 

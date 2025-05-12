@@ -15,15 +15,40 @@
 
 #include "generated/backend/exponential.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
 
-OutputMetaDataVector ExponentialMeta(const at::Stack& stack) {
-  const auto& self = stack.at(0).toTensor();
+namespace {
+
+OutputMetaDataVector ExponentialMetaCommon(
+    const at::Stack& stack,
+    size_t self_idx) {
+  const auto& self = stack.at(self_idx).toTensor();
   OutputMetaData meta;
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
   return {meta};
+}
+
+std::shared_ptr<void> FillExponentialParamsCommon(
+    const at::Stack& stack,
+    size_t& size,
+    size_t lambd_idx) {
+  PARAMS_STUB(ns_RandomExponential::Params);
+  float lambd = stack.at(lambd_idx).toScalar().toFloat();
+  HABANA_ASSERT(
+      lambd >= 0.0,
+      "exponential_ expects lambda >= 0.0, but found lambda=",
+      lambd);
+  params->beta = 1.0f / lambd;
+  return params;
+}
+
+} // namespace
+
+OutputMetaDataVector ExponentialMeta(const at::Stack& stack) {
+  return ExponentialMetaCommon(stack, 0);
 }
 
 SharedMetaDataVector ExponentialSharedMeta(
@@ -44,14 +69,7 @@ SharedMetaDataVector ExponentialSharedMeta(
 std::shared_ptr<void> FillExponentialParams(
     const at::Stack& stack,
     size_t& size) {
-  PARAMS_STUB(ns_RandomExponential::Params);
-  float lambd = stack.at(1).toScalar().toFloat();
-  HABANA_ASSERT(
-      lambd >= 0.0,
-      "exponential_ expects lambda >= 0.0, but found lambda=",
-      lambd);
-  params->beta = 1.0f / lambd;
-  return params;
+  return FillExponentialParamsCommon(stack, size, 1);
 }
 
 void ExponentialSeedTensorInput::AddNode(
@@ -78,4 +96,29 @@ void ExponentialSeedTensorInput::AddNode(
       size);
   syn_out(0) = std::move(exponential[0]);
 }
+
+//===----------------------------------------------------------------------===//
+// This is the implementation of custom exponential op in `torch.compile`
+//===----------------------------------------------------------------------===//
+
+OutputMetaDataVector HabanaExponentialMeta(const at::Stack& stack) {
+  return ExponentialMetaCommon(stack, 1);
+}
+
+std::shared_ptr<void> FillHabanaExponentialParams(
+    const at::Stack& stack,
+    size_t& size) {
+  return FillExponentialParamsCommon(stack, size, 2);
+}
+
+HabanaExponential::HabanaExponential(int device_id, c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, "random_exponential_fwd", scalar_type, {1}) {
+  SetOutputMetaFn(HabanaExponentialMeta);
+  SetFillParams(FillHabanaExponentialParams);
+}
 } // namespace habana
+
+static const auto& HabanaExponentialKernelRegistry =
+    habana::KernelRegistry().REGISTER_HABANA_RANDOM_OP(
+        exponential,
+        Exponential);

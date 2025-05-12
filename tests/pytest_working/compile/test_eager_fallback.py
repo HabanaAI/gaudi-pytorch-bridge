@@ -18,7 +18,7 @@
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.random_utils import (
-    HABANA_CHECKPOINT_OPS,
+    HABANA_RANDOM_OPS,
 )
 from test_utils import (
     check_eager_fallback_reason,
@@ -56,7 +56,7 @@ def test_unsupported_dtype():
 
 def test_unsupported_random_activation_checkpoint():
     aten_op = "aten.bernoulli.default"
-    checkpoint_op_bckp = HABANA_CHECKPOINT_OPS.pop(aten_op)
+    checkpoint_op_bckp = HABANA_RANDOM_OPS.pop(aten_op)
 
     def op(input):
         return torch.ops.aten.bernoulli(input) * input
@@ -73,7 +73,7 @@ def test_unsupported_random_activation_checkpoint():
         res = fn(input)
         res.sum().backward()
 
-    HABANA_CHECKPOINT_OPS[aten_op] = checkpoint_op_bckp
+    HABANA_RANDOM_OPS[aten_op] = checkpoint_op_bckp
 
     check_eager_fallback_reason(
         "run_and_save_rng_state", f"Random op {aten_op} not supported in activation_checkpoint flow", exception=e_info

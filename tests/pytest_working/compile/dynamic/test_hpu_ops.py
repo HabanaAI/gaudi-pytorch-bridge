@@ -1480,7 +1480,7 @@ def test_backend_st_test4():
         result = raw_function(t)
         h_result = compiled_fn(t_h)
         assert h_result.to("cpu").shape == result.shape
-    check_ops_executed_in_jit_ir({"exponential"})
+    check_ops_executed_in_jit_ir({"habana_exponential"})
 
 
 def test_backend_st_test5():

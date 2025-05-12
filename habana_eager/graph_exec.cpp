@@ -543,9 +543,9 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
       dump_graphs,
       "HandleTupleOnOutput");
   RunPass(
-      [this]() { return pass::AddAttributeAlpha(this->m_graph); },
+      [this]() { return pass::AddDeterministicAttribute(this->m_graph); },
       dump_graphs,
-      "AddAttributeAlpha");
+      "AddDeterministicAttribute");
   RunPass(
       [this]() { return pass::RemoveDetachOp(this->m_graph); },
       dump_graphs,

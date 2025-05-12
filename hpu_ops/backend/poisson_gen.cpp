@@ -46,18 +46,10 @@ SharedMetaDataVector PoissonSharedMeta(
 
 using namespace std::literals;
 
-HabanaPoissonBase::HabanaPoissonBase(
-    int device_id,
-    c10::ScalarType scalar_type,
-    bool is_deterministic)
-    : HabanaRandomBase(
-          device_id,
-          "habana_poisson",
-          scalar_type,
-          {1},
-          is_deterministic) {}
+HabanaPoisson::HabanaPoisson(int device_id, c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, "habana_poisson", scalar_type, {1}) {}
 
-void HabanaPoissonBase::AddNode(
+void HabanaPoisson::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& input_tensor = stack_tensor(stack, 1);
@@ -77,41 +69,7 @@ void HabanaPoissonBase::AddNode(
 
   syn_out(0) = std::move(poisson[0]);
 }
-
-HabanaPoissonCheckpoint::HabanaPoissonCheckpoint(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : HabanaRandCheckpointBase(
-          device_id,
-          "habana_poisson",
-          scalar_type,
-          {0, 1}) {}
-
-void HabanaPoissonCheckpoint::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto seed =
-      BuildOp(graph, "identity", {syn_in(0)}, {{{}, at::ScalarType::Int, 0}});
-  syn_out(0) = std::move(seed[0]);
-
-  const auto& input_tensor = stack_tensor(stack, 1);
-  const auto& dtype = input_tensor.scalar_type();
-  std::vector<synTensor> inputs = {syn_in(1), syn_in(0)};
-
-  size_t params_size = 0;
-  const auto& params = FillPoissonParams(stack, params_size);
-  auto poisson = OpBackend::BuildNode(
-      this,
-      graph,
-      {get_guid_with_precision("random_poisson_fwd"sv, dtype),
-       inputs,
-       {{input_tensor.sizes().vec(), dtype, 1}},
-       params.get(),
-       params_size});
-
-  syn_out(1) = std::move(poisson[0]);
-}
 } // namespace habana
 
 static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry().REGISTER_RANDOM_CHECKPOINT_OP(poisson, Poisson);
+    habana::KernelRegistry().REGISTER_HABANA_RANDOM_OP(poisson, Poisson);

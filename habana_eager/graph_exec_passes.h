@@ -21,7 +21,7 @@ namespace graph {
 namespace pass {
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
-bool AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
+bool AddDeterministicAttribute(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleH2dScales(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
