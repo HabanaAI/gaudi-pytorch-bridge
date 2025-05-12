@@ -29,7 +29,7 @@
 #  - output_meta - function for output tensors metadata calculation.
 #  - st_meta - attribute to add an op to the optimized output sif flow for dynamic cache hit scenarios
 #  - custom_fill_params - function filling params structure for kernel/cguid. Not needed if op_backend used.
-#  - frontend_blocklist - used to limit frontend generation either to eager or lazy.
+#  - frontend_blocklist - restricts frontend generation to eager or lazy mode. For custom ops with autograd support, autograd can also be specified.
 #  - promote_to_common_type - names of inputs to execute type promotion on.
 #  - promote_int_to_float - names of inputs casted automatically to float.
 #  - promote_int_to_long - names of inputs casted automatically to long.
@@ -9020,13 +9020,48 @@ calculate_scale_for_cast:
   op_validator: check-node-with-shared-layer
   namespaces: [torch.hpu]
 
+mixture_of_experts:
+  custom_op_schema: "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor"
+  op_validator: MixtureOfExpertsSharedMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0]
+  frontend_blocklist: [eager]
+  namespaces: [torch.hpu]
+
+mixture_of_experts.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor"
+  op_validator: MixtureOfExpertsSharedMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0]
+  frontend_blocklist: [eager]
+  namespaces: [torch.hpu]
+
+mixture_of_experts_fp8_measurement:
+  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)"
+  op_validator: MixtureOfExpertsSharedMeta
+  output_meta: MixtureOfExpertsMeasurementMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0, 0]
+  frontend_blocklist: [lazy, eager]
+  skip_slrg: true
+
+mixture_of_experts_fp8_measurement.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)"
+  op_validator: MixtureOfExpertsSharedMeta
+  output_meta: MixtureOfExpertsMeasurementMeta
+  op_backend: MixtureOfExperts
+  out_ids: [0, 0]
+  frontend_blocklist: [lazy, eager]
+  skip_slrg: true
+
 mixture_of_experts.fp8:
   custom_op_schema: "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
   output_meta: MixtureOfExpertsFp8Meta
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_lazy
@@ -9037,7 +9072,8 @@ mixture_of_experts.fp8_fused_weights:
   op_backend: MixtureOfExpertsFp8
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_fused_weights_lazy
@@ -9048,7 +9084,8 @@ mixture_of_experts.fp8_scalars:
   op_backend: MixtureOfExpertsFp8Scalars
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_scalars:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -9056,7 +9093,8 @@ mixture_of_experts.fp8_fused_weights_scalars:
   op_backend: MixtureOfExpertsFp8Scalars
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_dynamic:
   custom_op_schema: "hpu::mixture_of_experts.fp8_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -9064,7 +9102,8 @@ mixture_of_experts.fp8_dynamic:
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_dynamic_lazy
@@ -9075,7 +9114,8 @@ mixture_of_experts.fp8_fused_weights_dynamic:
   op_backend: MixtureOfExpertsFp8Dynamic
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
   lazy:
     acc_thread: true
     override_fn: mixture_of_experts_fp8_fused_weights_dynamic_lazy
@@ -9086,7 +9126,8 @@ mixture_of_experts.fp8_scalars_dynamic:
   op_backend: MixtureOfExpertsFp8ScalarsDynamic
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_scalars_dynamic:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -9094,7 +9135,8 @@ mixture_of_experts.fp8_fused_weights_scalars_dynamic:
   op_backend: MixtureOfExpertsFp8ScalarsDynamic
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_blockwise:
   custom_op_schema: "hpu::mixture_of_experts.fp8_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -9102,7 +9144,8 @@ mixture_of_experts.fp8_blockwise:
   op_backend: MixtureOfExpertsFp8BlockwiseQuantization
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8SharedMeta
+  namespaces: [torch.hpu]
 
 mixture_of_experts.fp8_fused_weights_blockwise:
   custom_op_schema: "hpu::mixture_of_experts.fp8_fused_weights_blockwise(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor[] d_scale_w12, Tensor[] d_scale_w3, int block_size, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
@@ -9110,7 +9153,96 @@ mixture_of_experts.fp8_fused_weights_blockwise:
   op_backend: MixtureOfExpertsFp8BlockwiseQuantization
   frontend_blocklist: [eager]
   out_ids: [2]
-  op_validator_exception: custom_op
+  op_validator: MixtureOfExpertsFp8FusedSharedMeta
+  namespaces: [torch.hpu]
+
+mixture_of_experts_fwd:
+  custom_op_schema: "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_v2_fwd
+  output_meta: MixtureOfExpertsFwdMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsFwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_recomp_fwd:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_fwd
+  output_meta: MixtureOfExpertsFwdRecompMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsRecompFwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_fwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_v2_fwd
+  output_meta: MixtureOfExpertsFwdMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsFwdFusedSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_recomp_fwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor"
+  custom_fill_params: FillMixtureOfExpertsParams
+  guid: moe_fwd
+  output_meta: MixtureOfExpertsFwdRecompMeta
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager, autograd]
+  op_validator: MixtureOfExpertsRecompFwdFusedSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+  autograd: true
+
+mixture_of_experts_bwd:
+  custom_op_schema: "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_bwd:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsRecompBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsRecompBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_bwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
+
+mixture_of_experts_recomp_bwd.fused_weights:
+  custom_op_schema: "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]"
+  output_meta: MixtureOfExpertsBwdMeta
+  op_backend: MixtureOfExpertsRecompBwd
+  out_ids: [0]
+  frontend_blocklist: [lazy, eager]
+  op_validator: MixtureOfExpertsRecompBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true
 
 block_softmax_adjustment:
   custom_op_schema: "hpu::block_softmax_adjustment(Tensor block_maxes, Tensor block_sums, Tensor block_groups, int batch_size) -> Tensor"

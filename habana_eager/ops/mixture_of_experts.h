@@ -224,30 +224,5 @@ at::Tensor mixture_of_experts_fp8_fused_weights_blockwise(
     const int64_t experts_min,
     const int64_t experts_max);
 
-at::Tensor mixture_of_experts_fwd_autograd(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const std::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const std::optional<bool> recomp);
-
-at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const std::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const std::optional<bool> recomp);
-
 } // namespace eager
 } // namespace habana

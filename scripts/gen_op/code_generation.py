@@ -1643,12 +1643,13 @@ def generate_autograd_functions_cpp_file(fgens_autograd: list[constants.OpGen]) 
         input_names = re.findall(r"\b(\w+)\b(?=[,)])", fgen.cppsig[fgen.cppsig.find(fgen.func) :])
         input_names_len = len(input_names)
         input_names = ", ".join(input_names)
-
-        op_name = f"{fgen.op_variant}_autograd".replace(".", "_")
-        impls += generate_impl(fgen.op_variant, fgen.funsig, op_name)
-
         dispatch_functions += create_dispatch_function(fgen, input_names, inputs)
-        frontend += create_autograd_frontend(fgen, input_names, input_names_len, inputs)
+
+        if "autograd" not in fgen.ctxop.get_frontend_blocklist():
+            op_name = f"{fgen.op_variant}_autograd".replace(".", "_")
+            impls += generate_impl(fgen.op_variant, fgen.funsig, op_name)
+
+            frontend += create_autograd_frontend(fgen, input_names, input_names_len, inputs)
 
     impls += "}\n"
 

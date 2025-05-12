@@ -16,12 +16,13 @@
 #include "hpu_ops/mixture_of_experts.h"
 #include <habana_kernels/mixture_of_experts.h>
 #include "common/dump_args.h"
-#include "common/mixture_of_experts.hpp"
+#include "generated/backend/mixture_of_experts_bwd.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
+#include "hpu_ops/common/mixture_of_experts.h"
 #include "hpu_ops/op_logger.h"
 
 namespace habana {
@@ -511,97 +512,6 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
 namespace habana_lazy {
 using namespace habana;
 
-at::Tensor mixture_of_experts_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const std::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const std::optional<bool> recomp) {
-  PT_LAZY_OP_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts :",
-      DUMP_11ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w1,
-          w2,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max,
-          recomp));
-
-  LazyOp<at::Tensor> op{
-      "hpu::mixture_of_experts",
-      {hidden_states,
-       expert_routing_table,
-       router_weights,
-       w1,
-       w2,
-       w3,
-       permuted_weights,
-       activation,
-       experts_min,
-       experts_max,
-       recomp},
-      {hidden_states.sizes().vec()},
-      0};
-
-  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
-}
-
-at::Tensor mixture_of_experts_fused_weights_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const std::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const std::optional<bool> recomp) {
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts.fused_weights :",
-      DUMP_10ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w12,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max,
-          recomp));
-
-  LazyOp<at::Tensor> op{
-      "hpu::mixture_of_experts",
-      {hidden_states,
-       expert_routing_table,
-       router_weights,
-       w12,
-       w3,
-       permuted_weights,
-       activation,
-       experts_min,
-       experts_max,
-       recomp},
-      {hidden_states.sizes().vec()},
-      0};
-
-  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
-}
-
 std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement_lazy(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
@@ -692,106 +602,6 @@ mixture_of_experts_fp8_measurement_fused_weights_lazy(
       0};
 
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
-}
-
-at::Tensor mixture_of_experts_fwd_autograd_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w1,
-    const at::TensorList w2,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const std::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const std::optional<bool> recomp) {
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts.fwd :",
-      DUMP_11ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w1,
-          w2,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max,
-          recomp));
-  return recomp.value_or(true) ? MixtureOfExpertsRecompFunction::apply(
-                                     hidden_states,
-                                     expert_routing_table,
-                                     router_weights,
-                                     w1,
-                                     w2,
-                                     w3,
-                                     permuted_weights,
-                                     activation,
-                                     experts_min,
-                                     experts_max)[0]
-                               : MixtureOfExpertsFunction::apply(
-                                     hidden_states,
-                                     expert_routing_table,
-                                     router_weights,
-                                     w1,
-                                     w2,
-                                     w3,
-                                     permuted_weights,
-                                     activation,
-                                     experts_min,
-                                     experts_max)[0];
-}
-
-at::Tensor mixture_of_experts_fwd_fused_weights_autograd_lazy(
-    const at::Tensor& hidden_states,
-    const at::Tensor& expert_routing_table,
-    const at::Tensor& router_weights,
-    const at::TensorList w12,
-    const at::TensorList w3,
-    const bool permuted_weights,
-    const std::string_view activation,
-    const int64_t experts_min,
-    const int64_t experts_max,
-    const std::optional<bool> recomp) {
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "mixture_of_experts_fwd_fused_weights :",
-      DUMP_10ARGS(
-          hidden_states,
-          expert_routing_table,
-          router_weights,
-          w12,
-          w3,
-          permuted_weights,
-          activation,
-          experts_min,
-          experts_max,
-          recomp));
-
-  return recomp.value_or(true)
-      ? MixtureOfExpertsRecompFusedWeightsFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w12,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0]
-      : MixtureOfExpertsFusedWeightsFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w12,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0];
 }
 
 } // namespace habana_lazy

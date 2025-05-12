@@ -301,6 +301,7 @@ add_habana_library(
   common/batched_matmul_output_shape.cpp
   common/convolution_gen.cpp
   common/fp8_ops.cpp
+  common/mixture_of_experts.cpp
   common/reduction_template.cpp
   common/replication_pad.cpp
   common/scalar_dtype_range.cpp

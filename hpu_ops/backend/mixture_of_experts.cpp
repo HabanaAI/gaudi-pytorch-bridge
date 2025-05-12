@@ -16,6 +16,9 @@
 #include "generated/backend/mixture_of_experts.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "generated/backend/mixture_of_experts_bwd.h"
+#include "generated/backend/mixture_of_experts_fwd.h"
+#include "generated/backend/mixture_of_experts_recomp_bwd.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/mixture_of_experts.h"
@@ -206,68 +209,13 @@ OutputMetaDataVector MixtureOfExpertsFp8Meta(const at::Stack& stack) {
   return {meta};
 }
 
-MixtureOfExperts::MixtureOfExperts(
-    int device_id,
-    c10::ScalarType scalar_type,
-    bool measurement_mode)
-    : OpBackend(
-          device_id,
-          "moe",
-          scalar_type,
-          measurement_mode ? std::vector<int>{0, 0} : std::vector<int>{0},
-          {},
-          {},
-          false),
-      measurement_mode(measurement_mode) {}
-
-MixtureOfExpertsMeasurementMode::MixtureOfExpertsMeasurementMode(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : MixtureOfExperts(device_id, scalar_type, true){};
-
-static const std::map<std::string_view, MoeActivationMode_t> activationModeMap =
-    {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
-     {"relu", MoeActivationMode_t::MOE_ACTIVATION_MODE_RELU},
-     {"silu", MoeActivationMode_t::MOE_ACTIVATION_MODE_SILU}};
-
-struct MixtureOfExpertsConfig {
-  const size_t permuted_weights_idx;
-  const bool fused_gemm;
-  const bool measurement_mode;
-  const bool dynamic_scale;
-  const bool blockwise_quantization;
-};
-
-std::shared_ptr<void> FillMixtureOfExpertsParams(
-    const at::Stack& stack,
-    size_t& size,
-    const MixtureOfExpertsConfig& cfg) {
-  const auto permuted_weights = stack.at(cfg.permuted_weights_idx).toBool();
-  const auto activation_mode =
-      stack.at(cfg.permuted_weights_idx + 1).to<std::string_view>();
-  auto activationIterator = activationModeMap.find(activation_mode);
-  HABANA_ASSERT(
-      activationIterator != activationModeMap.end(),
-      "Activation \"",
-      activation_mode,
-      "\" not found among MoeActivationMode_t enum values.")
-
-  PARAMS_STUB(ns_MoeKernel::ParamsV3);
-  params->experts.activation = activationIterator->second;
-  params->router.experts_min =
-      stack.at(cfg.permuted_weights_idx + 2).toScalar().toInt();
-  params->router.experts_max =
-      stack.at(cfg.permuted_weights_idx + 3).toScalar().toInt();
-  params->flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
-  params->flags |= (cfg.fused_gemm ? MoeFlags_t::MOE_FLAGS_FUSED_GEMM : 0);
-  params->flags |= (cfg.measurement_mode ? MoeFlags_t::MOE_FLAGS_CALC_AMAX : 0);
-  params->flags |=
-      (cfg.dynamic_scale ? MoeFlags_t::MOE_FLAGS_DYNAMIC_SCALE : 0);
-  if (cfg.blockwise_quantization) {
-    params->flags |= MoeFlags_t::MOE_FLAGS_BLOCKWISE_WEIGHT_QUANTIZATION;
-    params->block_size = stack.at(cfg.permuted_weights_idx - 1).toInt();
-  }
-  return params;
+OutputMetaDataVector MixtureOfExpertsMeasurementMeta(const at::Stack& stack) {
+  const at::Tensor& hidden_states = stack_tensor(stack, 0);
+  OutputMetaDataVector result = {
+      {hidden_states.scalar_type(), hidden_states.sizes().vec()},
+      {torch::kFloat32,
+       {static_cast<int64_t>(stack.at(3).toTensorList().size())}}};
+  return result;
 }
 
 OutputMetaDataVector MixtureOfExpertsMeta(
@@ -284,16 +232,8 @@ OutputMetaDataVector MixtureOfExpertsMeta(
     measurement_meta.dtype = c10::ScalarType::Float;
     meta.push_back(measurement_meta);
   }
-  return meta;
-}
 
-std::vector<NodeAttr::NodeOutputAttr> createOutputAttrs(
-    const OutputMetaDataVector& meta) {
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs;
-  for (size_t i = 0; i < meta.size(); ++i) {
-    output_attrs.push_back({meta[i].shape, meta[i].dtype, i});
-  }
-  return output_attrs;
+  return meta;
 }
 
 OutputMetaDataVector MixtureOfExpertsFwdMeta(const at::Stack& stack) {
@@ -374,6 +314,301 @@ OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack) {
   return meta;
 }
 
+SharedMetaTensor getWeightSharedMetaTensor(
+    std::vector<std::vector<at::Tensor>> weightsLists) {
+  HABANA_ASSERT(
+      weightsLists.size() >= 1, "Expected at least one weights list.");
+  HABANA_ASSERT(
+      weightsLists[0].size() >= 1, "Expected at least one weight tensor.");
+  SharedMetaTensor weightSharedMeta =
+      getSharedMetaFromTensor(weightsLists[0][0]);
+
+  for (const auto& weightsList : weightsLists) {
+    for (const auto& weight : weightsList) {
+      HABANA_ASSERT(
+          weightSharedMeta == getSharedMetaFromTensor(weight),
+          "All tensors should have the same dim and type.");
+    }
+  }
+
+  return weightSharedMeta;
+}
+
+SharedMetaDataVector MixtureOfExpertsSharedMetaCommon(
+    const at::Stack& stack,
+    const bool isFusedWeights,
+    SharedMetaVector&& outputSharedMeta,
+    const std::string& guid) {
+  const at::Tensor& hidden_states = stack_tensor(stack, 0);
+  const at::Tensor& expert_routing_table = stack_tensor(stack, 1);
+  const at::Tensor& router_weights = stack_tensor(stack, 2);
+
+  std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
+      ? (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
+                                               stack.at(4).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
+                                               stack.at(4).toTensorVector(),
+                                               stack.at(5).toTensorVector()};
+
+  const SharedMetaTensor weightSharedMetaTensor =
+      getWeightSharedMetaTensor(weightsLists);
+
+  SharedMetaData sharedMeta(guid);
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(hidden_states),
+      getSharedMetaFromTensor(expert_routing_table),
+      getSharedMetaFromTensor(router_weights),
+      weightSharedMetaTensor};
+
+  sharedMeta.outputs_data = std::move(outputSharedMeta);
+
+  return {sharedMeta};
+}
+
+SharedMetaDataVector MixtureOfExpertsSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& hidden_states = stack_tensor(stack, 0);
+  return MixtureOfExpertsSharedMetaCommon(
+      stack,
+      stack.size() == 10,
+      {getSharedMetaFromTensor(stack_tensor(stack, 0))},
+      "moe");
+}
+
+SharedMetaDataVector MixtureOfExpertsFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MixtureOfExpertsSharedMetaCommon(
+      stack,
+      false,
+      {{stack_tensor(stack, 0).dim(), c10::ScalarType::BFloat16}},
+      "moe");
+}
+
+SharedMetaDataVector MixtureOfExpertsFp8FusedSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MixtureOfExpertsSharedMetaCommon(
+      stack,
+      true,
+      {{stack_tensor(stack, 0).dim(), c10::ScalarType::BFloat16}},
+      "moe");
+}
+
+SharedMetaDataVector MixtureOfExpertsFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const c10::ScalarType dtype = stack_tensor(stack, 0).scalar_type();
+  return MixtureOfExpertsSharedMetaCommon(
+      stack,
+      false,
+      {{2, dtype},
+       {3, dtype},
+       {2, torch::kInt},
+       {2, torch::kInt},
+       {1, torch::kInt},
+       {2, dtype},
+       {3, dtype},
+       {3, dtype},
+       {3, dtype},
+       {3, dtype},
+       {3, dtype}},
+      "moe_v2_fwd");
+}
+
+SharedMetaDataVector MixtureOfExpertsFwdFusedSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const c10::ScalarType dtype = stack_tensor(stack, 0).scalar_type();
+  return MixtureOfExpertsSharedMetaCommon(
+      stack,
+      true,
+      {{2, dtype},
+       {3, dtype},
+       {2, torch::kInt},
+       {2, torch::kInt},
+       {1, torch::kInt},
+       {2, dtype},
+       {3, dtype},
+       {3, dtype},
+       {3, dtype},
+       {3, dtype}},
+      "moe_v2_fwd");
+}
+
+SharedMetaDataVector MixtureOfExpertsRecompFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MixtureOfExpertsSharedMetaCommon(
+      stack,
+      false,
+      {getSharedMetaFromTensor(stack_tensor(stack, 0))},
+      "moe_fwd");
+}
+
+SharedMetaDataVector MixtureOfExpertsRecompFwdFusedSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MixtureOfExpertsSharedMetaCommon(
+      stack,
+      true,
+      {getSharedMetaFromTensor(stack_tensor(stack, 0))},
+      "moe_fwd");
+}
+
+SharedMetaDataVector MixtureOfExpertsBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& grad = stack_tensor(stack, 0);
+  const bool isFusedWeights = stack.at(10).isTensorList();
+
+  std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
+      ? (std::vector<std::vector<
+             at::Tensor>>){stack.at(10).toTensorVector(), stack.at(11).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){
+            stack.at(11).toTensorVector(),
+            stack.at(12).toTensorVector(),
+            stack.at(13).toTensorVector()};
+  const SharedMetaTensor weightSharedMetaTensor =
+      getWeightSharedMetaTensor(weightsLists);
+
+  SharedMetaData sharedMeta("moe_v2_bwd");
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(grad),
+      getSharedMetaFromTensor(stack_tensor(stack, 1)),
+      getSharedMetaFromTensor(stack_tensor(stack, 2)),
+      getSharedMetaFromTensor(stack_tensor(stack, 3)),
+      getSharedMetaFromTensor(stack_tensor(stack, 4)),
+      getSharedMetaFromTensor(stack_tensor(stack, 5)),
+      getSharedMetaFromTensor(stack_tensor(stack, 6)),
+  };
+
+  if (isFusedWeights) {
+    sharedMeta.inputs_data.push_back(
+        createOptionalNotPresentSharedMetaTensor());
+  }
+
+  sharedMeta.inputs_data.push_back(
+      getSharedMetaFromTensor(stack_tensor(stack, 7)));
+  sharedMeta.inputs_data.push_back(
+      getSharedMetaFromTensor(stack_tensor(stack, 8)));
+  sharedMeta.inputs_data.push_back(
+      getSharedMetaFromTensor(stack_tensor(stack, 9)));
+
+  if (!isFusedWeights) {
+    sharedMeta.inputs_data.push_back(
+        getSharedMetaFromTensor(stack_tensor(stack, 10)));
+  }
+  sharedMeta.inputs_data.push_back(weightSharedMetaTensor);
+  const size_t router_weights_shape_idx = isFusedWeights ? 16 : 18;
+  sharedMeta.outputs_data = {
+      getSharedMetaFromTensor(grad),
+      {stack.at(router_weights_shape_idx).toIntList().size(),
+       grad.scalar_type()},
+      weightSharedMetaTensor};
+
+  return {sharedMeta};
+}
+
+SharedMetaDataVector MixtureOfExpertsRecompBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& grad = stack_tensor(stack, 0);
+  const at::Tensor& routerWeights = stack_tensor(stack, 3);
+  const bool isFusedWeights = !stack.at(6).isTensorList();
+
+  std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
+      ? (std::vector<std::vector<
+             at::Tensor>>){stack.at(4).toTensorVector(), stack.at(5).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){
+            stack.at(4).toTensorVector(),
+            stack.at(5).toTensorVector(),
+            stack.at(6).toTensorVector()};
+  const SharedMetaTensor weightSharedMetaTensor =
+      getWeightSharedMetaTensor(weightsLists);
+
+  SharedMetaData sharedMeta("moe_recomp_v2_bwd");
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(grad),
+      getSharedMetaFromTensor(stack_tensor(stack, 1)),
+      getSharedMetaFromTensor(stack_tensor(stack, 2)),
+      getSharedMetaFromTensor(routerWeights),
+      weightSharedMetaTensor};
+
+  sharedMeta.outputs_data = {
+      getSharedMetaFromTensor(grad),
+      {routerWeights.dim(), grad.scalar_type()},
+      weightSharedMetaTensor};
+
+  return {sharedMeta};
+}
+
+static const std::map<std::string_view, MoeActivationMode_t> activationModeMap =
+    {{"gelu", MoeActivationMode_t::MOE_ACTIVATION_MODE_GELU},
+     {"relu", MoeActivationMode_t::MOE_ACTIVATION_MODE_RELU},
+     {"silu", MoeActivationMode_t::MOE_ACTIVATION_MODE_SILU}};
+
+struct MixtureOfExpertsConfig {
+  const size_t permuted_weights_idx;
+  const bool fused_gemm;
+  const bool measurement_mode;
+  const bool dynamic_scale;
+  const bool blockwise_quantization;
+};
+
+std::shared_ptr<void> FillMixtureOfExpertsParams(
+    const at::Stack& stack,
+    size_t& size,
+    const MixtureOfExpertsConfig& cfg) {
+  const auto permuted_weights = stack.at(cfg.permuted_weights_idx).toBool();
+  const auto activation_mode =
+      stack.at(cfg.permuted_weights_idx + 1).to<std::string_view>();
+  auto activationIterator = activationModeMap.find(activation_mode);
+  HABANA_ASSERT(
+      activationIterator != activationModeMap.end(),
+      "Activation \"",
+      activation_mode,
+      "\" not found among MoeActivationMode_t enum values.")
+
+  PARAMS_STUB(ns_MoeKernel::ParamsV3);
+  params->experts.activation = activationIterator->second;
+  params->router.experts_min =
+      stack.at(cfg.permuted_weights_idx + 2).toScalar().toInt();
+  params->router.experts_max =
+      stack.at(cfg.permuted_weights_idx + 3).toScalar().toInt();
+  params->flags = permuted_weights ? MoeFlags_t::MOE_FLAGS_PERMUTED_WEIGHTS : 0;
+  params->flags |= (cfg.fused_gemm ? MoeFlags_t::MOE_FLAGS_FUSED_GEMM : 0);
+  params->flags |= (cfg.measurement_mode ? MoeFlags_t::MOE_FLAGS_CALC_AMAX : 0);
+  params->flags |=
+      (cfg.dynamic_scale ? MoeFlags_t::MOE_FLAGS_DYNAMIC_SCALE : 0);
+  if (cfg.blockwise_quantization) {
+    params->flags |= MoeFlags_t::MOE_FLAGS_BLOCKWISE_WEIGHT_QUANTIZATION;
+    params->block_size = stack.at(cfg.permuted_weights_idx - 1).toInt();
+  }
+  return params;
+}
+
+std::shared_ptr<void> FillMixtureOfExpertsParams(
+    const at::Stack& stack,
+    size_t& size) {
+  const bool fused_weights = !stack.at(5).isTensorList();
+  const size_t permuted_weights_idx = fused_weights ? 5 : 6;
+
+  MixtureOfExpertsConfig cfg = {
+      permuted_weights_idx, fused_weights, false, false, false};
+  return FillMixtureOfExpertsParams(stack, size, cfg);
+}
+
+std::vector<NodeAttr::NodeOutputAttr> createOutputAttrs(
+    const OutputMetaDataVector& meta) {
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs;
+  for (size_t i = 0; i < meta.size(); ++i) {
+    output_attrs.push_back({meta[i].shape, meta[i].dtype, i});
+  }
+  return output_attrs;
+}
+
 using namespace std::literals;
 
 void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -384,7 +619,7 @@ void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
   size_t expected_stack_size = fused_weights ? 10 : 11;
 
   const bool measurement_mode =
-      this->measurement_mode && stack.size() == expected_stack_size;
+      GetSynOutputs().size() == 2 && stack.size() == expected_stack_size;
   std::vector<synTensor> inputs;
   for (size_t i = 0; i < 3 + num_experts * weights_per_expert; i++) {
     inputs.push_back(syn_in(i));
@@ -413,67 +648,6 @@ void MixtureOfExperts::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(moe_result[0]);
   if (measurement_mode) {
     syn_out(1) = std::move(moe_result[1]);
-  }
-}
-
-MixtureOfExpertsFwd::MixtureOfExpertsFwd(
-    int device_id,
-    c10::ScalarType scalar_type,
-    bool recomp)
-    : OpBackend(
-          device_id,
-          "moe_v2_fwd",
-          scalar_type,
-          std::vector<int>{0},
-          {},
-          {},
-          false),
-      recomp(recomp) {
-  if (recomp) {
-    SetOutputMetaFn(MixtureOfExpertsFwdRecompMeta);
-  } else {
-    SetOutputMetaFn(MixtureOfExpertsFwdMeta);
-  }
-}
-
-MixtureOfExpertsFwdNoRecomp::MixtureOfExpertsFwdNoRecomp(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : MixtureOfExpertsFwd(device_id, scalar_type, false){};
-
-MixtureOfExpertsFwdRecomp::MixtureOfExpertsFwdRecomp(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : MixtureOfExpertsFwd(device_id, scalar_type, true){};
-
-void MixtureOfExpertsFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
-  const bool fused_weights = !stack.at(5).isTensorList();
-  const size_t num_experts = stack.at(3).toTensorList().size();
-  const size_t weights_per_expert = fused_weights ? 2 : 3;
-  const size_t permuted_weights_idx = fused_weights ? 5 : 6;
-  const size_t output_number = recomp ? 1 : fused_weights ? 10 : 11;
-
-  std::vector<synTensor> inputs;
-  for (size_t i = 0; i < 3 + num_experts * weights_per_expert; i++) {
-    inputs.push_back(syn_in(i));
-  }
-  size_t size = 0;
-  MixtureOfExpertsConfig cfg = {
-      permuted_weights_idx, fused_weights, false, false, false};
-  auto params = FillMixtureOfExpertsParams(stack, size, cfg);
-  auto meta = OutputMeta(stack);
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs = createOutputAttrs(meta);
-  const std::string_view guid = recomp ? "moe_fwd"sv : "moe_v2_fwd"sv;
-  auto moe_result = OpBackend::BuildNode(
-      this,
-      graph,
-      {get_guid_with_precision(guid, meta[0].dtype),
-       std::move(inputs),
-       output_attrs,
-       params.get(),
-       size});
-  for (size_t i = 0; i < output_number; ++i) {
-    syn_out(i) = std::move(moe_result[i]);
   }
 }
 
@@ -684,13 +858,6 @@ void MixtureOfExpertsFp8BlockwiseQuantization::AddNode(
   syn_out(0) = std::move(moe_result[0]);
 }
 
-MixtureOfExpertsBwd::MixtureOfExpertsBwd(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(device_id, "moe_v2_bwd", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(MixtureOfExpertsBwdMeta);
-}
-
 void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   const bool fused_weights = !stack.at(12).isTensorList();
   const size_t first_weights_index = fused_weights ? 10 : 11;
@@ -727,20 +894,6 @@ void MixtureOfExpertsBwd::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 }
 
-MixtureOfExpertsRecompBwd::MixtureOfExpertsRecompBwd(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "moe_recomp_v2_bwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetOutputMetaFn(MixtureOfExpertsBwdMeta);
-}
-
 void MixtureOfExpertsRecompBwd::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
@@ -774,42 +927,3 @@ void MixtureOfExpertsRecompBwd::AddNode(
 }
 
 } // namespace habana
-
-static const auto& MixtureOfExpertsKernelRegistry =
-    habana::KernelRegistry()
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts",
-            habana::MixtureOfExperts)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_fwd",
-            habana::MixtureOfExpertsFwdNoRecomp)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_recomp_fwd",
-            habana::MixtureOfExpertsFwdRecomp)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_fwd.fused_weights",
-            habana::MixtureOfExpertsFwdNoRecomp)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_recomp_fwd.fused_weights",
-            habana::MixtureOfExpertsFwdRecomp)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_bwd",
-            habana::MixtureOfExpertsBwd)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_bwd.fused_weights",
-            habana::MixtureOfExpertsBwd)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_recomp_bwd",
-            habana::MixtureOfExpertsRecompBwd)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_recomp_bwd.fused_weights",
-            habana::MixtureOfExpertsRecompBwd)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts.fused_weights",
-            habana::MixtureOfExperts)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_fp8_measurement",
-            habana::MixtureOfExpertsMeasurementMode)
-        .REGISTER_HPU_BACKEND(
-            "hpu::mixture_of_experts_fp8_measurement.fused_weights",
-            habana::MixtureOfExpertsMeasurementMode);
