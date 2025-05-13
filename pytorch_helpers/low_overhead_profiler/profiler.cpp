@@ -592,7 +592,7 @@ void ProfilerEngine::flush() {
 
         std::string name;
         if (event.name) {
-          name = event.name;
+          name = event.name + std::string("_") + event.op_name;
         } else {
           name = "custom event id " + std::to_string(event.user_event_id);
         }
