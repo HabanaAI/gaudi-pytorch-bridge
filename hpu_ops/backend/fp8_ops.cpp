@@ -154,16 +154,6 @@ void HandleScale(
   }
 }
 
-inline SharedMetaTensor getSharedMetaTensorFromScale(const at::IValue& scale) {
-  if (scale.isNone()) {
-    return createOptionalNotPresentSharedMetaTensor();
-  } else if (scale.isTensor()) {
-    return getSharedMetaFromTensor(scale.toTensor());
-  } else {
-    return {1, at::ScalarType::Float};
-  }
-}
-
 } // namespace fp8
 
 using namespace habana::fp8;

@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "generated/backend/softmax_fp8.h"
+#include "hpu_ops/fp8_ops.h"
 
 namespace sh = synapse_helpers;
 
@@ -70,6 +71,31 @@ OutputMetaDataVector SoftmaxFp8Meta(const at::Stack& stack) {
   meta.dtype = stack[2].isNone() ? at::ScalarType::BFloat16
                                  : at::ScalarType::Float8_e4m3fn;
   return {meta};
+}
+
+SharedMetaDataVector SoftmaxFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack_tensor(stack, 0);
+  const at::ScalarType outDtype = stack.at(2).isNone()
+      ? at::ScalarType::BFloat16
+      : at::ScalarType::Float8_e4m3fn;
+
+  SharedMetaData sharedMeta("softmax_fwd");
+  // CGUID inputs order is: A, B, scales, bias, D
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      createOptionalNotPresentSharedMetaTensor(),
+      createOptionalNotPresentSharedMetaTensor(),
+      createOptionalNotPresentSharedMetaTensor(),
+      getSharedMetaTensorFromScale(stack.at(2)),
+      getSharedMetaTensorFromScale(stack.at(3)),
+      getSharedMetaTensorFromScale(stack.at(4)),
+      getSharedMetaFromOptionalTensor(stack.at(5).toOptional<at::Tensor>())};
+
+  sharedMeta.outputs_data.emplace_back(input.dim(), outDtype);
+
+  return {sharedMeta};
 }
 
 void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {

@@ -104,4 +104,24 @@ OutputMetaDataVector ScaledTriangularSoftmaxRetainMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector ScaledTriangularSoftmaxSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack_tensor(stack, 0);
+
+  SharedMetaData sharedMeta("scaled_masked_triangular_softmax_fwd");
+
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      createOptionalNotPresentSharedMetaTensor(),
+      getSharedMetaFromOptionalTensor(
+          stack.at(2).to<std::optional<at::Tensor>>()),
+      getSharedMetaFromOptionalTensor(
+          stack.at(3).to<std::optional<at::Tensor>>())};
+
+  sharedMeta.outputs_data = {getSharedMetaFromTensor(input)};
+
+  return {sharedMeta};
+}
+
 } // namespace habana

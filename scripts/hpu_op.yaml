@@ -8743,7 +8743,8 @@ custom_softmax:
   guid: custom_softmax_fwd
   op_backend: CustomSoftmax
   out_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: CustomSoftmaxSharedMeta
+  namespaces: [torch.hpu]
 
 fake_quant_fp4:
   custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
@@ -8854,14 +8855,16 @@ ragged_softmax:
   custom_fill_params: FillSoftmaxForwardParams
   guid: ragged_softmax_fwd
   out_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 scaled_masked_softmax:
   custom_op_schema: "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor"
   custom_fill_params: FillScaledMaskedSoftmaxParams
   guid: scaled_masked_softmax_fwd
   out_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 scaled_masked_triangular_softmax:
   custom_op_schema: "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor"
@@ -8869,14 +8872,16 @@ scaled_masked_triangular_softmax:
   guid: scaled_masked_triangular_softmax_fwd
   op_backend: ScaledMaskedTriangularSoftmax
   out_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: ScaledMaskedTriangularSoftmaxSharedMeta
+  namespaces: [torch.hpu]
 
 scaled_triangular_softmax:
   custom_op_schema: "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor"
   guid: scaled_masked_triangular_softmax_fwd
   op_backend: ScaledTriangularSoftmax
   out_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: ScaledTriangularSoftmaxSharedMeta
+  namespaces: [torch.hpu]
 
 scaled_triangular_softmax_retain:
   custom_op_schema: "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)"
@@ -8884,7 +8889,8 @@ scaled_triangular_softmax_retain:
   output_meta: ScaledTriangularSoftmaxRetainMeta
   guid: scaled_masked_triangular_softmax_fwd
   out_ids: [0, 0, 0]
-  op_validator_exception: custom_op
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.hpu]
 
 sdpa_recomp_bwd:
   custom_op_schema: "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor? seed, bool is_causal, float p, float scale, str softmax_mode, Tensor fwd_out) -> (Tensor, Tensor, Tensor)"
@@ -8899,7 +8905,8 @@ softmax_fp8:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
-  op_validator_exception: custom_op
+  op_validator: SoftmaxFp8SharedMeta
+  namespaces: [torch.hpu]
 
 softmax_fp8.Scalar_scales:
   custom_op_schema: "hpu::softmax_fp8.Scalar_scales(Tensor input, int dim, float input_scale, float output_scale, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
@@ -8907,7 +8914,8 @@ softmax_fp8.Scalar_scales:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
-  op_validator_exception: custom_op
+  op_validator: SoftmaxFp8SharedMeta
+  namespaces: [torch.hpu]
 
 softmax_fp8.Scalar:
   custom_op_schema: "hpu::softmax_fp8.Scalar(Tensor input, int dim, float input_scale, float output_scale, float inv_attn_heads, Tensor? fused_add=None) -> Tensor"
@@ -8915,7 +8923,8 @@ softmax_fp8.Scalar:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
-  op_validator_exception: custom_op
+  op_validator: SoftmaxFp8SharedMeta
+  namespaces: [torch.hpu]
 
 rms_norm:
   custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
