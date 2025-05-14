@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2025 Intel Corporation
+#  Copyright (c) 2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,29 +15,17 @@
 #
 ###############################################################################
 
-###############################################################################
-# Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
-# All Rights Reserved.
-#
-# Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited.
-# This file contains Habana Labs, Ltd. proprietary and confidential information
-# and is subject to the confidentiality and license agreements under which it
-# was provided.
-#
-###############################################################################
 
 import copy
 import os
-import sys
 
 import pytest
-from xfail_hpu import all_hangs_dict, all_xfails_dict, import_error_files_to_ignore
-
-env_flags_backup = {}
 from cpu_failed_tests import all_cpu_failed_dict
 from hpu_failed_cpu_fallback_disabled import all_hpu_failed_cpu_fallback_disabled_dict
 from skip_hpu import all_skipped_dict
+from xfail_hpu import all_hangs_dict, all_xfails_dict, import_error_files_to_ignore
+
+env_flags_backup = {}
 
 # Ignore all the test files which throw python import errors
 collect_ignore = copy.deepcopy(import_error_files_to_ignore)
@@ -45,7 +33,7 @@ regressions_to_ignore = []
 
 
 # Key in the expected_fail_tests can be an exact node_id or module or directory(Ex: tensorflow/python/keras/distribute)
-def node_in_test_dict(test_dict, nodeid):
+def is_node_in_test_dict(test_dict, nodeid):
     for key in test_dict:
         if key.endswith("::") or key.endswith(".py") or key.endswith("/"):
             if nodeid.startswith(key):
@@ -94,12 +82,11 @@ def pytest_sessionstart(session):
     import glob
 
     for file in glob.glob(cur_dir + "/*.regressions"):
-        with open(file, "r") as fp:
+        with open(file) as fp:
             regressions_to_ignore.extend(fp.read().splitlines())
 
 
 def pytest_collection_modifyitems(config, items):
-    # TODO: to add xfail options in run_habana.py
     run_xfail_only = config.getoption("--run_xfail_only")
     run_hang_tests_only = False  # config.getoption("--run_hang_tests")
     jira_id = config.getoption("--run_jira")
@@ -117,7 +104,7 @@ def pytest_collection_modifyitems(config, items):
 
         for item in items:
             reason_str = get_reason_for_node(all_fail_tests, item.nodeid)
-            if node_in_test_dict(all_fail_tests, item.nodeid) and reason_str.startswith(jira_id):
+            if is_node_in_test_dict(all_fail_tests, item.nodeid) and reason_str.startswith(jira_id):
                 xfail_marker = pytest.mark.xfail(run=True, reason=reason_str)
                 item.add_marker(xfail_marker)
                 tests_to_run.append(item)
@@ -133,19 +120,19 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             timeout_marker = pytest.mark.timeout(timeout=300, method="signal")
             item.add_marker(timeout_marker)
-            if node_in_test_dict(all_xfails_dict, item.nodeid):
+            if is_node_in_test_dict(all_xfails_dict, item.nodeid):
                 reason_str = get_reason_for_node(all_xfails_dict, item.nodeid)
                 xfail_marker = pytest.mark.xfail(run=run_xfail_only, reason=reason_str)
                 xfail_test_list.append(item)
                 item.user_properties.append(("xfail", "true"))
                 item.add_marker(xfail_marker)
-            elif node_in_test_dict(all_hangs_dict, item.nodeid):
+            elif is_node_in_test_dict(all_hangs_dict, item.nodeid):
                 reason_str = get_reason_for_node(all_hangs_dict, item.nodeid)
                 xfail_marker = pytest.mark.xfail(run=run_hang_tests_only, reason=reason_str)
                 hang_test_list.append(item)
                 item.user_properties.append(("xfail", "true"))
                 item.add_marker(xfail_marker)
-            elif node_in_test_dict(all_hpu_failed_cpu_fallback_disabled_dict, item.nodeid):
+            elif is_node_in_test_dict(all_hpu_failed_cpu_fallback_disabled_dict, item.nodeid):
                 reason_str = get_reason_for_node(all_hpu_failed_cpu_fallback_disabled_dict, item.nodeid)
                 xfail_marker = pytest.mark.xfail(run=run_xfail_only, reason=reason_str)
                 xfail_test_list.append(item)
@@ -171,11 +158,11 @@ def pytest_collection_modifyitems(config, items):
             if "_hpu" in item.nodeid and "_float64" in item.nodeid:
                 skip_marker = pytest.mark.skip(reason="Float64 dtype is not supported on HPU")
                 item.add_marker(skip_marker)
-            if node_in_test_dict(all_skipped_dict, item.nodeid):
+            if is_node_in_test_dict(all_skipped_dict, item.nodeid):
                 reason_str = get_reason_for_node(all_skipped_dict, item.nodeid)
                 skip_marker = pytest.mark.skip(reason_str)
                 item.add_marker(skip_marker)
-            if node_in_test_dict(all_cpu_failed_dict, item.nodeid):
+            if is_node_in_test_dict(all_cpu_failed_dict, item.nodeid):
                 reason_str = get_reason_for_node(all_cpu_failed_dict, item.nodeid)
                 skip_marker = pytest.mark.skip(reason=reason_str)
                 item.add_marker(skip_marker)

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2025 Intel Corporation
+#  Copyright (c) 2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,29 +14,6 @@
 #  limitations under the License.
 #
 ###############################################################################
-
-#
-# Copyright 2019-2020 HabanaLabs, Ltd.
-# All Rights Reserved.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the 'Software'),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice (including the next
-# paragraph) shall be included in all copies or substantial portions of the
-# Software.
-#
-# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-# AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
 
 
 import argparse
@@ -169,9 +146,9 @@ error_strings = [
 # Regex rules to get error description
 regex_rules = [
     ("Internal Error: Received signal - (.*)"),
-    ("(Exception raised .*) at (.*\.cpp:\d+)\s+(.*)"),
+    (r"(Exception raised .*) at (.*\.cpp:\d+)\s+(.*)"),
     ("([malloc][free])(.*)"),
-    ("(AssertionError:.*)!With.*(difference\(s\) exceeded the margin of error).*"),
+    (r"(AssertionError:.*)!With.*(difference\(s\) exceeded the margin of error).*"),
     ("(.*Graph compile failed.)(.*)"),
     (".*GradcheckError: Jacobian mismatch(.*)"),
     ("(.*)While(.*)got(.*)"),
@@ -262,11 +239,11 @@ def parse_test_suite(test_module, suite, log_list, writer):
                     if log.name == test_name:
                         failure_type = ""
                         try:
-                            regex = "(.*\.py:\d+):(.*CRASHED with signal (\d+))"
+                            regex = r"(.*\.py:\d+):(.*CRASHED with signal (\d+))"
                             desc = re.search(regex, log.description)
                             failure_type = desc.group(2)
                         except:
-                            regex = ":(.*):(.*CRASHED with signal (\d+))"
+                            regex = r":(.*):(.*CRASHED with signal (\d+))"
                             desc = re.search(regex, log.description)
                             failure_type = desc.group(2)
                             # log.description
@@ -311,7 +288,7 @@ def read_console_logs(stdout_log):
         return []
 
     test_list = []
-    with open(stdout_log, "r") as logfile:
+    with open(stdout_log) as logfile:
         for line in logfile:
             # Loop till test results
             if "FAILURES" in line:
@@ -328,7 +305,7 @@ def read_console_logs(stdout_log):
             # Begin of test log in console
             test_error = False
             test_break = False
-            regex = "(\_*\s+)(Test(.*)HPU:0)\.(test_(.*)hpu:0(\S*))(\s+\_*)"
+            regex = r"(\_*\s+)(Test(.*)HPU:0)\.(test_(.*)hpu:0(\S*))(\s+\_*)"
             if re.match(regex, line):
                 test_error = True
                 match = re.search(regex, line)
@@ -429,22 +406,22 @@ def get_filenames(args):
     # input xml list
     xml_list = []
     if args.xmlpath.endswith(".xml") and os.path.isfile(args.xmlpath):
-        xml_list = [(args.xmlpath)]
+        xml_list = [args.xmlpath]
     elif os.path.isdir(args.xmlpath):
         for file in os.listdir(args.xmlpath):
             if file.endswith(".xml"):
                 xml_list.append(os.path.join(args.xmlpath, file))
     else:
-        print_format(bcolors.FAIL, "ERROR: Invalid xml path: {}".format(args.xmlpath))
+        print_format(bcolors.FAIL, f"ERROR: Invalid xml path: {args.xmlpath}")
     xml_list.sort()
 
     # input console logs
     console_list = []
     if args.console_path:
         if args.console_path.endswith(".log") and os.path.isfile(args.console_path):
-            console_list = [(args.console_path)]
+            console_list = [args.console_path]
         elif os.path.isdir(args.console_path):
-            for root, dir, files in os.walk(args.console_path):
+            for root, _dir, files in os.walk(args.console_path):
                 for log in files:
                     console_list.append(os.path.join(root, log))
 
@@ -497,7 +474,7 @@ def get_filenames(args):
                 ]
             )
             for test_module in test_modules:
-                print("Processing: {}".format(test_module.name))
+                print(f"Processing: {test_module.name}")
                 # Get data
                 test_summary.extend(generate_report(test_module, writer))
     else:
@@ -516,7 +493,7 @@ def get_filenames(args):
                     ]
                 )
                 for test_module in test_modules:
-                    print("Processing: {}".format(test_module.name))
+                    print(f"Processing: {test_module.name}")
                     test_summary.extend(generate_report(test_module, writer))
 
     get_summary(test_modules, test_summary, os.path.join(args.outpath, args.summary_file), args.summary_level)
@@ -540,7 +517,7 @@ def create_fallback_analytics_from_consolelogs(output_path, console_path):
         if filename.endswith(".log"):  # Consider only .log files s
             filepath = os.path.join(console_path, filename)
             try:
-                with open(filepath, "r", encoding="utf-8") as f:  # Handle potential encoding issues
+                with open(filepath, encoding="utf-8") as f:  # Handle potential encoding issues
                     for line in f:
                         if pattern.search(line):
                             stripped_line = pattern.search(line).group(1).strip()
@@ -589,7 +566,7 @@ def create_ops_fallback_analytics_file(output_path, generated_csv_file):
     op_list_filtered = fallback_errors["failure description"].str.split(suffix).str[0].str.split(prefix).str[1]
     unique_ops = op_list_filtered.unique()
     ops_data = pd.DataFrame()
-    for index, op in enumerate(unique_ops):
+    for _index, op in enumerate(unique_ops):
         count = op_list_filtered[op_list_filtered == op].count()
         new_row = pd.DataFrame({"op": [op], "count": count})
         ops_data = pd.concat([ops_data, new_row], ignore_index=True)
@@ -603,9 +580,9 @@ def create_ops_fallback_analytics_file(output_path, generated_csv_file):
 
 
 summary_rules = [
-    "(FAILED\s+(.*))",  # Failed tests
-    "(SKIPPED\s+\[(\d+).(\d+)s\]\s+\[(\d+)\]\s+(.*\.py):(\d+:)?\s+(.*))",
-    "(XFAIL\s+(.*))",  # XFAIL tests primary
+    r"(FAILED\s+(.*))",  # Failed tests
+    r"(SKIPPED\s+\[(\d+).(\d+)s\]\s+\[(\d+)\]\s+(.*\.py):(\d+:)?\s+(.*))",
+    r"(XFAIL\s+(.*))",  # XFAIL tests primary
 ]
 
 
@@ -637,7 +614,7 @@ def get_summary_lists(logfile, summary_level):
                 # xfailed tests
                 line = logfile.readline()
                 # Xfail tests secondary
-                regex = "(^\s+reason:\s+)(\[NOTRUN\]\s+(.*))"
+                regex = r"(^\s+reason:\s+)(\[NOTRUN\]\s+(.*))"
                 desc = re.search(regex, line)
                 if desc is not None:
                     add_key_to_dict(desc.group(3), xfail_reasons, 1)
@@ -686,7 +663,7 @@ def get_summary(test_modules, test_summary, summary_file, summary_level=0xF):
             print_format(bcolors.WARNING, f"WARNING: logfile not found for {module.stdout}")
             continue
         # maintain a dict to get frequency of fails and their module names
-        with open(module.stdout, "r") as logfile:
+        with open(module.stdout) as logfile:
             # reason, count, module
             print(f"Processing {module.name} summary")
             xfail_dict, skip_dict = get_summary_lists(logfile, summary_level)

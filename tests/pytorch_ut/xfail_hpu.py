@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2025 Intel Corporation
+#  Copyright (c) 2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
 #
 ###############################################################################
 
-import glob
-import os
 import sys
 
 from test_infra_hpu import pytorch_version
@@ -18501,199 +18499,160 @@ import_error_files_to_ignore = []
 
 file_wise_xfails_dict = {
     "dynamo": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in dynamo_tests_to_deselect[jira]]))
         for jira in dynamo_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in dynamo_tests_to_deselect[jira]]))]
     },
     "distributed": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in distributed_tests_to_deselect[jira]]))
         for jira in distributed_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in distributed_tests_to_deselect[jira]]))]
     },
     "transformers": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in transformers_tests_to_deselect[jira]]))
         for jira in transformers_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in transformers_tests_to_deselect[jira]]))]
     },
     "autograd": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in autograd_tests_to_deselect[jira]]))
         for jira in autograd_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in autograd_tests_to_deselect[jira]]))]
     },
     "binary_ufuncs": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in binary_ufuncs_tests_to_deselect[jira]]))
         for jira in binary_ufuncs_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in binary_ufuncs_tests_to_deselect[jira]]))]
     },
     "comlex": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in complex_tests_to_deselect[jira]]))
         for jira in complex_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in complex_tests_to_deselect[jira]]))]
     },
     "foreach": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in foreach_tests_to_deselect[jira]]))
         for jira in foreach_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in foreach_tests_to_deselect[jira]]))]
     },
     "fx": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in fx_tests_to_deselect[jira]]))
         for jira in fx_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in fx_tests_to_deselect[jira]]))]
     },
     "indexing": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in indexing_tests_to_deselect[jira]]))
         for jira in indexing_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in indexing_tests_to_deselect[jira]]))]
     },
     "linalg": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in linalg_tests_to_deselect[jira]]))
         for jira in linalg_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in linalg_tests_to_deselect[jira]]))]
     },
     "masked": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in masked_tests_to_deselect[jira]]))
         for jira in masked_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in masked_tests_to_deselect[jira]]))]
     },
     "module_init": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in module_init_tests_to_deselect[jira]]))
         for jira in module_init_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in module_init_tests_to_deselect[jira]]))]
     },
     "modules": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in modules_tests_to_deselect[jira]]))
         for jira in modules_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in modules_tests_to_deselect[jira]]))]
     },
     "native_mha": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in native_mha_tests_to_deselect[jira]]))
         for jira in native_mha_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in native_mha_tests_to_deselect[jira]]))]
     },
     "nestedtensor": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in nestedtensor_tests_to_deselect[jira]]))
         for jira in nestedtensor_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in nestedtensor_tests_to_deselect[jira]]))]
     },
     "nn": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in nn_tests_to_deselect[jira]]))
         for jira in nn_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in nn_tests_to_deselect[jira]]))]
     },
     "numpy_interop": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in numpy_interop_tests_to_deselect[jira]]))
         for jira in numpy_interop_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in numpy_interop_tests_to_deselect[jira]]))]
     },
     "ops": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in ops_tests_to_deselect[jira]]))
         for jira in ops_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in ops_tests_to_deselect[jira]]))]
     },
     "ops_jit": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in ops_jit_tests_to_deselect[jira]]))
         for jira in ops_jit_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in ops_jit_tests_to_deselect[jira]]))]
     },
     "reductions": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in reductions_tests_to_deselect[jira]]))
         for jira in reductions_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in reductions_tests_to_deselect[jira]]))]
     },
     "scatter_gather_ops": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in scatter_gather_ops_tests_to_deselect[jira]]))
         for jira in scatter_gather_ops_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in scatter_gather_ops_tests_to_deselect[jira]]))]
     },
     "segment_reductions": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in segment_reductions_tests_to_deselect[jira]]))
         for jira in segment_reductions_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in segment_reductions_tests_to_deselect[jira]]))]
     },
     "serialization": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in serialization_tests_to_deselct[jira]]))
         for jira in serialization_tests_to_deselct
-        for file in [";".join(set([node_id for node_id in serialization_tests_to_deselct[jira]]))]
     },
     "shape_ops": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in shape_ops_tests_to_deselect[jira]]))
         for jira in shape_ops_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in shape_ops_tests_to_deselect[jira]]))]
     },
     "sort_and_select": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in sort_and_select_tests_to_deselect[jira]]))
         for jira in sort_and_select_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in sort_and_select_tests_to_deselect[jira]]))]
     },
     "sparse": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in sparse_tests_to_deselect[jira]]))
         for jira in sparse_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in sparse_tests_to_deselect[jira]]))]
     },
     "sparse_csr": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in sparse_csr_tests_to_deselect[jira]]))
         for jira in sparse_csr_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in sparse_csr_tests_to_deselect[jira]]))]
     },
     "spectral_ops": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in spectral_ops_tests_to_deselect[jira]]))
         for jira in spectral_ops_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in spectral_ops_tests_to_deselect[jira]]))]
     },
     "tensor_creation_ops": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in tensor_creation_ops_tests_to_deselect[jira]]))
         for jira in tensor_creation_ops_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in tensor_creation_ops_tests_to_deselect[jira]]))]
     },
     "testing": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in testing_tests_to_deselect[jira]]))
         for jira in testing_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in testing_tests_to_deselect[jira]]))]
     },
     "torch": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in torch_tests_to_deselect[jira]]))
         for jira in torch_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in torch_tests_to_deselect[jira]]))]
     },
     "type_promotion": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in type_promotion_tests_to_deselect[jira]]))
         for jira in type_promotion_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in type_promotion_tests_to_deselect[jira]]))]
     },
     "unary_ufuncs": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in unary_ufuncs_tests_to_deselect[jira]]))
         for jira in unary_ufuncs_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in unary_ufuncs_tests_to_deselect[jira]]))]
     },
     "view_ops": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in view_ops_tests_to_deselect[jira]]))
         for jira in view_ops_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in view_ops_tests_to_deselect[jira]]))]
     },
     "vmap": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in vmap_tests_to_deselect[jira]]))
         for jira in vmap_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in vmap_tests_to_deselect[jira]]))]
     },
     "expanded_weights": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in expanded_weights_tests_to_deselect[jira]]))
         for jira in expanded_weights_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in expanded_weights_tests_to_deselect[jira]]))]
     },
     "ops_gradients": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in ops_gradients_tests_to_deselect[jira]]))
         for jira in ops_gradients_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in ops_gradients_tests_to_deselect[jira]]))]
     },
     "ops_fwd_gradients": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in ops_fwd_gradients_tests_to_deselect[jira]]))
         for jira in ops_fwd_gradients_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in ops_fwd_gradients_tests_to_deselect[jira]]))]
     },
     "decomp": {
-        jira: file
+        jira: ";".join(set([node_id for node_id in decomp_tests_to_deselect[jira]]))
         for jira in decomp_tests_to_deselect
-        for file in [";".join(set([node_id for node_id in decomp_tests_to_deselect[jira]]))]
     },
 }
 

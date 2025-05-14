@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2025 Intel Corporation
+#  Copyright (c) 2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -13,18 +13,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#
-###############################################################################
-
-###############################################################################
-# Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
-# All Rights Reserved.
-#
-# Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited.
-# This file contains Habana Labs, Ltd. proprietary and confidential information
-# and is subject to the confidentiality and license agreements under which it
-# was provided.
 #
 ###############################################################################
 
@@ -67,7 +55,7 @@ def parse_xml_file(directory, xml_f):
     duration = 0
 
     # Get the xfail count by searching for xfail_expected_str
-    with open(directory + xml_f, "r") as file:
+    with open(directory + xml_f) as file:
         xfail_tests = file.read().count(xfail_expected_str)
 
     # https://docs.python.org/3/library/xml.etree.elementtree.html
@@ -128,7 +116,7 @@ if __name__ == "__main__":
     pytorch_framework_csv_file = os.getcwd() + "/pytorch_framework_test_report.csv"
 
     aggregate_data = []
-    for i in range(8):
+    for _i in range(8):
         aggregate_data.append(0)
 
     # Create/truncate pytorch_framework_csv_file and add the header information

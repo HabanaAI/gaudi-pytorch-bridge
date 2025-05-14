@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2025 Intel Corporation
+#  Copyright (c) 2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import shutil
 import subprocess
 import sys
 import traceback
-
+import torch.distributed as dist
 import run_test as rt
 from test_infra_hpu import pytorch_version
 
@@ -398,7 +398,6 @@ ENABLED_TESTS.extend(HPU_GPU_MIGRATION_TESTS)
 # Extend distributed tests
 HPU_DISTRIBUTED_TESTS.extend(HPU_DISTRIBUTED_MPI)
 
-import torch.distributed as dist
 
 
 def run_specific_test_hpu(test_module, test_directory, options, launcher_cmd):
@@ -438,13 +437,10 @@ def test_distributed_hpu(options, selected_tests, test_directory):
     try:
         print("Running HPU Distributed Test cases")
         # habana packages
-        import habana_frameworks.torch.core as htcore
-        import habana_frameworks.torch.distributed.hccl
-        import habana_frameworks.torch.hpu as hpu
         from habana_frameworks.torch.distributed.hccl import initialize_distributed_hpu
 
         if dist.is_available():
-            print("dist.is_available() : {}, Printing parameters ".format(dist.is_available()))
+            print(f"dist.is_available() : {dist.is_available()}, Printing parameters ")
             world_size, rank, local_rank = initialize_distributed_hpu()
             print(f"INFO: world_size={world_size}, rank={rank}, local_rank={local_rank}")
         else:
@@ -457,7 +453,7 @@ def test_distributed_hpu(options, selected_tests, test_directory):
         # SW-185004 : Since world_size is always set to 1, using the count of devices to set the rank
         # in mpiexec command.
         num_cards = get_num_cards()
-        print("Number of card is {}".format(num_cards))
+        print(f"Number of card is {num_cards}")
         if num_cards == 0:
             print("Exiting as Number of card is 0")
             sys.exit(1)
@@ -485,7 +481,7 @@ def test_distributed_hpu(options, selected_tests, test_directory):
             print("The overall pytorch test suite status is PASS")
         else:
             print(f"The overall pytorch test suite status is FAIL. The failure_message: {failure_messages}")
-            print("Execution logs can be found at {}".format(options.console_logs))
+            print(f"Execution logs can be found at {options.console_logs}")
     finally:
         if options.coverage:
             from coverage import Coverage
@@ -523,7 +519,7 @@ def test_dynamo_hpu(options, selected_tests, test_directory):
             print("The overall pytorch test suite status is PASS")
         else:
             print(f"The overall pytorch test suite status is FAIL. The failure_message: {failure_messages}")
-            print("Execution logs can be found at {}".format(options.console_logs))
+            print(f"Execution logs can be found at {options.console_logs}")
     finally:
         if options.coverage:
             from coverage import Coverage
@@ -561,7 +557,7 @@ def test_gpu_migration_hpu(options, selected_tests, test_directory):
             print("The overall pytorch test suite status is PASS")
         else:
             print(f"The overall pytorch test suite status is FAIL. The failure_message: {failure_messages}")
-            print("Execution logs can be found at {}".format(options.console_logs))
+            print(f"Execution logs can be found at {options.console_logs}")
     finally:
         if options.coverage:
             from coverage import Coverage
@@ -905,7 +901,7 @@ def get_num_threads(num_threads):
     if num_cards <= 0:
         p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         num_cards = sum(1 for _ in p.stdout)
-    print("Found HPU devices {}".format(num_cards))
+    print(f"Found HPU devices {num_cards}")
     return min(int(num_threads), int(num_cards))
 
 
@@ -1004,7 +1000,7 @@ def run_test(test_module, test_directory, options, launcher_cmd=None, extra_unit
             unittest_args.append("--junitxml={}".format(os.path.join(options.outdir, test_module_name + ".xml")))
         else:
             unittest_args.append("--junitxml={}".format(os.path.join(options.outdir, test_module_name + ".xml")))
-        unittest_args.append("--override-ini=junit_suite_name={}".format(test_module_name))
+        unittest_args.append(f"--override-ini=junit_suite_name={test_module_name}")
     if options.html:
         unittest_args.append("--self-contained-html")
         if options.forked:
@@ -1022,7 +1018,7 @@ def run_test(test_module, test_directory, options, launcher_cmd=None, extra_unit
     # TODO: pytest-timeout doesn't gracefully exit with xdist. So disabling xdist until required.
     if not options.file_parallel and options.num_threads:
         num_threads = get_num_threads(options.num_threads)
-        print("Running the test with {} threads".format(num_threads))
+        print(f"Running the test with {num_threads} threads")
         if test_module in rt.RUN_PARALLEL_BLOCKLIST:
             unittest_args.append("-n 1")
         else:
@@ -1063,11 +1059,11 @@ def run_test(test_module, test_directory, options, launcher_cmd=None, extra_unit
         options, allow_pytest=not extra_unittest_args, disable_coverage=disable_coverage
     )
     command = (launcher_cmd or []) + executable + argv
-    rt.print_to_stderr("Executing {} ... [{}]".format(test_module, rt.datetime.now()))
+    rt.print_to_stderr(f"Executing {test_module} ... [{rt.datetime.now()}]")
     # handling the execution modes
     if test_module in NEW_EAGER_FRONTEND_TESTS:
-        rt.print_to_stderr("Setting to New Eager mode for {}".format(test_module))
-        print("Setting to New Eager mode for {}".format(test_module))
+        rt.print_to_stderr(f"Setting to New Eager mode for {test_module}")
+        print(f"Setting to New Eager mode for {test_module}")
         os.environ["PT_HPU_LAZY_MODE"] = "0"
         print("Set PT_HPU_LAZY_MOD to {}".format(os.environ["PT_HPU_LAZY_MODE"]))
         rt.print_to_stderr("Set PT_HPU_LAZY_MOD to {}".format(os.environ["PT_HPU_LAZY_MODE"]))
@@ -1087,45 +1083,27 @@ def run_test(test_module, test_directory, options, launcher_cmd=None, extra_unit
     result = run(command, echo=True)
     lines = result.stdout.splitlines()
     if result.returncode == 0:
-        print("Execution result of {} is PASS".format(test_module))
-    elif (
-        not options.core and result.returncode == 255 and test_module not in SKIP_RERUN
-    ):  # A segfaulted execution doesn't generate the xml.
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
-        with open("../" + test_module + ".regressions", "a") as regfile:
-            regfile.writelines(ptVersion + "/test/" + lines[-1] + "\n")
-        print("Re-running the suite after marking the segfault regression")
-        leaf = False
-        run_test(test_module, test_directory, options, launcher_cmd, extra_unittest_args)
-    elif (
+        print(f"Execution result of {test_module} is PASS")
+    elif (not options.core and result.returncode == 255 and test_module not in SKIP_RERUN) or (
         not options.core and result.returncode == 139 and test_module not in SKIP_RERUN
     ):  # A segfaulted execution doesn't generate the xml.
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
+        print(f"Execution result of {test_module} is FAIL with return code {result.returncode}")
         with open("../" + test_module + ".regressions", "a") as regfile:
             regfile.writelines(ptVersion + "/test/" + lines[-1] + "\n")
         print("Re-running the suite after marking the segfault regression")
         leaf = False
         run_test(test_module, test_directory, options, launcher_cmd, extra_unittest_args)
-    elif (
-        not options.core and result.returncode == 134 and test_module not in SKIP_RERUN
-    ):  # A timeout doesn't generate the xml.
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
-        with open("../" + test_module + ".regressions", "a") as regfile:
-            regfile.writelines(ptVersion + "/test/" + lines[-1] + "\n")
-        print("Re-running the suite after marking the timeout regression")
-        leaf = False
-        run_test(test_module, test_directory, options, launcher_cmd, extra_unittest_args)
-    elif (
+    elif (not options.core and result.returncode == 134 and test_module not in SKIP_RERUN) or (
         not options.core and result.returncode == 124 and test_module not in SKIP_RERUN
     ):  # A timeout doesn't generate the xml.
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
+        print(f"Execution result of {test_module} is FAIL with return code {result.returncode}")
         with open("../" + test_module + ".regressions", "a") as regfile:
             regfile.writelines(ptVersion + "/test/" + lines[-1] + "\n")
         print("Re-running the suite after marking the timeout regression")
         leaf = False
         run_test(test_module, test_directory, options, launcher_cmd, extra_unittest_args)
     elif not options.core and result.returncode == 1 and test_module not in SKIP_RERUN:
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
+        print(f"Execution result of {test_module} is FAIL with return code {result.returncode}")
         for line in lines:
             if " FAILED " in line and "::Test" in line and "::test_" in line:
                 with open("../" + test_module + ".regressions", "a") as regfile:
@@ -1137,14 +1115,14 @@ def run_test(test_module, test_directory, options, launcher_cmd=None, extra_unit
     elif (
         not options.core and result.returncode == 137 and test_module not in SKIP_RERUN
     ):  # A out of memory error doesn't generate the xml.
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
+        print(f"Execution result of {test_module} is FAIL with return code {result.returncode}")
         with open("../" + test_module + ".regressions", "a") as regfile:
             regfile.writelines(ptVersion + "/test/" + lines[-1] + "\n")
         print("Re-running the suite after marking the out of memory regression")
         leaf = False
         run_test(test_module, test_directory, options, launcher_cmd, extra_unittest_args)
     elif not options.core and result.returncode == 134 and test_module not in SKIP_RERUN:
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
+        print(f"Execution result of {test_module} is FAIL with return code {result.returncode}")
         for line in lines:
             if " FAILED " in line and "::Test" in line and "::test_" in line:
                 with open("../" + test_module + ".regressions", "a") as regfile:
@@ -1153,7 +1131,7 @@ def run_test(test_module, test_directory, options, launcher_cmd=None, extra_unit
         # This is required because some failures are causing false positive failures later in the execution
         print("In future Re-run the suite after marking the first failure.")
     else:
-        print("Execution result of {} is FAIL with return code {}".format(test_module, result.returncode))
+        print(f"Execution result of {test_module} is FAIL with return code {result.returncode}")
     # Print stdout only once, in the leaf recursion.
     if options.console_logs and leaf is True:
         with open(stdout_logs, "w") as log:
@@ -1218,7 +1196,7 @@ def main():
     try:
         xml_path = os.path.join(options.outdir, "xml_reports")
         if options.verbose:
-            print("XML reports will be saved at: {}".format(xml_path))
+            print(f"XML reports will be saved at: {xml_path}")
         if not os.path.exists(xml_path):
             os.makedirs(xml_path)
     except:
@@ -1227,7 +1205,7 @@ def main():
     try:
         html_path = os.path.join(options.outdir, "html_reports")
         if options.verbose:
-            print("HTML reports will be saved at: {}".format(html_path))
+            print(f"HTML reports will be saved at: {html_path}")
         if not os.path.exists(html_path):
             os.makedirs(html_path)
     except:
@@ -1236,7 +1214,7 @@ def main():
     try:
         console_path = os.path.join(options.outdir, "console_logs")
         if options.verbose:
-            print("Console logs will be saved at: {}".format(console_path))
+            print(f"Console logs will be saved at: {console_path}")
         if not os.path.exists(console_path):
             os.makedirs(os.path.join(console_path, "no_fork"))
             os.makedirs(os.path.join(console_path, "fork"))
@@ -1261,7 +1239,7 @@ def main():
             print("The overall pytorch test suite status is PASS")
         else:
             print(f"The overall pytorch test suite status is FAIL. The failure_message: {failure_messages}")
-            print("Execution logs can be found at {}".format(options.console_logs))
+            print(f"Execution logs can be found at {options.console_logs}")
     finally:
         if options.coverage:
             from coverage import Coverage
