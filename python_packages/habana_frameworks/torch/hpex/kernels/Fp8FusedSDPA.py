@@ -111,9 +111,7 @@ def fp8_sdpa_fwd_wrapper(
 ):
 
     requires_backward = (
-        q.requires_grad or k.requires_grad or v.requires_grad or requires_grad
-        if requires_grad is None
-        else requires_grad
+        q.requires_grad or k.requires_grad or v.requires_grad if requires_grad is None else requires_grad
     )
 
     # Handle zero sized tensors(for now only in inference) by returning a dummy output.
