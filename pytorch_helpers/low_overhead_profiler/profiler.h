@@ -81,6 +81,7 @@ struct ProfilerEngine {
   std::atomic<bool> flushed;
 
   double ticks_per_ns_ratio;
+  std::array<std::mutex, NUM_OF_PIPELINE_STAGES> events_mutex;
   std::array<std::atomic<uint64_t>, NUM_OF_PIPELINE_STAGES> events_counter;
   std::vector<std::vector<Event>> events_table;
   uint32_t env_log_level;

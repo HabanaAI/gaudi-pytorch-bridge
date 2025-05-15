@@ -63,6 +63,7 @@ inline uint64_t barriered_rdtsc() {
 ProfilerEngine::ProfilerEngine()
     : enabled(true),
       flushed(false),
+      events_mutex{},
       events_counter{},
       events_table(
           NUM_OF_PIPELINE_STAGES,
@@ -724,17 +725,21 @@ void emit_event_fast(
   }
 
   auto& profiler_engine_instance = ProfilerEngine::get_inst();
+  if (!profiler_engine_instance.is_enabled()) {
+    return;
+  }
 
   // This function is faster because it use lighter RDTSC instead of RDTSCP.
   // It's latency is lower but it also does not make partial barrier like RDTSCP
   // does. Caveat is that we no longer know the CPUs on which we took TSC. It
   // also does not check whether event buffer is correct (so it's less
   // reliable). It does not support log levels.
+  std::lock_guard<std::mutex> lock(
+    profiler_engine_instance.events_mutex[pipe_stage_id]);
   int64_t current_index =
       profiler_engine_instance.events_counter[pipe_stage_id].load(
           std::memory_order_acquire);
-  if (enable_lop_collection && profiler_engine_instance.is_enabled() &&
-      (current_index < GET_ENV_FLAG_NEW(PT_HPU_EVENT_TABLE_SIZE))) {
+  if (current_index < GET_ENV_FLAG_NEW(PT_HPU_EVENT_TABLE_SIZE)) {
     uint64_t tsc = _rdtsc();
 
     Event& new_event =
