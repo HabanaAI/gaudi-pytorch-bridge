@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,10 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillScaledMaskedSoftmaxParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillScaledMaskedSoftmaxParams(const at::Stack& stack) {
   PARAMS_STUB(ns_SmoothL1Kernel::Params);
   params->sigma = stack[2].toDouble();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector ScaledMaskedTriangularSoftmaxMeta(const at::Stack& stack) {

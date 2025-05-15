@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ OutputMetaDataVector MseLossBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillMseLossParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillMseLossParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MSELossKernel::Params);
 
   auto mode = stack.at(stack.at(2).isInt() ? 2 : 3).toInt();
@@ -55,7 +55,7 @@ std::shared_ptr<void> FillMseLossParams(const at::Stack& stack, size_t& size) {
     default:
       HABANA_ASSERT(false, "Unsupported reduction mode in mseloss: ", mode);
   }
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

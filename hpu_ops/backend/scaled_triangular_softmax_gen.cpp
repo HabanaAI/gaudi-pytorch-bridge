@@ -18,15 +18,13 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillScaledTriangularSoftmaxParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillScaledTriangularSoftmaxParams(const at::Stack& stack) {
   PARAMS_STUB(ns_ScaledMaskedSoftmax::Params);
   params->invScaleAttn = stack.at(1).toScalar().toDouble();
   params->groupedBatchSize = 1;
   params->isUseMax = 1;
   params->expMode = USE_LUT;
-  return params;
+  return paramsT;
 }
 
 void ScaledTriangularSoftmax::AddNode(
@@ -66,8 +64,7 @@ void ScaledTriangularSoftmax::AddNode(
         "exp_sum_recpr and max inputs must have shape [self_shape[0], self_shape[1], 1].");
   }
 
-  size_t size = 0;
-  auto params = FillScaledTriangularSoftmaxParams(stack, size);
+  auto params = FillScaledTriangularSoftmaxParams(stack);
 
   std::vector<synTensor> syn_inputs{self.syn_t};
   if (exp_sum_recpr_opt) {
@@ -81,8 +78,8 @@ void ScaledTriangularSoftmax::AddNode(
       {GetGuid(),
        syn_inputs,
        {{self.pt_t.sizes().vec(), ScalarType(), 0}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
 
   syn_out(0) = std::move(output[0]);
 }

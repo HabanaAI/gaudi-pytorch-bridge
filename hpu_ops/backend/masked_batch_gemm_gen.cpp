@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023-2024 Intel Corporation
+ * Copyright (c) 2023-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,13 +79,11 @@ OutputMetaDataVector MaskedBatchGemmMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillMaskedBatchGemmParams(
-    const at::Stack& stack,
-    size_t& size) {
-  auto params = std::make_shared<synGEMMParams>(
-      synGEMMParams{stack.at(4).toBool(), stack.at(5).toBool()});
-  size = sizeof(*params);
-  return std::static_pointer_cast<void>(params);
+FillParamsT FillMaskedBatchGemmParams(const at::Stack& stack) {
+  PARAMS_STUB(synGEMMParams);
+  params->transpose_a = stack.at(4).toBool();
+  params->transpose_b = stack.at(5).toBool();
+  return paramsT;
 }
 
 } // namespace habana

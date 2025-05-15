@@ -550,7 +550,7 @@ SchemaStackGenerator::SchemaStackGenerator(
 
 namespace {
 std::vector<std::string> getInputsFromSchema(const std::string& input_schema) {
-  if(input_schema.empty())
+  if (input_schema.empty())
     return {};
 
   std::vector<std::string> params;

@@ -154,15 +154,13 @@ OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {
   metaVec[1].dtype = saved_g.scalar_type();
   return metaVec;
 }
-std::shared_ptr<void> FillWeightNormBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillWeightNormBwdParams(const at::Stack& stack) {
   auto input = stack.at(0).toTensor();
   auto dim = at::maybe_wrap_dim(stack.at(4).toInt(), input.dim());
 
   PARAMS_STUB(ns_Reduction::Params);
   params->reductionDimension = dim;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

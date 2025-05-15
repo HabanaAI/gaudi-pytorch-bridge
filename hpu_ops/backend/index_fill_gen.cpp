@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,12 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillIndexFillParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillIndexFillParams(const at::Stack& stack) {
   const auto dim =
       at::maybe_wrap_dim(stack.at(1).toInt(), stack.at(0).toTensor().dim());
   PARAMS_STUB(ns_IndexCopy::Params);
   params->axis = dim;
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector IndexFillMeta(const at::Stack& stack) {
@@ -100,16 +98,15 @@ void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
             valueTensorShape,
             stack.at(3).toTensor().scalar_type());
 
-  size_t size = 0;
-  const auto params = FillIndexFillParams(stack, size);
+  const auto params = FillIndexFillParams(stack);
 
   auto indexCopyResult = BuildOp(
       graph,
       guid_,
       {syn_in(0), syn_in(1), valueTensor.get()},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(indexCopyResult[0]);
 }

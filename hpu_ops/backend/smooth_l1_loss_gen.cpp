@@ -18,9 +18,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillSmoothL1LossFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSmoothL1LossFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_SmoothL1LossKernel::Params);
   auto mode = stack.at(2).toInt();
   if (mode == at::Reduction::Reduction::Mean)
@@ -30,7 +28,7 @@ std::shared_ptr<void> FillSmoothL1LossFwdParams(
   else
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_NONE;
   params->beta = stack.at(3).toScalar().to<float>();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector SmoothL1LossMeta(const at::Stack& stack) {

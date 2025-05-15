@@ -30,9 +30,8 @@ std::vector<int64_t> MultinomialOutputShape(const at::Stack& stack) {
   return {dim, num_samples};
 }
 
-static std::shared_ptr<void> MultinomialParams(
+static FillParamsT MultinomialParams(
     const at::Stack& stack,
-    size_t& size,
     unsigned idx_shift = 0) {
   at::ScalarType type = stack_tensor(stack, 0 + idx_shift).scalar_type();
   float num_samples = stack.at(1 + idx_shift).toInt();
@@ -61,7 +60,7 @@ static std::shared_ptr<void> MultinomialParams(
       " replacement: ",
       params->replacement);
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector MultinomialMeta(const at::Stack& stack) {
@@ -93,16 +92,12 @@ SharedMetaDataVector MultinomialSharedMeta(
   return {multinomialSharedMeta};
 }
 
-std::shared_ptr<void> FillMultinomialParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return MultinomialParams(stack, size);
+FillParamsT FillMultinomialParams(const at::Stack& stack) {
+  return MultinomialParams(stack);
 }
 
-std::shared_ptr<void> FillHabanaMultinomialParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return MultinomialParams(stack, size, 1);
+FillParamsT FillHabanaMultinomialParams(const at::Stack& stack) {
+  return MultinomialParams(stack, 1);
 }
 
 OutputMetaDataVector HabanaMultinomialMeta(const at::Stack& stack) {

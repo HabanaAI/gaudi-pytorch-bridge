@@ -19,13 +19,13 @@
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
-std::shared_ptr<void> FillCdistFwdParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillCdistFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Cdist::Params);
   params->p = stack.at(2).toScalar().toDouble();
   c10::IValue cmVal = stack.at(3);
   params->compute_mode =
       static_cast<CdistComputeMode_t>(cmVal.isInt() ? cmVal.toInt() : 0);
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector CdistFwdMeta(const at::Stack& stack) {
@@ -52,10 +52,10 @@ OutputMetaDataVector CdistFwdMeta(const at::Stack& stack) {
   return metas;
 }
 
-std::shared_ptr<void> FillCdistBwdParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillCdistBwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Cdist::Params);
   params->p = stack.at(3).toScalar().toDouble();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector CdistBwdMeta(const at::Stack& stack) {
@@ -106,15 +106,14 @@ SharedMetaDataVector CdistBwdSharedMeta(
 void CdistBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = OutputMeta(stack);
   auto x2 = stack_tensor(stack, 2);
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   auto op = BuildOp(
       graph,
       guid_,
       {syn_in(0), syn_in(1), syn_in(2)},
       {{meta[0].shape, meta[0].dtype, 0}, {x2.sizes().vec(), x2.scalar_type()}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(op.at(0));
 }
 } // namespace habana

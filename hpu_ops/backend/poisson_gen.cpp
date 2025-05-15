@@ -17,11 +17,11 @@
 #include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
-std::shared_ptr<void> FillPoissonParams(const at::Stack&, size_t& size) {
+FillParamsT FillPoissonParams(const at::Stack&) {
   PARAMS_STUB(ns_RandomPoisson::Params);
   params->lambda = 0.0;
   params->poissonFlavor = RandomPoissonFlavor_t::WITH_DIST;
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector PoissonSharedMeta(
@@ -56,16 +56,15 @@ void HabanaPoisson::AddNode(
   const auto& dtype = input_tensor.scalar_type();
   std::vector<synTensor> inputs = {syn_in(1), syn_in(0)};
 
-  size_t params_size = 0;
-  const auto& params = FillPoissonParams(stack, params_size);
+  const auto& params = FillPoissonParams(stack);
   auto poisson = OpBackend::BuildNode(
       this,
       graph,
       {get_guid_with_precision("random_poisson_fwd"sv, dtype),
        inputs,
        {{input_tensor.sizes().vec(), dtype, 0}},
-       params.get(),
-       params_size});
+       params.ptr(),
+       params.size()});
 
   syn_out(0) = std::move(poisson[0]);
 }

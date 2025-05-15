@@ -17,9 +17,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillHuberLossFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillHuberLossFwdParams(const at::Stack& stack) {
   PARAMS_STUB(ns_HuberLossKernel::Params);
 
   double delta = stack.at(3).toScalar().to<double>();
@@ -32,7 +30,7 @@ std::shared_ptr<void> FillHuberLossFwdParams(
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_SUM;
   else
     params->mode = LossMode_t::LOSS_REDUCTION_MODE_NONE;
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector HuberLossMeta(const at::Stack& stack) {

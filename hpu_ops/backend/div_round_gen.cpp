@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillDivModeParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillDivModeParams(const at::Stack& stack) {
   std::optional<std::string_view> rounding_mode =
       stack.at(2).toOptional<std::string_view>();
   if (rounding_mode.has_value()) {
@@ -32,11 +32,9 @@ std::shared_ptr<void> FillDivModeParams(const at::Stack& stack, size_t& size) {
     // value 'true' for pyCompatible. Other value (false) is used for
     // div_rounding mode operator, for 'trunc' case.
     params->isPyCompatible = !(params->isTruncRoundingMode);
-    return params;
-  } else {
-    size = 0;
-    return nullptr;
-  }
+    return paramsT;
+  } else
+    return {};
 }
 
 OutputMetaDataVector DivModeMeta(const at::Stack& stack) {

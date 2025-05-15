@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,26 +17,25 @@
 
 namespace habana {
 
-static std::shared_ptr<void> FillisposneginfParamsFwd(
+static FillParamsT FillisposneginfParamsFwd(
     bool detect_positive,
-    bool detect_negative,
-    size_t& size) {
+    bool detect_negative) {
   PARAMS_STUB(ns_IsInfKernel::Params);
   params->detect_negative = detect_negative;
   params->detect_positive = detect_positive;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillisinfParamsFwd(const at::Stack&, size_t& size) {
-  return FillisposneginfParamsFwd(true, true, size);
+FillParamsT FillisinfParamsFwd(const at::Stack&) {
+  return FillisposneginfParamsFwd(true, true);
 }
 
-std::shared_ptr<void> FillisposinfParamsFwd(const at::Stack&, size_t& size) {
-  return FillisposneginfParamsFwd(true, false, size);
+FillParamsT FillisposinfParamsFwd(const at::Stack&) {
+  return FillisposneginfParamsFwd(true, false);
 }
 
-std::shared_ptr<void> FillisneginfParamsFwd(const at::Stack&, size_t& size) {
-  return FillisposneginfParamsFwd(false, true, size);
+FillParamsT FillisneginfParamsFwd(const at::Stack&) {
+  return FillisposneginfParamsFwd(false, true);
 }
 
 } // namespace habana

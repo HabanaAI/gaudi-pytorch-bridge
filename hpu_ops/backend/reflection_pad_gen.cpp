@@ -70,9 +70,8 @@ OutputMetaDataVector ReflectionPad3DMeta(const at::Stack& stack) {
   return ReflectionPadDMeta(stack, 3);
 }
 
-static std::shared_ptr<void> FillReflectionPadParams(
+static FillParamsT FillReflectionPadParams(
     const at::Stack& stack,
-    size_t& size,
     uint self_index,
     uint pad_index) {
   PARAMS_STUB(ns_PadKernelEx::Params);
@@ -94,19 +93,15 @@ static std::shared_ptr<void> FillReflectionPadParams(
     uint hpu_index = (mul * inputShape.size()) + add;
     params->pads[hpu_index] = pads[i];
   }
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillReflectionPadForwardParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillReflectionPadParams(stack, size, SELF_INDEX_FWD, PAD_INDEX_FWD);
+FillParamsT FillReflectionPadForwardParams(const at::Stack& stack) {
+  return FillReflectionPadParams(stack, SELF_INDEX_FWD, PAD_INDEX_FWD);
 }
 
-std::shared_ptr<void> FillReflectionPadBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillReflectionPadParams(stack, size, SELF_INDEX_BWD, PAD_INDEX_BWD);
+FillParamsT FillReflectionPadBackwardParams(const at::Stack& stack) {
+  return FillReflectionPadParams(stack, SELF_INDEX_BWD, PAD_INDEX_BWD);
 }
 
 OutputMetaDataVector ReflectionPadBackwardMeta(const at::Stack& stack) {
@@ -120,8 +115,7 @@ OutputMetaDataVector ReflectionPadBackwardMeta(const at::Stack& stack) {
 void ReflectionPadBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillReflectionPadBackwardParams(stack, size);
+  const auto& params = FillReflectionPadBackwardParams(stack);
 
   if (habana::ShapeInference::GetCurrentPass() ==
       habana::ShapeInfo::InferencePass::MAX_SHAPE) {
@@ -149,8 +143,8 @@ void ReflectionPadBwd::AddNode(
       get_guid_with_precision("pad_bwd"sv, ScalarType()),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   // output
   syn_out(0) = std::move(reflection_pad[0]);

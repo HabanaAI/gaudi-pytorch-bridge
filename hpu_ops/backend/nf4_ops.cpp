@@ -27,19 +27,16 @@ OutputMetaDataVector DequantizeNF4Meta(const at::Stack& stack) {
   return meta;
 }
 
-std::shared_ptr<void> FillDequantizeNF4Params(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillDequantizeNF4Params(const at::Stack& stack) {
   PARAMS_STUB(ns_CastNF4Kernel::Params);
   params->group_size = stack[2].toInt();
-  return params;
+  return paramsT;
 }
 
 void DequantizeNF4::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto meta = DequantizeNF4Meta(stack)[0];
   auto sizes = stack[0].toTensor().sizes().vec();
-  size_t size = 0;
-  auto params = FillDequantizeNF4Params(stack, size);
+  auto params = FillDequantizeNF4Params(stack);
   // Need to this cast because we are getting uint8 dtype
   // need to convert to packed_nf4 dtype
   auto cast_to_NF4 = OpBackend::BuildNode(
@@ -67,8 +64,8 @@ void DequantizeNF4::AddNode(sh::graph& graph, const at::Stack& stack) {
       {guid_,
        std::move(inputs),
        {{meta.shape, meta.dtype, 0}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
 
   syn_out(0) = std::move(result[0]);
 }

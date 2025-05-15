@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ OutputMetaDataVector SumFp8Meta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillSumFp8Params(const at::Stack& stack, size_t& size) {
+FillParamsT FillSumFp8Params(const at::Stack& stack) {
   auto ndims = stack_tensor(stack, 0).dim();
   auto dims = get_dims(stack, 1);
   auto keepdim = stack[2].toBool();
@@ -45,7 +45,7 @@ std::shared_ptr<void> FillSumFp8Params(const at::Stack& stack, size_t& size) {
   }
   params->reductionDimensionMask = maskval;
   params->keepDim = keepdim;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

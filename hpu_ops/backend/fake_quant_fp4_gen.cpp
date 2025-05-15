@@ -16,9 +16,7 @@
 #include "generated/backend/fake_quant_fp4.h"
 
 namespace habana {
-std::shared_ptr<void> FillFakeQuantFp4Params(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillFakeQuantFp4Params(const at::Stack& stack) {
   TORCH_CHECK(
       stack.at(0).toTensor().scalar_type() == c10::ScalarType::BFloat16,
       "Input dtype is expected to be bfloat16");
@@ -37,7 +35,7 @@ std::shared_ptr<void> FillFakeQuantFp4Params(
                                        : FakeQuantizeFp4Round::FP4_RNE;
   params->axis = stack.at(2).toScalar().toInt();
   params->inter_dt = inter_dtype->second;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

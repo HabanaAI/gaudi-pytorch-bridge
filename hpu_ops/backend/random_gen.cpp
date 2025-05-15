@@ -68,11 +68,10 @@ OutputMetaDataVector NormalMeta(const at::Stack& stack) {
 
 namespace {
 
-std::shared_ptr<void> RandomUniformParams(
+FillParamsT RandomUniformParams(
     at::ScalarType type,
     at::optional<float> from,
-    at::optional<float> to,
-    size_t& size) {
+    at::optional<float> to) {
   PARAMS_STUB(ns_RandomUniform::ParamsV3);
   /*
   NOTE: As per PyTorch specification, for floating point types, if unspecified,
@@ -153,46 +152,39 @@ std::shared_ptr<void> RandomUniformParams(
         __func__, " low: ", params->low.i, " high: ", params->high.i);
   }
 
-  return params;
+  return paramsT;
 }
 
 } // namespace
 
-std::shared_ptr<void> FillRandomParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillRandomParams(const at::Stack& stack) {
   return RandomUniformParams(
-      stack_tensor(stack, 0).scalar_type(), std::nullopt, std::nullopt, size);
+      stack_tensor(stack, 0).scalar_type(), std::nullopt, std::nullopt);
 }
 
-std::shared_ptr<void> FillRandomFromParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillRandomFromParams(const at::Stack& stack) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
       stack.at(1).isNone() ? std::nullopt
                            : c10::make_optional<float>(stack.at(1).toInt()),
-      c10::make_optional<float>(stack.at(2).toInt()),
-      size);
+      c10::make_optional<float>(stack.at(2).toInt()));
 }
 
-std::shared_ptr<void> FillRandomToParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillRandomToParams(const at::Stack& stack) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
       std::nullopt,
-      c10::make_optional<float>(stack.at(1).toInt()),
-      size);
+      c10::make_optional<float>(stack.at(1).toInt()));
 }
 
-std::shared_ptr<void> FillUniformParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillUniformParams(const at::Stack& stack) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
       c10::make_optional<float>(stack.at(1).toDouble()),
-      c10::make_optional<float>(stack.at(2).toDouble()),
-      size);
+      c10::make_optional<float>(stack.at(2).toDouble()));
 }
 
-std::shared_ptr<void> FillPhiloxUniformParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillPhiloxUniformParams(const at::Stack& stack) {
   PARAMS_STUB(ns_PhiloxRandomUniform::ParamsV3);
   auto low = stack.at(1).toDouble();
   auto high = stack.at(2).toDouble();
@@ -203,7 +195,7 @@ std::shared_ptr<void> FillPhiloxUniformParams(
     params->low = static_cast<float>(low);
     params->high = static_cast<float>(high);
   }
-  return params;
+  return paramsT;
 }
 
 using namespace std::literals;
@@ -225,7 +217,6 @@ synapse_helpers::tensor NormalTensorHelper(
   */
   inputs.push_back(nullptr);
   inputs.push_back(syn_seed);
-  size_t size = 0;
   static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(0.); // mean;
@@ -238,8 +229,8 @@ synapse_helpers::tensor NormalTensorHelper(
       {get_guid_with_precision("random_normal_fwd"sv, meta.dtype),
        inputs,
        {{meta.shape, meta.dtype}},
-       params.get(),
-       size});
+       paramsT.ptr(),
+       paramsT.size()});
   if (normal_variant == NORMAL_TF) {
     // insert mulOp if necessary
     float stddev = static_cast<float>(stack.at(1).toDouble());
@@ -328,7 +319,6 @@ synapse_helpers::tensor NormalFloatFloatHelper(
   // Input tensors to random_normal_fwd are stddev and seed tensors
   inputs.push_back(nullptr);
   inputs.push_back(syn_seed);
-  size_t size = 0;
   static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(mean);
@@ -341,8 +331,8 @@ synapse_helpers::tensor NormalFloatFloatHelper(
       {get_guid_with_precision("random_normal_fwd"sv, meta.dtype),
        inputs,
        {{meta.shape, meta.dtype, 0}},
-       params.get(),
-       size});
+       paramsT.ptr(),
+       paramsT.size()});
   return std::move(normal[0]);
 }
 
@@ -535,8 +525,7 @@ void RandomSeedTensorInput::AddNode(
           : dtype,
       outshape,
       inputs);
-  size_t size = 0;
-  auto rand_params = FillParams(stack, size);
+  auto rand_params = FillParams(stack);
 
   std::string cast_guid{};
   // supported kernels at the moment are: bf16/f32/f16/i32/i16
@@ -570,7 +559,12 @@ void RandomSeedTensorInput::AddNode(
   }
   if (cast_guid != "") {
     auto rand = BuildOp(
-        graph, guid_, std::move(inputs), {{outshape}}, rand_params.get(), size);
+        graph,
+        guid_,
+        std::move(inputs),
+        {{outshape}},
+        rand_params.ptr(),
+        rand_params.size());
     PARAMS_STUB(ns_CastKernel::Params);
     // Round down so that the upper limit is not included in the generated seq.
     // The assumption is that the float vaues dont include the upper limit.
@@ -580,8 +574,8 @@ void RandomSeedTensorInput::AddNode(
         cast_guid,
         {rand[0].get()},
         {{outshape, dtype, 0}},
-        params.get(),
-        size);
+        paramsT.ptr(),
+        paramsT.size());
     syn_out(0) = std::move(cast[0]);
   } else {
     // execute random
@@ -590,8 +584,8 @@ void RandomSeedTensorInput::AddNode(
         guid_,
         std::move(inputs),
         {{outshape, dtype, 0}},
-        rand_params.get(),
-        size);
+        rand_params.ptr(),
+        rand_params.size());
     syn_out(0) = std::move(rand[0]);
   }
 }
@@ -605,8 +599,7 @@ void RandomSeedTensorInputIntegers::AddNode(
 
   inputs.push_back(syn_in(1)); // insert seed tensor
   CreateShapeTensorInput(graph, dtype, outshape, inputs);
-  size_t size = 0;
-  auto rand_params = FillParams(stack, size);
+  auto rand_params = FillParams(stack);
 
   std::string post_op_guid = "";
   NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
@@ -624,7 +617,12 @@ void RandomSeedTensorInputIntegers::AddNode(
   }
 
   auto rand = BuildOp(
-      graph, GetGuid(), std::move(inputs), {out_attr}, rand_params.get(), size);
+      graph,
+      GetGuid(),
+      std::move(inputs),
+      {out_attr},
+      rand_params.ptr(),
+      rand_params.size());
 
   if (need_convert_i16) {
     PARAMS_STUB(ns_CastKernel::Params);
@@ -636,8 +634,8 @@ void RandomSeedTensorInputIntegers::AddNode(
         post_op_guid,
         {rand[0].get()},
         {{outshape, dtype, 0}},
-        params.get(),
-        size);
+        paramsT.ptr(),
+        paramsT.size());
     syn_out(0) = std::move(cast[0]);
   } else if (c10::isFloatingType(dtype)) {
     auto result =

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,26 +17,21 @@
 
 namespace habana {
 template <typename ScalarType>
-static std::shared_ptr<void> HardTanhParams(
-    ScalarType min,
-    ScalarType max,
-    size_t& size) {
+static FillParamsT HardTanhParams(ScalarType min, ScalarType max) {
   PARAMS_STUB(ns_HardTanhKernel::Params);
 
   get<ScalarType>(params->lowerBound) = min;
   get<ScalarType>(params->upperBound) = max;
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillHardTanhBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillHardTanhBwdParams(const at::Stack& stack) {
   float min = stack[2].isScalar() ? stack[2].toScalar().to<float>()
                                   : -std::numeric_limits<float>::max();
   float max = stack[3].isScalar() ? stack[3].toScalar().to<float>()
                                   : std::numeric_limits<float>::max();
-  return HardTanhParams(min, max, size);
+  return HardTanhParams(min, max);
 }
 
 } // namespace habana

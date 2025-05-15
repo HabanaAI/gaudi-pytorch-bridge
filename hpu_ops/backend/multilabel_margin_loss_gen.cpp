@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,8 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillMultilabelMarginLossParamsCommon(
+FillParamsT FillMultilabelMarginLossParamsCommon(
     const at::Stack&,
-    size_t& size,
     int64_t reduction) {
   PARAMS_STUB(ns_MultilabelMarginLoss::Params);
   switch (reduction) {
@@ -38,19 +37,15 @@ std::shared_ptr<void> FillMultilabelMarginLossParamsCommon(
           "Unsupported reduction mode in multilabel_margin_loss: ",
           reduction);
   }
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillMultilabelMarginLossParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillMultilabelMarginLossParamsCommon(stack, size, stack.at(2).toInt());
+FillParamsT FillMultilabelMarginLossParams(const at::Stack& stack) {
+  return FillMultilabelMarginLossParamsCommon(stack, stack.at(2).toInt());
 }
 
-std::shared_ptr<void> FillMultilabelMarginLossBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillMultilabelMarginLossParamsCommon(stack, size, stack.at(3).toInt());
+FillParamsT FillMultilabelMarginLossBackwardParams(const at::Stack& stack) {
+  return FillMultilabelMarginLossParamsCommon(stack, stack.at(3).toInt());
 }
 
 OutputMetaDataVector MultilabelMarginLossBackwardMeta(const at::Stack& stack) {

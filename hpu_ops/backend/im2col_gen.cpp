@@ -62,7 +62,7 @@ OutputMetaDataVector Im2ColMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillIm2ColParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillIm2ColParams(const at::Stack& stack) {
   auto kernel_size = stack.at(1).toIntVector();
   auto dilation = stack.at(2).toIntVector();
   auto padding = stack.at(3).toIntVector();
@@ -77,7 +77,7 @@ std::shared_ptr<void> FillIm2ColParams(const at::Stack& stack, size_t& size) {
   params->pad_w = padding[1];
   params->stride_h = stride[0];
   params->stride_w = stride[1];
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 #include "generated/backend/normal.h"
 
 namespace habana {
-std::shared_ptr<void> FillNormalParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillNormalParams(const at::Stack& stack) {
   static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(stack.at(1).toDouble());
   params->stddev = static_cast<float>(stack.at(2).toDouble());
   params->usePhilox = use_philox;
 
-  return params;
+  return paramsT;
 }
 } // namespace habana

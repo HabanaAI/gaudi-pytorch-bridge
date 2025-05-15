@@ -329,9 +329,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
          {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
          &scatter_params,
          sizeof(scatter_params)});
-    size_t size = 0;
     PARAMS_STUB(ns_CastKernel::Params);
-    size = sizeof(params);
     params->round_mode = CAST_ROUND_ZERO;
     next_node = OpBackend::BuildNode(
         op,
@@ -339,8 +337,8 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
         {cast_guid,
          {scatter_op[0].get()},
          {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type}},
-         params.get(),
-         size});
+         paramsT.ptr(),
+         paramsT.size()});
 
   } else {
     next_node = OpBackend::BuildNode(

@@ -46,9 +46,8 @@ sizes_vec BinaryOutputShapeInplace(const at::Stack& stack) {
   return {self.sizes().vec()};
 }
 
-std::shared_ptr<void> FillBinaryWithAlphaParams(
+FillParamsT FillBinaryWithAlphaParams(
     const at::Stack& stack,
-    size_t& size,
     BinaryWithAlphaMode_t mode) {
   PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
   auto self = stack.at(SELF_INDEX);
@@ -70,7 +69,7 @@ std::shared_ptr<void> FillBinaryWithAlphaParams(
     params->alpha.f = static_cast<float>(alpha.to<double>());
 
   params->mode = mode;
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector BinaryWithAlphaAddSharedMeta(
@@ -90,25 +89,19 @@ SharedMetaDataVector BinaryWithAlphaRSubSharedMeta(
   return BinaryWithAlphaSharedMeta(stack, "rsub");
 }
 
-std::shared_ptr<void> FillBinaryRSubParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBinaryRSubParams(const at::Stack& stack) {
   return FillBinaryWithAlphaParams(
-      stack, size, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_RSUB);
+      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_RSUB);
 }
 
-std::shared_ptr<void> FillBinarySubParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBinarySubParams(const at::Stack& stack) {
   return FillBinaryWithAlphaParams(
-      stack, size, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_SUB);
+      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_SUB);
 }
 
-std::shared_ptr<void> FillBinaryAddParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBinaryAddParams(const at::Stack& stack) {
   return FillBinaryWithAlphaParams(
-      stack, size, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_ADD);
+      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_ADD);
 }
 
 static auto BuildBinary(
@@ -505,9 +498,8 @@ void BinaryWithAlpha::AddNode(
   const at::Tensor& self = stack_tensor(stack, SELF_INDEX);
   auto other = stack.at(OTHER_INDEX);
   at::ScalarType result_type;
-  size_t size = 0;
 
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   const auto outputShape = IsInplace() ? BinaryOutputShapeInplace(stack)[0]
                                        : BinaryOutputShape(stack)[0];
 
@@ -528,7 +520,7 @@ void BinaryWithAlpha::AddNode(
   }
 
   const auto& filledParams =
-      std::reinterpret_pointer_cast<ns_BinaryWithAlphaKernel::Params>(params);
+      params.paramsPtr<ns_BinaryWithAlphaKernel::Params>();
   const auto& alpha = filledParams->alpha;
   const auto& mode = filledParams->mode;
 
@@ -562,8 +554,8 @@ void BinaryWithAlpha::AddNode(
       std::move(guid),
       std::move(inputs),
       {{outputShape, result_type, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(op[0]);
 }

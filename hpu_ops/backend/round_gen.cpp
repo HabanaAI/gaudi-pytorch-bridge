@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,18 @@
 #include "generated/backend/round.h"
 
 namespace habana {
-std::shared_ptr<void> FillRoundParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillRoundParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RoundKernel::Params);
   static_cast<void>(stack);
   params->roundMode = RoundMode_t::ROUND_HALF_NEAREST_EVEN;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillRoundDecimalParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillRoundDecimalParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RoundKernel::ParamsV2);
   static_cast<void>(stack);
   params->roundMode = RoundMode_t::ROUND_HALF_NEAREST_EVEN;
   params->num_decimal_round = stack.at(1).toScalar().to<int>();
-  return params;
+  return paramsT;
 }
 } // namespace habana

@@ -16,13 +16,13 @@
 #include "generated/backend/renorm.h"
 
 namespace habana {
-std::shared_ptr<void> FillRenormParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillRenormParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RenormKernel::Params);
   params->p = stack.at(1).toScalar().to<double>();
   params->dim = stack.at(2).toInt();
   params->max_norm = stack.at(3).toScalar().to<double>();
 
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,13 +48,13 @@ SharedMetaDataVector FillCumProdSharedMeta(
   return FillCumSumProdSharedMeta(stack, "cumprod_fwd");
 }
 
-std::shared_ptr<void> FillCumsumParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillCumsumParams(const at::Stack& stack) {
   PARAMS_STUB(ns_CumSumKernel::Params);
   auto self = stack.at(0).toTensor();
   auto dim = at::maybe_wrap_dim(stack.at(1).toInt(), self.dim(), true);
   params->axis = static_cast<int>(self.sizes().vec().size() - dim - 1);
 
-  return params;
+  return paramsT;
 }
 
 void CumsumHabanaOperator::AddNode(
@@ -99,8 +99,7 @@ void CumsumHabanaOperator::AddNode(
     cast = BuildCast(this, graph, syn_in(0), meta.shape, ScalarType(), dtype);
   }
 
-  size_t size = 0;
-  const auto& params = FillCumsumParams(stack, size);
+  const auto& params = FillCumsumParams(stack);
   update_guid_dtype(guid_, dtype);
 
   // Get input to cumsum op
@@ -108,7 +107,12 @@ void CumsumHabanaOperator::AddNode(
   auto input_data = (cast.has_value()) ? cast->get() : syn_in(0);
 
   auto op = BuildOp(
-      graph, guid_, {input_data}, {{meta.shape, dtype, 0}}, params.get(), size);
+      graph,
+      guid_,
+      {input_data},
+      {{meta.shape, dtype, 0}},
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(op.at(0));
 }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,7 @@ const unsigned DIM_INDEX = 1;
 const unsigned REDUCE_INDEX = 4;
 const unsigned INCLUDE_SELF_INDEX = 5;
 
-std::shared_ptr<void> ScatterReduceParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT ScatterReduceParams(const at::Stack& stack) {
   PARAMS_STUB(ns_ScatterReduceKernel::Params);
   const auto dim = stack.at(DIM_INDEX).toInt();
   auto reduce = stack.at(REDUCE_INDEX).to<std::string_view>();
@@ -54,7 +52,7 @@ std::shared_ptr<void> ScatterReduceParams(
   params->include_self = includeSelf;
   params->mode = mode;
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector ScatterReduceMeta(const at::Stack& stack) {

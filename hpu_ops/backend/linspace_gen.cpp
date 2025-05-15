@@ -35,9 +35,7 @@ OutputMetaDataVector LinspaceMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> LinspaceRangeParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT LinspaceRangeParams(const at::Stack& stack) {
   float start = stack[0].isScalar() ? stack[0].toScalar().to<float>()
                                     : stack[0].toTensor().item<float>();
   float end = stack[1].isScalar() ? stack[1].toScalar().to<float>()
@@ -64,7 +62,7 @@ std::shared_ptr<void> LinspaceRangeParams(
   get<float>(params->limit) = end;
   get<float>(params->delta) = delta;
 
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector LinspaceOutSharedMeta(
@@ -153,8 +151,7 @@ void LinspaceOut::AddNode(
     syn_out(0) = std::move(result[0]);
   } else {
     if (start != end && steps != 1) {
-      size_t size = 0;
-      auto params = LinspaceRangeParams(stack, size);
+      auto params = LinspaceRangeParams(stack);
       using namespace std::literals;
       auto guid = get_guid_with_precision("range"sv, dtype);
       std::vector<synTensor> syn_inputs;
@@ -166,12 +163,11 @@ void LinspaceOut::AddNode(
           syn_inputs.emplace_back(syn_in(0));
           syn_inputs.emplace_back(syn_in(1));
         }
-        auto linspaceParams = std::make_shared<ns_LinspaceKernel::Params>();
+        params = FillParamsT::create<ns_LinspaceKernel::Params>();
+        auto linspaceParams = params.paramsPtr<ns_LinspaceKernel::Params>();
         linspaceParams->start = start;
         linspaceParams->end = end;
         linspaceParams->steps = steps;
-        params = linspaceParams;
-        size = sizeof(ns_LinspaceKernel::Params);
       }
 
       auto range = BuildOp(
@@ -179,8 +175,8 @@ void LinspaceOut::AddNode(
           guid,
           std::move(syn_inputs),
           {{outshape, dtype, 0}},
-          params.get(),
-          size);
+          params.ptr(),
+          params.size());
 
       syn_out(0) = std::move(range[0]);
     } else {

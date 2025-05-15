@@ -16,6 +16,7 @@
 #include <absl/functional/any_invocable.h>
 #include "backend/habana_operator.h"
 #include "backend/helpers/habana_types.h"
+#include "fillparams.h"
 
 #pragma once
 
@@ -185,13 +186,12 @@ class OpBackend : public HabanaOperator {
     return m_promote_int_to_float;
   }
 
-  void SetFillParams(
-      std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> fn) {
+  void SetFillParams(std::function<FillParamsT(const at::Stack&)> fn) {
     m_fill_params = std::move(fn);
   }
 
-  std::shared_ptr<void> FillParams(const at::Stack& stack, size_t& size) {
-    return m_fill_params ? m_fill_params(stack, size) : nullptr;
+  FillParamsT FillParams(const at::Stack& stack) {
+    return m_fill_params ? m_fill_params(stack) : FillParamsT{};
   }
 
   void SetComputeOutputShapes(std::function<sizes_vec(const at::Stack&)> fn) {
@@ -485,7 +485,7 @@ class OpBackend : public HabanaOperator {
   InferOutputMetaRetType m_output_inf_meta;
   int m_num_syn_nodes = 0;
 
-  std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
+  std::function<FillParamsT(const at::Stack&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;
   std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta_fn;
   std::function<PartialOutputMetaDataVector(const at::Stack&)>

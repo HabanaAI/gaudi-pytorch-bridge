@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,11 +25,11 @@ OutputMetaDataVector GluJvpMeta(const at::Stack& stack) {
   return {output};
 }
 
-std::shared_ptr<void> FillGluJvpParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillGluJvpParams(const at::Stack& stack) {
   const auto dim = stack.at(3).toScalar().toInt();
 
   PARAMS_STUB(ns_GatherKernel::Params);
   params->axis = dim;
-  return params;
+  return paramsT;
 }
 } // namespace habana

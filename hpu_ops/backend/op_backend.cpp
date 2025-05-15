@@ -291,7 +291,8 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
     const auto& ival = stack[stack_id];
     const auto& tensors = ival.isTensor()
         ? static_cast<at::List<at::Tensor>>(ival.toTensor())
-        : ival.isTensorList() ? ival.toTensorList() : at::List<at::Tensor>{};
+        : ival.isTensorList() ? ival.toTensorList()
+                              : at::List<at::Tensor>{};
 
     const auto inplace_id = m_inplace_ids[inplace_ids_pos];
     if (inplace_id != (int)stack_id) {
@@ -608,18 +609,19 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         }
       }
     }
-    size_t size = 0;
-    auto params = FillParams(stack, size);
+    auto params = FillParams(stack);
     // populate node params
     PT_BRIDGE_DEBUG(
-        "OpBackend adding params data=", params.get(), ", params size=", size);
+        "OpBackend adding params data=",
+        params.ptr(),
+        ", params size=",
+        params.size());
 
-    m_output_inf_meta.AddNodeParams(params.get(), size);
+    m_output_inf_meta.AddNodeParams(params.ptr(), params.size());
     return;
   }
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  AddNodeToSynapseGraph(graph, params.get(), size);
+  const auto& params = FillParams(stack);
+  AddNodeToSynapseGraph(graph, params.ptr(), params.size());
 }
 
 InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
@@ -870,22 +872,22 @@ std::vector<sh::tensor> OpBackend::BuildNode(
                     attr.tensor_type,
                     op->GetOpDynamicity())
               : attr.syn_data_type == syn_type_na
-                  ? habana_helpers::create_tensor(
-                        t,
-                        graph,
-                        is_persistent,
-                        is_external,
-                        attr.dtype,
-                        std::string(),
-                        std::string())
-                  : habana_helpers::create_tensor(
-                        t,
-                        graph,
-                        is_persistent,
-                        is_external,
-                        attr.syn_data_type,
-                        std::string(),
-                        std::string()));
+              ? habana_helpers::create_tensor(
+                    t,
+                    graph,
+                    is_persistent,
+                    is_external,
+                    attr.dtype,
+                    std::string(),
+                    std::string())
+              : habana_helpers::create_tensor(
+                    t,
+                    graph,
+                    is_persistent,
+                    is_external,
+                    attr.syn_data_type,
+                    std::string(),
+                    std::string()));
 
       if (is_persistent) {
         const auto& impl =

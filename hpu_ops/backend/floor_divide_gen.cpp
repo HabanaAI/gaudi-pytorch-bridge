@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 #include "habana_helpers/dtype_helpers.h"
 
 namespace habana {
-std::shared_ptr<void> FillFloorDivideParams(const at::Stack&, size_t& size) {
+FillParamsT FillFloorDivideParams(const at::Stack&) {
   PARAMS_STUB(ns_DivModKernel::ParamsV2);
   // using floor mode
   params->isTruncRoundingMode = false;
   params->isPyCompatible = true;
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector FloorDivideSharedMeta(

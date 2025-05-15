@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,10 +34,24 @@ class UserCustomOpBackend : public OpBackend {
             {0},
             {},
             {},
-            false) {
+            false),
+        fill_params_fn(desc.getFillParamsFn()) {
     SetOutputMetaFn(desc.getOutputMetaFn());
-    SetFillParams(desc.getFillParamsFn());
+    SetFillParams([this](const at::Stack& s) { return getFillParamsFn(s); });
   }
+
+ private:
+  FillParamsT getFillParamsFn(const at::Stack& s) {
+    if (fill_params_fn) {
+      size_t size;
+      auto spp = fill_params_fn(s, size);
+      return FillParamsT::createForCustomOp(spp, size);
+    } else {
+      return {};
+    }
+  }
+
+  custom_op::FillParamsFn fill_params_fn = nullptr;
 };
 
 } // namespace habana

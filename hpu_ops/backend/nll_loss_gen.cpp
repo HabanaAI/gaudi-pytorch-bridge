@@ -55,10 +55,7 @@ sizes_vec NllLossBwdShapeTnsrShape(const at::Stack& stack) {
   return {target_vec};
 }
 
-static std::shared_ptr<void> FillNllLossParams(
-    size_t& size,
-    int64_t reduction,
-    int64_t ignore_index) {
+static FillParamsT FillNllLossParams(int64_t reduction, int64_t ignore_index) {
   PARAMS_STUB(ns_NLLLossKernel::ParamsOptionalIgnoreIndex);
   switch (reduction) {
     case at::Reduction::Reduction::None:
@@ -74,23 +71,19 @@ static std::shared_ptr<void> FillNllLossParams(
       HABANA_ASSERT(false, "Unsupported reduction in nll_loss: ", reduction);
   }
   params->ignoreIndexValue = ignore_index;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillNllLossFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNllLossFwdParams(const at::Stack& stack) {
   auto ignore = stack.at(3).toInt();
   auto reduction = stack.at(4).toInt();
-  return FillNllLossParams(size, ignore, reduction);
+  return FillNllLossParams(ignore, reduction);
 }
 
-std::shared_ptr<void> FillNllLossBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNllLossBwdParams(const at::Stack& stack) {
   auto ignore = stack.at(4).toInt();
   auto reduction = stack.at(5).toInt();
-  return FillNllLossParams(size, ignore, reduction);
+  return FillNllLossParams(ignore, reduction);
 }
 enum modes { Fwd2D, Bwd2D };
 
@@ -99,8 +92,7 @@ static std::vector<synapse_helpers::tensor> NllLoss(
     synapse_helpers::graph& graph,
     std::vector<synTensor> input,
     const OutputMetaData& meta,
-    std::shared_ptr<void> params,
-    size_t size,
+    const FillParamsT& params,
     std::optional<int> final_index = std::nullopt) {
   return OpBackend::BuildNode(
       op,
@@ -108,8 +100,8 @@ static std::vector<synapse_helpers::tensor> NllLoss(
       {op->GetGuid(),
        std::move(input),
        {{meta.shape, meta.dtype, final_index}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
 }
 
 bool NllLossDSSTMeta(
@@ -132,13 +124,12 @@ static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     synapse_helpers::graph& graph,
     std::vector<synTensor> input,
     const OutputMetaData& meta,
-    std::shared_ptr<void> params,
-    size_t size,
+    const FillParamsT& params,
     std::optional<int> final_index = std::nullopt,
     at::IntArrayRef shapeTnsrSize = {}) {
   // This helper function is used only when weight is none
   op->CreateShapeTensorInput(graph, meta.dtype, shapeTnsrSize, input);
-  return NllLoss(op, graph, input, meta, params, size, final_index);
+  return NllLoss(op, graph, input, meta, params, final_index);
 }
 
 static void DummyOutput(
@@ -273,8 +264,7 @@ void NllLoss2DFwd::AddNode(
         GetOutputMetaData(1).external);
   }
 
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
   const auto meta = OutputMeta(stack)[0];
 
   std::vector<synapse_helpers::tensor> nll_loss;
@@ -285,8 +275,7 @@ void NllLoss2DFwd::AddNode(
   }
 
   if (stack.at(2).isNone()) { // weight is none
-    nll_loss =
-        NllLoss(this, graph, {syn_in(0), syn_in(1)}, meta, params, size, 0);
+    nll_loss = NllLoss(this, graph, {syn_in(0), syn_in(1)}, meta, params, 0);
   } else { // weight is not none
     auto weight_sum = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
         ? ComputeWeightsSum(this, graph, stack, meta, {syn_in(1), syn_in(2)})
@@ -298,7 +287,6 @@ void NllLoss2DFwd::AddNode(
         {syn_in(0), syn_in(1), syn_in(2), weight_sum[0].get()},
         meta,
         params,
-        size,
         0);
   }
 
@@ -346,21 +334,13 @@ SharedMetaDataVector NllLossBwdSharedMeta(
 void NllLossBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
   const auto meta = OutputMeta(stack)[0];
   const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
 
   if (stack.at(3).isNone()) { // weight is none
     auto nll_loss = NllLossBwdFunc(
-        this,
-        graph,
-        {syn_in(0), syn_in(2)},
-        meta,
-        params,
-        size,
-        0,
-        shapeTnsrSize);
+        this, graph, {syn_in(0), syn_in(2)}, meta, params, 0, shapeTnsrSize);
     syn_out(0) = std::move(nll_loss[0]);
   } else { // weight is not none
     auto nll_loss = BuildOp(
@@ -368,8 +348,8 @@ void NllLossBwd::AddNode(
         get_guid_with_precision("cnll_loss_bwd"sv, meta.dtype),
         {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
         {{meta.shape, meta.dtype, 0}},
-        params.get(),
-        size);
+        params.ptr(),
+        params.size());
     syn_out(0) = std::move(nll_loss[0]);
   }
 }
@@ -407,8 +387,7 @@ SharedMetaDataVector NllLoss2DBwdSharedMeta(
 void NllLoss2DBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
   const auto meta = OutputMeta(stack)[0];
   const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
 
@@ -418,14 +397,7 @@ void NllLoss2DBwd::AddNode(
   std::vector<synapse_helpers::tensor> output;
   if (stack.at(3).isNone()) { // weight is none
     output = NllLossBwdFunc(
-        this,
-        graph,
-        {syn_in(0), syn_in(2)},
-        meta,
-        params,
-        size,
-        0,
-        shapeTnsrSize);
+        this, graph, {syn_in(0), syn_in(2)}, meta, params, 0, shapeTnsrSize);
   } else { // weight is not none
     auto weight_sum = ReduceWeight(this, meta, graph, {syn_in(3)});
 
@@ -435,7 +407,6 @@ void NllLoss2DBwd::AddNode(
         {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
         meta,
         params,
-        size,
         0);
   }
   syn_out(0) = std::move(output[0]);

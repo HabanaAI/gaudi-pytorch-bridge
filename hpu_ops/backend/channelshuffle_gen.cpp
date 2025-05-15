@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,13 +43,11 @@ OutputMetaDataVector ChannelShuffleMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillChannelShuffleParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillChannelShuffleParams(const at::Stack& stack) {
   const auto groups = stack.at(1).toInt();
   PARAMS_STUB(ns_ChannelShuffle::Params);
   params->groups = groups;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

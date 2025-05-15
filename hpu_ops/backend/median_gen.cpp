@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,14 @@ constexpr size_t index_of_reduction_axis = 1;
 constexpr size_t index_of_keepdim = 2;
 constexpr int descending_order = 0;
 
-std::shared_ptr<void> FillMediandimParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMediandimParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MediandimKernel::Params);
 
   params->reduction_dim = stack[index_of_reduction_axis].toInt();
   params->keep_dim = stack[index_of_keepdim].toBool();
   ;
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector MedianOutputMeta(const at::Stack& stack) {
@@ -113,8 +111,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, index_of_self);
   auto self_size = self.sizes().vec();
 
-  size_t size = 0;
-  auto params = FillMediandimParams(stack, size);
+  auto params = FillMediandimParams(stack);
   auto meta = MedianDimOutputMeta(stack);
 
   auto result = BuildOp(
@@ -122,8 +119,8 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       GetGuid(),
       {syn_in(0)},
       {{meta[0].shape, meta[0].dtype, 0}, {meta[1].shape, meta[1].dtype, 1}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(result[0]);
   syn_out(1) = std::move(result[1]);

@@ -43,22 +43,19 @@ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
   return {input_meta, weight_meta, bias_meta};
 }
 
-std::shared_ptr<void> FillLinearBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLinearBwdParams(const at::Stack& stack) {
   const auto& grad_mask = stack.at(3).toBoolList();
   PARAMS_STUB(ns_LinearBwdKernel::Params);
   params->gradBias = grad_mask[2];
 
-  return params;
+  return paramsT;
 }
 
 void LinearBackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto meta = LinearBackwardMeta(stack);
-  size_t size = 0;
-  auto params = FillLinearBwdParams(stack, size);
+  auto params = FillLinearBwdParams(stack);
 
   std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
   using namespace std::literals;
@@ -72,8 +69,8 @@ void LinearBackward::AddNode(
       {{meta.at(0).shape, meta.at(0).dtype, 0},
        {meta.at(1).shape, meta.at(1).dtype, 1},
        {meta.at(2).shape, meta.at(2).dtype, 2}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   for (size_t i = 0; i < 3; ++i) {
     syn_out(i) = std::move(linear_bwd[i]);

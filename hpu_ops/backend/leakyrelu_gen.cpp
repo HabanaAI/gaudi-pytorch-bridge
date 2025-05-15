@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,13 @@
 #include "generated/backend/leaky_relu_backward.h"
 
 namespace habana {
-std::shared_ptr<void> FillLeakyReluParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLeakyReluParams(const at::Stack& stack) {
   PARAMS_STUB(ns_LeakyReluKernel::Params);
   params->alpha = stack.at(1).toScalar().toFloat();
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillLeakyReluBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLeakyReluBackwardParams(const at::Stack& stack) {
   PARAMS_STUB(ns_LeakyReluKernel::Params);
   auto alpha = stack.at(2).toScalar().to<float>();
   bool is_result = stack.at(3).toBool();
@@ -38,6 +34,6 @@ std::shared_ptr<void> FillLeakyReluBackwardParams(
       "please call out-of-place version instead. File an issue at https://github.com/pytorch/pytorch if you do "
       "require supporting in-place leakRelu backward calculation with negative slope");
   params->alpha = alpha;
-  return params;
+  return paramsT;
 }
 } // namespace habana

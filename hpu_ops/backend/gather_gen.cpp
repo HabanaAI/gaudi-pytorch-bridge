@@ -74,7 +74,7 @@ SharedMetaDataVector GatherSharedMeta(
   return {gatherElementsMeta};
 }
 
-std::shared_ptr<void> FillGatherParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillGatherParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   int dim_ = stack.at(1).toInt();
   auto dim = get_dim_in_tpc_order(dim_, self.dim());
@@ -82,11 +82,11 @@ std::shared_ptr<void> FillGatherParams(const at::Stack& stack, size_t& size) {
   if (self.dim() != indices.dim()) {
     PARAMS_STUB(ns_GatherKernel::Params);
     params->axis = dim;
-    return params;
+    return paramsT;
   }
   PARAMS_STUB(ns_GatherElementsKernel::Params);
   params->axis = dim;
-  return params;
+  return paramsT;
 }
 
 void GatherElementsOperator::AddNode(
@@ -113,16 +113,15 @@ void GatherElementsOperator::AddNode(
 
   auto meta = GatherMeta(stack)[0];
 
-  size_t params_size = 0;
-  const auto& gather_params = FillGatherParams(stack, params_size);
+  const auto& gather_params = FillGatherParams(stack);
   using namespace std::literals;
   auto gatherOp = BuildOp(
       graph,
       get_guid_with_precision("gather_elements_fwd"sv, ScalarType()),
       {syn_in(0), index_val},
       {{meta.shape, meta.dtype, 0}},
-      gather_params.get(),
-      params_size);
+      gather_params.ptr(),
+      gather_params.size());
   syn_out(0) = std::move(gatherOp[0]);
 }
 

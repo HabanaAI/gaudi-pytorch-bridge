@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,12 @@
 
 namespace habana {
 
-static std::shared_ptr<void> FillBitwiseShiftParams(
+static FillParamsT FillBitwiseShiftParams(
     const at::Stack&,
-    ShiftDir_t shift_dir,
-    size_t& size) {
+    ShiftDir_t shift_dir) {
   PARAMS_STUB(ns_BitShiftKernel::Params);
   params->direction = shift_dir;
-  return params;
+  return paramsT;
 }
 
 void ValidateBitwiseShiftInputShapes(const at::Stack& stack) {
@@ -54,18 +53,14 @@ void ValidateBitwiseShiftInputShapes(const at::Stack& stack) {
   }
 }
 
-std::shared_ptr<void> FillLeftShiftParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillLeftShiftParams(const at::Stack& stack) {
   ValidateBitwiseShiftInputShapes(stack);
-  return FillBitwiseShiftParams(stack, ShiftDir_t::LEFT, size);
+  return FillBitwiseShiftParams(stack, ShiftDir_t::LEFT);
 }
 
-std::shared_ptr<void> FillRightShiftParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillRightShiftParams(const at::Stack& stack) {
   ValidateBitwiseShiftInputShapes(stack);
-  return FillBitwiseShiftParams(stack, ShiftDir_t::RIGHT, size);
+  return FillBitwiseShiftParams(stack, ShiftDir_t::RIGHT);
 }
 
 } // namespace habana

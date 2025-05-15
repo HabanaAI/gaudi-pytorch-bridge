@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -204,8 +204,7 @@ void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       HPUDeviceContext::get_device().type() != synDeviceGaudi ||
           guid_.find("gammaln") == std::string::npos,
       "foreach_lgamma is not supported on Gaudi");
-  size_t params_size = 0;
-  auto params = FillParams(stack, params_size);
+  auto params = FillParams(stack);
   const OutputMetaDataVector output_meta = GetOutputMetaData();
   const auto& tensors = stack[0].toTensorList();
   const std::string guid = guid_.substr(0, guid_.find_last_of('_'));
@@ -216,8 +215,8 @@ void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         get_guid(guid, output_meta[i].dtype),
         {syn_in(i)},
         {{tensor.sizes(), tensor.scalar_type(), i}},
-        params.get(),
-        params_size);
+        params.ptr(),
+        params.size());
     syn_out(i) = std::move(out[0]);
   }
 }

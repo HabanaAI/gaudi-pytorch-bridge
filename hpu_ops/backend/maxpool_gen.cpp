@@ -244,13 +244,12 @@ SharedMetaDataVector MaxPool3DWithIndicesBwdSharedMeta(
   return MaxPoolWithIndicesBwdSharedMeta(stack, "maxpool_3d_bwd");
 }
 
-static std::shared_ptr<void> FillSpatialReduction3DParams(
+static FillParamsT FillSpatialReduction3DParams(
     std::vector<int64_t>& kernel,
     std::vector<int64_t>& stride,
     std::vector<int64_t>& padding,
     std::vector<int64_t>& dilation,
-    bool ceil_mode,
-    size_t& size) {
+    bool ceil_mode) {
   PARAMS_STUB(ns_SpatialReduction3D::Params);
   params->pad_w_begin = padding[2];
   params->pad_w_end = padding[2];
@@ -272,12 +271,10 @@ static std::shared_ptr<void> FillSpatialReduction3DParams(
         EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
   else
     params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_VALID;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillSpatialReduction3DParamsFwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSpatialReduction3DParamsFwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0, 0};
   std::vector<long int> dil = {1, 1, 1};
   auto kernel = stack.at(1).toIntVector();
@@ -291,12 +288,10 @@ std::shared_ptr<void> FillSpatialReduction3DParamsFwd(
   const bool ceil_mode = stack.at(5).toBool();
 
   return FillSpatialReduction3DParams(
-      kernel, stride, padding, dilation, ceil_mode, size);
+      kernel, stride, padding, dilation, ceil_mode);
 }
 
-std::shared_ptr<void> FillSpatialReduction3DParamsBwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSpatialReduction3DParamsBwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0, 0};
   std::vector<long int> dil = {1, 1, 1};
   auto kernel = stack.at(2).toIntVector();
@@ -310,16 +305,15 @@ std::shared_ptr<void> FillSpatialReduction3DParamsBwd(
   const bool ceil_mode = stack.at(6).toBool();
 
   return FillSpatialReduction3DParams(
-      kernel, stride, padding, dilation, ceil_mode, size);
+      kernel, stride, padding, dilation, ceil_mode);
 }
 
-static std::shared_ptr<void> FillSpatialReduction2DParams(
+static FillParamsT FillSpatialReduction2DParams(
     std::vector<int64_t>& kernel,
     std::vector<int64_t>& stride,
     std::vector<int64_t>& padding,
     std::vector<int64_t>& dilation,
-    bool ceil_mode,
-    size_t& size) {
+    bool ceil_mode) {
   PARAMS_STUB(ns_SpatialReduction::Params);
   params->pad_w_begin = padding[1];
   params->pad_w_end = padding[1];
@@ -336,12 +330,10 @@ static std::shared_ptr<void> FillSpatialReduction2DParams(
         EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH;
   else
     params->pooling_convention = EPoolingConvention::POOLING_CONVENTION_VALID;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillSpatialReduction2DParamsFwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSpatialReduction2DParamsFwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0};
   std::vector<long int> dil = {1, 1};
   auto kernel = stack.at(1).toIntVector();
@@ -355,12 +347,10 @@ std::shared_ptr<void> FillSpatialReduction2DParamsFwd(
   const bool ceil_mode = stack.at(5).toBool();
 
   return FillSpatialReduction2DParams(
-      kernel, stride, padding, dilation, ceil_mode, size);
+      kernel, stride, padding, dilation, ceil_mode);
 }
 
-std::shared_ptr<void> FillSpatialReduction2DParamsBwd(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSpatialReduction2DParamsBwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0};
   std::vector<long int> dil = {1, 1};
   auto kernel = stack.at(2).toIntVector();
@@ -374,7 +364,7 @@ std::shared_ptr<void> FillSpatialReduction2DParamsBwd(
   const bool ceil_mode = stack.at(6).toBool();
 
   return FillSpatialReduction2DParams(
-      kernel, stride, padding, dilation, ceil_mode, size);
+      kernel, stride, padding, dilation, ceil_mode);
 }
 
 static at::ScalarType FindRetainTensorType(at::ScalarType inputTensorType) {
@@ -392,9 +382,8 @@ void MaxPool3DWithIndicesOut::AddNode(
     const at::Stack& stack) {
   std::vector<synTensor> inputs = {syn_in(0)};
   const auto meta = Maxpool3dWithIndicesMeta(stack)[0];
-  size_t size = 0;
   auto index_type = FindRetainTensorType(meta.dtype);
-  const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
+  const auto& params = FillSpatialReduction3DParamsFwd(stack);
   const auto rank = stack_tensor(stack, 0).dim();
 
   if (rank == 4) {
@@ -418,8 +407,8 @@ void MaxPool3DWithIndicesOut::AddNode(
       GetGuid(),
       std::move(inputs),
       {{meta.shape, index_type}, {meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(maxpool3d[1]);
   syn_out(1) = BuildCast(
@@ -430,8 +419,7 @@ void MaxPool3DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto meta = MaxPoolMetaBwd(stack)[0];
-  size_t size = 0;
-  const auto params = FillSpatialReduction3DParamsBwd(stack, size);
+  const auto params = FillSpatialReduction3DParamsBwd(stack);
 
   auto cast_input = BuildCast(
       this,
@@ -464,8 +452,8 @@ void MaxPool3DWithIndicesBwd::AddNode(
       GetGuid(),
       std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(grad_output[0]);
 }
@@ -474,8 +462,7 @@ void MaxPool2DWithIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto meta = MaxPool2DMeta(stack)[0];
-  size_t size = 0;
-  const auto& params = FillSpatialReduction2DParamsFwd(stack, size);
+  const auto& params = FillSpatialReduction2DParamsFwd(stack);
 
   if (stack_tensor(stack, 0).dim() == 4) {
     SetSynapseLayouts(
@@ -494,8 +481,8 @@ void MaxPool2DWithIndices::AddNode(
       GetGuid(),
       {syn_in(0)},
       {{meta.shape, at::kLong, 1}, {meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   if (isOutputInfMode()) {
     moveLastOutputTensorAtFront();
@@ -509,8 +496,7 @@ void MaxPool2DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto meta = MaxPoolMetaBwd(stack).at(0);
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
   const auto& inputDimensions = stack_tensor(stack, 0).dim();
 
   if (inputDimensions == 4) {
@@ -532,8 +518,8 @@ void MaxPool2DWithIndicesBwd::AddNode(
       GetGuid(),
       {syn_in(0), syn_in(1), syn_in(2)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(maxpool2d_gradout.at(0));
 }

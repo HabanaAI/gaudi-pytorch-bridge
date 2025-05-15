@@ -45,9 +45,7 @@ OutputMetaDataVector MaxUnpool3DMeta(const at::Stack& stack) {
   return MaxUnpoolCommonMeta(stack, true);
 }
 
-std::shared_ptr<void> FillMaxUnpool2DParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMaxUnpool2DParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MaxUnpool::Params);
   auto output_size = stack.at(2).toIntList();
   const size_t output_size_dim = output_size.size();
@@ -55,12 +53,10 @@ std::shared_ptr<void> FillMaxUnpool2DParams(
   params->output_h = output_size[output_size_dim - 1];
   params->output_w = output_size[output_size_dim - 2];
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillMaxUnpool3DParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMaxUnpool3DParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MaxUnpool::ParamsV2);
   auto output_size = stack.at(2).toIntList();
   const size_t output_size_dim = output_size.size();
@@ -69,7 +65,7 @@ std::shared_ptr<void> FillMaxUnpool3DParams(
   params->output_w = output_size[output_size_dim - 2];
   params->output_d = output_size[output_size_dim - 3];
 
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

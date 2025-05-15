@@ -138,9 +138,8 @@ SharedMetaDataVector BinaryCrossEntropyBwdSharedMeta(
   return {negGradSharedMeta, binaryCrossEntropyBwdSharedMeta};
 }
 
-static std::shared_ptr<void> BceParams(
+static FillParamsT BceParams(
     const at::Stack& stack,
-    size_t& size,
     const bool is_weights_used,
     const int reduction_index,
     const bool is_binary_cross_entropy_without_sigmoid,
@@ -166,7 +165,7 @@ static std::shared_ptr<void> BceParams(
       HABANA_ASSERT(
           false, "Unsupported reduction mode in Binarycrossentropy: ", mode);
   }
-  return params;
+  return paramsT;
 }
 
 using namespace std::literals;
@@ -185,11 +184,9 @@ void BinaryCrossEntropyFwd::AddNode(
   const int reduction_index = 3;
   const bool is_binary_cross_entropy_without_sigmoid = true;
   const PosWeightMode_t pos_mode = PosWeightMode_t::POS_WEIGHT_DISABLE;
-  size_t params_size = 0;
 
   const auto params = BceParams(
       stack,
-      params_size,
       is_weight_used,
       reduction_index,
       is_binary_cross_entropy_without_sigmoid,
@@ -205,8 +202,8 @@ void BinaryCrossEntropyFwd::AddNode(
       get_guid_with_precision("binary_cross_entropy_pt_fwd"sv, ScalarType()),
       std::move(input),
       {{output_shape, ScalarType(), 0}},
-      params.get(),
-      params_size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(bce_fwd[0]);
 }
@@ -231,11 +228,9 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
   const PosWeightMode_t pos_mode = is_pos_weights_used
       ? PosWeightMode_t::POS_WEIGHT_ENABLE
       : PosWeightMode_t::POS_WEIGHT_DISABLE;
-  size_t params_size = 0;
 
   auto params = BceParams(
       stack,
-      params_size,
       is_weights_used,
       reduction_index,
       is_binary_cross_entropy_without_sigmoid,
@@ -254,8 +249,8 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
       get_guid_with_precision("binary_cross_entropy_pt_fwd"sv, ScalarType()),
       std::move(input),
       {{output_shape, ScalarType(), 0}},
-      params.get(),
-      params_size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(bce_logits_fwd[0]);
 }
@@ -275,11 +270,9 @@ void BinaryCrossEntropyBwd::AddNode(
   const int reduction_index = 4;
   const bool is_binary_cross_entropy_without_sigmoid = true;
   const PosWeightMode_t pos_mode = PosWeightMode_t::POS_WEIGHT_DISABLE;
-  size_t params_size = 0;
 
   auto params = BceParams(
       stack,
-      params_size,
       is_weights_used,
       reduction_index,
       is_binary_cross_entropy_without_sigmoid,
@@ -297,8 +290,8 @@ void BinaryCrossEntropyBwd::AddNode(
       get_guid_with_precision("binary_cross_entropy_pt_bwd"sv, bce_meta.dtype),
       std::move(bce_bwd_inputs),
       {{bce_meta.shape, bce_meta.dtype, 0}},
-      params.get(),
-      params_size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(bce_bwd[0]);
 }

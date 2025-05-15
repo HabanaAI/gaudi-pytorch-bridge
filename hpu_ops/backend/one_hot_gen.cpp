@@ -29,14 +29,14 @@ int64_t calculateNumberOfClasses(const at::Stack& stack) {
   return num_classes;
 }
 
-std::shared_ptr<void> FillOneHotParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillOneHotParams(const at::Stack& stack) {
   PARAMS_STUB(ns_OneHotKernel::Params);
   params->axis = 0;
   params->depth = static_cast<int>(calculateNumberOfClasses(stack));
   params->on_value = 1.0f;
   params->off_value = 0.0f;
 
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector OneHotMeta(const at::Stack& stack) {

@@ -24,30 +24,23 @@ OutputMetaDataVector ReplicationPadBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillReplicationPad1dBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillPadFwdBwdParams(stack, pad1D, size, true);
+FillParamsT FillReplicationPad1dBwdParams(const at::Stack& stack) {
+  return FillPadFwdBwdParams(stack, pad1D, true);
 }
 
-std::shared_ptr<void> FillReplicationPad2dBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillPadFwdBwdParams(stack, pad2D, size, true);
+FillParamsT FillReplicationPad2dBwdParams(const at::Stack& stack) {
+  return FillPadFwdBwdParams(stack, pad2D, true);
 }
 
-std::shared_ptr<void> FillReplicationPad3dBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillPadFwdBwdParams(stack, pad3D, size, true);
+FillParamsT FillReplicationPad3dBwdParams(const at::Stack& stack) {
+  return FillPadFwdBwdParams(stack, pad3D, true);
 }
 
 std::vector<synapse_helpers::tensor> CommonReplicationPadBwd(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Stack& stack,
-    std::shared_ptr<void> params,
-    size_t& size,
+    const FillParamsT& params,
     synTensor input,
     PadType pad) {
   auto meta = op->OutputMeta(stack)[0];
@@ -76,37 +69,34 @@ std::vector<synapse_helpers::tensor> CommonReplicationPadBwd(
       {get_guid_with_precision("pad_bwd"sv, meta.dtype),
        {input},
        {{meta.shape, meta.dtype, 0}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
 }
 
 void ReplicationPad1dBwdOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  auto params = FillParams(stack, size);
-  auto padOutput = CommonReplicationPadBwd(
-      this, graph, stack, params, size, syn_in(0), pad1D);
+  auto params = FillParams(stack);
+  auto padOutput =
+      CommonReplicationPadBwd(this, graph, stack, params, syn_in(0), pad1D);
   syn_out(0) = std::move(padOutput[0]);
 }
 
 void ReplicationPad2dBwdOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  auto params = FillParams(stack, size);
-  auto padOutput = CommonReplicationPadBwd(
-      this, graph, stack, params, size, syn_in(0), pad2D);
+  auto params = FillParams(stack);
+  auto padOutput =
+      CommonReplicationPadBwd(this, graph, stack, params, syn_in(0), pad2D);
   syn_out(0) = std::move(padOutput[0]);
 }
 
 void ReplicationPad3dBwdOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  auto params = FillParams(stack, size);
-  auto padOutput = CommonReplicationPadBwd(
-      this, graph, stack, params, size, syn_in(0), pad3D);
+  auto params = FillParams(stack);
+  auto padOutput =
+      CommonReplicationPadBwd(this, graph, stack, params, syn_in(0), pad3D);
   syn_out(0) = std::move(padOutput[0]);
 }
 } // namespace habana

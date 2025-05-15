@@ -15,9 +15,7 @@
 #include "generated/backend/_softmax_backward_data.h"
 
 namespace habana {
-std::shared_ptr<void> FillSoftmaxForwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSoftmaxForwardParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Softmax::Params);
 
   // index positions for input args
@@ -32,12 +30,10 @@ std::shared_ptr<void> FillSoftmaxForwardParams(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
   params->dim = get_dim_in_tpc_order(dim, self.dim());
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillSafeSoftmaxForwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSafeSoftmaxForwardParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Softmax::ParamsV9);
 
   // index positions for input args
@@ -49,12 +45,10 @@ std::shared_ptr<void> FillSafeSoftmaxForwardParams(
 
   params->dim = get_dim_in_tpc_order(dim, self.dim());
   params->safeSoftmax = true;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillSoftmaxBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillSoftmaxBackwardParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Softmax::Params);
   // index positions for input args
   constexpr size_t selfPositionInArgList = 0;
@@ -63,7 +57,7 @@ std::shared_ptr<void> FillSoftmaxBackwardParams(
   auto self = stack.at(selfPositionInArgList).toTensor();
   int dim = stack.at(dimPositionInArgList).toInt();
   params->dim = get_dim_in_tpc_order(dim, self.dim());
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector SoftmaxSharedMeta(
@@ -110,16 +104,15 @@ void SoftmaxBackward::AddNode(
   constexpr size_t selfPositionInArgList = 0;
   const auto& outshape = stack_tensor(stack, selfPositionInArgList).sizes();
 
-  size_t size = 0;
-  const auto& params = FillSoftmaxBackwardParams(stack, size);
+  const auto& params = FillSoftmaxBackwardParams(stack);
   using namespace std::literals;
   auto softmax_bwd = BuildOp(
       graph,
       get_guid_with_precision("softmax_bwd"sv, ScalarType()),
       {syn_in(1), syn_in(0)},
       {{outshape, ScalarType(), 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   // output of softmax_bwd is the output of this op
   syn_out(0) = std::move(softmax_bwd[0]);

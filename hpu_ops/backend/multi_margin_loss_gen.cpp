@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@
 
 namespace habana {
 
-static std::shared_ptr<void> MultiMarginLossParamsCommon(
-    size_t& size,
+static FillParamsT MultiMarginLossParamsCommon(
     int p,
     float margin,
     int64_t reduction) {
@@ -41,27 +40,23 @@ static std::shared_ptr<void> MultiMarginLossParamsCommon(
           "Unsupported reduction mode in multi_margin_loss: ",
           reduction);
   }
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillMultiMarginLossParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMultiMarginLossParams(const at::Stack& stack) {
   int p = stack.at(2).toInt();
   float margin = stack.at(3).toScalar().toDouble();
   int64_t reduction = stack.at(5).toInt();
 
-  return MultiMarginLossParamsCommon(size, p, margin, reduction);
+  return MultiMarginLossParamsCommon(p, margin, reduction);
 }
 
-std::shared_ptr<void> FillMultiMarginLossBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMultiMarginLossBackwardParams(const at::Stack& stack) {
   int p = stack.at(3).toInt();
   float margin = stack.at(4).toScalar().toDouble();
   int64_t reduction = stack.at(6).toInt();
 
-  return MultiMarginLossParamsCommon(size, p, margin, reduction);
+  return MultiMarginLossParamsCommon(p, margin, reduction);
 }
 
 OutputMetaDataVector MultiMarginLossMeta(const at::Stack& stack) {

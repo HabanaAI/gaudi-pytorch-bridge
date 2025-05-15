@@ -52,44 +52,39 @@ OutputMetaDataVector ClampMeta(const at::Stack& stack) {
 }
 
 template <typename ScalarType>
-static std::shared_ptr<void> ClampParams(
-    ScalarType min,
-    ScalarType max,
-    size_t& size) {
+static FillParamsT ClampParams(ScalarType min, ScalarType max) {
   PARAMS_STUB(ns_ClampKernel::Params);
 
   get<ScalarType>(params->lowerBound) = min;
   get<ScalarType>(params->upperBound) = max;
 
-  return params;
+  return paramsT;
 }
 
 template <typename ScalarType>
-static std::shared_ptr<void> FillClampParamsAndSetMinMax(
-    const at::Stack& stack,
-    size_t& size) {
+static FillParamsT FillClampParamsAndSetMinMax(const at::Stack& stack) {
   ScalarType min = stack[1].isScalar()
       ? stack[1].toScalar().to<ScalarType>()
       : -std::numeric_limits<ScalarType>::max();
   ScalarType max = stack[2].isScalar() ? stack[2].toScalar().to<ScalarType>()
                                        : std::numeric_limits<ScalarType>::max();
-  return ClampParams(min, max, size);
+  return ClampParams(min, max);
 }
 
-std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillClampParams(const at::Stack& stack) {
   auto result_type = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
       std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   if (c10::isFloatingType(result_type)) {
-    return FillClampParamsAndSetMinMax<float>(stack, size);
+    return FillClampParamsAndSetMinMax<float>(stack);
   } else {
-    return FillClampParamsAndSetMinMax<int>(stack, size);
+    return FillClampParamsAndSetMinMax<int>(stack);
   }
 }
 
-std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillClampMinParams(const at::Stack& stack) {
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(
           stack, std::nullopt, false);
@@ -98,13 +93,13 @@ std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
 
   if (c10::isFloatingType(result_type)) {
     return ClampParams(
-        stack[1].toScalar().toFloat(), std::numeric_limits<float>::max(), size);
+        stack[1].toScalar().toFloat(), std::numeric_limits<float>::max());
   }
   return ClampParams(
-      stack[1].toScalar().toInt(), std::numeric_limits<int>::max(), size);
+      stack[1].toScalar().toInt(), std::numeric_limits<int>::max());
 }
 
-std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillClampMaxParams(const at::Stack& stack) {
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(
           stack, std::nullopt, false);
@@ -113,12 +108,10 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
 
   if (c10::isFloatingType(result_type)) {
     return ClampParams(
-        -std::numeric_limits<float>::max(),
-        stack[1].toScalar().toFloat(),
-        size);
+        -std::numeric_limits<float>::max(), stack[1].toScalar().toFloat());
   }
   return ClampParams(
-      -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
+      -std::numeric_limits<int>::max(), stack[1].toScalar().toInt());
 }
 
 SharedMetaDataVector ClampSharedMeta(
@@ -212,8 +205,7 @@ void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "clamp::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
   std::vector<synTensor> inputs = {input.syn_t};
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   const auto compute_type =
       c10::isIntegralType(meta.dtype, true) ? c10::ScalarType::Int : meta.dtype;
   syn_out(0) = std::move(OpBackend::BuildNode(
@@ -222,8 +214,8 @@ void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       {get_guid_with_precision("clamp_pt_fwd"sv, compute_type),
        inputs,
        {{meta.shape, meta.dtype, 0}},
-       params.get(),
-       size})[0]);
+       params.ptr(),
+       params.size()})[0]);
 }
 
 void clampTensor::AddNode(

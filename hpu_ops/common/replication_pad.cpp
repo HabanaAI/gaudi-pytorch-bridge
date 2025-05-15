@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,10 +39,9 @@ sizes_vec ComputePadOutputShape(const at::Stack& stack, PadType padType) {
   return {outputSize};
 }
 
-std::shared_ptr<void> FillPadFwdBwdParams(
+FillParamsT FillPadFwdBwdParams(
     const at::Stack& stack,
     PadType padType,
-    size_t& size,
     bool backward) {
   PARAMS_STUB(ns_PadKernelEx::Params);
   size_t offset = backward ? 1 : 0;
@@ -58,7 +57,7 @@ std::shared_ptr<void> FillPadFwdBwdParams(
     params->pads[i + selfRank] = padding.at(i * 2 + 1);
   }
 
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

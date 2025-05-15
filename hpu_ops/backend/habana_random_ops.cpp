@@ -33,20 +33,20 @@ OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillHabanaRandParams(const at::Stack&, size_t& size) {
+FillParamsT FillHabanaRandParams(const at::Stack&) {
   PARAMS_STUB(ns_RandomUniform::Params);
   params->low = 0.0;
   params->high = 1.0;
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillHabanaRandnParams(const at::Stack&, size_t& size) {
+FillParamsT FillHabanaRandnParams(const at::Stack&) {
   static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = 0.0;
   params->stddev = 1.0;
   params->usePhilox = use_philox;
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
@@ -62,9 +62,7 @@ OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillHabanaRandintParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillHabanaRandintParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RandomUniform::ParamsV2);
   const auto dtype =
       stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
@@ -75,7 +73,7 @@ std::shared_ptr<void> FillHabanaRandintParams(
     params->low.i = stack[1].toInt();
     params->high.i = stack[2].toInt();
   }
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector HabanaUniformOutputMeta(const at::Stack& stack) {
@@ -86,9 +84,7 @@ OutputMetaDataVector HabanaUniformOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillHabanaUniformParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillHabanaUniformParams(const at::Stack& stack) {
   PARAMS_STUB(ns_PhiloxRandomUniform::ParamsV3);
   auto low = stack.at(2).toDouble();
   auto high = stack.at(3).toDouble();
@@ -99,7 +95,7 @@ std::shared_ptr<void> FillHabanaUniformParams(
     params->low = static_cast<float>(low);
     params->high = static_cast<float>(high);
   }
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector HabanaSeedGeneratorOutputMeta(const at::Stack& stack) {
@@ -109,13 +105,11 @@ OutputMetaDataVector HabanaSeedGeneratorOutputMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillHabanaSeedGeneratorParams(
-    const at::Stack&,
-    size_t& size) {
+FillParamsT FillHabanaSeedGeneratorParams(const at::Stack&) {
   PARAMS_STUB(ns_PhiloxRandomUniform::ParamsV3);
   params->low_i = 0;
   params->high_i = std::numeric_limits<int32_t>::max();
-  return params;
+  return paramsT;
 }
 
 } // namespace
@@ -143,8 +137,7 @@ void HabanaRandomBase::AddNode(
   const auto& output_shape = output_meta.shape;
   const auto& dtype = output_meta.dtype;
 
-  size_t size = 0;
-  auto rand_params = FillParams(stack, size);
+  auto rand_params = FillParams(stack);
 
   update_guid_dtype(guid_, dtype);
 
@@ -168,8 +161,8 @@ void HabanaRandomBase::AddNode(
       guid_,
       std::move(inputs),
       {{output_shape, dtype, 0}},
-      rand_params.get(),
-      size);
+      rand_params.ptr(),
+      rand_params.size());
   syn_out(0) = std::move(rand[0]);
 }
 
@@ -232,8 +225,7 @@ void HabanaRandint::AddNode(
   const auto& outshape = output_meta.shape;
   const auto& dtype = output_meta.dtype;
 
-  size_t size = 0;
-  auto rand_params = FillHabanaRandintParams(stack, size);
+  auto rand_params = FillHabanaRandintParams(stack);
 
   update_guid_dtype(guid_, dtype);
 
@@ -256,7 +248,12 @@ void HabanaRandint::AddNode(
   }
 
   auto rand = OpBackend::BuildOp(
-      graph, guid_, std::move(inputs), {out_attr}, rand_params.get(), size);
+      graph,
+      guid_,
+      std::move(inputs),
+      {out_attr},
+      rand_params.ptr(),
+      rand_params.size());
   if (need_convert_i16) {
     PARAMS_STUB(ns_CastKernel::Params);
     // Round down so that the upper limit is not included in the generated seq.
@@ -267,8 +264,8 @@ void HabanaRandint::AddNode(
         post_op_guid,
         {rand[0].get()},
         {{outshape, dtype, 0}},
-        params.get(),
-        size)[0]);
+        paramsT.ptr(),
+        paramsT.size())[0]);
   } else if (c10::isFloatingType(dtype)) {
     syn_out(0) = std::move(OpBackend::BuildOp(
         graph, post_op_guid, {rand[0].get()}, {{outshape, dtype, 0}})[0]);

@@ -27,14 +27,12 @@ OutputMetaDataVector BlockSoftmaxAdjustmentMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> BlockSoftmaxAdjustmentParams(
-    const at::Stack& stack,
-    std::size_t& size) {
+FillParamsT BlockSoftmaxAdjustmentParams(const at::Stack& stack) {
   const auto batchSize = stack.at(3).toScalar().toInt();
 
   PARAMS_STUB(ns_BlockSoftmaxAdjustment::Params);
   params->batchSize = batchSize;
-  return params;
+  return paramsT;
 }
 
 } // namespace habana

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillEqualParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillEqualParams(const at::Stack& stack) {
   PARAMS_STUB(ns_EqualPt::Params);
   auto self_sizes = stack_tensor(stack, 0).sizes();
   auto other_sizes = stack_tensor(stack, 1).sizes();
   params->forceFalse = self_sizes.size() != other_sizes.size();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector EqualMeta(const at::Stack&) {

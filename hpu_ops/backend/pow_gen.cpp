@@ -20,10 +20,10 @@
 using namespace std::literals;
 namespace habana {
 
-std::shared_ptr<void> FillPowParams(const at::Stack& stack, size_t& size) {
+FillParamsT FillPowParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Power::Params);
   params->exp_val = stack.at(1).toScalar().toDouble();
-  return params;
+  return paramsT;
 }
 
 static synapse_helpers::tensor createForeachPowNode(

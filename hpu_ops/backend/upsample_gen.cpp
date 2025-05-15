@@ -788,9 +788,8 @@ SharedMetaDataVector UpssampleTrilinear3DSharedMeta(
 }
 
 // Custom FillParams function
-std::shared_ptr<void> FillResizeParams(
+FillParamsT FillResizeParams(
     const int shape_in_dim,
-    size_t& size,
     enum modes upsample_mode,
     c10::IValue out_size,
     c10::IValue scales,
@@ -846,7 +845,7 @@ std::shared_ptr<void> FillResizeParams(
       params->size3 = out_size.toIntVector().at(0);
     }
     if (align_corner) {
-      return params;
+      return paramsT;
     }
   }
   if (!scales.isNone()) {
@@ -855,12 +854,10 @@ std::shared_ptr<void> FillResizeParams(
     params->scaleDim2 = scale_h;
     params->scaleDim3 = scale_d;
   }
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillBicubicFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBicubicFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(2).toBool();
@@ -875,7 +872,6 @@ std::shared_ptr<void> FillBicubicFwdParams(
   }
   return FillResizeParams(
       self.dim(),
-      size,
       bicubic,
       out_size,
       scales,
@@ -886,9 +882,7 @@ std::shared_ptr<void> FillBicubicFwdParams(
       false /*antialias*/);
 }
 
-std::shared_ptr<void> FillBicubicFwdParamsAA(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBicubicFwdParamsAA(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(2).toBool();
@@ -900,7 +894,6 @@ std::shared_ptr<void> FillBicubicFwdParamsAA(
   bool antialias = true;
   return FillResizeParams(
       self.dim(),
-      size,
       bicubic,
       out_size,
       scales,
@@ -911,9 +904,7 @@ std::shared_ptr<void> FillBicubicFwdParamsAA(
       antialias);
 }
 
-std::shared_ptr<void> FillBicubicBwdParamsAA(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBicubicBwdParamsAA(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(3).toBool();
@@ -925,7 +916,6 @@ std::shared_ptr<void> FillBicubicBwdParamsAA(
   bool antialias = true;
   return FillResizeParams(
       grad_in.dim(),
-      size,
       bicubic,
       out_size,
       scales,
@@ -936,9 +926,7 @@ std::shared_ptr<void> FillBicubicBwdParamsAA(
       antialias);
 }
 
-std::shared_ptr<void> FillBicubicBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBicubicBwdParams(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(3).toBool();
@@ -953,7 +941,6 @@ std::shared_ptr<void> FillBicubicBwdParams(
   }
   return FillResizeParams(
       grad_in.dim(),
-      size,
       bicubic,
       out_size,
       scales,
@@ -964,9 +951,7 @@ std::shared_ptr<void> FillBicubicBwdParams(
       false /*antialias*/);
 }
 
-std::shared_ptr<void> FillBilinearFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBilinearFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(2).toBool();
@@ -981,7 +966,6 @@ std::shared_ptr<void> FillBilinearFwdParams(
   }
   return FillResizeParams(
       self.dim(),
-      size,
       linear,
       out_size,
       scales,
@@ -1007,20 +991,18 @@ std::tuple<double, double, double> ExtractScales(
   return {scale_w, scale_h, scale_d};
 }
 
-std::shared_ptr<void> FillBilinearParamsAAHelper(
+FillParamsT FillBilinearParamsAAHelper(
     const at::Tensor& input_tensor,
     const at::Stack& stack,
     const at::IValue& out_size,
     const at::IValue& scales,
     bool align_corners,
-    size_t& size,
     size_t scale_h_idx,
     size_t scale_w_idx) {
   auto [scale_w, scale_h, scale_d] =
       ExtractScales(scales, stack, scale_h_idx, scale_w_idx);
   return FillResizeParams(
       input_tensor.dim(),
-      size,
       linear,
       out_size,
       scales,
@@ -1031,20 +1013,16 @@ std::shared_ptr<void> FillBilinearParamsAAHelper(
       true /*antialias*/);
 }
 
-std::shared_ptr<void> FillBilinearFwdParamsAA(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBilinearFwdParamsAA(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(2).toBool();
   auto scales = stack.at(3);
   return FillBilinearParamsAAHelper(
-      self, stack, out_size, scales, align_corners, size, 3, 4);
+      self, stack, out_size, scales, align_corners, 3, 4);
 }
 
-std::shared_ptr<void> FillBilinearBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBilinearBwdParams(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(3).toBool();
@@ -1059,7 +1037,6 @@ std::shared_ptr<void> FillBilinearBwdParams(
   }
   return FillResizeParams(
       grad_in.dim(),
-      size,
       linear,
       out_size,
       scales,
@@ -1070,20 +1047,16 @@ std::shared_ptr<void> FillBilinearBwdParams(
       false /*antialias*/);
 }
 
-std::shared_ptr<void> FillBilinearBwdParamsAA(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBilinearBwdParamsAA(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto align_corners = stack.at(3).toBool();
   auto scales = stack.at(4);
   return FillBilinearParamsAAHelper(
-      grad_in, stack, out_size, scales, align_corners, size, 4, 5);
+      grad_in, stack, out_size, scales, align_corners, 4, 5);
 }
 
-std::shared_ptr<void> FillNearestFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNearestFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   // scales
@@ -1097,7 +1070,6 @@ std::shared_ptr<void> FillNearestFwdParams(
   }
   return FillResizeParams(
       self.dim(),
-      size,
       nearest,
       out_size,
       scales,
@@ -1108,9 +1080,7 @@ std::shared_ptr<void> FillNearestFwdParams(
       false /*antialias*/);
 }
 
-std::shared_ptr<void> FillNearestExact2DFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNearestExact2DFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   // scales
@@ -1124,7 +1094,6 @@ std::shared_ptr<void> FillNearestExact2DFwdParams(
   bool antialias = false;
   return FillResizeParams(
       self.dim(),
-      size,
       nearest_exact,
       out_size,
       scales,
@@ -1135,9 +1104,7 @@ std::shared_ptr<void> FillNearestExact2DFwdParams(
       antialias);
 }
 
-std::shared_ptr<void> FillNearestExact2DBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNearestExact2DBwdParams(const at::Stack& stack) {
   auto grad_out = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scales_h = stack.at(3);
@@ -1149,7 +1116,6 @@ std::shared_ptr<void> FillNearestExact2DBwdParams(
   double scale_h = scales_h.toOptional<double>().value_or(1.0);
   return FillResizeParams(
       grad_out.dim(),
-      size,
       nearest_exact,
       out_size,
       scales_h,
@@ -1160,9 +1126,7 @@ std::shared_ptr<void> FillNearestExact2DBwdParams(
       antialias);
 }
 
-std::shared_ptr<void> FillNearestExact3DFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNearestExact3DFwdParams(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   double scale_d = stack.at(2).toOptional<double>().value_or(1.0);
@@ -1173,7 +1137,6 @@ std::shared_ptr<void> FillNearestExact3DFwdParams(
   bool antialias = false;
   return FillResizeParams(
       self.dim(),
-      size,
       nearest_exact,
       out_size,
       scales,
@@ -1184,9 +1147,7 @@ std::shared_ptr<void> FillNearestExact3DFwdParams(
       antialias);
 }
 
-std::shared_ptr<void> FillNearestBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNearestBwdParams(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   // scales
@@ -1200,7 +1161,6 @@ std::shared_ptr<void> FillNearestBwdParams(
   }
   return FillResizeParams(
       grad_in.dim(),
-      size,
       nearest,
       out_size,
       scales,
@@ -1211,9 +1171,7 @@ std::shared_ptr<void> FillNearestBwdParams(
       false /*antialias*/);
 }
 
-std::shared_ptr<void> FillNearestExact3DBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillNearestExact3DBwdParams(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = false;
@@ -1224,7 +1182,6 @@ std::shared_ptr<void> FillNearestExact3DBwdParams(
 
   return FillResizeParams(
       grad_in.dim(),
-      size,
       nearest_exact,
       out_size,
       stack.at(3),
@@ -1242,8 +1199,7 @@ static std::vector<synapse_helpers::tensor> Resize(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     const at::ScalarType& dtype,
-    std::shared_ptr<void> params,
-    size_t size,
+    const FillParamsT& params,
     std::optional<int> final_index = std::nullopt) {
   auto guid = op->GetGuid();
   update_guid_dtype(guid, dtype);
@@ -1254,8 +1210,8 @@ static std::vector<synapse_helpers::tensor> Resize(
       {guid,
        std::move(input),
        {{outshape, dtype, final_index}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
 }
 // Slice the result when both scale and size provided - outplace fwd varaint
 static std::vector<synapse_helpers::tensor> Slice(
@@ -1336,10 +1292,8 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
     p_shape_out_resize = &shape_out_resize;
   }
 
-  size_t size = 0;
   const auto& params = FillResizeParams(
       shape_in_dim,
-      size,
       upsample_mode,
       out_size,
       scales,
@@ -1360,7 +1314,6 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
       *p_shape_out_resize,
       intermediateDtype,
       params,
-      size,
       final_index_for_resize);
   // Slice
   // For Fwd ops, when both size and scale is provided with align_corners=false
@@ -1603,18 +1556,10 @@ void UpSampleNearest2DOperator::AddNode(
     final_index = std::nullopt;
   }
 
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
 
   auto resize = Resize(
-      this,
-      graph,
-      input,
-      meta.shape,
-      intermediateDtype,
-      params,
-      size,
-      final_index);
+      this, graph, input, meta.shape, intermediateDtype, params, final_index);
   if (meta.dtype == c10::ScalarType::Byte) {
     // f32 to u8
     resize[0] = BuildCast(
@@ -1634,8 +1579,7 @@ synapse_helpers::tensor UpsampleNearestExactFwdCommon(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
     std::vector<synTensor> input,
-    const std::shared_ptr<void>& params,
-    size_t size) {
+    const FillParamsT& params) {
   auto meta = op->OutputMeta(stack)[0];
   auto self = stack_tensor(stack, 0);
   std::optional<synapse_helpers::tensor> cast_storage;
@@ -1653,14 +1597,7 @@ synapse_helpers::tensor UpsampleNearestExactFwdCommon(
   }
 
   auto resize = Resize(
-      op,
-      graph,
-      input,
-      meta.shape,
-      intermediateDtype,
-      params,
-      size,
-      final_index);
+      op, graph, input, meta.shape, intermediateDtype, params, final_index);
   if (meta.dtype != c10::ScalarType::Byte)
     return std::move(resize[0]);
 
@@ -1672,19 +1609,17 @@ synapse_helpers::tensor UpsampleNearestExactFwdCommon(
 void UpsampleNearestExact2DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size;
-  auto params = FillParams(stack, size);
-  syn_out(0) = UpsampleNearestExactFwdCommon(
-      this, graph, stack, {syn_in(0)}, params, size);
+  auto params = FillParams(stack);
+  syn_out(0) =
+      UpsampleNearestExactFwdCommon(this, graph, stack, {syn_in(0)}, params);
 }
 // AddNode FWD 3D Nearest Exact function
 void UpsampleNearestExact3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size;
-  auto params = FillParams(stack, size);
-  syn_out(0) = UpsampleNearestExactFwdCommon(
-      this, graph, stack, {syn_in(0)}, params, size);
+  auto params = FillParams(stack);
+  syn_out(0) =
+      UpsampleNearestExactFwdCommon(this, graph, stack, {syn_in(0)}, params);
 }
 void UpSampleTrilinear3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
@@ -1721,18 +1656,10 @@ void UpsampleNearestExact2DBwdOperator::AddNode(
   auto meta = UpsampleNearestExact2DBwdMeta(stack)[0];
   std::optional<int> final_index = 0;
 
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillParams(stack);
 
   auto resize = Resize(
-      this,
-      graph,
-      {syn_in(0)},
-      meta.shape,
-      meta.dtype,
-      params,
-      size,
-      final_index);
+      this, graph, {syn_in(0)}, meta.shape, meta.dtype, params, final_index);
 
   syn_out(0) = std::move(resize.at(0));
 }

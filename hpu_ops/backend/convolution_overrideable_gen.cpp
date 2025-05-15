@@ -24,13 +24,12 @@ namespace habana {
 using SynapseLayouts =
     std::vector<synapse_helpers::layouts::SynapseLayoutFormat>;
 
-static std::shared_ptr<void> ConvolutionOverrideable3dParams(
+static FillParamsT ConvolutionOverrideable3dParams(
     const at::IntArrayRef& weight, // DHWCK
     const at::IntArrayRef& stride, // DHW
     const at::IntArrayRef& padding, // DHW
     const at::IntArrayRef& dilation, // DHW
-    int64_t groups,
-    size_t& size) {
+    int64_t groups) {
   PARAMS_STUB(synConvolution3DParams);
   params->kernel[CONV_KERNEL_DEPTH] = weight[2];
   params->kernel[CONV_KERNEL_HEIGHT] = weight[3];
@@ -49,16 +48,15 @@ static std::shared_ptr<void> ConvolutionOverrideable3dParams(
   params->padding[CONV_PAD_RIGHT] = padding[2];
   params->nGroups = groups;
 
-  return params;
+  return paramsT;
 }
 
-static std::shared_ptr<void> ConvolutionOverrideable2dParams(
+static FillParamsT ConvolutionOverrideable2dParams(
     const at::IntArrayRef& weight, // HWCK
     const at::IntArrayRef& stride, // HW
     const at::IntArrayRef& padding, // HW
     const at::IntArrayRef& dilation, // HW
-    int64_t groups,
-    size_t& size) {
+    int64_t groups) {
   PARAMS_STUB(synConvolutionParams);
   params->dH = stride[0];
   params->dW = stride[1];
@@ -72,12 +70,10 @@ static std::shared_ptr<void> ConvolutionOverrideable2dParams(
   params->setPadR(padding[1]);
   params->nGroups = groups;
 
-  return params;
+  return paramsT;
 }
 
-std::shared_ptr<void> FillConvolutionOverrideableParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillConvolutionOverrideableParams(const at::Stack& stack) {
   auto weight_shape = stack_tensor(stack, 1).sizes().vec();
   auto stride = stack[3].toIntList().vec();
   auto padding = stack[4].toIntList().vec();
@@ -93,10 +89,10 @@ std::shared_ptr<void> FillConvolutionOverrideableParams(
 
   if (stack_tensor(stack, 0).dim() == 5) {
     return ConvolutionOverrideable3dParams(
-        weight_shape, stride, padding, dilation, groups, size);
+        weight_shape, stride, padding, dilation, groups);
   } else {
     return ConvolutionOverrideable2dParams(
-        weight_shape, stride, padding, dilation, groups, size);
+        weight_shape, stride, padding, dilation, groups);
   }
 }
 
@@ -240,8 +236,6 @@ SharedMetaDataVector ConvolutionSharedMeta(
 void ConvolutionOverrideable::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-
   at::Tensor input = stack_tensor(stack, 0);
   at::Tensor weight = stack_tensor(stack, 1);
   auto bias = stack.at(2).toOptional<at::Tensor>().value_or(at::Tensor());
@@ -278,7 +272,7 @@ void ConvolutionOverrideable::AddNode(
   else if (bias.defined())
     inputs.emplace_back(syn_in(2));
 
-  const auto& params = FillConvolutionOverrideableParams(stack, size);
+  const auto& params = FillConvolutionOverrideableParams(stack);
 
   NodeAttr::NodeOutputAttr node_output_attr = {meta.shape, meta.dtype, 0};
   if ((transposed && bias.defined()) || is_conv_1d)
@@ -289,8 +283,8 @@ void ConvolutionOverrideable::AddNode(
       std::move(guid),
       std::move(inputs),
       {node_output_attr},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   SetSynapseLayouts({}, {});
 

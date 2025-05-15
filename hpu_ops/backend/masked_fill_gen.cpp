@@ -51,13 +51,11 @@ SharedMetaDataVector MaskedFillSharedMeta(
   return {maskedFillSharedMeta};
 }
 
-std::shared_ptr<void> FillMaskedFillParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMaskedFillParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MaskedFill::ParamsV2);
   auto value = stack.at(2);
   if (value.isTensor()) {
-    return params;
+    return paramsT;
   }
 
   auto self = stack_tensor(stack, 0);
@@ -74,19 +72,18 @@ std::shared_ptr<void> FillMaskedFillParams(
   } else {
     params->value.f = value.toScalar().toFloat();
   }
-  return params;
+  return paramsT;
 }
 
 void MaskedFill::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
 
   auto metadata = MaskedFillMeta(stack)[0];
   auto out_shape = metadata.shape;
   auto out_dtype = metadata.dtype;
-  const auto& params = FillMaskedFillParams(stack, size);
+  const auto& params = FillMaskedFillParams(stack);
 
   auto value = stack.at(2);
   if (value.isTensor()) {
@@ -103,8 +100,8 @@ void MaskedFill::AddNode(
       guid,
       std::move(inputs),
       {{out_shape, out_dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(result[0]);
 }
 

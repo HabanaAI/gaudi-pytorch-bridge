@@ -28,10 +28,9 @@ using namespace std::literals;
 std::vector<synapse_helpers::tensor> DropoutCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    std::shared_ptr<void> params,
+    const FillParamsT& params,
     OutputMetaDataVector metas,
-    std::vector<synTensor>& input_tensor,
-    size_t size) {
+    std::vector<synTensor>& input_tensor) {
   auto dropout = OpBackend::BuildNode(
       op,
       graph,
@@ -39,17 +38,15 @@ std::vector<synapse_helpers::tensor> DropoutCommon(
        input_tensor,
        {NodeAttr::NodeOutputAttr{metas[0].shape, metas[0].dtype, 0},
         NodeAttr::NodeOutputAttr{metas[1].shape, metas[1].dtype, 1}},
-       params.get(),
-       size});
+       params.ptr(),
+       params.size()});
   return dropout;
 }
-std::shared_ptr<void> FillFusedNativeDropoutParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillFusedNativeDropoutParams(const at::Stack& stack) {
   PARAMS_STUB(ns_DropoutKernel::Params);
   auto ratioId = (stack.at(0).isTensor() && stack.at(1).isTensor()) ? 2 : 1;
   params->ratio = stack.at(ratioId).toScalar().toDouble();
-  return params;
+  return paramsT;
 }
 
 OutputMetaDataVector FusedNativeDropoutMeta(const at::Stack& stack) {
@@ -94,8 +91,7 @@ SharedMetaDataVector FusedNativeDropoutSharedMeta(
 
 void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto seed = stack.at(2);
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   auto metas = FusedNativeDropoutMeta(stack);
 
   std::vector<synTensor> inputTensors = {syn_in(0)};
@@ -104,7 +100,7 @@ void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   else
     inputTensors.push_back(syn_seed());
 
-  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors, size);
+  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors);
   syn_out(0) = std::move(dropout[0]);
   syn_out(1) = std::move(dropout[1]);
 }
@@ -185,12 +181,11 @@ HabanaNativeDropout::HabanaNativeDropout(
 void HabanaNativeDropout::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  auto params = FillFusedNativeDropoutParams(stack, size);
+  auto params = FillFusedNativeDropoutParams(stack);
   auto metas = FusedNativeDropoutMeta(stack);
 
   std::vector<synTensor> inputTensors = {syn_in(1), syn_in(0)};
-  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors, size);
+  auto dropout = DropoutCommon(this, graph, params, metas, inputTensors);
   syn_out(0) = std::move(dropout[0]);
   syn_out(1) = std::move(dropout[1]);
 }

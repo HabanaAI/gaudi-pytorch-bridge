@@ -29,11 +29,11 @@ OutputMetaDataVector ReduceMinMaxMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillMinMaxParams(const at::Stack&, size_t& size) {
+FillParamsT FillMinMaxParams(const at::Stack&) {
   PARAMS_STUB(ns_Reduction::ParamsV2);
   params->reductionDimensionMask = 0;
   params->keepDim = false;
-  return params;
+  return paramsT;
 }
 
 sizes_vec MinMaxOutputShape(const at::Stack& stack) {
@@ -127,23 +127,20 @@ SharedMetaDataVector MaxDimSharedMeta(
   return MinMaxDimSharedMeta(stack, "reduce_max_multi_dim_fwd");
 }
 
-std::shared_ptr<void> FillMinMaxDimParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillMinMaxDimParams(const at::Stack& stack) {
   PARAMS_STUB(ns_Reduction::Params);
   auto dim = stack.at(1).toInt();
   dim = (dim >= 0) ? static_cast<int>(stack.at(0).toTensor().dim()) - 1 - dim
                    : -(dim + 1);
 
   params->reductionDimension = dim;
-  return params;
+  return paramsT;
 }
 
 void MinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
   const auto meta = ReduceMinMaxMeta(stack);
-  size_t paramsSize = 0;
-  auto params = FillParams(stack, paramsSize);
+  auto params = FillParams(stack);
   auto precisionType = ScalarType();
 
   if (c10::isIntegralType(precisionType, true) &&
@@ -155,8 +152,8 @@ void MinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       GetGuid(),
       {syn_in(0)},
       {{meta[0].shape, meta[0].dtype, 0}},
-      params.get(),
-      paramsSize);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(result[0]);
 }

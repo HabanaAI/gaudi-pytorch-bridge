@@ -17,9 +17,7 @@
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
-std::shared_ptr<void> FillRandomNegativeBinomialParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillRandomNegativeBinomialParams(const at::Stack& stack) {
   PARAMS_STUB(ns_RandomNegativeBinomial::ParamsV2);
   auto self = stack.at(0).toTensor();
   auto p = stack.at(1).toScalar().to<float>();
@@ -28,7 +26,7 @@ std::shared_ptr<void> FillRandomNegativeBinomialParams(
   params->k = 1.0;
   params->isAdditionEnable = true;
 
-  return params;
+  return paramsT;
 }
 
 SharedMetaDataVector GeometricSharedMeta(
@@ -47,8 +45,7 @@ SharedMetaDataVector GeometricSharedMeta(
 void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
-  size_t size = 0;
-  const auto& params = FillRandomNegativeBinomialParams(stack, size);
+  const auto& params = FillRandomNegativeBinomialParams(stack);
 
   using namespace std::literals;
   auto geometric = BuildOp(
@@ -56,8 +53,8 @@ void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       get_guid_with_precision("random_negative_binomial_fwd"sv, ScalarType()),
       {syn_in(1)},
       {{outshape, ScalarType(), 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   syn_out(0) = std::move(geometric[0]);
 }

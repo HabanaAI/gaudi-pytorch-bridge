@@ -30,14 +30,12 @@ synapse_helpers::tensor RandPermCommon(
     std::vector<int64_t> out_shape,
     int n,
     int final_result_index = 0) {
-  size_t size = 0;
   c10::ScalarType tpc_supported_randperm_dtype =
       ((common::IsInt64Supported() && (out_dtype == c10::ScalarType::Long))
            ? c10::ScalarType::Long
            : c10::ScalarType::Int);
 
-  auto params =
-      FillArangeParamsInternal(0, n, 1, tpc_supported_randperm_dtype, size);
+  auto params = FillArangeParamsInternal(0, n, 1, tpc_supported_randperm_dtype);
   int start = 0;
   int end = n;
   int step = 1;
@@ -54,7 +52,6 @@ synapse_helpers::tensor RandPermCommon(
       get_guid_with_precision("range"sv, tpc_supported_randperm_dtype),
       out_shape,
       params,
-      size,
       std::nullopt);
 
   std::vector<synTensor> inputs;
@@ -268,7 +265,6 @@ void HabanaRandPermDS::AddNode(
       "For a custom schema(Randperm) seed tensor should be the",
       "first argument.");
   const auto meta = HabanaRandPermMetaDS(stack)[0];
-  size_t size = 0;
   c10::ScalarType tpc_supported_randperm_dtype =
       ((GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
         (meta.dtype == c10::ScalarType::Long))
@@ -277,8 +273,7 @@ void HabanaRandPermDS::AddNode(
 
   auto out_dtype = meta.dtype;
   auto out_shape = meta.shape;
-  auto params =
-      FillArangeParamsInternal(0, 1, 1, tpc_supported_randperm_dtype, size);
+  auto params = FillArangeParamsInternal(0, 1, 1, tpc_supported_randperm_dtype);
   std::vector<int32_t> params_data;
   at::Tensor params_t = stack[1].toTensor();
   if ((habana::ShapeInference::GetCurrentPass() ==

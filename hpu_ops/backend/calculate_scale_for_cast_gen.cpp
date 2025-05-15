@@ -19,9 +19,7 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
-std::shared_ptr<void> FillCalculateScaleForCastParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillCalculateScaleForCastParams(const at::Stack& stack) {
   const auto& input = stack_tensor(stack, 0);
   const auto reduceAxis = stack[3].toInt();
   const auto fullscale = stack[5].toDouble();
@@ -41,7 +39,7 @@ std::shared_ptr<void> FillCalculateScaleForCastParams(
       static_cast<ns_CalculateScaleForCast::CalculateScaleForCastScaleMode_t>(
           stack[2].toInt());
 
-  return params;
+  return paramsT;
 }
 
 template <class DimT>

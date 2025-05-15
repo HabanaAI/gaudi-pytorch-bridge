@@ -33,40 +33,36 @@ SharedMetaDataVector GeluSharedMeta(
   return Input0ToOut0And1SharedMeta(stack, "gelu_fwd");
 }
 
-std::shared_ptr<void> FillGeluParams(
-    const at::Stack& stack,
-    size_t& size,
-    int approx_index) {
+FillParamsT FillGeluParams(const at::Stack& stack, int approx_index) {
   PARAMS_STUB(ns_GeluKernel::Params);
   if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_TANH_FOR_GELU)) {
     params->approximation = true;
-    return params;
+    return paramsT;
   } else {
     params->approximation = stack.at(approx_index).to<std::string>() == "tanh";
-    return params;
+    return paramsT;
   }
 }
 
-std::shared_ptr<void> FillGeluFwdParams(const at::Stack& stack, size_t& size) {
-  return FillGeluParams(stack, size, 1 /*Approximation Index in Fwd pass*/);
+FillParamsT FillGeluFwdParams(const at::Stack& stack) {
+  return FillGeluParams(stack, 1 /*Approximation Index in Fwd pass*/);
 }
 
-std::shared_ptr<void> FillGeluBwdParams(const at::Stack& stack, size_t& size) {
-  return FillGeluParams(stack, size, 2 /*Approximation Index in Bwd pass*/);
+FillParamsT FillGeluBwdParams(const at::Stack& stack) {
+  return FillGeluParams(stack, 2 /*Approximation Index in Bwd pass*/);
 }
 
 void Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = GeluMeta(stack)[0];
-  size_t size = 0;
-  auto params = FillGeluFwdParams(stack, size);
+  auto params = FillGeluFwdParams(stack);
   using namespace std::literals;
   auto gelu = BuildOp(
       graph,
       get_guid_with_precision("gelu_fwd"sv, meta.dtype),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}, {meta.shape, meta.dtype}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(gelu[0]);
 }
 

@@ -280,14 +280,9 @@ auto get_or_create_tensor(
 
 } // namespace habana
 
-#define PARAMS_STUB(structname) \
-  size = sizeof(structname);    \
-  auto params = std::make_shared<structname>()
-
-// Use when you want to define your own size and param var names
-#define PARAMS_STUB_VARS(structname, params, params_size) \
-  const size_t& params_size = sizeof(structname);         \
-  auto params = std::make_shared<structname>()
+#define PARAMS_STUB(structname)                     \
+  auto paramsT = FillParamsT::create<structname>(); \
+  auto params = paramsT.template paramsPtr<structname>()
 
 #define REGISTER_HPU_BACKEND(op, backendclass)              \
   add(op, [](const int device_id, c10::ScalarType type) {   \
@@ -347,8 +342,7 @@ auto get_or_create_tensor(
   }                                                                \
   HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, op, 0, T)
 
-#define FILL_PARAMS_DECL(fn) \
-  std::shared_ptr<void> fn(const at::Stack&, size_t&);
+#define FILL_PARAMS_DECL(fn) FillParamsT fn(const at::Stack&);
 
 #define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&);
 #define OUTMETA_DECL(fn) OutputMetaDataVector fn(const at::Stack&);

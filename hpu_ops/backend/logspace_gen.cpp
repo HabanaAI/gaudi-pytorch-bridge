@@ -88,7 +88,7 @@ SharedMetaDataVector LogspaceSharedMeta(
   return metaVec;
 }
 
-std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
+FillParamsT RangeParams(const at::Stack& stack) {
   float start = stack[0].toScalar().to<float>();
   float end = stack[1].toScalar().to<float>();
   int64_t step = stack[2].toScalar().to<int64_t>();
@@ -111,7 +111,7 @@ std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
   get<float>(params->limit) = end;
   get<float>(params->delta) = delta;
 
-  return params;
+  return paramsT;
 }
 
 void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -138,16 +138,15 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     using namespace std::literals;
     std::vector<synapse_helpers::tensor> range;
     if (start != end && len != 1) {
-      size_t size = 0;
-      auto params = RangeParams(stack, size);
+      auto params = RangeParams(stack);
 
       range = BuildOp(
           graph,
           get_guid_with_precision("range"sv, outType),
           {},
           {{meta.shape, outType}},
-          params.get(),
-          size);
+          params.ptr(),
+          params.size());
     } else {
       range.push_back(ConstantHelper(graph, start, outType, meta.shape));
     }

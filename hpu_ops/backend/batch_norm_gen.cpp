@@ -135,10 +135,7 @@ inline bool is_training(bool pt_training_flag, bool is_running_mean_defined) {
 }
 
 template <typename T>
-std::tuple<std::shared_ptr<void>, size_t> fillBatchNormParams(
-    float momentum,
-    float epsilon) {
-  size_t size;
+FillParamsT fillBatchNormParams(float momentum, float epsilon) {
   PARAMS_STUB(T);
   params->momentum = momentum;
   params->epsilon = epsilon;
@@ -147,7 +144,7 @@ std::tuple<std::shared_ptr<void>, size_t> fillBatchNormParams(
     params->isTraining = true;
   }
 
-  return std::make_tuple(params, size);
+  return paramsT;
 }
 
 auto fillBatchNormParams(bool isTraining, float momentum, float epsilon) {
@@ -304,8 +301,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     const std::optional<TensorsPair>& bias_opt,
     const std::optional<TensorsPair>& running_mean_opt,
     const std::optional<TensorsPair>& running_var_opt,
-    const std::shared_ptr<void>& params,
-    const size_t params_size,
+    const FillParamsT& params,
     const sizes_vec& out_shapes) {
   using namespace BNFwd;
 
@@ -405,8 +401,8 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
         {get_guid_with_precision("batch_norm_reshape_fwd"sv, op.ScalarType()),
          {input.syn_t, bias, weight, running_mean, running_var},
          std::move(output_attrs),
-         params.get(),
-         params_size});
+         params.ptr(),
+         params.size()});
   } else {
     std::optional<sh::tensor> inputStorageOpt;
     const auto [input_4d, input_4d_shape] =
@@ -425,8 +421,8 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
         {get_guid_with_precision("batch_norm_fwd"sv, op.ScalarType()),
          {input_4d, bias, weight, running_mean, running_var},
          std::move(output_attrs),
-         params.get(),
-         params_size});
+         params.ptr(),
+         params.size()});
   }
   if (has_inplace_running_mean) {
     op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
@@ -448,8 +444,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
     const std::optional<TensorsPair>& bias_opt,
     const std::optional<TensorsPair>& running_mean_opt,
     const std::optional<TensorsPair>& running_var_opt,
-    const std::shared_ptr<void>& params,
-    const size_t params_size,
+    const FillParamsT& params,
     const sizes_vec& out_shapes) {
   using namespace BNFwd;
 
@@ -499,8 +494,8 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
           {get_guid_with_precision("batch_norm_inf_reshape"sv, op.ScalarType()),
            {input.syn_t, bias, weight, running_mean, running_var},
            {{out_shapes[INPUT_IDX], op.ScalarType(), std::optional<int>(0)}},
-           params.get(),
-           params_size})
+           params.ptr(),
+           params.size()})
           .at(0)));
 
   bn_out.emplace_back(
@@ -602,60 +597,46 @@ OutputMetaDataVector BatchNormFunctionalFwdMeta(const at::Stack& stack) {
   return v;
 }
 
-std::shared_ptr<void> FillBatchNormFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBatchNormFwdParams(const at::Stack& stack) {
   using namespace BNFwd;
   float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
   float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(
       stack.at(IS_TRAINING_IDX).toBool(),
       stack.at(RUNNING_MEAN_IDX).isTensor());
-  auto [params, paramsSize] =
-      fillBatchNormParams(is_training_, momentum, epsilon);
+  auto params = fillBatchNormParams(is_training_, momentum, epsilon);
 
-  size = paramsSize;
   return params;
 }
 
-std::shared_ptr<void> FillBatchNormNoTrainingFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBatchNormNoTrainingFwdParams(const at::Stack& stack) {
   using namespace BNNoTrainingFwd;
   float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
   float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(false, stack.at(RUNNING_MEAN_IDX).isTensor());
-  auto [params, paramsSize] =
-      fillBatchNormParams(is_training_, momentum, epsilon);
+  auto params = fillBatchNormParams(is_training_, momentum, epsilon);
 
-  size = paramsSize;
   return params;
 }
 
-std::shared_ptr<void> FillBatchNormNoStatsFwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBatchNormNoStatsFwdParams(const at::Stack& stack) {
   using namespace BNNoStatsFwd;
   float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
   float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(stack.at(IS_TRAINING_IDX).toBool(), false);
-  auto [params, paramsSize] =
-      fillBatchNormParams(is_training_, momentum, epsilon);
+  auto params = fillBatchNormParams(is_training_, momentum, epsilon);
 
-  size = paramsSize;
   return params;
 }
 
-std::shared_ptr<void> FillBatchNormBwdParams(
-    const at::Stack& stack,
-    size_t& size) {
+FillParamsT FillBatchNormBwdParams(const at::Stack& stack) {
   using namespace BNBwd;
   PARAMS_STUB(ns_BatchNormKernel::ParamsV2);
   params->momentum = 0.0;
   params->epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   params->threshold.f = 0.0;
   params->isTraining = stack.at(IS_TRAINING_IDX).toBool();
-  return params;
+  return paramsT;
 }
 
 void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -669,8 +650,7 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   stackGetter.getNextInput<double>(); // momentum
   stackGetter.getNextInput<double>(); // epsilon
 
-  size_t paramsSize; // Will be initialized by below call
-  const auto params = FillBatchNormFwdParams(stack, paramsSize);
+  const auto params = FillBatchNormFwdParams(stack);
   const auto outShapes = BatchNormFwdOutputShape(stack);
 
   bool is_lazy_or_eager =
@@ -705,7 +685,6 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           runningMeanOpt,
           runningVarOpt,
           params,
-          paramsSize,
           outShapes);
 
   if (!is_lazy_or_eager) {
@@ -741,8 +720,7 @@ void BatchNormNoTrainingOpBackend::AddNode(
   stackGetter.getNextInput<double>(); // momentum
   stackGetter.getNextInput<double>(); // epsilon
 
-  size_t paramsSize; // Will be initialized by below call
-  const auto params = FillBatchNormNoTrainingFwdParams(stack, paramsSize);
+  const auto params = FillBatchNormNoTrainingFwdParams(stack);
   const auto outShapes = BatchNormFwdOutputShape(stack);
 
   auto inOutLayout = getSynapseLayout(input.pt_t.dim());
@@ -767,7 +745,6 @@ void BatchNormNoTrainingOpBackend::AddNode(
           runningMeanOpt,
           runningVarOpt,
           params,
-          paramsSize,
           outShapes);
 
   syn_out(0) = std::move(bnOut[0]);
@@ -790,8 +767,7 @@ void BatchNormNoStatsOpBackend::AddNode(
   stackGetter.getNextInput<double>(); // momentum
   stackGetter.getNextInput<double>(); // epsilon
 
-  size_t paramsSize; // Will be initialized by below call
-  const auto params = FillBatchNormNoStatsFwdParams(stack, paramsSize);
+  const auto params = FillBatchNormNoStatsFwdParams(stack);
   const auto outShapes = BatchNormNoStatsFwdOutputShape(stack);
 
   auto inOutLayout = getSynapseLayout(input.pt_t.dim());
@@ -819,7 +795,6 @@ void BatchNormNoStatsOpBackend::AddNode(
           std::nullopt,
           std::nullopt,
           params,
-          paramsSize,
           outShapes);
 
   syn_out(0) = std::move(bnOut[0]);
@@ -933,8 +908,7 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   weight = cast_if_necessary_or_default(
       this, graph, weight_opt, weight, weight_storage);
 
-  size_t size; // Will be initialized by below call
-  const auto params = FillBatchNormBwdParams(stack, size);
+  const auto params = FillBatchNormBwdParams(stack);
 
   std::optional<int> final_result_index_0 =
       meta[INPUT_GRAD_IDX].shape.size() != 4
@@ -949,8 +923,8 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
        {meta[WEIGHT_GRAD_IDX].shape,
         meta[WEIGHT_GRAD_IDX].dtype,
         WEIGHT_GRAD_IDX}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
 
   // 2.4 Postprocess outputs
   // 2.4.1 Reshape output to original input's shape

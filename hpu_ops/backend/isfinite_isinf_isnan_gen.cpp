@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,8 +48,7 @@ OutputMetaDataVector IsFiniteInfNanMeta(const at::Stack& stack) {
 void _IsFiniteInfNan::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  auto params = FillParams(stack, size);
+  auto params = FillParams(stack);
   auto meta = IsFiniteInfNanMeta(stack)[0];
   auto dtype = stack_tensor(stack, 0).scalar_type();
   // use cguid autocast
@@ -62,8 +61,8 @@ void _IsFiniteInfNan::AddNode(
       guid_,
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(result[0]);
 }
 

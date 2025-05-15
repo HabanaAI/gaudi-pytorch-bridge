@@ -31,9 +31,8 @@ OutputMetaDataVector ExponentialMetaCommon(
   return {meta};
 }
 
-std::shared_ptr<void> FillExponentialParamsCommon(
+FillParamsT FillExponentialParamsCommon(
     const at::Stack& stack,
-    size_t& size,
     size_t lambd_idx) {
   PARAMS_STUB(ns_RandomExponential::Params);
   float lambd = stack.at(lambd_idx).toScalar().toFloat();
@@ -42,7 +41,7 @@ std::shared_ptr<void> FillExponentialParamsCommon(
       "exponential_ expects lambda >= 0.0, but found lambda=",
       lambd);
   params->beta = 1.0f / lambd;
-  return params;
+  return paramsT;
 }
 
 } // namespace
@@ -66,18 +65,15 @@ SharedMetaDataVector ExponentialSharedMeta(
   return {randomSharedMeta};
 }
 
-std::shared_ptr<void> FillExponentialParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillExponentialParamsCommon(stack, size, 1);
+FillParamsT FillExponentialParams(const at::Stack& stack) {
+  return FillExponentialParamsCommon(stack, 1);
 }
 
 void ExponentialSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto meta = ExponentialMeta(stack)[0];
-  size_t size = 0;
-  auto params = FillExponentialParams(stack, size);
+  auto params = FillExponentialParams(stack);
   std::vector<synTensor> inputs;
 
   if (stack.at(2).isTensor())
@@ -92,8 +88,8 @@ void ExponentialSeedTensorInput::AddNode(
       get_guid_with_precision("random_exponential_fwd"sv, meta.dtype),
       std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      params.ptr(),
+      params.size());
   syn_out(0) = std::move(exponential[0]);
 }
 
@@ -105,10 +101,8 @@ OutputMetaDataVector HabanaExponentialMeta(const at::Stack& stack) {
   return ExponentialMetaCommon(stack, 1);
 }
 
-std::shared_ptr<void> FillHabanaExponentialParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillExponentialParamsCommon(stack, size, 2);
+FillParamsT FillHabanaExponentialParams(const at::Stack& stack) {
+  return FillExponentialParamsCommon(stack, 2);
 }
 
 HabanaExponential::HabanaExponential(int device_id, c10::ScalarType scalar_type)
