@@ -360,15 +360,17 @@ void ProfilerEngine::flush() {
               max_queue_len[pipeline_stage] = queue_length;
             }
 
-            auto device_queue_length = event.device_queue_length;
-            if (device_queue_length < min_device_queue_len) {
-              min_device_queue_len = device_queue_length;
-            } else if (device_queue_length > max_device_queue_len) {
-              max_device_queue_len = device_queue_length;
-            }
-
             pipeline_queue_length[pipeline_stage] += queue_length;
-            device_total_queue_length += device_queue_length;
+            if (pipeline_stage == static_cast<int>(LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID)) { // Collect samples only at execute stage
+
+                  auto device_queue_length = event.device_queue_length;
+                  if (device_queue_length < min_device_queue_len) {
+                    min_device_queue_len = device_queue_length;
+                  } else if (device_queue_length > max_device_queue_len) {
+                    max_device_queue_len = device_queue_length;
+                  }
+                  device_total_queue_length += device_queue_length;
+            }
             stage_counter[pipeline_stage] += 1;
           }
         }
@@ -378,8 +380,12 @@ void ProfilerEngine::flush() {
           stage_total_time[pipeline_stage] / stage_counter[pipeline_stage];
       mean_queue_length[pipeline_stage] =
           pipeline_queue_length[pipeline_stage] / stage_counter[pipeline_stage];
-      mean_device_queue_length =
-          device_total_queue_length / stage_counter[pipeline_stage];
+      if (pipeline_stage == static_cast<int>(LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID)) {
+
+        mean_device_queue_length =
+            device_total_queue_length / stage_counter[pipeline_stage];
+
+      }
 
       for (int i = 0; i < current_index[pipeline_stage]; ++i) {
         auto& event = this->events_table[pipeline_stage][i];
@@ -389,7 +395,6 @@ void ProfilerEngine::flush() {
         uint64_t jit_cache_hit_count_threshold =
             GET_ENV_FLAG_NEW(PT_HPU_LOP_JIT_WARM_UP_STEPS);
         int64_t queue_length = event.pipeline_queue_length;
-        int64_t device_queue_length = event.device_queue_length;
         if (event.is_begin) {
           stage_time_start[pipeline_stage] = time_ns;
         } else {
@@ -399,10 +404,13 @@ void ProfilerEngine::flush() {
                 queue_length - mean_queue_length[pipeline_stage];
             stage_queue_length_variance[pipeline_stage] +=
                 queue_length_diff * queue_length_diff;
-            int64_t device_queue_length_diff =
-                device_queue_length - mean_device_queue_length;
-            device_queue_length_variance +=
-                device_queue_length_diff * device_queue_length_diff;
+            if (pipeline_stage == static_cast<int>(LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID)) {
+                  int64_t device_queue_length = event.device_queue_length;
+                  int64_t device_queue_length_diff =
+                      device_queue_length - mean_device_queue_length;
+                  device_queue_length_variance +=
+                      device_queue_length_diff * device_queue_length_diff;
+            }
             int64_t time_diff = stage_time - stage_mean_time[pipeline_stage];
             stage_time_variance[pipeline_stage] += time_diff * time_diff;
           }
@@ -419,11 +427,12 @@ void ProfilerEngine::flush() {
           (stage_counter[pipeline_stage] - 1);
       stage_queue_length_std[pipeline_stage] =
           (int64_t)sqrt((double)stage_queue_length_variance[pipeline_stage]);
-
-      device_queue_length_variance =
-          device_queue_length_variance / (stage_counter[pipeline_stage] - 1);
-      device_queue_length_std =
-          (int64_t)sqrt((double)device_queue_length_variance);
+      if (pipeline_stage == static_cast<int>(LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID)) {
+        device_queue_length_variance =
+            device_queue_length_variance / (stage_counter[pipeline_stage] - 1);
+        device_queue_length_std =
+            (int64_t)sqrt((double)device_queue_length_variance);
+      }
     }
   }
   fprintf(
