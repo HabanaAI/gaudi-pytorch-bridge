@@ -127,7 +127,7 @@ void thread_fun(at::optional<c10::hpu::HPUStream>& cur_thread_stream) {
 }
 
 // Ensures streams are thread local
-TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
+TEST(TestStream, MultithreadGetAndSetTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPUDeviceContext::get_device();
@@ -267,15 +267,17 @@ TEST(TestStream, ForceUseDefaultStream) {
 void thread_fun_add(bool& result) {
   auto new_stream = c10::hpu::getStreamFromPool();
   c10::hpu::setCurrentHPUStream(new_stream);
+  // CPU
   torch::Tensor tensor_A = torch::randn({200, 300});
+  auto out_A = torch::add(tensor_A, 4.0);
+  // HPU
   torch::Tensor tHabana_A = tensor_A.to(torch::kHPU);
   auto outHabana_A = torch::add(tHabana_A, 4.0);
-  auto out_A = torch::add(tensor_A, 4.0);
   bool equal = out_A.allclose(outHabana_A.to(torch::kCPU), 1e-3, 1e-3);
   result = equal;
 }
 
-TEST(TestStream, DISABLED_MultithreadStreamAddOP) {
+TEST(TestStream, MultithreadStreamAddOP) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPUDeviceContext::get_device();
