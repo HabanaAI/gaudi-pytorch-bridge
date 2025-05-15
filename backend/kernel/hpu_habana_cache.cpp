@@ -1676,8 +1676,7 @@ void RecipeLauncher::Launch(
       device.register_producer_on_stream(stream_handle, ext_events.at(i));
     }
 
-    if (!(common::IsRecordStreamEnabled() &&
-          GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+    if (!common::IsStreamAllocatorEnabled()) {
       // Use wrapper for resources that must survive async part of the compute.
       auto resource_holder = std::shared_ptr<GenericResourceHolder>(
           new GenericResourceHolder(),
@@ -1701,11 +1700,9 @@ void RecipeLauncher::Launch(
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
       resource_holder->set_recipe_id(recipe_ptr);
-      if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->set_output_tensors(outPtRefs);
-        resource_holder->set_address_lock(std::move(address_lock));
-        resource_holder->set_input_tensors(ptRefs);
-      }
+      resource_holder->set_output_tensors(outPtRefs);
+      resource_holder->set_address_lock(std::move(address_lock));
+      resource_holder->set_input_tensors(ptRefs);
       resource_holder->set_recipe_counter_ptr(&recipe_counter);
       resource_holder->set_active_graph_key(active_graph_key_);
       // ResourceHolder could be used directly as callback, if we would only
@@ -1752,9 +1749,7 @@ void RecipeLauncher::Launch(
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
       resource_holder->set_recipe_id(recipe_ptr);
-      if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->set_address_lock(std::move(address_lock));
-      }
+      resource_holder->set_address_lock(std::move(address_lock));
       resource_holder->set_recipe_counter_ptr(&recipe_counter);
       resource_holder->set_active_graph_key(active_graph_key_);
       // ResourceHolder could be used directly as callback, if we would only

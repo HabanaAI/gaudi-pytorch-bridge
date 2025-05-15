@@ -1193,6 +1193,7 @@ inline bool device::copy_data_to_device_(
       ", total_bytes=",
       total_bytes);
   synStatus status;
+  synchronize_substreams(hpu_stream, DMA_H2D);
 
   void* mapped_cpu_data = cpu_data;
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
@@ -1277,6 +1278,26 @@ inline bool device::copy_data_to_device_(
   return true;
 }
 
+/**
+ * Helper used to synchronize stream if it is break-down into more substreams
+ * internally. For example, we can use extra-synapse streams to delegate copies.
+ */
+void device::synchronize_substreams(
+    hpuStream_t hpu_stream,
+    default_stream_type tp) {
+  if (not common::IsStreamAllocatorEnabled()) {
+    return;
+  }
+  synapse_helpers::stream& compute_handle = get_stream(hpu_stream, COMPUTE);
+  synapse_helpers::stream& substream_handle = get_stream(hpu_stream, tp);
+  // Nothing to do
+  if (&compute_handle == &substream_handle) {
+    return;
+  }
+
+  record_and_wait_for_event(compute_handle, substream_handle, [] {});
+}
+
 synapse_error device::copy_data_to_device(
     void* cpu_data,
     device_ptr destination,
@@ -1287,6 +1308,7 @@ synapse_error device::copy_data_to_device(
     bool is_pinned,
     synapse_helpers::hpuStream_t hpu_stream,
     void* host_cpu_data) {
+  synchronize_substreams(hpu_stream, DMA_H2D);
   /* in case of write, we can invoke a fill (compute)
    * stream or via DMA. if we have a fill and a copy
    * Need to wait for the fill compute stream to complete
@@ -1346,6 +1368,7 @@ synapse_error device::copy_data_to_device(
     event_done_callback unref_cb,
     synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
+  synchronize_substreams(hpu_stream, DMA_H2D);
 
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   for (std::size_t i = 0; i < transfers.size(); ++i) {
@@ -1460,6 +1483,7 @@ synapse_error device::copy_data_to_host(
       " total_bytes=",
       total_bytes);
 
+  synchronize_substreams(hpu_stream, DMA_D2H);
   synStatus status;
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_D2H);
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_handle);
@@ -1559,6 +1583,7 @@ synapse_error device::copy_data_within_device(
     synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
 
+  synchronize_substreams(hpu_stream, DMA_D2D);
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_D2D);
   sem_.enqueue_wait_event(src_event_addr, stream_handle);
   auto locked =
@@ -1595,6 +1620,7 @@ synapse_error device::copy_data_within_device(
     stream* const next_operation_stream,
     synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
+  synchronize_substreams(hpu_stream, DMA_D2D);
 
   std::vector<std::uint64_t> all_addresses(2 * transfers.size());
   std::vector<std::uint64_t> dsts(transfers.size());

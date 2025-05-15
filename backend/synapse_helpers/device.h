@@ -541,6 +541,7 @@ class device final : public device_interface {
 
   bool enable_dynamic_workspace_{false};
   bool cleanup_done_{false};
+  void synchronize_substreams(hpuStream_t stream, default_stream_type tp);
 
   // stream counter
   std::atomic<uint64_t> stream_index_{0};

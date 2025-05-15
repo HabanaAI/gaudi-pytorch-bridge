@@ -668,10 +668,6 @@ PT_HPU_ENABLE_RECORD_STREAM:
   type: bool
   default: false
 
-PT_HPU_ENABLE_RECORD_STREAM_NOHOLDER:
-  type: bool
-  default: false
-
 PT_HPU_USE_LAUNCH_RECORD_STREAM:
   type: bool
   default: false

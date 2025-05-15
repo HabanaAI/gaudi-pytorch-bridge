@@ -40,8 +40,9 @@ enum class LibraryType {
 // This function retuns specific LibraryType type based on loaded library.
 LibraryType getLoadedLibraryType();
 
-// StreamAllocator can be enabled only on eager
 bool IsRecordStreamEnabled();
-bool IsRecordStreamNoHolderEnabled();
+bool IsLaunchRecordStreamEnabled();
+// StreamAllocator can be enabled only on eager
+bool IsStreamAllocatorEnabled();
 
 } // namespace common
