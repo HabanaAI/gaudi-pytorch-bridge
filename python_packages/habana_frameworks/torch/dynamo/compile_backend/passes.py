@@ -83,6 +83,27 @@ logger = get_compile_backend_logger()
 
 host_call_functions = {"torch.ops.hpu.weight_permutation"}
 
+custom_pass_at_pre_stagepasses = []
+custom_pass_at_pre_partition = []
+custom_pass_at_fuse_partition = []
+custom_pass_at_post_partition = []
+
+
+def register_pass_at_optimization_pass(
+    custom_pass: Callable[[OptimizerContext], bool], stage: OptimizationPassPlacement
+):
+    if stage == OptimizationPassPlacement.PRE_PLACEMENT:
+        custom_pass_at_pre_stagepasses.append(custom_pass)
+    elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
+        custom_pass_at_pre_partition.append(custom_pass)
+    elif stage == OptimizationPassPlacement.PARTITIONER:
+        custom_pass_at_fuse_partition.append(custom_pass)
+    elif stage == OptimizationPassPlacement.POST_PARTITIONER:
+        custom_pass_at_post_partition.append(custom_pass)
+    else:
+        logger.error("unknown optimization stage %s", stage)
+        raise
+
 
 def get_passes(stage: OptimizationPassPlacement):
     """
@@ -95,7 +116,7 @@ def get_passes(stage: OptimizationPassPlacement):
           Could be overkill tho.
     """
     if stage == OptimizationPassPlacement.PRE_PLACEMENT:
-        return [
+        pre_placement_pass = [
             # this pass will flatten nested submodules by inlining
             pass_annotate_nodes_and_inline_submodule,
             # These passes will be ran once, they always get and produce a flat graph without submodules.
@@ -118,6 +139,11 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_mark_placement,
             pass_graph_print,
         ]
+        for custom_pass in custom_pass_at_pre_stagepasses:
+            logger.info("adding %s pass at stage %s", custom_pass.__name__, stage)
+            pre_placement_pass.append(custom_pass)
+            pre_placement_pass.append(pass_graph_print)
+        return pre_placement_pass
     elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
         passes = [
             # These passes will prepare proper placement for some corner-cases.
@@ -129,9 +155,13 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_replace_sym_size,
             pass_inference_fuse_linear,
         ]
+        for custom_pass in custom_pass_at_pre_partition:
+            logger.info("adding %s pass at stage %s", custom_pass.__name__, stage)
+            passes.append(custom_pass)
+            passes.append(pass_graph_print)
         return passes
     elif stage == OptimizationPassPlacement.PARTITIONER:
-        return [
+        partition_pass = [
             pass_graph_print,
             pass_mark_frozen_params,
             pass_mark_waittensor_downstream_ops,
@@ -152,8 +182,13 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_graph_print,
             pass_wa_fix_output,
         ]
+        for custom_pass in custom_pass_at_fuse_partition:
+            logger.info("adding %s pass at stage %s", custom_pass.__name__, stage)
+            partition_pass.append(custom_pass)
+            partition_pass.append(pass_graph_print)
+        return partition_pass
     elif stage == OptimizationPassPlacement.POST_PARTITIONER:
-        return [
+        post_partition_pass = [
             # These passes will be ran once, they have to work on graph with submodules.
             pass_graph_print,
             pass_summarize_graph,
@@ -163,6 +198,11 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_compile_clusters,
             pass_make_boxed_graph,
         ]
+        for custom_pass in custom_pass_at_post_partition:
+            logger.info("adding %s pass at stage %s", custom_pass.__name__, stage)
+            post_partition_pass.append(custom_pass)
+            post_partition_pass.append(pass_graph_print)
+        return post_partition_pass
     else:
         logger.error("unknown optimization stage %s", stage)
         raise

@@ -447,6 +447,7 @@
                 "test_propose_partitions",
                 "test_relu_cpuinput",
                 "test_reorder_custom_ops",
+                "test_register_custom_pass",
                 "test_save_load_module[E5M2-1-False]",
                 "test_save_load_module[E5M2-1-True]",
                 "test_save_load_module[E5M2-4-False]",
