@@ -37,8 +37,8 @@ FillParamsT FillExponentialParamsCommon(
   PARAMS_STUB(ns_RandomExponential::Params);
   float lambd = stack.at(lambd_idx).toScalar().toFloat();
   HABANA_ASSERT(
-      lambd >= 0.0,
-      "exponential_ expects lambda >= 0.0, but found lambda=",
+      lambd > 0.0,
+      "exponential_ expects lambda > 0.0, but found lambda=",
       lambd);
   params->beta = 1.0f / lambd;
   return paramsT;
