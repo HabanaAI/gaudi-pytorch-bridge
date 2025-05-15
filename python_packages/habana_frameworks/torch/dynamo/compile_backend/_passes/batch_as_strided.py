@@ -31,7 +31,7 @@ logger = get_compile_backend_logger()
 
 class BatchAsStridedOperatorSupport(OperatorSupport):
     def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
-        return "as_strided" in str(node.target) and "hpu" in str(node.meta["output_device"])
+        return "as_strided.default" in str(node.target) and "hpu" in str(node.meta["output_device"])
 
 
 def group_batch_as_strided(graph_module: torch.fx.GraphModule) -> list:
