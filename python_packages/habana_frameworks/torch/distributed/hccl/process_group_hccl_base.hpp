@@ -139,7 +139,7 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       int srcRank,
       int tag) override;
 
-  bool supportsCoalescing() {
+  bool supportsCoalescing() const override {
     return true;
   }
 
