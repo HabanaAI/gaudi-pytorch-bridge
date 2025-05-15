@@ -90,6 +90,8 @@ class active_recipe_counter {
 
 class host_event {
  public:
+  host_event(hpuStream_t stream) : stream_(stream) {}
+
   void wait_for_event_complete() {
     std::unique_lock<std::mutex> lck(mutex_);
     cv_.wait(lck, [this]() -> bool { return done(); });
@@ -105,7 +107,12 @@ class host_event {
     return done_.load();
   }
 
+  hpuStream_t stream() const {
+    return stream_;
+  }
+
  private:
+  hpuStream_t stream_;
   std::condition_variable cv_;
   std::mutex mutex_;
   std::atomic<bool> done_{false};
@@ -143,6 +150,7 @@ class device final : public device_interface {
   void cleanup();
   void flush_stream_events();
   void flush_host_events();
+  void flush_host_events_on_stream(hpuStream_t stream);
 
   // Function passed here will be called at the begining od device dtor.
   void register_framework_specific_cleanup(
@@ -456,7 +464,7 @@ class device final : public device_interface {
       size_t persistent_size,
       size_t req_workspace_size);
 
-  void register_host_event(uint64_t addr);
+  void register_host_event(hpuStream_t stream, uint64_t addr);
 
   void wait_for_host_event(uint64_t addr);
 

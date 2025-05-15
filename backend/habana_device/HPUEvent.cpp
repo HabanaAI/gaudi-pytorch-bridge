@@ -113,6 +113,7 @@ void HPUEvent::block(const c10::hpu::HPUStream& stream) {
     }
     auto& device = habana::HPUDeviceContext::get_device();
     device.wait_event(id_, stream.stream());
+    device.flush_host_events_on_stream(stream.stream());
   }
 }
 
@@ -130,6 +131,7 @@ void HPUEvent::synchronize() const {
   if (is_created_) {
     auto& device = habana::HPUDeviceContext::get_device();
     device.synchronize_event(id_);
+    device.flush_host_events();
   }
 }
 

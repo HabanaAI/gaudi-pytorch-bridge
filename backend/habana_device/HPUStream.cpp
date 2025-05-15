@@ -161,6 +161,7 @@ void HPUStream::synchronize() const {
   } else {
     stream.synchronize();
   }
+  device.flush_host_events_on_stream(hpu_stream_id);
 }
 // See Note [StreamId assignment]
 synapse_helpers::hpuStream_t HPUStream::stream() const {

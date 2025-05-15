@@ -1076,6 +1076,21 @@ void device::delete_stream(hpuStream_t id) {
   HABANA_ASSERT(it != streams_.end());
   streams_.erase(id);
 }
+void device::flush_host_events_on_stream(hpuStream_t stream) {
+  habana_helpers::AutoNoGIL gil_release;
+  std::vector<uint64_t> addrs;
+  {
+    std::unique_lock<std::mutex> lock(host_event_mutex_);
+    for (auto& p : addr_host_event_map_) {
+      if (p.second->stream() == stream) {
+        addrs.push_back(p.first);
+      }
+    }
+  }
+  for (auto addr : addrs) {
+    wait_for_host_event(addr);
+  }
+}
 
 void device::flush_host_events() {
   habana_helpers::AutoNoGIL gil_release;
@@ -1138,7 +1153,7 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   return stream;
 }
 
-void device::register_host_event(uint64_t addr) {
+void device::register_host_event(hpuStream_t stream, uint64_t addr) {
   std::unique_lock<std::mutex> lock(host_event_mutex_);
   auto it = addr_host_event_map_.find(addr);
   if (it != addr_host_event_map_.end()) {
@@ -1146,7 +1161,7 @@ void device::register_host_event(uint64_t addr) {
     wait_for_host_event(addr);
     lock.lock();
   }
-  std::shared_ptr<host_event> event = std::make_shared<host_event>();
+  std::shared_ptr<host_event> event = std::make_shared<host_event>(stream);
   addr_host_event_map_[addr] = event;
 }
 
@@ -1539,7 +1554,7 @@ synapse_error device::copy_data_to_host(
   if (!is_pinned) {
     PT_SYNHELPER_DEBUG(
         "register host event for addr ", reinterpret_cast<void*>(destination));
-    register_host_event(reinterpret_cast<uint64_t>(destination));
+    register_host_event(hpu_stream, reinterpret_cast<uint64_t>(destination));
   }
   sem_.add_producer(
       {reinterpret_cast<uint64_t>(destination)},
