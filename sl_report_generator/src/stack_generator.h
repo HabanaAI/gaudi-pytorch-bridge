@@ -81,6 +81,7 @@ class StackGenerator : public IStackGenerator {
   std::vector<InputDescriptor> inputs;
   std::vector<at::ScalarType> blacklisted_precision_types;
   std::vector<at::ScalarType> whitelisted_precision_types;
+  int default_array_length;
 
   bool verbose = false;
 
@@ -129,7 +130,8 @@ class SchemaStackGenerator : public StackGenerator {
       const std::string& schema,
       const std::string& op_name,
       const std::string& op_name_and_overload_name = "",
-      const std::vector<int64_t>& ranks = {1});
+      const std::vector<int64_t>& ranks = {1},
+      const int default_array_length = 1);
   virtual ~SchemaStackGenerator() = default;
 
  private:

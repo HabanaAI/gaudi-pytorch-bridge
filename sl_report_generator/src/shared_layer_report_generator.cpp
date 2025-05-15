@@ -28,10 +28,12 @@ void SharedLayerReportGenerator::register_exceptions() {
   register_clamp_exception();
   register_ctc_loss_exception();
   register_ctc_loss_tensor_exception();
+  register_fused_clip_norm_exception();
   register_grid_sample_exception();
   register_im2col_exception();
   register_im2col_out_exception();
   register_index_reduce__exception();
+  register_kv_reorder_exception();
   register_linear_exception();
   register_masked_fill_exception();
   register_masked_scatter_exception();
@@ -419,6 +421,78 @@ void SharedLayerReportGenerator::register_index_reduce__exception() {
       custom_executors.back().get());
 }
 
+void SharedLayerReportGenerator::register_kv_reorder_exception() {
+  custom_stack_generators.push_back(
+      std::make_unique<StackGenerator>(StackGenerator(
+          {InputDescriptor{
+               /* name */ "self",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ true,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "start",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */
+               std::vector<c10::ScalarType>{at::ScalarType::Int},
+               /* match_precision_type */ false,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "end",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */
+               std::vector<c10::ScalarType>{at::ScalarType::Int},
+               /* match_precision_type */ false,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "beam_idx",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */
+               std::vector<c10::ScalarType>{at::ScalarType::Byte},
+               /* match_precision_type */ false,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt}},
+          /* blacklisted_precision_types */ {},
+          /* whitelisted_precision_types */ {},
+          "kv_reorder")));
+
+  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(), &habana::validator_kv_reorder_));
+
+  register_op(
+      {/* op_name */ "kv_reorder",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
+      custom_executors.back().get());
+}
+
 void SharedLayerReportGenerator::register_linear_exception() {
   custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
       "Tensor input, Tensor weight, Tensor? bias",
@@ -437,6 +511,24 @@ void SharedLayerReportGenerator::register_linear_exception() {
       {/* op_name */ "linear",
        /* overload */ "",
        /* op_namespace */ "torch.nn.functional"},
+      custom_executors.back().get());
+}
+
+void SharedLayerReportGenerator::register_fused_clip_norm_exception() {
+  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
+      /* schema */ "Tensor[] grad, Tensor max_norm, float norm_type",
+      /* op_name */ "fused_clip_norm",
+      /* op_name_and_overload_name */ "",
+      /* ranks*/ std::vector<int64_t>{1},
+      /* default_array_length */ 2));
+  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(),
+      &habana::validator_fused_clip_norm));
+
+  register_op(
+      {/* op_name */ "fused_clip_norm",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
       custom_executors.back().get());
 }
 
@@ -2380,6 +2472,13 @@ void SharedLayerReportGenerator::register_static_exceptions() {
        /* overload */ "",
        /* op_namespace */ "torch.Tensor"},
       i32I8BoolExecutor);
+
+  /* ACCUMULATE_GRADS_ */
+  register_op(
+      {/* op_name */ "accumulate_grads_",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
+      allExecutor);
 
   /* BATCHED_NMS */
   register_op(

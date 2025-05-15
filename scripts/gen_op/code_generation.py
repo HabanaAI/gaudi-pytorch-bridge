@@ -1911,6 +1911,8 @@ def generate_impl_call(aten_sig, native_func_dict, param_vars, is_custom_op):
     if aten_sig_name in native_func_dict and not is_custom_op:
         return codegen_torchgen(native_func_dict[aten_sig_name])
     else:
+        # remove (a), (a!), (b), (b!)...
+        aten_sig = re.sub(r"\([a-z]!?\)", "", aten_sig)
         # Extract params from the signature
         aten_sig_types = re.split(r",(?!\d)", re.split(r"\(|\)", aten_sig)[1])
         # Extract type from param, e.g., "Tensor? a=None" to "Tensor?"

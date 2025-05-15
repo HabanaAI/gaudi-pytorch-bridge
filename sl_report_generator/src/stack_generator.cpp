@@ -536,11 +536,13 @@ SchemaStackGenerator::SchemaStackGenerator(
     const std::string& schema,
     const std::string& op_name,
     const std::string& op_name_and_overload_name,
-    const std::vector<int64_t>& ranks)
+    const std::vector<int64_t>& ranks,
+    const int default_array_length)
     : StackGenerator(ranks) {
   this->op_name = op_name;
   this->op_and_overload_name =
       op_name_and_overload_name.empty() ? op_name : op_name_and_overload_name;
+  this->default_array_length = default_array_length;
   blacklisted_precision_types = getBlacklistedPrecisionTypes();
   whitelisted_precision_types = getWhitelistedPrecisionTypes();
   inputs = generateInputs(schema);
@@ -825,7 +827,8 @@ std::vector<InputDescriptor> SchemaStackGenerator::generateInputs(
 
     if (isArrayParam(param_type)) {
       input_descriptor.is_array = true;
-      input_descriptor.array_length = extractArrayLength(param_type);
+      input_descriptor.array_length =
+          std::max(extractArrayLength(param_type), default_array_length);
       param_type = eraseArrayCharacters(param_type);
     }
 

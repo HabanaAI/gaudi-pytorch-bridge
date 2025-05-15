@@ -65,11 +65,13 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_clamp_exception();
   void register_ctc_loss_exception();
   void register_ctc_loss_tensor_exception();
+  void register_fused_clip_norm_exception();
   void register_grid_sample_exception();
   void register_im2col_exception();
   void register_im2col_out_exception();
   void register_index_reduce__exception();
   void register_linear_exception();
+  void register_kv_reorder_exception();
   void register_masked_fill_exception();
   void register_masked_scatter_exception();
   void register_max_pool2d_exception();

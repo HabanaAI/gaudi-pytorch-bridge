@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <shared_layer_api.hpp>
 #include "hpu_ops/fused_clip_norm.h"
 
 #include "habana_helpers/logging.h"
@@ -37,6 +38,78 @@ OutputMetaDataVector FusedClipNormOp::FusedClipNormMeta(
   }
 
   return meta_vec;
+}
+
+SharedMetaDataVector FusedClipNormSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& gradients = stack.at(0).toTensorVector();
+  const auto& max_norm = stack.at(1).toTensor();
+  const auto precision_type = gradients[0].scalar_type();
+
+  const auto num_params = gradients.size() - 1;
+  SharedMetaTensor constant_tensor{1, precision_type};
+  SharedMetaDataVector shared_meta_vec;
+
+  SharedMetaVector concat_inputs;
+  for (size_t i = 0; i < num_params && i < SharedLayer::MAX_TENSOR_NR; i++) {
+    SharedMetaData sum_shared_meta{"reduce_sum_square_multi_dim_fwd"};
+    sum_shared_meta.inputs_data = {{gradients[i].dim(), precision_type}};
+    sum_shared_meta.outputs_data = {constant_tensor};
+    shared_meta_vec.push_back(sum_shared_meta);
+
+    SharedMetaData norm_shared_meta{"sqrt_fwd"};
+    norm_shared_meta.inputs_data = sum_shared_meta.outputs_data;
+    norm_shared_meta.outputs_data = {constant_tensor};
+    concat_inputs.push_back(constant_tensor);
+    shared_meta_vec.push_back(norm_shared_meta);
+  }
+
+  SharedMetaData concat_shared_meta{"concat"};
+  concat_shared_meta.inputs_data = concat_inputs;
+  concat_shared_meta.outputs_data = {constant_tensor};
+  shared_meta_vec.push_back(concat_shared_meta);
+
+  SharedMetaData sum_shared_meta{"reduce_sum_square_fwd"};
+  sum_shared_meta.inputs_data = concat_shared_meta.outputs_data;
+  sum_shared_meta.outputs_data = sum_shared_meta.inputs_data;
+  shared_meta_vec.push_back(sum_shared_meta);
+
+  SharedMetaData total_norm_shared_meta{"sqrt_fwd"};
+  total_norm_shared_meta.inputs_data = sum_shared_meta.outputs_data;
+  total_norm_shared_meta.outputs_data = total_norm_shared_meta.inputs_data;
+  shared_meta_vec.push_back(total_norm_shared_meta);
+
+  SharedMetaData add_shared_meta{"add_fwd"};
+  add_shared_meta.inputs_data = {
+      total_norm_shared_meta.outputs_data[0], constant_tensor};
+  add_shared_meta.outputs_data = {constant_tensor};
+  shared_meta_vec.push_back(add_shared_meta);
+
+  SharedMetaData clip_coef_shared_meta{"div_fwd"};
+  clip_coef_shared_meta.inputs_data = {
+      {max_norm.dim(), precision_type}, add_shared_meta.outputs_data[0]};
+  clip_coef_shared_meta.outputs_data = {constant_tensor};
+  shared_meta_vec.push_back(clip_coef_shared_meta);
+
+  SharedMetaData clamp_shared_meta{"clamp_pt_fwd"};
+  clamp_shared_meta.inputs_data = {
+      clip_coef_shared_meta.outputs_data[0],
+      createOptionalNotPresentSharedMetaTensor(),
+      constant_tensor};
+  clamp_shared_meta.outputs_data = {constant_tensor};
+  shared_meta_vec.push_back(clamp_shared_meta);
+
+  for (size_t i = 0; i < num_params; i++) {
+    SharedMetaData mult_shared_meta{"mult_fwd"};
+    mult_shared_meta.inputs_data = {
+        clamp_shared_meta.outputs_data[0],
+        {gradients[i].dim(), precision_type}};
+    mult_shared_meta.outputs_data.emplace_back(
+        gradients[i].dim(), precision_type);
+    shared_meta_vec.push_back(mult_shared_meta);
+  }
+  return {shared_meta_vec};
 }
 
 FusedClipNormOp::FusedClipNormOp(int device_id, c10::ScalarType scalar_type)

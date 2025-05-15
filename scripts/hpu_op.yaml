@@ -8841,7 +8841,9 @@ kv_reorder_:
   guid: kv_reorder_
   op_backend: KvReorderCommon
   inplace_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: KvReorderSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # TORCH_CHECK inside output_meta
 
 masked_batch_gemm:
   custom_op_schema: "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor"
@@ -9333,3 +9335,10 @@ mamba_pscan_update:
   out_ids: [0]
   output_meta: MambaPscanUpdateMeta
   op_validator_exception: custom_op
+
+fused_clip_norm:
+  custom_op_schema: "hpu::fused_clip_norm(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor"
+  only_slrg: true
+  op_validator: FusedClipNormSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # exception - minimum 2 elements of tensor list
