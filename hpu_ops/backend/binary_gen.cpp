@@ -541,7 +541,7 @@ void BinaryWithAlpha::AddNode(
     switch (mode) {
       case BINARY_WITH_ALPHA_MODE_ADD:
         opName = "add";
-        use_int64 = true;
+        use_int64 = common::IsInt64Supported();
         break;
       case BINARY_WITH_ALPHA_MODE_RSUB:
         // RSUB uses SUB kernel, but with reversed inputs
