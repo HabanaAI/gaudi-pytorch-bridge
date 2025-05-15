@@ -17,18 +17,14 @@
 
 macro(detect_pt_version)
   execute_process(
-    COMMAND ${Python_EXECUTABLE} -c "import torch; print(torch.__version__.replace('+hpu.git', '.'))"
-    OUTPUT_VARIABLE TORCH_VERSION_AND_HASH
+    COMMAND ${Python_EXECUTABLE} -c "import torch;print(torch.__version__.split('+')[0])"
+    OUTPUT_VARIABLE TORCH_VERSION_FULL
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-  string(REPLACE "." ";" TORCH_VERSION_LIST ${TORCH_VERSION_AND_HASH})
+  string(REPLACE "." ";" TORCH_VERSION_LIST ${TORCH_VERSION_FULL})
   list(GET TORCH_VERSION_LIST 0 TORCH_VERSION_MAJOR)
   list(GET TORCH_VERSION_LIST 1 TORCH_VERSION_MINOR)
   list(GET TORCH_VERSION_LIST 2 TORCH_VERSION_PATCH)
-  list(GET TORCH_VERSION_LIST 3 TORCH_COMMIT_HASH)
 
-  message(
-    STATUS
-      "PyTorch version detected: ${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}.${TORCH_VERSION_PATCH}+hpu.git${TORCH_COMMIT_HASH}"
-  )
+  message(STATUS "PyTorch version detected: ${TORCH_VERSION_FULL}")
 endmacro(detect_pt_version)
