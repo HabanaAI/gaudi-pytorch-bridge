@@ -2466,6 +2466,10 @@ void SharedLayerReportGenerator::register_static_exceptions() {
           c10::ScalarType::Bool}));
   auto allExceptFp16I64I16Executor = custom_executors.back().get();
 
+  custom_executors.push_back(std::make_unique<StaticSharedLayerExecutor<>>(
+      Report(/* fp4 */ false, /* int4 */ true)));
+  auto i4Executor = custom_executors.back().get();
+
   /* __AND__ */
   register_op(
       {/* op_name */ "__and__",
@@ -2573,6 +2577,20 @@ void SharedLayerReportGenerator::register_static_exceptions() {
        /* overload */ "",
        /* op_namespace */ "torch.Tensor"},
       fp32Bf16I32Executor);
+
+  /* CONVERT_FROM_INT4 */
+  register_op(
+      {/* op_name */ "convert_from_int4",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
+      i4Executor);
+
+  /* CONVERT_FROM_UINT4 */
+  register_op(
+      {/* op_name */ "convert_from_uint4",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
+      i4Executor);
 
   /* CONJ */
   register_op(
