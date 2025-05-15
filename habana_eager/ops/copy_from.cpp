@@ -25,10 +25,10 @@
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/op_logger.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
-
 namespace {
 
 std::vector<int64_t> translateSynapsePermuteToPt(
@@ -252,9 +252,10 @@ void Register_Copy_In_Pipeline(
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst)};
   dst_hb_tmeta->set_tensor_pipelined();
 
-  void* host_ptr;
+  void* host_ptr = nullptr;
   // Set cpu host memory metadata on the src cpu tensor (if non-pinned memory)
-  if (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr())) {
+  if (non_blocking and
+      !habana::PinnedMemoryAllocator_is_pinned(src.data_ptr())) {
     // Allocate host memory and do std::copy in the main thread
     // host memory will be freed after dma memcopy at copy_data_to_device
     const size_t total_bytes = habana_helpers::GetNBytes(src);
@@ -273,39 +274,45 @@ void Register_Copy_In_Pipeline(
         reinterpret_cast<uint8_t*>(host_ptr));
   }
 
-  auto copy_operation = std::make_shared<CopyOperation>(
-      src, dst, non_blocking, stream, host_ptr);
+  auto copy_operation =
+      std::make_shared<CopyOperation>(src, dst, non_blocking, stream, host_ptr);
 
   PipelineTaskAllThreads(
       std::move(copy_operation),
-      [](std::shared_ptr<CopyOperation> copy_op) {
+      [](std::shared_ptr<CopyOperation>& copy_op) {
         clear_permutation_info(copy_op->dst());
       },
-      [](std::shared_ptr<CopyOperation>) {},
-      [](std::shared_ptr<CopyOperation> copy_op) {
+      [](std::shared_ptr<CopyOperation>&) {},
+      [](std::shared_ptr<CopyOperation>& copy_op) {
         habana_helpers::copy_data_to_device(
             copy_op->src(),
             copy_op->dst(),
             copy_op->non_blocking(),
             copy_op->stream(),
             copy_op->host_ptr());
+        copy_op->release();
       });
+
+  if (not non_blocking) {
+    habana::eager::JoinPendingPipelineThreads();
+  }
 }
 
 void Pipeline_Or_Direct_Copy(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  bool pipeline_flag =
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && non_blocking;
-  if (pipeline_flag) {
+  bool use_pipeline = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
+  if (use_pipeline and non_blocking) {
     // Check if the CPU src tensor is allocated at the pinned memory.
     // non-blocking copy with pinned memory allocation should not be pipelined.
     // as there can be a race condition with CPU tensor inplace operation.
-    pipeline_flag &= (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr()));
+    non_blocking &= (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr()));
+    PT_EAGER_DEBUG(
+        "Ignoring non-blocking flag in copy operation due to pinned memory");
   }
 
-  if (pipeline_flag) {
+  if (use_pipeline) {
     auto src_backend = HbEagerTensorPool::get_backend_tensor(src);
     auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
 

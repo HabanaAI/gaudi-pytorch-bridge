@@ -967,10 +967,15 @@ void device::create_default_streams() {
   dma_streams_mapper[DMA_D2H] = generic_stream_limit + 3;
 }
 
-void device::create_default_stream(default_stream_type type, uint64_t availAffinity, bool is_compute_stream) {
+void device::create_default_stream(
+    default_stream_type type,
+    uint64_t availAffinity,
+    bool is_compute_stream) {
   default_streams_[type] = absl::make_unique<stream>(*this, is_compute_stream);
-  PT_SYNHELPER_DEBUG("STREAM:: default stream", type, "handle", *default_streams_[type]);
-  auto status = synStreamSetAffinity(id_, *default_streams_[type], availAffinity);
+  PT_SYNHELPER_DEBUG(
+      "STREAM:: default stream", type, "handle", *default_streams_[type]);
+  auto status =
+      synStreamSetAffinity(id_, *default_streams_[type], availAffinity);
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
@@ -988,17 +993,13 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
     stream* stream = nullptr;
     if (id == 0) { // default stream any type stream
       stream = &(*default_streams_[stream_type]);
-    }
-    else if (id == dma_streams_mapper[DMA_D2D]) {
+    } else if (id == dma_streams_mapper[DMA_D2D]) {
       stream = &(*default_streams_[DMA_D2D]);
-    }
-    else if (id == dma_streams_mapper[DMA_H2D]) {
+    } else if (id == dma_streams_mapper[DMA_H2D]) {
       stream = &(*default_streams_[DMA_H2D]);
-    }
-    else if (id == dma_streams_mapper[DMA_D2H]) {
+    } else if (id == dma_streams_mapper[DMA_D2H]) {
       stream = &(*default_streams_[DMA_D2H]);
-    }
-    else {
+    } else {
       auto index = id;
       if (id >= generic_stream_limit) {
         index = (id % generic_stream_limit);
@@ -1012,8 +1013,7 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
       stream = &(*it->second);
     }
 
-    PT_SYNHELPER_DEBUG(
-      "STREAM:: get stream handle ", *stream, " for id::", id);
+    PT_SYNHELPER_DEBUG("STREAM:: get stream handle ", *stream, " for id::", id);
     return *stream;
   } else {
     if (id == 0 || stream_type != COMPUTE) { // any type stream
@@ -1055,9 +1055,14 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
   }
 }
 
-hpuStream_t device::get_dma_pt_stream(hpuStream_t id, default_stream_type stream_type) {
-  HABANA_ASSERT(stream_type == DMA_D2D || stream_type == DMA_D2H || stream_type == DMA_H2D,
-    "Invalid DMA stream type::", stream_type);
+hpuStream_t device::get_dma_pt_stream(
+    hpuStream_t id,
+    default_stream_type stream_type) {
+  HABANA_ASSERT(
+      stream_type == DMA_D2D || stream_type == DMA_D2H ||
+          stream_type == DMA_H2D,
+      "Invalid DMA stream type::",
+      stream_type);
 
   if (id == 0) {
     return dma_streams_mapper[stream_type];
@@ -1192,6 +1197,7 @@ inline bool device::copy_data_to_device_(
   void* mapped_cpu_data = cpu_data;
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   uint8_t* dst_ptr;
+
   if (!is_pinned) {
     if (host_cpu_data) {
       // host memory already allocated in the main thread
@@ -1255,8 +1261,9 @@ inline bool device::copy_data_to_device_(
       {event_addr},
       stream_handle,
       [this, dst_ptr, is_pinned, done_cb, locked]() mutable {
-        if (!is_pinned)
+        if (!is_pinned) {
           host_memory_.free((void*)dst_ptr);
+        }
         done_cb();
         towl::emitCopyFinished(
             "h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));

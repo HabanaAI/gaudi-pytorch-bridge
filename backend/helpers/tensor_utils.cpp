@@ -412,14 +412,15 @@ void habana_helpers::copy_data_to_host(
   }
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
-
     std::function<void()> callback = nullptr;
     if (common::IsRecordStreamEnabled() &&
         GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
-      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(hpu_stream, synapse_helpers::default_stream_type::DMA_D2H);
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(
+          hpu_stream, synapse_helpers::default_stream_type::DMA_D2H);
       device.get_device_memory().recordStream(src.data_ptr(), dma_stream);
-      callback = [rh = std::make_shared<GenericResourceHolder>(
-        dst)]() mutable { rh->release_resources(); };
+      callback = [rh = std::make_shared<GenericResourceHolder>(dst)]() mutable {
+        rh->release_resources();
+      };
     } else {
       // keeps a reference to the tensor it is operating on to prevent it
       // from being deallocated while the operation is still in flight.
@@ -498,10 +499,12 @@ void habana_helpers::copy_data_to_device(
     std::function<void()> callback = nullptr;
     if (common::IsRecordStreamEnabled() &&
         GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
-      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(hpu_stream, synapse_helpers::default_stream_type::DMA_H2D);
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(
+          hpu_stream, synapse_helpers::default_stream_type::DMA_H2D);
       device.get_device_memory().recordStream(dst.data_ptr(), dma_stream);
-      callback = [rh = std::make_shared<GenericResourceHolder>(
-        src)]() mutable { rh->release_resources(); };
+      callback = [rh = std::make_shared<GenericResourceHolder>(src)]() mutable {
+        rh->release_resources();
+      };
     } else {
       // keeps a reference to the tensor it is operating on to prevent it
       // from being deallocated while the operation is still in flight.
@@ -556,11 +559,11 @@ void habana_helpers::copy_data_within_device(
   synapse_helpers::hpuStream_t current_stream = c10::hpu::getCurrentHPUStream();
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
-
     std::function<void()> callback = nullptr;
     if (common::IsRecordStreamEnabled() &&
         GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM)) {
-      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(current_stream, synapse_helpers::default_stream_type::DMA_D2D);
+      synapse_helpers::hpuStream_t dma_stream = device.get_dma_pt_stream(
+          current_stream, synapse_helpers::default_stream_type::DMA_D2D);
       device.get_device_memory().recordStream(src.data_ptr(), dma_stream);
       device.get_device_memory().recordStream(dst.data_ptr(), dma_stream);
     } else {

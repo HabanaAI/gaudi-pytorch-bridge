@@ -17,43 +17,47 @@
 
 class CopyOperation {
  public:
-    CopyOperation(
-        const at::Tensor& src,
-        const at::Tensor& dst,
-        bool non_blocking,
-        c10::hpu::HPUStream stream,
-        void* host_ptr)
-        : src_(src),
-          dst_(dst),
-          non_blocking_(non_blocking),
-          stream_(stream),
-          host_ptr_(host_ptr) {}
+  CopyOperation(
+      const at::Tensor& src,
+      const at::Tensor& dst,
+      bool non_blocking,
+      c10::hpu::HPUStream stream,
+      void* host_ptr)
+      : src_(src),
+        dst_(dst),
+        non_blocking_(non_blocking),
+        stream_(stream),
+        host_ptr_(host_ptr) {}
 
-    const at::Tensor& src() const {
-        return src_;
-    }
+  const at::Tensor& src() const {
+    return src_;
+  }
 
-    const at::Tensor& dst() const {
-        return dst_;
-    }
+  const at::Tensor& dst() const {
+    return dst_;
+  }
 
-    bool non_blocking() const {
-        return non_blocking_;
-    }
+  bool non_blocking() const {
+    return non_blocking_;
+  }
 
-    c10::hpu::HPUStream stream() const {
-        return c10::hpu::HPUStream(stream_);
-    }
+  c10::hpu::HPUStream stream() const {
+    return c10::hpu::HPUStream(stream_);
+  }
 
-    void* host_ptr() const {
-        return host_ptr_;
-    }
+  void* host_ptr() const {
+    return host_ptr_;
+  }
 
+  void release() {
+    src_ = at::Tensor();
+    dst_ = at::Tensor();
+  }
 
  private:
-    at::Tensor src_;
-    at::Tensor dst_;
-    bool non_blocking_;
-    c10::Stream stream_;
-    void* host_ptr_;
+  at::Tensor src_;
+  at::Tensor dst_;
+  bool non_blocking_;
+  c10::Stream stream_;
+  void* host_ptr_;
 };
