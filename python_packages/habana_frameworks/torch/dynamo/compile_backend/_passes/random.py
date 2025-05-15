@@ -121,6 +121,15 @@ def skip_faketensor_propagation(node):
         else:
             return True
 
+    # skip hpu::slice_ds/hpu::constant_pad_nd_ds faketensor propagation.
+    # these dynamic version's metadata should be the same as the static version's.
+    if (
+        hasattr(node.target, "namespace")
+        and node.target.namespace == "hpu"
+        and node.target.__name__.split(".")[0].endswith("_ds")
+    ):
+        return True
+
 
 def propagate_for_random_ops(
     graph_module: torch.fx.GraphModule, args, additional_inputs: tuple[torch.Tensor, torch.Tensor]
