@@ -22,6 +22,7 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 
 import torch
 from torch.fx.passes.operator_support import OperatorSupport
+from torch.fx.passes.tools_common import legalize_graph
 
 from .._helpers import fill_propagated_tensor_metadata_to_node
 from ..partitioner import HabanaPartitioner
@@ -99,6 +100,7 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
                 fill_propagated_tensor_metadata_to_node(getitem_result, getitem_node)
             node.replace_all_uses_with(getitem_node)
             graph_module.graph.erase_node(node)
+    legalize_graph(graph_module)
     graph_module.recompile()
     graph_module.graph.lint()
     return retval
