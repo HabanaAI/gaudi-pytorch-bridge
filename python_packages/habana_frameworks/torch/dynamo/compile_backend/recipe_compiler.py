@@ -130,7 +130,11 @@ def get_input_symbolic(graph_module, inputs):
                             input_shape = input_meta.size()
                             logger.debug(f"Getting Min/Max for Tensor {input_node.name}")
                             min, max, expr = get_input(input_shape)
-                            expr_strides = [item for t in input_node.meta["output_strides"] for item in t]
+                            rank = len(input_shape)
+                            # Use output_strides if available, else fill with default strides of 1
+                            # Constant tensor doesn't have the "output_strides" meta information
+                            output_strides = input_node.meta.get("output_strides", [[1] * rank])
+                            expr_strides = [item for t in output_strides for item in t]
                             range_info = RangeInfo(min, max, str(expr), str(expr_strides), input_idx)
                             min_max_shapes.append(range_info)
                         elif isinstance(input_meta, torch.SymInt | int):
