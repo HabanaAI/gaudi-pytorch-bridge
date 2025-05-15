@@ -389,6 +389,7 @@ def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scal
     # 0d float CPU scales of fp8 ops are left on the CPU device for H2D optimization.
     ops_to_scales_idx = {
         "cast_to_fp8_v2.default": (1, 2),
+        "cast_from_fp8.default": (1, 2),
         "fp8_gemm_v2.default": (6, 8),
         "fp8_sdpa_fwd_dropout.default": (8, 14),
         "fp8_sdpa_fwd_non_dropout.default": (8, 14),

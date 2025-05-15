@@ -859,7 +859,8 @@ PT_HPU_ENABLE_H2D_SCALES:
   type: bool
   default: true
   settable: true
-  doc: "When this flag is enabled, CPU scales in cast_to_fp8_v2, fp8_gemm_v2 and fp8_sdpa ops are converted to H2D tensors."
+  doc: "When this flag is enabled, CPU scales in cast_to_fp8_v2, cast_from_fp8, fp8_gemm_v2 and fp8_sdpa ops
+        are converted to H2D tensors."
 
 PT_HPU_PT2EQ_SCALE_LOAD_PATH:
   default: ""

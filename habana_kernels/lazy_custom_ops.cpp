@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "generated/lazy/cast_from_fp8.h"
 #include "generated/lazy/cast_to_fp8_v2.h"
 #include "generated/lazy/conv2d_fp8.h"
 #include "generated/lazy/fp8_gemm_v2.h"
@@ -45,6 +46,24 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
        scale_shape}};
   hpu_op.SetOutputMetaFn(CastToFp8V2Meta);
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op);
+}
+
+at::Tensor cast_from_fp8_lazy(
+    const at::Tensor& input,
+    const std::optional<at::Tensor>& scale,
+    at::ScalarType dtype,
+    at::OptionalIntArrayRef scale_shape) {
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::cast_from_fp8",
+      {input,
+       maybe_convert_to_h2d(
+           scale, habana_helpers::is_h2d_scales_enabled(), "cast_from_fp8"sv),
+       dtype,
+       scale_shape}};
+  hpu_op.SetOutputMetaFn(CastFromFp8Meta);
+  RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, hpu_op);
 }
 
 at::Tensor conv2d_fp8_lazy(

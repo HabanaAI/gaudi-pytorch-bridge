@@ -26,6 +26,12 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     at::ScalarType dtype,
     at::OptionalIntArrayRef scale_shape);
 
+at::Tensor cast_from_fp8_lazy(
+    const at::Tensor& input,
+    const std::optional<at::Tensor>& scale,
+    at::ScalarType dtype,
+    at::OptionalIntArrayRef scale_shape);
+
 at::Tensor conv2d_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,

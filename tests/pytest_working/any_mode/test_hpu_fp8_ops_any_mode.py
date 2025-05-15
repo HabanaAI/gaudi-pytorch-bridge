@@ -1243,6 +1243,43 @@ def test_non_hw_h2d_scales(src_dtype, fuse_cast):
     common_h2d_scales(src_dtype, False, fuse_cast, scale_values, scale_out_values, is_hw_aligned=False)
 
 
+@pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
+def test_cast_to_from_h2d(src_dtype):
+    bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 6, 12, 15]
+    scale_values = convertExpBiasToScale(bias_values)
+    fp8_dtype = torch.float8_e4m3fn
+
+    ht.enable_inference_mode()
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    htexp._set_scale_attributes(True, 10)
+
+    def fn_hpu(input, scale_out):
+        casted = input.to(fp8_dtype)
+        return torch.ops.hpu.cast_from_fp8(casted, scale_out, src_dtype)
+
+    def fn_cpu(input, scale_out):
+        return input.to(fp8_dtype).to(src_dtype) * scale_out
+
+    fn_hpu = compile_function_if_compile_mode(fn_hpu)
+    a = torch.arange(0, 50, 1, dtype=src_dtype)
+    ah = a.to("hpu")
+
+    for s_out_val in scale_values:
+        s_out = torch.tensor(s_out_val, dtype=src_dtype)
+
+        # Scales as CPU Tensors are intentional.
+        res_hpu = fn_hpu(ah, s_out).cpu().to(fp8_dtype).to(src_dtype)
+        res_cpu = fn_cpu(a, s_out).to(fp8_dtype).to(src_dtype)
+
+        tol = 1e-3 if src_dtype == torch.float else 0.125
+
+        compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
+
+    htexp._set_scale_attributes(False, 0)
+    ht.disable_inference_mode()
+
+
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
 def test_sdpa_h2d():
     ht.enable_inference_mode()

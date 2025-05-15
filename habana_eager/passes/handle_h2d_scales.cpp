@@ -22,7 +22,8 @@ using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
 
 namespace {
 std::vector<size_t> get_scales_indices(std::string_view node_name) {
-  if (node_name == "hpu::cast_to_fp8_v2"sv) {
+  if (node_name == "hpu::cast_to_fp8_v2"sv or
+      node_name == "hpu::cast_from_fp8"sv) {
     return {1};
   } else if (node_name == "hpu::fp8_gemm_v2"sv) {
     return {6, 7};
