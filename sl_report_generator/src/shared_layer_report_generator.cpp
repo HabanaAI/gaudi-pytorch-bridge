@@ -47,6 +47,7 @@ void SharedLayerReportGenerator::register_exceptions() {
   register_optimizer_resource_apply_momentum_exception();
   register_reflection_pad_exception();
   register_replication_pad_exception();
+  register_scaled_triangular_softmax_retain_exception();
   register_scatter_add__exception();
   register_scatter_exception();
   register_scatter_out_exception();
@@ -1451,6 +1452,24 @@ void SharedLayerReportGenerator::register_replication_pad_exception() {
       {/* op_name */ "ReplicationPad3d",
        /* overload */ "",
        /* op_namespace */ "torch.nn"},
+      custom_executors.back().get());
+}
+
+void SharedLayerReportGenerator::
+    register_scaled_triangular_softmax_retain_exception() {
+  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
+      "Tensor self, float inv_scale_attn",
+      "scaled_triangular_softmax_retain",
+      "",
+      std::vector<std::int64_t>{3}));
+  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(),
+      &habana::validator_scaled_triangular_softmax_retain));
+
+  register_op(
+      {/* op_name */ "scaled_triangular_softmax_retain",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
       custom_executors.back().get());
 }
 

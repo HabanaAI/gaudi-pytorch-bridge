@@ -84,6 +84,7 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_optimizer_resource_apply_momentum_exception();
   void register_reflection_pad_exception();
   void register_replication_pad_exception();
+  void register_scaled_triangular_softmax_retain_exception();
   void register_scatter_add__exception();
   void register_scatter_exception();
   void register_scatter_out_exception();

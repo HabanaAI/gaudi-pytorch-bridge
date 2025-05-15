@@ -43,6 +43,7 @@
 #include "generated/lazy/replication_pad1d.h"
 #include "generated/lazy/replication_pad2d.h"
 #include "generated/lazy/replication_pad3d.h"
+#include "generated/lazy/scaled_triangular_softmax_retain.h"
 #include "generated/lazy/scatter.h"
 #include "generated/lazy/scatter_add.h"
 #include "generated/lazy/searchsorted.h"
