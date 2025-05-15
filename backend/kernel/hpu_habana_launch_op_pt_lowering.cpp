@@ -21,6 +21,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/hccl_kernels.h"
 #include "hpu_habana_launch_op_pt.h"
 
@@ -767,6 +768,8 @@ std::shared_ptr<synapse_helpers::graph::recipe_handle> habana::
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
       recipe->syn_recipe_handle_);
+
+  towl::emitRecipeHandle(recipe->syn_recipe_handle_);
 
   if (habana_helpers::IsInferenceMode()) {
     HabanaLaunchOpPT::PostCompilationStepForConstTensors(*recipe);

@@ -64,6 +64,10 @@ void emitRecipeCompileFailed(
 
 void emitMetrics(const std::string& name, float value);
 
+void emitRecipeName(const std::string& param_data);
+void emitRecipeHandle(synRecipeHandle recipe_handle);
+void emitRecipeRequireWorkspace(const std::string& workspace);
+void emitRecipeTensorToUse(const std::string& dtensorinfo_dump);
 } // namespace impl
 
 /*
@@ -139,6 +143,26 @@ _MAKE_TOWL_ENTRYPOINT(
     emitDeviceMemoryAllocFailed,
     (std::size_t size, bool is_workspace),
     (size, is_workspace));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitRecipeName,
+    (const std::string& param_data),
+    (param_data));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitRecipeHandle,
+    (synRecipeHandle recipe_handle),
+    (recipe_handle));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitRecipeRequireWorkspace,
+    (const std::string& workspace),
+    (workspace));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitRecipeTensorToUse,
+    (const std::string& dtensorinfo_dump),
+    (dtensorinfo_dump));
 } // namespace
 
 void configure(bool enable, std::string config);

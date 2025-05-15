@@ -17,8 +17,8 @@
 #include <algorithm>
 #include "backend/backend_meta.h"
 #include "backend/helpers/collective_kernel_info.h"
-#include "backend/helpers/record_stream_utils.h"
 #include "backend/helpers/generic_resource_holder.h"
+#include "backend/helpers/record_stream_utils.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
@@ -244,6 +244,8 @@ std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v) {
     << '\n';
   O << " workspace    : " << synapse_helpers::get_mem_str(v.workspace_size_)
     << '\n';
+  towl::emitRecipeRequireWorkspace(
+      synapse_helpers::get_mem_str(v.workspace_size_));
   O << " <addr : " << v.recipe_.get() << "> "
     << " <use_count : " << v.recipe_.use_count() << "> "
     << "\n";
@@ -283,6 +285,17 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     O << idx++ << " : ";
     O << *a << '\n';
   }
+  std::string dtensorinfo_dump;
+  {
+    std::ostringstream oss;
+    oss << '\n';
+    size_t sidx = 0;
+    for (auto& a : v.dtensorinfos) {
+      oss << sidx++ << " : " << *a << '\n';
+    }
+    dtensorinfo_dump = oss.str();
+  }
+  towl::emitRecipeTensorToUse(dtensorinfo_dump);
   if (!v.sif_tidx_to_tinfo_map.empty()) {
     O << "sif_tidx_to_tinfo_map #" << v.sif_tidx_to_tinfo_map.size() << "::";
     O << '\n';

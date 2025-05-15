@@ -388,6 +388,29 @@ void emitMetrics(const std::string& name, float value) {
   PT_TOWL_DEBUG(msg);
 }
 
+void emitRecipeName(const std::string& param_data) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.name ", param_data);
+}
+
+void emitRecipeHandle(synRecipeHandle recipe_handle) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.handle ", recipe_handle);
+}
+
+void emitRecipeRequireWorkspace(const std::string& workspace) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.require.workspace ", workspace);
+}
+
+void emitRecipeTensorToUse(const std::string& dtensorinfo_dump) {
+  if (not config.log_recipe)
+    return;
+  PT_TOWL_DEBUG("recipe.tensor.touse ", dtensorinfo_dump);
+}
 } // namespace towl::impl
 
 namespace towl {
