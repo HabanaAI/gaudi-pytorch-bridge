@@ -502,6 +502,21 @@ def squeeze(input):
     return torch.squeeze(input, dim_list)
 
 
+@register_custom_decomposition(getattr(torch.ops.aten.random, "from"), hpu_backend_decompositions_common)
+def random_from(self, low, high, *, generator=None):
+    return torch.ops.hpu.habana_random_wrapper(self, low, high)
+
+
+@register_custom_decomposition(torch.ops.aten.random.to, hpu_backend_decompositions_common)
+def random_from(self, high, *, generator=None):
+    return torch.ops.hpu.habana_random_wrapper(self, 0, high)
+
+
+@register_custom_decomposition(torch.ops.aten.random.default, hpu_backend_decompositions_common)
+def random_from(self, *, generator=None):
+    return torch.ops.hpu.habana_random_wrapper(self, 0, None)
+
+
 # Random op decompositions mainly based on pytorch/torch/_inductor/decomposition.py
 # and pytorch/torch/_decomp/decompositions_for_rng.py
 

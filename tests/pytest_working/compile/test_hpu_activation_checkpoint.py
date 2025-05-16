@@ -75,6 +75,11 @@ def exponential(x):
     return a.exponential_() * x
 
 
+def random(x):
+    a = torch.empty_like(x)
+    return a.random_(5, 10) * x
+
+
 def normal(mean, std):
     return torch.normal(mean, std) * mean * std
 
@@ -97,6 +102,7 @@ OPS = [
     native_dropout,
     exponential,
     _fused_dropout,
+    random,
 ]
 
 
@@ -149,7 +155,8 @@ class ModelAllOps(torch.nn.Module):
         res5 = self.maybe_checkpoint(three_ops, res4)
         res6 = exponential(res5)
         res7 = self.maybe_checkpoint(_fused_dropout, res6)
-        return res7
+        res8 = random(res7)
+        return res8
 
 
 class ModelDropout(torch.nn.Module):

@@ -119,7 +119,7 @@ if bc.get_pt_hpu_override_linear_matmul_eager():
 hpu_supported_ops_restricted = {}
 
 if bc.get_pt_hpu_wrap_random_ops_compile():
-    hpu_supported_op_list.update(["rand", "randint", "randn", "uniform"])
+    hpu_supported_op_list.update(["rand", "randint", "randn", "uniform", "habana_random_wrapper"])
     hpu_supported_ops_restricted.update(
         {
             "randperm": ("dtype", {torch.long}),

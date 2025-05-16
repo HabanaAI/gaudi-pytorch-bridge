@@ -23,11 +23,11 @@
 #include "hpu_ops/habana_random_ops.h"
 #include "hpu_ops/shared_meta_common.h"
 namespace habana {
-const unsigned MEAN_INDEX = 0;
-const unsigned STD_INDEX = 1;
-const unsigned SIZE_INDEX = 2;
-const unsigned DTYPE_INDEX = 4;
-const unsigned LAYOUT_INDEX = 5;
+constexpr unsigned MEAN_INDEX = 0;
+constexpr unsigned STD_INDEX = 1;
+constexpr unsigned SIZE_INDEX = 2;
+constexpr unsigned DTYPE_INDEX = 4;
+constexpr unsigned LAYOUT_INDEX = 5;
 
 enum NormalVariant {
   NORMAL_FF = 0,
@@ -710,6 +710,86 @@ void HabanaNormal::AddNode(
       this, graph, stack, syn_mean, syn_std, syn_seed_t, normal_variant, true);
 }
 
+//===----------------------------------------------------------------------===//
+// This is the implementation of custom random ops in `torch.compile`
+//===----------------------------------------------------------------------===//
+
+OutputMetaDataVector HabanaRandomMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 1);
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = self.sizes().vec();
+
+  return {meta};
+}
+
+HabanaRandom::HabanaRandom(int device_id, c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, "random_uniform_fwd", scalar_type, {0}) {
+  SetOutputMetaFn(HabanaRandomMeta);
+}
+
+void HabanaRandom::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 1);
+  auto outshape = self.sizes();
+  auto dtype = self.scalar_type();
+  guid_ = get_guid_with_precision("random_uniform_fwd"sv, dtype);
+  std::vector<synTensor> inputs{syn_in(0)};
+
+  CreateShapeTensorInput(graph, dtype, outshape, inputs);
+  const auto from = static_cast<float>(stack.at(2).toInt());
+  const auto to = stack.at(3).isNone()
+      ? std::nullopt
+      : std::optional<float>(stack.at(3).toInt());
+  auto rand_params = RandomUniformParams(dtype, from, to);
+
+  std::string post_op_guid = "";
+  NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
+  const bool need_convert_i16 = dtype == c10::ScalarType::Byte ||
+      dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;
+  if (need_convert_i16) {
+    post_op_guid =
+        dtype == at::ScalarType::Byte ? "cast_i16_to_u8" : "cast_i16_to_i8";
+    update_guid_dtype(guid_, "i16");
+    out_attr.dtype = c10::ScalarType::Short;
+  } else if (c10::isFloatingType(dtype)) {
+    post_op_guid = get_guid_with_precision("floor_fwd"sv, dtype);
+  } else {
+    out_attr.final_result_index = 0;
+  }
+
+  auto rand = BuildOp(
+      graph,
+      GetGuid(),
+      std::move(inputs),
+      {out_attr},
+      rand_params.ptr(),
+      rand_params.size());
+
+  if (need_convert_i16) {
+    PARAMS_STUB(ns_CastKernel::Params);
+    // Round down so that the upper limit is not included in the generated seq.
+    // The assumption is that the float vaues dont include the upper limit.
+    params->round_mode = CAST_ROUND_DOWN;
+    auto cast = BuildOp(
+        graph,
+        post_op_guid,
+        {rand[0].get()},
+        {{outshape, dtype, 0}},
+        paramsT.ptr(),
+        paramsT.size());
+    syn_out(0) = std::move(cast[0]);
+  } else if (c10::isFloatingType(dtype)) {
+    auto result =
+        BuildOp(graph, post_op_guid, {rand[0].get()}, {{outshape, dtype, 0}});
+    syn_out(0) = std::move(result[0]);
+  } else {
+    syn_out(0) = std::move(rand[0]);
+  }
+}
+
 } // namespace habana
 
 static const auto& HabanaNormalKernelRegistry =
@@ -717,4 +797,5 @@ static const auto& HabanaNormalKernelRegistry =
         .REGISTER_HABANA_RANDOM_OP(normal.Tensor_Tensor, Normal)
         .REGISTER_HABANA_RANDOM_OP(normal.Tensor_float, Normal)
         .REGISTER_HABANA_RANDOM_OP(normal.float_Tensor, Normal)
-        .REGISTER_HABANA_RANDOM_OP(normal.float_float, Normal);
+        .REGISTER_HABANA_RANDOM_OP(normal.float_float, Normal)
+        .REGISTER_HABANA_RANDOM_OP(random, Random);

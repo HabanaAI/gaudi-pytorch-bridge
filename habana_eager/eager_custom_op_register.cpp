@@ -1541,6 +1541,11 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_normal.float_Tensor(Tensor seed, float mean, Tensor std) -> Tensor");
   m.def(
       "hpu::habana_normal.float_float(Tensor seed, float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_random_wrapper(Tensor self, int low, int? high) -> Tensor",
+      {at::Tag::nondeterministic_seeded});
+  m.def(
+      "hpu::habana_random(Tensor seed, Tensor self, int low, int? high) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

@@ -463,6 +463,16 @@ def meta_habana_exponential(seed, self, lamd=1):
     return self.new_empty(self.shape)
 
 
+@register_meta([torch.ops.hpu.habana_random_wrapper])
+def meta_habana_random_wrapper(self, low, high):
+    return self.new_empty(self.shape)
+
+
+@register_meta([torch.ops.hpu.habana_random])
+def meta_habana_random(seed, self, low, high):
+    return self.new_empty(self.shape)
+
+
 @register_meta(
     [
         torch.ops.hpu.habana_normal.Tensor_Tensor,
