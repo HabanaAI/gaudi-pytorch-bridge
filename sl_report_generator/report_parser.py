@@ -22,6 +22,7 @@ The documentation is saved in the directory specified in --doc_path argument.
 - [-h, --help] - Print help
 - [-p, --doc_path] - Specifies the path to save the documentation
 - [-c, --gen_custom_doc] - Indicates whether Pytorch_Custom_Operators.rst should be generated
+- [-e, --enable_slrg] - Indicates whether Pytorch_Operators.rst should be generated
 Example:
 python report_parser.py --path ${PYTORCH_MODULES_ROOT_PATH}/docs --gen_custom_doc
 """
@@ -44,6 +45,13 @@ def parse_args():
         "--gen_custom_doc",
         help="Indicates whether Pytorch_Custom_Operators.rst should be generated",
         action="store_true",
+    )
+    parser.add_argument(
+        "-e",
+        "--enable_slrg",
+        help="Indicates whether Pytorch_Operators.rst should be generated",
+        action="store_true",
+        default=False,
     )
     args = parser.parse_args()
     return args
@@ -125,15 +133,16 @@ def gen_doc(args):
         operators_torch_ops=str.join("", doc_rows_by_namespace["torch.ops"]),
     )
 
-    if not Path(args.path).parent.exists():
-        Path(args.path).parent.mkdir(parents=True)
-    print(documentation, file=open(args.path + "/Pytorch_Operators.rst", "w"))
-    if args.gen_custom_doc:
-        custom_operators_documentation = doc_templates.CUSTOM_DOC_FILE.format(
-            optimizer_operators=str.join("", doc_rows_by_namespace["torch.hpu.optimizer"]),
-            custom_operators=str.join("", doc_rows_by_namespace["torch.hpu"]),
-        )
-        print(custom_operators_documentation, file=open(args.path + "/Pytorch_Custom_Operators.rst", "w"))
+    if args.enable_slrg:
+        if not Path(args.path).parent.exists():
+            Path(args.path).parent.mkdir(parents=True)
+        print(documentation, file=open(args.path + "/Pytorch_Operators.rst", "w"))
+        if args.gen_custom_doc:
+            custom_operators_documentation = doc_templates.CUSTOM_DOC_FILE.format(
+                optimizer_operators=str.join("", doc_rows_by_namespace["torch.hpu.optimizer"]),
+                custom_operators=str.join("", doc_rows_by_namespace["torch.hpu"]),
+            )
+            print(custom_operators_documentation, file=open(args.path + "/Pytorch_Custom_Operators.rst", "w"))
 
 
 if __name__ == "__main__":

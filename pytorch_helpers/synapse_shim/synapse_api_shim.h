@@ -145,3 +145,4 @@ synapse_api_t* GetSynapseApi();
 void EnableSynapseApi();
 void EnableSynapseApiStub();
 void EnableNullHw();
+void EnsureSynApiLoaded();

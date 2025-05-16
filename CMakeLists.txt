@@ -70,6 +70,11 @@ if(NOT USE_CXX11_ABI)
   endif()
 endif()
 
+option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
+if(BUILD_SL_REPORT_GENERATOR)
+  add_compile_definitions(ENABLE_SLRG)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy)
@@ -390,10 +395,7 @@ if(BUILD_TESTS)
   set(CMAKE_WARN_DEPRECATED ${ORIGINAL_CMAKE_WARN_DEPRECATED})
   add_subdirectory(tests/cpp)
 endif()
-option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
-if(BUILD_SL_REPORT_GENERATOR)
-  add_subdirectory(sl_report_generator)
-endif()
+add_subdirectory(sl_report_generator)
 option(BUILD_PKGS "Build python packages" OFF)
 option(INSTALL_PKGS "Install python packages" OFF)
 

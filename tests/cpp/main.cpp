@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include <cstring>
+#include "pytorch_helpers/synapse_shim/synapse_api_shim.h"
 #include "utils/rerun_failures.h"
 
 int main(int argc, char* argv[]) {
@@ -25,6 +26,7 @@ int main(int argc, char* argv[]) {
     }
   }
   ::testing::InitGoogleTest(&argc, argv);
+  EnsureSynApiLoaded();
   if (reruns) {
     CustomTestRunner runner = CustomTestRunner();
     auto listener = std::make_unique<RetryOnFailureListener>(runner);

@@ -1967,20 +1967,22 @@ def install_wheels_in_venvs(selected_wheel_configs):
         # else: checked in log_produced_wheels_and_dump_manifest
 
 
-def run_doc_gen(selected_wheel_configs, pt_modules_root):
+def run_doc_gen(selected_wheel_configs, pt_modules_root, enable_slrg):
     for wheel_config in selected_wheel_configs:
         if wheel_config.full_wheel_name.startswith("habana_torch_plugin"):
             run(
                 "python3",
                 f"{pt_modules_root}/sl_report_generator/report_parser.py",
                 f"--path {pt_modules_root}/docs",
+                "--enable_slrg" if enable_slrg else "",
                 venv=wheel_config.venv_dirs[0],
             )
-            run(
-                "python3",
-                f"{pt_modules_root}/scripts/split_tables_in_pytorch_operators_docs.py",
-                venv=wheel_config.venv_dirs[0],
-            )
+            if enable_slrg:
+                run(
+                    "python3",
+                    f"{pt_modules_root}/scripts/split_tables_in_pytorch_operators_docs.py",
+                    venv=wheel_config.venv_dirs[0],
+                )
 
 
 def add_upstream_versions(wheel_specs: list[WheelSpec], cpu_index_url: str | None) -> list[WheelSpec]:
@@ -2086,8 +2088,7 @@ def main():
 
     if args.install_ext:
         install_wheels_in_venvs(selected_wheel_configs)
-        if args.enable_slrg:
-            run_doc_gen(selected_wheel_configs, pt_modules_root)
+        run_doc_gen(selected_wheel_configs, pt_modules_root, args.enable_slrg)
 
     print_build_summary(cmake_build_configs, selected_wheel_configs, args)
 

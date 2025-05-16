@@ -57,7 +57,9 @@ import habana_frameworks.torch.distributed.hccl
 import habana_frameworks.torch.hpu
 import habana_frameworks.torch.hw_utilization_metric
 import habana_frameworks.torch.internal.bridge_config as bc
+from habana_frameworks.torch import _hpu_C
 
+_hpu_C.ensure_syn_api_loaded()
 if bc.get_pt_hpu_gpu_migration():
     try:
         import habana_frameworks.torch.gpu_migration
