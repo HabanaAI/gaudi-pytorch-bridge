@@ -378,6 +378,44 @@ def meta_scaled_triangular_softmax(input, inv_scale_attn, exp_sum_recpr=None, su
     return input.new_empty(input.shape)
 
 
+@register_meta([torch.ops.hpu.flex_attention_score_mod])
+def flex_attention_score_mod(score, b, h, q_idx, kv_idx):
+    return score
+
+
+@register_meta([torch.ops.hpu.flex_attention_bwd_score_mod])
+def flex_attention_bwd_score_mod(score, b, h, q_idx, kv_idx, grad):
+    return score
+
+
+@register_meta([torch.ops.hpu.flex_attention_mask_mod])
+def flex_attention_mask_mod(b, h, q_idx, kv_idx):
+    return q_idx == kv_idx
+
+
+@register_meta([torch.ops.hpu.flex_attention_pack_tensors])
+def flex_attention_pack_tensors(h, q, kv):
+    return h.new_empty(h.shape)
+
+
+@register_meta([torch.ops.hpu.flex_attention_fwd])
+def flex_attention_fwd(q, k, v, block_size, is_apply_mask_1, is_ret_lse):
+    batch_size, num_heads, seq_len_q, q_head_dim = q.shape
+    v_head_dim = v.size(-1)
+    out_shape = (batch_size, num_heads, seq_len_q, v_head_dim)
+    if is_ret_lse:
+        lse_shape = (*q.shape[:-1], 1)
+        lse = input.new_empty(lse_shape)
+        return input.new_empty(out_shape), lse, None
+    return input.new_empty(out_shape), None, None
+
+
+@register_meta([torch.ops.hpu.flex_attention_bwd])
+def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size, is_apply_mask_1):
+    # return grads shape
+    return input.new_empty(q.shape), input.new_empty(k.shape), input.new_empty(v.shape)
+
+
 @register_meta([torch.ops.hpu.scaled_triangular_softmax_retain.default])
 def meta_scaled_triangular_softmax_retain(input, inv_scale_attn):
     out_shape = input.shape

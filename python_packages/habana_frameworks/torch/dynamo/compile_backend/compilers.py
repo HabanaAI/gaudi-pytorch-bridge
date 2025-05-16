@@ -132,6 +132,13 @@ def hpu_compiler_inner(
 
         hpu_recursive_joint_graph_passes(graph_module)
 
+    if hpu_backend_config.enable_flex_attention:
+        from habana_frameworks.torch.dynamo.compile_backend.flex_attention import (
+            hpu_flex_attention_passes,
+        )
+
+        hpu_flex_attention_passes(graph_module, example_inputs, is_training, is_backward)
+
     graph_name = _gen_graph_name()
 
     if hpu_backend_config.dump_graph_repro:

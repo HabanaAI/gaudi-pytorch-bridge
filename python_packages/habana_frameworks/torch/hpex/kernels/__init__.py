@@ -27,7 +27,7 @@ from .Fp8FusedSDPA import (
     gqa_output_reshape,
 )
 from .FusedSDPA import FusedSDPA
-from .PySDPA import PySDPA, PySDPAHinted
+from .PySDPA import PySDPA, PySDPAHinted, flex_attention_bwd, flex_attention_fwd
 from .RotaryPosEmbeddingHelper import (
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,

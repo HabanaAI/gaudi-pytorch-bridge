@@ -76,6 +76,7 @@ reassign_copy_ = _get_bool_from_env("PT_HPU_REASSIGN_COPY_", "1")
 use_boxed_input = _get_bool_from_env("PT_HPU_USE_BOXED_INPUT", "1")
 use_generic_reinplacer = _get_bool_from_env("PT_HPU_USE_GENERIC_REINPLACER", "1")
 enable_synapse_input_reuse = _get_bool_from_env("PT_HPU_ENABLE_SYNAPSE_INPUT_REUSE", "1")
+enable_flex_attention = _get_bool_from_env("PT_HPU_ENABLE_FLEX_ATTENTION", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

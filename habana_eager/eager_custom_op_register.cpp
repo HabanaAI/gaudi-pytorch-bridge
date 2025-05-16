@@ -1513,6 +1513,18 @@ TORCH_LIBRARY(hpu, m) {
   // Random ops wrappers for t.compile
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
+  m.def(
+    "hpu::flex_attention_score_mod(Tensor score, Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx) -> Tensor");
+  m.def(
+    "hpu::flex_attention_bwd_score_mod(Tensor score, Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx, Tensor grad) -> Tensor");
+  m.def(
+    "hpu::flex_attention_mask_mod(Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx) -> Tensor");
+  m.def(
+    "hpu::flex_attention_pack_tensors(Tensor h, Tensor q, Tensor kv) -> Tensor");
+  m.def(
+    "hpu::flex_attention_fwd(Tensor q, Tensor k, Tensor v, SymInt block_size, bool is_apply_mask, bool is_ret_lse) -> (Tensor, Tensor, Tensor)");
+  m.def(
+    "hpu::flex_attention_bwd(Tensor q, Tensor k, Tensor v, Tensor o, Tensor lse, Tensor do, Tensor glse, SymInt block_size, bool is_apply_mask) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
   m.def("hpu::habana_poisson(Tensor seed, Tensor self) -> Tensor");
   m.def(
