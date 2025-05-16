@@ -32,7 +32,7 @@ endfunction()
 
 function(set_up_warnings target_name)
   # TODO: Add -Wconversion
-  target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
+  target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations -Wimplicit-fallthrough)
 
   include(CheckCXXCompilerFlag)
   check_cxx_compiler_flag("-Werror=template-id-cdtor" HAS_WERROR_TEMPLATE_ID_CTOR)
@@ -84,6 +84,11 @@ function(allow_code_coverage_if_requested target_name)
   endif()
 endfunction()
 
+function(set_up_link_options target_name)
+  # Below enabled Immediate Binding mode
+  target_link_options(${target_name} PRIVATE -Wl,-z,now)
+endfunction()
+
 function(add_habana_library target_name)
   add_library(${target_name} ${ARGN})
   add_library(npu::${target_name} ALIAS ${target_name})
@@ -94,6 +99,7 @@ function(add_habana_library target_name)
     set_up_warnings(${target_name})
     attach_sanitizers_if_requested(${target_name})
     allow_code_coverage_if_requested(${target_name})
+    set_up_link_options(${target_name})
   endif()
 endfunction()
 
@@ -107,6 +113,7 @@ function(add_habana_executable target_name)
     set_up_warnings(${target_name})
     attach_sanitizers_if_requested(${target_name})
     allow_code_coverage_if_requested(${target_name})
+    set_up_link_options(${target_name})
   endif()
 endfunction()
 
