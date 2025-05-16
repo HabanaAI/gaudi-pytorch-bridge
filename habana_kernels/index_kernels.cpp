@@ -504,7 +504,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
 }
 
 namespace habana {
-SharedMetaDataVector IndexAddSharedMeta(
+SharedMetaDataVector IndexAddLazySharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   const auto& self = stack.at(0).toTensor();
@@ -535,8 +535,7 @@ SharedMetaDataVector IndexAddSharedMeta(
   const bool useUnsortedScatter =
       GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
       HPUGlobalConfig::get().getDeterministic() == false &&
-      at::globalContext().deterministicAlgorithms() == false &&
-      HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi;
+      at::globalContext().deterministicAlgorithms() == false;
 
   SharedMetaData scatterAddFwdSharedMetaV2(
       useUnsortedScatter ? "unsorted_scatter_add_fwd" : "scatter_add_fwd");
@@ -599,6 +598,35 @@ SharedMetaDataVector IndexAddSharedMeta(
 
   return indexAddSharedMeta;
 }
+
+SharedMetaDataVector IndexAddSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& self = stack.at(0).toTensor();
+  const auto& value = stack.at(3).toTensor();
+
+  const auto selfDim = self.dim();
+  const auto selfDtype = self.scalar_type();
+
+  SharedMetaDataVector indexAddSharedMeta;
+
+  // for Bool and Byte input autocast (into Int) is applied
+  auto castedDtype =
+      (selfDtype == c10::ScalarType::Bool || selfDtype == c10::ScalarType::Byte)
+      ? c10::ScalarType::Int
+      : selfDtype;
+
+  SharedMetaData indexAddFwdSharedMeta{"index_add_fwd"};
+  indexAddFwdSharedMeta.inputs_data = {
+      {selfDim, castedDtype},
+      getSharedMetaFromTensor(stack_tensor(stack, 2)),
+      {value.dim(), castedDtype}};
+
+  indexAddFwdSharedMeta.outputs_data.emplace_back(selfDim, castedDtype);
+
+  return {indexAddFwdSharedMeta};
+}
+
 } // namespace habana
 
 /*
