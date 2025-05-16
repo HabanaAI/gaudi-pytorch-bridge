@@ -1094,9 +1094,8 @@ class _MultiProcessingDataLoaderIter(_BaseDataLoaderIter):
                 success, data = self._try_get_data()
                 if success:
                     return data
-            else:
-                # while condition is false, i.e., pin_memory_thread died.
-                raise RuntimeError("Pin memory thread exited unexpectedly")
+            # while condition is false, i.e., pin_memory_thread died.
+            raise RuntimeError("Pin memory thread exited unexpectedly")
             # In this case, `self._data_queue` is a `queue.Queue`,. But we don't
             # need to call `.task_done()` because we don't use `.join()`.
         else:
@@ -1137,15 +1136,14 @@ class _MultiProcessingDataLoaderIter(_BaseDataLoaderIter):
             assert not self._shutdown and self._tasks_outstanding > 0
             idx, data = self._get_data()
             self._tasks_outstanding -= 1
-            if self._dataset_kind == _DatasetKind.Iterable:
+            if self._dataset_kind == _DatasetKind.Iterable and isinstance(data, worker._IterableDatasetStopIteration):
                 # Check for _IterableDatasetStopIteration
-                if isinstance(data, worker._IterableDatasetStopIteration):
-                    if self._persistent_workers:
-                        self._workers_status[data.worker_id] = False
-                    else:
-                        self._mark_worker_as_unavailable(data.worker_id)
-                    self._try_put_index()
-                    continue
+                if self._persistent_workers:
+                    self._workers_status[data.worker_id] = False
+                else:
+                    self._mark_worker_as_unavailable(data.worker_id)
+                self._try_put_index()
+                continue
 
             if idx != self._rcvd_idx:
                 # store out-of-order samples

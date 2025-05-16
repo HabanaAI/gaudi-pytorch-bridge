@@ -93,7 +93,7 @@ def generate_dtype_macro(dtypes, check_implicit_types):
             lines += generate_line(supported_dtypes, suffix)
         return lines
 
-    assert False, "Invalid dtypes format"
+    raise AssertionError("Invalid dtypes format")
 
 
 class UseDtypesOpValidatorGenerator(OpValidatorGenerator):

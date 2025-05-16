@@ -570,7 +570,7 @@ def get_outputs_metadata_dynamic(graph_module):
                             dynamic_shape_sym_expr_token.append(sym_expr_token)
                         else:
                             logger.debug("Symbolic type not supported:", sz)
-                            assert False
+                            raise AssertionError()
 
                     dim_size = len(dynamic_shape_sympy)
                     outputs_metadata.append(

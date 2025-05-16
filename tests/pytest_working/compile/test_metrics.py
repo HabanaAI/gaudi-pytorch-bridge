@@ -235,7 +235,7 @@ def set_flag_in_env(name: str, value):
     elif isinstance(value, int):
         os.environ[name] = str(value)
     else:
-        assert False, f"Value '{value}' invalid or not supported"
+        raise AssertionError(f"Value '{value}' invalid or not supported")
 
 
 @contextmanager

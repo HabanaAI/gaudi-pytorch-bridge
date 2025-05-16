@@ -123,15 +123,14 @@ def hpu_compiler_inner(
     three separate graphs for FWD, BWD and optimizer. Each of these phases can
     also generate multiple graphs and calls to this function.
     """
-    if not is_training:
+    if not is_training and str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)):
         # optimize the module before partitioning it
         # we will fuse the attention module here
-        if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
-            from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
-                hpu_recursive_joint_graph_passes,
-            )
+        from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
+            hpu_recursive_joint_graph_passes,
+        )
 
-            hpu_recursive_joint_graph_passes(graph_module)
+        hpu_recursive_joint_graph_passes(graph_module)
 
     graph_name = _gen_graph_name()
 

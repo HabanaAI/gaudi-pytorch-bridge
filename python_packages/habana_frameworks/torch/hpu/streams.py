@@ -162,9 +162,8 @@ class StreamContext:
     def __init__(self, stream: Optional["torch.hpu.Stream"]):
         self.stream = stream
         self.idx = _get_device_index(None, True)
-        if not torch.jit.is_scripting():
-            if self.idx is None:
-                self.idx = -1
+        if not torch.jit.is_scripting() and self.idx is None:
+            self.idx = -1
 
         self.src_prev_stream = None if not torch.jit.is_scripting() else torch.hpu.default_stream(None)
         self.dst_prev_stream = None if not torch.jit.is_scripting() else torch.hpu.default_stream(None)
@@ -270,9 +269,8 @@ def current_stream(device: _device_t | None = None) -> Stream:
     global _cached_stream
 
     # If a stream is cached, return it
-    if is_lazy_mode:
-        if _cached_stream is not None:
-            return _cached_stream
+    if is_lazy_mode and _cached_stream is not None:
+        return _cached_stream
 
     streamdata = _hpu_C._hpu_getCurrentStream(_get_device_index(device, optional=True))
     stream = Stream(

@@ -82,7 +82,9 @@ def input_type(dtype):
     if re.match(r"bool\[(\d+)\]", dtype):
         ctype = re.match(r"bool\[(\d+)\]", dtype).groups()[0]
         return f"::std::array<bool,{ctype}>"
-    assert False, f"Custom schema input dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
+    raise AssertionError(
+        f"Custom schema input dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
+    )
 
 
 def output_type(dtype):
@@ -90,7 +92,9 @@ def output_type(dtype):
         return output_types_map[dtype]
     if re.match(r"Tensor\(.*\)", dtype):
         return "at::Tensor &"
-    assert False, f"Custom schema output dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
+    raise AssertionError(
+        f"Custom schema output dtype '{dtype}' is not yet implemented in gen_op.py. Feel free to add it."
+    )
 
 
 def cpp_from_schema(schema):

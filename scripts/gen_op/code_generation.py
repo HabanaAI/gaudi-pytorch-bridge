@@ -672,9 +672,10 @@ def handle_validator_generator(
             tinputs = tinputs[:-1]
 
         check_per_tensor = False
-        if isinstance(dtypes, dict):
-            if any(p in dtypes.keys() for p in param_vars) or any(isinstance(x, dict) for x in dtypes.values()):
-                check_per_tensor = True
+        if isinstance(dtypes, dict) and (
+            any(p in dtypes.keys() for p in param_vars) or any(isinstance(x, dict) for x in dtypes.values())
+        ):
+            check_per_tensor = True
         code += fallback_if_unsupported(
             tinputs,
             opname,

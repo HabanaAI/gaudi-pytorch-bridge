@@ -14,19 +14,18 @@ target-version = "py312"
 select = ["F","E","W","I","UP","B","C4","EXE","PYI","SIM","ARG","FIX","PL","N","PIE"]
 ignore = [
    "E501", # "Line too long" (88 chars)
+   "PLE1205", # "We use custom logger"
    "E722",
    "E741",
    "F811",
    "F841",
    "B006",
    "B008",
-   "B011",
    "B023",
    "B028",
    "B904",
    "PLE0605",
    "PLE0704",
-   "PLE1205",
    "PLR0124",
    "PLR0911",
    "PLR0912",
@@ -35,8 +34,6 @@ ignore = [
    "PLR1714",
    "PLR1722",
    "PLR2004",
-   "PLW0120",
-   "PLW0129",
    "PLW0602",
    "PLW0603",
    "PLW0604",
@@ -46,7 +43,6 @@ ignore = [
    "PYI026",
    "PYI034",
    "PYI036",
-   "SIM102",
    "SIM103",
    "SIM105",
    "SIM108",

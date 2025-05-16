@@ -404,32 +404,28 @@ def is_param_combo_valid(
     is_scalar_run,
 ):
 
-    if not recompute:
+    if not recompute and inference and not is_causal:
         # In non-recomp inference case, there is an acc diff in non triangular mask case.
         # To be checked if it is an actual issue.
-        if inference:
-            if is_causal is False:
-                return False
+        return False
     if not recompute and is_scalar_run:
         return False
 
-    if not inference:  # limiting tests Temporarily for training
-        if q_heads != kv_heads:
-            return False  # no MQA/GQA test for now
+    if not inference and q_heads != kv_heads:
+        # limiting tests Temporarily for training
+        return False  # no MQA/GQA test for now
 
     # fp8 mode supports only inference in Triangular and Non-Triangular mask mode
     # But training is supported only in Triangular mask mode as of now.
-    if not inference:
-        if is_causal is False:
-            return False
+    if not inference and not is_causal:
+        return False
 
     # fp8 mode supports only recompute mode as of now.
     # if not recompute:
     #    return False
 
-    if is_causal:
-        if use_attn_mask:
-            return False
+    if is_causal and use_attn_mask:
+        return False
 
     if dropout_p != 0.0:
         return False
@@ -458,9 +454,8 @@ def is_param_combo_valid(
         if is_amax_ds:
             return False
 
-        if is_amax_s:
-            if fp8_run:
-                return False
+        if is_amax_s and fp8_run:
+            return False
 
         if fp8_run:
             if is_amax_s:
@@ -1083,10 +1078,8 @@ def test_sdpa(
     if is_gaudi1():
         pytest.skip("Fp8 tests not supported on G1")
 
-    if not is_gaudi3():
-        if not inference:
-            if not check_dbg_env_var("PT_HPU_SDPA_FP8_152_152_FMT"):
-                pytest.skip("Fp8 training tests with hybrid precision(143 -152) not currently supported on G1 or G2")
+    if not is_gaudi3() and not inference and not check_dbg_env_var("PT_HPU_SDPA_FP8_152_152_FMT"):
+        pytest.skip("Fp8 training tests with hybrid precision(143 -152) not currently supported on G1 or G2")
 
     # print("test_case_valid = ", test_case_valid)
     if not test_case_valid:
@@ -1284,12 +1277,11 @@ def test_sdpa(
         scaleS_hpu, scaleSInv_hpu = get_scale_values("s", amax_s_ref, is_t_amax=True, scale_limit=128)
         q_scale_s = scaleS_hpu
 
-        if fp8_run_out_type == "fp8_143":
+        if fp8_run_out_type == "fp8_143" and recompute:
             # Non-recomp does not support FWD output in Fp8. No q_scale_o
-            if recompute:
-                scaleO_hpu, _ = get_scale_values("o", O_ref)
-                q_scale_o_copy = copy.deepcopy(scaleO_hpu)
-                q_scale_o = scaleO_hpu
+            scaleO_hpu, _ = get_scale_values("o", O_ref)
+            q_scale_o_copy = copy.deepcopy(scaleO_hpu)
+            q_scale_o = scaleO_hpu
 
         # Let fp8 conversions and scale transfer to HPU be in a separate graph
         htcore.mark_step()

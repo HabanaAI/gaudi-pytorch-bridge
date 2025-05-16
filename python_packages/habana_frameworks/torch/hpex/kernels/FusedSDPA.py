@@ -102,12 +102,11 @@ def sdpa_fwd_wrapper(
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
 
     # Handle zero sized tensors(for now only in inference) by returning a dummy output.
-    if requires_backward is False:
-        if q.numel() == 0 or k.numel() == 0 or v.numel() == 0:
-            out_shape = list(q.shape)
-            out_shape[-1] = v.shape[-1]
-            dummy_out = q.new_empty(out_shape, requires_grad=requires_backward, layout=q.layout)
-            return dummy_out
+    if not requires_backward and (q.numel() == 0 or k.numel() == 0 or v.numel() == 0):
+        out_shape = list(q.shape)
+        out_shape[-1] = v.shape[-1]
+        dummy_out = q.new_empty(out_shape, requires_grad=requires_backward, layout=q.layout)
+        return dummy_out
 
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()
@@ -124,7 +123,7 @@ def sdpa_fwd_wrapper(
     # and go via recmpute mode unless returing attn prob is requested (since attn prob
     # is returned only in non-recomp mode). For now take recomp path only in case Q seq len is 1.
     # Later see if this condition can be removed.
-    if requires_backward is False:
+    if not requires_backward:
         if q_seq_len == 1:
             recompute = True
         # force recomp to False if attn prob is to be returned

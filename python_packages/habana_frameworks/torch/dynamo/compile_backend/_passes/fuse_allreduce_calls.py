@@ -259,10 +259,9 @@ def comm_fusion_with_concat(
             bucket_size = bucket_cap_size
             begin = end
             curr_size = 0
-        else:
-            if begin < len(comm_blocks):
-                _fuse_with_cat(gm, comm_blocks[begin:end], node_indices)
-                graph_changed = True
+        if begin < len(comm_blocks):
+            _fuse_with_cat(gm, comm_blocks[begin:end], node_indices)
+            graph_changed = True
 
     return graph_changed
 

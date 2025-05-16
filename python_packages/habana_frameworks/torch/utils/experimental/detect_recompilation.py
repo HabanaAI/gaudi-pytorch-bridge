@@ -183,17 +183,16 @@ def _parse(lines):
             module_files[mdlname] = (classnm, modulenm, filenm)
 
         step_done = False
-        if "DETECT_RECOMPILE_AUTO" in ln:
-            if "step" in ln:
-                p0, p1 = ln.split("step:")
-                step_from_ln = int(p1.split(" ")[0])
-                assert step_from_ln > step
-                top_module_name_ = ln.split("][")[1].split("]")[0]
-                if top_module_name is not None:
-                    assert top_module_name == top_module_name_
-                else:
-                    top_module_name = top_module_name_
-                step_done = True
+        if "DETECT_RECOMPILE_AUTO" in ln and "step" in ln:
+            p0, p1 = ln.split("step:")
+            step_from_ln = int(p1.split(" ")[0])
+            assert step_from_ln > step
+            top_module_name_ = ln.split("][")[1].split("]")[0]
+            if top_module_name is not None:
+                assert top_module_name == top_module_name_
+            else:
+                top_module_name = top_module_name_
+            step_done = True
 
         if "Recompilation" in ln:
             if "step" in ln:
@@ -435,7 +434,7 @@ def print_result(hist):
         elif num_shapes == 1:
             modifier = "no"
         else:
-            assert False
+            raise AssertionError()
         print(f"There is {modifier} dynamicity in input data shapes")
     else:
         print("Dataset looks empty")

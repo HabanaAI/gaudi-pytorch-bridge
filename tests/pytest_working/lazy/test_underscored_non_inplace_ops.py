@@ -43,4 +43,4 @@ def test_underscored_non_inplace_op(op, kwargs):
         x_clone = x.clone()
         op(x_clone, **kwargs).cpu()
     except RuntimeError:
-        assert False, "Test shouldn't throw any exception"
+        raise AssertionError("Test shouldn't throw any exception")

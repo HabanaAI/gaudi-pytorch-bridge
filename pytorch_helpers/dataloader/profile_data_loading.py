@@ -196,7 +196,7 @@ def init_data_loader():
         try:
             import habana_torch_dataloader
         except ImportError:
-            assert False, "Could Not import habana_torch_dataloader"
+            raise AssertionError("Could Not import habana_torch_dataloader")
         print("Multi-Threading DL with imagenet dataset selected")
         dataloader = habana_torch_dataloader.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True)
     elif dl_type == "AEON":

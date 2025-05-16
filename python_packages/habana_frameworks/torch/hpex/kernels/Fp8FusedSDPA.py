@@ -115,15 +115,14 @@ def fp8_sdpa_fwd_wrapper(
     )
 
     # Handle zero sized tensors(for now only in inference) by returning a dummy output.
-    if requires_backward is False:
-        if q.numel() == 0 or k.numel() == 0 or v.numel() == 0:
-            out_shape = list(q.shape)
-            out_shape[-1] = v.shape[-1]
-            dtype = torch.bfloat16
-            if q_scale_o:
-                dtype = q.dtype
-            dummy_out = q.new_empty(out_shape, dtype=dtype, requires_grad=requires_backward, layout=q.layout)
-            return dummy_out
+    if not requires_backward and (q.numel() == 0 or k.numel() == 0 or v.numel() == 0):
+        out_shape = list(q.shape)
+        out_shape[-1] = v.shape[-1]
+        dtype = torch.bfloat16
+        if q_scale_o:
+            dtype = q.dtype
+        dummy_out = q.new_empty(out_shape, dtype=dtype, requires_grad=requires_backward, layout=q.layout)
+        return dummy_out
 
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()

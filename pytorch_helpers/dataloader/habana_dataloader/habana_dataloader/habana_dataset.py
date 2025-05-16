@@ -181,10 +181,13 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         self.shuffle = kwargs.get("shuffle")
 
         sampler = kwargs.get("sampler", None)
-        if self.shuffle is False:
-            if isinstance(sampler, torch.utils.data.distributed.DistributedSampler) and (sampler.shuffle is True):
-                self.shuffle = True
-                print("Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
+        if (
+            not self.shuffle
+            and isinstance(sampler, torch.utils.data.distributed.DistributedSampler)
+            and sampler.shuffle
+        ):
+            self.shuffle = True
+            print("Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
         if sampler is not None:
             print("Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ", sampler)
 
@@ -414,7 +417,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
         elif isGaudi2(self.DeviceType):
             return len(self.iterator)
         else:
-            assert False, "Invalid device type"
+            raise AssertionError("Invalid device type")
 
     def __iter__(self):
         if self.fallback_activated:
@@ -424,7 +427,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
         elif isGaudi2(self.DeviceType):
             return iter(self.iterator)
         else:
-            assert False, "Invalid device type"
+            raise AssertionError("Invalid device type")
 
     def _aeon_dl_handle_vars(self, kwargs):
         if not kwargs.get("dataset"):

@@ -139,10 +139,9 @@ class FxToJitLowering(torch.fx.Interpreter):
         # a list whose element type will be an optional type. The following
         # code handles this situation.
         types = {type(elem.type()) for elem in jit_vals}
-        if len(types) > 1:
-            if jit.NoneType in types:
-                types.remove(jit.NoneType)
-                optional_type = True
+        if len(types) > 1 and jit.NoneType in types:
+            types.remove(jit.NoneType)
+            optional_type = True
 
         for elem in jit_vals:
             # If we are dealing with a situation in which the element type is

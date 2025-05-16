@@ -83,15 +83,15 @@ def check_hints_in_jit_ir(op_name: str, expected_hints: list | dict, op_idx=0):
                     if isinstance(expected_hints, dict):
                         for n, v in expected_hints.items():
                             if n not in real_hints:
-                                assert False, f"hint {n} is not present in JIT IR"
+                                raise AssertionError(f"hint {n} is not present in JIT IR")
                             if v != real_hints[n]:
-                                assert (
-                                    False
-                                ), f"value for hint {n} doesn't match with expected one, {real_hints[n]} vs. {v}"
+                                raise AssertionError(
+                                    f"value for hint {n} doesn't match with expected one, {real_hints[n]} vs. {v}"
+                                )
                     elif isinstance(expected_hints, list):
                         for n in expected_hints:
                             if n not in real_hints:
-                                assert False, f"hint {n} is not present in JIT IR"
+                                raise AssertionError(f"hint {n} is not present in JIT IR")
                     break
             if op_found:
                 break

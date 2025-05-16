@@ -49,7 +49,7 @@ def simple(rank, world_size, args):
     result_cmp = input_tensor * world_size
     for i, j in zip(result_cmp[rank], output_tensor, strict=False):
         if i != j:
-            assert "output value is incorrect"
+            raise AssertionError("output value is incorrect")
     print("DONE for rank :: ", rank)
     cleanup()
 

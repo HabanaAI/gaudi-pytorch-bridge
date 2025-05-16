@@ -67,11 +67,14 @@ class HabanaParameterWrapper(torch.nn.Parameter):
                 ]
             else:
                 new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) is HabanaParameterWrapper else arg
-        if func.__name__ == "__set__":
-            if hasattr(new_args[0], "device") and hasattr(new_args[1], "device"):
-                if new_args[0].device != new_args[1].device:
-                    new_args[0].change_device_placement(new_args[1].device)
-                    return
+        if (
+            func.__name__ == "__set__"
+            and hasattr(new_args[0], "device")
+            and hasattr(new_args[1], "device")
+            and new_args[0].device != new_args[1].device
+        ):
+            new_args[0].change_device_placement(new_args[1].device)
+            return
         return super().__torch_function__(func, types, new_args, kwargs)
 
     def __del__(self):

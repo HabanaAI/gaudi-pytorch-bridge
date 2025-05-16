@@ -328,7 +328,9 @@ def run_single_node(rank, *arguments):
 
     if do_device_profile:
         if SynapseProfilerApi is None or TraceType is None:
-            assert False, "SynapseProfilerApi or TraceType is None, please set PYTORCH_MODULES_ROOT_PATH correctly"
+            raise AssertionError(
+                "SynapseProfilerApi or TraceType is None, please set PYTORCH_MODULES_ROOT_PATH correctly"
+            )
         prof = HabanaDeviceProfile(SynapseProfilerApi(), 5)
         prof.start()
         run_iterations(prof)

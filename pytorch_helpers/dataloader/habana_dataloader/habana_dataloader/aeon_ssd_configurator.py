@@ -73,10 +73,9 @@ class AeonSSDConfigurator:
         if not self.train:
             self.manifest = f"val_{self.manifest}"
         manifest_file = os.path.join(self.out_folder, self.manifest)
-        if not os.path.exists(manifest_file):
-            if _get_rank() == 0:
-                os.makedirs(self.out_folder, exist_ok=True)
-                self._generate_aeon_manifest()
+        if not os.path.exists(manifest_file) and _get_rank() == 0:
+            os.makedirs(self.out_folder, exist_ok=True)
+            self._generate_aeon_manifest()
         if self.distributed and _is_distributed():
             dist.barrier()
 

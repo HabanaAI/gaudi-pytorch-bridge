@@ -104,7 +104,7 @@ def get_log_level(logger_level):
     if logger_level == "trace":
         return LogLevel.TRACE
 
-    assert False, f"unsupported logger_level = {logger_level}"
+    raise ValueError(f"unsupported logger_level = {logger_level}")
 
 
 def enable_logging(logger_name, logger_level):

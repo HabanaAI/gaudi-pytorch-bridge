@@ -435,7 +435,7 @@ class SymbolicShapeEvaluator:
             elif isinstance(input, torch.Tensor):
                 value = input.shape[dim]
             else:
-                assert False, "Wrong input type to look for dimention value"
+                raise AssertionError("Wrong input type to look for dimention value")
             return value
 
         if expr_token in self._symbolic_value_dict:

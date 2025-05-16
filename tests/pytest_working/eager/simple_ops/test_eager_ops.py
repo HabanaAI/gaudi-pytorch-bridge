@@ -776,16 +776,14 @@ def test_unique2_delegate(tensor_in, return_inverse, return_sorted, return_count
         feature_map_cpu = feature_map_cpu.sort()[0]
         feature_map = feature_map.sort()[0]
     assert torch.allclose(feature_map, feature_map_cpu)
-    if return_inverse:
+    if return_inverse and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(inverse, inverse_cpu)
-    if return_counts:
+        assert torch.equal(inverse, inverse_cpu)
+    if return_counts and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(counts, counts_cpu)
+        assert torch.equal(counts, counts_cpu)
 
 
 @pytest.mark.parametrize(
@@ -859,16 +857,14 @@ def test_unique2_tensor_delegate(tensor_in, return_inverse, return_sorted, retur
         feature_map_cpu = feature_map_cpu.sort()[0]
         feature_map = feature_map.sort()[0]
     assert torch.allclose(feature_map, feature_map_cpu)
-    if return_inverse:
+    if return_inverse and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(inverse, inverse_cpu)
-    if return_counts:
+        assert torch.equal(inverse, inverse_cpu)
+    if return_counts and return_sorted:
         #     # NOTE - unique is nondeterministic when returning an unsorted result,
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
-        if return_sorted:
-            assert torch.equal(counts, counts_cpu)
+        assert torch.equal(counts, counts_cpu)
 
 
 @pytest.mark.parametrize(

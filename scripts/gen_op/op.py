@@ -186,9 +186,8 @@ class Op:
 
     def is_eager_op(self):
         override_fn = self.get_override_fn()
-        if override_fn:
-            if "lazy" in override_fn:
-                return False
+        if override_fn and "lazy" in override_fn:
+            return False
         return True
 
     def treat_as_dtdf(self):

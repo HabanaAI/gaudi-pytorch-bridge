@@ -96,7 +96,7 @@ def create_attention_mask_for_test(
             mask_shape = (batch_size, 1, seq_len_N_t, seq_len_N_s)
         attn_mask = attn_mask.expand(mask_shape)
     else:
-        assert False, "Invalid attention mask shape"
+        raise AssertionError("Invalid attention mask shape")
     return attn_mask
 
 
@@ -1031,9 +1031,8 @@ def is_param_combo_valid(
     softmax_mode,
     return_attn_probs,
 ):
-    if is_causal:
-        if use_attn_mask:
-            return False
+    if is_causal and use_attn_mask:
+        return False
 
     if n_heads == 0 and rhslice:  # 3D batch-heads slicing case
         # in 3D case, 3D tensors are expanded to 4D by adding a 1
@@ -1058,9 +1057,8 @@ def is_param_combo_valid(
         if dropout_p > 0.0:
             return False
         # softmax_mode == "fp32" is supported only when q/k/v are BF16
-        if softmax_mode == "fp32":
-            if enable_autocast is False:
-                return False
+        if softmax_mode == "fp32" and not enable_autocast:
+            return False
 
     return True
 

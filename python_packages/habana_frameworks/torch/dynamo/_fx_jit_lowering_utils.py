@@ -161,9 +161,8 @@ def is_graph_module_dynamic(gm: torch.fx.GraphModule) -> bool:
 
 def check_node_and_args(node: torch.fx.node.Node, predicate):
     for arg in node.args:
-        if arg.__class__ == torch.fx.node.Node:
-            if predicate(arg):
-                return True
+        if arg.__class__ == torch.fx.node.Node and predicate(arg):
+            return True
 
     if predicate(node):
         return True

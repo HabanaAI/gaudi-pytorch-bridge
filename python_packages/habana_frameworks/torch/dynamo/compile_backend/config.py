@@ -27,7 +27,7 @@ def _get_bool_from_env(env_var: str, default: str):
         return True
     if env_str_value in ["off", "0", "no", "false", "n", "f"]:
         return False
-    assert False, f"Unrecognized boolean value in env config:\n\t{env_var}: {env_str_value}"
+    raise AssertionError(f"Unrecognized boolean value in env config:\n\t{env_var}: {env_str_value}")
 
 
 def _get_decomp_mode(env_var: str, default: str):

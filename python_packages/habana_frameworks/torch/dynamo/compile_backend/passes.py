@@ -818,9 +818,8 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
 def pass_mark_frozen_params(ctx: OptimizerContext) -> bool:
     for n in ctx.graph_module.graph.nodes:
-        if n.op == "get_attr" or n.op == "placeholder":
-            if "_frozen_param" in n.target:
-                n.meta["frozen_param"] = True
+        if (n.op == "get_attr" or n.op == "placeholder") and "_frozen_param" in n.target:
+            n.meta["frozen_param"] = True
     ctx.graph_module.graph.lint()
     ctx.graph_module.recompile()
 
@@ -1585,10 +1584,9 @@ class resolve_negative_dim:
                     return False
 
                 for index, value in enumerate(in_args_1):
-                    if not isinstance(value, py_sym_types):
-                        if value == -1:
-                            resolve_negative_dim.view_dim_index = index
-                            return True
+                    if not isinstance(value, py_sym_types) and value == -1:
+                        resolve_negative_dim.view_dim_index = index
+                        return True
         return False
 
     @classmethod
@@ -1725,10 +1723,9 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
             tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
             if isinstance(tmeta_val, py_sym_types):
                 py_node_manager.add_sym_placeholder(tmeta_val, node)
-        if node.op == "call_function":
-            if resolve_negative_dim.required(node):
-                py_node_manager.set_insert_point(node.prev)
-                graph_changed = resolve_negative_dim(ctx, node) or graph_changed
+        if node.op == "call_function" and resolve_negative_dim.required(node):
+            py_node_manager.set_insert_point(node.prev)
+            graph_changed = resolve_negative_dim(ctx, node) or graph_changed
 
     if graph_changed:
         ctx.graph_module.recompile()
@@ -2371,9 +2368,8 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
                     "habana_frameworks.torch.dynamo.compile_backend.symbolic_execution.symexpr_python",
                 }
                 and node._pretty_print_target(node.target) not in host_call_functions
-            ):
-                if node.meta["placement"] == "eager":
-                    eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
+            ) and node.meta["placement"] == "eager":
+                eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
         assert len(eager_nodes) == 0, f"Eager fallback in nodes: {eager_nodes}"
     return False
 
@@ -2470,16 +2466,18 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
         if it is same we will also check except last dim all the dims are same or not.
         if it is not same we are discarding this pattern matching using the below checks.
         """
-        if cond_after and cond_before:
-            if (len(before.args[0].meta["output_shapes"][0]) == len(after.meta["output_shapes"][0])) and (
-                before.args[0].meta["output_shapes"][0][:-1] == after.meta["output_shapes"][0][:-1]
-            ):
-                real_input = before.args[0]
-                new_args = list(node.args)
-                new_args[0] = real_input
-                node.args = tuple(new_args)
-                after.replace_all_uses_with(node)
-                node.meta.update(after.meta)
+        if (
+            cond_after
+            and cond_before
+            and (len(before.args[0].meta["output_shapes"][0]) == len(after.meta["output_shapes"][0]))
+            and (before.args[0].meta["output_shapes"][0][:-1] == after.meta["output_shapes"][0][:-1])
+        ):
+            real_input = before.args[0]
+            new_args = list(node.args)
+            new_args[0] = real_input
+            node.args = tuple(new_args)
+            after.replace_all_uses_with(node)
+            node.meta.update(after.meta)
 
     ctx.graph_module = post_pass_finalize(input_module=ctx.graph_module)
 
