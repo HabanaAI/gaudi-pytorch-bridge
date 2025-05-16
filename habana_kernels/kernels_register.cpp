@@ -2041,7 +2041,17 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_native_dropout(Tensor seed, Tensor input, float p, bool? train) -> (Tensor, Tensor)");
   m.def(
+      "hpu::habana__fused_dropout(Tensor seed, Tensor input, float p) -> (Tensor, Tensor)");
+  m.def(
       "hpu::habana_exponential(Tensor seed, Tensor self, float lambd=1) -> Tensor");
+  m.def(
+      "hpu::habana_normal.Tensor_Tensor(Tensor seed, Tensor mean, Tensor std) -> Tensor");
+  m.def(
+      "hpu::habana_normal.Tensor_float(Tensor seed, Tensor mean, float std=1) -> Tensor");
+  m.def(
+      "hpu::habana_normal.float_Tensor(Tensor seed, float mean, Tensor std) -> Tensor");
+  m.def(
+      "hpu::habana_normal.float_float(Tensor seed, float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

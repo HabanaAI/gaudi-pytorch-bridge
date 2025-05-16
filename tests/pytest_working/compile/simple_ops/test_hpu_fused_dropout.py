@@ -28,7 +28,7 @@ from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile
 @pytest.mark.parametrize("shape", [(2, 3, 4), (2, 3, 4, 5)])
 @pytest.mark.parametrize("ratio", [0.5, 0.75])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
-def test_exponential(shape, ratio, dtype):
+def test_fused_dropout(shape, ratio, dtype):
     def fn(input):
         return torch._fused_dropout(input, ratio)
 
@@ -53,4 +53,4 @@ def test_exponential(shape, ratio, dtype):
 
     assert torch.any(torch.ne(result_1[0], result_3[0]))
     assert torch.any(torch.ne(result_1[1], result_3[1]))
-    check_ops_executed_in_jit_ir("_fused_dropout")
+    check_ops_executed_in_jit_ir("habana__fused_dropout")

@@ -1126,7 +1126,7 @@ void habana::HabanaLaunchOpPT::OrderInputs() {
         if (it != input_tiv_map_.end()) {
           input_tivs_.push_back(it->second);
         } else {
-          HABANA_ASSERT(false, "synapse tensor not found for input index", i);
+          HABANA_ASSERT(false, "synapse tensor not found for input index: ", i);
         }
       }
     }

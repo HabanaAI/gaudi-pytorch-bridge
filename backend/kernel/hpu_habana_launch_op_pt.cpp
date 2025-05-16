@@ -634,12 +634,6 @@ void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
     torch::jit::Node* node) {
   bool populate_seed = false;
   switch (node->kind()) {
-    case torch::jit::aten::bernoulli:
-    case torch::jit::aten::exponential:
-    case torch::jit::aten::_fused_dropout:
-    case torch::jit::aten::native_dropout:
-    case torch::jit::aten::normal:
-    case torch::jit::aten::randperm:
     case torch::jit::aten::rrelu_with_noise:
     case torch::jit::aten::rrelu_with_noise_functional:
       populate_seed = true;

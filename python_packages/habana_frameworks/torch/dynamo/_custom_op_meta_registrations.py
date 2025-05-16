@@ -19,7 +19,12 @@ from habana_frameworks.torch import _hpu_C
 
 import torch
 from torch._decomp import global_decomposition_table
-from torch._meta_registrations import _compute_reduction_shape, register_meta, utils
+from torch._meta_registrations import (
+    _broadcast_shapes,
+    _compute_reduction_shape,
+    register_meta,
+    utils,
+)
 from torch._ops import HigherOrderOperator, OpOverload
 
 _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library("hpu", "IMPL", "Meta")
@@ -413,8 +418,8 @@ def meta_habana_bernoulli(seed, value):
     return value.new_empty(value.shape)
 
 
-@register_meta([torch.ops.hpu.habana_native_dropout])
-def meta_habana_native_dropout(seed, input, p, train):
+@register_meta([torch.ops.hpu.habana_native_dropout, torch.ops.hpu.habana__fused_dropout])
+def meta_habana_native_dropout(seed, input, *args):
     ref_tensor = input if isinstance(input, torch.Tensor) else seed
     shape = ref_tensor.shape
     return (torch.empty_like(ref_tensor), torch.empty(shape, dtype=torch.bool, device="meta"))
@@ -456,6 +461,41 @@ def meta_habana_multinomial(seed, value, num_samples, replacement=False):
 @register_meta([torch.ops.hpu.habana_exponential])
 def meta_habana_exponential(seed, self, lamd=1):
     return self.new_empty(self.shape)
+
+
+@register_meta(
+    [
+        torch.ops.hpu.habana_normal.Tensor_Tensor,
+        torch.ops.hpu.habana_normal.Tensor_float,
+        torch.ops.hpu.habana_normal.float_Tensor,
+        torch.ops.hpu.habana_normal.float_float,
+    ]
+)
+def meta_habana_normal_tt(seed, mean, std, *args, **kwargs):
+    is_mean_tensor = isinstance(mean, torch.Tensor)
+    is_std_tensor = isinstance(std, torch.Tensor)
+    layout = torch.strided
+    dtype = torch.result_type(mean, std)
+
+    if is_mean_tensor and is_std_tensor:
+        shape = _broadcast_shapes(mean.shape, std.shape)
+    elif is_mean_tensor:
+        shape = mean.shape
+    elif is_std_tensor:
+        shape = std.shape
+    else:
+        shape = args[0]
+        kwarg_layout = kwargs.get("layout")
+        if kwarg_layout is not None:
+            layout = kwarg_layout
+
+        kwarg_dtype = kwargs.get("dtype")
+        if kwarg_dtype is None:
+            dtype = torch.get_default_dtype()
+        else:
+            dtype = kwarg_dtype
+
+    return seed.new_empty(shape, dtype=dtype, layout=layout)
 
 
 @register_meta([torch.ops.hpu.scaled_masked_triangular_softmax.default])

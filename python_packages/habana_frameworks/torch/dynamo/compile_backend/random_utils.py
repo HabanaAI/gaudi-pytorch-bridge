@@ -30,12 +30,25 @@ HABANA_RANDOM_OPS_LIST = [
     "aten.multinomial.default",
     "aten.randperm.default",
     "aten.native_dropout.default",
+    "aten._fused_dropout.default",
     "aten.uniform.default",
     "aten.exponential.default",
 ]
 
+HABANA_RANDOM_OPS_VARIANTS_LIST = [
+    "aten.normal.Tensor_Tensor",
+    "aten.normal.Tensor_float",
+    "aten.normal.float_Tensor",
+    "aten.normal.float_float",
+]
+
 # Supported habana wrappers for random ops to proper handling in torch.compile
 HABANA_RANDOM_OPS = {op: getattr(torch.ops.hpu, "habana_" + op.split(".")[1]) for op in HABANA_RANDOM_OPS_LIST}
+
+for variant_op in HABANA_RANDOM_OPS_VARIANTS_LIST:
+    _, op_name, variant = tuple(variant_op.split("."))
+    HABANA_RANDOM_OPS[variant_op] = getattr(getattr(torch.ops.hpu, "habana_" + op_name), variant)
+
 HABANA_RANDOM_OPS.update(
     {
         "hpu.sdpa_recomp_fwd_dropout.default": torch.ops.hpu.sdpa_recomp_fwd_dropout_seed,

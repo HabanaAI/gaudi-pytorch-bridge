@@ -27,6 +27,7 @@ from test_dynamo_utils import use_eager_fallback
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
+    compare_tensors,
     compile_function_if_compile_mode,
 )
 
@@ -64,9 +65,18 @@ def native_dropout(x):
     return a * x + b
 
 
+def _fused_dropout(x):
+    a, b = torch._fused_dropout(input=x, p=0.4)
+    return a * x + b
+
+
 def exponential(x):
     a = torch.empty_like(x)
     return a.exponential_() * x
+
+
+def normal(mean, std):
+    return torch.normal(mean, std) * mean * std
 
 
 def three_ops(x):
@@ -76,7 +86,18 @@ def three_ops(x):
     return res_bernoulli * res_randperm
 
 
-OPS = [bernoulli, poisson, rand, randn, randint, multinomial, randperm, native_dropout, exponential]
+OPS = [
+    bernoulli,
+    poisson,
+    rand,
+    randn,
+    randint,
+    multinomial,
+    randperm,
+    native_dropout,
+    exponential,
+    _fused_dropout,
+]
 
 
 class Model(torch.nn.Module):
@@ -89,6 +110,24 @@ class Model(torch.nn.Module):
         add = input + 10
         rand = (
             torch.utils.checkpoint.checkpoint(self.op, add, use_reentrant=False) if self.is_checkpoint else self.op(add)
+        )
+        relu = torch.relu(rand)
+        return torch.randint_like(relu, 3, 10, dtype=torch.int) + relu
+
+
+class ModelTwoInputs(torch.nn.Module):
+    def __init__(self, op, is_checkpoint):
+        super().__init__()
+        self.op = op
+        self.is_checkpoint = is_checkpoint
+
+    def forward(self, input_a, input_b):
+        add = input_a + 10
+        mul = input_b * 1.3
+        rand = (
+            torch.utils.checkpoint.checkpoint(self.op, add, mul, use_reentrant=False)
+            if self.is_checkpoint
+            else self.op(add, mul)
         )
         relu = torch.relu(rand)
         return torch.randint_like(relu, 3, 10, dtype=torch.int) + relu
@@ -109,7 +148,8 @@ class ModelAllOps(torch.nn.Module):
         res4 = self.maybe_checkpoint(native_dropout, res3)
         res5 = self.maybe_checkpoint(three_ops, res4)
         res6 = exponential(res5)
-        return res6
+        res7 = self.maybe_checkpoint(_fused_dropout, res6)
+        return res7
 
 
 class ModelDropout(torch.nn.Module):
@@ -147,6 +187,24 @@ def run_model_with_deterministic_algorithms(model, shape=(12, 16), deterministic
     return out, grad
 
 
+def run_model_two_inputs(model, input_a, input_b):
+    model = compile_function_if_compile_mode(model)
+    out = model(input_a, input_b)
+    out.sum().backward()
+    return (
+        out.cpu(),
+        input_a.grad.cpu() if isinstance(input_a, torch.Tensor) else None,
+        input_b.grad.cpu() if isinstance(input_b, torch.Tensor) else None,
+    )
+
+
+def run_model_with_deterministic_algorithms_two_inputs(model, input_a, input_b, deterministic_flag=True):
+    torch.use_deterministic_algorithms(deterministic_flag)
+    out, grad_a, grad_b = run_model_two_inputs(model, input_a, input_b)
+    torch.use_deterministic_algorithms(False)
+    return out, grad_a, grad_b
+
+
 def get_habana_op_names(op_names):
     return {f"habana_{op_name.__name__}" for op_name in op_names}
 
@@ -177,8 +235,8 @@ def test_checkpoint(op, disable_compile):
     if disable_compile:
         op = original_op
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)
 
 
 def test_checkpoint_dropout():
@@ -196,8 +254,53 @@ def test_checkpoint_dropout():
     out_checkpoint, grad_checkpoint = run_model(ModelDropout(True), (120, 160))
     check_ops_executed_in_jit_ir(habana_op_names)
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)
+
+
+@pytest.mark.parametrize("is_mean_tensor, is_std_tensor", [(True, False), (False, True), (True, True)])
+@pytest.mark.parametrize("disable_compile", [False, True])
+def test_checkpoint_normal(is_mean_tensor, is_std_tensor, disable_compile):
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    op = normal
+    shape = (12, 16)
+
+    habana_op_names = {"habana_normal"}
+
+    if disable_compile:
+        original_op = op
+        op = torch.compiler.disable(op)
+        checkpoint_ops = {"habana_randint"}
+    else:
+        checkpoint_ops = habana_op_names.union({"habana_randint"})
+
+    torch.manual_seed(2137)
+    mean = torch.rand(shape).to("hpu").requires_grad_(True) if is_mean_tensor else 2.5
+    std = torch.rand(shape).to("hpu").requires_grad_(True) if is_std_tensor else 1.5
+
+    out, grad_a, grad_b = run_model_with_deterministic_algorithms_two_inputs(
+        ModelTwoInputs(op, False), mean, std, deterministic_flag=not disable_compile
+    )
+
+    check_ops_executed_in_jit_ir(checkpoint_ops)
+    clear_t_compile_logs()
+
+    torch.manual_seed(2137)
+    mean = torch.rand(shape).to("hpu").requires_grad_(True) if is_mean_tensor else 2.5
+    std = torch.rand(shape).to("hpu").requires_grad_(True) if is_std_tensor else 1.5
+
+    out_checkpoint, grad_a_checkpoint, grad_b_checkpoint = run_model_two_inputs(ModelTwoInputs(op, True), mean, std)
+    check_ops_executed_in_jit_ir(checkpoint_ops)
+
+    if disable_compile:
+        op = original_op
+
+    compare_tensors(out, out_checkpoint)
+    if is_mean_tensor:
+        compare_tensors(grad_a, grad_a_checkpoint)
+    if is_std_tensor:
+        compare_tensors(grad_b, grad_b_checkpoint)
 
 
 def test_checkpoint_all_ops():
@@ -214,8 +317,8 @@ def test_checkpoint_all_ops():
     out_checkpoint, grad_checkpoint = run_model(ModelAllOps(True))
     check_ops_executed_in_jit_ir(habana_op_names)
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)
 
 
 CHECKPOINT_OPS = [bernoulli, native_dropout, poisson, rand, randperm]
@@ -253,5 +356,5 @@ def test_checkpoint_all_eager_fallback(eager_op):
     HABANA_RANDOM_OPS[aten_op] = checkpoint_op_bckp
     hpu_fallback_op_list.remove(eager_op_name)
 
-    assert torch.equal(out, out_checkpoint)
-    assert torch.equal(grad, grad_checkpoint)
+    compare_tensors(out, out_checkpoint)
+    compare_tensors(grad, grad_checkpoint)

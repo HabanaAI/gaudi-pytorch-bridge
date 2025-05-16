@@ -196,7 +196,7 @@ def evaluate_fwd_inplace_kernel(
     return hpu_result, cpu_result
 
 
-def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
+def compare_tensors(hpu_tensors, cpu_tensors, atol=0.0, rtol=0.0, assert_enable=True):
     hpu_tensors = _convert_to_tensor_list(hpu_tensors)
     cpu_tensors = _convert_to_tensor_list(cpu_tensors)
     assert len(hpu_tensors) == len(cpu_tensors)

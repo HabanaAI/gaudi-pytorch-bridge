@@ -20,8 +20,11 @@
 #include "generated/backend/random.h"
 #include "generated/backend/uniform.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/habana_random_ops.h"
 #include "hpu_ops/shared_meta_common.h"
 namespace habana {
+const unsigned MEAN_INDEX = 0;
+const unsigned STD_INDEX = 1;
 const unsigned SIZE_INDEX = 2;
 const unsigned DTYPE_INDEX = 4;
 const unsigned LAYOUT_INDEX = 5;
@@ -33,40 +36,55 @@ enum NormalVariant {
   NORMAL_TT = 3
 };
 
-OutputMetaDataVector NormalMeta(const at::Stack& stack) {
+namespace {
+
+OutputMetaDataVector NormalMetaCommon(
+    const at::Stack& stack,
+    const bool is_habana_wrapper = false) {
+  const size_t idx_shift = is_habana_wrapper ? 1 : 0;
+  const auto& mean_ival = stack.at(MEAN_INDEX + idx_shift);
+  const auto& std_ival = stack.at(STD_INDEX + idx_shift);
+  size_t size_idx = SIZE_INDEX + idx_shift;
+  size_t dtype_idx = DTYPE_INDEX + idx_shift;
+  size_t layout_idx = LAYOUT_INDEX + idx_shift;
+
   OutputMetaData meta;
   c10::ScalarType dtype;
+  NormalVariant normal_variant =
+      (NormalVariant)(mean_ival.isTensor() + std_ival.isTensor() * 2);
   if (stack.size() > DTYPE_INDEX) {
-    dtype = stack.at(DTYPE_INDEX)
-                .toOptional<at::ScalarType>()
-                .value_or(at::get_default_dtype_as_scalartype());
-  } else if (stack.at(0).isTensor() && stack.at(1).isTensor()) {
-    dtype = at::result_type(stack.at(0).toTensor(), stack.at(1).isTensor());
-  } else if (stack.at(0).isTensor() && !stack.at(1).isTensor()) {
-    dtype = stack.at(0).toTensor().scalar_type();
-  } else if (!stack.at(0).isTensor() && stack.at(1).isTensor()) {
-    dtype = stack.at(1).toTensor().scalar_type();
+    dtype = stack.at(dtype_idx).toOptional<at::ScalarType>().value_or(
+        at::get_default_dtype_as_scalartype());
+  } else if (normal_variant == NORMAL_TT) {
+    dtype = at::result_type(mean_ival.toTensor(), std_ival.isTensor());
+  } else if (normal_variant == NORMAL_TF) {
+    dtype = mean_ival.toTensor().scalar_type();
+  } else if (normal_variant == NORMAL_FT) {
+    dtype = std_ival.toTensor().scalar_type();
   } else {
     dtype = at::get_default_dtype_as_scalartype();
   }
 
   meta.dtype = dtype;
-  std::vector<int64_t> sz;
-  if (stack.at(0).isTensor()) {
-    sz = stack.at(0).toTensor().sizes().vec();
-  } else if (stack.at(1).isTensor()) {
-    sz = stack.at(1).toTensor().sizes().vec();
+  if (normal_variant == NORMAL_TT) {
+    meta.shape = at::infer_size(
+        mean_ival.toTensor().sizes(), std_ival.toTensor().sizes());
+  } else if (normal_variant == NORMAL_TF) {
+    meta.shape = mean_ival.toTensor().sizes().vec();
+  } else if (normal_variant == NORMAL_FT) {
+    meta.shape = std_ival.toTensor().sizes().vec();
   } else {
-    sz = stack.at(SIZE_INDEX).toIntVector();
-    meta.layout = stack.at(LAYOUT_INDEX)
+    meta.shape = stack.at(size_idx).toIntVector();
+    meta.layout = stack.at(layout_idx)
                       .toOptional<at::Layout>()
                       .value_or(at::Layout::Strided);
   }
-  meta.shape = sz;
   return {meta};
 }
 
-namespace {
+OutputMetaDataVector HabanaNormalMeta(const at::Stack& stack) {
+  return NormalMetaCommon(stack, true);
+}
 
 FillParamsT RandomUniformParams(
     at::ScalarType type,
@@ -157,6 +175,10 @@ FillParamsT RandomUniformParams(
 
 } // namespace
 
+OutputMetaDataVector NormalMeta(const at::Stack& stack) {
+  return NormalMetaCommon(stack);
+}
+
 FillParamsT FillRandomParams(const at::Stack& stack) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(), std::nullopt, std::nullopt);
@@ -204,19 +226,21 @@ synapse_helpers::tensor NormalTensorHelper(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Stack& stack,
-    synTensor syn_in0,
-    synTensor syn_in1,
-    synTensor syn_seed,
-    NormalVariant normal_variant) {
-  const auto meta = NormalMeta(stack)[0];
+    synTensor syn_mean,
+    synTensor syn_std,
+    synTensor syn_seed_t,
+    NormalVariant normal_variant,
+    const bool is_habana_wrapper = false) {
+  const auto meta = NormalMetaCommon(stack, is_habana_wrapper)[0];
+  const size_t idx_shift = is_habana_wrapper ? 1 : 0;
   std::vector<synTensor> inputs;
   /*
   NOTE: Due to TPC guid limitations of random_normal.
-  We will use the linear transformation approach N(mean, std) = (N(0,1) +
-  mean)*std
+  We will use the linear transformation approach N(mean, std) = (N(0,1) * std) +
+  mean
   */
   inputs.push_back(nullptr);
-  inputs.push_back(syn_seed);
+  inputs.push_back(syn_seed_t);
   static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(0.); // mean;
@@ -233,7 +257,8 @@ synapse_helpers::tensor NormalTensorHelper(
        paramsT.size()});
   if (normal_variant == NORMAL_TF) {
     // insert mulOp if necessary
-    float stddev = static_cast<float>(stack.at(1).toDouble());
+    float stddev =
+        static_cast<float>(stack.at(STD_INDEX + idx_shift).toDouble());
     if (stddev != 1.0) {
       auto stddev_tensor =
           OpBackend::BuildConstant(op, graph, stddev, meta.dtype, {1});
@@ -247,7 +272,7 @@ synapse_helpers::tensor NormalTensorHelper(
           op,
           graph,
           {get_guid_with_precision("add_fwd"sv, meta.dtype),
-           {syn_in0, mulOp[0].get()},
+           {syn_mean, mulOp[0].get()},
            {{meta.shape, meta.dtype, 0}}});
 
       return std::move(addOp[0]);
@@ -256,20 +281,20 @@ synapse_helpers::tensor NormalTensorHelper(
           op,
           graph,
           {get_guid_with_precision("add_fwd"sv, meta.dtype),
-           {syn_in0, normal[0].get()},
+           {syn_mean, normal[0].get()},
            {{meta.shape, meta.dtype, 0}}});
       return std::move(addOp[0]);
     }
   } else if (normal_variant == NORMAL_FT) {
     // insert addOp if necessary
-    float mean = static_cast<float>(stack.at(0).toDouble());
+    float mean =
+        static_cast<float>(stack.at(MEAN_INDEX + idx_shift).toDouble());
     if (mean != 0.0) {
       auto mulOp = OpBackend::BuildNode(
           op,
           graph,
           {get_guid_with_precision("mult_fwd"sv, meta.dtype),
-           {syn_in0,
-            normal[0].get()}, // in this variant syn_in0 is stddev tensor
+           {syn_std, normal[0].get()},
            {{meta.shape, meta.dtype}}});
       auto mean_tensor =
           OpBackend::BuildConstant(op, graph, mean, meta.dtype, {1});
@@ -285,8 +310,7 @@ synapse_helpers::tensor NormalTensorHelper(
           op,
           graph,
           {get_guid_with_precision("mult_fwd"sv, meta.dtype),
-           {syn_in0,
-            normal[0].get()}, // in this variant syn_in0 is stddev tensor
+           {syn_std, normal[0].get()},
            {{meta.shape, meta.dtype, 0}}});
       return std::move(mulOp[0]);
     }
@@ -295,13 +319,13 @@ synapse_helpers::tensor NormalTensorHelper(
         op,
         graph,
         {get_guid_with_precision("mult_fwd"sv, meta.dtype),
-         {syn_in1, normal[0].get()},
+         {syn_std, normal[0].get()},
          {{meta.shape, meta.dtype}}});
     auto addOp = OpBackend::BuildNode(
         op,
         graph,
         {get_guid_with_precision("add_fwd"sv, meta.dtype),
-         {syn_in0, mulOp[0].get()},
+         {syn_mean, mulOp[0].get()},
          {{meta.shape, meta.dtype, 0}}});
     return std::move(addOp[0]);
   }
@@ -311,19 +335,21 @@ synapse_helpers::tensor NormalFloatFloatHelper(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Stack& stack,
-    synTensor syn_seed) {
-  const auto meta = NormalMeta(stack)[0];
-  std::vector<synTensor> inputs;
-  auto mean = stack.at(0).toDouble();
-  auto stddev = stack.at(1).toDouble();
-  // Input tensors to random_normal_fwd are stddev and seed tensors
-  inputs.push_back(nullptr);
-  inputs.push_back(syn_seed);
+    synTensor syn_seed_t,
+    const bool is_habana_wrapper = false) {
+  const auto meta = NormalMetaCommon(stack, is_habana_wrapper)[0];
+  const size_t idx_shift = is_habana_wrapper ? 1 : 0;
+  auto mean = stack.at(MEAN_INDEX + idx_shift).toDouble();
+  auto stddev = stack.at(STD_INDEX + idx_shift).toDouble();
+
   static const bool use_philox = GET_ENV_FLAG_NEW(PT_HPU_USE_PHILOX_NORMAL);
   PARAMS_STUB(ns_RandomNormal::ParamsV2);
   params->mean = static_cast<float>(mean);
   params->stddev = static_cast<float>(stddev);
   params->usePhilox = use_philox;
+
+  // Input tensors to random_normal_fwd are stddev and seed tensors
+  std::vector<synTensor> inputs{nullptr, syn_seed_t};
   op->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto normal = OpBackend::BuildNode(
       op,
@@ -409,8 +435,6 @@ SharedMetaDataVector NormalSharedMeta(
 }
 
 void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto meta = NormalMeta(stack)[0];
-  std::vector<synTensor> inputs;
   // For eager mode, the normal.float_float gets decomposed to normal_ and
   // doesn't come here. So, we can make the safe assumption that seed tensor is
   // the last element in the stack.
@@ -419,8 +443,8 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       (NormalVariant)(stack.at(0).isTensor() + stack.at(1).isTensor() * 2);
   synTensor syn_seed_t;
   if (stack.at(stack.size() - 1).isTensor()) { // eager mode
-    if (normal_variant == NORMAL_TT) {
-      syn_seed_t = syn_in(2); // tensors = mean, stddev, seed
+    if (normal_variant == NORMAL_TT) { // tensors = mean, stddev, seed
+      syn_seed_t = syn_in(2);
     } else {
       syn_seed_t = syn_in(1); // TF or FT case - tensors = mean or stddev, seed
     }
@@ -431,21 +455,23 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       syn_seed_t = syn_seed(); // torch.compile mode
     }
   }
-  if (normal_variant != NORMAL_FF) {
-    syn_out(0) = NormalTensorHelper(
-        this,
-        graph,
-        stack,
-        syn_in(0),
-        (normal_variant != NORMAL_TF)
-            ? ((normal_variant == NORMAL_TT) ? syn_in(1) : syn_in(0))
-            : nullptr,
-        syn_seed_t,
-        normal_variant);
-  } else {
+  if (normal_variant == NORMAL_FF) {
     syn_out(0) = NormalFloatFloatHelper(this, graph, stack, syn_seed_t);
+    return;
   }
-  return;
+
+  synTensor syn_mean{nullptr};
+  synTensor syn_std{nullptr};
+  if (normal_variant == NORMAL_TT) {
+    syn_mean = syn_in(0);
+    syn_std = syn_in(1);
+  } else if (normal_variant == NORMAL_TF) {
+    syn_mean = syn_in(0);
+  } else if (normal_variant == NORMAL_FT) {
+    syn_std = syn_in(0);
+  }
+  syn_out(0) = NormalTensorHelper(
+      this, graph, stack, syn_mean, syn_std, syn_seed_t, normal_variant);
 }
 
 SharedMetaDataVector RandomSeedTensorInputIntegersSharedMeta(
@@ -645,4 +671,50 @@ void RandomSeedTensorInputIntegers::AddNode(
     syn_out(0) = std::move(rand[0]);
   }
 }
+
+//===----------------------------------------------------------------------===//
+// This is the implementation of custom normal ops in `torch.compile`
+//===----------------------------------------------------------------------===//
+
+HabanaNormal::HabanaNormal(int device_id, c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, "random_normal_fwd", scalar_type, {0}) {
+  SetOutputMetaFn(HabanaNormalMeta);
+}
+
+void HabanaNormal::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  NormalVariant normal_variant =
+      (NormalVariant)(stack.at(MEAN_INDEX + 1).isTensor() +
+                      stack.at(STD_INDEX + 1).isTensor() * 2);
+  synTensor syn_seed_t = syn_in(0);
+
+  if (normal_variant == NORMAL_FF) {
+    syn_out(0) = NormalFloatFloatHelper(this, graph, stack, syn_seed_t, true);
+    return;
+  }
+
+  synTensor syn_mean{nullptr};
+  synTensor syn_std{nullptr};
+
+  if (normal_variant == NORMAL_TT) {
+    syn_mean = syn_in(1);
+    syn_std = syn_in(2);
+  } else if (normal_variant == NORMAL_TF) {
+    syn_mean = syn_in(1);
+  } else if (normal_variant == NORMAL_FT) {
+    syn_std = syn_in(1);
+  }
+
+  syn_out(0) = NormalTensorHelper(
+      this, graph, stack, syn_mean, syn_std, syn_seed_t, normal_variant, true);
+}
+
 } // namespace habana
+
+static const auto& HabanaNormalKernelRegistry =
+    habana::KernelRegistry()
+        .REGISTER_HABANA_RANDOM_OP(normal.Tensor_Tensor, Normal)
+        .REGISTER_HABANA_RANDOM_OP(normal.Tensor_float, Normal)
+        .REGISTER_HABANA_RANDOM_OP(normal.float_Tensor, Normal)
+        .REGISTER_HABANA_RANDOM_OP(normal.float_float, Normal);

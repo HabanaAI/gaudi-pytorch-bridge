@@ -193,6 +193,6 @@ void HabanaNativeDropout::AddNode(
 } // namespace habana
 
 static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry().REGISTER_HABANA_RANDOM_OP(
-        native_dropout,
-        NativeDropout);
+    habana::KernelRegistry()
+        .REGISTER_HABANA_RANDOM_OP(native_dropout, NativeDropout)
+        .REGISTER_HABANA_RANDOM_OP(_fused_dropout, NativeDropout);

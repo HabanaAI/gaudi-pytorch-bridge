@@ -302,6 +302,43 @@ def test_exponential(dtype):
     common_determinism(fn, a, dtype, "habana_exponential")
 
 
+@pytest.mark.parametrize("is_mean_tensor", [True, False], ids=format_tc)
+@pytest.mark.parametrize("is_std_tensor", [True, False], ids=format_tc)
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+def test_normal(is_mean_tensor, is_std_tensor, dtype):
+    fn = compile_function_if_compile_mode(torch.normal)
+    shape = (3, 4, 5)
+
+    mean = torch.randn(shape, dtype=dtype).to("hpu") if is_mean_tensor else 2.5
+    std = torch.rand(shape, dtype=dtype).to("hpu") if is_std_tensor else 1.5
+
+    args = (mean, std)
+    kwargs = {}
+    if not (is_mean_tensor or is_std_tensor):
+        args = args + (shape,)
+        kwargs = {"dtype": dtype, "device": "hpu"}
+
+    torch.manual_seed(1234)
+    result_1 = fn(*args, **kwargs).cpu()
+    result_2 = fn(*args, **kwargs).cpu()
+
+    torch.manual_seed(1234)
+    result_1a = fn(*args, **kwargs).cpu()
+    result_2a = fn(*args, **kwargs).cpu()
+
+    torch.manual_seed(12345)
+    result_1b = fn(*args, **kwargs).cpu()
+    result_2b = fn(*args, **kwargs).cpu()
+
+    assert result_1.dtype == dtype
+    assert torch.equal(result_1, result_1a)
+    assert torch.equal(result_2, result_2a)
+    assert not torch.equal(result_1, result_1b)
+    assert not torch.equal(result_2, result_2b)
+
+    check_ops_executed_in_jit_ir("habana_normal")
+
+
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
 def test_various_ops(dtype):
     def fn(input_a, input_b, shape_c, multinomial_input):
