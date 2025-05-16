@@ -848,7 +848,19 @@ std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
   return str;
 }
 
-void ValidateSyncInputTensors(habana_lazy::ir::ValueList& inputs) {
+std::vector<ir::NodePtr> GetNodePtrRoots(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices) {
+  std::vector<ir::NodePtr> p_roots;
+  p_roots.reserve(indices.size());
+  for (auto index : indices) {
+      auto ir_value = tensors->at(index).CurrentIrValue();
+      if (ir_value) {
+          p_roots.push_back(ir_value.mp_node);
+        }
+    }
+  return p_roots;
+}
+
+void ValidateSyncInputTensors(std::vector<HbLazyTensor>* tensors, std::vector<int>& indices, habana_lazy::ir::ValueList& inputs, habana_lazy::ir::NodePtrList* ptr_post_order = nullptr) {
   for (const auto& in : inputs) {
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     if (d == nullptr) {
@@ -857,13 +869,20 @@ void ValidateSyncInputTensors(habana_lazy::ir::ValueList& inputs) {
           in.ToString());
     }
     if (d && (!d->tensor_data.has_value())) {
+      std::vector<ir::NodePtr> p_roots = GetNodePtrRoots(tensors, indices);
       PT_LAZY_FATAL(
           "Error, ValidateSyncInputTensors tensor_data is empty. Tensorid:",
           d->unique_id,
-          " QueueStatus:",
+          " QueueStatus: ",
           SingleTonExecThreadPool::getInstance().ToString(),
           " irValue:",
-          in.ToString());
+          in.ToString(),
+          " Strided Params Has Value: ",
+          d->stride_params.has_value(),
+          " Failing Graph: ",
+          ptr_post_order != nullptr
+              ? IrGraphDumpUtil::PostOrderToText(*ptr_post_order, p_roots)
+              : "null postorder");
     }
   }
 }
@@ -904,14 +923,7 @@ torch::jit::Stack PrepareInputStack(
   for (const auto& in : inputs) {
     // PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
     if (!in.DataPtrValidAndNotExpired()) {
-      std::vector<ir::NodePtr> p_roots;
-      p_roots.reserve(indices.size());
-      for (auto index : indices) {
-        auto ir_value = tensors->at(index).CurrentIrValue();
-        if (ir_value) {
-          p_roots.push_back(ir_value.mp_node);
-        }
-      }
+      std::vector<ir::NodePtr> p_roots = GetNodePtrRoots(tensors, indices);
       if (ptr_post_order != nullptr) {
         PT_LAZY_DEBUG(
             " Node = ",
@@ -923,7 +935,20 @@ torch::jit::Stack PrepareInputStack(
     }
 
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
-    HABANA_ASSERT(d->tensor_data.has_value(), "Empty tensor optional");
+    if (!d->tensor_data.has_value()) {
+      std::vector<ir::NodePtr> p_roots = GetNodePtrRoots(tensors, indices);
+      HABANA_ASSERT(
+          d->tensor_data.has_value(),
+          "Empty tensor optional",
+          " Uniqueid: ",
+          d->unique_id,
+          " Strided Params Has Value: ",
+          d->stride_params.has_value(),
+          " Failing Graph: ",
+          ptr_post_order != nullptr
+              ? IrGraphDumpUtil::PostOrderToText(*ptr_post_order, p_roots)
+              : "null postorder");
+    }
     at::Tensor pt_tensor = d->tensor_data.value();
     auto is_const_tensor = habana::is_tensor_const(pt_tensor);
 
@@ -1082,7 +1107,7 @@ void LaunchSyncTensorsGraph(
   } else {
     try {
       if (launch_info.has_queued) {
-        ValidateSyncInputTensors(launch_info.po_data.inputs);
+        ValidateSyncInputTensors(tensors, launch_info.indices, launch_info.po_data.inputs, &launch_info.po_data.post_order);
         launch_info.stack = PrepareInputStack(
             tensors,
             launch_info.indices,

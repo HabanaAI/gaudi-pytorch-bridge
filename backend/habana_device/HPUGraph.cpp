@@ -412,6 +412,8 @@ void HPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
     }
   }
 
+  PT_HPUGRAPH_DEBUG("Total Number Of Captured Graph: ", captured_graphs.size());
+
   for (size_t i = 0; i < captured_graphs.size(); i++) {
     captured_graphs[i]->replayV3(inputs, async);
   }
@@ -580,7 +582,14 @@ void SingleHPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
                 habana_lazy::HbLazyTensorViews::HandleViewsD2H(t));
           } else {
             HABANA_ASSERT(
-                0, "Neither storage attached to input tensor, not its view.")
+                0,
+                "Neither storage attached to input tensor, not its view.",
+                " Uniqueid: ",
+                hbl.getDataPtr()->unique_id,
+                " Strided Params Has Value: ",
+                hbl.getDataPtr()->stride_params.has_value(),
+                " Failing Graph: ",
+                (graph_->dump(), ""));
           }
         }
         hblazy_tensors_in_[i] = hbl;
