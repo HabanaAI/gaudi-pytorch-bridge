@@ -189,21 +189,6 @@ void emitCacheEvent(
   }
 }
 
-std::string makeIdStr(const std::string& name, size_t graph_index) {
-  std::ostringstream oss;
-  oss << name << '_' << graph_index;
-  return oss.str();
-}
-
-std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
-    const std::string& name,
-    size_t g_index) {
-  if (id_str_ == std::string())
-    id_str_ = makeIdStr(name, g_index);
-
-  return id_str_;
-}
-
 HabanaLaunchOpPT::HabanaLaunchOpPT(
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
         optimized_jit_graph_and_meta_data)
@@ -231,8 +216,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   compile_stats_path_ = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
 
-  PT_BRIDGE_DEBUG(
-      "Creating : ", SetAndGetSynapseGraphName(name_, graph_index_));
+  syn_graph_name_ = name_ + '_' + std::to_string(graph_index_);
+  if (syn_graph_name_.find("_jit") != std::string::npos)
+    syn_graph_name_.replace(syn_graph_name_.find("jit"), 3, "syn");
+  PT_BRIDGE_DEBUG("Creating : ", GetSynapseGraphName());
 
   auto front_end_type = jit_graph_and_meta_data_->GetFrontendType();
   execution_mode_ = front_end_type;
@@ -5142,7 +5129,7 @@ void HabanaLaunchOpPT::run(
       rvs.update_hit_count();
 
       PT_BRIDGE_DEBUG(
-          id_str_,
+          GetSynapseGraphName(),
           ": ",
           "HabanaOp recipe cache hit :: key ",
           cur_rargpsh_->hashCode(),
@@ -5181,7 +5168,7 @@ void HabanaLaunchOpPT::run(
           habana_helpers::EventDispatcher::Topic::CACHE_MISS,
           std::to_string(cur_rargpsh_->hashCode()));
       PT_BRIDGE_DEBUG(
-          id_str_,
+          GetSynapseGraphName(),
           ": ",
           "HabanaOp recipe cache miss :: key ",
           cur_rargpsh_->hashCode());
@@ -5352,7 +5339,7 @@ void HabanaLaunchOpPT::run(
       RecipeValueSpec& rv = *rvs;
       rv.update_hit_count();
       PT_EAGER_DEBUG(
-          id_str_,
+          GetSynapseGraphName(),
           ": ",
           "HabanaOp shape agnostic graph cache hit :: key ",
           graph_key_,
@@ -5731,10 +5718,9 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   }
 
   auto& device = HPUDeviceContext::get_device();
-  GetSynapseGraphName();
 
   auto syn_graph = std::make_shared<sh::graph>(
-      sh::graph::create_for_refinement(device, name_));
+      sh::graph::create_for_refinement(device, GetSynapseGraphName()));
 
   std::shared_ptr<sh::graph::recipe_handle> recipe;
   auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);

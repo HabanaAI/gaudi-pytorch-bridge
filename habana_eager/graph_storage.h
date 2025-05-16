@@ -27,6 +27,7 @@ class GraphStorage {
 
   size_t add_new_recipe(
       std::shared_ptr<torch::jit::Graph> graph,
+      const std::string& parent_graph_name,
       torch::jit::Stack& example_inputs,
       const std::vector<bool>& is_reusable,
       bool dynamic,

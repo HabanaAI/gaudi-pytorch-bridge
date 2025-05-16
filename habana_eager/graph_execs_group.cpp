@@ -71,6 +71,7 @@ void GraphExecsGroup::CopyGraphAndEmplace(
       std::forward_as_tuple(
           generate_graph_index(),
           graph_copy,
+          m_parent_graph_name,
           stack,
           m_dynamic,
           m_inference,
@@ -86,6 +87,7 @@ void GraphExecsGroup::CopyGraphAndEmplace(
 GraphExecsGroup::GraphExecsGroup(
     size_t recipe_id,
     std::shared_ptr<torch::jit::Graph> graph,
+    const std::string& parent_graph_name,
     torch::jit::Stack& example_inputs,
     const std::vector<bool>& is_reusable,
     bool dynamic,
@@ -98,6 +100,7 @@ GraphExecsGroup::GraphExecsGroup(
     bool mark_dynamic)
     : m_graph_group_index(recipe_id),
       m_original_graph(graph),
+      m_parent_graph_name(parent_graph_name),
       m_dynamic(dynamic),
       m_inference(inference),
       m_has_preallocated_outputs(has_preallocated_outputs),
