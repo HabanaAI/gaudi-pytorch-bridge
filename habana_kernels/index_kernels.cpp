@@ -49,6 +49,7 @@
 
 using namespace torch;
 using namespace habana;
+using namespace std::literals;
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
 /*************************************************************************
@@ -392,9 +393,14 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       p_context_->pt_outputs_[0] = std::move(cast_op3->GetOutputs()[0]);
       return;
     }
-    const std::string guid = (self.scalar_type() == at::ScalarType::Int)
-        ? "unsorted_scatter_add_fwd_i32"
-        : "unsorted_scatter_add_fwd_f32";
+    auto precision_type = self.scalar_type();
+    if (at::isFloatingType(precision_type))
+      precision_type = at::ScalarType::Float;
+    else if (precision_type == at::ScalarType::Long)
+      precision_type = at::ScalarType::Int;
+
+    const std::string guid =
+        get_guid_with_precision("unsorted_scatter_add_fwd"sv, precision_type);
     SetGuid(guid);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   } else { // On Gaudi1
