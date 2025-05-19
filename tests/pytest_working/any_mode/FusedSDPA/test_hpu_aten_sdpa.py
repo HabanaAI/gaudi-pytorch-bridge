@@ -20,13 +20,9 @@ import pytest
 import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
-from test_utils import compile_function_if_compile_mode, is_pytest_mode_lazy
+from test_utils import compile_function_if_compile_mode
 
 
-@pytest.mark.skipif(
-    is_pytest_mode_lazy(),
-    reason="we will skip the lazy mode test.",
-)
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
 def test_aten_SDPA_fwd_only(dtype):
     torch.manual_seed(1234)
@@ -42,9 +38,9 @@ def test_aten_SDPA_fwd_only(dtype):
         return x
 
     # CPU
-    cpu_query = torch.rand(2, 8, 128, 64, dtype=torch.bfloat16)
-    cpu_key = torch.rand(2, 8, 128, 64, dtype=torch.bfloat16)
-    cpu_value = torch.rand(2, 8, 128, 64, dtype=torch.bfloat16)
+    cpu_query = torch.rand(2, 8, 128, 64, dtype=dtype)
+    cpu_key = torch.rand(2, 8, 128, 64, dtype=dtype)
+    cpu_value = torch.rand(2, 8, 128, 64, dtype=dtype)
 
     fn = compile_function_if_compile_mode(fn)
     gn = compile_function_if_compile_mode(gn)
@@ -65,12 +61,8 @@ def test_aten_SDPA_fwd_only(dtype):
     assert torch.allclose(hpu_result_g.cpu(), hpu_result_f.cpu(), atol=tolerance, rtol=tolerance)
 
 
-@pytest.mark.skipif(
-    is_pytest_mode_lazy(),
-    reason="we will skip the lazy mode test.",
-)
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
-def test_aten_SDPA_fwd_bwd(dtype):
+def test_aten_SDPA_fwd_bwd_only(dtype):
     torch.manual_seed(1234)
 
     def fn(query, key, value):
@@ -84,9 +76,9 @@ def test_aten_SDPA_fwd_bwd(dtype):
         return x
 
     # CPU
-    cpu_query = torch.rand(2, 8, 128, 64, dtype=torch.bfloat16)
-    cpu_key = torch.rand(2, 8, 128, 64, dtype=torch.bfloat16)
-    cpu_value = torch.rand(2, 8, 128, 64, dtype=torch.bfloat16)
+    cpu_query = torch.rand(2, 8, 128, 64, dtype=dtype)
+    cpu_key = torch.rand(2, 8, 128, 64, dtype=dtype)
+    cpu_value = torch.rand(2, 8, 128, 64, dtype=dtype)
 
     if pytest.mode == "compile":
         fn = torch.compile(fn, backend="hpu_backend")
@@ -127,3 +119,46 @@ def test_aten_SDPA_fwd_bwd(dtype):
     assert torch.allclose(
         hpu_value_g.grad.detach().cpu(), hpu_value_f.grad.detach().cpu(), atol=tolerance, rtol=tolerance
     )
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
+def test_aten_SDPA_fwd_bwd_5d(dtype):
+    torch.manual_seed(1234)
+
+    def fn(query, key, value, mask):
+        x = torch.nn.functional.scaled_dot_product_attention(
+            query, key, value, attn_mask=mask, dropout_p=0.0, is_causal=False, scale=None, enable_gqa=False
+        )
+        return x
+
+    # CPU
+    cpu_query = torch.rand((2, 4, 2, 16, 4), dtype=dtype, requires_grad=True)
+    cpu_key = torch.rand((2, 4, 2, 8, 4), dtype=dtype, requires_grad=True)
+    cpu_value = torch.rand((2, 4, 2, 8, 8), dtype=dtype, requires_grad=True)
+    cpu_mask = torch.rand(2, 4, 2, 16, 8, dtype=dtype)
+
+    cpu_result = fn(cpu_query, cpu_key, cpu_value, cpu_mask)
+
+    if pytest.mode == "compile":
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    # HPU with Fused SDPA cpp autograd interface
+    hpu_query_f = cpu_query.detach().to("hpu")
+    hpu_key_f = cpu_key.detach().to("hpu")
+    hpu_value_f = cpu_value.detach().to("hpu")
+    hpu_mask_f = cpu_mask.detach().to("hpu")
+
+    hpu_query_f.requires_grad_(True)
+    hpu_key_f.requires_grad_(True)
+    hpu_value_f.requires_grad_(True)
+
+    hpu_result_f = fn(hpu_query_f, hpu_key_f, hpu_value_f, hpu_mask_f)
+
+    assert torch.allclose(hpu_result_f.detach().cpu(), cpu_result.detach(), rtol=0.03, atol=0.6)
+
+    cpu_result.sum().backward()
+    hpu_result_f.sum().backward()
+
+    assert torch.allclose(hpu_query_f.grad.detach().cpu(), cpu_query.grad.detach(), rtol=0.03, atol=0.6)
+    assert torch.allclose(hpu_key_f.grad.detach().cpu(), cpu_key.grad.detach(), rtol=0.03, atol=0.6)
+    assert torch.allclose(hpu_value_f.grad.detach().cpu(), cpu_value.grad.detach(), rtol=0.03, atol=0.6)

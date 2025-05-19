@@ -122,13 +122,11 @@ def pytest_configure(config):
 
     if pytest.mode == "eager":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
-        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
     elif pytest.mode == "lazy":
         os.environ["PT_HPU_LAZY_MODE"] = "1"
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
         os.environ["PT_HPU_USE_EAGER_FALLBACK"] = "0"
-        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
         try:
             eager_fallback_path = Path(__file__).parent.joinpath(EAGER_FALLBACK_TESTS_LIST)
             with open(eager_fallback_path) as f:

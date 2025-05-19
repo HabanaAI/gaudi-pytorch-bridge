@@ -170,7 +170,7 @@ class FusedSDPAAutogradHPU
     auto seq_padding_type = "left";
     double scale_;
     if (!scale.has_value())
-      scale_ = 1 / sqrt(query.sizes()[3]);
+      scale_ = 1 / sqrt(query.sizes().vec().back());
     else
       scale_ = scale.value();
     auto valid_seq_len = std::optional<at::Tensor>();
@@ -209,10 +209,6 @@ class FusedSDPAAutogradHPU
     auto dm = std::get<2>(output);
     if (enable_gqa) {
       out = gqa_output_reshape(out);
-      P = gqa_output_reshape(P);
-      if (dropout_p > 0.0) {
-        dm = gqa_output_reshape(dm);
-      }
     }
     ctx->save_for_backward({query_n, key_n, value_n, P, dm, out});
     return out;
@@ -283,19 +279,22 @@ at::Tensor fused_sdpa_autograd_wrap(
       query, key, value, attn_mask, dropout_p, is_causal, scale, enable_gqa);
 }
 
-// When below flag is enabled, aten.scaled_dot_product_attention is overridden
-// in torch.compile and eager
-static const bool OVERRIDE_FSDPA =
-    GET_ENV_FLAG_NEW(PT_HPU_USE_OVERRIDE_ATEN_SDPA);
+// When below flag is enabled, aten.scaled_dot_product_attention is used
+// math backend in torch.compile and eager mode
+// When this flag is not enabled then aten.scaled_dot_product_attention
+// will be overwritten by default in torch.compile and eager mode
+static const bool ATEN_FSDPA = GET_ENV_FLAG_NEW(PT_HPU_USE_ATEN_SDPA);
 
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
-  if (OVERRIDE_FSDPA) {
+  if (!ATEN_FSDPA) {
     m.impl("scaled_dot_product_attention", fused_sdpa_autograd_wrap);
   }
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_fused_sdp_choice", fused_sdp_choice_hpu);
+  if (ATEN_FSDPA) {
+    m.impl("_fused_sdp_choice", fused_sdp_choice_hpu);
+  }
 }
 
 } // namespace eager

@@ -40,7 +40,7 @@ def print_sdpa_env_vars():
     print_env_var("PT_HPU_QKV_SLICE_SEQ_LEN_THLD", 8192)
     print_env_var("ENABLE_EXPERIMENTAL_FLAGS", False)
     print_env_var("RUN_TPC_FUSER", True)
-    print_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", False)
+    print_env_var("PT_HPU_USE_ATEN_SDPA", False)
     print("=========================================================================================")
 
 
