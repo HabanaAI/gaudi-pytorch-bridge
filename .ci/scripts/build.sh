@@ -584,9 +584,6 @@ build_pytorch_fork()
         --pytorch-next )
             __pytorch_next="true"
             ;;
-        --use-cxx11-abi )
-            # Only CXX11_ABI builds are permitted now. Flag can be removed after it's no longer used in CI/CD.
-            ;;
         -h  | --help )
             usage $__scriptname
             return 0
