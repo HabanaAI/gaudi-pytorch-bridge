@@ -531,3 +531,52 @@ def test_reinplace_chain_of_inplaceable_ops():
         return add_2
     """
     assert sub_str in ctx.graph_module.print_readable(False)
+
+
+def test_reinplace_broadcast_add_on_cpu():
+    """
+    Check whether a reinplace error occurs during the execution of
+    a broadcast add in compile mode when using data on the CPU.
+    """
+
+    def broadcast_add_cpu():
+        def fn(args):
+            device = args[0]
+            a = torch.randn(1, device=device)
+            b = torch.randn(2, device=device)
+            sum = a[:, None] + b
+            return sum
+
+        device = torch.device("cpu")
+        fn = torch.compile(fn, backend="hpu_backend")
+
+        result = fn([device])
+        print("the value of result is ", result)
+
+    broadcast_add_cpu()
+
+
+def test_reinplace_broadcast_add_on_hpu():
+    """
+    Verify the correctness of broadcast add in
+    compile mode when using data on the HPU.
+    """
+
+    def broadcast_add_hpu():
+        def fn(a, b):
+            sum = a[:, None] + b
+            return sum
+
+        device = torch.device("hpu")
+        a = torch.randn(1, device=device)
+        b = torch.randn(2, device=device)
+        result_eager = fn(a, b)
+        print("the value of result_eager is ", result_eager)
+        fn = torch.compile(fn, backend="hpu_backend")
+        result_compile = fn(a, b)
+        print("the value of result_compile is ", result_compile)
+        assert torch.allclose(
+            result_eager, result_compile, atol=1e-5, rtol=1e-5
+        ), "the result under compile mode is wrong."
+
+    broadcast_add_hpu()
