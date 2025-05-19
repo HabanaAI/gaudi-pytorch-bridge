@@ -527,28 +527,26 @@ void BinaryWithAlpha::AddNode(
   std::vector<synTensor> inputs{syn_in(SELF_INDEX), syn_in(OTHER_INDEX)};
   std::string guid{guid_};
 
-  if ((isAlphaIntegralType ? alpha.i : alpha.f) == 1) {
-    std::string opName;
-    bool use_int64 = false;
-    switch (mode) {
-      case BINARY_WITH_ALPHA_MODE_ADD:
-        opName = "add";
-        use_int64 = common::IsInt64Supported();
-        break;
-      case BINARY_WITH_ALPHA_MODE_RSUB:
-        // RSUB uses SUB kernel, but with reversed inputs
-        inputs = {syn_in(OTHER_INDEX), syn_in(SELF_INDEX)};
-        [[fallthrough]];
-      case BINARY_WITH_ALPHA_MODE_SUB:
-        opName = "sub";
-        break;
-      default:
-        opName = {};
+  if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    if ((isAlphaIntegralType ? alpha.i : alpha.f) == 1) {
+      std::string opName;
+      switch (mode) {
+        case BINARY_WITH_ALPHA_MODE_ADD:
+          opName = "add";
+          break;
+        case BINARY_WITH_ALPHA_MODE_RSUB:
+          // RSUB uses SUB kernel, but with reversed inputs
+          inputs = {syn_in(OTHER_INDEX), syn_in(SELF_INDEX)};
+          [[fallthrough]];
+        case BINARY_WITH_ALPHA_MODE_SUB:
+          opName = "sub";
+          break;
+        default:
+          opName = {};
+      }
+      guid = get_guid_with_precision(opName, result_type);
     }
-
-    guid = get_guid_with_precision(opName, result_type, use_int64);
   }
-
   auto op = BuildOp(
       graph,
       std::move(guid),
