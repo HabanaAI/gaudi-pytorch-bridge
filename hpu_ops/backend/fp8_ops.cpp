@@ -235,6 +235,32 @@ OutputMetaDataVector CastToFp8V2Meta(const at::Stack& stack) {
   return meta;
 }
 
+SharedMetaDataVector CastToFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack.at(0).toTensor();
+  const int inputDim = input.dim();
+  const bool isCastToFp8V2 = stack.at(3).isBool();
+  const bool isAmax = isCastToFp8V2 ? stack.at(3).toBool()
+                                    : stack.at(4).toTensor().numel() != 0;
+
+  const c10::ScalarType outputType = isCastToFp8V2
+      ? stack.at(4).toScalarType()
+      : stack.at(3).toTensor().scalar_type();
+
+  SharedMetaData sharedMeta("convert_to_fp8");
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      getSharedMetaTensorFromScale(stack.at(1))};
+
+  sharedMeta.outputs_data.emplace_back(inputDim, outputType);
+  if (isAmax) {
+    sharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+  }
+
+  return {sharedMeta};
+}
+
 void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1];
@@ -310,6 +336,22 @@ OutputMetaDataVector CastFromFp8Meta(const at::Stack& stack) {
   meta.shape = stack[0].toTensor().sizes().vec();
   meta.dtype = stack[2].toScalarType();
   return {meta};
+}
+
+SharedMetaDataVector CastFromFp8SharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack.at(0).toTensor();
+  const int inputDim = input.dim();
+
+  SharedMetaData sharedMeta("convert_from_fp8");
+  sharedMeta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      getSharedMetaTensorFromScale(stack.at(1))};
+
+  sharedMeta.outputs_data.emplace_back(inputDim, stack.at(2).toScalarType());
+
+  return {sharedMeta};
 }
 
 void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {

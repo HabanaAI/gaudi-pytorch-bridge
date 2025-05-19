@@ -100,8 +100,9 @@ std::vector<at::Tensor> CastToFp8V2Function::forward(
     at::ScalarType dtype,
     OptionalIntArrayRef scale_shape) {
   at::AutoDispatchBelowADInplaceOrView g;
-
-  ctx->save_for_backward({scale.value_or(at::Tensor())});
+  if (scale.has_value()) {
+    ctx->save_for_backward({scale.value()});
+  }
   ctx->saved_data["out_dtype"] = input.scalar_type();
 
   auto result = cast_to_fp8_v2_dispatch(
@@ -112,7 +113,11 @@ std::vector<at::Tensor> CastToFp8V2Function::forward(
 std::vector<at::Tensor> CastToFp8V2Function::backward(
     torch::autograd::AutogradContext* ctx,
     const std::vector<at::Tensor>& grads) {
-  auto scale = ctx->get_saved_variables().at(0);
+  auto saved_data = ctx->get_saved_variables();
+  std::optional<at::Tensor> scale = std::nullopt;
+  if (saved_data.size() >= 1) {
+    scale = saved_data.at(0);
+  }
   ScalarType out_dtype = ctx->saved_data["out_dtype"].toScalarType();
 
   auto result = cast_from_fp8_dispatch<const std::optional<at::Tensor>&>(

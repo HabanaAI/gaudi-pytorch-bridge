@@ -56,6 +56,36 @@ OutputMetaDataVector CastToFp8HybridMeta(const at::Stack& stack) {
   return {meta_152, meta_143, meta_amax};
 }
 
+SharedMetaDataVector CastToFp8HybridSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const at::Tensor& input = stack.at(0).toTensor();
+  const int inputDim = input.dim();
+  const bool isAmax = stack.at(4).toBool();
+
+  const bool is152Scale = stack.at(1).isTensor();
+  const bool is143Scale = stack.at(2).isTensor();
+
+  SharedMetaData sharedMeta("convert_to_fp8_hybrid");
+  sharedMeta.inputs_data.emplace_back(inputDim, input.scalar_type());
+  sharedMeta.inputs_data.push_back(
+      is152Scale ? SharedMetaTensor{1, c10::ScalarType::Float}
+                 : createOptionalNotPresentSharedMetaTensor());
+  sharedMeta.inputs_data.push_back(
+      is143Scale ? SharedMetaTensor{1, c10::ScalarType::Float}
+                 : createOptionalNotPresentSharedMetaTensor());
+
+  sharedMeta.outputs_data.emplace_back(inputDim, c10::ScalarType::Float8_e5m2);
+  sharedMeta.outputs_data.emplace_back(
+      inputDim, c10::ScalarType::Float8_e4m3fn);
+
+  if (isAmax) {
+    sharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+  }
+
+  return {sharedMeta};
+}
+
 void CastToFp8Hybrid::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
