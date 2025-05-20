@@ -240,14 +240,6 @@
             "pytest_working/any_mode/simple_ops/test_hpu_reciprocal.py::test_reciprocal[dtype3-shape0]",
             "pytest_working/any_mode/simple_ops/test_hpu_reciprocal.py::test_reciprocal[dtype3-shape1]",
             "pytest_working/any_mode/simple_ops/test_hpu_reciprocal.py::test_reciprocal[dtype3-shape2]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape0-32]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape1-38]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape2-72]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype0-input_shape3-88]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape0-32]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape1-38]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape2-72]",
-            "pytest_working/any_mode/test_hpu_block_softmax_adjustment.py::test_block_softmax_adjustment[dtype1-input_shape3-88]",
             "pytest_working/any_mode/test_fused_adamw.py::test_adamw[float32-[float8_e4m3fnxfloat8_e5m2]]"
         ]
     },
