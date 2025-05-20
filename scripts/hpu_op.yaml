@@ -7708,12 +7708,6 @@ uniform_:
   namespaces: [torch.Tensor]
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 
-unique_dim:
-  override_fn: unique_dim_hpu_lazy
-  fallback_check: [UniqueFallbackCheck, sorted]
-  op_validator: UniqueDimSharedMeta
-  skip_slrg: true
-
 unsqueeze_:
   override_fn: unsqueeze_hpu_lazy_
   acc_thread: true
@@ -8577,6 +8571,9 @@ _unique:
   hpu_wrap: true
 
 _unique2:
+  hpu_wrap: true
+
+unique_dim:
   hpu_wrap: true
 
 repeat_interleave.Tensor:

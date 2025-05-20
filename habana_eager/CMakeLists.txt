@@ -58,6 +58,7 @@ add_habana_library(
   ops/set.cpp
   ops/unique.cpp
   ops/unique2.cpp
+  ops/unique_dim.cpp
   ops/view.cpp
   passes/add_deterministic_attribute.cpp
   passes/detect_weights_tensors.cpp
