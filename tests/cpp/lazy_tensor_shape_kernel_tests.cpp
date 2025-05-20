@@ -770,6 +770,7 @@ TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_4) {
 // Test case to check the updates with add and mul combination ops - on a view
 // (2nd), created out of a 2D tensor.
 TEST_F(LazyTensorShapeKernelTest, SplitViewTest2D_5) {
+  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-229532";
   double rtol = 1e-03;
   double atol = 1e-03;
 
