@@ -109,8 +109,21 @@ struct Compare {
   bool operator()(
       const std::tuple<std::string, uint64_t>& a,
       const std::tuple<std::string, uint64_t>& b) {
-    return std::get<1>(a) > std::get<1>(b);
+    return std::get<1>(a) < std::get<1>(b);
   }
+};
+
+struct OpGroup {
+    std::string name;
+    uint64_t total_time;
+    uint32_t count;
+    double avg_time;
+
+    OpGroup(const std::string& n, uint64_t total, uint32_t cnt)
+        : name(n),
+          total_time(total),
+          count(cnt),
+          avg_time(static_cast<double>(total) / cnt) {}
 };
 
 // Calculate adaptive cutoff (90th percentile by default)
@@ -325,6 +338,7 @@ void ProfilerEngine::flush() {
         tsc_base = event.timestamp;
     }
   }
+  std::unordered_map<int, std::unordered_map<std::string, std::pair<uint64_t, uint32_t>>> stage_op_aggregate;
   for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
        pipeline_stage++) {
     if (current_index[pipeline_stage] > 0) {
@@ -347,10 +361,8 @@ void ProfilerEngine::flush() {
               max_time[pipeline_stage] = stage_time;
             }
 
-            top_num_buckets_ops_time[pipeline_stage].emplace(
-                event.op_name, stage_time);
-            if (top_num_buckets_ops_time[pipeline_stage].size() > NUM_TOP_OPS)
-              top_num_buckets_ops_time[pipeline_stage].pop();
+            stage_op_aggregate[pipeline_stage][event.op_name].first += stage_time;
+            stage_op_aggregate[pipeline_stage][event.op_name].second++;
 
             stage_total_time[pipeline_stage] += stage_time;
             auto queue_length = event.pipeline_queue_length;
@@ -435,6 +447,25 @@ void ProfilerEngine::flush() {
       }
     }
   }
+
+  std::unordered_map<int, std::vector<OpGroup>> sorted_ops_by_stage;
+  for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1; pipeline_stage++) {
+    if (current_index[pipeline_stage] == 0) continue;
+
+    std::vector<OpGroup> aggregated_ops;
+    for (const auto& [name, stats] : stage_op_aggregate[pipeline_stage]) {
+      aggregated_ops.emplace_back(name, stats.first, stats.second);
+    }
+
+    std::sort(
+        aggregated_ops.begin(),
+        aggregated_ops.end(),
+        [](const OpGroup& a, const OpGroup& b) {
+          return a.avg_time > b.avg_time;
+        });
+    sorted_ops_by_stage[pipeline_stage] = std::move(aggregated_ops);
+  }
+
   fprintf(
       metrics_file,
       " Total number of events = %lu \n",
@@ -472,14 +503,18 @@ void ProfilerEngine::flush() {
   fprintf(metrics_file, "\n Top 5 ops with highest lowering time: \n");
   const auto& lowering_index =
       static_cast<size_t>(LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID);
-  while (!top_num_buckets_ops_time[lowering_index].empty()) {
+
+  const auto& lowering_ops = sorted_ops_by_stage[lowering_index];
+  for (size_t i = 0; i < std::min<size_t>(NUM_TOP_OPS, lowering_ops.size()); ++i) {
+    const auto& op = lowering_ops[i];
     fprintf(
         metrics_file,
-        " Op Name: %s, Time: %lu\n",
-        std::get<0>(top_num_buckets_ops_time[lowering_index].top()).c_str(),
-        std::get<1>(top_num_buckets_ops_time[lowering_index].top()));
-    top_num_buckets_ops_time[lowering_index].pop();
+        " Op Name: %s, Avg Time: %.1f, Count: %u\n",
+        op.name.c_str(),
+        op.avg_time,
+        op.count);
   }
+
   fprintf(metrics_file, "\n Histogram for Lowering Stage\n");
   print_histogram(
       min_time[1], max_time[1], this->events_table[1], metrics_file);
@@ -514,14 +549,18 @@ void ProfilerEngine::flush() {
   fprintf(metrics_file, "\n Top 5 ops with highest compile time: \n");
   const auto& compile_index =
       static_cast<size_t>(LOP::PipelineStageID::PIPELIE_STAGE_COMPILE_ID);
-  while (!top_num_buckets_ops_time[compile_index].empty()) {
+
+  const auto& compile_ops = sorted_ops_by_stage[compile_index];
+  for (size_t i = 0; i < std::min<size_t>(NUM_TOP_OPS, compile_ops.size()); ++i) {
+    const auto& op = compile_ops[i];
     fprintf(
         metrics_file,
-        " Op Name: %s, Time: %lu\n",
-        std::get<0>(top_num_buckets_ops_time[compile_index].top()).c_str(),
-        std::get<1>(top_num_buckets_ops_time[compile_index].top()));
-    top_num_buckets_ops_time[compile_index].pop();
+        " Op Name: %s, Avg Time: %.1f, Count: %u\n",
+        op.name.c_str(),
+        op.avg_time,
+        op.count);
   }
+
   fprintf(metrics_file, "\n Histogram for Compile Stage\n");
   print_histogram(
       min_time[2], max_time[2], this->events_table[2], metrics_file);
@@ -556,14 +595,18 @@ void ProfilerEngine::flush() {
   fprintf(metrics_file, "\n Top 5 ops with highest execute time: \n");
   const auto& execute_index =
       static_cast<size_t>(LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID);
-  while (!top_num_buckets_ops_time[execute_index].empty()) {
+
+  const auto& execute_ops = sorted_ops_by_stage[execute_index];
+  for (size_t i = 0; i < std::min<size_t>(NUM_TOP_OPS, execute_ops.size()); ++i) {
+    const auto& op = execute_ops[i];
     fprintf(
         metrics_file,
-        " Op Name: %s, Time: %lu\n",
-        std::get<0>(top_num_buckets_ops_time[execute_index].top()).c_str(),
-        std::get<1>(top_num_buckets_ops_time[execute_index].top()));
-    top_num_buckets_ops_time[execute_index].pop();
+        " Op Name: %s, Avg Time: %.1f, Count: %u\n",
+        op.name.c_str(),
+        op.avg_time,
+        op.count);
   }
+
   fprintf(metrics_file, "\n Histogram for Execute Stage\n");
   print_histogram(
       min_time[3], max_time[3], this->events_table[3], metrics_file);
