@@ -108,6 +108,8 @@ orchestratorConfig:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/neural_compressor_fork/Tests/Test_neural_compressor_fork_gaudi2_asic_fp8_quant__unit_tests
+    # https://jira.habana-labs.com/browse/SW-229662
+    silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
