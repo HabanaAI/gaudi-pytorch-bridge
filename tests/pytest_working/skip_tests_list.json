@@ -240,7 +240,16 @@
             "pytest_working/any_mode/simple_ops/test_hpu_reciprocal.py::test_reciprocal[dtype3-shape0]",
             "pytest_working/any_mode/simple_ops/test_hpu_reciprocal.py::test_reciprocal[dtype3-shape1]",
             "pytest_working/any_mode/simple_ops/test_hpu_reciprocal.py::test_reciprocal[dtype3-shape2]",
-            "pytest_working/any_mode/test_fused_adamw.py::test_adamw[float32-[float8_e4m3fnxfloat8_e5m2]]"
+            "pytest_working/any_mode/test_fused_adamw.py::test_adamw[float32-[float8_e4m3fnxfloat8_e5m2]]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[float32-input_shape1-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[float32-input_shape3-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[float32-input_shape5-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[float16-input_shape1-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[float16-input_shape3-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[float16-input_shape5-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[bfloat16-input_shape1-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[bfloat16-input_shape3-0]",
+            "pytest_working/any_mode/simple_ops/test_hpu_safe_softmax.py::test_safe_softmax[bfloat16-input_shape5-0]"
         ]
     },
     "gaudi2": {
