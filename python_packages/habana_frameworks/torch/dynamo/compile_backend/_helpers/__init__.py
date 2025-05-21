@@ -17,7 +17,9 @@
 
 
 from .helpers import (
+    TensorInfoPropagation,
     calculate_default_strides,
+    fill_propagated_tensor_metadata_jitfork,
     fill_propagated_tensor_metadata_to_node,
     get_dynamic_config_value,
     get_node_args,
@@ -31,6 +33,7 @@ from .helpers import (
     jit_node_annotation_propagation,
     jit_node_shape_propagation,
     post_pass_finalize,
+    propagate_meta,
     remove_duplicated_outputs,
     remove_no_effect_inplace_add,
     wrap_random_ops,
@@ -38,6 +41,7 @@ from .helpers import (
 
 __all__ = [
     "calculate_default_strides",
+    "fill_propagated_tensor_metadata_jitfork",
     "fill_propagated_tensor_metadata_to_node",
     "get_dynamic_config_value",
     "get_node_args",
@@ -54,4 +58,6 @@ __all__ = [
     "remove_duplicated_outputs",
     "remove_no_effect_inplace_add",
     "wrap_random_ops",
+    "propagate_meta",
+    "TensorInfoPropagation",
 ]

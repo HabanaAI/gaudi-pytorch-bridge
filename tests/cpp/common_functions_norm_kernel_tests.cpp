@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "common_functions_norm_kernel_tests.h"
 #include <torch/torch.h>
 #include "common_functions_helpers.h"
@@ -69,10 +69,10 @@ std::vector<AtTensorPair> native_layer_norm_test(
 
   dump_tensor<float>("Input:", input_tensor_cpu, verbose);
 
-  c10::optional<at::Tensor> weight_cpu_opt;
-  c10::optional<at::Tensor> bias_cpu_opt;
-  c10::optional<torch::Tensor> weight_hpu_opt;
-  c10::optional<torch::Tensor> bias_hpu_opt;
+  std::optional<at::Tensor> weight_cpu_opt;
+  std::optional<at::Tensor> bias_cpu_opt;
+  std::optional<torch::Tensor> weight_hpu_opt;
+  std::optional<torch::Tensor> bias_hpu_opt;
   if (weight == NativeLayerNormTestWeight::Defined) {
     weight_cpu_opt =
         torch::arange(

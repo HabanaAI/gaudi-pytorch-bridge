@@ -17,21 +17,21 @@
 
 
 from collections import namedtuple
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 # todo https://jira.habana-labs.com/browse/SW-199903
 # is it better to import here the C module directly
 # or implement all functions calling c module in py module?
 import habana_frameworks.torch._torch_jit_C.jit as jit
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch._ops import HigherOrderOperator
 from torch._ops import OpOverload as TorchOpOverload
 
-logger = get_compile_backend_logger()
-
-
 from ._fx_jit_lowering_utils import BUILTIN_OPS_TO_ATEN_OPS, TYPE_TO_JIT_TYPE
+
+logger = get_compile_backend_logger()
 
 
 # The whole mechanism of how an interpreter works is well explained
@@ -57,7 +57,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         super().__init__(graph_module)
         self.graph_module = graph_module
         self.jit_ir = jit.Graph()
-        self.const_cache: Dict[Tuple[type, Any], jit.Value] = {}
+        self.const_cache: dict[tuple[type, Any], jit.Value] = {}
 
     ##############################################################
     # Below is the implementation of the functions from the base
@@ -131,14 +131,14 @@ class FxToJitLowering(torch.fx.Interpreter):
     # from the arguments passed by the interpreter.
     ##############################################################
 
-    def _insert_list_from_jit_vals(self, jit_vals: List[jit.Value], parameter) -> jit.Value:
+    def _insert_list_from_jit_vals(self, jit_vals: list[jit.Value], parameter) -> jit.Value:
         element_type = None
         optional_type = False
 
         # Sometimes there may be a situation in which we need to create
         # a list whose element type will be an optional type. The following
         # code handles this situation.
-        types = set([type(elem.type()) for elem in jit_vals])
+        types = {type(elem.type()) for elem in jit_vals}
         if len(types) > 1:
             if jit.NoneType in types:
                 types.remove(jit.NoneType)
@@ -177,13 +177,13 @@ class FxToJitLowering(torch.fx.Interpreter):
         list_node = self.jit_ir.createList(element_type, jit_vals)
         return self.jit_ir.insertNode(list_node).output()
 
-    def _insert_tuple_from_jit_vals(self, jit_vals: List[jit.Value]) -> jit.Value:
+    def _insert_tuple_from_jit_vals(self, jit_vals: list[jit.Value]) -> jit.Value:
         types = [(jit.TensorType.get() if isinstance(val.type(), jit.TensorType) else val.type()) for val in jit_vals]
         tuple_type = jit.TupleType(types)
         tuple_node = self.jit_ir.createTuple(jit_vals, tuple_type)
         return self.jit_ir.insertNode(tuple_node).output()
 
-    def _insert_namedtuple_from_jit_vals(self, fx_tuple, jit_vals: List[jit.Value]) -> jit.Value:
+    def _insert_namedtuple_from_jit_vals(self, fx_tuple, jit_vals: list[jit.Value]) -> jit.Value:
         names = list(fx_tuple._fields)
         types = [getattr(fx_tuple, field).type() for field in fx_tuple._fields]
         tuple_type = jit.TupleType(type(fx_tuple).__name__, names, types)
@@ -204,8 +204,6 @@ class FxToJitLowering(torch.fx.Interpreter):
             return self._insert_namedtuple_from_jit_vals(iterable_arg, collected_vals)
 
     def _get_jit_val(self, arg: Any, parameter=None) -> jit.Value:
-        from collections.abc import Iterable
-
         if isinstance(arg, jit.Value):
             return arg
 
@@ -217,11 +215,24 @@ class FxToJitLowering(torch.fx.Interpreter):
         if converter:
             jit_type = converter(arg)
             if jit_type:
+                if (
+                    isinstance(jit_type, jit.TupleType)
+                    and hasattr(parameter, "type")
+                    and parameter.type.kind() == "ListType"
+                ):
+                    # If jit_type mismatchs the parameter type, we need to convert it.
+                    element_type = parameter.type.getElementType()
+                    jit_type = jit.ListType(element_type)
+
                 new_const = self.jit_ir.insertConstant(arg, jit_type)
                 self.const_cache[cache_key] = new_const
                 return new_const
 
-        if isinstance(arg, (list, tuple, namedtuple)):
+        # A workaround, should be isinstance(arg, (list, tuple, namedtuple)), but lintrule force a syntax of
+        # UP038 Use `X | Y` in `isinstance` call instead of `(X, Y)`
+        # however, arg maybe a UnionType which cannot follow the rule UP038. You'll get
+        # TypeError: unsupported operand type(s) for |: 'types.UnionType' and 'function
+        if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, namedtuple):
             return self._get_jit_val_from_iterable(arg, parameter)
 
         raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. " "Please report a bug.")
@@ -231,8 +242,8 @@ class FxToJitLowering(torch.fx.Interpreter):
     # nodes.
     ##############################################################
 
-    def _handle_schema(self, schema: torch.FunctionSchema, args, kwargs) -> Tuple[str, List[jit.Value]]:
-        jit_args: List[jit.Value] = []
+    def _handle_schema(self, schema: torch.FunctionSchema, args, kwargs) -> tuple[str, list[jit.Value]]:
+        jit_args: list[jit.Value] = []
 
         for i, parameter in enumerate(schema.arguments):
             if i < len(args):
@@ -248,13 +259,13 @@ class FxToJitLowering(torch.fx.Interpreter):
 
     def _handle_target(
         self, node: torch.fx.Node, args, kwargs
-    ) -> Tuple[torch.FunctionSchema, str, List[jit.Value], List[jit.NamedValue]]:
+    ) -> tuple[torch.FunctionSchema, str, list[jit.Value], list[jit.NamedValue]]:
         target = node.target
 
         schema: torch.FunctionSchema = None
         jit_op_name: str = None
-        jit_args: List[jit.Value] = []
-        jit_kwargs: List[jit.NamedValue] = []
+        jit_args: list[jit.Value] = []
+        jit_kwargs: list[jit.NamedValue] = []
 
         # Each target that comes from the aten space should inherit from
         # the OpOverload class (represents C++ ATen operators). Thanks
@@ -316,10 +327,10 @@ class FxToJitLowering(torch.fx.Interpreter):
         fx_node: torch.fx.Node,
         schema: torch.FunctionSchema,
         op_name: str,
-        jit_args: List[jit.Value],
-        jit_kwargs: List[jit.NamedValue],
+        jit_args: list[jit.Value],
+        jit_kwargs: list[jit.NamedValue],
     ) -> jit.Value:
-        emitted_nodes: List[jit.Node] = []
+        emitted_nodes: list[jit.Node] = []
         returned_val = None
         # todo: fix me https://jira.habana-labs.com/browse/SW-199903
         # return_name = str(fx_node)
@@ -384,7 +395,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         if jit_type:
             if isinstance(meta_val, torch.Tensor):
                 input_type = jit.TensorType.get()
-            elif isinstance(meta_val, (torch.SymBool, torch.SymInt, torch.SymFloat)):
+            elif isinstance(meta_val, torch.SymBool | torch.SymInt | torch.SymFloat):
                 input_type = jit_type
             else:
                 input_type = jit_type
@@ -393,7 +404,10 @@ class FxToJitLowering(torch.fx.Interpreter):
                 f"The metadata contains unsupported type: {type(meta_val)}. " "Please report a bug."
             )
 
-        jit_val.setType(input_type)
+        if isinstance(input_type, jit.NoneType) and jit_val.type().annotation_str == "Tensor":
+            logger.debug("Won't rewrite metadata from Tensor to NoneType")
+        else:
+            jit_val.setType(input_type)
 
     def _apply_meta_for_collections(self, meta_val, jit_val: jit.Value):
         # If we are dealing with ListConstruct or TupleConstruct,
@@ -406,8 +420,8 @@ class FxToJitLowering(torch.fx.Interpreter):
             num_jit_value_inputs = jit_val.node().inputsSize()
             if num_meta_elem != num_jit_value_inputs:
                 raise RuntimeError(
-                    "The number of elements in the FX collection does not match "
-                    "with number of elements in the JIT collection."
+                    f"The number of elements:{str(num_meta_elem)} in the FX collection does not match "
+                    f"with number of elements:{str(num_jit_value_inputs)} in the JIT collection."
                 )
 
             for i, val in enumerate(meta_val):
@@ -441,7 +455,7 @@ class FxToJitLowering(torch.fx.Interpreter):
             self._apply_meta(val, unpacked_collection.outputsAt(i))
 
     def _apply_meta(self, meta_val, jit_val: jit.Value):
-        if isinstance(meta_val, (list, tuple)):
+        if isinstance(meta_val, list | tuple):
             self._apply_meta_for_collections(meta_val, jit_val)
             self._create_unpack(meta_val, jit_val)
         else:

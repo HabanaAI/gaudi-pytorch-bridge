@@ -161,7 +161,7 @@ class ProcessGetItemNodes {
     return true;
   }
 
-  bool isNumber(c10::string_view str) const {
+  bool isNumber(std::string_view str) const {
     return str.find_first_not_of("0123456789") == std::string::npos;
   }
 

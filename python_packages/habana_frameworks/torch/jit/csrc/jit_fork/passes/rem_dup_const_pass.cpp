@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "rem_dup_const_pass.h"
 #include "habana_helpers/logging.h"
 namespace habana_torch {
@@ -40,10 +40,14 @@ bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
       }
     }
   }
+#if !defined(_GLIBCXX_USE_CXX11_ABI) || (_GLIBCXX_USE_CXX11_ABI == 1)
+  // C++11 guarantees std::list::size() to be evaluated in constant time. With
+  // Pre-C++11 ABI it could be linear. Skip the check to prevent perf issues.
   PT_BRIDGE_DEBUG("Found ", nodes_to_remove.size(), " nodes to be removed.");
+#endif
   // Remove duplicate nodes
   std::for_each(nodes_to_remove.begin(), nodes_to_remove.end(), [](Node* n) {
-    TORCH_CHECK(!n->hasUses());
+    HABANA_ASSERT(!n->hasUses());
     PT_BRIDGE_DEBUG("Removing node ", *n, ".");
     n->destroy();
   });

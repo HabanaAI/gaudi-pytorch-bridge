@@ -16,16 +16,16 @@
 ###############################################################################
 
 import os
-from typing import Tuple
 
-import torch
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
 from habana_frameworks.torch.utils.experimental.distributed_emulation import (
     distributed_emulation_apply_if_enabled,
     is_distributed_emulation_enabled,
 )
 
-_lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "1"))
+import torch
+
+_lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "0"))
 _lazy_collectives_enabled = os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES", "False").lower() in ["true", "1"]
 if _lazy_mode == 0:
     # PT 2.0 eager mode
@@ -105,7 +105,7 @@ def _read_values_from_env():
     return world_size, rank, local_rank
 
 
-def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> Tuple[int, int, int]:
+def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> tuple[int, int, int]:
     r"""Initializes and returns distributed configuration
     Returns world_size, rank and local_rank if the processes
     are launched using either MPI or torchrun related APIS

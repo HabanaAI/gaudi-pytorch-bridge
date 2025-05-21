@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/synapse_helpers/device.h"
 #include <absl/types/variant.h>
 #include <hl_logger/hllog_core.hpp>
@@ -37,6 +37,7 @@
 #include "backend/synapse_helpers/util.h"
 #include "common/utils.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/fallback_helper.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
@@ -181,28 +182,22 @@ uint64_t GetSystemRamInKB(void) {
 }
 
 void dumpEnvSettings() {
-  unsigned long node_id = 0;
-  char* ptr1;
-  char* ptr2;
-  ptr1 = std::getenv("RANK");
-  ptr2 = std::getenv("OMPI_COMM_WORLD_RANK");
-  if (ptr1 != nullptr) {
-    node_id = std::stoul(ptr1, nullptr, 16);
-  } else if (ptr2 != nullptr) {
-    node_id = std::stoul(ptr2, nullptr, 16);
-  } else {
-    node_id = 0;
-  }
+  const char* rank = std::getenv("RANK");
+  const char* ompi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
 
-  // print only from main process
-  if (!node_id) {
+  // Determine process rank, default to "0" if both are unset
+  std::string process_rank = (rank) ? rank : (ompi_rank) ? ompi_rank : "0";
+
+  // Print only for the main process or if PT_HPU_PRINT_DEVICE_CONFIG is set
+  if (process_rank == "0" || GET_ENV_FLAG_NEW(PT_HPU_PRINT_DEVICE_CONFIG)) {
     if (const char* env_p = std::getenv("HB_BUILD_VER")) {
       std::clog
-          << "=============================HABANA SW VERSION======================================= \n";
+          << "============================= HPU SW VERSION ====================================== \n";
       std::clog << " HB_BUILD_VER = " << env_p << '\n';
     }
     std::clog
-        << "============================= HABANA PT BRIDGE CONFIGURATION =========================== \n";
+        << "============================= HPU PT BRIDGE CONFIGURATION ON RANK = "
+        << process_rank << " ============= \n";
 
     // Below should be logged only flags documented in
     // https://docs.habana.ai/en/latest/PyTorch/Runtime_Flags.html
@@ -237,7 +232,8 @@ void dumpEnvSettings() {
         << "---------------------------: System Configuration :---------------------------\n";
     std::clog << "Num CPU Cores : " << std::thread::hardware_concurrency()
               << "\n";
-    std::clog << "CPU RAM       : " << GetSystemRamInKB() << " KB\n";
+    auto ram_size = GetSystemRamInKB() / (1024 * 1024);
+    std::clog << "CPU RAM       : " << ram_size << " GB\n";
     std::clog
         << "------------------------------------------------------------------------------\n";
   }
@@ -962,7 +958,7 @@ void device::create_default_stream() {
         Logger::formatStatusMsg(status),
         "synDeviceGetNextStreamAffinity failed.");
   }
-  default_streams_[COMPUTE] = absl::make_unique<stream>(*this);
+  default_streams_[COMPUTE] = absl::make_unique<stream>(*this, true);
 
   PT_SYNHELPER_DEBUG(
       "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
@@ -1244,8 +1240,15 @@ inline bool device::copy_data_to_device_(
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
         done_cb();
+        towl::emitCopyFinished(
+            "h2d", dst_ptr, reinterpret_cast<void*>(locked->at(0)));
         locked = nullptr;
       });
+  towl::emitCopyLaunch(
+      "h2d",
+      mapped_cpu_data,
+      reinterpret_cast<void*>(locked->at(0)),
+      total_bytes);
   return true;
 }
 
@@ -1349,10 +1352,7 @@ synapse_error device::copy_data_to_device(
   for (std::size_t i = 0; i < transfers.size(); ++i) {
     auto src = transfers[i].src;
     auto len = transfers[i].bytes_to_transfer;
-    std::copy(
-        reinterpret_cast<uint8_t*>(src),
-        reinterpret_cast<uint8_t*>(src) + len,
-        mem_ptr);
+    std::copy_n(reinterpret_cast<uint8_t*>(src), len, mem_ptr);
     mapped_srcs[i] = reinterpret_cast<uint64_t>(mem_ptr);
     mem_ptr += len;
     lens[i] = len;
@@ -1407,8 +1407,15 @@ synapse_error device::copy_data_to_device(
       [this, host_mem_ptr, unref_cb, locked]() mutable {
         host_memory_.free((void*)host_mem_ptr);
         unref_cb();
+        towl::emitCopyMultipleFinished("h2d", locked);
         locked = nullptr;
       });
+  towl::emitCopyMultipleLaunch(
+      "h2d",
+      mapped_srcs.data(),
+      locked_dsts.data(),
+      lens.data(),
+      transfers.size());
   return {};
 }
 
@@ -1504,9 +1511,16 @@ synapse_error device::copy_data_to_host(
           host_memory_.free((void*)dst_ptr);
         }
         done_cb();
+        towl::emitCopyFinished(
+            "d2h", reinterpret_cast<void*>(locked->at(0)), dst_ptr);
         locked = nullptr;
       });
 
+  towl::emitCopyLaunch(
+      "d2h",
+      reinterpret_cast<void*>(locked->at(0)),
+      mapped_destination,
+      total_bytes);
   return {};
 }
 
@@ -1535,10 +1549,18 @@ synapse_error device::copy_data_within_device(
   }
   auto done_cb = [unref_cb, locked]() mutable {
     unref_cb();
+    towl::emitCopyFinished(
+        "d2d",
+        reinterpret_cast<void*>(locked->at(0)),
+        reinterpret_cast<void*>(locked->at(1)));
     locked = nullptr;
   };
   sem_.add_producer({dst_event_addr}, stream_handle, std::move(done_cb));
-
+  towl::emitCopyLaunch(
+      "d2d",
+      reinterpret_cast<void*>(locked->at(0)),
+      reinterpret_cast<void*>(locked->at(1)),
+      total_bytes);
   return {};
 }
 
@@ -1584,6 +1606,7 @@ synapse_error device::copy_data_within_device(
   }
   auto done_cb = [unref_cb, locked]() mutable {
     unref_cb();
+    towl::emitCopyMultipleFinished("d2d", locked);
     locked = nullptr;
   };
 
@@ -1596,6 +1619,12 @@ synapse_error device::copy_data_within_device(
     record_and_wait_for_event(
         stream_handle, *next_operation_stream, std::move(done_cb));
   }
+  towl::emitCopyMultipleLaunch(
+      "d2d",
+      locked_srcs.data(),
+      locked_dsts.data(),
+      lens.data(),
+      transfers.size());
   return {};
 } // namespace synapse_helpers
 
@@ -1832,6 +1861,19 @@ std::string device::get_device_properties(unsigned id) {
       ", device_type=" + std::to_string(device_info.deviceType) + ")";
 
   return properties;
+}
+
+void device::set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id) {
+  scale_attribute_is_hw_aligned_ = is_hw_aligned;
+  scale_attribute_hash_id_ = scale_hash_id;
+}
+
+bool device::get_scale_attribute_is_hw_aligned() const {
+  return scale_attribute_is_hw_aligned_;
+}
+
+uint32_t device::get_scale_attribute_hash_id() const {
+  return scale_attribute_hash_id_;
 }
 
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {

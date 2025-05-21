@@ -1,18 +1,17 @@
-
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/habana_operator.h"
 #include "hpu_ops/repeat_interleave.h"
@@ -22,7 +21,7 @@ namespace habana {
 OutputMetaDataVector RepeatInterleaveMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto output_size_opt = stack.at(1).toOptional<int64_t>();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_size_opt.has_value(),
       "It is expected that output_size is provided after frontend execution.");
 
@@ -48,52 +47,52 @@ void RepeatInterleave::AddNode(
 
   const auto dtype = torch::kInt;
 
-  TORCH_CHECK(self.dim() == 1, "Self tensor is expected to be 1D.");
+  HABANA_ASSERT(self.dim() == 1, "Self tensor is expected to be 1D.");
 
   const auto self_numel = self.numel();
 
   ns_RangeKernel::Params paramsRange{};
-    paramsRange.start.i = 0;
-    paramsRange.limit.i = static_cast<int>(self_numel);
-    paramsRange.delta.i = 1;
+  paramsRange.start.i = 0;
+  paramsRange.limit.i = static_cast<int>(self_numel);
+  paramsRange.delta.i = 1;
+  using namespace std::literals;
+  auto range = BuildOp(
+      graph,
+      get_guid_with_precision("range"sv, torch::kInt),
+      {},
+      {{self_numel, torch::kInt}},
+      &paramsRange,
+      sizeof(paramsRange));
 
-    auto range = BuildOp(
-        graph,
-        get_guid_with_precision("range", torch::kInt),
-        {},
-        {{self_numel, torch::kInt}},
-        &paramsRange,
-        sizeof(paramsRange));
+  std::unique_ptr<synapse_helpers::tensor> cast;
+  if (isCastNeeded) {
+    cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
+        this, graph, syn_in(0), self.sizes(), meta.dtype, dtype));
+  }
 
-    std::unique_ptr<synapse_helpers::tensor> cast;
-    if (isCastNeeded) {
-      cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
-          this, graph, syn_in(0), self.sizes(), meta.dtype, dtype));
-    }
+  std::vector<synTensor> syn_inputs{
+      range[0].get(), isCastNeeded ? cast->get() : syn_in(0)};
 
-    std::vector<synTensor> syn_inputs{
-        range[0].get(), isCastNeeded ? cast->get() : syn_in(0)};
+  ns_RepeatKernelGaudiTF::Params params{};
+  params.axis = 0; // Self is always 1D so axis is 0
 
-    ns_RepeatKernelGaudiTF::Params params{};
-    params.axis = 0; // Self is always 1D so axis is 0
+  auto result = BuildOp(
+      graph,
+      get_guid_with_precision("repeat_fwd"sv, dtype),
+      std::move(syn_inputs),
+      {{meta.shape,
+        dtype,
+        isCastNeeded ? std::nullopt : std::optional<int>(0)}},
+      &params,
+      sizeof(params));
 
-    auto result = BuildOp(
-        graph,
-        get_guid_with_precision("repeat_fwd", dtype),
-        std::move(syn_inputs),
-        {{meta.shape,
-          dtype,
-          isCastNeeded ? std::nullopt : std::optional<int>(0)}},
-        &params,
-        sizeof(params));
-
-    if (isCastNeeded) {
-      auto res = OpBackend::BuildCast(
-          this, graph, result[0].get(), meta.shape, dtype, meta.dtype, 0);
-      syn_out(0) = std::move(res);
-    } else {
-      syn_out(0) = std::move(result[0]);
-    }
+  if (isCastNeeded) {
+    auto res = OpBackend::BuildCast(
+        this, graph, result[0].get(), meta.shape, dtype, meta.dtype, 0);
+    syn_out(0) = std::move(res);
+  } else {
+    syn_out(0) = std::move(result[0]);
+  }
 }
 } // namespace habana
 

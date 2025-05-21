@@ -19,13 +19,21 @@
 import pytest
 import torch
 import torch.distributed._functional_collectives as funcol
-from torch.distributed._tensor import Replicate, Shard, distribute_tensor, init_device_mesh
+from torch.distributed._tensor import (
+    Replicate,
+    Shard,
+    distribute_tensor,
+)
 from torch.distributed._tensor.experimental import local_map
 from torch.distributed.tensor.debug import CommDebugMode
 from torch.testing._internal.common_utils import run_tests
-from torch.testing._internal.distributed._tensor.common_dtensor import DTensorTestBase, with_comms
+from torch.testing._internal.distributed._tensor.common_dtensor import (
+    DTensorTestBase,
+    with_comms,
+)
 
 funcol_py = torch.ops.c10d_functional
+CPU_BACKEND = "gloo"
 
 
 def check_devices():
@@ -51,6 +59,10 @@ def mm_all_gather_forward(device_mesh, A, B):
 
 class TestLocalMap(DTensorTestBase):
     @property
+    def backend(self) -> str:
+        return CPU_BACKEND
+
+    @property
     def world_size(self):
         return 2
 
@@ -60,7 +72,7 @@ class TestLocalMap(DTensorTestBase):
         if torch.cuda.device_count() < self.world_size:
             return
 
-        device_mesh = init_device_mesh(device_type=self.device_type, mesh_shape=(self.world_size,))
+        device_mesh = self.build_device_mesh()
         comm_mode = CommDebugMode()
 
         # X.equal(Y)
@@ -104,7 +116,7 @@ class TestLocalMap(DTensorTestBase):
     def test_local_map_out_placements_allgather(self):
 
         # Test 1: wrap out into DTensor w/ `out_placements`
-        device_mesh = init_device_mesh(device_type=self.device_type, mesh_shape=(self.world_size,))
+        device_mesh = self.build_device_mesh()
         comm_mode = CommDebugMode()
 
         # X.equal(Y)

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <gtest/gtest.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
@@ -65,9 +65,9 @@ class HabanaSerializationRecipeTest : public ::testing::Test {
 };
 
 TEST(HabanaSerializationTest, TensorOptionsTest) {
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+  std::optional<at::ScalarType> dtype = c10::ScalarType::Float;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  std::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions()
           .dtype(dtype)
@@ -128,11 +128,8 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
-    size_t cache_size = 0;
-    bool dropped = false;
-    do {
-      dropped = HPUDeviceContext::recipe_cache().drop_lru(cache_size);
-    } while (cache_size > 0 && dropped);
+    while (HPUDeviceContext::recipe_cache().drop_lru()) {
+    };
     HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
   }
 
@@ -200,11 +197,8 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
-    size_t cache_size = 0;
-    bool dropped = false;
-    do {
-      dropped = HPUDeviceContext::recipe_cache().drop_lru(cache_size);
-    } while (cache_size > 0 && dropped);
+    while (HPUDeviceContext::recipe_cache().drop_lru()) {
+    };
     HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
   }
   torch::Tensor originalRecipe = {};
@@ -228,8 +222,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
     int recipe_files_count = getFilesCount(getCachePath().c_str(), ".recipe");
     if (i == 0) {
       originalRecipe = result;
-      size_t one = 1;
-      HPUDeviceContext::recipe_cache().drop_lru(one);
+      HPUDeviceContext::recipe_cache().drop_lru();
       HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
       HABANA_ASSERT(recipe_files_count == 1);
     } else if (i == 1) {

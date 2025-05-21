@@ -14,8 +14,7 @@
 #  limitations under the License.
 #
 ###############################################################################
-add_habana_library(_activity_profiler_C SHARED
-    bindings.cpp)
+add_habana_library(_activity_profiler_C SHARED bindings.cpp)
 target_compile_definitions(_activity_profiler_C PRIVATE TORCH_EXTENSION_NAME=_activity_profiler_C)
 
 set_target_properties(_activity_profiler_C PROPERTIES PREFIX "")

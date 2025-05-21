@@ -22,7 +22,6 @@ import time
 import habana_frameworks.torch as ht
 import torch
 import torch._dynamo
-import torch._dynamo as dynamo
 import torch.nn as nn
 
 from tests.pytest_working.test_utils import compile_function_if_compile_mode
@@ -42,7 +41,7 @@ except ImportError:
     TraceType = None
 
 
-class HabanaDeviceProfile(object):
+class HabanaDeviceProfile:
     def __init__(self, profiler, device_profiler_step) -> None:
         if device_profiler_step:
             print(
@@ -310,7 +309,7 @@ def run_single_node(rank, *arguments):
     outputs_refs = []
     outputs_sfg = []
 
-    for cnt in range(ITERATIONS):
+    for _ in range(ITERATIONS):
         inp_linear = torch.randn([BS, input_size, linear_weight_dim2], dtype=torch.bfloat16).to(device)
         inputs.append(inp_linear)
         with torch.no_grad():
@@ -350,7 +349,7 @@ def run_single_node(rank, *arguments):
         run_iterations()
 
     print(ht.hpu.memory.memory_stats())
-    for ref, sfg in zip(outputs_refs, outputs_sfg):
+    for ref, sfg in zip(outputs_refs, outputs_sfg, strict=False):
         assert torch.allclose(ref.cpu(), sfg.cpu())
 
 
@@ -359,6 +358,6 @@ if __name__ == "__main__":
     # run_single_node(0, tuple((0,)))
     start = time.time()
     world_size = args.world_size
-    input_args = tuple((world_size,))
+    input_args = (world_size,)
     torch.multiprocessing.spawn(run_single_node, args=(args,), nprocs=world_size)
     print("Time taken :", time.time() - start)

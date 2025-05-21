@@ -1,24 +1,22 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <functional>
 
 #include <synapse_api.h> // IWYU pragma: keep
-
-#include "synapse_logger/synapse_logger_observer.h"
 
 #define SYN_API_SYMBOL_VISIT(visitor)         \
   visitor(synDeviceSynchronize);              \
@@ -57,8 +55,8 @@
   visitor(synGraphCompile);                   \
   visitor(synGraphCreate);                    \
   visitor(synGraphCreateEager);               \
-  visitor(synGraphSetAttribute);              \
-  visitor(synGraphGetAttribute);              \
+  visitor(synGraphSetAttributes);             \
+  visitor(synGraphGetAttributes);             \
   visitor(synGraphDuplicate);                 \
   visitor(synGraphInferShapes);               \
   visitor(synGraphDestroy);                   \
@@ -123,10 +121,15 @@
   visitor(synTensorRetrieveLaunchInfoById);   \
   visitor(synConstTensorCreate);              \
   visitor(synTensorSetAllowPermutation);      \
+  visitor(synTensorSetMemoryReuse);           \
   visitor(synTensorGetHostPtr);               \
   visitor(synTensorSetDeviceDataType);        \
   visitor(synStatusGetBriefDescription);      \
-  visitor(synDumpStateAndTerminate);
+  visitor(synUpdateMemoryConsumption);        \
+  visitor(synDumpStateAndTerminate);          \
+  visitor(synGetLastError);                   \
+  visitor(synGetErrorString);                 \
+  visitor(synGetLastErrorMessage);
 
 #define DECL_SYN_FN(func)                       \
   using func##_pfn_t = decltype(::func);        \
@@ -140,6 +143,5 @@ struct synapse_api_t {
 extern synapse_api_t* syn_api;
 synapse_api_t* GetSynapseApi();
 void EnableSynapseApi();
-void EnableSynapseApiLogger(synapse_logger::SynapseLoggerObserver*);
 void EnableSynapseApiStub();
 void EnableNullHw();

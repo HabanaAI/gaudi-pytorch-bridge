@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -23,11 +23,11 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include <c10/macros/Export.h>
-#include <c10/util/Optional.h>
 
 #include "jit_fork/operator_upgraders/version_map.h"
 
@@ -42,7 +42,7 @@ struct UpgraderRange {
 // Given a list of upgrader entries for a single operator
 // and the model version for that operator, find a valid
 // upgrader.
-TORCH_API c10::optional<UpgraderEntry> findUpgrader(
+TORCH_API std::optional<UpgraderEntry> findUpgrader(
     const std::vector<UpgraderEntry>& upgraders_for_schema,
     size_t current_version);
 
@@ -65,7 +65,7 @@ TORCH_API bool isOpSymbolCurrent(
 // can be multiple schemas for different overloads.
 TORCH_API std::vector<std::string> loadPossibleHistoricOps(
     const std::string& name,
-    c10::optional<size_t> version);
+    std::optional<size_t> version);
 
 TORCH_API uint64_t getMaxOperatorVersion();
 

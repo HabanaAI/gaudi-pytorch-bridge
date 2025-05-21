@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/synapse_helpers/tensor_builder_base.h"
 #include "backend/synapse_helpers/type_conversions.h"
 #include "habana_helpers/logging.h"
@@ -164,7 +164,7 @@ thread_local uint64_t tensor_name_generator::syn_tensor_id = 0;
 std::string tensor_name_generator::get_next_tensor_name(
     const std::string& suffix) {
   std::string tensor_name = std::to_string(syn_tensor_id);
-  if (IS_SYNHELPER_DEBUG_ENABLED || GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+  if (IS_SYNHELPER_DEBUG_ENABLED) {
     tensor_name = "tensor_" + tensor_name;
     if (!suffix.empty()) {
       tensor_name.append("_" + suffix);
@@ -180,7 +180,7 @@ std::string tensor_name_generator::generate(
   if (tensor_id_inc_flag) {
     syn_tensor_id++;
   }
-  if (IS_SYNHELPER_DEBUG_ENABLED || GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+  if (IS_SYNHELPER_DEBUG_ENABLED) {
     to_netron_syntax(tensor_name);
   }
   return tensor_name;

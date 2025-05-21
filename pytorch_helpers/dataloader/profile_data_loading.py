@@ -32,15 +32,14 @@ import sys
 import time
 
 import torch
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
+from mpi4py import MPI
+from torchvision import datasets, transforms
 
 # DATA_LOADER_AEON_LIB_PATH='/home/janand/trees/npu-stack/tf_aeon/lib_python/aeon.so'
 DATA_LOADER_AEON_LIB_PATH = "/home/janand/trees/npu-stack/dev/data_loader/build/lib/aeon.so"
 sys.path.append(os.path.dirname(os.environ["DATA_LOADER_AEON_LIB_PATH"]))
 # from aeon_config import *
-from aeon import DataLoader
-from mpi4py import MPI
+from aeon import DataLoader  # noqa E402
 
 global mpi_comm
 mpi_comm = MPI.COMM_WORLD

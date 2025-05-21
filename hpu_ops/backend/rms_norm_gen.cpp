@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <cstdint>
 #include <vector>
 
@@ -27,8 +27,7 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
       data_in.sizes().vec()};
   inverse_root_mean_square_sizes.back() = 1;
 
-  const auto data_in_dtype =
-      (data_in.scalar_type() != gamma.scalar_type())
+  const auto data_in_dtype = (data_in.scalar_type() != gamma.scalar_type())
       ? c10::ScalarType::Float
       : data_in.scalar_type();
 
@@ -41,9 +40,7 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
   return {first_output, second_output};
 }
 
-std::shared_ptr<void> RMSNormParams(
-    const at::Stack& stack,
-    std::size_t& size) {
+std::shared_ptr<void> RMSNormParams(const at::Stack& stack, std::size_t& size) {
   const auto epsilon = stack.at(2).toScalar().toFloat();
 
   PARAMS_STUB(ns_LayerNormKernel::ParamsRmsNorm);

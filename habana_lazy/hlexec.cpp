@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/csrc/jit/passes/common_subexpression_elimination.h>
 #include <torch/csrc/jit/passes/constant_pooling.h>
@@ -155,13 +155,20 @@ void HlExec::Launch(
     opName = lazyInfo->get_lazy_op_name();
   }
 
-  auto graphIndex =
-      GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t perm_hash_code = habana::ComputePermutationHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+
+  auto graphIndex = GetGraphIndex(m_g_hash_, sym_hash_code, perm_hash_code);
   bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+  mp_g_and_meta_data_->set_graph_symint_hash(sym_hash_code);
+  mp_g_and_meta_data_->set_graph_perm_hash(perm_hash_code);
+  mp_g_and_meta_data_->set_valid_graph_symint_perm_hash(true);
 
   auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
   try {
@@ -205,13 +212,20 @@ void HlExec::Launch(
     opName = lazyInfo->get_lazy_op_name();
   }
 
-  auto graphIndex =
-      GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+  size_t perm_hash_code = habana::ComputePermutationHashCode(
+      torch::jit::last(stack, mp_g_->inputs().size()));
+
+  auto graphIndex = GetGraphIndex(m_g_hash_, sym_hash_code, perm_hash_code);
   bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+  mp_g_and_meta_data_->set_graph_symint_hash(sym_hash_code);
+  mp_g_and_meta_data_->set_graph_perm_hash(perm_hash_code);
+  mp_g_and_meta_data_->set_valid_graph_symint_perm_hash(true);
 
   auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
   try {
@@ -234,7 +248,7 @@ void HlExec::FindDuplicateInStack(
   size_t num_inputs = po_data.inputs.size();
 
   // Assumption : stack[i] is the corresponding input of po_data.inputs[i]
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == num_inputs,
       " stack_size ",
       stack.size(),
@@ -247,7 +261,7 @@ void HlExec::FindDuplicateInStack(
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
-    TORCH_CHECK(input.isTensor());
+    HABANA_ASSERT(input.isTensor());
     if (!input.toTensor().has_storage()) {
       return;
     }
@@ -255,7 +269,7 @@ void HlExec::FindDuplicateInStack(
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
-    TORCH_CHECK(input.isTensor());
+    HABANA_ASSERT(input.isTensor());
     auto input_addr = (uint64_t)(input.toTensor().data_ptr());
 
     // input_addr == 0 not considered for duplicate removal since this address
@@ -321,7 +335,7 @@ void HlExec::PruneDuplicateGraphInputs(
   for (size_t i = 0; i < jit_ir_graph_inputs.size(); i++) {
     if (is_duplicate_vec[i]) {
       size_t parent_idx = parent_vec[i];
-      TORCH_CHECK(
+      HABANA_ASSERT(
           parent_idx != ULONG_MAX && parent_idx < i,
           " invalid parent index ",
           parent_idx,
@@ -571,32 +585,27 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
     optimized_lazy_eager_key = lazyInfo->get_optimized_lazy_eager_key();
   }
 
-  // To not read the normal cache for optimized eager
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
-    mp_g_and_meta_data_ =
-        habana::JitGraphCache::GetJitCache().GetOptimizedJITGraphAndMetaData(
-            m_g_hash_);
-  }
+  mp_g_and_meta_data_ =
+      habana::JitGraphCache::GetJitCache().GetOptimizedJITGraphAndMetaData(
+          m_g_hash_);
 
   // Cache miss
   // ==========
   if (mp_g_and_meta_data_ == nullptr) {
     ConstructJITGraph();
     // To not write the normal cache for optimized eager
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
-      PT_LAZY_DEBUG(
-          "JIT Cache miss :: key ",
-          m_g_hash_,
-          ", graph_index ",
-          GetGraphIndex(
-              m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
-          ", bcast_map = ",
-          node_bcast_map_.size());
-      PT_IRGRAPH_DEBUG("JIT Cache miss");
-      // Cache miss handling
-      // ===================
-      habana::JitGraphCache::GetJitCache().Add(m_g_hash_, mp_g_and_meta_data_);
-    }
+    PT_LAZY_DEBUG(
+        "JIT Cache miss :: key ",
+        m_g_hash_,
+        ", graph_index ",
+        GetGraphIndex(
+            m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size())),
+        ", bcast_map = ",
+        node_bcast_map_.size());
+    PT_IRGRAPH_DEBUG("JIT Cache miss");
+    // Cache miss handling
+    // ===================
+    habana::JitGraphCache::GetJitCache().Add(m_g_hash_, mp_g_and_meta_data_);
   } else {
     PT_LAZY_DEBUG(
         "JIT Cache hit :: key ",
@@ -662,6 +671,30 @@ void HlExec::Deserialize(std::istream& is) {
   using namespace serialization;
   deserialize(is, s_graphIndexMap);
   deserialize(is, s_graphIndex);
+}
+
+size_t HlExec::GetGraphIndex(
+    size_t hash,
+    size_t sym_hash_code,
+    size_t perm_hash_code) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_VISUALIZE_GRAPH_INDEX)) {
+    return visualize::GetGraphIndex(hash);
+  }
+
+  hash = at::hash_combine(hash, sym_hash_code);
+  hash = at::hash_combine(hash, perm_hash_code);
+
+  static std::mutex s_mutex;
+  std::lock_guard<std::mutex> guard(s_mutex);
+  size_t graphIndex = hash;
+  if (s_graphIndexMap.count(hash) == 0) {
+    s_graphIndexMap[hash] = s_graphIndex;
+    graphIndex = s_graphIndex;
+    s_graphIndex++;
+  } else {
+    graphIndex = s_graphIndexMap[hash];
+  }
+  return graphIndex;
 }
 
 size_t HlExec::GetGraphIndex(

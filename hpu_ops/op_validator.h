@@ -105,14 +105,16 @@ struct CheckNodeWithSharedLayerValidator {
 
   bool Validate(
       const at::Stack& values,
-      bool is_dynamic = false,
-      bool check_st_h2d = false,
-      const SharedMetaVector& meta = {});
+      const bool is_dynamic = false,
+      const bool check_st_h2d = false,
+      const SharedMetaVector& meta = {},
+      std::optional<SharedLayer::DeviceId> device_stub = std::nullopt);
 
   bool ValidateCustom(
       const at::Stack& values,
-      bool is_dynamic = false,
-      bool check_st_h2d = false);
+      const bool is_dynamic = false,
+      const bool check_st_h2d = false,
+      std::optional<SharedLayer::DeviceId> device_stub = std::nullopt);
 
   bool IsRequireH2D() const {
     return m_require_h2d;
@@ -151,7 +153,7 @@ struct SharedLayerGuidValidator {
       const std::string& guid,
       const detail::TensorDescrArray& input_values,
       const detail::TensorDescrArray& output_values,
-      bool is_dynamic = false,
+      const bool is_dynamic = false,
       bool valid_shape_tensor = true,
       bool valid_h2d_tensor = true)
       : m_valid_shape_tensor(valid_shape_tensor),
@@ -165,7 +167,7 @@ struct SharedLayerGuidValidator {
       const detail::TensorDescrArray& input_values,
       const detail::TensorDescrArray& output_values,
       const SharedMetaData::SharedMetaValidationOptions& options,
-      bool is_dynamic = false,
+      const bool is_dynamic = false,
       bool valid_shape_tensor = true,
       bool valid_h2d_tensor = true)
       : m_valid_shape_tensor(valid_shape_tensor),
@@ -178,7 +180,10 @@ struct SharedLayerGuidValidator {
 
   SharedLayer::Return_t ValidateGuid();
   // please check SharedLayer::Queries_t for bit definition.
-  SharedLayer::Return_t QueryGuid(unsigned* resultBitMap);
+  SharedLayer::Return_t QueryGuid(
+      const unsigned query_bit_map,
+      unsigned* result_bit_map,
+      std::optional<SharedLayer::DeviceId> device_stub = std::nullopt);
 
   bool m_valid_shape_tensor;
   bool m_valid_h2d_tensor;
@@ -196,7 +201,7 @@ struct SharedLayerGuidValidator {
       SharedLayer::Tensor& tensor,
       const detail::TensorDescr& tensor_descr);
   template <typename T>
-  bool fillParam(T& params);
+  bool fillParam(T& params, SharedLayer::DeviceId deviceId);
 };
 
 } // namespace habana

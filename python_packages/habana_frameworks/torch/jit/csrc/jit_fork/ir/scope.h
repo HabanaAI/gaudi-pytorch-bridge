@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -26,7 +26,6 @@
 
 #include <ATen/core/jit_type.h>
 #include <ATen/core/symbol.h>
-#include <c10/util/Optional.h>
 #include <c10/util/intrusive_ptr.h>
 
 #include <torch/csrc/Export.h>
@@ -156,11 +155,11 @@ using InlinedCallStackPtr = c10::intrusive_ptr<InlinedCallStack>;
 using InlinedCallStackEntry = std::tuple<
     torch::jit::Function*,
     SourceRange,
-    c10::optional<ModuleInstanceInfo>>;
+    std::optional<ModuleInstanceInfo>>;
 
 struct TORCH_API InlinedCallStack : public c10::intrusive_ptr_target {
  private:
-  c10::optional<InlinedCallStackPtr> callee_;
+  std::optional<InlinedCallStackPtr> callee_;
   torch::jit::Function* fn_;
   // Reason for fn_name_ even though we have fn_
   // Serialized callstack is used in circustmances where InlinedCallstack
@@ -173,7 +172,7 @@ struct TORCH_API InlinedCallStack : public c10::intrusive_ptr_target {
   const std::string fn_name_;
   SourceRange source_range_;
   InlinedCallStackPtr intrusive_from_this();
-  c10::optional<ModuleInstanceInfo> module_instance_info_;
+  std::optional<ModuleInstanceInfo> module_instance_info_;
 
  public:
   // Constructor for a leaf callstack node.
@@ -183,13 +182,13 @@ struct TORCH_API InlinedCallStack : public c10::intrusive_ptr_target {
   InlinedCallStack(
       torch::jit::Function* fn,
       SourceRange source_range,
-      c10::optional<ModuleInstanceInfo> module_instance_info);
+      std::optional<ModuleInstanceInfo> module_instance_info);
 
   // Constructor for an leaf callstack node.
   InlinedCallStack(
       torch::jit::Function* fn,
       SourceRange source_range,
-      c10::optional<ModuleInstanceInfo> module_instance_info,
+      std::optional<ModuleInstanceInfo> module_instance_info,
       std::string& function_name);
 
   // Constructor for an inner callstack node.
@@ -202,20 +201,20 @@ struct TORCH_API InlinedCallStack : public c10::intrusive_ptr_target {
       InlinedCallStackPtr callee,
       torch::jit::Function* fn,
       SourceRange source_range,
-      c10::optional<ModuleInstanceInfo> module_instance_info);
+      std::optional<ModuleInstanceInfo> module_instance_info);
 
   InlinedCallStack(
       InlinedCallStackPtr callee,
       torch::jit::Function* fn,
       SourceRange source_range,
-      c10::optional<ModuleInstanceInfo> module_instance_info,
+      std::optional<ModuleInstanceInfo> module_instance_info,
       std::string& function_name);
 
   // Return next element in the callstack list.
-  c10::optional<InlinedCallStackPtr> callee() const;
+  std::optional<InlinedCallStackPtr> callee() const;
 
   // Return module instance associated with the current element.
-  c10::optional<ModuleInstanceInfo> module_instance() const;
+  std::optional<ModuleInstanceInfo> module_instance() const;
 
   // Returns the source range of the node
   SourceRange source_range() const;
@@ -227,7 +226,7 @@ struct TORCH_API InlinedCallStack : public c10::intrusive_ptr_target {
   // Return callstack as a vector of [Function, SourceRange] pairs.
   std::vector<InlinedCallStackEntry> vec();
 
-  void setCallee(c10::optional<InlinedCallStackPtr>);
+  void setCallee(std::optional<InlinedCallStackPtr>);
 
   bool operator==(const InlinedCallStack& rhs) const {
     // No need to compare fn_, since source_range equivalence check

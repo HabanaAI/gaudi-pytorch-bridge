@@ -56,7 +56,7 @@ def no_device_init_test(rank, world_size, coalescing):
         cs = pg._end_coalescing(torch.device(device_hpu))
         cs.wait()
         assert 0, "Check HPUinit is done before _start_coalescing"
-    except Exception as e:
+    except Exception:
         pass
 
     dist.barrier()
@@ -74,7 +74,7 @@ def no_start_coalese_test(rank, world_size, coalescing):
         cs = pg._end_coalescing(torch.device(device_hpu))
         cs.wait()
         assert 0, "Check _start_coalescing is done before _end_coalescing"
-    except Exception as e:
+    except Exception:
         dist.barrier()
         cleanup()
 
@@ -102,11 +102,43 @@ def reduce_scatter_tensor_coalesced_test(rank, world_size, coalescing):
         cs = pg._end_coalescing(torch.device(device_hpu))
         cs.wait()
 
-    for i, output in enumerate(output_tensors):
+    for output in output_tensors:
         assert output.eq(world_size).all()
 
     dist.barrier()
     cleanup()
+
+
+def allgather_into_tensor_coalesced_internal(rank, world_size):
+    init_hccl(rank, world_size)
+    tensor_in = [
+        (torch.arange(63, dtype=torch.int64) + 1 + 63 * rank).to(device_hpu),
+        (torch.arange(3, dtype=torch.int8) + 1 + 3 * rank).to(device_hpu),
+    ]
+    tensor_out = [
+        torch.zeros(world_size * 63, dtype=torch.int64, device=device_hpu),
+        torch.zeros(world_size * 3, dtype=torch.int8, device=device_hpu),
+    ]
+
+    comm_ranks = list(range(world_size))
+    pg = dist.new_group(ranks=comm_ranks)
+    pg._start_coalescing(torch.device(device_hpu))
+    pg.allgather_into_tensor_coalesced(tensor_out, tensor_in)
+    cs = pg._end_coalescing(torch.device(device_hpu))
+    cs.wait()
+
+    cpu_out = [torch.arange(63 * world_size) + 1, (torch.arange(3 * world_size) + 1).to(torch.int8)]
+    for tensor, ref in zip(tensor_out, cpu_out, strict=False):
+        torch.testing.assert_close(tensor.to("cpu"), ref)
+
+    dist.barrier()
+    cleanup()
+
+
+def test_allgather_into_tensor_coalesced():
+    world_size = habana_frameworks.torch.hpu.device_count()
+    if world_size > 1:
+        mp.spawn(allgather_into_tensor_coalesced_internal, args=(world_size,), nprocs=world_size, join=True)
 
 
 def allgather_into_tensor_coalesced_test(rank, world_size, coalescing):
@@ -123,7 +155,7 @@ def allgather_into_tensor_coalesced_test(rank, world_size, coalescing):
     if coalescing:
         pg._start_coalescing(torch.device(device_hpu))
 
-    for output, input in zip(output_tensors, input_tensors):
+    for output, input in zip(output_tensors, input_tensors, strict=False):
         torch.distributed.distributed_c10d.all_gather_into_tensor(output, input, group=pg)
 
     if coalescing:

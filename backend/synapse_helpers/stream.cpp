@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/synapse_helpers/stream.h"
 
 #include <synapse_api.h>
@@ -25,11 +25,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/event.h"
 #include "backend/synapse_helpers/stream_event_manager.h"
 #include "backend/synapse_helpers/synapse_error.h"
+#include "backend/synapse_helpers/utilization_metrics.h"
 #include "habana_helpers/logging.h"
 
 using namespace synapse_helpers;
@@ -38,11 +38,12 @@ using namespace synapse_helpers;
 constexpr uint32_t STREAM_EMPTY_FLAGS = 0;
 
 namespace synapse_helpers {
-stream::stream(class device& device)
+stream::stream(class device& device, bool is_compute_stream)
     : pending_cleanups_{},
       device_{device},
       mut_{},
       cond_var_{},
+      is_compute_stream_{is_compute_stream},
       handle_{nullptr} {
   pending_cleanups_.push({});
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
@@ -76,6 +77,8 @@ void stream::register_pending_event(
 void stream::gc_thread_proc() {
   PT_SYNHELPER_DEBUG("GC thread stream::");
   std::queue<shared_event> partial_events{};
+  auto& utilization_metrics =
+      synapse_helpers::UtilizationMetrics::getInstance();
   while (true) {
     std::unique_lock<std::mutex> lock(mut_);
 
@@ -83,8 +86,12 @@ void stream::gc_thread_proc() {
     if (pending_cleanups_.empty()) {
       cond_var_empty.notify_all();
     }
-    cond_var_.wait(lock, [this] { return !pending_cleanups_.empty(); });
 
+    synapse_helpers::Timer time;
+    cond_var_.wait(lock, [this] { return !pending_cleanups_.empty(); });
+    if (is_compute_stream_) {
+      utilization_metrics.update(time.getInterval());
+    }
     auto event_to_clean = pending_cleanups_.front();
     if (!event_to_clean) {
       break;

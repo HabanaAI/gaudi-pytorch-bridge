@@ -465,8 +465,8 @@ void HandleOutputInsert(
 
   PT_EAGER_DEBUG(
       "[HandleOutputInsert] Eager Op Info = ", eager_op_meta_data.to_string());
-  if (!(eager_op_meta_data.op_name_ ==
-        std::string("hpu::_copy_from_strided_insert"))) {
+  using namespace std::literals;
+  if (!(eager_op_meta_data.op_name_ == "hpu::_copy_from_strided_insert"sv)) {
     PT_EAGER_DEBUG(
         "[HandleOutputInsert] Node replacement with SI not required.");
     return;
@@ -480,7 +480,7 @@ void HandleOutputInsert(
         break;
 
       default:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             node == nullptr,
             "Expecting exactly one non auxiliary node, but already found ",
             node->kind().toQualString(),
@@ -552,8 +552,8 @@ void HandleInputOutputViews(
   PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Eager Op Info = ",
       eager_op_meta_data.to_string());
-  if (eager_op_meta_data.op_name_ ==
-      std::string("hpu::_copy_from_strided_insert")) {
+  using namespace std::literals;
+  if (eager_op_meta_data.op_name_ == "hpu::_copy_from_strided_insert"sv) {
     return;
   }
 
@@ -565,7 +565,7 @@ void HandleInputOutputViews(
         break;
 
       default:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             node == nullptr,
             "Expecting exactly one non auxiliary node, but already found ",
             node->kind().toQualString(),

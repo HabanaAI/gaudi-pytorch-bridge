@@ -83,7 +83,8 @@ enum class HostDataType {
   INT32_T = 1,
   UINT32_T = 2,
   UINT64_T = 3,
-  FLOAT_T = 4
+  FLOAT_T = 4,
+  BFLOAT16_T = 5
 };
 
 inline constexpr std::string_view to_string(const HostDataType& t) {
@@ -98,6 +99,8 @@ inline constexpr std::string_view to_string(const HostDataType& t) {
       return "UINT64";
     case HostDataType::FLOAT_T:
       return "FLOAT";
+    case HostDataType::BFLOAT16_T:
+      return "BFLOAT16";
   }
   return "<UNKNOWN_HOST_DATA_TYPE>";
 }
@@ -149,7 +152,7 @@ StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor);
 
 StorageExtraMeta* get_storage_extra_meta(
     const c10::TensorImpl* tensor_impl,
-    at::optional<size_t> nbytes = c10::nullopt,
+    at::optional<size_t> nbytes = std::nullopt,
     bool is_contiguous = true);
 
 StorageExtraMeta* get_storage_base_meta(const at::Tensor& tensor);
@@ -570,7 +573,7 @@ inline TensorExtraMeta* get_tensor_extra_meta(
     const at::Tensor& tensor,
     bool relax = false) {
   auto impl{tensor.unsafeGetTensorImpl()};
-  TORCH_CHECK(impl, "No impl");
+  HABANA_ASSERT(impl, "No impl");
   return get_tensor_extra_meta(*impl, relax);
 }
 

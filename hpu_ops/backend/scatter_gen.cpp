@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/scatter.h"
 
@@ -66,6 +66,8 @@ SharedMetaDataVector ScatterReduceSharedMeta(
   return {scatterReduceSharedMeta};
 }
 
+using namespace std::literals;
+
 void ScatterOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -80,14 +82,13 @@ void ScatterOperator::AddNode(
     SET_SIZE_STRIDE_1D(index);
   }
 
-
   if (stack.at(3).isTensor()) {
     ns_ScatterKernel::ParamsReduce params{};
     params.axis = get_dim_in_tpc_order(dim, self.dim());
 
     auto scatterkernel = BuildOp(
         graph,
-        get_guid_with_precision("scatter_fwd", ScalarType()),
+        get_guid_with_precision("scatter_fwd"sv, ScalarType()),
         {syn_in(0), syn_in(1), syn_in(2)},
         {{outshape, ScalarType(), 0}},
         &params,
@@ -125,7 +126,7 @@ void ScatterOperator::AddNode(
     params.value = val.toDouble();
     auto scatterkernel = BuildOp(
         graph,
-        get_guid_with_precision("scatter_value_fwd", ScalarType()),
+        get_guid_with_precision("scatter_value_fwd"sv, ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}},
         &params,
@@ -141,7 +142,7 @@ void ScatterWithReduceOperator::AddNode(
   const auto dim = stack.at(1).toInt();
   const auto index = stack.at(2).toTensor();
   const auto value = stack.at(3).toScalar();
-  const auto reduce = stack.at(4).to<c10::string_view>();
+  const auto reduce = stack.at(4).to<std::string_view>();
 
   if (index.dim() == 0) {
     SET_SIZE_STRIDE_1D(index);
@@ -164,7 +165,7 @@ void ScatterWithReduceOperator::AddNode(
 
   auto scatterkernel = BuildOp(
       graph,
-      get_guid_with_precision("scatter_reduce_fwd", ScalarType()),
+      get_guid_with_precision("scatter_reduce_fwd"sv, ScalarType()),
       std::move(syn_input_tensors),
       {{outshape, ScalarType(), 0}},
       &params,

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/backend_meta.h"
 #include "common/dump_args.h"
 #include "generated/eager/wrap_kernels_declarations.h"
@@ -40,11 +40,11 @@ using namespace habana;
 
 Tensor hpu_wrap::empty(
     SymIntArrayRef size,
-    c10::optional<ScalarType> dtype,
-    c10::optional<Layout> layout,
-    c10::optional<Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<MemoryFormat> optional_memory_format) {
+    std::optional<ScalarType> dtype,
+    std::optional<Layout> layout,
+    std::optional<Device> device,
+    std::optional<bool> pin_memory,
+    std::optional<MemoryFormat> optional_memory_format) {
   PT_EAGER_TRACE;
   return habana::eager::empty(
       size, dtype, layout, device, pin_memory, optional_memory_format);
@@ -53,10 +53,10 @@ Tensor hpu_wrap::empty(
 Tensor hpu_wrap::empty_strided(
     SymIntArrayRef size,
     SymIntArrayRef stride,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory) {
+    std::optional<at::ScalarType> dtype,
+    std::optional<at::Layout> layout,
+    std::optional<at::Device> device,
+    std::optional<bool> pin_memory) {
   PT_EAGER_TRACE;
   return habana::eager::empty_strided(
       size, stride, dtype, layout, device, pin_memory);
@@ -157,7 +157,7 @@ at::Tensor hpu_wrap::repeat_interleave(
   auto RepeatInterleaveMeta = [](const at::Stack& stack) {
     auto self = stack.at(0).toTensor();
     auto output_size_opt = stack.at(1).toOptional<int64_t>();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         output_size_opt.has_value(),
         "It is expected that output_size is provided after frontend execution.");
 
@@ -176,7 +176,7 @@ at::Tensor hpu_wrap::repeat_interleave(
 
 at::Tensor& hpu_wrap::_index_put_impl_(
     at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
+    const c10::List<std::optional<at::Tensor>>& indices,
     const at::Tensor& values,
     bool accumulate,
     bool unsafe) {
@@ -221,7 +221,7 @@ at::Tensor& hpu_wrap::_index_put_impl_(
 
 at::Tensor hpu_wrap::bincount(
     const at::Tensor& self,
-    const c10::optional<at::Tensor>& weights,
+    const std::optional<at::Tensor>& weights,
     int64_t minlength) {
   PT_EAGER_TRACE;
   PT_OP_INFO("bincount :", DUMP_3ARGS(self, weights, minlength));

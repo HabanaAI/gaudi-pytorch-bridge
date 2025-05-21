@@ -24,8 +24,6 @@
 
 #include <ATen/core/Reduction.h>
 #include <ATen/core/type_factory.h>
-#include <c10/util/Optional.h>
-#include <c10/util/string_utils.h>
 
 #include <functional>
 #include <memory>
@@ -48,8 +46,8 @@ namespace {
 struct SchemaParser {
   explicit SchemaParser(const std::string& str)
       : L(std::make_shared<Source>(
-            c10::string_view(str),
-            c10::nullopt,
+            std::string_view(str),
+            std::nullopt,
             0,
             Source::DONT_COPY)),
         type_parser(L, /*parse_complete_tensor_types*/ false) {}
@@ -141,7 +139,7 @@ struct SchemaParser {
     // also disallow dunder attribute names to be overload names
     bool is_a_valid_overload_name =
         !((overload_name == "default") || (overload_name.rfind("__", 0) == 0));
-    TORCH_CHECK(
+    HABANA_ASSERT(
         is_a_valid_overload_name,
         overload_name,
         " is not a legal overload name for aten operators");
@@ -171,9 +169,9 @@ struct SchemaParser {
     auto fake_type = std::move(std::get<0>(p));
     auto real_type = std::move(std::get<1>(p));
     auto alias_info = std::move(std::get<2>(p));
-    c10::optional<int32_t> N;
-    c10::optional<IValue> default_value;
-    c10::optional<std::string> alias_set;
+    std::optional<int32_t> N;
+    std::optional<IValue> default_value;
+    std::optional<std::string> alias_set;
     std::string name;
     if (L.nextIf('[')) {
       // note: an array with a size hint can only occur at the Argument level
@@ -184,7 +182,7 @@ struct SchemaParser {
       auto container = type_parser.parseAliasAnnotation();
       if (alias_info) {
         if (!container) {
-          container = c10::optional<at::AliasInfo>(at::AliasInfo());
+          container = std::optional<at::AliasInfo>(at::AliasInfo());
           container->setIsWrite(alias_info->isWrite());
         }
         container->addContainedType(std::move(*alias_info));
@@ -319,7 +317,7 @@ struct SchemaParser {
   IValue parseDefaultValue(
       const c10::Type& arg_type,
       TypeKind kind,
-      c10::optional<int32_t> arg_N) {
+      std::optional<int32_t> arg_N) {
     auto range = L.cur().range;
     switch (kind) {
       case TypeKind::TensorType:
@@ -393,7 +391,7 @@ std::variant<OperatorName, FunctionSchema> parseSchemaOrName(
 
 FunctionSchema parseSchema(const std::string& schema) {
   auto parsed = parseSchemaOrName(schema);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       std::holds_alternative<FunctionSchema>(parsed),
       "Tried to parse a function schema but only the operator name was given");
   return std::get<FunctionSchema>(std::move(parsed));
@@ -401,7 +399,7 @@ FunctionSchema parseSchema(const std::string& schema) {
 
 OperatorName parseName(const std::string& name) {
   auto parsed = parseSchemaOrName(name);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       std::holds_alternative<OperatorName>(parsed),
       "Tried to parse an operator name but function schema was given");
   return std::get<OperatorName>(std::move(parsed));

@@ -54,6 +54,8 @@ auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
 
 namespace habana {
 
+using namespace std::literals;
+
 static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   const auto& ival = stack.at(index);
   auto type =
@@ -111,7 +113,7 @@ sh::tensor& OpBackend::syn_out(size_t index) {
         0, {}, {}, false, std::string(), DATA_TENSOR, false);
     return ph;
   }
-  return p_context_->syn_outputs_.at(index);
+  return get_syn_output_at(index);
 }
 
 synTensor OpBackend::syn_seed() {
@@ -128,7 +130,7 @@ sh::tensor_or_ref& OpBackend::SynInput(size_t index) {
   if (it != syn_inputs_cast_.end()) {
     return it->second;
   }
-  return p_context_->syn_inputs_.at(index);
+  return get_syn_input_at(index);
 }
 
 const sh::tensor_or_ref& OpBackend::ReadSynInput(size_t index) {
@@ -262,15 +264,18 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
     p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_.at(syn_inputs_size - i),
+            get_syn_input_at(syn_inputs_size - i),
             graph,
             m_output_metadata.at(m_num_out_tensors - i).external));
   }
 
   // Remove the out tensors from syn inputs
-  p_context_->syn_inputs_.erase(
-      p_context_->syn_inputs_.end() - m_num_out_tensors,
-      p_context_->syn_inputs_.end());
+  // keep input tensors for copy as needed later for dynamic shapes in CGUID
+  if (guid_.find("copy_guid"sv) == std::string::npos) {
+    p_context_->syn_inputs_.erase(
+        p_context_->syn_inputs_.end() - m_num_out_tensors,
+        p_context_->syn_inputs_.end());
+  }
 }
 
 void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
@@ -305,18 +310,18 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
   }
 }
 
-static c10::optional<c10::ScalarType> get_dtype_for_large_scalar(
+static std::optional<c10::ScalarType> get_dtype_for_large_scalar(
     const std::string& guid_,
     const at::Stack& stack) {
   if ((guid_.find("mult") == std::string::npos &&
        guid_.find("div") == std::string::npos) ||
       stack.size() < 2 || !stack.at(0).isTensor() || !stack.at(1).isScalar()) {
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   const c10::ScalarType self_type = stack.at(0).toTensor().scalar_type();
   const float value = stack.at(1).toScalar().toFloat();
-  c10::optional<c10::ScalarType> dtype = c10::nullopt;
+  std::optional<c10::ScalarType> dtype = std::nullopt;
 
   if (is_value_out_of_scalar_range(value, self_type)) {
     dtype = torch::kFloat;
@@ -337,11 +342,11 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
 
   // In case of mul/div with scalars out of dtype range we need to perform
   // computation in fp32
-  c10::optional<c10::ScalarType> dtype =
+  std::optional<c10::ScalarType> dtype =
       get_dtype_for_large_scalar(guid_, stack);
   m_scalar_type = habana_helpers::DTypeHelper::get_compute_dtype(
       op_inputs,
-      c10::nullopt,
+      std::nullopt,
       m_promote_int_to_float
           ? habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat
           : habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
@@ -442,9 +447,9 @@ std::vector<sh::tensor> OpBackend::BuildOp(
 sh::tensor OpBackend::ConstantHelper(
     sh::graph& graph,
     const at::Scalar& val,
-    c10::optional<at::ScalarType> force_type,
+    std::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   return OpBackend::BuildConstant(
       this, graph, val, force_type, constant_outshape, final_result_index);
 }
@@ -454,9 +459,20 @@ sh::tensor OpBackend::BroadcastHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   return OpBackend::BuildBroadcast(
       this, graph, syn_in, sizes, dtype, final_result_index);
+}
+
+sh::tensor OpBackend::PermuteHelper(
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::IntArrayRef permutation,
+    at::ScalarType dtype,
+    std::optional<int> final_result_index) {
+  return OpBackend::BuildPermute(
+      this, graph, syn_in, sizes, permutation, dtype, final_result_index);
 }
 
 sh::tensor OpBackend::ReshapeHelper(
@@ -464,7 +480,7 @@ sh::tensor OpBackend::ReshapeHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   return OpBackend::BuildReshape(
       this, graph, syn_in, sizes, dtype, final_result_index);
 }
@@ -474,7 +490,7 @@ sh::tensor OpBackend::IdentityHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   return OpBackend::BuildIdentity(
       this, graph, syn_in, sizes, dtype, final_result_index);
 }
@@ -484,8 +500,8 @@ sh::tensor OpBackend::SqueezeHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<unsigned> axis,
-    c10::optional<int> final_result_index) {
+    std::optional<unsigned> axis,
+    std::optional<int> final_result_index) {
   return OpBackend::BuildSqueeze(
       this, graph, syn_in, sizes, dtype, axis, final_result_index);
 }
@@ -496,7 +512,7 @@ sh::tensor OpBackend::ExpandDimsHelper(
     at::IntArrayRef sizes,
     at::ScalarType dtype,
     unsigned axis,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   return OpBackend::BuildExpandDims(
       this, graph, syn_in, sizes, dtype, axis, final_result_index);
 }
@@ -506,7 +522,7 @@ sh::tensor OpBackend::FlattenHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   return OpBackend::BuildFlatten(
       this, graph, syn_in, sizes, dtype, final_result_index);
 }
@@ -636,14 +652,14 @@ void OpBackend::PopulateMetadata(
         if (m_promote_type || m_promote_int_to_float) {
           dtype = habana_helpers::DTypeHelper::get_compute_dtype(
               stack,
-              c10::nullopt,
+              std::nullopt,
               m_promote_int_to_float
                   ? habana_helpers::DTypeHelper::DtypePromoteVariant::
                         kPromoteIntToFloat
                   : habana_helpers::DTypeHelper::DtypePromoteVariant::
                         kPromoteToCommon,
               false,
-              c10::nullopt,
+              std::nullopt,
               false,
               false);
         } else {
@@ -800,7 +816,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       // - HandleFn placed the output(s) in in syn_outputs_ when the op uses
       // output_meta
       outputs.emplace_back(
-          std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
+          std::move(op->get_syn_output_at(*attr.final_result_index).ref()));
     } else if (attr.inplace_out_ptr) {
       if (std::holds_alternative<sh::tensor*>(*attr.inplace_out_ptr)) {
         outputs.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
@@ -906,14 +922,37 @@ sh::tensor OpBackend::BuildBoolCast(
     synTensor syn_in,
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
+  bool constant_bf16 =
+      (from == c10::ScalarType::Bool &&
+       op->GetExecutionMode() != habana_helpers::HabanaFrontendTypes::EAGER);
+
   // We want either 0x00 or 0x01 stored in bytes when casting from or to Bool.
-  auto zero_tensor = OpBackend::BuildConstant(op, graph, 0, from);
+
+  /* WA: In lazy mode, if the input type is Bool, we should create BFloat16
+     constant and cast it into bool. It is required due to fuser limitation.
+     Constant_bf16 is fusable while constant_i8 is not fusable.
+
+     tpc_fuser/mlir/include/tpc/fuser/Optimizer/Dialect/TPCKernelUnsupported.td
+     */
+  auto zero_tensor = OpBackend::BuildConstant(
+      op, graph, 0, constant_bf16 ? c10::ScalarType::BFloat16 : from);
+
+  if (constant_bf16) {
+    zero_tensor = OpBackend::BuildRegularCast(
+        op,
+        graph,
+        zero_tensor.get(),
+        {1},
+        at::kBFloat16,
+        at::kBool,
+        std::nullopt);
+  }
 
   auto eq = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("equal_fwd", from),
+      {get_guid_with_precision("equal_fwd"sv, from),
        {syn_in, zero_tensor.get()},
        {{sizes, c10::ScalarType::Bool}}});
 
@@ -933,7 +972,7 @@ sh::tensor OpBackend::BuildRegularCast(
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   // Verify from and to types correctness
   BuildCastGuid(from, to);
 
@@ -963,7 +1002,7 @@ sh::tensor OpBackend::BuildRegularCast(
     }
 
     auto is_last = (i + 1) == cast_sequence.size();
-    auto output_index = is_last ? final_result_index : c10::nullopt;
+    auto output_index = is_last ? final_result_index : std::nullopt;
     NodeAttr castnode{
         cast_guid,
         {*input},
@@ -986,7 +1025,7 @@ sh::tensor OpBackend::BuildCast(
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   PT_BRIDGE_DEBUG("Performing cast from:\t", from, "\t\tto:\t", to);
 
   if (!(from == at::kBool || to == at::kBool))
@@ -999,7 +1038,7 @@ sh::tensor OpBackend::BuildCast(
       syn_in,
       sizes,
       from,
-      to == at::kBool ? final_result_index : c10::nullopt);
+      to == at::kBool ? final_result_index : std::nullopt);
 
   if (to == at::kBool || to == at::kChar)
     return boolResult;
@@ -1012,9 +1051,9 @@ sh::tensor OpBackend::BuildConstant(
     OpBackend* op,
     sh::graph& graph,
     const at::Scalar& val,
-    c10::optional<at::ScalarType> force_type,
+    std::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   // For eager mode, Allocate constant synapse tensor
   // for non-persistent tensor of size {1}.
   if (op->GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER &&
@@ -1037,7 +1076,7 @@ sh::tensor OpBackend::BuildConstant(
     auto constant = BuildNode(
         op,
         graph,
-        {get_guid_with_precision("constant", valtype, true),
+        {get_guid_with_precision("constant"sv, valtype, true),
          input,
          {{constant_outshape, valtype, final_result_index}},
          &paramsV2,
@@ -1050,6 +1089,8 @@ sh::tensor OpBackend::BuildConstant(
       if (habana_helpers::is_downcast_to_int_needed(valtype)) {
         valtype = c10::ScalarType::Int;
       }
+    } else if (valtype == c10::ScalarType::Bool) {
+      get<float>(params.constant) = static_cast<float>(val.to<bool>());
     } else {
       get<float>(params.constant) = val.to<float>();
     }
@@ -1057,7 +1098,7 @@ sh::tensor OpBackend::BuildConstant(
     auto constant = BuildNode(
         op,
         graph,
-        {get_guid_with_precision("constant", valtype),
+        {get_guid_with_precision("constant"sv, valtype),
          input,
          {{constant_outshape, valtype, final_result_index}},
          &params,
@@ -1071,7 +1112,7 @@ sh::tensor OpBackend::BuildConstantTensor(
     OpBackend* op,
     sh::graph& graph,
     const at::Scalar& val,
-    c10::optional<at::ScalarType> force_type,
+    std::optional<at::ScalarType> force_type,
     [[maybe_unused]] const at::IntArrayRef outshape) {
   if (op->isOutputInfMode()) {
     // dummy synapse tensor
@@ -1087,7 +1128,7 @@ sh::tensor OpBackend::BuildBroadcast(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {syn_in};
   op->CreateShapeTensorInput(graph, dtype, sizes, inputs);
 
@@ -1103,7 +1144,7 @@ sh::tensor OpBackend::BuildPermute(
     at::IntArrayRef sizes,
     at::IntArrayRef permutation,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {syn_in};
 
   int dims_number = sizes.size();
@@ -1121,7 +1162,7 @@ sh::tensor OpBackend::BuildPermute(
 
   auto compute_output_shape = [](at::IntArrayRef self_sizes,
                                  at::IntArrayRef permutation) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         self_sizes.size() == permutation.size(),
         "Number of dims in tensor don't match in permutation");
     auto new_sizes = self_sizes.vec();
@@ -1152,7 +1193,7 @@ sh::tensor OpBackend::BuildReshape(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   /*
     Inputs:
     * The tensor to reshape : T
@@ -1183,7 +1224,7 @@ sh::tensor OpBackend::BuildIdentity(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   auto identity = BuildNode(
       op, graph, {"identity", {syn_in}, {{sizes, dtype, final_result_index}}});
   return std::move(identity.at(0));
@@ -1195,8 +1236,8 @@ sh::tensor OpBackend::BuildSqueeze(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<unsigned> axis,
-    c10::optional<int> final_result_index) {
+    std::optional<unsigned> axis,
+    std::optional<int> final_result_index) {
   auto axisHasValue = axis.has_value();
   synAxisParams squeezeParams = {.axis = axisHasValue ? axis.value() : 0};
   auto squeeze = BuildNode(
@@ -1217,7 +1258,7 @@ sh::tensor OpBackend::BuildExpandDims(
     at::IntArrayRef sizes,
     at::ScalarType dtype,
     unsigned axis,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   synAxisParams expandDimsParams = {.axis = axis};
   auto squeeze = BuildNode(
       op,
@@ -1236,11 +1277,19 @@ sh::tensor OpBackend::BuildFlatten(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    std::optional<int> final_result_index) {
   auto flatten = BuildNode(
       op,
       graph,
       {"flatten_fwd", {syn_in}, {{sizes, dtype, final_result_index}}});
   return std::move(flatten.at(0));
+}
+
+void OpBackend::moveLastOutputTensorAtFront() {
+  auto& outputInfMeta = GetOutputInfMeta();
+  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
+  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
+  outputInfMeta.RemoveOutput(output_tensor_idx);
+  outputInfMeta.PushOutputTensorAtFront(output_tensor);
 }
 } // namespace habana

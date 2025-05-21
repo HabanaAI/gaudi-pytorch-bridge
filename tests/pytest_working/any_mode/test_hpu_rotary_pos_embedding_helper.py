@@ -17,7 +17,6 @@
 
 import pytest
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from habana_frameworks.torch.hpex.kernels import (
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,
@@ -30,7 +29,6 @@ from test_utils import (
     compile_function_if_compile_mode,
     cpu,
     hpu,
-    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -182,7 +180,7 @@ def prepare_test_data(p_size, cos_sin_size, offset, mode):
             sin = torch.cat((sin, sin), dim=-1)
         else:
             off_size = (p_size[0],)
-            for i in range(len(p_size) - 2):
+            for _ in range(len(p_size) - 2):
                 off_size = off_size + (1,)
             off_size = off_size + (offset,)
 
@@ -211,8 +209,6 @@ def prepare_test_data(p_size, cos_sin_size, offset, mode):
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("Half is not supported on Gaudi.")
 
     torch.manual_seed(12345)
 
@@ -260,8 +256,6 @@ class TestHpuApplyRotaryPosEmbV2FwdBwd:
 
     @staticmethod
     def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dtype):
-        if is_gaudi1() and dtype == torch.float16:
-            pytest.skip("Half is not supported on Gaudi.")
 
         torch.manual_seed(12345)
 
@@ -312,8 +306,6 @@ class TestHpuApplyRotaryPosEmbV2FwdBwd:
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("Half is not supported on Gaudi.")
 
     torch.manual_seed(12345)
 
@@ -353,8 +345,6 @@ class TestHpuApplyRotaryPosEmbDiffDTypes:
 
     @staticmethod
     def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):
-        if is_gaudi1() and (dtype == torch.float16 or cos_dtype == torch.float16 or sin_dtype == torch.float16):
-            pytest.skip("Half is not supported on Gaudi.")
 
         torch.manual_seed(12345)
 
@@ -401,8 +391,6 @@ class TestHpuApplyRotaryPosEmbDiffDTypes:
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("Half is not supported on Gaudi.")
 
     torch.manual_seed(12345)
 
@@ -440,8 +428,6 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("Half is not supported on Gaudi.")
 
     torch.manual_seed(12345)
 

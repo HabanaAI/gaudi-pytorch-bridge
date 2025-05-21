@@ -212,7 +212,7 @@ using DSOpRegisterFunc = std::function<DynamicOpPtr()>;
 class RegisterDSOps {
  public:
   RegisterDSOps& add(const std::string guid, DSOpRegisterFunc func) {
-    TORCH_CHECK(!dsOps_.count(guid), guid, " is already registered!");
+    HABANA_ASSERT(!dsOps_.count(guid), guid, " is already registered!");
     dsOps_.emplace(guid, func);
     return *this;
   }
@@ -225,7 +225,7 @@ class RegisterDSOps {
   // backend from HPU Eager Pass
   const std::vector<std::string> getRegisteredDSOpsList() const {
     std::vector<std::string> DSOpsList;
-    for (const auto& op: dsOps_) {
+    for (const auto& op : dsOps_) {
       DSOpsList.push_back(op.first);
     }
     return DSOpsList;
@@ -495,9 +495,9 @@ class FullOpDS : public DynamicOp {
       LaunchDynamicShapes& launch_shapes);
 };
 
-class ExapndOperatorDS : public DynamicOp {
+class ExpandOperatorDS : public DynamicOp {
  public:
-  ExapndOperatorDS() : DynamicOp() {}
+  ExpandOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
       torch::jit::Node*,
       torch::jit::Stack& in_stack,

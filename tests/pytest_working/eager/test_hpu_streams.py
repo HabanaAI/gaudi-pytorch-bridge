@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -438,7 +438,7 @@ def testStreamCopyH2DNonBlocking():
 
         tC = tA + tB
         tC_h = tA_h + tB_h
-        y = torch.empty_like(tA).pin_memory(device="hpu")
+        y = torch.empty_like(tA).pin_memory()
         with ht.hpu.stream(s0):
             y.copy_(tC_h, non_blocking=True)
 
@@ -569,7 +569,7 @@ def testStreamUseDifferentStreamForEachOPNonBlocking():
         tC_h = torch.empty_like(tA_h)
         with ht.hpu.stream(s0):
             tC_h = tA_h + tB_h
-        y = torch.empty_like(tA).pin_memory(device="hpu")
+        y = torch.empty_like(tA).pin_memory()
         with ht.hpu.stream(s1):
             y.copy_(tC_h, non_blocking=True)
         s1.synchronize()
@@ -595,19 +595,19 @@ def testCopyNonBlocking():
 
     # 10MB copies
     x = torch.ones(10000000, dtype=torch.uint8, device="hpu")
-    y = torch.zeros(10000000, dtype=torch.uint8).pin_memory(device="hpu")
+    y = torch.zeros(10000000, dtype=torch.uint8).pin_memory()
     _test_copy_non_blocking(x, y, 0)
 
-    x = torch.zeros(10000000, dtype=torch.uint8).pin_memory(device="hpu")
+    x = torch.zeros(10000000, dtype=torch.uint8).pin_memory()
     y = torch.ones(10000000, dtype=torch.uint8, device="hpu")
     _test_copy_non_blocking(x, y, 1)
 
     # Test the case where the pinned data_ptr is not equal to the storage data_ptr.
-    x_base = torch.zeros(10000000, dtype=torch.uint8).pin_memory(device="hpu")
+    x_base = torch.zeros(10000000, dtype=torch.uint8).pin_memory()
     x = x_base[1:]
     # commenting below, view not working correctly
-    # assert (x.is_pinned(device='hpu') is True)
-    assert x_base.is_pinned(device="hpu") is True
+    # assert (x.is_pinned() is True)
+    assert x_base.is_pinned() is True
     assert x_base.data_ptr() != x.data_ptr()
     assert x_base.untyped_storage().data_ptr() == x.untyped_storage().data_ptr()
     y = torch.ones(10000000 - 1, dtype=torch.uint8, device="hpu")

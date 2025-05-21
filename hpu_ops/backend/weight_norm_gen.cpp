@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/_weight_norm_interface.h"
 #include "generated/backend/_weight_norm_interface_backward.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -61,13 +61,6 @@ OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-void moveLastOutputTensorAtFront(OpBackend& op) {
-  auto& outputInfMeta = op.GetOutputInfMeta();
-  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
-  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
-  outputInfMeta.RemoveOutput(output_tensor_idx);
-  outputInfMeta.PushOutputTensorAtFront(output_tensor);
-}
 void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto metas = WeightNormMeta(stack);
   auto v_in = stack_tensor(stack, 0);
@@ -85,7 +78,7 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   We use the CPU implementation that follows the "non-fused" (ie., assumes
   can_use_fused=0) path.
   */
-  TORCH_CHECK(
+  HABANA_ASSERT(
       v_in.device().type() == g_in.device().type(),
       "weight_norm: expected v_in and g_in to be on the same device, but v_in is "
       "on ",
@@ -111,20 +104,20 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       ord,
       {{metas[1].shape, g_dtype, 1}},
       false);
-
+  using namespace std::literals;
   auto divOp = BuildOp(
       graph,
-      get_guid_with_precision("div_fwd", v_dtype),
+      get_guid_with_precision("div_fwd"sv, v_dtype),
       {syn_in(1), normOp.get()},
       {{g_in_shape, g_dtype}});
   auto mulOp = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", v_dtype),
+      get_guid_with_precision("mult_fwd"sv, v_dtype),
       {syn_in(0), divOp.at(0).get()},
       {{v_shape, v_dtype, 0}});
 
   if (isOutputInfMode()) {
-    moveLastOutputTensorAtFront(*this);
+    moveLastOutputTensorAtFront();
   }
   syn_out(0) = std::move(mulOp[0]);
   syn_out(1) = std::move(normOp);
@@ -135,15 +128,15 @@ OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {
   const torch::Tensor& saved_v = stack_tensor(stack, 1);
   const torch::Tensor& saved_g = stack_tensor(stack, 2);
   const torch::Tensor& saved_norms = stack_tensor(stack, 3);
-  TORCH_CHECK(grad_w.is_contiguous(), "grad_w must be contiguous");
-  TORCH_CHECK(saved_v.is_contiguous(), "saved_v must be contiguous");
-  TORCH_CHECK(saved_g.is_contiguous(), "saved_g must be contiguous");
-  TORCH_CHECK(saved_norms.is_contiguous(), "saved_norms must be contiguous");
+  HABANA_ASSERT(grad_w.is_contiguous(), "grad_w must be contiguous");
+  HABANA_ASSERT(saved_v.is_contiguous(), "saved_v must be contiguous");
+  HABANA_ASSERT(saved_g.is_contiguous(), "saved_g must be contiguous");
+  HABANA_ASSERT(saved_norms.is_contiguous(), "saved_norms must be contiguous");
 
   auto dim = stack.at(4).toInt();
   int64_t last_dim = saved_v.dim() - 1;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dim == 0 || dim == last_dim,
       "Expected dim to be the first or last dimension");
   int64_t last_size = saved_v.size(last_dim);

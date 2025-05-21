@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <sys/sysinfo.h>
 #include <iostream>
 
@@ -61,13 +61,20 @@ template <
     typename ThreadPolicy>
 ThreadPoolBase<Queue, Task, ThreadPolicy>::ThreadPoolBase(
     bool propagate_exception,
-    uint64_t queue_capacity,
     const std::function<void()>& init_thread)
-    : stop_(false),
-      ex_ptr_(nullptr),
-      propagate_exception_(propagate_exception),
-      queue_capacity_(queue_capacity) {
-  for (uint64_t i = 0; i < ThreadPolicy::GetNumThreads(); i++) {
+    : propagate_exception_(propagate_exception) {
+  Init(init_thread, ThreadPolicy::GetNumThreads());
+}
+
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+void ThreadPoolBase<Queue, Task, ThreadPolicy>::Init(
+    const std::function<void()>& init_thread,
+    uint64_t threads_number) {
+  for (uint64_t i = 0; i < threads_number; i++) {
     threads_.emplace_back([this, init_thread]() {
       if (init_thread)
         init_thread();
@@ -118,24 +125,6 @@ void ThreadPoolBase<Queue, Task, ThreadPolicy>::executePendingTask(
       PT_BRIDGE_WARN("Exception caught in thread: unknown");
     } else
       PT_BRIDGE_FATAL("Exception caught in thread: unknown");
-  }
-}
-
-template <
-    template <typename>
-    typename Queue,
-    typename Task,
-    typename ThreadPolicy>
-void ThreadPoolBase<Queue, Task, ThreadPolicy>::throttleIfNeeded() {
-  if (queue_capacity_ > 0 && active_task_count_ >= queue_capacity_) {
-    // throttle only when queue capacity is limited
-    // and active tasks exceeds the configured capacity
-    auto throttle_limit = queue_capacity_ / 2;
-    // Release GIL if going to wait (remove once SW-160978 is fixed)
-    habana_helpers::AutoNoGIL gil_release;
-    while (active_task_count_ > throttle_limit) {
-      std::this_thread::yield();
-    }
   }
 }
 

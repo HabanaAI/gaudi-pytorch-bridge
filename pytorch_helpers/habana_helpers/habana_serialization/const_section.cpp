@@ -1,26 +1,27 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "const_section.h"
+#include <absl/container/fixed_array.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
 #include <string>
 #include "backend/helpers/runtime_config.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "habana_helpers/logging.h"
 #include "recipe_cache_config.h"
 
@@ -86,24 +87,43 @@ void ConstSectionFileHandler::init(std::string path) {
   }
 }
 
+namespace {
+using namespace std::literals;
+
+constexpr const auto CONST_SECTION_DATA_PREFIX = "const_tensor_"sv;
+constexpr const auto CONST_SECTION_DATA_SUFFIX = ".data"sv;
+constexpr const auto CONST_SECTION_COMPRESSION_CHUNK_SIZE = 32768;
+} // namespace
+
 std::string ConstSectionDataSerialize::getSerializedFullPath(int const_id) {
   HABANA_ASSERT(habana_helpers::IsConstSectionSerialization());
-  return habana_helpers::GetConstSectionSerializationPath() + "/" +
-      std::to_string(m_constSectFH->getRank()) + "/" +
-      CONST_SECTION_DATA_PREFIX + std::to_string(const_id) +
-      CONST_SECTION_DATA_SUFFIX;
+  return habana_helpers::GetConstSectionSerializationPath()
+      .append("/"sv)
+      .append(std::to_string(m_constSectFH->getRank()))
+      .append("/"sv)
+      .append(CONST_SECTION_DATA_PREFIX)
+      .append(std::to_string(const_id))
+      .append(CONST_SECTION_DATA_SUFFIX);
 }
 
 std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
     int const_id,
     const size_t key) {
-  std::vector<std::string> split_config = RecipeCacheConfig::split_params(
-      GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
-  std::string cache_path = split_config.size() > 0 ? split_config[0] : "";
-  auto full_path = cache_path + "/" + std::to_string(key) + "_" +
-      CONST_SECTION_DATA_PREFIX + std::to_string(const_id) +
-      CONST_SECTION_DATA_SUFFIX;
-  return full_path;
+  static const std::string cache_path = [] {
+    std::vector<std::string> split_config = RecipeCacheConfig::split_params(
+        GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
+    return (split_config.size() > 0 ? split_config[0] : "") + "/";
+  }();
+  std::string result;
+  result.reserve(
+      cache_path.size() + 21 + 1 + CONST_SECTION_DATA_PREFIX.size() + 21 +
+      CONST_SECTION_DATA_SUFFIX.size());
+  return result.append(cache_path)
+      .append(std::to_string(key))
+      .append("_"sv)
+      .append(CONST_SECTION_DATA_PREFIX)
+      .append(std::to_string(const_id))
+      .append(CONST_SECTION_DATA_SUFFIX);
 }
 
 bool ConstSectionDataSerialize::fileExists(int const_id) {
@@ -112,7 +132,7 @@ bool ConstSectionDataSerialize::fileExists(int const_id) {
   bool exists = (stat(getSerializedFullPath(const_id).c_str(), &buffer) == 0);
   if (exists) {
     PT_CONST_SECTION_DEBUG(
-        __func__, " file alredy exists: ", getSerializedFullPath(const_id));
+        __func__, " file already exists: ", getSerializedFullPath(const_id));
   }
   return exists;
 }
@@ -180,15 +200,15 @@ void ConstSectionDataSerialize::compress_and_serialize(
   zs.avail_in = data_size;
 
   int ret;
-  char outbuffer[data_size];
+  absl::FixedArray<char> outbuffer(CONST_SECTION_COMPRESSION_CHUNK_SIZE);
 
-  do {
-    zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
-    zs.avail_out = sizeof(outbuffer);
+  do { // NOLINT(cppcoreguidelines-avoid-do-while)
+    zs.next_out = reinterpret_cast<Bytef*>(outbuffer.data());
+    zs.avail_out = outbuffer.memsize();
 
     ret = deflate(&zs, Z_FINISH);
 
-    outputFile.write(outbuffer, zs.total_out - outputFile.tellp());
+    outputFile.write(outbuffer.data(), zs.total_out - outputFile.tellp());
   } while (ret == Z_OK);
 
   deflateEnd(&zs);
@@ -208,7 +228,7 @@ void ConstSectionDataSerialize::serialize(
       getSerializedFullPath(const_id), std::ios::out | std::ios::binary);
   if (!outputFile) {
     PT_CONST_SECTION_FATAL(
-        "Cannot open const section file ectory for writing: ",
+        "Cannot open const section file for writing: ",
         getSerializedFullPath(const_id));
     return;
   }
@@ -250,7 +270,7 @@ void ConstSectionDataSerialize::decompress_and_deserialize(
 
   int ret;
 
-  do {
+  do { // NOLINT(cppcoreguidelines-avoid-do-while)
     ret = inflate(&zs, Z_NO_FLUSH);
   } while (ret == Z_OK);
 

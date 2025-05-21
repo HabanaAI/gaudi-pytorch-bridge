@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/linear_backward.h"
 #include "hpu_ops/linear_backward.h"
@@ -60,9 +60,9 @@ void LinearBackward::AddNode(
   auto params = FillLinearBwdParams(stack, size);
 
   std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
-
+  using namespace std::literals;
   std::string guid =
-      get_guid_with_precision("linear_temp_bwd", meta.at(0).dtype);
+      get_guid_with_precision("linear_temp_bwd"sv, meta.at(0).dtype);
 
   std::vector<synapse_helpers::tensor> linear_bwd = BuildOp(
       graph,

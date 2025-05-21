@@ -100,17 +100,15 @@
 # work well on HPU
 
 # mypy: allow-untyped-defs
-import itertools
-import logging
-import operator
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from torch.fx.immutable_collections import immutable_dict
+
+import torch
 from torch.fx.passes.reinplace import _is_view_op
 
 logger = get_compile_backend_logger()
@@ -121,7 +119,7 @@ def get_storage(t: torch.Tensor) -> int:
     return t.untyped_storage()._cdata
 
 
-def get_node_storage(node: torch.fx.Node) -> Optional[int]:
+def get_node_storage(node: torch.fx.Node) -> int | None:
     if "val" not in node.meta:
         return None
     if not isinstance(node.meta["val"], torch.Tensor):
@@ -180,7 +178,7 @@ except AttributeError:
 
 
 def construct_inplaceable_ops():
-    inplaceable_ops = dict()
+    inplaceable_ops = {}
     if hpu_backend_config.reinplace_add:
         inplaceable_ops[aten.add.Tensor] = InplaceableOp(aten.add_.Tensor, 0, reinplace_add_extra_check)
     if hpu_backend_config.use_inplace_index_copy:
@@ -227,7 +225,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
     mutated_inputs = set()
     storage_to_nodes = defaultdict(list)
     nodes_to_storage = defaultdict()
-    node_order: Dict[Any, int] = {}
+    node_order: dict[Any, int] = {}
     for i, node in enumerate(reversed(graph.nodes)):
         node_order[node] = len(graph.nodes) - i - 1
         storage = get_node_storage(node)
@@ -244,6 +242,14 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
             copy_nodes[dst] = node  # arg to first copy_ node that mutates it
 
             mutated_inputs.add(node.args[0])
+
+    def update_storage(node, mutated_arg):
+        # Update storage_to_nodes and nodes_to_storage map
+        output_storage, mutated_arg_storage = nodes_to_storage[node], nodes_to_storage[mutated_arg]
+        storage_to_nodes[mutated_arg_storage].extend(storage_to_nodes[output_storage])
+        for n in storage_to_nodes[output_storage]:
+            nodes_to_storage[n] = mutated_arg_storage
+        storage_to_nodes.pop(output_storage)
 
     def any_use_of_views_after_node(node, shared_view_nodes, *, copy_node, mutated_arg):
         node_loc = node_order[node]
@@ -281,7 +287,7 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
         return False
 
     def can_inplace(node, mutated_arg):
-        if isinstance(mutated_arg, (list, tuple)):
+        if isinstance(mutated_arg, list | tuple):
             unique_storages = {nodes_to_storage[arg] for arg in mutated_arg}
             if len(unique_storages) != len(mutated_arg):
                 # at least two Tensors in mutated_arg alias each other, so we can't reinplace it.
@@ -296,13 +302,13 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
 
         if mutated_arg.op in ("placeholder", "get_attr"):
             # Get the first copy_ node that mutates the mutated_arg.
-            copy_node = copy_nodes.get(mutated_arg, None)
+            copy_node = copy_nodes.get(mutated_arg)
             if copy_node is None:
                 # There is no copy_ back to the candidate mutated_arg (which is a graph input).
                 # Therefore the semantics of the program are that it does not mutate
                 # mutated_arg, so we cannot re-inplace it.
                 return False
-            if list(copy_node.args)[1] != node:
+            if copy_node.args[1] != node and nodes_to_storage[copy_node.args[1]] != nodes_to_storage[node]:
                 # non-trival patterns, like:
                 #   add = torch.ops.aten.add.Tensor(arg1_1, mul)
                 #   copy = torch.ops.aten.copy.default(add, pow_1)
@@ -325,10 +331,10 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
         else:
             return not any_use_of_views_after_node(node, shared_view_nodes, copy_node=None, mutated_arg=mutated_arg)
 
-    replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
-    reinplaced_nodes = list()
+    replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
+    reinplaced_nodes = []
 
-    for node in graph.nodes:
+    for node in reversed(graph.nodes):
         if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:
             mutated_arg = node.args[inplaceable_op.mutated_arg]
             if inplaceable_op.extra_check(node) and can_inplace(node, mutated_arg):
@@ -353,7 +359,8 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
                         replace_dict[copy_node] = copy_node.args[1]
 
                 node.target = inplaceable_op.inplace_op
-                reinplaced_nodes.append((node, inplaceable_op.mutated_arg))
+                reinplaced_nodes.append((node, node.args[inplaceable_op.mutated_arg]))
+                update_storage(*reinplaced_nodes[-1])
                 graph_changed = True
 
     for node, replacement in replace_dict.items():
@@ -366,15 +373,6 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> bool:
 
     # Epilogue: remove copy_ nodes that are used for input mutation but no
     # longer needed after reinplace
-    # Update storage_to_nodes and nodes_to_storage map
-    for node, mutated_arg_idx in reinplaced_nodes:
-        mutated_arg = node.args[mutated_arg_idx]
-        output_storage, mutated_arg_storage = nodes_to_storage[node], nodes_to_storage[mutated_arg]
-        storage_to_nodes[mutated_arg_storage].extend(storage_to_nodes[output_storage])
-        for n in storage_to_nodes[output_storage]:
-            nodes_to_storage[n] = mutated_arg_storage
-        storage_to_nodes.pop(output_storage)
-
     for copy_node in copy_nodes.values():
         if copy_node not in replace_dict and nodes_to_storage[copy_node.args[0]] == nodes_to_storage[copy_node.args[1]]:
             copy_node.replace_all_uses_with(copy_node.args[0])

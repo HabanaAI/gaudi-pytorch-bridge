@@ -17,6 +17,7 @@
 
 
 import os
+import sys
 
 import setuptools
 
@@ -37,7 +38,7 @@ def get_version():
         sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
         return version + "+" + sha
     except Exception as e:
-        print("Error getting version: {}".format(e), file=sys.stderr)
+        print(f"Error getting version: {e}", file=sys.stderr)
         return "0.0.0+unknown"
 
 

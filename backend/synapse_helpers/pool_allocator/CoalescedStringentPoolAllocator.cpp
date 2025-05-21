@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <synapse_api.h>
 
 #include <habana_helpers/logging.h>
@@ -617,15 +617,24 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   // requested size
   if (high_memory_allocated_) {
     tail_chunk->used = false;
-    bin_utils->InsertFreeChunkIntoBin(try_to_merge(tail_chunk));
-    tail_chunk = prealloc_pool->top;
+    auto merged_chunk = try_to_merge(tail_chunk);
+    // The merge can fail if there is no free chunk before the tail chunk. In
+    // that situation, we don't change the pool status.
+    if (merged_chunk != tail_chunk) {
+      bin_utils->InsertFreeChunkIntoBin(merged_chunk);
+      tail_chunk = prealloc_pool->top;
+    }
   }
 
   if (tail_chunk->size < size) {
     PT_DEVMEM_DEBUG(
         "CS_POOL:: out of memory, when trying to extend high meory for size::",
         size);
-    bin_utils->RemoveFreeChunkFromBin(tail_chunk);
+    // InvalidBinNum means this chunk has been removed before, avoid double
+    // remove
+    if (tail_chunk->bin_index != kInvalidBinNum) {
+      bin_utils->RemoveFreeChunkFromBin(tail_chunk);
+    }
     tail_chunk->used = true;
     log_synDeviceWorkspace(0, size);
     return nullptr;

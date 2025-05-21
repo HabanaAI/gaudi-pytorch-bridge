@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "HPUAllocator.h"
 #include <synapse_api.h>
 #include "HPUGuardImpl.h"
@@ -122,11 +122,21 @@ static synStatus waitTillRecipeExecution(
   return status;
 }
 
+std::function<void(void*)> HPUDeviceAllocator::deleter_hook = nullptr;
+
 HPUDeviceAllocator::HPUDeviceAllocator() {
   allocator_active_device_id = static_cast<synDeviceId>(-1);
 }
 
 void HPUDeviceAllocator::deleter(void* ptr) {
+  if (deleter_hook) {
+    deleter_hook(ptr);
+  } else {
+    real_deleter(ptr);
+  }
+}
+
+void HPUDeviceAllocator::real_deleter(void* ptr) {
   if (!HPUDeviceContext::is_device_acquired())
     return;
 
@@ -155,7 +165,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) {
   void* v_ptr{nullptr};
   synStatus status{synStatus::synSuccess};
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       habana::HPUDeviceAllocator::allocator_active_device_id == 0,
       "habana active device: ",
       habana::HPUDeviceAllocator::allocator_active_device_id,
@@ -205,7 +215,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) {
           status, "allocate failed to allocate ", num_bytes, " bytes");
     }
 
-    TORCH_CHECK(nullptr != v_ptr, "memory corruption");
+    HABANA_ASSERT(nullptr != v_ptr, "memory corruption");
 
     PT_DEVICE_DEBUG("successful memory alloc, requested size ", num_bytes);
   }

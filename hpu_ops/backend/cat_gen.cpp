@@ -27,7 +27,7 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
 
   auto dim = stack[1].toInt();
 
-  TORCH_CHECK(tensors_.size() > 0, "Empty tensors list!");
+  HABANA_ASSERT(tensors_.size() > 0, "Empty tensors list!");
   const at::Tensor& first_tensor = tensors_[0];
   auto tensors = at::filter(tensors_, [](const at::Tensor& tensor) {
     return tensor.dim() != 1 || tensor.size(0) != 0;
@@ -51,12 +51,12 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
       out_size[dim] += tensor.sizes()[dim];
     }
     if (!ref_out_size.empty()) {
-      TORCH_CHECK(out_size[dim] == ref_out_size[dim], "Cat output mismatch");
+      HABANA_ASSERT(out_size[dim] == ref_out_size[dim], "Cat output mismatch");
     }
   }
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {tensors_},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   return {OutputMetaData{
@@ -81,7 +81,7 @@ SharedMetaDataVector CatSharedMeta(
       [](const at::Tensor& tensor) { return tensor.dim(); });
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       {inputs},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   auto firstNon1DElement = std::find_if(
@@ -112,7 +112,7 @@ void CatHabanaOperator::AddNode(
   for (auto& input : in_tensors)
     CONVERT_0D_TO_1D(input);
 
-  TORCH_CHECK(in_tensors.size() > 0, "Empty tensors list!");
+  HABANA_ASSERT(in_tensors.size() > 0, "Empty tensors list!");
   auto dim = stack[1].toInt();
 
   const auto md = OutputMeta(stack)[0];

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <synapse_api_types.h>
@@ -168,7 +168,7 @@ class device {
       PT_SYNHELPER_DEBUG(
           Logger::formatStatusMsg(status),
           "Failed to get device name for id ",
-          id_);
+          static_cast<int>(id_));
       return "";
     }
     return deviceName;
@@ -465,6 +465,12 @@ class device {
     return device_memory_alignment_;
   }
 
+  void set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id);
+
+  bool get_scale_attribute_is_hw_aligned() const;
+
+  uint32_t get_scale_attribute_hash_id() const;
+
  private:
   friend class stream;
   static synapse_error_v<device_handle> create(
@@ -550,6 +556,8 @@ class device {
   // Only used with old design of stream assignment
   std::unordered_map<default_stream_type, std::unique_ptr<stream>>
       default_streams_;
+  bool scale_attribute_is_hw_aligned_{false};
+  uint32_t scale_attribute_hash_id_{0};
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);

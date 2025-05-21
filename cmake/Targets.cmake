@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -34,6 +34,15 @@ function(set_up_warnings TARGET_NAME)
   # TODO: Add -Wconversion
   target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
 
+  include(CheckCXXCompilerFlag)
+  check_cxx_compiler_flag("-Werror=template-id-cdtor" HAS_WERROR_TEMPLATE_ID_CTOR)
+
+  if(HAS_WERROR_TEMPLATE_ID_CTOR)
+    # GCC 14.2 emits C++20 related error even in C++17 mode when -Wall is set.
+    # As a W/A don't emit error in this case
+    target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=template-id-cdtor)
+  endif()
+
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")
     # According to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80635 GCC older than 11 may trigger
     # bugous maybe-uninitialized warning for std::optional destructor. And this was observed on d10
@@ -59,7 +68,7 @@ endfunction()
 function(attach_sanitizers_if_requested TARGET_NAME)
   if(SANITIZER)
     target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr
-                                                 -fsanitize-address-use-after-scope -Og)
+                                                  -fsanitize-address-use-after-scope -Og)
     target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=leak -fsanitize=undefined)
   endif()
 
@@ -100,7 +109,6 @@ function(add_habana_executable TARGET_NAME)
     allow_code_coverage_if_requested(${TARGET_NAME})
   endif()
 endfunction()
-
 
 if(SANITIZER)
   message("Building sanitizers configuration")

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "hpu_ops/stack_getter.h"
 
 namespace sh = synapse_helpers;
@@ -53,9 +53,10 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string add_node = get_guid_with_precision("add_fwd", dtype);
-  std::string sub_node = get_guid_with_precision("sub_fwd", dtype);
-  std::string mul_node = get_guid_with_precision("mult_fwd", dtype);
+  using namespace std::literals;
+  std::string add_node = get_guid_with_precision("add_fwd"sv, dtype);
+  std::string sub_node = get_guid_with_precision("sub_fwd"sv, dtype);
+  std::string mul_node = get_guid_with_precision("mult_fwd"sv, dtype);
 
   int64_t scalar_shape[] = {1};
   auto momentum_t =

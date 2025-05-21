@@ -1,21 +1,21 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "collective_utils.h"
 
 #include <c10/core/ScalarType.h>
-#include <torch_ver/csrc/distributed/c10d/Utils.hpp>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
 #include <map>
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -40,6 +40,8 @@ const std::map<c10d::ReduceOp, hcclRedOp_t> hcclOp = {
     {c10d::ReduceOp::MIN, hcclMin},
     {c10d::ReduceOp::MAX, hcclMax},
     {c10d::ReduceOp::SUM, hcclSum},
+    // hcl does not support AVG, so use sum/world_size
+    {c10d::ReduceOp::AVG, hcclSum},
     {c10d::ReduceOp::PRODUCT, hcclProd},
 };
 
@@ -54,14 +56,14 @@ hcclRedOp_t getHCCLReduceOp(
       // bitwise and
       return hcclMin;
     } else if (reduceOp == c10d::ReduceOp::AVG) {
-      TORCH_CHECK(false, "Cannot use ReduceOp.AVG with boolean inputs");
+      HABANA_ASSERT(false, "Cannot use ReduceOp.AVG with boolean inputs");
     }
   }
 
   try {
     return hcclOp.at(reduceOp);
   } catch (std::out_of_range& e) {
-    TORCH_CHECK(false, "Unsupported ReduceOp for HCCL process group");
+    HABANA_ASSERT(false, "Unsupported ReduceOp for HCCL process group");
   }
 }
 
@@ -100,7 +102,7 @@ hcclDataType_t getHCCLDataType(at::ScalarType type) {
     return hcclUint8;
   }
   auto it = hcclDataType.find(type);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       it != hcclDataType.end(),
       "Input tensor data type is not supported for HCCL process group: ",
       type);
@@ -112,7 +114,7 @@ size_t getHCCLDataSize(hcclDataType_t type) {
       {hcclBfloat16, 2}, {hcclFloat, 4}};
 
   auto it = type2size.find(type);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       it != type2size.end(),
       "Getting size for given data type is not supported: ",
       type);
@@ -143,7 +145,7 @@ void getCountDatatype(
     tensor_data_type = getHCCLDataType(at::kBFloat16);
     numel = (numel * element_size) / 2;
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         "Provided tensor can't be represented as neither HCCL float32 nor HCCL bfloat16;",
         " numel: ",

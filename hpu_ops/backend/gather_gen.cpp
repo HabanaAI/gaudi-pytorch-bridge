@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/gather.h"
 
@@ -26,14 +26,14 @@ OutputMetaDataVector GatherMeta(const at::Stack& stack) {
   // gather shape check
   auto self_dims = std::max<int64_t>(1, self.dim());
   auto index_dims = std::max<int64_t>(1, index.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self_dims == index_dims,
       "Index tensor must have the same number of dimensions as input tensor");
   for (int64_t i = 0; i < self_dims; ++i) {
     if (i != dim) {
       auto index_size = index.dim() == 0 ? 1 : index.size(i);
       auto self_size = self.dim() == 0 ? 1 : self.size(i);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           index_size <= self_size,
           "Size does not match at dimension ",
           i,
@@ -115,9 +115,10 @@ void GatherElementsOperator::AddNode(
 
   size_t params_size = 0;
   const auto& gather_params = FillGatherParams(stack, params_size);
+  using namespace std::literals;
   auto gatherOp = BuildOp(
       graph,
-      get_guid_with_precision("gather_elements_fwd", ScalarType()),
+      get_guid_with_precision("gather_elements_fwd"sv, ScalarType()),
       {syn_in(0), index_val},
       {{meta.shape, meta.dtype, 0}},
       gather_params.get(),

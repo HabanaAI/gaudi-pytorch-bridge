@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/random.h"
 #include "generated/eager/_fused_dropout.h"
 #include "generated/eager/bernoulli.h"
@@ -69,7 +69,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
 unsigned NativeDropoutEarlyExitCondition(
     const at::Tensor& input,
     double p,
-    c10::optional<bool> train) {
+    std::optional<bool> train) {
   if (input.numel() == 0) {
     return 1;
   }
@@ -83,7 +83,7 @@ unsigned NativeDropoutEarlyExitCondition(
     unsigned eePath,
     const at::Tensor& input,
     double,
-    c10::optional<bool>) {
+    std::optional<bool>) {
   if (eePath == 1) {
     return std::make_tuple(input, at::empty_like(input, input.options()));
   } else {
@@ -105,7 +105,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     eager::EagerOp,
     NativeDropoutFE,
     std::tuple<at::Tensor, at::Tensor>) {
-  c10::IValue fakeGenToSeed = c10::optional<at::Generator>{};
+  c10::IValue fakeGenToSeed = std::optional<at::Generator>{};
   ConvertGeneratorToSeedTensor(m_symbol, fakeGenToSeed);
   get_inputs().back() = fakeGenToSeed;
 }

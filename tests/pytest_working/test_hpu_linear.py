@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import torch
 device = "hpu"
 if device == "hpu":
     import habana_frameworks.torch as htorch
-    import habana_frameworks.torch.core as htcore
 
 
 def test_wrong_dimensions_linear():

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,18 +18,26 @@
 
 import torch
 import torch.fx
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement
-from habana_frameworks.torch.dynamo.compile_backend.recipe_compiler import HabanaGraphModule
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizationPassPlacement,
+)
+from habana_frameworks.torch.dynamo.compile_backend.recipe_compiler import (
+    HabanaGraphModule,
+)
 from habana_frameworks.torch.dynamo.utils import auto_map, str_join
 
 from ..logger import get_fx_graph_logger
-from .visualization import GraphVisualizer, fx_dumping_enabled, get_node_coloring_strategy
+from .visualization import (
+    GraphVisualizer,
+    fx_dumping_enabled,
+    get_node_coloring_strategy,
+)
 
 logger = get_fx_graph_logger()
 
 
 @auto_map
-def _val(meta_val):
+def val_to_str(meta_val):
     from torch.fx.passes.shape_prop import _extract_tensor_metadata
 
     if not isinstance(meta_val, torch.Tensor):
@@ -54,7 +62,7 @@ def _node_meta_str_(node, dump_inputs_meta):
         return meta_msg, inputs_meta_msg
 
     meta_val = node.meta["val"]
-    meta_msg += str_join(_val(meta_val))
+    meta_msg += str_join(val_to_str(meta_val))
 
     if dump_inputs_meta:
 
@@ -62,7 +70,7 @@ def _node_meta_str_(node, dump_inputs_meta):
             local_msg = ""
             if isinstance(input_node, torch.fx.node.Node):
                 local_msg += _node_meta_str_(input_node, False)[0]
-            elif isinstance(input_node, (list, tuple)):
+            elif isinstance(input_node, list | tuple):
                 local_msg += "["
                 separator = ", "
                 local_msg += separator.join(

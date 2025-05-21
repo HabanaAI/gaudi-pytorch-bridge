@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/backend_meta.h"
@@ -63,7 +63,7 @@ torch::jit::Stack habana::CreateInputStack(
       input_metadata.size());
   for (size_t tidx = 0; tidx < rvpsh->num_inputs; tidx++) {
     auto& ti = rvpsh->dtensorinfos.at(tidx);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         input_shapes.count(tidx),
         "Tensor index ",
         tidx,
@@ -86,6 +86,9 @@ torch::jit::Stack habana::CreateInputStack(
 }
 
 void habana::PrintStack(torch::jit::Stack& st) {
+  if (not IS_BRIDGE_DEBUG_ENABLED) {
+    return;
+  }
   PT_BRIDGE_DEBUG("aten_inputs #", st.size(), "::");
   for (size_t idx = 0; idx < st.size(); idx++) {
     PT_BRIDGE_DEBUG(habana_helpers::DebugString(st.at(idx)));

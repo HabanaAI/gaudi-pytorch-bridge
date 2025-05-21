@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/multinomial.h"
 #include "habana_kernels/random_gen_kernels.h"
@@ -50,7 +50,7 @@ static std::shared_ptr<void> MultinomialParams(
       params->outcomes = t.sizes()[0];
       break;
     default:
-      TORCH_CHECK(false, "Unsupported type for random multinomial: ", type);
+      HABANA_ASSERT(false, "Unsupported type for random multinomial: ", type);
       break;
   }
 
@@ -139,11 +139,13 @@ HabanaMultinomialBase::HabanaMultinomialBase(
   kernel_meta_data_.tpc_input_order = {1, 0};
 }
 
+using namespace std::literals;
+
 void HabanaMultinomialBase::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   SetGuid(get_guid_with_precision(
-      "random_multinomial_pt_fwd", stack_tensor(stack, 1).scalar_type()));
+      "random_multinomial_pt_fwd"sv, stack_tensor(stack, 1).scalar_type()));
   OpBackend::AddNode(graph, stack);
 }
 
@@ -175,7 +177,7 @@ void HabanaMultinomialCheckpoint::AddNode(
   auto output = BuildOp(
       graph,
       get_guid_with_precision(
-          "random_multinomial_pt_fwd", stack_tensor(stack, 1).scalar_type()),
+          "random_multinomial_pt_fwd"sv, stack_tensor(stack, 1).scalar_type()),
       {syn_in(1), syn_in(0)},
       {{multinomial_meta.shape, multinomial_meta.dtype, 1}},
       params.get(),

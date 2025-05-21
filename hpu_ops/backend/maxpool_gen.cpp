@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
@@ -36,11 +36,12 @@ static int OutputShapeComputation(
     int padding,
     int dilation,
     bool ceilMode) {
-  return (
-      ((input_shape + 2 * padding - dilation * (kernel - 1) - 1 +
-        (ceilMode ? stride - 1 : 0)) /
-       stride) +
-      1);
+  auto output = static_cast<float>(
+                    input_shape + 2 * padding - dilation * (kernel - 1) - 1) /
+          stride +
+      1;
+  return ceilMode ? static_cast<int>(std::ceil(output))
+                  : static_cast<int>(std::floor(output));
 }
 
 OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
@@ -56,23 +57,23 @@ OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
   auto dilation =
       stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 4 || self.dim() == 3,
       "Maxpool2d expects Input size must be 4 or 3, but got ",
       self.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       kernel.size() == 2,
       "Maxpool2d expects Kernel size must 2, but got ",
       kernel.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stride.size() == 2,
       "Maxpool2d expects Stride size must 2, but got ",
       stride.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       padding.size() == 2,
       "Maxpool2d expects Padding size must 2, but got ",
       padding.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dilation.size() == 2,
       "Maxpool2d expects Dilation size must 2, but got ",
       dilation.size());
@@ -127,6 +128,7 @@ OutputMetaDataVector MaxPoolMetaBwd(const at::Stack& stack) {
   if (kernel.size() == 3) {
     indices = Maxpool3dWithIndicesMeta(stack_fwd)[0].shape;
   }
+
   HABANA_ASSERT(
       (grad.sizes() == indices), "Grad and Indices sizes don't match");
 
@@ -151,23 +153,23 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
       stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 5 || self.dim() == 4,
       "Maxpool3d expects Input size must be 5 or 4, but got ",
       self.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       padding.size() == 3,
       "Maxpool3d expects padding size is 3 but got ",
       padding.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       kernel.size() == 3,
       "Maxpool3d expects kernel size is 3 but got ",
       kernel.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stride.size() == 3,
       "Maxpool3d expects stride size is 3 but got ",
       stride.size());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dilation.size() == 3,
       "Maxpool3d expects dilation size is 3 but got ",
       dilation.size());
@@ -221,7 +223,7 @@ OutputMetaDataVector Maxpool3dWithIndicesMeta(const at::Stack& stack) {
 SharedMetaDataVector MaxPool2DWithIndicesFwdSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  return MaxPoolWithIndicesFwdSharedMeta(stack, "pt_maxpool_2d_fwd");
+  return MaxPoolWithIndicesFwdSharedMeta(stack, "maxpool_2d_fwd");
 }
 
 SharedMetaDataVector MaxPool2DWithIndicesBwdSharedMeta(
@@ -385,8 +387,6 @@ static at::ScalarType FindRetainTensorType(at::ScalarType inputTensorType) {
   }
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool3DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -437,7 +437,7 @@ void MaxPool3DWithIndicesBwd::AddNode(
       this,
       graph,
       syn_in(2),
-      stack.back().toTensor().sizes(),
+      stack.at(7).toTensor().sizes(),
       at::kLong,
       FindRetainTensorType(meta.dtype));
 
@@ -470,8 +470,6 @@ void MaxPool3DWithIndicesBwd::AddNode(
   syn_out(0) = std::move(grad_output[0]);
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool2DWithIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -486,24 +484,27 @@ void MaxPool2DWithIndices::AddNode(
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   } else {
     SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHN},
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHN});
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHC});
   }
 
   auto maxPool2d = BuildOp(
       graph,
       GetGuid(),
       {syn_in(0)},
-      {{meta.shape, meta.dtype, 0}, {meta.shape, at::kLong, 1}},
+      {{meta.shape, at::kLong, 1}, {meta.shape, meta.dtype, 0}},
       params.get(),
       size);
-  syn_out(0) = std::move(maxPool2d[0]);
-  syn_out(1) = std::move(maxPool2d[1]);
+
+  if (isOutputInfMode()) {
+    moveLastOutputTensorAtFront();
+  }
+
+  syn_out(0) = std::move(maxPool2d[1]);
+  syn_out(1) = std::move(maxPool2d[0]);
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool2DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

@@ -15,8 +15,9 @@
 #
 ###############################################################################
 
-import torch
 from habana_frameworks.torch import core as htcore
+
+import torch
 from torch.optim import Optimizer
 
 
@@ -78,15 +79,15 @@ class FusedLamb(Optimizer):
     ):
         if amsgrad:
             raise RuntimeError("FusedLamb does not support the AMSGrad variant.")
-        defaults = dict(
-            lr=lr,
-            bias_correction=bias_correction,
-            betas=betas,
-            eps=eps,
-            weight_decay=weight_decay,
-            grad_averaging=grad_averaging,
-            max_grad_norm=max_grad_norm,
-        )
+        defaults = {
+            "lr": lr,
+            "bias_correction": bias_correction,
+            "betas": betas,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "grad_averaging": grad_averaging,
+            "max_grad_norm": max_grad_norm,
+        }
         super().__init__(params, defaults)
         self.fused = fused
         self.adam_w_mode = 1 if adam_w_mode else 0
@@ -101,7 +102,7 @@ class FusedLamb(Optimizer):
                 for p in group["params"]:
                     p.grad = None
         else:
-            super(FusedLamb, self).zero_grad()
+            super().zero_grad()
 
     def step(self, closure=None):
         """Performs a single optimization step.

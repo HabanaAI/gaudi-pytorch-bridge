@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <ATen/native/ReduceOpsUtils.h>
 #include "hpu_ops/common/reduction_template.h"
@@ -23,7 +23,7 @@ template <int dim_index, int keepdim_index, int dtype_index>
 OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto convert_index = [](int index) {
-    return index < 0 ? c10::nullopt : c10::make_optional<uint8_t>(index);
+    return index < 0 ? std::nullopt : c10::make_optional<uint8_t>(index);
   };
 
   auto dims = get_dims(stack, convert_index(dim_index));
@@ -58,7 +58,7 @@ inline bool reduction_support_i32(const std::string& guid) {
   return guid.find("reduce_sum_multi_dim") != std::string::npos;
 }
 
-c10::optional<synapse_helpers::tensor> HandleReductionDtype(
+std::optional<synapse_helpers::tensor> HandleReductionDtype(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,

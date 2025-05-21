@@ -20,9 +20,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import astuple, dataclass
 from enum import Enum
-from typing import Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -51,13 +51,13 @@ def get_profiles_json():
             os.getenv("PYTORCH_MODULES_ROOT_PATH"), ".devops/build_profiles/profiles.json"
         )
 
-    with open(get_profiles_json.JSON_PATH, mode="r", encoding="utf-8") as profiles_fp:
+    with open(get_profiles_json.JSON_PATH, encoding="utf-8") as profiles_fp:
         get_profiles_json.PROFILES_JSON = json.load(profiles_fp)
 
     return get_profiles_json.PROFILES_JSON
 
 
-def get_version_literal_and_source(version_name: str, strict: bool = False) -> Optional[VersionLiteralAndSource]:
+def get_version_literal_and_source(version_name: str, strict: bool = False) -> VersionLiteralAndSource | None:
     profiles_json = get_profiles_json()
     available_pt_versions = profiles_json["pt_versions"]
     try:
@@ -178,11 +178,10 @@ def get_wheel_install_requires(pt_versions):
 
 
 def check_profile_file_integrity():
-    from jsonschema import validate  # pylint: disable=import-outside-toplevel
+    from jsonschema import validate
 
     with open(
         os.path.join(os.getenv("PYTORCH_MODULES_ROOT_PATH"), ".devops/build_profiles/profiles.schema.json"),
-        mode="r",
         encoding="utf-8",
     ) as schema_fp:
         schema = json.load(schema_fp)

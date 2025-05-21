@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,7 +23,11 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-from habana_frameworks.torch.hpex.optimizers import FusedLars, FusedResourceApplyMomentum
+from habana_frameworks.torch.hpex.optimizers import (
+    FusedLars,
+    FusedResourceApplyMomentum,
+)
+
 from lars import Lars, ResourceApplyMomentum
 
 
@@ -131,7 +135,7 @@ def test_lars():
         run_model(devr, model_ref, xr, opt_ref)
         run_model(devt, model_test, xt, opt_test)
 
-    for pr, pt in zip(model_ref.parameters(), model_test.parameters()):
+    for pr, pt in zip(model_ref.parameters(), model_test.parameters(), strict=False):
         prc = pr.to("cpu")
         ptc = pt.to("cpu")
         print(" Cosine similarity angle= ", cosine_sim(prc, ptc))

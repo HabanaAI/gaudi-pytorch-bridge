@@ -16,16 +16,20 @@
 ###############################################################################
 
 
-import os
-from typing import Callable, List, Optional, Tuple
+from collections.abc import Callable
 from unittest import mock
 
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch._dynamo.utils import detect_fake_mode
 from torch._functorch.compile_utils import fx_graph_cse
 from torch._inductor.constant_folding import ConstantFolder, replace_node_with_constant
-from torch._inductor.freezing import discard_traced_gm_params, invalidate_eager_modules, replace_params_with_constants
+from torch._inductor.freezing import (
+    discard_traced_gm_params,
+    invalidate_eager_modules,
+    replace_params_with_constants,
+)
 
 from . import config as hpu_backend_config
 from .passes import post_pass_finalize
@@ -72,25 +76,8 @@ def helper_post_pass_placement_update(input_module: torch.fx.GraphModule):
     return input_module
 
 
-class HbConstantFolder(ConstantFolder):
-    """
-    Used in the constant_fold method - need a derived class to override the is_impure
-    method as it currently skips FX graphs with quant/dequant nodes
-    """
-
-    def __init__(
-        self,
-        gm,
-        skip_constructors=False,
-    ):
-        super().__init__(gm, skip_constructors)
-
-    def is_impure(self, node: torch.fx.node.Node):
-        return False
-
-
 @torch.utils._python_dispatch._disable_current_modes()
-def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[torch.fx.Node], bool]] = None):
+def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Callable[[torch.fx.Node], bool] | None = None):
     """
     Based on the constant_fold method present in torch/_inductor/constant_folding.py - cannot use the original method due to
     additional meta data handling which is HPU backend specific
@@ -103,7 +90,7 @@ def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[to
         gm (torch.fx.GraphModule): The aot_autograd constructed GraphModule to be constant folded.
         constraint_fn (Callable[[torch.fx.Node], bool]): Currently unused
     """
-    cf = HbConstantFolder(gm, skip_constructors=True)
+    cf = ConstantFolder(gm, skip_constructors=True)
     cf.run()
 
     for node, constant in cf.node_replacements.items():
@@ -128,8 +115,8 @@ def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[to
 def freeze(
     dynamo_gm: torch.fx.GraphModule,
     aot_autograd_gm: torch.fx.GraphModule,
-    example_inputs: List[torch._subclasses.FakeTensor] = None,
-) -> Tuple[torch.fx.GraphModule, List[int]]:
+    example_inputs: list[torch._subclasses.FakeTensor] = None,
+) -> tuple[torch.fx.GraphModule, list[int]]:
     """
     Based on the freezing method present in torch/_inductor/freezing.py - cannot use the original method due to
     dependencies on passes which are MKL-DNN specific
@@ -219,6 +206,10 @@ def freeze(
 
     # TODO - mostly CPU specific passes
     # freezing_passes(aot_autograd_gm, aot_example_inputs)
+    logger.debug(
+        "Post freeze graph:\n%s",
+        aot_autograd_gm.print_readable(print_output=False),
+    )
 
     try:
         with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):

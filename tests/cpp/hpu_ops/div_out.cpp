@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "util.h"
 
@@ -72,14 +72,14 @@ HPU_DIVIDE_OUT_SCALAR_TEST(int8);
 class DivideScalarModeOutHpuOpTest
     : public HpuOpTestUtil,
       public testing::WithParamInterface<
-          std::tuple<c10::ScalarType, c10::optional<c10::string_view>>> {};
+          std::tuple<c10::ScalarType, std::optional<std::string_view>>> {};
 
 // Test cases which include both (tensor|scalar) with type_promotion
 TEST_P(DivideScalarModeOutHpuOpTest, div_out_scalar_mode) {
   const auto& testParams = GetParam();
   const auto dtype = std::get<0>(testParams);
   const auto mode = std::get<1>(testParams);
-  auto result_dtype = (mode == c10::nullopt && !(dtype == torch::kBFloat16))
+  auto result_dtype = (mode == std::nullopt && !(dtype == torch::kBFloat16))
       ? torch::kFloat
       : dtype;
   GenerateInputs(1, dtype);
@@ -101,7 +101,7 @@ INSTANTIATE_TEST_SUITE_P(
             torch::kBFloat16,
             torch::kInt,
             torch::kInt8),
-        ::testing::Values<c10::optional<c10::string_view>>(
+        ::testing::Values<std::optional<std::string_view>>(
             "floor",
             "trunc",
-            c10::nullopt)));
+            std::nullopt)));

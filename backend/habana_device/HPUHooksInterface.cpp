@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "backend/habana_device/HPUHooksInterface.h"
-#if IS_PYTORCH_AT_LEAST(2, 6) || !defined UPSTREAM_COMPILE
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
@@ -29,9 +28,24 @@ const at::Generator& HPUHooks::getDefaultGenerator(at::DeviceIndex) const {
   return detail::getDefaultHPUGenerator();
 }
 
+at::Generator HPUHooks::getNewGenerator(at::DeviceIndex) const {
+  return detail::createHPUGenerator();
+}
+
 bool HPUHooks::hasHPU() const {
+  // TODO: should check if device is available
   return true;
 }
+
+#if IS_PYTORCH_AT_LEAST(2, 7)
+bool HPUHooks::isBuilt() const {
+  return true;
+}
+
+bool HPUHooks::isAvailable() const {
+  return hasHPU();
+}
+#endif
 
 at::Device HPUHooks::getDeviceFromPtr(void*) const {
   // TODO add check if pointer valid
@@ -64,4 +78,3 @@ using at::RegistererHPUHooksRegistry;
 REGISTER_HPU_HOOKS(HPUHooks);
 
 } // namespace habana
-#endif

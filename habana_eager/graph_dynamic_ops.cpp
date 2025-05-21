@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,13 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <sstream>
-#include "common/utils.h"
-
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
-
+#include <sstream>
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "common/utils.h"
+#include "habana_eager/graph_dynamic.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
 
@@ -109,10 +107,10 @@ std::string GetRangeInfoExprFromInput(
       value =
           std::to_string(static_cast<int64_t>(input->node()->i(value_attr)));
     } catch (std::exception& e) {
-      // Sometimes when value in prim::Constant node should have 0 as value_attr
-      // set but seems its coming as NoneType =
-      // prim::Constant[deterministic=0]() in some case  which we are internally
-      // treating as 0
+      // Sometimes when value in prim::Constant node should have 0 as
+      // value_attr set but seems its coming as NoneType =
+      // prim::Constant[deterministic=0]() in some case  which we are
+      // internally treating as 0
       PT_DYNAMIC_SHAPE_WARN(
           "Node ",
           in_name,
@@ -259,18 +257,16 @@ void UpdateShapeTensorSize(
     std::vector<int64_t>& stack_idxs,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-  c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(stack_idxs.size(), 1);
-#pragma GCC diagnostic pop
+  std::vector<int64_t> new_shape(stack_idxs.size(), 1);
 
   for (size_t idx = 0; idx < stack_idxs.size(); ++idx) {
-    auto stack_index = stack_idxs[idx];
+    const auto stack_index = stack_idxs[idx];
     if (stack_index == LONG_MAX) {
       new_shape[idx] = dtensor.sizes()[idx];
     } else if (stack_index < 0) {
-      // add support for negative consts.. empty the shape tensor and COS in Sif
-      new_shape.set_size(0);
+      // add support for negative consts.. empty the shape tensor and COS in
+      // Sif
+      new_shape.resize(0);
       break;
     } else {
       new_shape[idx] =
@@ -279,9 +275,8 @@ void UpdateShapeTensorSize(
   }
 
   PT_EAGER_DEBUG("Updated dynamic shape tensor size:", dtensor.sizes());
-  std::vector<int64_t> cast_shapes(new_shape.begin(), new_shape.end());
   launch_shapes.ds_tensors.push_back(dtensor);
-  launch_shapes.patch_values.push_back(cast_shapes);
+  launch_shapes.patch_values.emplace_back(std::move(new_shape));
 }
 
 void UpdateH2DPatchingData(
@@ -848,7 +843,7 @@ void SliceOperatorDS::UpdateDynamicInputs(
   }
 }
 
-bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
+bool ExpandOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* node,
     torch::jit::Stack& stack,
     GraphInputIndexMap& stack_index_map,
@@ -893,12 +888,12 @@ bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
   }
 
   InputPatchPair patch_info(
-      &ExapndOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+      &ExpandOperatorDS::UpdateDynamicInputs, dtensor_indexes);
   dmeta->ds_input_patching_list.push_back(patch_info);
   return true;
 }
 
-void ExapndOperatorDS::UpdateDynamicInputs(
+void ExpandOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<at::IValue*>& ivals,
     c10::SmallVectorImpl<SymIntData>& scalars,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& temp_unused,
@@ -908,10 +903,25 @@ void ExapndOperatorDS::UpdateDynamicInputs(
     LaunchDynamicShapes& launch_shapes) {
   at::IntArrayRef values = scalars[0].values;
   std::vector<int64_t> sizes(values.size(), 1);
+  at::IntArrayRef input_shape;
+  for (auto& inp : stack) {
+    if (inp.isTensor()) {
+      input_shape = inp.toTensor().sizes();
+      break;
+    }
+  }
   for (size_t i{}; i < values.size(); ++i) {
-    bool isNegativeOrMaxLong = values[i] == -1 || values[i] == LONG_MAX;
-    sizes[i] = isNegativeOrMaxLong ? scalars[0].lookup_data[i]
-                                   : stack[values[i]].toInt();
+    bool isNegative = values[i] == -1;
+    bool isMaxLong = values[i] == LONG_MAX;
+    if (isNegative) {
+      // If reshape size contains -1, the sizes need to be
+      // updated according to the original tensor
+      sizes[i] = input_shape[i];
+    } else if (isMaxLong) {
+      sizes[i] = scalars[0].lookup_data[i];
+    } else {
+      sizes[i] = stack[values[i]].toInt();
+    }
   }
   launch_shapes.ds_tensors.push_back(ivals[0]->toTensor());
   launch_shapes.patch_values.push_back(sizes);
@@ -1063,7 +1073,7 @@ static const auto& BasicDSOpsRegistry =
         .DSOP_MID_BACKEND(aten::view, ViewOperatorDS)
         .DSOP_MID_BACKEND(hpu::view_neg, ViewOperatorDS)
         .DSOP_MID_BACKEND(aten::_unsafe_view, ViewOperatorDS)
-        .DSOP_MID_BACKEND(aten::expand, ExapndOperatorDS)
+        .DSOP_MID_BACKEND(aten::expand, ExpandOperatorDS)
         .DSOP_MID_BACKEND(aten::arange, ArangeOperatorDS)
         .DSOP_MID_BACKEND(aten::repeat, RepeatOperatorDS)
         .DSOP_MID_BACKEND(aten::topk, TopkOperatorDS)

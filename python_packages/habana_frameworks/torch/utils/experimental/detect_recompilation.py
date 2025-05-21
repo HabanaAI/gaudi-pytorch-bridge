@@ -21,7 +21,7 @@ import time
 from types import MethodType
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 TAG = "[DETECT_RECOMPILE_AUTO]"
 STEP_COUNT = "step_count"
@@ -87,7 +87,10 @@ class Table:
             assert len(budget_col) == len(row)
             # splitting a row across multiple rows
             max_rows_needed = max(
-                [int(math.ceil(len(str(item)) / char_budget)) for item, char_budget in zip(row, budget_col)]
+                [
+                    int(math.ceil(len(str(item)) / char_budget))
+                    for item, char_budget in zip(row, budget_col, strict=False)
+                ]
             )
             start_col = ("", "\033[91m")[rowidx == 0]
             end_col = ("", "\033[1m")[rowidx == 0]
@@ -245,7 +248,7 @@ def _parse(lines):
 
     potential_dyn_modules = set()
     for step in recompiling_modules:
-        for mdlname, newinp, newout, classnm, filenm, comment in recompiling_modules[step]:
+        for mdlname, newinp, _, _, _, _ in recompiling_modules[step]:
             if not newinp:
                 potential_dyn_modules.update([mdlname])
 
@@ -261,8 +264,9 @@ def _parse(lines):
 
 def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
     import habana_frameworks.torch.core as htcore
-    import torch
     from habana_frameworks.torch.hpu.metrics import metric_localcontext
+
+    import torch
 
     def forward(self, *args, **kwargs):
         assert not torch.distributed.is_initialized(), "Expected 1x run, but torch being used in distributed fashion"
@@ -276,7 +280,7 @@ def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
             htcore.mark_step()
             time.sleep(waittime)
         out_hash = htcore.hpu.input_hash(res)
-        metrics = {k: v for k, v in local_metric.stats()}
+        metrics = dict(local_metric.stats())
         if inp_hash not in field_contents[INP_HASH]:
             field_contents[INP_HASH].update([inp_hash])
             new_inp_string = "Found new input signature "
@@ -388,9 +392,7 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
 def get_shape(item):
     if type(item) is type(torch.tensor([])):
         return tuple(item.shape)
-    elif type(item) is type([]):
-        return tuple([get_shape(k) for k in item])
-    elif type(item) is type(tuple()):
+    elif type(item) in [type([]), type(())]:
         return tuple([get_shape(k) for k in item])
     elif isinstance(item, dict):
         return tuple((get_shape(k), get_shape(v)) for k, v in item.items())

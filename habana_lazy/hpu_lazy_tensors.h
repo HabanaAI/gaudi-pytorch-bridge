@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 #include <c10/core/Device.h>
@@ -132,7 +132,7 @@ struct Data {
   Data(
       ir::Value&& ir_value,
       const at::Device& device,
-      c10::optional<at::ScalarType> logical_element_type)
+      std::optional<at::ScalarType> logical_element_type)
       : data_ptr(nullptr),
         ir_value(std::move(ir_value)),
         device(c10::Device(c10::DeviceType::HPU, 0)),
@@ -149,12 +149,12 @@ struct Data {
   ir::Value ir_value;
   habana::LayoutFormat tensor_layout = habana::LayoutFormat::NCHW;
   c10::Device device;
-  c10::optional<at::ScalarType> logical_element_type;
-  c10::optional<at::Tensor> tensor_data;
-  c10::optional<at::Tensor> cpu_tensor_data;
-  c10::optional<c10::SmallVector<at::Tensor, 3>> tensor_shallow_copy;
-  c10::optional<StrideParams> stride_params;
-  c10::optional<at::Tensor> recent_base;
+  std::optional<at::ScalarType> logical_element_type;
+  std::optional<at::Tensor> tensor_data;
+  std::optional<at::Tensor> cpu_tensor_data;
+  std::optional<c10::SmallVector<at::Tensor, 3>> tensor_shallow_copy;
+  std::optional<StrideParams> stride_params;
+  std::optional<at::Tensor> recent_base;
   bool sbs_live_tensor = false;
   bool sbs_compare_tensor = true;
   int sbs_tensor_version = 0;
@@ -277,7 +277,7 @@ class HbLazyTensor {
   static HbLazyTensor Create(
       ir::Value&& ir_value,
       const at::Device& device,
-      c10::optional<at::ScalarType> logical_element_type);
+      std::optional<at::ScalarType> logical_element_type);
   // Creates an empty/null tensor.
   HbLazyTensor() = default;
   HbLazyTensor(const HbLazyTensor& other) = default;
@@ -289,7 +289,7 @@ class HbLazyTensor {
   HbLazyTensor(
       ir::Value&& ir_value,
       const at::Device& device,
-      c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
+      std::optional<at::ScalarType> logical_element_type = std::nullopt);
   HbLazyTensor(std::shared_ptr<Data> data);
 
   at::Tensor ToTensor(bool detached);
@@ -307,7 +307,7 @@ class HbLazyTensor {
   }
   void SetTensorDataNullOpt();
   void SetTensorData(at::Tensor tensor_data);
-  c10::optional<at::Tensor> GetTensorData();
+  std::optional<at::Tensor> GetTensorData();
   void SetCPUTensorData(at::Tensor tensor_data);
   void SetSBSLiveTensorIndication(bool live);
   bool GetSBSLiveTensorIndication() const;
@@ -321,12 +321,12 @@ class HbLazyTensor {
   void ClearCollective();
   bool IsCollective() const;
   void ClearStrideParams();
-  const c10::optional<at::Tensor>& GetCPUTensorData() const;
+  const std::optional<at::Tensor>& GetCPUTensorData() const;
   void AssignIrValue(ir::Value ir_value) const;
   c10::ScalarType dtype() const;
-  c10::optional<c10::ScalarType> dtype_optional() const;
+  std::optional<c10::ScalarType> dtype_optional() const;
   // Set logical_element_type which is visible to upstream PyTorch.
-  void SetScalarType(c10::optional<c10::ScalarType> logical_element_type);
+  void SetScalarType(std::optional<c10::ScalarType> logical_element_type);
   const c10::Device& GetDevice() const;
   const SmallSizeVec& GetSizes() const;
   // Retrieves the current IR Node, or nullptr in case no active IR Node is
@@ -334,7 +334,7 @@ class HbLazyTensor {
   ir::Value& CurrentIrValue() const;
   const ir::Value& GetIrValue() const;
   ir::Value& IrSetNode(ir::NodePtr node, size_t index = 0) const;
-  c10::optional<at::Tensor> CurrentTensorData() const;
+  std::optional<at::Tensor> CurrentTensorData() const;
   void setTensorOriginalType(c10::ScalarType type);
   c10::ScalarType getTensorOriginalType() const;
   void* CurrentHabanaData() const;
@@ -352,7 +352,7 @@ class HbLazyTensor {
    */
   at::Tensor EvaluateTensorData(bool sync_acc_thread = true);
   void ValidateTensorData() const;
-  c10::optional<at::Tensor> GetHbLazyTensorDataForMedia();
+  std::optional<at::Tensor> GetHbLazyTensorDataForMedia();
 
   // Static methods
   static void MarkStep(const c10::Device& device);
@@ -418,7 +418,7 @@ class HbLazyTensor {
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
       std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
-      const std::unordered_map<int64_t, c10::optional<at::Generator>>&
+      const std::unordered_map<int64_t, std::optional<at::Generator>>&
           seed_tensors_generator_map,
       uint64_t launch_jobid,
       c10::hpu::HPUStream capture_stream);
@@ -457,24 +457,24 @@ class HbLazyTensor {
   // attached
   bool isStorageAttached();
   c10::TensorImpl* getAttachedTensorImpl() const;
-  c10::optional<at::Tensor> CurrentTensorAttached() const {
+  std::optional<at::Tensor> CurrentTensorAttached() const {
     return data()->tensor_data;
   }
 
   void addView(ir::LazyView view) {
     // WE will support multiple views in future , but for now a single one is
     // supported
-    TORCH_CHECK(
+    HABANA_ASSERT(
         data()->num_views == 0,
         "Trying to create a duplicate view on Lazy tensor");
     data()->parent_view = std::move(view);
     data()->num_views++;
   }
-  c10::optional<ir::LazyView> getView() const {
+  std::optional<ir::LazyView> getView() const {
     if (data()->num_views)
       return c10::make_optional(data()->parent_view);
     else
-      return c10::nullopt;
+      return std::nullopt;
   }
 
   void SetTensorLayout(habana::LayoutFormat layout) {

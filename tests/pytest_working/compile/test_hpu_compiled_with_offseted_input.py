@@ -49,5 +49,5 @@ def test_compiled_with_view_input():
         cpu_results.append(cpu_res)
         hpu_results.append(hpu_res)
 
-    for cpu, hpu in zip(cpu_results, hpu_results):
+    for cpu, hpu in zip(cpu_results, hpu_results, strict=False):
         assert torch.allclose(cpu, hpu.cpu(), atol=0.001, rtol=0.001)

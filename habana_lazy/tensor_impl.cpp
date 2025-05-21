@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "tensor_impl.h"
 #include <c10/core/Device.h>
 #include <c10/core/ScalarType.h>
@@ -114,7 +114,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
   habana_lazy::NoAccThread no_acc_thread;
 
   auto aten_t = AtenFromHbLazyTensor(
-      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      m_tensor, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
   auto impl = c10::make_intrusive<HbLazyTensorImpl>(
       HbLazyTensor::Create(aten_t, aten_t.device()));
 
@@ -145,7 +145,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
   habana_lazy::NoAccThread no_acc_thread;
 
   auto aten_t = AtenFromHbLazyTensor(
-      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      m_tensor, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
   auto impl = c10::make_intrusive<HbLazyTensorImpl>(
       HbLazyTensor::Create(aten_t, aten_t.device()));
 
@@ -181,7 +181,7 @@ void HbLazyTensorImpl::handle_view_cycles(
     HbLazyTensor& hl_src,
     HbLazyTensor& hl_dst) {
   auto src_t = AtenFromHbLazyTensor(
-      hl_src, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      hl_src, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
   auto src_updated_t = HbLazyTensorViews::get_recent_base_tensor(src_t);
   auto hl_src_updated = GetHbLazyTensor(src_updated_t);
@@ -194,7 +194,7 @@ void HbLazyTensorImpl::handle_view_cycles(
     auto base_id = GetHbLazyTensorId(recent_base);
 
     auto dst_t = AtenFromHbLazyTensor(
-        hl_dst, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+        hl_dst, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
     auto dst_id = GetHbLazyTensorId(dst_t);
 
     if (dst_id == base_id) {
@@ -205,10 +205,10 @@ void HbLazyTensorImpl::handle_view_cycles(
 
       auto new_base_t = AtenFromHbLazyTensor(
           base_or_parent_impl->m_tensor,
-          c10::nullopt,
+          std::nullopt,
           recent_base.sizes(),
-          c10::nullopt,
-          c10::nullopt);
+          std::nullopt,
+          std::nullopt);
 
       GetHbLazyTensor(new_base_t).SetTensorData(base_tensor_data);
 
@@ -280,7 +280,6 @@ int64_t HbLazyTensorImpl::numel_custom() const {
 bool HbLazyTensorImpl::is_contiguous_custom(
     at::MemoryFormat memory_format) const {
   // Only check that the storage is already contiguous.
-  // HABANA_ASSERT(is_contiguous_);
   return is_contiguous_default(memory_format);
 }
 
@@ -343,50 +342,13 @@ void HbLazyTensorImpl::SetStorage(at::Storage storage) {
   device_opt_ = storage_.device();
 }
 
-void HbLazyTensorImpl::set_storage_keep_dtype(at::Storage storage) {
-  TORCH_CHECK(
-      allow_tensor_metadata_change(),
-      "set_storage ",
-      err_msg_tensor_metadata_change_not_allowed);
-  storage_ = storage;
-  device_opt_ = storage_.device();
-
-  if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE)) {
-    return;
-  }
-
-  // storage is frontend and we may need to set backend tensor's storage also.
-  if (storage.data_ptr() != nullptr) {
-    auto aten_t = AtenFromHbLazyTensor(
-        m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
-    auto hl_t_opt = TryGetHbLazyTensor(aten_t, true, false, false);
-    auto hl_t_updated = hl_t_opt.has_value() ? hl_t_opt.value() : m_tensor;
-    std::lock_guard<std::recursive_mutex> lock(
-        habana_lazy::HbContextArena::Get()->GetMutex());
-    if (hl_t_updated.IsExecutionInProgress()) {
-      auto context = habana_lazy::get_device_lazy_execution_context();
-      context->JoinPendingLaunchThread();
-    }
-    // At this point, execution thread is finished.
-    c10::TensorImpl* impl =
-        ((HbLazyTensor)hl_t_updated).getAttachedTensorImpl();
-    if (impl) {
-      impl->set_storage_keep_dtype(storage);
-      PT_LAZY_DEBUG("set_storage_keep_dtype called with backend storage.");
-    } else {
-      PT_LAZY_DEBUG(
-          "set_storage_keep_dtype called with backend storage, but impl in NULL!");
-    }
-  }
-}
-
 const at::Storage& HbLazyTensorImpl::storage() const {
   // FIXME Violates const correctness
   // return a dummy storage if it isnt allocated yet
   // its a bit dangerous and we need to ensure storage calls are made only after
   // backend memory allocation for output tensors
   auto aten_t = AtenFromHbLazyTensor(
-      m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      m_tensor, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
 
   // ensure proper order of locking StridedViewContext and HbContextArena
   // mutexes always first mutex is StridedViewContext to be locked inside

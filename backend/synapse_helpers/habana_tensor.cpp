@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/synapse_helpers/habana_tensor.h"
 
 #include <absl/strings/str_format.h>
@@ -43,24 +43,30 @@ std::ostream& operator<<(std::ostream& out, synDataType syn_data_type) {
   switch (syn_data_type) {
     case syn_type_int8:
       return out << "int8";
+    case syn_type_uint8:
+      return out << "uint8";
+    case syn_type_int16:
+      return out << "int16";
+    case syn_type_uint16:
+      return out << "uint16";
+    case syn_type_int32:
+      return out << "int32";
+    case syn_type_uint32:
+      return out << "uint32";
+    case syn_type_int64:
+      return out << "int64";
+    case syn_type_uint64:
+      return out << "uint64";
     case syn_type_bf16:
       return out << "bf16";
     case syn_type_float:
       return out << "float";
-    case syn_type_int16:
-      return out << "int16";
-    case syn_type_int32:
-      return out << "int32";
-    case syn_type_uint8:
-      return out << "uint8";
     case syn_type_fp16:
       return out << "fp16";
     case syn_type_fp8_143:
       return out << "fp8_143";
     case syn_type_fp8_152:
       return out << "fp8_152";
-    case syn_type_int64:
-      return out << "int64";
     case syn_type_na:
       return out << "na";
     default:

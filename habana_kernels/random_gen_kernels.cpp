@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <ATen/ExpandUtils.h>
 #include <perf_lib_layer_params.h>
@@ -47,10 +47,10 @@ void RandomShuffleOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 1,
       "Incorrect size of input expected for random shuffle operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(), "Input condition type expected to be a tensor");
 
   auto self = inputs[0].toTensor();
@@ -93,18 +93,18 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size",
       inputs.size(),
       " of inputs expected for RandpermOperatorHT");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg0 expected to be Tensor for RandpermOperatorHT");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg1 expected to be Tensor for RandpermOperatorHT");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input arg2 expected to be Tensor for RandpermOperatorHT");
 
@@ -140,18 +140,18 @@ void RandpermOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size",
       inputs.size(),
       " of inputs expected for Randperm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isScalar(),
       "Input arg0 expected to be Scalar for RandpermOperator operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg1 expected to be (seed) Tensor for RandpermOperator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input arg2 expected to be Tensor for RandpermOperator Operator");
 
@@ -192,15 +192,15 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 1,
       "Incorrect size of inputs expected for HabanaRandomSeedOperator operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for HabanaRandomSeedOperator operator");
 
   Tensor input = inputs[0].toTensor();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.scalar_type() == at::ScalarType::Int,
       "Input arg1.dtype expected to be Int for HabanaRandomSeedOperator operator");
 

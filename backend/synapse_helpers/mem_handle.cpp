@@ -1,28 +1,25 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/synapse_helpers/mem_handle.h"
-#include <bitset>
-#include <ostream>
 #include <type_traits>
 #include "habana_helpers/logging.h"
 
-#include "util.h"
-
 namespace synapse_helpers {
-static std::array<HandleBucketInfo, _END> bucketInfo = {
+namespace {
+const std::array<HandleBucketInfo, END_> bucketInfo = {
     {{small_offset_bits,
       (total_bits - small_offset_bits),
       (1ULL << small_offset_bits),
@@ -35,6 +32,7 @@ static std::array<HandleBucketInfo, _END> bucketInfo = {
       (total_bits - big_offset_bits),
       (1ULL << big_offset_bits),
       (1ULL << (total_bits - big_offset_bits))}}};
+}
 
 /**
  * Function takes mem_handle and converts it so it can be passed
@@ -47,8 +45,8 @@ static std::array<HandleBucketInfo, _END> bucketInfo = {
 device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
   uint64_t id = h.id_;
   bucket_type type = (bucket_type)(id >> total_bits);
-  if (type >= _END)
-    PT_SYNHELPER_FATAL("Wrong  Bucket Type", type);
+  if (type >= END_)
+    PT_SYNHELPER_FATAL("Wrong  Bucket Type", static_cast<uint64_t>(type));
 
   uint64_t offset = h.offset_;
   uint64_t offset_bits = bucketInfo[type].offset_bits;
@@ -68,12 +66,12 @@ device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
  */
 mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
   static_assert(
-      std::is_same<device_ptr, uint64_t>::value,
+      std::is_same_v<device_ptr, uint64_t>,
       "following code assumes ptr is uint64_t");
 
   bucket_type type = (bucket_type)(ptr >> total_bits);
-  if (type > _END)
-    PT_SYNHELPER_FATAL("Wrong  Bucket Type", type);
+  if (type > END_)
+    PT_SYNHELPER_FATAL("Wrong  Bucket Type", static_cast<uint64_t>(type));
 
   uint64_t offset_bits = bucketInfo[type].offset_bits;
   uint64_t mask = (1ULL << total_bits) - 1;
@@ -213,7 +211,7 @@ HandlesMap::Iterator& HandlesMap::Iterator::operator++() {
       ++handleIndex_;
     }
   } else {
-    do {
+    do { // NOLINT(cppcoreguidelines-avoid-do-while)
       ++bucketIndex_;
     } while (bucketIndex_ < handle_set_.handles_.size() &&
              handle_set_.handles_[bucketIndex_].empty());

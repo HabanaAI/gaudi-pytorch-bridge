@@ -27,7 +27,7 @@ def test_simple():
         base.data = view.data
         return base, view
 
-    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu")):
+    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu"), strict=False):
         assert torch.equal(cpu_tensor, hpu_tensor.cpu())
 
 
@@ -40,7 +40,7 @@ def test_two_shallow_copies():
         base2.data = view.data
         return base2, base, view
 
-    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu")):
+    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu"), strict=False):
         assert torch.equal(cpu_tensor, hpu_tensor.cpu())
 
 
@@ -51,7 +51,7 @@ def test_view_with_strides():
         base.data = view.data
         return base, view
 
-    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu")):
+    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu"), strict=False):
         assert torch.equal(cpu_tensor, hpu_tensor.cpu())
 
 
@@ -63,7 +63,7 @@ def test_view_with_strides2():
         base.data = view.data
         return base.mul_(2.0), view.add(2.0), view2
 
-    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu")):
+    for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu"), strict=False):
         assert torch.equal(cpu_tensor, hpu_tensor.cpu())
 
 
@@ -161,11 +161,6 @@ def test_shallow_copy_param_free():
         param.data = torch.empty(0, dtype=torch.float, device=dev)
         return dst_tensor
 
-        y = x.add(1.0)
-        x.data = torch.empty(0, dtype=x.dtype).to(dev)
-        z = y.add(1.0)
-        return y
-
     a = torch.randn([2, 3])
     ha = a.to("hpu")
     dst_a = torch.randn([2, 3])
@@ -173,7 +168,7 @@ def test_shallow_copy_param_free():
 
     class test_module(torch.nn.Module):
         def __init__(self, tensor):
-            super(test_module, self).__init__()
+            super().__init__()
             self.param = torch.nn.Parameter(tensor)
 
         def forward(self, tensor):

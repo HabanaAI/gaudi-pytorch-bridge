@@ -52,7 +52,7 @@ def test_fun():
 def test_module_hooks():
     class SingleLayerModel(torch.nn.Module):
         def __init__(self):
-            super(SingleLayerModel, self).__init__()
+            super().__init__()
 
         def forward(self, x):
             return self.fc(x)
@@ -72,7 +72,7 @@ def test_module_hooks():
 
     # Register the pre-forward hook
     model_hpu.fc.register_forward_pre_hook(pre_forward_hook_raise_exception)
-    for i in range(20):
+    for _ in range(20):
         try:
             with torch.no_grad():
                 output_hpu = model_hpu(input_hpu)

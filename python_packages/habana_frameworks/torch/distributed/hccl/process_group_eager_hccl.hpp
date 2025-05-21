@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -61,6 +61,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
    protected:
     std::vector<at::Tensor> outputs_;
     std::shared_ptr<habana::HcclCommunicator> comm_;
+    absl::AnyInvocable<bool()> is_coalescing_fn_ = []() { return false; };
     // Time point representing when the work started.
     std::chrono::time_point<std::chrono::steady_clock> workStartTime_;
     c10::intrusive_ptr<at::ivalue::Future> future_;
@@ -106,6 +107,11 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
   void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors) override;
 
   std::shared_ptr<habana::HcclCommunicator> comm_;
+
+  // Postponing submit events is needed because calls within group are
+  // batched and run at groupEnd, due to that submit events before groupEnd
+  // leads to problem with synchronization due to missing events.
+  std::vector<absl::AnyInvocable<void()>> group_submit_events_tasks_queue_;
 };
 
 } // namespace c10d

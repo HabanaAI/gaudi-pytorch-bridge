@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 
 import itertools
 
-import habana_frameworks.torch.utils.experimental as htexp
 import pytest
 import torch
 
@@ -25,6 +24,7 @@ dtype = [
     # torch.double, https://jira.habana-labs.com/browse/SW-115570
     torch.float,
     torch.bfloat16,
+    torch.half,
     # torch.long, https://jira.habana-labs.com/browse/SW-115570
     torch.int,
     torch.int16,
@@ -38,9 +38,6 @@ dtype = [
     # torch.qint32,
     # torch.qint8,
 ]
-
-if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi:
-    dtype.append(torch.half)
 
 
 def get_name(param):

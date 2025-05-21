@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/custom_op_kernel.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -87,7 +87,7 @@ const allocate_user_params_func& HabanaCustomOpDescriptor::
 }
 
 bool HabanaCustomOpDescriptor::hasOutputShapeFunc(unsigned index) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       index < getOutputsSize(),
       getSchemaName(),
       " has ",
@@ -99,7 +99,7 @@ bool HabanaCustomOpDescriptor::hasOutputShapeFunc(unsigned index) const {
 
 const compute_output_shape_function& HabanaCustomOpDescriptor::
     getOutputShapeFunc(unsigned index) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       index < getOutputsSize(),
       getSchemaName(),
       " has ",
@@ -124,7 +124,7 @@ void HabanaCustomOpDescriptor::verifyInputOutputIndexes() {
   auto check_unique = [](auto&& descriptors) {
     std::unordered_set<unsigned> unique_indexes;
     for (auto&& descriptor : descriptors) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           unique_indexes.insert(descriptor.index).second,
           "Indexes must be unique");
     }

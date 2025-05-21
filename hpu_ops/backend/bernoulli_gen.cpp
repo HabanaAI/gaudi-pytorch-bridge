@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
   auto selfDtype = self.scalar_type();
   auto p = stack.at(1);
   auto seed = stack.at(2);
-  c10::optional<at::Tensor> seedOptionalTensor = c10::nullopt;
+  std::optional<at::Tensor> seedOptionalTensor = std::nullopt;
   auto isSeedTensor = seed.isTensor();
   bool seedHasValue;
   if (isSeedTensor) {
@@ -104,6 +104,8 @@ SharedMetaDataVector BernoulliWithPSharedMeta(
   return {bernoulliSharedMeta};
 }
 
+using namespace std::literals;
+
 static auto bernoulli_impl(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -124,7 +126,7 @@ static auto bernoulli_impl(
       op,
       graph,
       {get_guid_with_precision(
-           "pt_bernoulli",
+           "pt_bernoulli"sv,
            isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
        inputs,
        {{outshape, dtype, final_result_index}},
@@ -165,7 +167,7 @@ void BernoulliWithP::AddNode(
     auto bernoulli = BuildOp(
         graph,
         get_guid_with_precision(
-            "pt_bernoulli",
+            "pt_bernoulli"sv,
             isIntegralType(dtype, false) ? c10::ScalarType::Float : dtype),
         std::move(inputs),
         {{outshape, dtype, 0}},

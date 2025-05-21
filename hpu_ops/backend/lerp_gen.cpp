@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/_foreach_lerp.h"
 #include "generated/backend/lerp.h"
 
@@ -92,7 +92,7 @@ SharedMetaDataVector ForeachLerpSharedMeta(
   auto startsSize = starts.size();
   const auto& ends = stack.at(1).toList();
   auto weightTensors = stack.at(2);
-  c10::optional<c10::List<c10::IValue>> weightTensorList = c10::nullopt;
+  std::optional<c10::List<c10::IValue>> weightTensorList = std::nullopt;
   if (weightTensors.isTensorList()) {
     weightTensorList = weightTensors.toList();
   }
@@ -123,11 +123,13 @@ synapse_helpers::tensor CommonLerp(
     const bool isWeightTensor = true) {
   const auto sub_outshape = at::infer_size(
       pt_inputs[0].toTensor().sizes(), pt_inputs[1].toTensor().sizes());
+
+  using namespace std::literals;
   // subtraction of start and end
   auto sub = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("sub", meta.dtype),
+      {get_guid_with_precision("sub"sv, meta.dtype),
        {syn_inputs[1], syn_inputs[0]},
        {{{sub_outshape}, meta.dtype}}});
 
@@ -141,7 +143,7 @@ synapse_helpers::tensor CommonLerp(
   auto mult = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult", meta.dtype),
+      {get_guid_with_precision("mult"sv, meta.dtype),
        {sub[0].get(), isWeightTensor ? syn_inputs[2] : constant.value().get()},
        {{meta.shape, meta.dtype}}});
 
@@ -149,7 +151,7 @@ synapse_helpers::tensor CommonLerp(
   auto lerp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("add", meta.dtype),
+      {get_guid_with_precision("add"sv, meta.dtype),
        {syn_inputs[0], mult[0].get()},
        {{meta.shape, meta.dtype, final_result_index}}});
 

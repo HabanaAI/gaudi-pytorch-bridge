@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #
 ###############################################################################
 
-from typing import List, Optional
 
 import torch
 from torch import Tensor
@@ -23,9 +22,9 @@ from torch.optim.optimizer import Optimizer
 
 
 def resource_apply_momentum(
-    params: List[Tensor],
-    d_p_list: List[Tensor],
-    momentum_buffer_list: List[Optional[Tensor]],
+    params: list[Tensor],
+    d_p_list: list[Tensor],
+    momentum_buffer_list: list[Tensor | None],
     *,
     momentum: float,
     lr: float,
@@ -66,13 +65,13 @@ class ResourceApplyMomentum(Optimizer):
         if weight_decay < 0.0:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
-        defaults = dict(lr=lr, momentum=momentum, weight_decay=weight_decay, nesterov=nesterov)
+        defaults = {"lr": lr, "momentum": momentum, "weight_decay": weight_decay, "nesterov": nesterov}
         if nesterov and (momentum <= 0):
             raise ValueError("Nesterov momentum requires a momentum")
-        super(ResourceApplyMomentum, self).__init__(params, defaults)
+        super().__init__(params, defaults)
 
     def __setstate__(self, state):
-        super(ResourceApplyMomentum, self).__setstate__(state)
+        super().__setstate__(state)
         for group in self.param_groups:
             group.setdefault("nesterov", False)
 
@@ -119,7 +118,7 @@ class ResourceApplyMomentum(Optimizer):
             )
 
             # update momentum_buffers in state
-            for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
+            for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list, strict=False):
                 state = self.state[p]
                 state["momentum_buffer"] = momentum_buffer
 

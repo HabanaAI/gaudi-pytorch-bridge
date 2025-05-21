@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <pybind11/chrono.h>
 #include <torch/extension.h>
 #include "backend/backend_meta.h"
@@ -59,7 +59,7 @@ class SharedTensorExtraMeta {
         " storage address : ",
         tensor.data_ptr());
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         tmeta_ptr != nullptr,
         "Got BackendMeta ",
         meta.get(),
@@ -69,21 +69,21 @@ class SharedTensorExtraMeta {
   }
   static std::optional<SharedTensorExtraMeta> create_new(at::Tensor& tensor) {
     auto impl{tensor.unsafeGetTensorImpl()};
-    TORCH_CHECK(
+    HABANA_ASSERT(
         impl != nullptr,
         "Cannot obtain the TensorImpl from the tensor provided");
     c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
         impl->get_backend_meta_intrusive_ptr());
-    TORCH_CHECK(
+    HABANA_ASSERT(
         meta == nullptr,
         "Cannot create a new backend meta as one already exists");
     c10::intrusive_ptr<c10::BackendMeta> new_tmeta{
         std::unique_ptr<c10::BackendMeta>(new habana::TensorExtraMeta())};
     impl->set_backend_meta(new_tmeta);
     meta = impl->get_backend_meta_intrusive_ptr();
-    TORCH_CHECK(meta == new_tmeta, "Attached meta not the same as created");
+    HABANA_ASSERT(meta == new_tmeta, "Attached meta not the same as created");
     auto tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
-    TORCH_CHECK(
+    HABANA_ASSERT(
         tmeta_ptr != nullptr,
         "Got BackendMeta ",
         meta.get(),

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/addmv.h"
 #include "hpu_ops/shared_meta_common.h"
 
@@ -29,7 +29,7 @@ OutputMetaDataVector AddMVMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto mat = stack_tensor(stack, 1);
   auto vec = stack_tensor(stack, 2);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (mat.dim() == 2 && vec.dim() == 1 && self.dim() <= 1),
       "vector + matrix @ vector expected, got ",
       self.dim(),
@@ -38,7 +38,7 @@ OutputMetaDataVector AddMVMeta(const at::Stack& stack) {
       ", ",
       vec.dim());
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat.size(1) == vec.size(0) &&
           (mat.size(0) == self.numel() || self.numel() == 1),
       "size mismatch, got ",
@@ -60,7 +60,7 @@ OutputMetaDataVector AddMVMeta(const at::Stack& stack) {
 SharedMetaDataVector AddMVSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  return MatrixMulWithAddSharedMeta(stack, "addmv");
+  return MatrixMulWithAddSharedMeta(stack, "addmv", false);
 }
 
 void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

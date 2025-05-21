@@ -1,41 +1,36 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/jit.h>
-#include <atomic>
 #include <functional>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include "backend/habana_operator.h"
 #include "backend/helpers/collective_kernel_info.h"
-#include "backend/helpers/symbolic_expression.h"
 #include "backend/helpers/tensor_info.h"
-#include "backend/kernel/hpu_shape_inference.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/graph.h"
-
 #include "backend/kernel/hpu_recipe_cache.h"
+#include "backend/kernel/hpu_shape_inference.h"
+#include "backend/synapse_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "synapse_common_types.h"
 
 namespace habana {
-
 
 /*
  * Overrides Pytorch's Complete Argument Spec
@@ -195,19 +190,16 @@ struct RecipeArgumentSpec {
   }
 
  private:
-  void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
-  void ComputeH2DHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
-
   HbCas cas;
   std::string opstrs;
-  size_t hash_code{0};
   size_t graph_hash_code{0};
+  uint64_t token_{0};
   size_t offset_hash_code{0};
+  size_t hash_code{0};
   size_t h2d_hash_code{0};
   size_t cargspec_hash_code{0};
   size_t dynamic_hash_code{0};
   size_t graph_with_permute_hash_code{0};
-  uint64_t token_{0};
 };
 
 // Hash functor for RecipeArgumentSpec
@@ -220,10 +212,8 @@ struct RecipeValueSpec {
   RecipeValueSpec(std::shared_ptr<torch::jit::Graph> g = nullptr)
       : collective_kernels_info(
             std::make_shared<habana_helpers::CollectiveKernelInfos>()),
-        jit_graph_(g) {
-    count++;
-    id = count;
-  }
+        id(++count),
+        jit_graph_(g) {}
 
   RecipeValueSpec(std::istream& is);
 
@@ -363,7 +353,6 @@ struct RecipeValueSpec {
         num_intermediate_to_outduplicates + num_output_to_outduplicates);
   }
 
-
   void Serialize(std::ostream& os) const;
 
   size_t Size() const {
@@ -443,7 +432,10 @@ struct RecipeLauncher {
   RecipeLauncher(
       const RecipeValueSpec& rvs,
       std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe = nullptr);
-  RecipeLauncher(std::istream& is, const RecipeValueSpec& rvs);
+  RecipeLauncher(
+      std::istream& is,
+      const RecipeValueSpec& rvs,
+      synRecipeHandle recipe);
   void Launch(
       synapse_helpers::hpuStream_t hpu_stream,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
@@ -493,7 +485,7 @@ struct RecipeHolder {
       std::shared_ptr<RecipeLauncher> rl,
       std::shared_ptr<RecipeValueSpec> rvs)
       : rl_(rl), rvs_(rvs){};
-  RecipeHolder(std::istream& is);
+  RecipeHolder(std::istream& is, synRecipeHandle recipe);
   std::shared_ptr<RecipeLauncher> rl_;
   std::shared_ptr<RecipeValueSpec> rvs_;
 

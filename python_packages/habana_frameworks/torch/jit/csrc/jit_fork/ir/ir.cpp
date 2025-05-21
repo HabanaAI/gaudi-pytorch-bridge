@@ -89,11 +89,11 @@ void printValueRef(std::ostream& out, const Value* n) {
   out << "%" << n->debugName();
 }
 
-bool isNumber(c10::string_view str) {
+bool isNumber(std::string_view str) {
   return str.find_first_not_of("0123456789") == std::string::npos;
 }
 
-std::string normalizeAttrName(c10::string_view field) {
+std::string normalizeAttrName(std::string_view field) {
   if (isNumber(field)) {
     return "_" + std::string{field};
   }
@@ -448,7 +448,7 @@ std::ostream& operator<<(std::ostream& out, const Graph& g) {
 
 static void checkSameDevice(const Node* node) {
   bool has_device = false;
-  c10::optional<at::Device> device = c10::nullopt;
+  std::optional<at::Device> device = std::nullopt;
   auto checkValue = [&](const Value* v) {
     if (TensorTypePtr type = v->type()->cast<TensorType>()) {
       if (type->device() && !has_device) {
@@ -1017,7 +1017,7 @@ static size_t findArgument(const FunctionSchema& the_schema, Symbol name) {
   return findArgument(the_schema, unqualName);
 }
 
-c10::optional<IValue> Node::get(Symbol name) const {
+std::optional<IValue> Node::get(Symbol name) const {
   return toIValue(namedInput(name));
 }
 
@@ -1345,7 +1345,7 @@ Node::Node(Graph* graph_, NodeKind kind_)
       graph_(graph_),
       owning_block_(nullptr),
       scope_(graph_->current_scope_),
-      callstack_(c10::nullopt),
+      callstack_(std::nullopt),
       op_(nullptr),
       topo_position_(0) {
   graph_->all_nodes.emplace(this);
@@ -1724,7 +1724,7 @@ Value* Graph::insert(
     Symbol opname,
     at::ArrayRef<NamedValue> args,
     at::ArrayRef<NamedValue> kwargs,
-    const c10::optional<SourceRange>& range) {
+    const std::optional<SourceRange>& range) {
   return emitBuiltinCall(
       range.value_or(fakeRange()), *this, opname, args, kwargs);
 }
@@ -1844,7 +1844,7 @@ Node* Graph::createList(
     at::ArrayRef<Value*> values) {
   auto n = create(prim::ListConstruct, values);
   for (const auto& v : values) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         v->type()->isSubtypeOf(*contained_type),
         "Expected a list element that subtypes '",
         contained_type->repr_str(),
@@ -1878,7 +1878,7 @@ Value* Graph::packValues(
   if (field_names) {
     auto types = fmap(values, [](Value* v) { return v->type(); });
     named_tuple =
-        TupleType::createNamed(c10::nullopt, field_names.value(), types);
+        TupleType::createNamed(std::nullopt, field_names.value(), types);
   }
   return insertNode(createTuple(values, named_tuple))->output();
 }
@@ -1980,7 +1980,7 @@ Value* Graph::insertToList(Value* v, TypePtr type) {
   } else if (ptr == ComplexType::get()) {
     elem_ty = 3;
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         ptr->repr_str(),
         " is not one of the supported element types for tolist: int, float, complex, bool");
@@ -2044,8 +2044,8 @@ Node* Graph::createClone(
 
 Value* Graph::insertConstant(
     const IValue& val,
-    c10::optional<SourceRange> loc,
-    c10::optional<ScopePtr> scope) {
+    std::optional<SourceRange> loc,
+    std::optional<ScopePtr> scope) {
   // GAUDI_JIT_TRACE;
   return jit::insertConstant(*this, val, std::move(loc), std::move(scope));
 }
@@ -2283,14 +2283,14 @@ void inlineCallStackOfNode(
     std::unordered_map<InlinedCallStack*, InlinedCallStackPtr>& new_cs_entries,
     torch::jit::Function* callee,
     Node* to_replace,
-    c10::optional<ModuleInstanceInfo> m_info);
+    std::optional<ModuleInstanceInfo> m_info);
 
 static void inlineCallStackOfBlock(
     Block* b,
     std::unordered_map<InlinedCallStack*, InlinedCallStackPtr>& new_cs_entries,
     torch::jit::Function* callee,
     Node* to_replace,
-    c10::optional<ModuleInstanceInfo> m_info) {
+    std::optional<ModuleInstanceInfo> m_info) {
   for (auto n : b->nodes()) {
     inlineCallStackOfNode(n, new_cs_entries, callee, to_replace, m_info);
   }
@@ -2301,7 +2301,7 @@ void inlineCallStackOfNode(
     std::unordered_map<InlinedCallStack*, InlinedCallStackPtr>& new_cs_entries,
     torch::jit::Function* callee,
     Node* to_replace,
-    c10::optional<ModuleInstanceInfo> m_info) {
+    std::optional<ModuleInstanceInfo> m_info) {
   auto new_node_cs = new_node->callstack();
 
   InlinedCallStack* raw_callstack_ptr =

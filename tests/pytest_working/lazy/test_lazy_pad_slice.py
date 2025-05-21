@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -90,6 +90,6 @@ def test_hpu_lazy_pad_slice(cl):
     hpu_slice = _hpu_lazy_slice(dev_hpu, hpu_pad)
 
     # Slice
-    for hpu, cpu in zip(hpu_slice, cpu_slice):
+    for hpu, cpu in zip(hpu_slice, cpu_slice, strict=False):
         cpu_hpu = hpu.to("cpu")
         compare_tensors(cpu_hpu, cpu, rtol=1e-3, atol=1e-3)

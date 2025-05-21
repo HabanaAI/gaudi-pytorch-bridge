@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/lowering_util.h"
 #include "generated/backend/std.h"
@@ -155,10 +155,12 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       true,
       {output_attr[1]});
 
+  using namespace std::literals;
+
   auto difference = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("sub_fwd", op->ScalarType()),
+      {get_guid_with_precision("sub_fwd"sv, op->ScalarType()),
        {input[0], mean[0].get()},
        {{input_shape, op->ScalarType()}}});
 
@@ -202,14 +204,14 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     auto diff = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("sub_fwd", op->ScalarType()),
+        {get_guid_with_precision("sub_fwd"sv, op->ScalarType()),
          {slice_size_output[0].get(), correction_tensor.get()},
          {{{1}, op->ScalarType()}}});
     auto zero = OpBackend::BuildConstant(op, graph, 0.0, op->ScalarType());
     auto max = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("max_fwd", op->ScalarType()),
+        {get_guid_with_precision("max_fwd"sv, op->ScalarType()),
          {diff.at(0).get(), zero.get()},
          {{{1}, op->ScalarType()}}});
     reciprocal = OpBackend::BuildNode(
@@ -234,7 +236,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     auto sqrt = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("sqrt_fwd", op->ScalarType()),
+        {get_guid_with_precision("sqrt_fwd"sv, op->ScalarType()),
          {div[0].get()},
          {output_attr[0]}});
 
@@ -252,7 +254,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
         auto squeeze = OpBackend::BuildNode(
             op,
             graph,
-            {get_guid_with_precision("squeeze", output_attr[1].dtype),
+            {get_guid_with_precision("squeeze"sv, output_attr[1].dtype),
              {mean[0].get()},
              {{output_attr[1].sizes, output_attr[1].dtype, 1}}});
         outputs.emplace_back(std::move(squeeze[0]));
@@ -275,11 +277,11 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
               temp_size,
               output_attr[1].dtype,
               (i == dimsVec.size() - 1) ? c10::make_optional<int>(1)
-                                        : c10::nullopt};
+                                        : std::nullopt};
           intermediate_syn_helpers.emplace_back(std::move(OpBackend::BuildNode(
               op,
               graph,
-              {get_guid_with_precision("squeeze", output_attr[1].dtype),
+              {get_guid_with_precision("squeeze"sv, output_attr[1].dtype),
                {intermediate_syn_helpers.back().get()},
                {out_attr},
                &params,
@@ -476,8 +478,8 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dims, true)[0];
 
-  c10::optional<int> finalIndex =
-      keepdim ? c10::make_optional<int>(1) : c10::nullopt;
+  std::optional<int> finalIndex =
+      keepdim ? c10::make_optional<int>(1) : std::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0},
       {mean_shape, meta[1].dtype, finalIndex}};
@@ -529,8 +531,8 @@ void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dims, true)[0];
-  c10::optional<int> finalIndex =
-      keepdim ? c10::make_optional<int>(1) : c10::nullopt;
+  std::optional<int> finalIndex =
+      keepdim ? c10::make_optional<int>(1) : std::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0},
       {mean_shape, meta[1].dtype, finalIndex}};

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <cstdint>
 #include "generated/backend/bitwise_and.h"
 #include "generated/backend/bitwise_or.h"
@@ -33,13 +33,18 @@ std::vector<int64_t> BitwiseLogicalShape(const at::Stack& stack) {
 }
 
 OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
   OutputMetaData meta;
   meta.shape = BitwiseLogicalShape(stack);
-  meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
-      {stack[0], stack[1]},
-      c10::nullopt,
-      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
-      false);
+  if (stack.at(1).isScalar() && self.scalar_type() == c10::ScalarType::Bool) {
+    meta.dtype = self.scalar_type();
+  } else {
+    meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+        {stack[0], stack[1]},
+        std::nullopt,
+        habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+        false);
+  }
   return {meta};
 }
 

@@ -18,6 +18,6 @@
 from habana_frameworks.torch import is_torch_fork as _is_torch_fork
 
 if _is_torch_fork:
-    from habana_frameworks.torch.lib.fork_pybind._torch_jit_C.jit import *
+    from habana_frameworks.torch.lib.fork_pybind._torch_jit_C.jit import *  # noqa F401
 else:
-    from habana_frameworks.torch.lib.upstream_pybind._torch_jit_C.jit import *
+    from habana_frameworks.torch.lib.upstream_pybind._torch_jit_C.jit import *  # noqa F401

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/tensor_info.h"
 #include "backend/backend_meta.h"
@@ -28,7 +28,7 @@ void DMAInputGenerators::populateSeedTensor(
     const PtTensorInfo& ti,
     at::Tensor& dma_tensor) {
   auto gen = torch::get_generator_or_default<torch::CPUGeneratorImpl>(
-      c10::nullopt, habana::detail::getDefaultHPUGenerator());
+      std::nullopt, habana::detail::getDefaultHPUGenerator());
 
   // Acquire lock when using random generators
   std::vector<int> seed_vec;
@@ -38,7 +38,7 @@ void DMAInputGenerators::populateSeedTensor(
   }
 
   auto vec_size = seed_vec.size() * sizeof(seed_vec[0]);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       vec_size == ti.get_size(),
       " cpu vec size ",
       vec_size,
@@ -135,7 +135,7 @@ PtTensorInfo::PtTensorInfo(
     const synTensorType stt,
     DMAInputGeneratorType dma_gen_id)
     : orig_syn_handle_(handle) {
-  TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
+  HABANA_ASSERT(ivpsh->isTensor(), "aten tensor is expected");
   std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();
   populate_tinfo(pt_tensor, sn, irn, tensor_id, stt, dma_gen_id);
@@ -172,7 +172,7 @@ void PtTensorInfo::update_shape_syn() {
       break;
     case TENSOR_TYPE_MAX:
     default:
-      TORCH_CHECK(false, "Unreachable condition.");
+      HABANA_ASSERT(false, "Unreachable condition.");
   }
 }
 
@@ -185,9 +185,11 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, hb_internal_perm_);
   deserialize(is, hb_dont_allow_permute_);
   deserialize(is, offset_);
+  deserialize(is, external_offset_);
   deserialize(is, ir_name_);
   deserialize(is, syn_name_);
   deserialize(is, numel_);
+  deserialize(is, external_numel_);
   deserialize(is, size_);
   deserialize(is, is_duplicate_);
   deserialize(is, parent_index_);
@@ -214,9 +216,11 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, hb_internal_perm_);
   serialize(os, hb_dont_allow_permute_);
   serialize(os, offset_);
+  serialize(os, external_offset_);
   serialize(os, ir_name_);
   serialize(os, syn_name_);
   serialize(os, numel_);
+  serialize(os, external_numel_);
   serialize(os, size_);
   serialize(os, is_duplicate_);
   serialize(os, parent_index_);

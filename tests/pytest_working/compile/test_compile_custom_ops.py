@@ -16,12 +16,11 @@
 ###############################################################################
 
 
-from typing import Tuple, Union
-
-import habana_frameworks.torch as htorch
-import pytest
 import torch
-from habana_frameworks.torch.dynamo._custom_op_registrations import register_post_ops, register_prepare_ops
+from habana_frameworks.torch.dynamo._custom_op_registrations import (
+    register_post_ops,
+    register_prepare_ops,
+)
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
 
 OP_STATE = 0
@@ -59,7 +58,7 @@ def test_reorder_custom_ops():
             return out
 
         @staticmethod
-        def backward(ctx, grad_output: torch.Tensor) -> Tuple[Union[torch.Tensor, None, None], ...]:
+        def backward(ctx, grad_output: torch.Tensor) -> tuple[torch.Tensor | None, ...]:
             torch.ops.hpu_prepare_ops.pre_op(grad_output, ctx.pre_num)
             out = grad_output * 2.0
             torch.ops.hpu_post_ops.post_op(out, ctx.post_num)

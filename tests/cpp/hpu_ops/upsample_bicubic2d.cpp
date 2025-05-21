@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "util.h"
 
@@ -26,13 +26,13 @@ TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale_CL) {
 
   auto expected = torch::upsample_bicubic2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
 
   auto result = torch::upsample_bicubic2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -44,12 +44,12 @@ TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale) {
 
   auto expected = torch::upsample_bicubic2d(
       GetCpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   auto result = torch::upsample_bicubic2d(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -60,10 +60,10 @@ TEST_F(HpuOpTest, upsample_bicubic2d_fwd_scale_zero) {
   std::vector<double> scale_factor = {0.6, 0.7};
 
   auto expected = torch::upsample_bicubic2d(
-      GetCpuInput(0), c10::nullopt, /*align_corner*/ true, scale_factor);
+      GetCpuInput(0), std::nullopt, /*align_corner*/ true, scale_factor);
   auto result = torch::upsample_bicubic2d(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   Compare(expected, result);
@@ -108,8 +108,8 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_size) {
 
 TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale_CL) {
   GenerateInputs(1, {{2, 7, 1, 6}});
-  c10::optional<double> scale_h(0.6);
-  c10::optional<double> scale_w(1.7);
+  std::optional<double> scale_h(0.6);
+  std::optional<double> scale_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
   std::vector<int64_t> output_size = {1, 6};
 
@@ -132,8 +132,8 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale_CL) {
 
 TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale) {
   GenerateInputs(1, {{2, 7, 1, 6}});
-  c10::optional<double> scale_h(0.6);
-  c10::optional<double> scale_w(1.7);
+  std::optional<double> scale_h(0.6);
+  std::optional<double> scale_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
   std::vector<int64_t> output_size = {1, 6};
 

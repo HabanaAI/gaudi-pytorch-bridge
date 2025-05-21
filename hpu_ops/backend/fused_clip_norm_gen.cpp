@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/fused_clip_norm.h"
 
@@ -53,6 +53,8 @@ FusedClipNormOp::FusedClipNormOp(int device_id, c10::ScalarType scalar_type)
   SetOutputMetaFn(FusedClipNormMeta);
 }
 
+using namespace std::literals;
+
 std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_norm(
     synapse_helpers::graph& graph,
     const TensorsPair& norm_input,
@@ -62,7 +64,7 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_norm(
   reduce_params.keepDim = 0;
   auto sum_result = BuildOp(
       graph,
-      get_guid_with_precision("reduce_sum_square_multi_dim_fwd", scalar_type),
+      get_guid_with_precision("reduce_sum_square_multi_dim_fwd"sv, scalar_type),
       {norm_input.syn_t},
       {{1, scalar_type}},
       &reduce_params,
@@ -70,7 +72,7 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_norm(
 
   auto norm = BuildOp(
       graph,
-      get_guid_with_precision("sqrt_fwd", scalar_type),
+      get_guid_with_precision("sqrt_fwd"sv, scalar_type),
       {sum_result.at(0).get()},
       {{1, scalar_type}});
 
@@ -114,7 +116,7 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_total_norm(
   reduce_params.reductionDimension = 0;
   auto sum_op = BuildOp(
       graph,
-      get_guid_with_precision("reduce_sum_square_fwd", scalar_type),
+      get_guid_with_precision("reduce_sum_square_fwd"sv, scalar_type),
       {concat_op.at(0).get()},
       {{1, scalar_type}},
       &reduce_params,
@@ -122,7 +124,7 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_total_norm(
 
   auto total_norm = BuildOp(
       graph,
-      get_guid_with_precision("sqrt_fwd", scalar_type),
+      get_guid_with_precision("sqrt_fwd"sv, scalar_type),
       {sum_op.at(0).get()},
       {{1, scalar_type}});
 
@@ -146,20 +148,20 @@ std::vector<synapse_helpers::tensor> FusedClipNormOp::compute_clip_coeff(
   // total_norm + eps
   auto add_op = BuildOp(
       graph,
-      get_guid_with_precision("add_fwd", scalar_type),
+      get_guid_with_precision("add_fwd"sv, scalar_type),
       {total_norm.get(), eps_ch.get()},
       {{1, scalar_type}});
 
   // clip_coef = max_norm / (total_norm + eps)
   auto clip_coef = BuildOp(
       graph,
-      get_guid_with_precision("div_fwd", scalar_type),
+      get_guid_with_precision("div_fwd"sv, scalar_type),
       {max_norm.syn_t, add_op.at(0).get()},
       {{1, scalar_type}});
 
   auto clamp = BuildOp(
       graph,
-      get_guid_with_precision("clamp_pt_fwd", scalar_type),
+      get_guid_with_precision("clamp_pt_fwd"sv, scalar_type),
       {clip_coef.at(0).get(),
        nullptr,
        one_ch.get()}, // min = nullptr, max = 1.0
@@ -196,7 +198,7 @@ void FusedClipNormOp::AddNode(
 
     auto mult_op = BuildOp(
         graph,
-        get_guid_with_precision("mult_fwd", scalar_type),
+        get_guid_with_precision("mult_fwd"sv, scalar_type),
         {clip_coeff.at(0).get(), grad.syn_t},
         {{grad.pt_t.sizes().vec(), scalar_type, i}});
 

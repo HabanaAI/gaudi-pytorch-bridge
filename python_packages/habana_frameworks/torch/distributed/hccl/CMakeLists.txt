@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,15 +15,17 @@
 #
 ###############################################################################
 
-add_habana_library(_hccl_C SHARED process_group_hccl_base.cpp ProcessGroupHCCL.cpp reducer_timer.cpp process_group_hccl_ops.cpp)
+add_habana_library(_hccl_C SHARED process_group_hccl_base.cpp ProcessGroupHCCL.cpp reducer_timer.cpp
+                   process_group_hccl_ops.cpp)
 target_compile_definitions(_hccl_C PRIVATE TORCH_EXTENSION_NAME=_hccl_C)
 target_link_libraries(_hccl_C PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY} habana_pytorch_backend)
 
-add_habana_library(_hccl_lazy_C SHARED process_group_lazy_hccl.cpp reducer_timer.cpp  process_group_hccl_ops.cpp)
+add_habana_library(_hccl_lazy_C SHARED process_group_lazy_hccl.cpp reducer_timer.cpp process_group_hccl_ops.cpp)
 target_compile_definitions(_hccl_lazy_C PRIVATE TORCH_EXTENSION_NAME=_hccl_lazy_C)
 target_link_libraries(_hccl_lazy_C PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY} habana_pytorch_backend)
 
-add_habana_library(_hccl_eager_C SHARED process_group_hccl_base.cpp process_group_eager_hccl.cpp reducer_timer.cpp process_group_hccl_ops.cpp)
+add_habana_library(_hccl_eager_C SHARED process_group_hccl_base.cpp process_group_eager_hccl.cpp reducer_timer.cpp
+                   process_group_hccl_ops.cpp)
 target_compile_definitions(_hccl_eager_C PRIVATE TORCH_EXTENSION_NAME=_hccl_eager_C)
 target_link_libraries(_hccl_eager_C PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY} habana_pytorch_backend)
 

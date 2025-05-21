@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/reflection_pad1d.h"
 #include "generated/backend/reflection_pad1d_backward.h"
 
@@ -32,7 +32,7 @@ sizes_vec ReflectionPadOutputShape(
       stack.at(selfIndex).toTensor().sizes().vec();
   auto pad = stack.at(padIndex).toIntVector();
   uint expectedPadsNumber = PADS_PER_DIM * dimsVariant;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (pad.size() == expectedPadsNumber),
       "Pad size can only be %dd for ReflectionPad%dd",
       expectedPadsNumber,
@@ -134,19 +134,19 @@ void ReflectionPadBwd::AddNode(
         stack, SELF_INDEX_BWD, PAD_INDEX_BWD, dimsVariant);
 
     for (uint dim = 0; dim < max.size(); dim++) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           (max[dim] <= outputShapeExpectedMax[0][dim]),
           "Output shape at dim=%d in max pass is greater than expectedd max output shape.",
           dim);
     }
   }
   auto meta = ReflectionPadBackwardMeta(stack)[0];
-
+  using namespace std::literals;
   // dropping off the second input to tpc kernel since it
   // expects only 1 input tensor
   auto reflection_pad = BuildOp(
       graph,
-      get_guid_with_precision("pad_bwd", ScalarType()),
+      get_guid_with_precision("pad_bwd"sv, ScalarType()),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}},
       params.get(),

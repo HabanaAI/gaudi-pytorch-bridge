@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <synapse_api.h> // IWYU pragma: keep
 #include "logging.h"
@@ -349,20 +349,20 @@ synStatus SYN_API_CALL synGraphCompile(
       pRecipeHandle, graphHandle, pRecipeName, pBuildLog);
 }
 
-synStatus SYN_API_CALL synGraphSetAttribute(
+synStatus SYN_API_CALL synGraphSetAttributes(
     synGraphHandle GraphHandle,
     const synGraphAttribute* attributes,
-    const uint64_t* values,
+    const synGraphAttributeVal* values,
     const uint32_t size) {
-  return syn_api->synGraphSetAttribute(GraphHandle, attributes, values, size);
+  return syn_api->synGraphSetAttributes(GraphHandle, attributes, values, size);
 }
 
-synStatus SYN_API_CALL synGraphGetAttribute(
+synStatus SYN_API_CALL synGraphGetAttributes(
     synGraphHandle GraphHandle,
     const synGraphAttribute* attributes,
-    uint64_t* values,
+    synGraphAttributeVal* values,
     const uint32_t size) {
-  return syn_api->synGraphGetAttribute(GraphHandle, attributes, values, size);
+  return syn_api->synGraphGetAttributes(GraphHandle, attributes, values, size);
 }
 
 synStatus SYN_API_CALL
@@ -654,6 +654,11 @@ synTensorSetAllowPermutation(synTensor tensor, int8_t allowPermutation) {
 }
 
 synStatus SYN_API_CALL
+synTensorSetMemoryReuse(synTensor tensor, bool isReusable) {
+  return syn_api->synTensorSetMemoryReuse(tensor, isReusable);
+}
+
+synStatus SYN_API_CALL
 synTensorGetName(const synTensor tensor, const uint64_t size, char* name) {
   return syn_api->synTensorGetName(tensor, size, name);
 }
@@ -799,4 +804,21 @@ synStatus SYN_API_CALL synStatusGetBriefDescription(
 synStatus SYN_API_CALL
 synDumpStateAndTerminate(const char* msg, uint64_t flags) {
   return syn_api->synDumpStateAndTerminate(msg, flags);
+}
+
+synStatus SYN_API_CALL
+synUpdateMemoryConsumption(uint64_t usedMem, uint64_t timestampSec) {
+  return syn_api->synUpdateMemoryConsumption(usedMem, timestampSec);
+}
+
+synStatus SYN_API_CALL synGetLastError() {
+  return syn_api->synGetLastError();
+}
+
+const char* SYN_API_CALL synGetErrorString(synStatus status) {
+  return syn_api->synGetErrorString(status);
+}
+
+const char* SYN_API_CALL synGetLastErrorMessage() {
+  return syn_api->synGetLastErrorMessage();
 }

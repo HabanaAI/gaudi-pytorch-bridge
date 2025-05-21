@@ -15,143 +15,48 @@
 
 #include "backend/kernel/hpu_habana_cache.h"
 #include <algorithm>
-#include <iomanip>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/collective_kernel_info.h"
+#include "backend/helpers/generic_resource_holder.h"
+#include "backend/helpers/record_stream_utils.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/event.h"
 #include "common/utils.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/misc_utils.h"
 #include "habana_helpers/towl.h"
-#include "habana_kernels/hccl_kernels.h"
 #include "habana_lazy/memlog.h"
 #include "habana_serialization/deserializers.h"
-#include "habana_serialization/recipe_cache_config.h"
 #include "habana_serialization/serializers.h"
 
-namespace habana {
-
-HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
-  p_cas = std::make_shared<torch::jit::CompleteArgumentSpec>(with_grad, inputs);
-}
-
-RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const size_t& graphKey,
-    const std::string& op_strs)
-    : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
-  hash_code = graph_hash_code;
-  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, sym_hash_code);
-  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, perm_hash_code);
-  graph_with_permute_hash_code = hash_code;
-}
-
-RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const size_t& graphKey,
-    const std::string& op_strs,
-    const uint64_t token)
-    : cas(false, input_refs), opstrs(op_strs) {
-  graph_hash_code = graphKey;
-  hash_code = at::hash_combine(hash_code, graph_hash_code);
-
-  token_ = token;
-  hash_code = at::hash_combine(hash_code, token_);
-
-  ComputeOffsetHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, offset_hash_code);
-  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, sym_hash_code);
-  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, perm_hash_code);
-  dynamic_hash_code = hash_code;
-}
-
-RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const size_t& graphKey,
-    const size_t& graph_sym_hash,
-    const size_t& graph_perm_hash,
-    const std::string& op_strs)
-    : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
-  hash_code = graph_hash_code;
-  hash_code = at::hash_combine(hash_code, graph_sym_hash);
-  hash_code = at::hash_combine(hash_code, graph_perm_hash);
-  graph_with_permute_hash_code = hash_code;
-}
-
-RecipeArgumentSpec::RecipeArgumentSpec(
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const size_t& graphKey,
-    const size_t& graph_sym_hash,
-    const size_t& graph_perm_hash,
-    const std::string& op_strs,
-    const uint64_t token)
-    : cas(false, input_refs), opstrs(op_strs) {
-  graph_hash_code = graphKey;
-  hash_code = at::hash_combine(hash_code, graph_hash_code);
-  token_ = token;
-  hash_code = at::hash_combine(hash_code, token_);
-
-  ComputeOffsetHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, offset_hash_code);
-  hash_code = at::hash_combine(hash_code, graph_sym_hash);
-  hash_code = at::hash_combine(hash_code, graph_perm_hash);
-  dynamic_hash_code = hash_code;
-}
-
-RecipeArgumentSpec::RecipeArgumentSpec(
-    bool with_grad,
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
-    const size_t& graphKey,
-    const std::string& op_strs,
-    size_t symhash,
-    size_t permhash)
-    : cas(with_grad, input_refs), opstrs(op_strs), hash_code(cas.hashCode()) {
-  cargspec_hash_code = cas.hashCode();
-  graph_hash_code = graphKey;
-  hash_code = at::hash_combine(hash_code, graph_hash_code);
-  hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
-  hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
-
-  ComputeOffsetHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, offset_hash_code);
-  ComputeH2DHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, h2d_hash_code);
-  hash_code = at::hash_combine(hash_code, symhash);
-  graph_with_permute_hash_code = permhash;
-  hash_code = at::hash_combine(hash_code, permhash);
-
-  for (auto* node : irgraph->nodes()) {
-    auto node_qual_str = node->kind().toQualString();
-    /*Ignore the const & meta nodes*/
-    if (node->kind().is_prim() ||
-        HabanaMetaOpList::isHabanaMetaOp(node_qual_str)) {
-      continue;
-    }
-
-    hash_code =
-        at::hash_combine(hash_code, node->i(torch::jit::attr::deterministic));
-  }
-}
-
-void RecipeArgumentSpec::ComputeH2DHashCode(
+namespace {
+[[nodiscard]] size_t ComputeOffsetHashCode(
     at::ArrayRef<torch::jit::IValue> input_refs) {
-  h2d_hash_code = 0;
+  size_t offset_hash_code = 0;
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      auto tmeta{get_tensor_extra_meta(pt_tensor, true)};
+      synapse_helpers::device_ptr storage_data_ptr_ =
+          reinterpret_cast<synapse_helpers::device_ptr>(
+              pt_tensor.storage().data_ptr().get());
+      synapse_helpers::device_ptr buffer_ptr =
+          reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
+      auto offset = (buffer_ptr - storage_data_ptr_);
+      offset_hash_code = at::hash_combine(offset_hash_code, offset);
+    }
+  }
+  return offset_hash_code;
+}
+
+[[nodiscard]] size_t ComputeH2DHashCode(
+    at::ArrayRef<torch::jit::IValue> input_refs) {
+  size_t h2d_hash_code = 0;
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto pt_tensor = input.toTensor();
+      auto tmeta{habana::get_tensor_extra_meta(pt_tensor, true)};
       if (tmeta && tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
           tmeta->peek_H2D_data_for_bucketing()) {
         size_t h2d_size = tmeta->get_host_size();
@@ -172,7 +77,7 @@ void RecipeArgumentSpec::ComputeH2DHashCode(
           uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
-            TORCH_CHECK(
+            HABANA_ASSERT(
                 h2d_elem < LONG_MAX,
                 "H2D data ",
                 h2d_elem,
@@ -192,22 +97,127 @@ void RecipeArgumentSpec::ComputeH2DHashCode(
       }
     }
   }
+  return h2d_hash_code;
+}
+} // namespace
+
+namespace habana {
+
+HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
+  p_cas = std::make_shared<torch::jit::CompleteArgumentSpec>(with_grad, inputs);
 }
 
-void RecipeArgumentSpec::ComputeOffsetHashCode(
-    at::ArrayRef<torch::jit::IValue> input_refs) {
-  offset_hash_code = 0;
-  for (auto& input : input_refs) {
-    if (input.isTensor()) {
-      auto pt_tensor = input.toTensor();
-      synapse_helpers::device_ptr storage_data_ptr_ =
-          reinterpret_cast<synapse_helpers::device_ptr>(
-              pt_tensor.storage().data_ptr().get());
-      synapse_helpers::device_ptr buffer_ptr =
-          reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
-      auto offset = (buffer_ptr - storage_data_ptr_);
-      offset_hash_code = at::hash_combine(offset_hash_code, offset);
+RecipeArgumentSpec::RecipeArgumentSpec(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const size_t& graphKey,
+    const std::string& op_strs)
+    : cas(false, input_refs),
+      opstrs(op_strs),
+      graph_hash_code(graphKey),
+      hash_code(at::hash_combine(
+          at::hash_combine(
+              graph_hash_code,
+              habana::ComputeSymSizeHashCode(input_refs)),
+          habana::ComputePermutationHashCode(input_refs))),
+      graph_with_permute_hash_code(hash_code) {}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const size_t& graphKey,
+    const std::string& op_strs,
+    const uint64_t token)
+    : cas(false, input_refs),
+      opstrs(op_strs),
+      graph_hash_code(graphKey),
+      token_(token),
+      offset_hash_code(ComputeOffsetHashCode(input_refs)),
+      hash_code(at::hash_combine(
+          at::hash_combine(
+              at::hash_combine(
+                  at::hash_combine(
+                      at::hash_combine(0, graph_hash_code),
+                      token_),
+                  offset_hash_code),
+              habana::ComputeSymSizeHashCode(input_refs)),
+          habana::ComputePermutationHashCode(input_refs))),
+      dynamic_hash_code(hash_code) {}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const size_t& graphKey,
+    const size_t& graph_sym_hash,
+    const size_t& graph_perm_hash,
+    const std::string& op_strs)
+    : cas(false, input_refs),
+      opstrs(op_strs),
+      graph_hash_code(graphKey),
+      hash_code(at::hash_combine(
+          at::hash_combine(graph_hash_code, graph_sym_hash),
+          graph_perm_hash)),
+      graph_with_permute_hash_code(hash_code) {}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const size_t& graphKey,
+    const size_t& graph_sym_hash,
+    const size_t& graph_perm_hash,
+    const std::string& op_strs,
+    const uint64_t token)
+    : cas(false, input_refs),
+      opstrs(op_strs),
+      graph_hash_code(graphKey),
+      token_(token),
+      offset_hash_code(ComputeOffsetHashCode(input_refs)),
+      hash_code(at::hash_combine(
+          at::hash_combine(
+              at::hash_combine(
+                  at::hash_combine(
+                      at::hash_combine(0, graph_hash_code),
+                      token_),
+                  offset_hash_code),
+              graph_sym_hash),
+          graph_perm_hash)),
+      dynamic_hash_code(hash_code) {}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
+    bool with_grad,
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const size_t& graphKey,
+    const std::string& op_strs,
+    size_t symhash,
+    size_t permhash)
+    : cas(with_grad, input_refs),
+      opstrs(op_strs),
+      graph_hash_code(graphKey),
+      offset_hash_code(ComputeOffsetHashCode(input_refs)),
+      h2d_hash_code(ComputeH2DHashCode(input_refs)),
+      cargspec_hash_code(cas.hashCode()),
+      graph_with_permute_hash_code(permhash) {
+  hash_code = at::hash_combine(
+      at::hash_combine(
+          at::hash_combine(
+              at::hash_combine(
+                  habana_helpers::hash_combine_scalars(
+                      at::hash_combine(
+                          at::hash_combine(cas.hashCode(), graph_hash_code),
+                          irgraph->outputs().size()),
+                      input_refs),
+                  offset_hash_code),
+              h2d_hash_code),
+          symhash),
+      permhash);
+
+  for (auto* node : irgraph->nodes()) {
+    auto node_qual_str = node->kind().toQualString();
+    /*Ignore the const & meta nodes*/
+    if (node->kind().is_prim() ||
+        HabanaMetaOpList::isHabanaMetaOp(node_qual_str)) {
+      continue;
     }
+
+    hash_code =
+        at::hash_combine(hash_code, node->i(torch::jit::attr::deterministic));
   }
 }
 
@@ -351,10 +361,10 @@ int RecipeValueSpec::update_hit_count() {
   return rv_hit_count;
 }
 
-RecipeHolder::RecipeHolder(std::istream& is) {
+RecipeHolder::RecipeHolder(std::istream& is, synRecipeHandle recipe) {
   using namespace serialization;
   rvs_ = std::make_shared<RecipeValueSpec>(is);
-  rl_ = std::make_shared<RecipeLauncher>(is, *rvs_);
+  rl_ = std::make_shared<RecipeLauncher>(is, *rvs_, recipe);
 }
 
 RecipeValueSpec::RecipeValueSpec(std::istream& is) {
@@ -777,7 +787,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == num_inputs,
       "running index ",
       ridx,
@@ -837,7 +847,7 @@ void RecipeValueSpec::update_patching_table(
       auto dma_cb = ti.get_dma_cb();
       auto tshape{ti.get_shape()};
       at::TensorOptions topts(ti.get_topts());
-      TORCH_CHECK(
+      HABANA_ASSERT(
           topts.dtype() == c10::ScalarType::Int,
           " mismatch in seed tensor dtype, expected ",
           c10::ScalarType::Int,
@@ -881,7 +891,7 @@ void RecipeValueSpec::update_patching_table(
     if (ti.is_duplicate()) {
       auto ti_parent_index = ti.get_parent_index();
       auto pt_parent_index = ti_parent_index - intermediates_start;
-      TORCH_CHECK(
+      HABANA_ASSERT(
           pt_parent_index < intermediate_tensors.size(),
           "out of range duplicate intermediate tensor index ",
           pt_parent_index,
@@ -938,7 +948,7 @@ void RecipeValueSpec::update_patching_table(
     patch_intermediate_tensor(ridx);
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == intermediates_end,
       "tensor info index ",
       ridx,
@@ -950,7 +960,7 @@ void RecipeValueSpec::update_patching_table(
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
 
   if (is_shape_agnostic_graph) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         aten_output_num == output_shapes.size(),
         "number of output shapes for patching ",
         output_shapes.size(),
@@ -978,7 +988,7 @@ void RecipeValueSpec::update_patching_table(
       (outputs_end - ridx == allocated_outputs->size()));
   for (; ridx < outputs_end; ridx++) {
     auto output_idx = dtensorinfos.at(ridx)->get_output_index();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         output_idx < aten_output_num,
         "output index ",
         output_idx,
@@ -1038,7 +1048,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == outduplicates_end,
       "tensor info idx",
       ridx,
@@ -1057,7 +1067,7 @@ void RecipeValueSpec::update_patching_table(
     for (; ridx < input_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos.at(ridx)->get_output_index();
-        TORCH_CHECK(
+        HABANA_ASSERT(
             output_idx < aten_output_num,
             "output index ",
             output_idx,
@@ -1085,7 +1095,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == input_to_outduplicates_end,
       "tensor info idx ",
       ridx,
@@ -1121,7 +1131,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == interim_to_outduplicates_end,
       "tensor info idx ",
       ridx,
@@ -1140,7 +1150,7 @@ void RecipeValueSpec::update_patching_table(
     for (; ridx < output_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos.at(ridx)->get_output_index();
-        TORCH_CHECK(
+        HABANA_ASSERT(
             output_idx < aten_output_num,
             "output index ",
             output_idx,
@@ -1159,7 +1169,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == output_to_outduplicates_end,
       "tensor info idx ",
       ridx,
@@ -1167,7 +1177,7 @@ void RecipeValueSpec::update_patching_table(
       output_to_outduplicates_end);
 
   auto num_tinfos = dtensorinfos.size();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ridx == num_tinfos,
       "tensor info idx ",
       ridx,
@@ -1182,7 +1192,7 @@ void RecipeValueSpec::update_patching_table(
     PT_EAGER_DEBUG(
         "[SHAPE AGNOSTIC] number of dtinfos patched count : ",
         dtinfos_patched_count);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         dtinfos_patched_count == num_tinfos - tinfos_not_patched,
         "number of dtinfos patched : ",
         dtinfos_patched_count,
@@ -1345,7 +1355,7 @@ void RecipeValueSpec::populate_syn_tensor_ids(
 void RecipeValueSpec::patch_launch_info(
     std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
     std::vector<size_t>& external_tensor_info_indexes) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor_ids_.size() == dtensorinfos.size(),
       "syn tensor ids are not populated");
 
@@ -1412,11 +1422,11 @@ void RecipeValueSpec::patch_launch_info(
         break;
       }
       case TENSOR_TYPE_MAX:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             false, "Patching of ", ti.tensor_type(), " is not supported yet.");
         break;
       default:
-        TORCH_CHECK(false, "Unreachable condition.");
+        HABANA_ASSERT(false, "Unreachable condition.");
     }
   }
 }
@@ -1474,38 +1484,41 @@ size_t get_active_graph_unique_key(const std::string& name) {
 
 RecipeLauncher::RecipeLauncher(
     const RecipeValueSpec& rvs,
-    std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe) {
-  ntensorbytes_ = rvs.CalculateNtensorbytes();
-  id_ = rvs.id;
-  num_inputs_ = rvs.num_inputs;
-  num_outputs_ = rvs.num_outputs;
-  num_input_to_outduplicates_ = rvs.num_input_to_outduplicates;
-  num_intermediate_to_outduplicates_ = rvs.num_intermediate_to_outduplicates;
-  graph_name_ = rvs.get_graph_name();
-  collective_kernels_info_ = rvs.collective_kernels_info;
-
+    std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe)
+    : ntensorbytes_(rvs.CalculateNtensorbytes()),
+      id_(rvs.id),
+      num_inputs_(rvs.num_inputs),
+      num_outputs_(rvs.num_outputs),
+      num_input_to_outduplicates_(rvs.num_input_to_outduplicates),
+      num_intermediate_to_outduplicates_(rvs.num_intermediate_to_outduplicates),
+      graph_name_(rvs.get_graph_name()),
+      collective_kernels_info_(rvs.collective_kernels_info) {
   SetRecipe(recipe);
 }
 
-RecipeLauncher::RecipeLauncher(std::istream& is, const RecipeValueSpec& rvs) {
-  id_ = rvs.id;
-  num_inputs_ = rvs.num_inputs;
-  num_outputs_ = rvs.num_outputs;
-  num_input_to_outduplicates_ = rvs.num_input_to_outduplicates;
-  num_intermediate_to_outduplicates_ = rvs.num_intermediate_to_outduplicates;
-  graph_name_ = rvs.get_graph_name();
-
-  collective_kernels_info_ = rvs.collective_kernels_info;
-
+RecipeLauncher::RecipeLauncher(
+    std::istream& is,
+    const RecipeValueSpec& rvs,
+    synRecipeHandle recipe)
+    : id_(rvs.id),
+      num_inputs_(rvs.num_inputs),
+      num_outputs_(rvs.num_outputs),
+      num_input_to_outduplicates_(rvs.num_input_to_outduplicates),
+      num_intermediate_to_outduplicates_(rvs.num_intermediate_to_outduplicates),
+      graph_name_(rvs.get_graph_name()),
+      collective_kernels_info_(rvs.collective_kernels_info) {
   using namespace serialization;
   bool valid_recipe_handle = false;
   deserialize(is, valid_recipe_handle);
+
+  HABANA_ASSERT(valid_recipe_handle != (recipe == nullptr));
 
   if (valid_recipe_handle) {
     recipe_ = std::make_shared<synapse_helpers::graph::recipe_handle>();
     deserialize(is, recipe_->recipe_name_);
     deserialize(is, recipe_->graph_is_empty_);
-    recipe_->in_execution_phase_ = false;
+    recipe_->syn_recipe_handle_ = recipe;
+    recipe_->in_execution_phase_ = true;
   }
   deserialize(is, workspace_size_);
   deserialize(is, ntensorbytes_);
@@ -1547,7 +1560,7 @@ void RecipeLauncher::Launch(
     }
     if (dma_inputs.size() > 0) {
       for (auto& dma_input : dma_inputs) {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             dma_input->isTensor(), "Only tensor is supported as dma_input");
         at::Tensor tensor = dma_input->toTensor();
         ptRefs.push_back(std::move(tensor));
@@ -1653,19 +1666,12 @@ void RecipeLauncher::Launch(
     if (!(common::IsRecordStreamEnabled() &&
           GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
       // Use wrapper for resources that must survive async part of the compute.
-      struct ResourceHolder {
-        std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
-        std::vector<at::Tensor> output_tensors_;
-        std::vector<at::Tensor> input_tensors_;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-        synapse_helpers::active_recipe_counter* recipe_counter_ptr;
-        size_t active_graph_key_;
-      };
-      auto resource_holder = std::shared_ptr<ResourceHolder>(
-          new ResourceHolder(), [](ResourceHolder* resource_holder) {
-            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
-            auto recipe_handle = resource_holder->recipe_id_;
-            auto active_graph_key = resource_holder->active_graph_key_;
+      auto resource_holder = std::shared_ptr<GenericResourceHolder>(
+          new GenericResourceHolder(),
+          [](GenericResourceHolder* resource_holder) {
+            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
+            auto recipe_handle = resource_holder->recipe_id();
+            const auto active_graph_key = resource_holder->active_graph_key();
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
@@ -1681,14 +1687,14 @@ void RecipeLauncher::Launch(
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
-      resource_holder->recipe_id_ = recipe_ptr;
+      resource_holder->set_recipe_id(recipe_ptr);
       if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->output_tensors_ = outPtRefs;
-        resource_holder->address_lock = std::move(address_lock);
-        resource_holder->input_tensors_ = ptRefs;
+        resource_holder->set_output_tensors(outPtRefs);
+        resource_holder->set_address_lock(std::move(address_lock));
+        resource_holder->set_input_tensors(ptRefs);
       }
-      resource_holder->recipe_counter_ptr = &recipe_counter;
-      resource_holder->active_graph_key_ = active_graph_key_;
+      resource_holder->set_recipe_counter_ptr(&recipe_counter);
+      resource_holder->set_active_graph_key(active_graph_key_);
       // ResourceHolder could be used directly as callback, if we would only
       // implement operator(), but copying of ResourceHolder would result in
       // copying of all shared_ptr stored inside (including std::vector). To
@@ -1711,17 +1717,12 @@ void RecipeLauncher::Launch(
       }
     } else {
       // Use wrapper for resources that must survive async part of the compute.
-      struct ResourceHolder {
-        std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-        synapse_helpers::active_recipe_counter* recipe_counter_ptr;
-        size_t active_graph_key_;
-      };
-      auto resource_holder = std::shared_ptr<ResourceHolder>(
-          new ResourceHolder(), [](ResourceHolder* resource_holder) {
-            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
-            auto recipe_handle = resource_holder->recipe_id_;
-            auto active_graph_key = resource_holder->active_graph_key_;
+      auto resource_holder = std::shared_ptr<GenericResourceHolder>(
+          new GenericResourceHolder(),
+          [](GenericResourceHolder* resource_holder) {
+            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr();
+            auto recipe_handle = resource_holder->recipe_id();
+            const auto active_graph_key = resource_holder->active_graph_key();
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
@@ -1737,12 +1738,12 @@ void RecipeLauncher::Launch(
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
-      resource_holder->recipe_id_ = recipe_ptr;
+      resource_holder->set_recipe_id(recipe_ptr);
       if (not common::IsRecordStreamNoHolderEnabled()) {
-        resource_holder->address_lock = std::move(address_lock);
+        resource_holder->set_address_lock(std::move(address_lock));
       }
-      resource_holder->recipe_counter_ptr = &recipe_counter;
-      resource_holder->active_graph_key_ = active_graph_key_;
+      resource_holder->set_recipe_counter_ptr(&recipe_counter);
+      resource_holder->set_active_graph_key(active_graph_key_);
       // ResourceHolder could be used directly as callback, if we would only
       // implement operator(), but copying of ResourceHolder would result in
       // copying of all shared_ptr stored inside (including std::vector). To
@@ -1756,19 +1757,11 @@ void RecipeLauncher::Launch(
         device.register_producer_on_stream(
             std::move(outDevPtr), stream_handle, cleanup_callback);
       }
-      for (auto data_ptr : inDevPtr) {
-        device.get_device_memory().recordStream(
-            // NOLINTNEXTLINE(performance-no-int-to-ptr)
-            reinterpret_cast<void*>(data_ptr),
-            hpu_stream);
-      }
-      for (auto data_ptr : outDevPtr) {
-        device.get_device_memory().recordStream(
-            // NOLINTNEXTLINE(performance-no-int-to-ptr)
-            reinterpret_cast<void*>(data_ptr),
-            hpu_stream);
-      }
-      // Launch collective opis
+
+      stream_utils::GenericRecordStream(device, hpu_stream, inDevPtr);
+      stream_utils::GenericRecordStream(device, hpu_stream, outDevPtr);
+
+      // Launch collective ops
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS)) {
         collective_kernels_info_->Launch(
             ptRefs, outPtRefs, true, cleanup_callback);
@@ -1974,7 +1967,7 @@ void DynamicBucketInfoMap::refine_graph(
       return;
     }
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       false, "Graph key ", graph_key, " is missing from DynamicBucketInfoMap");
 }
 

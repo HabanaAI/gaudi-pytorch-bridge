@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/core/DimVector.h>
 #include <ATen/core/TensorBody.h>
 #include <c10/core/SymIntArrayRef.h>
@@ -37,7 +37,7 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   // Handle case for empty tensor where we return empty tensor with size
   if (elements == 0) {
     auto shape = c10::DimVector({0, dimensions});
-    auto output = at::empty(shape, hb_options, c10::nullopt);
+    auto output = at::empty(shape, hb_options, std::nullopt);
     return output;
   }
 
@@ -77,13 +77,13 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
     auto shape = c10::DimVector({0, dimensions});
-    auto output = at::empty(shape, hb_options, c10::nullopt);
+    auto output = at::empty(shape, hb_options, std::nullopt);
     return output;
   }
   // Handle case for nonzero scalar input
   if (elements == 1 && dimensions == 0 && end != 0) {
     auto shape = c10::DimVector({end, 0});
-    auto output = at::empty(shape, hb_options, c10::nullopt);
+    auto output = at::empty(shape, hb_options, std::nullopt);
     return output;
   }
   // Add a slice node to capture relevent elements from nonzero node

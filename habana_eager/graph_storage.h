@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <vector>
 
@@ -28,12 +28,14 @@ class GraphStorage {
   size_t add_new_recipe(
       std::shared_ptr<torch::jit::Graph> graph,
       torch::jit::Stack& example_inputs,
+      const std::vector<bool>& is_reusable,
       bool dynamic,
       bool inference,
       bool has_preallocated_outputs,
       bool has_randoms,
       InputSymbolIndexMap& in_symbol_idx_map,
       std::vector<habana_helpers::RangeInfo>& range_infos,
+      std::vector<int64_t>& const_indexes,
       bool mark_dynamic);
   torch::jit::Stack launch_recipe(
       size_t recipe_id,

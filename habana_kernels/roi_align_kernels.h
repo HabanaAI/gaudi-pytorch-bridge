@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include "backend/habana_operator.h"
 namespace habana {
@@ -19,7 +19,12 @@ namespace habana {
 class RoiAlignFwdOperator : public HabanaOperator {
  public:
   RoiAlignFwdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("roialign_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "roialign_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NHWC,
@@ -48,8 +53,12 @@ class RoiAlignFwdOperator : public HabanaOperator {
 class RoiAlignBwdOperator : public HabanaOperator {
  public:
   RoiAlignBwdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("roialign_backward", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "roialign_backward"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NHWC,
@@ -71,7 +80,12 @@ class RoiAlignBwdOperator : public HabanaOperator {
 class RoiAlignBwdImplOperator : public HabanaOperator {
  public:
   RoiAlignBwdImplOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("roialign_bwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "roialign_bwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
 
     kernel_meta_data_.synapse_input_layout.assign(
@@ -96,7 +110,12 @@ class RoiAlignBwdImplOperator : public HabanaOperator {
 class QuadTreeFwdImplOperator : public HabanaOperator {
  public:
   QuadTreeFwdImplOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("quad_tree_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "quad_tree_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
 
     kernel_meta_data_.synapse_input_layout.assign(

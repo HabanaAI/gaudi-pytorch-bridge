@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import torch.optim as optim
 
 class MNISTNet(nn.Module):
     def __init__(self):
-        super(MNISTNet, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 20, 5, 1)
         self.conv2 = nn.Conv2d(20, 50, 5, 1)
         self.fc1 = nn.Linear(3 * 3 * 50, 500)
@@ -111,4 +111,4 @@ def test_mnist():
             equal_nan=True,
         )
 
-        print("Iteraion {} norm output match :: {}".format(i, comp))
+        print(f"Iteraion {i} norm output match :: {comp}")

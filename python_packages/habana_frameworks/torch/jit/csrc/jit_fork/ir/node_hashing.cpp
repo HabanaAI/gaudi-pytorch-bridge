@@ -23,7 +23,6 @@
 #include "jit_fork/ir/ir.h"
 
 #include <algorithm>
-#include <unordered_map>
 
 #include <ATen/core/functional.h>
 #include <ATen/core/symbol.h>
@@ -34,8 +33,6 @@
 
 #include "habana_helpers/logging.h"
 #include "jit_fork/ir/node_hashing.h"
-
-#include <c10/util/Exception.h> // for TORCH_CHECK
 
 namespace habana_torch::jit {
 
@@ -172,7 +169,7 @@ bool ivaluesEqual(const IValue& a1, const IValue& a2) {
   {
     // Added temporarily, without it reaching end of non void function
     if (!(false)) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Assertion failed [",
           "false",

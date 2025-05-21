@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf-8
 ###############################################################################
 #
 #  Copyright (c) 2021-2025 Intel Corporation
@@ -51,7 +50,7 @@ def prepare_copyright(created, modified, formatting):
         return prefix if len(line) > 0 else prefix_empty_line
 
     dates = str(modified) if created == modified else f"{created}-{modified}"
-    cpr = [(prefix + copyright[0].format(dates=dates))]
+    cpr = [prefix + copyright[0].format(dates=dates)]
     cpr += [f"{get_prefix(c)}{c}" for c in copyright[1:]]
     bar = linefill * 78
     extra_line_list = [extra_line] if extra_line else []
@@ -102,13 +101,9 @@ def _patch_file(f):
     while contents[0] == "\n":  # remove blank lines from the top
         contents = contents[1:]
         result = 1
-    script_header = list()  # shebang or other stuff that goes above the copyright definition.
+    script_header = []  # shebang or other stuff that goes above the copyright definition.
     for l in contents[:3]:
-        if l[:2] == "#!":
-            script_header.append(l)
-        elif l == "# coding: utf-8\n":
-            script_header.append(l)
-        elif l == "\n":
+        if l[:2] == "#!" or l == "# coding: utf-8\n" or l == "\n":
             script_header.append(l)
         else:
             break

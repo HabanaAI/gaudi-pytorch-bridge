@@ -19,17 +19,15 @@ import os
 import sys
 import time
 
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-
-hpu_backend_config.use_eager_fallback = True
-
-# FIXME: remove unused packages
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
 import pytest
 import torch
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.hpex.kernels import FusedSDPA, PySDPA, PySDPAHinted
 from test_utils import compile_function_if_compile_mode
+
+hpu_backend_config.use_eager_fallback = True
 
 
 # below are utility functions #
@@ -42,20 +40,20 @@ def print_mem_summary(name, short=True):
         mem_max_in_use = ht.memory._extended_memory_summary_dict()["max_in_use"]
 
         label = "workspace:"
-        value = str(mem_workspace) + " ({:.2f}) MB".format(mem_workspace / MB)
+        value = str(mem_workspace) + f" ({mem_workspace / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value)
 
         label = "persistent:"
-        value = str(mem_persistent) + " ({:.2f}) MB".format(mem_persistent / MB)
+        value = str(mem_persistent) + f" ({mem_persistent / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value)
 
         label = "max_in_use:"
-        value = str(mem_max_in_use) + " ({:.2f}) MB".format(mem_max_in_use / MB)
+        value = str(mem_max_in_use) + f" ({mem_max_in_use / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value)
 
         label = "max_in_use-persistent:"
         mem_max_in_use_minus_persistent = mem_max_in_use - mem_persistent
-        value = str(mem_max_in_use_minus_persistent) + " ({:.2f}) MB".format(mem_max_in_use_minus_persistent / MB)
+        value = str(mem_max_in_use_minus_persistent) + f" ({mem_max_in_use_minus_persistent / MB:.2f}) MB"
         print(" " + label + " " * (40 - (len(label) + len(value))) + value + "\n")
     else:
         print(ht.memory.memory_summary())
@@ -213,7 +211,7 @@ def test_multiple_sdpa_impls(
         run_hpu_sdpa = run_sdpa_with_hints_once
         with_slice = True
 
-    if "lazy_cguid" == kernel_type:
+    if kernel_type == "lazy_cguid":
         assert pytest.mode == "lazy", "CGUID SDPA kernel is expected to be used with lazy mode"
         run_hpu_sdpa = run_sdpa_cguid_once
 
@@ -276,7 +274,7 @@ def test_multiple_sdpa_impls(
 
             profile_api.profiler_start(trace_type, profile_dev_id)
 
-            for i in range(total_runs):
+            for _ in range(total_runs):
                 pre_iteration()
                 o_hpu = run_hpu_sdpa(g_hpu, q_hpu, k_hpu, v_hpu, is_causal, with_slice)
                 post_iteration(o_hpu, q_hpu, k_hpu, v_hpu)
@@ -292,7 +290,7 @@ def test_multiple_sdpa_impls(
                 activities=activities,
                 on_trace_ready=torch.profiler.tensorboard_trace_handler("logs"),
             ) as profiler:
-                for i in range(8):
+                for _ in range(8):
                     pre_iteration()
                     o_hpu = run_hpu_sdpa(g_hpu, q_hpu, k_hpu, v_hpu, is_causal, with_slice)
                     post_iteration(o_hpu, q_hpu, k_hpu, v_hpu)

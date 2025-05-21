@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <torch/script.h>
 
 #include <perf_lib_layer_params.h>
@@ -242,7 +242,7 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
     }
     auto dtype_helper =
         habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-            inputs, c10::nullopt, false);
+            inputs, std::nullopt, false);
 
     compute_dtype = dst_dtype = dtype_helper.get_result_dtype();
 
@@ -303,7 +303,7 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
     } else {
       // sizes do not match and none of the input sizes is 1 => sizes
       // inconsistent for broadcast
-      TORCH_CHECK(
+      HABANA_ASSERT(
           0,
           "Incompatible input shapes, broadcast not possible. Tensor1 Size: ",
           sz1,
@@ -387,13 +387,13 @@ void CastOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for cast operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for cast operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for cast operator");
 
@@ -433,13 +433,13 @@ void ConstantOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 2,
       "Incorrect size of inputs expected for constant operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for constant operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isScalar(),
       "Input arg2 expected to be scalar for constant operator");
 

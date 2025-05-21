@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/_scaled_mm.h"
 
@@ -37,16 +37,16 @@ SharedMetaDataVector ScaledMmSharedMeta(
   const auto mat2_dtype = stack_tensor(stack, 1).scalar_type();
   const auto scale_a = stack_tensor(stack, 2);
   const auto scale_b = stack_tensor(stack, 3);
-  const auto bias = stack[4].toOptional<at::Tensor>();
-  const auto scale_result = stack[5].toOptional<at::Tensor>();
+  const auto scale_result =
+      stack[5].toOptional<at::Tensor>().value_or(at::Tensor());
   const auto out_dtype =
       stack[6].toOptional<c10::ScalarType>().value_or(mat1_dtype);
 
   const auto optional_meta = createOptionalNotPresentSharedMetaTensor();
   SharedMetaTensor scale_a_meta(scale_a.dim(), scale_a.scalar_type());
   SharedMetaTensor scale_b_meta(scale_b.dim(), scale_b.scalar_type());
-  SharedMetaTensor scale_result_meta = scale_result
-      ? SharedMetaTensor(scale_result->dim(), scale_result->scalar_type())
+  SharedMetaTensor scale_result_meta = scale_result.defined()
+      ? SharedMetaTensor(scale_result.dim(), scale_result.scalar_type())
       : optional_meta;
 
   SharedMetaData meta_gemm{"fp8_gemm"};
@@ -68,10 +68,10 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto mat2 = stackGetter.getNextInput<TensorsPair>();
   auto scale_a = stackGetter.getNextInput<TensorsPair>();
   auto scale_b = stackGetter.getNextInput<TensorsPair>();
-  auto bias = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto scale_result = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto bias = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto scale_result = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto out_dtype =
-      stackGetter.getNextInput<c10::optional<c10::ScalarType>>().value_or(
+      stackGetter.getNextInput<std::optional<c10::ScalarType>>().value_or(
           mat1.pt_t.scalar_type());
 
   const auto mat1_shape = mat1.pt_t.sizes();
@@ -79,9 +79,9 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto mat1_dtype = mat1.pt_t.scalar_type();
   const auto mat2_dtype = mat2.pt_t.scalar_type();
 
-  TORCH_CHECK(mat1_shape.size() == 2, "mat1 must be a matrix");
-  TORCH_CHECK(mat2_shape.size() == 2, "mat2 must be a matrix");
-  TORCH_CHECK(
+  HABANA_ASSERT(mat1_shape.size() == 2, "mat1 must be a matrix");
+  HABANA_ASSERT(mat2_shape.size() == 2, "mat2 must be a matrix");
+  HABANA_ASSERT(
       mat1_shape[1] == mat2_shape[0],
       "mat1 and mat2 shapes cannot be multiplied (",
       mat1_shape[0],
@@ -92,24 +92,24 @@ void ScaledMm::AddNode(sh::graph& graph, const at::Stack& stack) {
       "x",
       mat2_shape[1],
       ")");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !bias || bias->pt_t.numel() == mat2_shape[1],
       "Bias must be size ",
       mat2_shape[1],
       " but got ",
       bias->pt_t.numel());
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat1_dtype == at::ScalarType::Float8_e5m2 ||
           mat1_dtype == at::ScalarType::Float8_e4m3fn,
       "Expected mat1 to be Float8_e5m2 or Float8_e4m3fn matrix got ",
       mat1_dtype);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat2_dtype == at::ScalarType::Float8_e5m2 ||
           mat2_dtype == at::ScalarType::Float8_e4m3fn,
       "Expected mat2 to be Float8_e5m2 or Float8_e4m3fn matrix got ",
       mat2_dtype);
-
-  std::string guid = get_guid_with_precision("fp8_gemm", out_dtype);
+  using namespace std::literals;
+  std::string guid = get_guid_with_precision("fp8_gemm"sv, out_dtype);
   synTensor bias_syn = bias ? bias->syn_t : nullptr;
   synTensor scale_result_syn = scale_result ? scale_result->syn_t : nullptr;
 

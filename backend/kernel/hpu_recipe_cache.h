@@ -14,8 +14,6 @@
  */
 #pragma once
 
-#include <atomic>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -27,8 +25,8 @@
 
 namespace habana {
 
-class RecipeHolder;
-class RecipeArgumentSpec;
+struct RecipeHolder;
+struct RecipeArgumentSpec;
 
 struct RecipeArgumentSpecHash {
  public:
@@ -87,13 +85,15 @@ class RecipeCacheLRU {
     return ret_flag;
   }
 
-  std::pair<std::shared_ptr<RecipeArgumentSpec>, std::shared_ptr<RecipeHolder>>
-      dropped_recipe;
+  using dropped_recipe_t = std::optional<std::pair<
+      std::shared_ptr<RecipeArgumentSpec>,
+      std::shared_ptr<RecipeHolder>>>;
+
   void add(
       std::shared_ptr<RecipeArgumentSpec>& key,
       std::shared_ptr<RecipeHolder>& val);
   std::shared_ptr<RecipeHolder> get(std::shared_ptr<RecipeArgumentSpec>& key);
-  bool drop_lru(size_t& num_recipes);
+  dropped_recipe_t drop_lru();
   void remove_oldest();
   void ResetDiskCache();
   void DeleteDiskCache();
@@ -118,7 +118,7 @@ class RecipeCacheLRU {
  private:
   RecipeCacheLRU(const RecipeCacheLRU&) = delete;
   RecipeCacheLRU& operator=(const RecipeCacheLRU&) = delete;
-  bool drop_lru_impl(size_t& recipe_count, bool mem_exhausted = false);
+  dropped_recipe_t drop_lru_impl(bool mem_exhausted = false);
   void insert(
       std::shared_ptr<RecipeArgumentSpec>& key,
       std::shared_ptr<RecipeHolder>& val);
@@ -146,7 +146,7 @@ class RecipeCacheLRU {
   serialization::RecipeCacheConfig recipe_cache_config_;
 };
 
-class RecipeValueSpec;
+struct RecipeValueSpec;
 
 class TemporaryRecipeStore {
  public:

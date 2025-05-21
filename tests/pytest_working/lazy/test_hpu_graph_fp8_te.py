@@ -20,13 +20,13 @@ import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import numpy as np
 import pytest
 import torch
-from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import FP8GlobalStateManager
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
-from test_utils import is_gaudi1
-
-pytestmark = [
-    pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8"),
-]
+from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import (
+    FP8GlobalStateManager,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
+    DelayedScaling,
+    Format,
+)
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])

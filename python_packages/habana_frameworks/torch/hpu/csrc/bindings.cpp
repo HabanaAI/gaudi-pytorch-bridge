@@ -1,20 +1,19 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/scalar_cache.h"
 #include "habana_lazy/memlog.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 //clang-format off
 #include <ATen/autocast_mode.h>
@@ -22,14 +21,14 @@
 #include <synapse_common_types.h>
 #include <torch/extension.h>
 //clang-format on
-#include <tuple>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/habana_device/HPUGuardImpl.h"
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/stream.h"
-#include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
@@ -263,14 +262,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_view_hash", [](at::Tensor t) -> size_t {
     size_t hash = 0;
     auto hl_t = habana_lazy::TryGetHbLazyTensor(t);
-    c10::optional<habana_lazy::HbLazyTensor> hl_view = c10::nullopt;
+    std::optional<habana_lazy::HbLazyTensor> hl_view = std::nullopt;
     while (hl_t && hl_t->getDataPtr()->stride_params.has_value()) {
       auto& params = hl_t->getDataPtr()->stride_params.value();
       if (params.optype != habana_lazy::StridedOPType::kStridedOpView) {
         if (hl_view.has_value()) {
           hash = habana_lazy::HbLazyTensorViews::updateViewHash(
               *hl_view, (size_t)hash);
-          hl_view = c10::nullopt;
+          hl_view = std::nullopt;
         }
         hash =
             habana_lazy::HbLazyTensorViews::updateViewHash(*hl_t, (size_t)hash);
@@ -344,6 +343,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("disable_inference_mode", []() {
     habana_helpers::DisableInferenceMode();
   });
+  m.def("is_inference_mode_enabled", []() {
+    return habana_helpers::IsInferenceMode();
+  });
   m.def("enable_quantization", []() { habana_helpers::EnableQuantization(); });
   m.def(
       "disable_quantization", []() { habana_helpers::DisableQuantization(); });
@@ -379,7 +381,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("disable_matmul3d_2d_reshape", []() {
     habana_helpers::DisableMatmul3d2dReshape();
   });
-
+  m.def("is_matmul3d_2d_reshape_enabled", []() {
+    return habana_helpers::IsMatmul3d2dReshapeEnabled();
+  });
   m.def("enable_recompute_FSDPA", [](bool recompute) {
     habana_helpers::enableRecomputeFSDPA(recompute);
   });

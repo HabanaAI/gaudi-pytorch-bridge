@@ -27,12 +27,12 @@ TEST_F(HpuOpTest, upsample_bilinear2d_fwd_scale_CL) {
 
   auto expected = torch::upsample_bilinear2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   auto result = torch::upsample_bilinear2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -44,12 +44,12 @@ TEST_F(HpuOpTest, upsample_bilinear2d_fwd_scale) {
 
   auto expected = torch::upsample_bilinear2d(
       GetCpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   auto result = torch::upsample_bilinear2d(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -61,12 +61,12 @@ TEST_F(HpuOpTest, upsample_bilinear2d_fwd_scale_zero_CL) {
 
   auto expected = torch::upsample_bilinear2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   auto result = torch::upsample_bilinear2d(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   Compare(expected, result);
@@ -78,12 +78,12 @@ TEST_F(HpuOpTest, upsample_bilinear2d_fwd_scale_zero) {
 
   auto expected = torch::upsample_bilinear2d(
       GetCpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   auto result = torch::upsample_bilinear2d(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   Compare(expected, result);
@@ -180,8 +180,8 @@ TEST_F(HpuOpTest, upsample_bilinear2d_bwd_size) {
 
 TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale_CL) {
   GenerateInputs(1, {{2, 7, 1, 6}});
-  c10::optional<double> scales_h(0.6);
-  c10::optional<double> scales_w(1.7);
+  std::optional<double> scales_h(0.6);
+  std::optional<double> scales_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
   std::vector<int64_t> output_size = {1, 6};
   auto expected = torch::upsample_bilinear2d_backward(
@@ -203,8 +203,8 @@ TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale_CL) {
 
 TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale) {
   GenerateInputs(1, {{2, 7, 1, 6}});
-  c10::optional<double> scales_h(0.6);
-  c10::optional<double> scales_w(1.7);
+  std::optional<double> scales_h(0.6);
+  std::optional<double> scales_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
   std::vector<int64_t> output_size = {1, 6};
 
@@ -259,12 +259,12 @@ TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale_CL) {
 
   auto expected = torch::_upsample_bilinear2d_aa(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   auto result = torch::_upsample_bilinear2d_aa(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -275,12 +275,12 @@ TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale) {
 
   auto expected = torch::_upsample_bilinear2d_aa(
       GetCpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   auto result = torch::_upsample_bilinear2d_aa(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ false,
       scale_factor);
   Compare(expected, result);
@@ -292,12 +292,12 @@ TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale_zero_CL) {
 
   auto expected = torch::_upsample_bilinear2d_aa(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   auto result = torch::_upsample_bilinear2d_aa(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   Compare(expected, result);
@@ -309,12 +309,12 @@ TEST_F(HpuOpTest, _upsample_bilinear2d_aa_fwd_scale_zero) {
 
   auto expected = torch::_upsample_bilinear2d_aa(
       GetCpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   auto result = torch::_upsample_bilinear2d_aa(
       GetHpuInput(0),
-      c10::nullopt,
+      std::nullopt,
       /*align_corner*/ true,
       scale_factor);
   Compare(expected, result);

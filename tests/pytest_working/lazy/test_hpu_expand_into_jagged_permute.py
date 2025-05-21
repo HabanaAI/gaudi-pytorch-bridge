@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,18 +17,17 @@
 
 import itertools
 import random
-from typing import List
 
 import pytest
 import torch
 from habana_frameworks.torch.hpex.kernels.fbgemm import expand_into_jagged_permute
-from test_utils import cpu, hpu, is_gaudi1
+from test_utils import cpu, hpu
 
 
 def expand_into_jagged_permute_ref(
-    permute: List[int],
-    length: List[int],
-) -> List[int]:
+    permute: list[int],
+    length: list[int],
+) -> list[int]:
     offsets = [0] + list(itertools.accumulate(length))
     output_permute = []
     for r in permute:
@@ -44,24 +43,8 @@ def expand_into_jagged_permute_ref(
 
 permute_test_case_list = [
     # T, W
-    pytest.param(
-        10,
-        8,
-        marks=(
-            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
-            if is_gaudi1()
-            else []
-        ),
-    ),
-    pytest.param(
-        12,
-        16,
-        marks=(
-            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
-            if is_gaudi1()
-            else []
-        ),
-    ),
+    pytest.param(10, 8),
+    pytest.param(12, 16),
 ]
 
 

@@ -16,7 +16,7 @@
 ###############################################################################
 
 
-from typing import Any, Union
+from typing import Any
 
 import torch
 
@@ -87,7 +87,7 @@ def update_habana_parameter(result):
         HabanaParameterWrapper.db[id(result)] = result
 
 
-def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
+def wrapped__getattr__(self, name: str) -> torch.Tensor | torch.nn.Module:
     result = self.original__get_attr__(name)
     try:
         if name not in self.checked_parameters:

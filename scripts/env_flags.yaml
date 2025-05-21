@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024"
 
 PT_HPU_LAZY_MODE:
   type: unsigned
-  default: 1
+  default: 0
 
 PT_HPU_LAZY_ACC_PAR_MODE:
   type: unsigned
@@ -148,6 +148,12 @@ PT_HPU_ENABLE_D2H_ASYNC_THREAD:
   type: bool
   default: true
 
+PT_HPU_COMPILE_THREAD_POOL_SIZE:
+  type: unsigned long
+  default: 8
+  doc: "Set the number of threads for Compile thread pool which is used in Eager and Compile mode.\n
+If set to 0, the number of threads will be equal to the number of CPUs."
+
 PT_HPU_QUEUE_SYNLAUNCHES:
   type: bool
   default: true
@@ -156,21 +162,9 @@ PT_HPU_INFERENCE_MODE:
   type: bool
   default: false
 
-PT_HPU_INFERENCE_MARK_SCALES_AS_CONST:
-  type: bool
-  default: false
-
-PT_HPU_INFERENCE_MARK_NON_SCALES_AS_CONST:
-  type: bool
-  default: false
-
 PT_HPU_INFERENCE_SYNAPSE_DATA_TYPE_SELECTION:
   type: bool
   default: false
-
-PT_HPU_INFERENCE_STORAGE_OVERRIDE:
-  type: bool
-  default: true
 
 PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD:
   type: bool
@@ -362,7 +356,7 @@ PT_HPU_ENABLE_LAZY_COLLECTIVES:
 
 PT_HPU_LAZY_COLLECTIVES_HOLD_TENSORS:
   type: bool
-  default: false
+  default: true
 
 PT_HPU_ENABLE_SFG:
   type: bool
@@ -579,6 +573,10 @@ PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE:
   type: bool
   default: true
 
+PT_HPU_ENABLE_SYNAPSE_INPUT_REUSE:
+  type: bool
+  default: true
+
 PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE:
   type: bool
   default: true
@@ -659,6 +657,11 @@ PT_TB_ENABLE_FLOW_EVENTS:
   type: bool
   default: false
   doc: "Enable flow events in tensorflow"
+
+PT_PYTORCH_PROFILER_USE_KINETO:
+  type: bool
+  default: true
+  doc: "Enables the PyTorch profiler integrated with Kineto."
 
 PT_HPU_ENABLE_GENERIC_STREAM:
   type: bool
@@ -795,10 +798,9 @@ PT_HPU_GPU_MIGRATION:
   default: false
   doc: "Option to enable GPU Migration Toolkit"
 
-PT_HPU_SDPA_SFMX_BWD_V2:
+PT_HPU_ENABLE_COLLECTIVE_VIEW_FUSE:
   type: bool
-  default: false
-  doc: "Option to enable softmax BWD calculation as per FA paper"
+  default: true
 
 PT_HPU_LOP_JIT_WARM_UP_STEPS:
   type: unsigned
@@ -831,7 +833,72 @@ PT_HPU_OVERRIDE_LINEAR_MATMUL_EAGER:
   default: false
   doc: "This flag overrides aten.linear and aten.matmul decompositions in eager and torch.compile."
 
+PT_HPU_EAGER_COLLECTIVE_SYNC:
+  type: bool
+  default: false
+  doc: "This option causes network stream synchronization after each Collective call in nonlazy (happens in Execute stage, not blocking Main Thread)."
+
 PT_HPU_USE_PHILOX_NORMAL:
   type: bool
   default: false
   doc: "This flag enables executing torch.randn with philox_normal kernel instead of LFSR based."
+
+PT_HPU_USE_OVERRIDE_ATEN_SDPA:
+  type: bool
+  default: false
+  doc: "This flag overrides aten.scaled_dot_product_attention in eager and torch.compile and
+        invoke our autograd overwrite fucntion fused_sdpa_autograd_wrap."
+
+PT_HPU_USE_FUSE_SDPA_PASS:
+  type: bool
+  default: false
+  doc: "This flag fuse all patterns for SDPA and convert to aten.scaled_dot_product_attention."
+
+PT_HPU_ENABLE_H2D_SCALES:
+  type: bool
+  default: true
+  settable: true
+  doc: "When this flag is enabled, CPU scales in cast_to_fp8_v2, fp8_gemm_v2 and fp8_sdpa ops are converted to H2D tensors."
+
+PT_HPU_PT2EQ_SCALE_LOAD_PATH:
+  default: ""
+  doc: "This is the PT2E quantization scale path. During inference scales are loaded from this path
+        which is saved after calibration."
+
+PT_HPU_PT2EQ_SCALE_DUMP_PATH:
+  default: ""
+  doc: "This is the path PT2E quantization scales are dumped after calibration."
+
+PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING:
+  type: bool
+  default: false
+  settable: true
+  doc: "This flag is to enable FX graph pattern matching for quantized operations at bridge.
+        If bridge pattern matching is not enabled, synapse pattern matching will get activated."
+
+PT_HPU_PT2EQ_USE_EXPORT_PROGRAM:
+  type: bool
+  default: false
+  doc: "This flag enables the usage of export program in the PT2E quant backend."
+
+PT_HPU_PT2EQ_FX_GRAPH_FREEZING:
+  type: bool
+  default: true
+  settable: true
+  doc: "This flag enable bridge graph freezing by default in the PT2E quant backend."
+
+PT_HPU_PT2EQ_KVCQ:
+  type: bool
+  default: true
+  doc: "This flag enable KVCache quantization and KV cache pattern matching in PT2E quant backend."
+
+PT_HPU_PRINT_DEVICE_CONFIG:
+  type: bool
+  default: false
+  doc: "When this flag is enabled, Gaudi PyTorch Bridge configuration is printed from all ranks upon device acquisition"
+
+PT_HPU_DISALLOW_TORCH_COMPILE:
+  type: bool
+  default: false
+  settable: true
+  doc: "This flag disallows the use of torch.compile."

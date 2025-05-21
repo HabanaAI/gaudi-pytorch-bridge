@@ -1,22 +1,25 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/flip.h"
 #define GUID "reverse"
+#define GUIDsv "reverse"sv
 
 namespace habana {
+
+using namespace std::literals;
 
 SharedMetaDataVector FlipSharedMeta(
     const at::Stack& stack,
@@ -40,12 +43,12 @@ SharedMetaDataVector FlipSharedMeta(
 }
 
 void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 2, "Incorrect size of input arguments for Flip Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.at(0).isTensor(),
       "Input arg 1 for Flip op needs to be tensor type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.at(1).isIntList(), "Input arg 2 for Flip op needs to be Int List");
 
   auto self = stack.at(0).toTensor();
@@ -77,7 +80,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     intermediate_output = BuildOp(
         graph,
-        get_guid_with_precision(GUID, ScalarType()),
+        get_guid_with_precision(GUIDsv, ScalarType()),
         {intermediate_output_itr[i], const_dim.get()},
         {{outshape, ScalarType()}});
 
@@ -91,7 +94,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto flip_output = BuildOp(
       graph,
-      get_guid_with_precision(GUID, ScalarType()),
+      get_guid_with_precision(GUIDsv, ScalarType()),
       {intermediate_output_itr[dim_list_size - 1], final_const_dim.get()},
       {{outshape, ScalarType(), 0}});
 

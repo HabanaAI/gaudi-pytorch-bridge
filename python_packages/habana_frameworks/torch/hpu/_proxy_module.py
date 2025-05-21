@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ def _proxy_module(name: str) -> type:
     def init_err(self):
         class_name = self.__class__.__name__
 
-        raise RuntimeError("Tried to instantiate proxy base class {}.".format(class_name))
+        raise RuntimeError(f"Tried to instantiate proxy base class {class_name}.")
 
     return type(name, (object,), {"__init__": init_err})
 

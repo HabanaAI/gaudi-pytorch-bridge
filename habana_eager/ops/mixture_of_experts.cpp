@@ -35,7 +35,7 @@ std::vector<at::Tensor> mixture_of_experts_fwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -78,7 +78,7 @@ at::Tensor mixture_of_experts_recomp_fwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -121,7 +121,7 @@ std::vector<at::Tensor> mixture_of_experts_fwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -162,7 +162,7 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -199,65 +199,71 @@ at::Tensor mixture_of_experts_recomp_fwd_fused_weights(
 
 std::vector<at::Tensor> mixture_of_experts_bwd(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm1_out,
     const at::Tensor& gemm2_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w1,
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd :",
-      DUMP_17ARGS(
+      DUMP_19ARGS(
           grad_tokens_in,
-          router_weights,
           chunks_input,
           token_to_chunk,
           token_in_chunk,
           chunks_routing_table,
+          chunks_routing_weights,
           gemm1_out,
           gemm2_out,
           activation_out,
           mult_out,
+          mlp_out,
           w1,
           w2,
           w3,
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          router_weights_size));
 
   static auto op = torch::Dispatcher::singleton()
                        .findSchemaOrThrow("hpu::mixture_of_experts_bwd", "")
                        .typed<decltype(mixture_of_experts_bwd)>();
   return op.call(
       grad_tokens_in,
-      router_weights,
       chunks_input,
       token_to_chunk,
       token_in_chunk,
       chunks_routing_table,
+      chunks_routing_weights,
       gemm1_out,
       gemm2_out,
       activation_out,
       mult_out,
+      mlp_out,
       w1,
       w2,
       w3,
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      router_weights_size);
 }
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
@@ -269,7 +275,7 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -309,39 +315,43 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd(
 
 std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
     const at::Tensor& grad_tokens_in,
-    const at::Tensor& router_weights,
     const at::Tensor& chunks_input,
     const at::Tensor& token_to_chunk,
     const at::Tensor& token_in_chunk,
     const at::Tensor& chunks_routing_table,
+    const at::Tensor& chunks_routing_weights,
     const at::Tensor& gemm12_out,
     const at::Tensor& activation_out,
     const at::Tensor& mult_out,
+    const at::Tensor& mlp_out,
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
-    const int64_t experts_max) {
+    const int64_t experts_max,
+    const std::vector<int64_t> router_weights_size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts_bwd.fused_weights :",
-      DUMP_15ARGS(
+      DUMP_17ARGS(
           grad_tokens_in,
-          router_weights,
           chunks_input,
           token_to_chunk,
           token_in_chunk,
           chunks_routing_table,
+          chunks_routing_weights,
           gemm12_out,
           activation_out,
           mult_out,
+          mlp_out,
           w12,
           w3,
           permuted_weights,
           activation,
           experts_min,
-          experts_max));
+          experts_max,
+          router_weights_size));
 
   static auto op =
       torch::Dispatcher::singleton()
@@ -350,20 +360,22 @@ std::vector<at::Tensor> mixture_of_experts_bwd_fused_weights(
 
   return op.call(
       grad_tokens_in,
-      router_weights,
       chunks_input,
       token_to_chunk,
       token_in_chunk,
       chunks_routing_table,
+      chunks_routing_weights,
       gemm12_out,
       activation_out,
       mult_out,
+      mlp_out,
       w12,
       w3,
       permuted_weights,
       activation,
       experts_min,
-      experts_max);
+      experts_max,
+      router_weights_size);
 }
 
 std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
@@ -374,7 +386,7 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -413,12 +425,17 @@ std::vector<at::Tensor> mixture_of_experts_recomp_bwd_fused_weights(
 namespace eager {
 
 static std::pair<std::vector<at::Tensor>, std::vector<at::Tensor>>
-split_weights_tensor(const at::TensorList& w12, bool permuted_weights) {
+split_weights_tensor(
+    const at::TensorList& w12,
+    bool permuted_weights,
+    bool unsqueeze = false) {
   std::vector<at::Tensor> w1, w2;
-  const auto split_dim = permuted_weights ? 0 : 1;
+  const auto split_dim = (unsqueeze or permuted_weights) ? 0 : 1;
   const auto split_index = w12[0].size(split_dim) / 2;
   for (const auto& tensor : w12) {
-    auto w12_split = tensor.split(split_index, split_dim);
+    auto w12_split = unsqueeze
+        ? tensor.unsqueeze(0).split(w12[0].size(0) / 2, 1)
+        : tensor.split(split_index, split_dim);
     w1.push_back(w12_split[0]);
     w2.push_back(w12_split[1]);
   }
@@ -426,7 +443,7 @@ split_weights_tensor(const at::TensorList& w12, bool permuted_weights) {
 }
 
 std::function<at::Tensor(const at::Tensor& x)> get_activation_fn(
-    const c10::string_view& activation) {
+    const std::string_view& activation) {
   if (activation == "gelu") {
     return [](const at::Tensor& x) { return torch::nn::functional::gelu(x); };
   } else if (activation == "relu") {
@@ -446,7 +463,7 @@ static std::tuple<at::Tensor, at::Tensor> mixture_of_experts_common(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const bool measurement_mode) {
   std::function<at::Tensor(const at::Tensor& x)> activation_fn =
       get_activation_fn(activation);
@@ -516,10 +533,10 @@ at::Tensor mixture_of_experts(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp) {
+    const std::optional<bool> recomp) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts :",
@@ -557,10 +574,10 @@ at::Tensor mixture_of_experts_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
-    const c10::optional<bool> recomp) {
+    const std::optional<bool> recomp) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts.fused_weights :",
@@ -599,7 +616,7 @@ std::tuple<at::Tensor, at::Tensor> mixture_of_experts_fp8_measurement(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const bool measurement_mode) {
@@ -638,7 +655,7 @@ mixture_of_experts_fp8_measurement_fused_weights(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const bool measurement_mode) {
@@ -685,7 +702,7 @@ static at::Tensor mixture_of_experts_fp8_common(
     const Scales& d_scale_w2,
     const Scales& d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation) {
+    const std::string_view activation) {
   std::function<at::Tensor(const at::Tensor& x)> activation_fn =
       get_activation_fn(activation);
   const at::ScalarType fp8_type = hidden_states.scalar_type();
@@ -708,6 +725,10 @@ static at::Tensor mixture_of_experts_fp8_common(
   } else {
     default_scale = at::tensor(
         1.0, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU));
+    if (d_scale_hidden_states.dim() == 1) {
+      const_cast<at::Tensor&>(d_scale_hidden_states) =
+          d_scale_hidden_states.unsqueeze(1);
+    }
   }
 
   for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
@@ -718,71 +739,56 @@ static at::Tensor mixture_of_experts_fp8_common(
     const at::Tensor current_expert_w3 =
         permuted_weights ? w3[expert_idx].transpose(0, 1) : w3[expert_idx];
 
-    auto hidden_states_w1 = activation_fn(std::get<0>(cast_to_fp8_v2(
-        fp8_gemm_v2(
-            hidden_states,
-            false,
-            current_expert_w1,
-            false,
-            std::nullopt,
-            torch::kBFloat16,
-            default_scale,
-            d_scale_w1[expert_idx],
-            std::nullopt,
-            false,
-            std::nullopt),
-        default_scale,
+    auto hidden_states_w1 = activation_fn(fp8_gemm_v2(
+        hidden_states,
         false,
+        current_expert_w1,
         false,
-        fp8_type,
-        std::nullopt)));
-
-    auto hidden_states_w2 = std::get<0>(cast_to_fp8_v2(
-        fp8_gemm_v2(
-            hidden_states,
-            false,
-            current_expert_w2,
-            false,
-            std::nullopt,
-            torch::kBFloat16,
-            default_scale,
-            d_scale_w2[expert_idx],
-            std::nullopt,
-            false,
-            std::nullopt),
-        default_scale,
+        std::nullopt,
+        torch::kBFloat16,
+        d_scale_hidden_states,
+        d_scale_w1[expert_idx],
+        std::nullopt,
         false,
-        false,
-        fp8_type,
         std::nullopt));
+
+    auto hidden_states_w2 = fp8_gemm_v2(
+        hidden_states,
+        false,
+        current_expert_w2,
+        false,
+        std::nullopt,
+        torch::kBFloat16,
+        d_scale_hidden_states,
+        d_scale_w2[expert_idx],
+        std::nullopt,
+        false,
+        std::nullopt);
 
     auto hidden_states_w12 = hidden_states_w1 * hidden_states_w2;
 
-    auto hidden_states_w3 = std::get<0>(cast_to_fp8_v2(
-        fp8_gemm_v2(
-            hidden_states_w12,
-            false,
-            current_expert_w3,
-            false,
-            std::nullopt,
-            torch::kBFloat16,
-            d_scale_intermediate_hidden_states[expert_idx],
-            d_scale_w3[expert_idx],
-            std::nullopt,
-            false,
-            std::nullopt),
-        default_scale,
+    hidden_states_w12 = std::get<0>(cast_to_fp8_v2(
+        hidden_states_w12,
+        d_scale_intermediate_hidden_states[expert_idx],
         false,
         false,
         fp8_type,
         std::nullopt));
 
-    final_hidden_states += cast_from_fp8(
-                               hidden_states_w3,
-                               d_scale_hidden_states,
-                               torch::kBFloat16,
-                               std::nullopt) *
-        padded_weights[expert_idx];
+    auto hidden_states_w3 = fp8_gemm_v2(
+        hidden_states_w12,
+        false,
+        current_expert_w3,
+        false,
+        std::nullopt,
+        torch::kBFloat16,
+        default_scale,
+        d_scale_w3[expert_idx],
+        std::nullopt,
+        false,
+        std::nullopt);
+
+    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
   }
 
   auto result = final_hidden_states.reshape(hidden_states.sizes());
@@ -802,7 +808,7 @@ at::Tensor mixture_of_experts_fp8(
     const at::TensorList d_scale_w2,
     const at::TensorList d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -851,7 +857,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights(
     const at::TensorList d_scale_w12,
     const at::TensorList d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -901,7 +907,7 @@ at::Tensor mixture_of_experts_fp8_scalars(
     const c10::ArrayRef<double>& d_scale_w2,
     const c10::ArrayRef<double>& d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -950,7 +956,7 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars(
     const c10::ArrayRef<double>& d_scale_w12,
     const c10::ArrayRef<double>& d_scale_w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max) {
   PT_EAGER_TRACE;
@@ -987,6 +993,469 @@ at::Tensor mixture_of_experts_fp8_fused_weights_scalars(
       activation);
 }
 
+template <typename Scale, typename Scales>
+static at::Tensor mixture_of_experts_fp8_common_dynamic(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList& w1,
+    const at::TensorList& w2,
+    const at::TensorList& w3,
+    const Scale& d_scale_hidden_states,
+    const Scales& d_scale_w1,
+    const Scales& d_scale_w2,
+    const Scales& d_scale_w3,
+    const bool permuted_weights,
+    const std::string_view activation) {
+  std::function<at::Tensor(const at::Tensor& x)> activation_fn =
+      get_activation_fn(activation);
+  const at::ScalarType fp8_type = hidden_states.scalar_type();
+  const int num_experts = w1.size();
+  const int num_tokens = hidden_states.size(0);
+  const int hidden_dim = hidden_states.size(1);
+  auto final_hidden_states = torch::zeros(
+      {1, num_tokens, hidden_dim},
+      hidden_states.options().dtype(torch::kBFloat16));
+  auto padded_weights =
+      torch::zeros({num_tokens, num_experts}, router_weights.options())
+          .scatter_(-1, expert_routing_table, router_weights)
+          .reshape({-1, num_tokens, num_experts})
+          .permute({2, 0, 1})
+          .unsqueeze(-1);
+
+  Scale default_scale;
+  if constexpr (std::is_same<Scale, double>::value) {
+    default_scale = 1.0;
+  } else {
+    default_scale = at::tensor(
+        1.0, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU));
+    if (d_scale_hidden_states.dim() == 1) {
+      const_cast<at::Tensor&>(d_scale_hidden_states) =
+          d_scale_hidden_states.unsqueeze(1);
+    }
+  }
+
+  for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+    const at::Tensor current_expert_w1 =
+        permuted_weights ? w1[expert_idx].transpose(0, 1) : w1[expert_idx];
+    const at::Tensor current_expert_w2 =
+        permuted_weights ? w2[expert_idx].transpose(0, 1) : w2[expert_idx];
+    const at::Tensor current_expert_w3 =
+        permuted_weights ? w3[expert_idx].transpose(0, 1) : w3[expert_idx];
+
+    auto hidden_states_w1 = activation_fn(fp8_gemm_v2(
+        hidden_states,
+        false,
+        current_expert_w1,
+        false,
+        std::nullopt,
+        torch::kBFloat16,
+        d_scale_hidden_states,
+        d_scale_w1[expert_idx],
+        std::nullopt,
+        false,
+        std::nullopt));
+
+    auto hidden_states_w2 = fp8_gemm_v2(
+        hidden_states,
+        false,
+        current_expert_w2,
+        false,
+        std::nullopt,
+        torch::kBFloat16,
+        d_scale_hidden_states,
+        d_scale_w2[expert_idx],
+        std::nullopt,
+        false,
+        std::nullopt);
+
+    auto hidden_states_w12 = hidden_states_w1 * hidden_states_w2;
+    at::Tensor hidden_states_w3;
+
+    const auto is_gaudi2 =
+        HPUDeviceContext::get_device().type() == synDeviceGaudi2;
+    const auto scaling_factor = is_gaudi2 ? 240 : 448;
+    const auto max_values = std::get<0>(torch::abs(hidden_states_w12).max(1));
+
+    auto calculated_dynamic_scale =
+        ((max_values + 1e-8) / scaling_factor).unsqueeze(-1);
+
+    hidden_states_w12 = std::get<0>(cast_to_fp8_v2(
+        hidden_states_w12,
+        calculated_dynamic_scale,
+        false,
+        false,
+        fp8_type,
+        std::nullopt));
+
+    at::Tensor current_d_scale_w3;
+    if constexpr (std::is_same<Scale, double>::value) {
+      current_d_scale_w3 = at::tensor(
+          d_scale_w3[expert_idx],
+          torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU));
+    } else {
+      current_d_scale_w3 = d_scale_w3[expert_idx];
+    }
+    hidden_states_w3 = fp8_gemm_v2(
+        hidden_states_w12,
+        false,
+        current_expert_w3,
+        false,
+        std::nullopt,
+        torch::kBFloat16,
+        std::nullopt,
+        current_d_scale_w3,
+        std::nullopt,
+        false,
+        std::nullopt);
+
+    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
+  }
+
+  auto result = final_hidden_states.reshape(hidden_states.sizes());
+  return result;
+}
+
+at::Tensor mixture_of_experts_fp8_dynamic(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_w1,
+    const at::TensorList d_scale_w2,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8 :",
+      DUMP_14ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          d_scale_hidden_states,
+          d_scale_w1,
+          d_scale_w2,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+  return mixture_of_experts_fp8_common_dynamic(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      d_scale_hidden_states,
+      d_scale_w1,
+      d_scale_w2,
+      d_scale_w3,
+      permuted_weights,
+      activation);
+}
+
+at::Tensor mixture_of_experts_fp8_fused_weights_dynamic(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::Tensor& d_scale_hidden_states,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_fused_weights :",
+      DUMP_12ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          d_scale_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+  auto [w1, w2] = split_weights_tensor(w12, permuted_weights);
+
+  at::TensorList d_scale_w1 = d_scale_w12;
+  at::TensorList d_scale_w2 = d_scale_w12;
+  std::vector<at::Tensor> d_scale_w1_vec, d_scale_w2_vec;
+
+  if (d_scale_w12[0].dim() != 0) {
+    const auto unsqueeze = d_scale_w12[0].dim() == 1;
+    std::tie(d_scale_w1_vec, d_scale_w2_vec) =
+        split_weights_tensor(d_scale_w12, false, unsqueeze);
+    d_scale_w1 = at::TensorList(d_scale_w1_vec);
+    d_scale_w2 = at::TensorList(d_scale_w2_vec);
+  }
+
+  return mixture_of_experts_fp8_common_dynamic(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      d_scale_hidden_states,
+      d_scale_w1,
+      d_scale_w2,
+      d_scale_w3,
+      permuted_weights,
+      activation);
+}
+
+at::Tensor mixture_of_experts_fp8_scalars_dynamic(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const double d_scale_hidden_states,
+    const c10::ArrayRef<double>& d_scale_w1,
+    const c10::ArrayRef<double>& d_scale_w2,
+    const c10::ArrayRef<double>& d_scale_w3,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_scalars :",
+      DUMP_14ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          d_scale_hidden_states,
+          d_scale_w1,
+          d_scale_w2,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+  return mixture_of_experts_fp8_common_dynamic(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      d_scale_hidden_states,
+      d_scale_w1,
+      d_scale_w2,
+      d_scale_w3,
+      permuted_weights,
+      activation);
+}
+
+at::Tensor mixture_of_experts_fp8_fused_weights_scalars_dynamic(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const double d_scale_hidden_states,
+    const c10::ArrayRef<double>& d_scale_w12,
+    const c10::ArrayRef<double>& d_scale_w3,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_fused_weights_scalars :",
+      DUMP_12ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          d_scale_hidden_states,
+          d_scale_w12,
+          d_scale_w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+  auto [w1, w2] = split_weights_tensor(w12, permuted_weights);
+  return mixture_of_experts_fp8_common_dynamic(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      d_scale_hidden_states,
+      d_scale_w12,
+      d_scale_w12,
+      d_scale_w3,
+      permuted_weights,
+      activation);
+}
+
+// Broadcast scale with given block_size and crop it for uneven dims (padding)
+at::Tensor broadcast_scales(
+    const at::Tensor& scales,
+    const int64_t block_size,
+    const at::IntArrayRef& sizes) {
+  return scales.repeat_interleave(block_size, 0)
+      .repeat_interleave(block_size, 1)
+      .slice(0, 0, sizes[0])
+      .slice(1, 0, sizes[1]);
+}
+
+at::Tensor mixture_of_experts_fp8_blockwise(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const at::TensorList d_scale_w1,
+    const at::TensorList d_scale_w2,
+    const at::TensorList d_scale_w3,
+    const int64_t block_size,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_blockwise :",
+      DUMP_14ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w1,
+          w2,
+          w3,
+          d_scale_w1,
+          d_scale_w2,
+          d_scale_w3,
+          block_size,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  c10::ScalarType scales_dtype = d_scale_w1[0].scalar_type();
+  std::vector<at::Tensor> dequant_w1_vec;
+  std::vector<at::Tensor> dequant_w2_vec;
+  std::vector<at::Tensor> dequant_w3_vec;
+  for (size_t i = 0; i < w1.size(); i++) {
+    dequant_w1_vec.push_back(
+        cast_from_fp8(w1[i], 1.0, scales_dtype, std::nullopt) *
+        broadcast_scales(d_scale_w1[i], block_size, w1[0].sizes()));
+    dequant_w2_vec.push_back(
+        cast_from_fp8(w2[i], 1.0, scales_dtype, std::nullopt) *
+        broadcast_scales(d_scale_w2[i], block_size, w2[0].sizes()));
+    dequant_w3_vec.push_back(
+        cast_from_fp8(w3[i], 1.0, scales_dtype, std::nullopt) *
+        broadcast_scales(d_scale_w3[i], block_size, w3[0].sizes()));
+  }
+
+  const at::TensorList dequant_w1 = dequant_w1_vec;
+  const at::TensorList dequant_w2 = dequant_w2_vec;
+  const at::TensorList dequant_w3 = dequant_w3_vec;
+
+  auto moe_common = mixture_of_experts_common(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      dequant_w1,
+      dequant_w2,
+      dequant_w3,
+      permuted_weights,
+      activation,
+      false);
+
+  return std::get<0>(moe_common);
+}
+
+at::Tensor mixture_of_experts_fp8_fused_weights_blockwise(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const at::TensorList d_scale_w12,
+    const at::TensorList d_scale_w3,
+    const int64_t block_size,
+    const bool permuted_weights,
+    const std::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fp8_fused_weights_blockwise :",
+      DUMP_12ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          d_scale_w12,
+          d_scale_w3,
+          block_size,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+  // Fused weights flavor needs individual frontend, as in many cases padding
+  // for w1 and w2 might be different than padding for w12
+  c10::ScalarType scales_dtype = d_scale_w12[0].scalar_type();
+  std::vector<at::Tensor> dequant_w12_vec;
+  std::vector<at::Tensor> dequant_w3_vec;
+  for (size_t i = 0; i < w12.size(); i++) {
+    dequant_w12_vec.push_back(
+        cast_from_fp8(w12[i], 1.0, scales_dtype, std::nullopt) *
+        broadcast_scales(d_scale_w12[i], block_size, w12[0].sizes()));
+    dequant_w3_vec.push_back(
+        cast_from_fp8(w3[i], 1.0, scales_dtype, std::nullopt) *
+        broadcast_scales(d_scale_w3[i], block_size, w3[0].sizes()));
+  }
+
+  const at::TensorList dequant_w12 = dequant_w12_vec;
+  const at::TensorList dequant_w3 = dequant_w3_vec;
+
+  auto [dequant_w1, dequant_w2] =
+      split_weights_tensor(dequant_w12, permuted_weights);
+
+  auto moe_common = mixture_of_experts_common(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      dequant_w1,
+      dequant_w2,
+      dequant_w3,
+      permuted_weights,
+      activation,
+      false);
+  return std::get<0>(moe_common);
+}
+
 at::Tensor mixture_of_experts_fwd_autograd(
     const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
@@ -995,37 +1464,32 @@ at::Tensor mixture_of_experts_fwd_autograd(
     const at::TensorList w2,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {
-  // In case of calling in compile without requiring gradients intermediate
-  // tensors will be removed from the graph leading to error when trying to
-  // store them. Therefore we call recomp-version that returns valid number of
-  // tensors.
-  return (recomp.value_or(false) || !hidden_states.requires_grad())
-      ? MixtureOfExpertsRecompFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w1,
-            w2,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0]
-      : MixtureOfExpertsFunction::apply(
-            hidden_states,
-            expert_routing_table,
-            router_weights,
-            w1,
-            w2,
-            w3,
-            permuted_weights,
-            activation,
-            experts_min,
-            experts_max)[0];
+  return recomp.value_or(true) ? MixtureOfExpertsRecompFunction::apply(
+                                     hidden_states,
+                                     expert_routing_table,
+                                     router_weights,
+                                     w1,
+                                     w2,
+                                     w3,
+                                     permuted_weights,
+                                     activation,
+                                     experts_min,
+                                     experts_max)[0]
+                               : MixtureOfExpertsFunction::apply(
+                                     hidden_states,
+                                     expert_routing_table,
+                                     router_weights,
+                                     w1,
+                                     w2,
+                                     w3,
+                                     permuted_weights,
+                                     activation,
+                                     experts_min,
+                                     experts_max)[0];
 }
 
 at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
@@ -1035,11 +1499,11 @@ at::Tensor mixture_of_experts_fwd_fused_weights_autograd(
     const at::TensorList w12,
     const at::TensorList w3,
     const bool permuted_weights,
-    const c10::string_view activation,
+    const std::string_view activation,
     const int64_t experts_min,
     const int64_t experts_max,
     const std::optional<bool> recomp) {
-  return (recomp.value_or(false) || !hidden_states.requires_grad())
+  return recomp.value_or(true)
       ? MixtureOfExpertsRecompFusedWeightsFunction::apply(
             hidden_states,
             expert_routing_table,

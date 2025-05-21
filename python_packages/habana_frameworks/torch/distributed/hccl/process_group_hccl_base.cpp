@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "process_group_hccl_base.hpp"
 
@@ -196,12 +196,12 @@ void restoreTensorsize(
       // from resized_out back to original output tensor. Now, output tensor
       // should have all updated elements at index 0~125 and is safe to do
       // resize.
-      TORCH_CHECK(
+      HABANA_ASSERT(
           ori_input_size != -1,
           "original input tensor size should be provided.");
 
       auto resized_out = at::empty_like(tensors[i], btensor_type);
-      TORCH_CHECK(tensors[i].sizes().size() == 1, "only support 1D tensor");
+      HABANA_ASSERT(tensors[i].sizes().size() == 1, "only support 1D tensor");
       auto resized_input_size = ori_input_size + 1;
       for (int n = 0; n < extra_num_elems; ++n) {
         auto dst = at::as_strided(
@@ -231,7 +231,8 @@ void restoreTensorsize(
 }
 
 bool is_valid_hccl_dtype(hcclDataType_t data_type) {
-  if (data_type == hcclBfloat16 || data_type == hcclFloat) {
+  if (data_type == hcclBfloat16 || data_type == hcclFloat ||
+      data_type == hcclFloat16) {
     return true;
   }
   return false;
@@ -284,11 +285,13 @@ bool ProcessGroupHcclBase::CoalescedWorkHCCL::wait(
 }
 
 void ProcessGroupHcclBase::startCoalescing() {
-  TORCH_CHECK(
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] startCoalescing called");
+
+  HABANA_ASSERT(
       habana::HPUDeviceContext::is_device_acquired(),
       "HPU Device not initialized! startCoalescing cannot be done without device init!")
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       coalescing_state_ == 0,
       "Coalescing is already in progress. Have you invoked startCoalescing again without endCoalescing. BTW nested coalesing is not supported.");
 
@@ -300,10 +303,12 @@ void ProcessGroupHcclBase::startCoalescing() {
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::endCoalescing() {
-  TORCH_CHECK(
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] endCoalescing called");
+
+  HABANA_ASSERT(
       coalescing_state_ != 0, "endCoalescing invoked without startCoalescing");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       coalesed_works_ != nullptr, "Error: coalesed_works_ is not initied")
 
   coalescing_state_ = 0;
@@ -392,7 +397,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
                 stream);
           }
 
-          TORCH_CHECK(
+          HABANA_ASSERT(
               hcclSuccess == hccl_result, "Collective call returned error");
           data_offset =
               data_offset + (num_elements_in_current_chunk * element_size);
@@ -425,10 +430,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
     }
   }
 
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       allreduce_tensors,
       allreduce_tensors,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
@@ -474,7 +483,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
                 hccl_comm,
                 stream);
           }
-          TORCH_CHECK(
+          HABANA_ASSERT(
               hcclSuccess == hccl_result, "Collective call returned error");
           data_offset =
               data_offset + (num_elements_in_current_chunk * element_size);
@@ -483,6 +492,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
         return hccl_result;
       },
       true /*is_allreduce*/);
+
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < tensors.size(); i++) {
+      allreduce_tensors[i].div_(worldSize);
+    }
+  }
 
   for (size_t i = 0; i < tensors.size(); i++) {
     auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
@@ -520,11 +537,17 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
       reduction_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
+  int root_rank = (opts.rootRank * reduction_tensors.size() + opts.rootTensor);
+
   auto work = collective(
       reduction_tensors,
       reduction_tensors,
       [root = opts.rootRank * reduction_tensors.size() + opts.rootTensor,
-       reduceOp = opts.reduceOp,
+       reduceOp = reduce_op,
        this](
           at::Tensor& input,
           [[maybe_unused]] at::Tensor& output,
@@ -568,7 +591,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
                 hccl_comm,
                 stream);
           }
-          TORCH_CHECK(
+          HABANA_ASSERT(
               hcclSuccess == hccl_result, "Collective call returned error");
           data_offset =
               data_offset + (num_elements_in_current_chunk * element_size);
@@ -576,6 +599,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
         }
         return hccl_result;
       });
+
+  if (opts.reduceOp == c10d::ReduceOp::AVG && root_rank == getRank()) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < tensors.size(); i++) {
+      reduction_tensors[i].div_(worldSize);
+    }
+  }
 
   for (size_t i = 0; i < tensors.size(); i++) {
     auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
@@ -904,7 +935,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
                 stream);
           }
 
-          TORCH_CHECK(
+          HABANA_ASSERT(
               hcclSuccess == hccl_result, "Collective call returned error");
           data_offset =
               data_offset + (num_elements_in_current_chunk * element_size);
@@ -1056,11 +1087,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
   habana_lazy::NoAccThread no_acc_thread;
 
   if (input_tensor.dtype() != output_tensor.dtype()) {
-    TORCH_CHECK(false, "output tensor must have the same type as input tensor");
+    HABANA_ASSERT(
+        false, "output tensor must have the same type as input tensor");
   }
 
   if (input_tensor.numel() * size_ != output_tensor.numel()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         "output tensor size must be equal to world_size times input tensor size");
   }
@@ -1188,7 +1220,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_into_tensor_coalesced(
   habana_lazy::NoAccThread no_acc_thread;
 
   // Ensure that inputs and outputs have the same size
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == outputs.size(),
       "inputs and outputs must have the same number of tensors");
 
@@ -1196,12 +1228,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_into_tensor_coalesced(
     at::Tensor& input_tensor = inputs[i];
     at::Tensor& output_tensor = outputs[i];
     if (input_tensor.dtype() != output_tensor.dtype()) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false, "output tensor must have the same type as input tensor");
     }
 
     if (input_tensor.numel() * size_ != output_tensor.numel()) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "output tensor size must be equal to world_size times input tensor size");
     }
@@ -1316,13 +1348,13 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   static auto invalidArgument = [](const std::string& msg) {
-    TORCH_CHECK(false, "ProcessGroupHcclBase::gather: " + msg);
+    HABANA_ASSERT(false, "ProcessGroupHcclBase::gather: " + msg);
   };
   std::vector<at::Tensor> outputs;
   c10::intrusive_ptr<Work> work;
   if (getRank() == opts.rootRank) {
-    TORCH_CHECK(outputTensors.size() == 1, "Requires a single element list");
-    TORCH_CHECK(
+    HABANA_ASSERT(outputTensors.size() == 1, "Requires a single element list");
+    HABANA_ASSERT(
         outputTensors[0].size() == static_cast<size_t>(getSize()),
         "Output list should be same size as process group");
     assertTypeAndSizesMatch(
@@ -1344,7 +1376,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
       }
     }
   } else {
-    TORCH_CHECK(outputTensors.size() == 0, "Requires empty output on non-root");
+    HABANA_ASSERT(
+        outputTensors.size() == 0, "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (coalescing_state_) {
@@ -1362,13 +1395,13 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   static auto invalidArgument = [](const std::string& msg) {
-    TORCH_CHECK(false, "ProcessGroupHcclBase::scatter: " + msg);
+    HABANA_ASSERT(false, "ProcessGroupHcclBase::scatter: " + msg);
   };
   std::vector<at::Tensor> inputs;
   c10::intrusive_ptr<Work> work;
   if (getRank() == opts.rootRank) {
-    TORCH_CHECK(inputTensors.size() == 1, "Requires a single element list");
-    TORCH_CHECK(
+    HABANA_ASSERT(inputTensors.size() == 1, "Requires a single element list");
+    HABANA_ASSERT(
         inputTensors[0].size() == static_cast<size_t>(getSize()),
         "Input list should be same size as process group");
     assertTypeAndSizesMatch(
@@ -1390,7 +1423,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
       }
     }
   } else {
-    TORCH_CHECK(inputTensors.size() == 0, "Requires empty input on non-root");
+    HABANA_ASSERT(inputTensors.size() == 0, "Requires empty input on non-root");
     work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (coalescing_state_) {
@@ -1414,10 +1447,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
       inputFlattened[i][j].copy_(inputTensors[i][j], true);
     }
   }
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       inputFlattened,
       outputTensors,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
@@ -1452,6 +1489,13 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
         return hccl_result;
       });
 
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < outputTensors.size(); i++) {
+      outputTensors[i].div_(worldSize);
+    }
+  }
   if (coalescing_state_) {
     coalesed_works_->append(work);
   }
@@ -1468,12 +1512,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
   habana_lazy::NoAccThread no_acc_thread;
 
   if (input_tensor.dtype() != output_tensor.dtype()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false, "input tensor must be the same type as the output tensor.");
   }
 
   if (input_tensor.numel() != output_tensor.numel() * size_) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         false,
         "input tensor must be the same size as output size times world size");
   }
@@ -1496,10 +1540,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
   inputs.push_back(reduce_in_tensors);
   outputs.push_back(reduce_out_tensors);
 
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       inputs,
       outputs,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
@@ -1533,6 +1581,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
         }
         return hccl_result;
       });
+
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    reduce_out_tensors.div_(worldSize);
+  }
   if (!is_valid_hccl_dtype(data_type) && out_scalar_t != at::kInt &&
       out_scalar_t != at::kLong) {
     work->wait();
@@ -1552,7 +1606,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
     std::vector<at::Tensor>& inputs_in,
     const ReduceScatterOptions& opts) {
   // Ensure the number of input tensors matches the number of output tensors
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs_in.size() == outputs_in.size(),
       "The number of input tensors must match the number of output tensors.");
   std::vector<at::Tensor> inputs;
@@ -1563,12 +1617,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
     at::Tensor& output_tensor = outputs_in[i];
 
     if (input_tensor.dtype() != output_tensor.dtype()) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false, "Input tensor must be the same type as the output tensor.");
     }
 
     if (input_tensor.numel() != output_tensor.numel() * size_) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Input tensor must be the same size as output size times world size.");
     }
@@ -1594,10 +1648,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
     outputs.push_back(reduce_out_tensors);
   }
 
+  c10d::ReduceOp reduce_op = opts.reduceOp;
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    reduce_op = c10d::ReduceOp::SUM;
+  }
   auto work = collective(
       inputs,
       outputs,
-      [reduceOp = opts.reduceOp, this](
+      [reduceOp = reduce_op, this](
           at::Tensor& input,
           at::Tensor& output,
           const void* send_buffer,
@@ -1631,6 +1689,14 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
         }
         return hccl_result;
       });
+
+  if (opts.reduceOp == c10d::ReduceOp::AVG) {
+    auto worldSize = getSize();
+    work->wait();
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      outputs[i].div_(worldSize);
+    }
+  }
 
   for (size_t i = 0; i < inputs.size(); ++i) {
     at::Tensor& output_tensor = outputs[i];
@@ -1802,7 +1868,7 @@ void ProcessGroupHcclBase::hostBarrier() {
   storeKey += std::to_string(size_);
 
   auto first_count = store_->add(storeKey, 1);
-  TORCH_CHECK(first_count - 1 < size_, "Host barrier Key error");
+  HABANA_ASSERT(first_count - 1 < size_, "Host barrier Key error");
   auto worker_count = store_->add(storeKey, 0);
   while (worker_count != size_) {
     worker_count = store_->add(storeKey, 0);

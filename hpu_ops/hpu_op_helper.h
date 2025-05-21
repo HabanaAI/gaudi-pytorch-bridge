@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,8 +190,8 @@ inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {
 
 std::vector<at::Tensor> GetMetaTensorList(
     const std::vector<at::Tensor>& tensors);
-std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors);
+std::vector<std::optional<at::Tensor>> GetMetaOptTensorList(
+    const std::vector<std::optional<at::Tensor>>& tensors);
 
 template <typename T>
 T& get(fint_t&);
@@ -226,11 +226,11 @@ OutputMetaDataVector PointwiseMeta(const at::Stack& stack) {
 
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       inputs,
-      c10::nullopt,
+      std::nullopt,
       static_cast<habana_helpers::DTypeHelper::DtypePromoteVariant>(
           type_promotion_kind),
       false,
-      c10::nullopt,
+      std::nullopt,
       true,
       true);
 
@@ -265,7 +265,7 @@ template <unsigned... Is>
 auto get_or_create_tensor(
     OpBackend& op,
     synapse_helpers::graph& graph,
-    const c10::optional<TensorsPair>& tensor,
+    const std::optional<TensorsPair>& tensor,
     const c10::IntArrayRef& size,
     const c10::ScalarType& scalar_type,
     const at::Scalar& val,
@@ -374,19 +374,6 @@ auto get_or_create_tensor(
   }                                                                         \
   return lazy_op.call();
 
-#define RUN_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(op, lazy_op, result_func)   \
-  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
-    auto result = lazy_op.get_result();                                     \
-    result_func(result);                                                    \
-    scheduleAccTask(std::move(lazy_op), result);                            \
-    MAYBE_FLUSH_OP();                                                       \
-    return result;                                                          \
-  }                                                                         \
-  auto result = lazy_op.call();                                             \
-  result_func(result);                                                      \
-  return result;
-
 #define RUN_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)                \
   self = lazy_op.get_result(self);                                          \
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
@@ -453,24 +440,6 @@ auto get_or_create_tensor(
     });                                                                     \
   } else {                                                                  \
     func();                                                                 \
-  }                                                                         \
-  return out;
-
-#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(                  \
-    op, func, out, result_func)                                             \
-  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
-    habana_lazy::AccThread::Get().run([func = std::move(func)]() mutable {  \
-      PT_LAZY_TRACE_WITH_NAME(#op);                                         \
-      func();                                                               \
-      habana_lazy::AccThread::Get().PushCleanupTask(                        \
-          [func = std::move(func)]() {});                                   \
-    });                                                                     \
-    result_func(out);                                                       \
-    MAYBE_FLUSH_OP();                                                       \
-  } else {                                                                  \
-    func();                                                                 \
-    result_func(out);                                                       \
   }                                                                         \
   return out;
 
@@ -541,31 +510,6 @@ auto get_or_create_tensor(
   }                                                                         \
   lazy_view_fallback_handle(self, out, param_setter);                       \
   return out;
-
-#define RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1)             \
-  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
-    std::vector<at::Tensor> tensors_copy;                                   \
-    std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
-    auto result = lazy_op.get_result();                                     \
-    scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
-    MAYBE_FLUSH_OP();                                                       \
-    return result;                                                          \
-  }                                                                         \
-  return lazy_op.call();
-
-#define RUN_TENSOR_LIST2_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1, tl2)       \
-  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
-    std::vector<at::Tensor> tensors_copy;                                   \
-    std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
-    std::copy(tl2.begin(), tl2.end(), std::back_inserter(tensors_copy));    \
-    auto result = lazy_op.get_result();                                     \
-    scheduleAccTask(std::move(lazy_op), result, std::move(tensors_copy));   \
-    MAYBE_FLUSH_OP();                                                       \
-    return result;                                                          \
-  }                                                                         \
-  return lazy_op.call();
 
 #define RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, result)     \
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                       \

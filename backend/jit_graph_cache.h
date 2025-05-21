@@ -44,7 +44,8 @@ void ComputeGraphHashCode(
     bool dynamic_graph = false,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
     habana_helpers::HabanaFrontendTypes frontend_type =
-        habana_helpers::HabanaFrontendTypes::INVALID);
+        habana_helpers::HabanaFrontendTypes::INVALID,
+    std::vector<bool> is_reusable = {});
 
 size_t GetDataChecksum(void* data, size_t dataSize);
 
@@ -200,7 +201,8 @@ struct OptimizedJITGraphAndMetaData {
       const bool dynamic = false,
       const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes = {},
       habana_helpers::HabanaFrontendTypes frontend_type =
-          habana_helpers::HabanaFrontendTypes::INVALID);
+          habana_helpers::HabanaFrontendTypes::INVALID,
+      std::vector<bool> is_reusable = {});
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
@@ -249,6 +251,8 @@ struct OptimizedJITGraphAndMetaData {
       std::vector<habana_helpers::RangeInfo>& range_infos);
 
   std::vector<habana_helpers::RangeInfo> GetUserRangesDynamic();
+
+  const std::vector<bool>& GetIsReusable();
 
   bool IsUserMarkDynamic();
 
@@ -355,6 +359,14 @@ struct OptimizedJITGraphAndMetaData {
 
   void set_graph_key_with_perm(size_t key) {
     graph_key_with_perm_ = key;
+  }
+
+  bool get_valid_graph_symint_perm_hash() {
+    return valid_graph_symint_perm_hash;
+  }
+
+  void set_valid_graph_symint_perm_hash(bool val) {
+    valid_graph_symint_perm_hash = val;
   }
 
   size_t get_graph_perm_hash() {
@@ -498,6 +510,7 @@ struct OptimizedJITGraphAndMetaData {
   size_t graph_key_with_perm_ = 0;
   size_t graph_symint_hash_ = 0;
   size_t graph_perm_hash_ = 0;
+  bool valid_graph_symint_perm_hash = false;
   bool enable_optim_output_sif_ = false;
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
@@ -509,6 +522,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<int64_t> new_strided_insert_output_shape_;
   bool user_mark_dynamic = false;
   std::vector<habana_helpers::RangeInfo> m_range_infos;
+  std::vector<bool> m_is_reusable;
   bool skip_tensor_permutation_{false};
   size_t jit_cache_hit_count_ = 0;
 };
@@ -591,7 +605,7 @@ class JitGraphCache {
  private:
   explicit JitGraphCache();
 
-  std::mutex m_mutex;
+  std::shared_mutex m_mutex;
   // Cache stores a JIT graph shared_ptr and meta data for a given hash key
   std::unordered_map<
       size_t,
@@ -639,7 +653,7 @@ class OptimizedJitGraphCache {
     std::swap(m_cache_map, cache.m_cache_map);
   }
 
-  std::mutex m_mutex;
+  std::shared_mutex m_mutex;
 
   // Cache stores a JIT graph shared_ptr and meta data for a given hash key
   std::unordered_map<

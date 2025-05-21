@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ from test_utils import format_tc
 )
 def test_underscored_non_inplace_op(op, kwargs):
     try:
-        x = torch.randn((10)).to("hpu")
+        x = torch.randn(10).to("hpu")
         x_clone = x.clone()
         op(x_clone, **kwargs).cpu()
     except RuntimeError:

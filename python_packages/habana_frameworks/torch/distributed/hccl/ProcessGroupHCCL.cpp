@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "ProcessGroupHCCL.hpp"
 
@@ -27,8 +27,10 @@
 
 #include <c10/util/intrusive_ptr.h>
 
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/collective_utils.h"
+#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_context.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -76,7 +78,7 @@ void ProcessGroupHCCL::broadcastUniqueHCCLID(hcclUniqueId* hcclID) {
     store_->set(storeKey, vec);
   } else {
     auto vec = store_->get(storeKey);
-    TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
+    HABANA_ASSERT(vec.size() == sizeof(hcclUniqueId));
     std::memcpy(hcclID, vec.data(), vec.size());
   }
 }
@@ -105,7 +107,7 @@ void ProcessGroupHCCL::initializeCommForDevice(int deviceId) {
     auto hccl_rank = getRank();
     if (hccl_rank == 0) {
       hcclResult_t result{hcclGetUniqueId(&hccl_id)};
-      TORCH_CHECK(hcclSuccess == result, "Get HCCL UniqueId Error");
+      HABANA_ASSERT(hcclSuccess == result, "Get HCCL UniqueId Error");
     }
     broadcastUniqueHCCLID(&hccl_id);
     hcclComm_t new_comm;
@@ -113,7 +115,7 @@ void ProcessGroupHCCL::initializeCommForDevice(int deviceId) {
     if (!this->emulate_distributed_) {
       result = hcclCommInitRank(&new_comm, hccl_size, hccl_id, hccl_rank);
     }
-    TORCH_CHECK(hcclSuccess == result, "Comm Init Rank Error");
+    HABANA_ASSERT(hcclSuccess == result, "Comm Init Rank Error");
 
     std::lock_guard<std::mutex> lock(mutex_);
     hccl_communicator_[deviceId] = std::make_shared<hcclComm_t>(new_comm);
@@ -290,7 +292,7 @@ c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupHCCL::WorkHCCL::
 }
 
 void ProcessGroupHCCL::WorkHCCL::abort() {
-  TORCH_CHECK(false, "ProcessGroupHCCL::WorkHCCL::abort not implemented.");
+  HABANA_ASSERT(false, "ProcessGroupHCCL::WorkHCCL::abort not implemented.");
 }
 
 c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> ProcessGroupHCCL::initWork(
@@ -392,20 +394,28 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
       hcclResult_t hccl_result = hcclSuccess;
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-      struct ResourceHolder {
-        at::Tensor tensor_;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-      };
-      auto resource_holder = std::make_shared<ResourceHolder>();
-      resource_holder->tensor_ = tensor;
+      auto resource_holder = std::make_shared<GenericResourceHolder>();
+      if (!(common::IsRecordStreamEnabled() &&
+            GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+        resource_holder->add_tensor(tensor);
+      } else {
+        auto& device = habana::HPUDeviceContext::get_device();
+        synapse_helpers::hpuStream_t hpu_stream;
+        deviceCtxt->get_hpu_stream(collective_stream, &hpu_stream);
+
+        void* data_ptr = tensor.data_ptr();
+        device.get_device_memory().recordStream(data_ptr, hpu_stream);
+      }
 
       void* tensor_address;
       deviceCtxt->lock_address(
-          tensor.data_ptr(), &tensor_address, resource_holder->address_lock);
+          tensor.data_ptr(),
+          &tensor_address,
+          resource_holder->get_address_lock());
 
       hccl_result =
           fn(tensor, tensor_address, *comm, collective_stream, peerRank);
-      TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+      HABANA_ASSERT(hcclSuccess == hccl_result, "P2P call returned error");
 
       recipe_counter.increase();
       deviceCtxt->submit_events(
@@ -424,7 +434,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
       if (!GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC)) {
         synStatus syn_result = synSuccess;
         syn_result = synStreamSynchronize(collective_stream);
-        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+        HABANA_ASSERT(syn_result == synSuccess, "synStreamSynchronize failed");
       }
     } else {
       JobThreadHCCL::getInstance()->addJob(std::move(func));
@@ -433,7 +443,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
         deviceCtxt->synchronize_output(tensor_storage_ptr);
         synStatus syn_result = synSuccess;
         syn_result = synStreamSynchronize(collective_stream);
-        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+        HABANA_ASSERT(syn_result == synSuccess, "synStreamSynchronize failed");
       }
     }
   }
@@ -449,7 +459,7 @@ void ProcessGroupHCCL::groupStart() {
   auto func = [fn = fn, pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupStart();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         hcclSuccess == hccl_result, "hcclGroupStart call returned error");
     pr->set_value(hccl_result == hcclSuccess);
     return true;
@@ -470,7 +480,8 @@ void ProcessGroupHCCL::groupEnd() {
   auto func = [fn = fn, pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupEnd();
-    TORCH_CHECK(hcclSuccess == hccl_result, "hcclGroupEnd call returned error");
+    HABANA_ASSERT(
+        hcclSuccess == hccl_result, "hcclGroupEnd call returned error");
     pr->set_value(hccl_result == hcclSuccess);
     return true;
   };
@@ -493,7 +504,6 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
     std::vector<at::Tensor>& outputs,
     CollectiveFn fn,
     bool is_allreduce) {
-
   habana_lazy::HbExecutionContext* context =
       habana_lazy::get_device_lazy_execution_context();
 
@@ -572,22 +582,32 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
 
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-      struct ResourceHolder {
-        std::vector<at::Tensor> tensors_;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-      };
-      auto resource_holder = std::make_shared<ResourceHolder>();
-      resource_holder->tensors_ = {input, output};
+      auto resource_holder = std::make_shared<GenericResourceHolder>();
+      if (!(common::IsRecordStreamEnabled() &&
+            GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+        resource_holder->add_tensor(input);
+        resource_holder->add_tensor(output);
+      } else {
+        auto& device = habana::HPUDeviceContext::get_device();
+        synapse_helpers::hpuStream_t hpu_stream;
+        deviceCtxt->get_hpu_stream(collective_stream, &hpu_stream);
+
+        void* in_data_ptr = input.data_ptr();
+        void* out_data_ptr = output.data_ptr();
+        device.get_device_memory().recordStream(in_data_ptr, hpu_stream);
+        device.get_device_memory().recordStream(out_data_ptr, hpu_stream);
+      }
 
       void* input_address;
       void* output_address;
       deviceCtxt->lock_address(
-          {input.data_ptr(), output.data_ptr()}, resource_holder->address_lock);
+          {input.data_ptr(), output.data_ptr()},
+          resource_holder->get_address_lock());
       input_address =
-          reinterpret_cast<void*>(resource_holder->address_lock->at(0));
+          reinterpret_cast<void*>(resource_holder->get_address_lock()->at(0));
       HABANA_ASSERT(input_address != nullptr, "input_address is null");
       output_address =
-          reinterpret_cast<void*>(resource_holder->address_lock->at(1));
+          reinterpret_cast<void*>(resource_holder->get_address_lock()->at(1));
       HABANA_ASSERT(output_address != nullptr, "output_address is null");
 
       hccl_result =
@@ -597,7 +617,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
              output_address,
              *comm,
              collective_stream);
-      TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+      HABANA_ASSERT(
+          hcclSuccess == hccl_result, "Collective call returned error");
 
       recipe_counter.increase();
       deviceCtxt->submit_events(
@@ -616,7 +637,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
       if (!GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC)) {
         synStatus syn_result = synSuccess;
         syn_result = synStreamSynchronize(collective_stream);
-        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+        HABANA_ASSERT(syn_result == synSuccess, "synStreamSynchronize failed");
       }
     } else {
       JobThreadHCCL::getInstance()->addJob(std::move(func));
@@ -625,7 +646,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
         deviceCtxt->synchronize_output(output_storage_ptr);
         synStatus syn_result = synSuccess;
         syn_result = synStreamSynchronize(collective_stream);
-        TORCH_CHECK(syn_result == synSuccess, "synStreamSynchronize failed");
+        HABANA_ASSERT(syn_result == synSuccess, "synStreamSynchronize failed");
       }
     }
   }
@@ -676,7 +697,7 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
     std::vector<uint8_t> permutation;
     auto hb_weight_impl =
         habana_lazy::GetHbInternalTensorImpl(self_internal_tensor);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         hb_weight_impl != nullptr,
         "Tensor has to have backend impl before send op");
     permutation = hb_weight_impl->GetMemoryPermutation();
@@ -716,13 +737,14 @@ void ProcessGroupHCCL::clearPermutesFromRecvTensors(
         if (tensor.is_contiguous()) {
           auto base = habana_lazy::HbLazyTensorViews::get_recent_base_tensor(
               stride_params_opt.value().base);
-          TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+          HABANA_ASSERT(
+              base.storage(), "base tensor should have valid storage");
           self_hb_tensor = habana_lazy::GetHbLazyTensor(base);
         } else {
           is_non_contiguous_view = true;
         }
       } else {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             0, "Neither storage attached to input tensor, not its view.")
       }
     }

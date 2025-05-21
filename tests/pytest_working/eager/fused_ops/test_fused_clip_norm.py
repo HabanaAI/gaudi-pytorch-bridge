@@ -70,5 +70,5 @@ def test_fused_clip_norm(dtype):
     compare_tensors(n_hpu.to(cpu).detach(), n_cpu.detach(), atol=atol, rtol=rtol)
 
     # verify correctness of grad
-    for p, q in zip(op_hpu.parameters(), op.parameters()):
+    for p, q in zip(op_hpu.parameters(), op.parameters(), strict=False):
         compare_tensors(p.grad.data.to(cpu).detach(), q.grad.data.detach(), atol=atol, rtol=rtol)

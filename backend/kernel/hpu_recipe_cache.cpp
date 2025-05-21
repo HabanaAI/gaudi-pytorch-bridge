@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "backend/kernel/hpu_recipe_cache.h"
+#include <absl/strings/str_cat.h>
 #include "backend/kernel/hpu_habana_cache.h"
 #include "habana_serialization/cache_version.h"
 #include "habana_serialization/recipe_cache_config.h"
@@ -68,7 +69,7 @@ void RecipeCacheLRU::insert(
   // Pre-C++11 it could be linear, and it seems that this is the case here.
   // Skip the check to prevent perf issues like SW-216784 and hope corruption
   // won't happen until we switch back to C++11 ABI.
-  TORCH_CHECK(
+  HABANA_ASSERT(
       map_.size() == list_.size(),
       "lru cache corruption, map size ",
       map_.size(),
@@ -76,18 +77,10 @@ void RecipeCacheLRU::insert(
       list_.size());
 #endif
 
-  size_t rcnt{0};
-  bool dropped{true};
   if (!val->rvs_->dynamic_graph) {
     while (
-        !map_.empty() && dropped &&
-        (map_.size() >= max_size_ || habana::IsHostMemoryThresholdReached())) {
-      dropped = drop_lru_impl(rcnt);
-      if (!dropped) {
-        PT_BRIDGE_DEBUG(
-            "all recipes are in use, could not drop any, current recipe count ",
-            rcnt);
-      }
+        (map_.size() >= max_size_ || habana::IsHostMemoryThresholdReached()) &&
+        drop_lru_impl()) {
     }
   }
 
@@ -118,7 +111,7 @@ std::shared_ptr<RecipeHolder> RecipeCacheLRU::get(
     // Pre-C++11 it could be linear, and it seems that this is the case here.
     // Skip the check to prevent perf issues like SW-216784 and hope corruption
     // won't happen until we switch back to C++11 ABI.
-    TORCH_CHECK(
+    HABANA_ASSERT(
         map_.size() == list_.size(),
         "lru cache corruption, map size ",
         map_.size(),
@@ -147,15 +140,13 @@ std::shared_ptr<RecipeHolder> RecipeCacheLRU::get(
   return {nullptr};
 }
 
-bool RecipeCacheLRU::drop_lru(size_t& num_recipes) {
-  std::lock_guard<std::mutex> lg(mutex_);
-  bool dropped = drop_lru_impl(num_recipes, true);
-  return dropped;
+RecipeCacheLRU::dropped_recipe_t RecipeCacheLRU::drop_lru() {
+  std::lock_guard lg(mutex_);
+  return drop_lru_impl(true);
 }
 
-bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
-  bool dropped{false};
-  int use_count = 0;
+RecipeCacheLRU::dropped_recipe_t RecipeCacheLRU::drop_lru_impl(
+    bool mem_exhausted) {
   // remove a recipe from the last that is not being used
   if (!map_.empty()) {
     auto lit = list_.end();
@@ -193,28 +184,23 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
       RecipeValueSpec::total_recipe_ntbytes -= lit->second->rl_->ntensorbytes_;
 
       // Drop the entry from map_ and list_
-      dropped_recipe.first = lit->first;
-      dropped_recipe.second = lit->second;
+      dropped_recipe_t dropped_recipe(std::make_pair(lit->first, lit->second));
       map_.erase(lit->first);
       list_.erase(lit);
-      dropped = true;
-
       PT_BRIDGE_DEBUG(
           "after dropping lru recipe, #recipes ",
           RecipeValueSpec::get_recipe_count(),
           ", total size of graph recipes ",
           synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
+      return dropped_recipe;
     } else {
-      use_count++;
       PT_BRIDGE_DEBUG(
           "all recipes are in use used_recipe_count=",
-          use_count,
+          map_.size(),
           " can not drop any recipe");
     }
   }
-
-  num_recipes = map_.size() - use_count;
-  return dropped;
+  return {};
 }
 
 RecipeCacheLRU::RecipeCacheLRU() {
@@ -373,23 +359,10 @@ void DiskCache::flush() {
 
 std::shared_ptr<RecipeHolder> DiskCache::Find(const RecipeArgumentSpec& spec) {
   std::stringstream ss;
-  auto res = recipe_cache_.lookup(
+  auto recipe = recipe_cache_.lookup(
       std::to_string(spec.hashCode()) + cache_id_suffix_, ss);
-  if (res) {
-    auto val = std::make_shared<RecipeHolder>(ss);
-    if (*res != nullptr) {
-      if (!val->rl_->recipe_) {
-        PT_BRIDGE_WARN(
-            "Unexpected nullptr recipe came from cache entry for hash ",
-            std::to_string(spec.hashCode()));
-        return nullptr;
-      }
-      val->rl_->recipe_->syn_recipe_handle_ = *res;
-      val->rl_->recipe_->in_execution_phase_ = true;
-    }
-    return val;
-  }
-  return nullptr;
+
+  return recipe ? std::make_shared<RecipeHolder>(ss, *recipe) : nullptr;
 }
 
 std::shared_ptr<RecipeValueSpec> TemporaryRecipeStore::GetRVS(

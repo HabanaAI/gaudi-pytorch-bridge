@@ -22,7 +22,7 @@ import habana_frameworks.torch as htorch
 import numpy as np
 import pytest  # noqa F401
 import torch
-from test_utils import inference_env_fixture
+from test_utils import inference_env_fixture  # noqa F401
 
 serial_path = "/tmp/const_section_test/"
 
@@ -41,8 +41,8 @@ def const_section_fixture():
 class Net(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = torch.nn.Linear(16, 32)
-        self.fc2 = torch.nn.Linear(32, 2)
+        self.fc1 = torch.nn.Linear(2048, 1024)
+        self.fc2 = torch.nn.Linear(1024, 2)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -59,7 +59,7 @@ def test_const_serialization_cache(inference_env_fixture, const_section_fixture)
 
     htorch.core.hpu_inference_initialize(model)
 
-    X = torch.randn((3, 3, 16))
+    X = torch.randn((3, 3, 2048))
 
     with torch.no_grad():
         out = model(X)
@@ -68,7 +68,7 @@ def test_const_serialization_cache(inference_env_fixture, const_section_fixture)
 
     # check for 4 const weights serialized files
     num_files = len(os.listdir(os.path.join(serial_path, "0")))
-    assert 4 == num_files
+    assert num_files == 4
 
     # run from serialization
     with torch.no_grad():

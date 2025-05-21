@@ -1,19 +1,18 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-#include <c10_ver/core/SymIntArrayRef.h>
 #include "backend/habana_device/HPUEvent.h"
 #include "generated/eager/index.h"
 #include "generated/eager/wrap_kernels_declarations.h"
@@ -25,7 +24,7 @@ namespace habana {
 
 FALLBACK_CHECK(
     IndexFallbackCheck,
-    [[maybe_unused]] const c10::List<c10::optional<at::Tensor>>& indices) {
+    [[maybe_unused]] const c10::List<std::optional<at::Tensor>>& indices) {
   at::Stack stack = {indices};
   c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
   // TBD: NOTE: For eager: we are going to execute on CPU if indices are either
@@ -48,10 +47,10 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   std::vector<at::IValue> inputs_vec = sub_inputs;
   c10::ArrayRef<c10::IValue> indices_in;
   std::vector<c10::IValue> indices_in_ivals_vec;
-  std::vector<c10::optional<at::Tensor>> bool_indices_vec;
+  std::vector<std::optional<at::Tensor>> bool_indices_vec;
   std::vector<at::Tensor> indices_vec_out{};
   std::vector<at::Tensor> indices_vec;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "Index op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,
@@ -68,7 +67,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
       indices_in_orig, indices_in_ivals_vec, bool_indices_vec);
   if (has_bool_mask) {
     indices_in = indices_in_ivals_vec;
-    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
+    c10::List<std::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
     inputs_vec.clear();
     inputs_vec.emplace_back(sub_inputs.at(0));
     inputs_vec.emplace_back(c10::IValue(bool_mask_indices));
@@ -133,7 +132,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   }
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
-      TORCH_CHECK(0, "Indexing with CPU tensors is not supported for PT 2.0");
+      HABANA_ASSERT(0, "Indexing with CPU tensors is not supported for PT 2.0");
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }

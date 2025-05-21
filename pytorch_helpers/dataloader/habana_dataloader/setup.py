@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from setuptools import setup
 release_build_dir_var = "PYTORCH_MODULES_RELEASE_BUILD"
 release_build_dir = os.getenv(release_build_dir_var)
 if release_build_dir is None:
-    raise EnvironmentError(f"{release_build_dir_var} not set")
+    raise OSError(f"{release_build_dir_var} not set")
 build_dir = os.path.join(release_build_dir, "pytorch_helpers/dataloader/habana_dataloader")
 if os.path.exists(build_dir):
     shutil.rmtree(build_dir)
@@ -35,12 +35,12 @@ os.makedirs(build_dir)
 wheel_build_dir_var = "PYTORCH_MODULES_WHL_BUILD_DIR"
 wheel_build_dir = os.getenv(wheel_build_dir_var)
 if wheel_build_dir is None:
-    raise EnvironmentError(f"{wheel_build_dir_var} not set")
+    raise OSError(f"{wheel_build_dir_var} not set")
 
 wheel_pt_vers_var = "PT_WHEEL_VERS"
 wheel_pt_vers = os.getenv(wheel_pt_vers_var)
 if wheel_pt_vers is None:
-    raise EnvironmentError(f"{wheel_pt_vers_var} not set")
+    raise OSError(f"{wheel_pt_vers_var} not set")
 
 setup(
     name="habana-torch-dataloader",

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,16 +16,19 @@
 ###############################################################################
 
 
-from habana_frameworks.torch.utils import _debug_C
-from habana_frameworks.torch.utils.debug.logger import enable_logging, get_log_level
+from habana_frameworks.torch.utils.debug.logger import (
+    enable_logging,
+    get_log_level,
+    is_log_python_enabled,
+)
 
 
 def test_hpu_logger_values():
     def check(log_type):
         enable_logging("LOG_LEVEL_ALL", log_type)
-        assert _debug_C.is_log_python_enabled(get_log_level(log_type))
+        assert is_log_python_enabled(get_log_level(log_type))
 
-    assert not _debug_C.is_log_python_enabled(get_log_level("info"))
+    assert not is_log_python_enabled(get_log_level("info"))
     check("info")
     check("trace")
     check("critical")

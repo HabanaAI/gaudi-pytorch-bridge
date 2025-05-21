@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/cast_to_fp8_hybrid.h"
 
 namespace habana {
@@ -63,13 +63,13 @@ void CastToFp8Hybrid::AddNode(
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "CastToFp8Hybrid::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();
-  auto scale_152 = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto scale_143 = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto scale_152 = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto scale_143 = stackGetter.getNextInput<std::optional<TensorsPair>>();
   stackGetter.getNextInput<bool>();
   auto is_amax = stackGetter.getNextInput<bool>();
   auto src_type = self.pt_t.scalar_type();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
       "CastToFp8Hybrid input must be of float or bfloat16 dtype.");
 

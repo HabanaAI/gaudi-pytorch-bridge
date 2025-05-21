@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/bincount.h"
 #include "habana_eager/ops/bincount.h"
@@ -35,8 +35,8 @@ at::Tensor cast_to_32(const at::Tensor& self) {
   return self;
 }
 
-c10::optional<at::Tensor> cast_weights(
-    const c10::optional<at::Tensor>& weights) {
+std::optional<at::Tensor> cast_weights(
+    const std::optional<at::Tensor>& weights) {
   if (weights.has_value() &&
       (weights.value().dtype() != c10::ScalarType::Int &&
        weights.value().dtype() != c10::ScalarType::Float)) {
@@ -46,7 +46,7 @@ c10::optional<at::Tensor> cast_weights(
 }
 
 c10::ScalarType bincount_output_dtype(
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   if (!weights.has_value()) {
     return c10::ScalarType::Long;
   }
@@ -57,10 +57,10 @@ c10::ScalarType bincount_output_dtype(
 
 at::Tensor bincount_eager(
     const at::Tensor& self,
-    const c10::optional<at::Tensor>& weights,
+    const std::optional<at::Tensor>& weights,
     int64_t minlength) {
   PT_EAGER_TRACE;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       minlength >= 0 && minlength <= std::numeric_limits<int32_t>::max(),
       "Invalid length. Possible over or underflow.");
   // Handle case for empty tensor where we return empty tensor with size
@@ -71,7 +71,14 @@ at::Tensor bincount_eager(
   }
 
   // .item() internally triggers a mark_step
-  auto max_in_input = static_cast<int64_t>(at::max(self).item<int64_t>());
+  const auto self_dtype = self.scalar_type();
+  auto maybe_casted_self = self;
+  if (self_dtype == c10::ScalarType::Short ||
+      self_dtype == c10::ScalarType::Char)
+    maybe_casted_self = self.to(c10::ScalarType::Int);
+
+  auto max_in_input =
+      static_cast<int64_t>(at::max(maybe_casted_self).item<int64_t>());
   auto length = std::max(max_in_input + 1, minlength);
   std::vector<int64_t> shape{length};
   auto out_dtype = bincount_output_dtype(weights);

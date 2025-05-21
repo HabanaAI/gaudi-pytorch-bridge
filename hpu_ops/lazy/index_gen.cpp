@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/lazy/gather.h"
 #include "generated/lazy/index.h"
@@ -22,7 +22,7 @@ namespace habana {
 
 FALLBACK_CHECK(
     IndexFallbackCheck,
-    [[maybe_unused]] const c10::List<c10::optional<at::Tensor>>& indices) {
+    [[maybe_unused]] const c10::List<std::optional<at::Tensor>>& indices) {
   return true;
 };
 
@@ -33,10 +33,10 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   std::vector<at::IValue> inputs_vec = sub_inputs;
   c10::ArrayRef<c10::IValue> indices_in;
   std::vector<c10::IValue> indices_in_ivals_vec;
-  std::vector<c10::optional<at::Tensor>> bool_indices_vec;
+  std::vector<std::optional<at::Tensor>> bool_indices_vec;
   std::vector<at::Tensor> indices_vec_out{};
   std::vector<at::Tensor> indices_vec;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "Index op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,
@@ -54,7 +54,7 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
       indices_in_orig, indices_in_ivals_vec, bool_indices_vec);
   if (has_bool_mask) {
     indices_in = indices_in_ivals_vec;
-    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
+    c10::List<std::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
     inputs_vec.clear();
     inputs_vec.emplace_back(sub_inputs.at(0));
     inputs_vec.emplace_back(c10::IValue(bool_mask_indices));

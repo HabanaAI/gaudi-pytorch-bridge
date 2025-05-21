@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/synapse_helpers/device_helpers.h"
 #include "generated/backend/where.h"
@@ -50,7 +50,7 @@ SharedMetaDataVector WhereSharedMeta(
 
   auto result_type = habana_helpers::DTypeHelper::get_compute_dtype(
       {self, other},
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   whereMeta.outputs_data.emplace_back(self.dim(), result_type);
@@ -65,9 +65,9 @@ void WhereBackend::AddNode(
   const auto& self = stack_tensor(stack, 1);
   const auto& other = stack_tensor(stack, 2);
 
-  c10::optional<const at::IValue*> output = IsOutputAvailable()
+  std::optional<const at::IValue*> output = IsOutputAvailable()
       ? c10::make_optional<const at::IValue*>(&stack.back())
-      : c10::nullopt;
+      : std::nullopt;
 
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(

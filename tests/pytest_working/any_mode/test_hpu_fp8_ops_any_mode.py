@@ -16,30 +16,28 @@
 ###############################################################################
 from enum import Enum
 
+import habana_frameworks.torch.hpu as ht
 import numpy as np
 import pytest
 import torch
-from fp8_utils import FP8_MAX, fp8_dtypes, simulateFp8Precision
+from fp8_utils import FP8_MAX, convertExpBiasToScale, fp8_dtypes, simulateFp8Precision
 from test_utils import (
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_gaudi2,
+    is_gaudi3,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
     is_pytest_mode_lazy,
+    use_eager_fallback,
 )
 
 Verbose = False
 
 # Disable dynamic shapes
-import habana_frameworks.torch.hpu as ht
-
 ht.disable_dynamic_shape()
-
-pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support fp8")]
 
 
 class ScaleMode(Enum):
@@ -53,7 +51,9 @@ def cast_to_fp8_v2_common(shape, dtype, stochastic, is_amax, scale_mode, axis, o
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
     input_neg = -input_pos
-    input = torch.cat((input_pos, input_neg))
+
+    input_cpu = torch.cat((input_pos, input_neg))
+    input_hpu = input_cpu.to(hpu)
 
     scale_shape = None
     scale = torch.tensor(1.0)
@@ -64,7 +64,7 @@ def cast_to_fp8_v2_common(shape, dtype, stochastic, is_amax, scale_mode, axis, o
         if scale_mode in [ScaleMode.TENSOR, ScaleMode.SCALAR]:
             scale_val = 1.3
         else:
-            scale_val = (np.random.rand(input.shape[-1 - axis]) * 2.0 + 0.5).astype(np.float32)
+            scale_val = (np.random.rand(input_cpu.shape[-1 - axis]) * 2.0 + 0.5).astype(np.float32)
         scale = torch.tensor(scale_val)
 
         if scale_mode in [ScaleMode.TENSOR, ScaleMode.TENSOR_CHANNEL]:
@@ -82,7 +82,7 @@ def cast_to_fp8_v2_common(shape, dtype, stochastic, is_amax, scale_mode, axis, o
             scale_shape = scale.shape
 
     scale_inv = scale.reciprocal()
-    scaled_input_low_precision = simulateFp8Precision(input * scale.to(dtype), out_dtype)
+    scaled_input_low_precision = simulateFp8Precision(input_cpu * scale.to(dtype), out_dtype)
     unscaled_input = scaled_input_low_precision * scale_inv.to(dtype)
 
     def fn(
@@ -107,7 +107,7 @@ def cast_to_fp8_v2_common(shape, dtype, stochastic, is_amax, scale_mode, axis, o
     fn = compile_function_if_compile_mode(fn)
 
     casted, amax, uncasted = fn(
-        input.to(hpu),
+        input_hpu,
         scale_hpu,
         scale_inv_hpu,
         stochastic,
@@ -120,13 +120,13 @@ def cast_to_fp8_v2_common(shape, dtype, stochastic, is_amax, scale_mode, axis, o
     uncasted_cpu = uncasted.cpu()
 
     if stochastic:
-        assert torch.allclose(uncasted_cpu, unscaled_input, rtol=0.26, atol=0.0)
+        torch.testing.assert_close(uncasted_cpu, unscaled_input, rtol=0.26, atol=0.0)
         assert not torch.equal(uncasted_cpu, unscaled_input)
     else:
         assert torch.equal(uncasted_cpu, unscaled_input)
 
     if is_amax:
-        assert amax.cpu() == torch.max(input.abs())
+        assert amax.cpu() == torch.max(input_cpu.abs())
         assert amax.dim() == 0
     else:
         assert amax.numel() == 0
@@ -256,6 +256,39 @@ def test_sftz_rounding_mode():
     assert torch.allclose(torch.mean(result_cpu), torch.tensor(value), atol=0.0, rtol=0.1)
 
 
+@pytest.mark.parametrize("scale", [None, 4.5, torch.tensor(3.5), [2.5, 1.5]], ids=format_tc)
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
+def test_cast_to_fp8_v2_fwd_bwd(scale, dtype, fp8_dtype):
+    shape = (20, 2)
+
+    x_cpu = torch.rand(shape, requires_grad=True, dtype=dtype)
+    x_hpu = x_cpu.to("hpu").detach().requires_grad_()
+
+    scale_cpu = scale
+    if scale_cpu is None:
+        scale_cpu = 1.0
+    elif isinstance(scale, list):
+        scale_cpu = torch.tensor(scale)
+    result_cpu = (x_cpu * scale_cpu).to(fp8_dtype)
+
+    fn_hpu = compile_function_if_compile_mode(torch.ops.hpu.cast_to_fp8_v2)
+    if isinstance(scale, torch.Tensor):
+        scale = scale.to("hpu")
+    result_hpu, _ = fn_hpu(x_hpu, scale, dtype=fp8_dtype)
+
+    torch.testing.assert_close(result_hpu.cpu().to(dtype), result_cpu.to(dtype), rtol=1.0e-3, atol=0.07)
+
+    grad_in_cpu = torch.rand_like(result_cpu, dtype=dtype).to(fp8_dtype)
+    result_cpu.backward(gradient=grad_in_cpu)
+    result_hpu.backward(gradient=grad_in_cpu.to("hpu"))
+
+    torch.testing.assert_close(x_hpu.grad.cpu(), x_cpu.grad.cpu(), rtol=1.0e-3, atol=1.0e-3)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
+
+
 def cast_to_fp8_hybrid_common(shape, dtype, stochastic, is_amax, is_scale_152, is_scale_143):
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
@@ -335,6 +368,7 @@ def cast_to_fp8_hybrid_common(shape, dtype, stochastic, is_amax, is_scale_152, i
         check_ops_executed_in_jit_ir({"cast_to_fp8_hybrid", "cast_from_fp8"})
 
 
+@pytest.mark.skipif(is_gaudi3(), reason="Gaudi3 doesn't use cast_to_fp8_hybrid")
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("stochastic", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
@@ -342,10 +376,37 @@ def test_cast_to_fp8_hybrid(dtype, stochastic, is_amax):
     cast_to_fp8_hybrid_common((64, 48), dtype, stochastic, is_amax, True, True)
 
 
+@pytest.mark.skipif(is_gaudi3(), reason="Gaudi3 doesn't use cast_to_fp8_hybrid")
 @pytest.mark.parametrize("is_scale_152", [True, False])
 @pytest.mark.parametrize("is_scale_143", [True, False])
 def test_cast_to_fp8_hybrid_scales(is_scale_152, is_scale_143):
     cast_to_fp8_hybrid_common((16, 24, 8), torch.bfloat16, True, True, is_scale_152, is_scale_143)
+
+
+def test_fp8_gemm_out():
+    shape_a = (8, 12)
+    shape_b = (12, 16)
+
+    src_dtype = torch.float8_e5m2
+    dst_dtype = torch.bfloat16
+
+    a = torch.randn(shape_a).to(src_dtype)
+    b = torch.randn(shape_b).to(src_dtype)
+
+    ah = a.to("hpu")
+    bh = b.to("hpu")
+
+    a = a.to(dst_dtype)
+    b = b.to(dst_dtype)
+
+    result_cpu = torch.matmul(a, b)
+    result_hpu = torch.empty(result_cpu.shape, dtype=dst_dtype, device="hpu")
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_gemm)
+
+    fn(ah, False, bh, False, result_hpu, dst_dtype, None, None, None, False, result_hpu)
+
+    compare_tensors(result_hpu.cpu(), result_cpu, rtol=0.0, atol=0.0)
 
 
 def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp8_dtype):
@@ -404,7 +465,7 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
     As_hpu = [A_hpu[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A_hpu]
     Bs = [B[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B]
     Bs_hpu = [B_hpu[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B_hpu]
-    result_ref = [torch.matmul(a.transpose(-2, -1), b) for a, b in zip(As, Bs)]
+    result_ref = [torch.matmul(a.transpose(-2, -1), b) for a, b in zip(As, Bs, strict=False)]
 
     out_shape = [rr.shape for rr in result_ref]
     bias_tensor = [torch.rand(s, dtype=dtype) * 10 + 30.0 for s in out_shape]
@@ -456,16 +517,18 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
             tBias,
             accumulate,
         )
-        for tA, tB, tOut, tBias in zip(As_hpu, Bs_hpu, out_hpu, bias_tensor_hpu)
+        for tA, tB, tOut, tBias in zip(As_hpu, Bs_hpu, out_hpu, bias_tensor_hpu, strict=False)
     ]
 
     if bias:
-        result_ref = [rRef + tBias for rRef, tBias in zip(result_ref, bias_tensor)]
+        result_ref = [rRef + tBias for rRef, tBias in zip(result_ref, bias_tensor, strict=False)]
     if accumulate:
-        result_ref = [rRef + o for rRef, o in zip(result_ref, out)]
+        result_ref = [rRef + o for rRef, o in zip(result_ref, out, strict=False)]
     result = [r.cpu() for r in result]
 
-    percentage_diff = [torch.abs((((r - rRef) / rRef) * 100).to(torch.int)) for r, rRef in zip(result, result_ref)]
+    percentage_diff = [
+        torch.abs((((r - rRef) / rRef) * 100).to(torch.int)) for r, rRef in zip(result, result_ref, strict=False)
+    ]
     for pd in percentage_diff:
         assert np.amax(pd.numpy()) <= 15
 
@@ -735,7 +798,10 @@ def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out):
 @pytest.mark.parametrize("scale_out", [0.0625, 256.0, 7.5])
 def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
     ht.enable_inference_mode()
-    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import (
+        _check_params_as_const,
+        _mark_params_as_const,
+    )
 
     dtype = torch.bfloat16
 
@@ -750,7 +816,7 @@ def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
 
     class TestModel(torch.nn.Module):
         def __init__(self, input_scale, other_scale, out_scale):
-            super(TestModel, self).__init__()
+            super().__init__()
             self.input_scale = torch.nn.Parameter(input_scale)
             self.other_scale = torch.nn.Parameter(other_scale)
             self.out_scale = torch.nn.Parameter(out_scale)
@@ -784,7 +850,10 @@ def test_fp8_gemm_v2_diff_scales_const_at_cache_hit():
     import habana_frameworks.torch.core as htcore
 
     ht.enable_inference_mode()
-    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import (
+        _check_params_as_const,
+        _mark_params_as_const,
+    )
 
     scale_a = [16.0, 1.0, 7.5]
     scale_b = [16.0, 1.0, 7.5]
@@ -802,7 +871,7 @@ def test_fp8_gemm_v2_diff_scales_const_at_cache_hit():
 
     class TestModel(torch.nn.Module):
         def __init__(self, input_scale, other_scale, out_scale):
-            super(TestModel, self).__init__()
+            super().__init__()
             self.input_scale = torch.nn.Parameter(input_scale)
             self.other_scale = torch.nn.Parameter(other_scale)
             self.out_scale = torch.nn.Parameter(out_scale)
@@ -1018,6 +1087,161 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
     compare_tensors(res_fp8_tensor, res_fp8_scalar, atol=1e-2, rtol=0.125)
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"conv2d_fp8", "cast_to_fp8_v2"})
+    ht.disable_inference_mode()
+
+
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+def test_conv2d_fp8_h2d():
+    N, C, H, W = (8, 3, 28, 28)
+    out_channels = 16
+    kernel = (2, 2)
+    stride = (1, 1)
+    padding = (0, 0)
+    dilation = (1,)
+    fp8_dtype = torch.float8_e4m3fn
+    out_dtype = torch.bfloat16
+
+    input_hpu = torch.rand((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to("hpu")
+    weight_hpu = torch.rand((out_channels, C, kernel[0], kernel[1]), dtype=out_dtype).to(fp8_dtype).to("hpu")
+    bias_hpu = None
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.conv2d_fp8)
+
+    scale_a = torch.tensor(2.4)
+    scale_b = torch.tensor(1.1)
+
+    with pytest.raises(RuntimeError) as e:
+        fn(input_hpu, weight_hpu, bias_hpu, stride, padding, dilation, 1, out_dtype, scale_a, scale_b).cpu()
+
+    exception_msg = str(e.value.inner_exception) if is_pytest_mode_compile() else str(e)
+    assert "conv2d_fp8.default doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
+
+
+@pytest.mark.skipif(is_gaudi2(), reason="https://jira.habana-labs.com/browse/SW-224554")
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+@pytest.mark.parametrize("src_dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("batched_tensors", [False, True])
+@pytest.mark.parametrize("fuse_cast", [False, True])
+def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
+    ht.enable_inference_mode()
+
+    fp8_dtype = torch.float8_e4m3fn
+    shape_a = (4, 8)
+    shape_b = (8, 16)
+    if batched_tensors:
+        shape_a = (2, 1) + shape_a
+        shape_b = (2,) + shape_b
+
+    bias_values = [3, 7, 11, 15] if is_gaudi2() else [2, 6, 12, 15]
+    scale_values = convertExpBiasToScale(bias_values)
+    scale_out_values = convertExpBiasToScale((3, 11)) if fuse_cast else (1.0,)
+
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    htexp._set_scale_attributes(True, 10)
+
+    def generate_inputs(scale_a, scale_b, scale_out):
+        a = torch.randn(shape_a, dtype=src_dtype)
+        b = torch.randn(shape_b, dtype=src_dtype)
+        if scale_a == 256.0:
+            a /= 4.0
+        if scale_b == 256.0:
+            b /= 4.0
+        ah = a.to("hpu")
+        bh = b.to("hpu")
+        sa = torch.tensor(sa_val)
+        sb = torch.tensor(sb_val)
+        so = torch.tensor(scale_out)
+
+        return a, b, ah, bh, sa, sb, so
+
+    def fn_hpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
+        scaled_a, _ = torch.ops.hpu.cast_to_fp8_v2(a, sa, False, False, fp8_dtype)
+        scaled_b, _ = torch.ops.hpu.cast_to_fp8_v2(b, sb, False, False, fp8_dtype)
+        if fuse_cast:
+            return torch.ops.hpu.cast_to_fp8_v2(
+                torch.ops.hpu.fp8_gemm_v2(
+                    scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+                ),
+                scale_out,
+                False,
+                False,
+                fp8_dtype,
+            )[0]
+        else:
+            return torch.ops.hpu.fp8_gemm_v2(
+                scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+            )
+
+    def fn_cpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
+        scaled_a = (a * sa).to(fp8_dtype).to(src_dtype)
+        scaled_b = (b * sb).to(fp8_dtype).to(src_dtype)
+        res = torch.matmul(scaled_a, scaled_b) * (sa_inv * sb_inv)
+        if fuse_cast:
+            res = (res * scale_out).to(fp8_dtype)
+        return res
+
+    fn_hpu = compile_function_if_compile_mode(fn_hpu, dynamic=False)
+
+    for sa_val in scale_values:
+        for sb_val in scale_values:
+            for so_val in scale_out_values:
+                a, b, ah, bh, sa, sb, so = generate_inputs(sa_val, sb_val, so_val)
+
+                # Scales as CPU Tensors are intentional.
+                res_hpu = fn_hpu(ah, bh, sa, sb, 1 / sa, 1 / sb, so)
+                res_cpu = fn_cpu(a, b, sa, sb, 1 / sa, 1 / sb, so)
+
+                tol = 1e-5 if src_dtype == torch.float else 0.125
+
+                compare_tensors(res_hpu, res_cpu, atol=tol, rtol=tol)
+
+    htexp._set_scale_attributes(False, 0)
+    ht.disable_inference_mode()
+
+
+@pytest.mark.skipif(is_gaudi2(), reason="https://jira.habana-labs.com/browse/SW-224554")
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
+def test_sdpa_h2d():
+    ht.enable_inference_mode()
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    htexp._set_scale_attributes(True, 10)
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_sdpa_recomp_fwd)
+    fp8_type = torch.float8_e4m3fn
+
+    q = torch.randn((3, 4, 12, 8)).to(fp8_type).to("hpu")
+    k = torch.randn((3, 4, 8, 8)).to(fp8_type).to("hpu")
+    v = torch.randn((3, 4, 8, 8)).to(fp8_type).to("hpu")
+
+    # Exp biases, converted later to actual scale values.
+    bias_values = [(11, 3, 3, 1, 11, 3), (11, 3, 3, 11, 3, 11)]
+
+    results_h2d = []
+    results_ref = []
+
+    def execute_sdpa(results):
+        for biases in bias_values:
+            scales = tuple(torch.tensor(s) for s in convertExpBiasToScale(biases))
+            res = fn(q, k, v, None, 0.0, 1.0, False, False, "fp32", *scales, False, False, None, "left")[0].cpu()
+            results.append(res)
+
+    # Call sdpa with cpu scales converted to H2D tensors and executed
+    # in optimized way using hw-scaling.
+    execute_sdpa(results_h2d)
+
+    htexp._set_scale_attributes(False, 0)
+
+    # Compile sdpa once again, this time without H2D scaling optimization.
+    # Eager fallback is needed, because cpu scales are copied into HPU.
+    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_sdpa_recomp_fwd)
+    with use_eager_fallback():
+        execute_sdpa(results_ref)
+
+    for res_h2d, res_ref in zip(results_h2d, results_ref, strict=False):
+        compare_tensors(res_h2d, res_ref, atol=0.0, rtol=0.125)
+
     ht.disable_inference_mode()
 
 

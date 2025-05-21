@@ -25,7 +25,7 @@ void RotaryPosEmbedding::AddNode(
   auto input = stackGetter.getNextInput<TensorsPair>();
   auto sin = stackGetter.getNextInput<TensorsPair>();
   auto cos = stackGetter.getNextInput<TensorsPair>();
-  auto position_ids = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto position_ids = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto offset = stackGetter.getNextInput<int>();
   auto mode = stackGetter.getNextInput<int>();
 
@@ -54,7 +54,7 @@ void RotaryPosEmbeddingBackward::AddNode(
   auto grad_in = stackGetter.getNextInput<TensorsPair>();
   auto sin = stackGetter.getNextInput<TensorsPair>();
   auto cos = stackGetter.getNextInput<TensorsPair>();
-  auto position_ids = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto position_ids = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto offset = stackGetter.getNextInput<int>();
   auto mode = stackGetter.getNextInput<int>();
 

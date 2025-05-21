@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "cache_version.h"
 
 #include <ATen/ATen.h>
@@ -40,8 +40,8 @@ std::string get_synapse_lib_path(void) {
       continue;
     }
 
-    absl::string_view soname{line.c_str() + name_start + 1};
-    absl::string_view sopath{line.c_str() + path_start};
+    std::string_view soname{line.c_str() + name_start + 1};
+    std::string_view sopath{line.c_str() + path_start};
     // in docker the name is libSynapse.so.1
     if (soname == "libSynapse.so" || soname == "libSynapse.so.1") {
       return std::string{sopath};

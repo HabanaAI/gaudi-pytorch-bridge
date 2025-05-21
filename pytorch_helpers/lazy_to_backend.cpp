@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/lazy_to_backend.h"
 #include "backend/backend_meta.h"
@@ -34,19 +34,19 @@ bool lazy_to_backend::is_lazy_inference_call_context() {
 at::Tensor habana_lazy::empty_hpu_lazy(
     c10::IntArrayRef size,
     const at::TensorOptions& options,
-    c10::optional<c10::MemoryFormat> optional_memory_format,
+    std::optional<c10::MemoryFormat> optional_memory_format,
     bool create_storage,
     synTensorType tensor_type,
-    c10::optional<std::reference_wrapper<const at::Tensor>> base_view,
+    std::optional<std::reference_wrapper<const at::Tensor>> base_view,
     bool is_strided) {
   PT_LAZY_TRACE;
-  c10::optional<c10::MemoryFormat> mem_format =
+  std::optional<c10::MemoryFormat> mem_format =
       optional_memory_format.has_value() ? optional_memory_format
                                          : options.memory_format_opt();
   auto original_dtype = options.dtype();
   auto type = c10::typeMetaToScalarType(original_dtype);
   auto shape_tensor = habana_helpers::is_shape_tensor(tensor_type);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       options.pinned_memory() == false,
       "habana allocator doesn't supported pinned memory");
 
@@ -78,7 +78,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
           new_dtype,
           tensor_type,
           base.sizes(),
-          c10::nullopt,
+          std::nullopt,
           mem_format);
     } else {
       int64_t n_elements = multiply_integers(size);
@@ -102,7 +102,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
           new_dtype,
           tensor_type,
           size,
-          c10::nullopt,
+          std::nullopt,
           mem_format);
     }
 
@@ -156,7 +156,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
       }
 
       at_tensor = AtenFromHbLazyTensor(
-          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format);
+          std::move(hb_tensor), tensor_type, size, std::nullopt, mem_format);
 
       // As its an inplace op and we want this op to execute
       // we want to wind back status of this tensor to registered
@@ -175,7 +175,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
       // Note: storage() api call also sets the front end storage()
       if (create_storage && at_tensor.numel()) {
         if (!is_strided) {
-          TORCH_CHECK(
+          HABANA_ASSERT(
               (at_tensor.storage().data_ptr() &&
                (at_tensor.data_ptr() != nullptr)),
               "t_updated tensor is expected to be have storage and valid data_ptr ",
@@ -202,11 +202,11 @@ at::Tensor habana_lazy::empty_hpu_lazy(
           key_set,
           tensor_type,
           size,
-          c10::nullopt,
+          std::nullopt,
           mem_format));
     } else {
       return (AtenFromHbLazyTensor(
-          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format));
+          std::move(hb_tensor), tensor_type, size, std::nullopt, mem_format));
     }
   }
 }

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "habana_helpers/logging.h"
+#include "habana_helpers/pt_version_check.h"
 #include "jit_fork/frontend/error_report.h"
 #include "jit_fork/frontend/parser_constants.h"
 #include "jit_fork/frontend/source_range.h"
@@ -341,7 +342,12 @@ struct TORCH_API SharedParserData {
   // 1. skip whitespace
   // 2. handle comment or newline
   //
-  bool isNumber(c10::string_view str, size_t start, size_t* len) {
+
+#if IS_PYTORCH_AT_LEAST(2, 7)
+  bool isNumber(std::string_view str, size_t start, size_t* len) {
+#else
+  bool isNumber(std::string_view str, size_t start, size_t* len) {
+#endif
     char first = str[start];
     // strtod allows numbers to start with + or - or nan or inf
     // http://en.cppreference.com/w/cpp/string/byte/strtof
@@ -362,7 +368,11 @@ struct TORCH_API SharedParserData {
     return *len > 0;
   }
 
-  bool isCharCount(char c, c10::string_view str, size_t start, int len) {
+#if IS_PYTORCH_AT_LEAST(2, 7)
+  bool isCharCount(char c, std::string_view str, size_t start, int len) {
+#else
+  bool isCharCount(char c, std::string_view str, size_t start, int len) {
+#endif
     // count checks from [start, start + len)
     return start + len <= str.size() &&
         std::count(str.begin() + start, str.begin() + start + len, c) == len;
@@ -372,7 +382,11 @@ struct TORCH_API SharedParserData {
   // strings can be enclosed with 1 or 3 single or double quotes
   // if enclosed with 3 quotes newlines are valid
   // as elsewhere, backslash and new line should be ignored
-  bool isString(c10::string_view str, size_t start, size_t* len) {
+#if IS_PYTORCH_AT_LEAST(2, 7)
+  bool isString(std::string_view str, size_t start, size_t* len) {
+#else
+  bool isString(std::string_view str, size_t start, size_t* len) {
+#endif
     char quote = str[start];
     if (quote != '\"' && quote != '\'')
       return false;
@@ -405,7 +419,11 @@ struct TORCH_API SharedParserData {
   }
 
   bool isTypeComment(StringCordView::Iterator str_iter) {
-    c10::string_view rest_line = str_iter.rest_line();
+#if IS_PYTORCH_AT_LEAST(2, 7)
+    std::string_view rest_line = str_iter.rest_line();
+#else
+    std::string_view rest_line = str_iter.rest_line();
+#endif
     const std::string type_string = "# type:";
     if (rest_line.size() < type_string.length()) {
       return false;

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ def need_op_sublist_stats():
     if not need:
         return None, None
 
-    op_sl_file = open(s, "r")
+    op_sl_file = open(s)
     op_sl = op_sl_file.readlines()
     op_sl_array = []
     for line in op_sl:
@@ -303,7 +303,7 @@ def get_unique_op_name(n):
 def unique_ops_stats_v1(unique_ops, pt_op_dict):
     unique_op_dict = {}
     for uop in unique_ops:
-        for k, v in pt_op_dict.items():
+        for k, _ in pt_op_dict.items():
             p_uop = get_unique_op_name(k)
             def_dict = {"total_variants": 0, "cvi": 0, "cvni": 0, "ncvi": 0, "ncvni": 0, "rlv": "no", "tc": 0, "tnc": 0}
             if uop == p_uop:
@@ -333,7 +333,7 @@ def unique_ops_stats_v1(unique_ops, pt_op_dict):
 def unique_ops_stats_v2(unique_ops, pt_op_dict):
     unique_op_dict = {}
     for uop in unique_ops:
-        for k, v in pt_op_dict.items():
+        for k, _ in pt_op_dict.items():
             p_uop = get_unique_op_name(k)
             def_dict = {
                 "total_variants": 0,
@@ -399,7 +399,7 @@ def combine_auto_generated_files(p):
     print(files)
     l_auto_ops_decl = []
     for f in files:
-        f_auto_ops_decl = open(f, "r")
+        f_auto_ops_decl = open(f)
         l = f_auto_ops_decl.readlines()
         l_auto_ops_decl.extend(l)
         f_auto_ops_decl.close()
@@ -408,7 +408,7 @@ def combine_auto_generated_files(p):
 
 def get_manual_ops_with_overrides_in_yaml(f_yaml):
     manual_ops_override = []
-    with open(f_yaml, "r") as stream:
+    with open(f_yaml) as stream:
         try:
             yaml_dict = yaml.safe_load(stream)
             # print(yaml_dict)
@@ -422,10 +422,7 @@ def get_manual_ops_with_overrides_in_yaml(f_yaml):
 
 
 def is_op_overridden_in_yaml(op_name, ops_override_list):
-    for op in ops_override_list:
-        if op_name == op:
-            return True
-    return False
+    return any(op == op_name for op in ops_override_list)
 
 
 def load_excluded_ops():
@@ -437,7 +434,7 @@ def load_excluded_ops():
 
     excludes = []
 
-    with open(exclude_ops_csv_path, "r") as excluded_ops_csv:
+    with open(exclude_ops_csv_path) as excluded_ops_csv:
         excluded_ops_reader = csv.DictReader(excluded_ops_csv, delimiter=",")
         for row in excluded_ops_reader:
             excludes.append(row["OP"])
@@ -446,12 +443,12 @@ def load_excluded_ops():
 
 
 def main(args):
-    f_op_decl = open(args.ops_decl, "r")
+    f_op_decl = open(args.ops_decl)
     l_op_decl = f_op_decl.readlines()
     f_op_decl.close()
     p1 = os.path.join(args.gen_files_path, "lazy/wrap_kernels_registrations.cpp")
     p2 = os.path.join(args.gen_files_path, "backend")
-    f_manual_ops_decl = open(p1, "r")
+    f_manual_ops_decl = open(p1)
     l_manual_ops_decl = f_manual_ops_decl.readlines()
     f_manual_ops_decl.close()
     l_auto_ops_decl = combine_auto_generated_files(p2)
@@ -470,7 +467,7 @@ def main(args):
             op_with_sig = line.split(");")[0]
             prop = {}
             valid_op_decl.append(op_name)
-            if not any([x in op_name for x in exclude]):
+            if not any(x in op_name for x in exclude):
                 # if not match_any(line, exclude):
                 prop["relevant"] = "yes"
             else:

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 //#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUEvent.h"
@@ -71,7 +71,7 @@ void HPUEvent::record(const c10::hpu::HPUStream& stream) {
     created_with_stream_ = stream.stream();
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       device_index_ == stream.device_index(),
       "Event device ",
       device_index_,
@@ -118,7 +118,7 @@ void HPUEvent::block(const c10::hpu::HPUStream& stream) {
 
 // Note: hpuEventElapsedTime can be safely called from any device
 float HPUEvent::elapsed_time(const HPUEvent& other) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       is_created_ && other.isCreated(),
       "Both events must be recorded before calculating elapsed time.");
   auto& device = habana::HPUDeviceContext::get_device();

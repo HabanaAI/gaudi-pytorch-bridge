@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
@@ -260,11 +260,13 @@ class tensor_builder_base {
     return with_shape(tensor::shape_t(1_D, {SYN_MAX_TENSOR_DIM}));
   }
 
-  ConcreteBuilder& mark_host_to_device_tensor(void* host_ptr) {
+  ConcreteBuilder& mark_host_to_device_tensor(
+      void* host_ptr,
+      const synDataType syn_dtype = syn_type_int32) {
     HABANA_ASSERT(host_ptr != nullptr);
     tensor_type_ = HOST_TO_DEVICE_TENSOR;
     host_ptr_ = host_ptr;
-    data_type_ = syn_type_int32;
+    data_type_ = syn_dtype;
     is_persistent_ = true;
     return static_cast<ConcreteBuilder&>(*this);
   }

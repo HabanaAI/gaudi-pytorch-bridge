@@ -32,9 +32,7 @@ def generate_aeon_manifest(imgs):
 
     for file_path, label_num in imgs:
         if not _is_valid_image(file_path):
-            raise ValueError(
-                "HabanaDataLoader supports only jpg/jpeg files, found unsupported file: {}.".format(file_path)
-            )
+            raise ValueError(f"HabanaDataLoader supports only jpg/jpeg files, found unsupported file: {file_path}.")
         manifest.write(str(file_path) + "\t" + str(label_num) + "\n")
     manifest.close()
     return manifest.name

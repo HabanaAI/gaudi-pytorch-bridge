@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -14,7 +14,19 @@
 #  limitations under the License.
 #
 ###############################################################################
+import sys
+from enum import Enum
+
 from habana_frameworks.torch.utils import _debug_C
+
+
+class LogLevel(Enum):
+    TRACE = _debug_C.log_level.trace
+    DEBUG = _debug_C.log_level.debug
+    INFO = _debug_C.log_level.info
+    WARN = _debug_C.log_level.warn
+    ERROR = _debug_C.log_level.error
+    CRITICAL = _debug_C.log_level.critical
 
 
 def format_args(args):
@@ -40,57 +52,73 @@ class Logger:
         self.store_data = False
         self.data = []
 
-    def log(self, level, args):
-        logs_enabled = _debug_C.is_log_python_enabled(level)
+    def log(self, level: LogLevel, args):
+        logs_enabled = self.is_enabled_for(level)
         if logs_enabled or self.store_data:
             formatted_msg = f"[{self.type}] {format_args(args)}"
             if logs_enabled:
-                _debug_C.log_python(level, formatted_msg)
+                _debug_C.log_python(level.value, formatted_msg)
             if self.store_data:
                 self.data.append(formatted_msg)
 
     def trace(self, *args):
-        self.log(_debug_C.log_level.trace, args)
+        self.log(LogLevel.TRACE, args)
 
     def debug(self, *args):
-        self.log(_debug_C.log_level.debug, args)
+        self.log(LogLevel.DEBUG, args)
 
     def info(self, *args):
-        self.log(_debug_C.log_level.info, args)
+        self.log(LogLevel.INFO, args)
 
     def warn(self, *args):
-        self.log(_debug_C.log_level.warn, args)
+        self.log(LogLevel.WARN, args)
 
     def error(self, *args):
-        self.log(_debug_C.log_level.error, args)
+        print("[ERROR]", *args, file=sys.stderr)
+        self.log(LogLevel.ERROR, args)
 
     def critical(self, *args):
-        self.log(_debug_C.log_level.critical, args)
+        print("[CRITICAL]", *args, file=sys.stderr)
+        self.log(LogLevel.CRITICAL, args)
 
     def set_store_data(self, enable):
         self.store_data = enable
         self.data = []
 
+    @staticmethod
+    def is_enabled_for(level: LogLevel) -> bool:
+        return is_log_python_enabled(level)
+
 
 def get_log_level(logger_level):
-    log_level = None
     if logger_level == "critical":
-        log_level = _debug_C.log_level.critical
-    elif logger_level == "error":
-        log_level = _debug_C.log_level.error
-    elif logger_level == "warn":
-        log_level = _debug_C.log_level.warn
-    elif logger_level == "info":
-        log_level = _debug_C.log_level.info
-    elif logger_level == "debug":
-        log_level = _debug_C.log_level.debug
-    elif logger_level == "trace":
-        log_level = _debug_C.log_level.trace
-    else:
-        assert False, f"unsupported logger_level = {logger_level}"
-    return log_level
+        return LogLevel.CRITICAL
+    if logger_level == "error":
+        return LogLevel.ERROR
+    if logger_level == "warn":
+        return LogLevel.WARN
+    if logger_level == "info":
+        return LogLevel.INFO
+    if logger_level == "debug":
+        return LogLevel.DEBUG
+    if logger_level == "trace":
+        return LogLevel.TRACE
+
+    assert False, f"unsupported logger_level = {logger_level}"
 
 
 def enable_logging(logger_name, logger_level):
     log_level = get_log_level(logger_level)
-    _debug_C.enable_logging(logger_name, log_level)
+    _debug_C.enable_logging(logger_name, log_level.value)
+
+
+def refresh_logging_folder_path():
+    """
+    Helper function to reinitialize logging directory. Directory is read from HABANA_LOGS env var.
+    Useful in a case, when logging dir was changed after habana-torch package initialization.
+    """
+    _debug_C.refresh_hllog_output_dir_from_env()
+
+
+def is_log_python_enabled(log_level):
+    return _debug_C.is_log_python_enabled(log_level.value)

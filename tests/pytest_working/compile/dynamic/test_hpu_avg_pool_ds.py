@@ -19,13 +19,13 @@ import copy
 
 import pytest
 import torch
-from test_utils import setup_teardown_env_fixture  # noqa F401
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compile_function_if_compile_mode,
     format_tc,
     is_gaudi3,
+    setup_teardown_env_fixture,  # noqa F401
 )
 
 

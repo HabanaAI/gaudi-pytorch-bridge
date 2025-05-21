@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/nansum.h"
 #include "habana_kernels/reduction_kernels.h"
@@ -102,7 +102,7 @@ void NansumList::AddNode(
   auto compute_type =
       c10::isIntegralType(meta.dtype, true) ? c10::ScalarType::Int : meta.dtype;
 
-  c10::optional<synapse_helpers::tensor> castedInput = c10::nullopt;
+  std::optional<synapse_helpers::tensor> castedInput = std::nullopt;
   if (habana_helpers::getInternalDtype(compute_type) !=
       habana_helpers::getInternalDtype(inputType)) {
     castedInput = OpBackend::BuildCast(
@@ -110,10 +110,11 @@ void NansumList::AddNode(
   }
   auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
 
+  using namespace std::literals;
   // isNan on input
   auto is_nan = BuildOp(
       graph,
-      get_guid_with_precision("isnan_fwd", compute_type),
+      get_guid_with_precision("isnan_fwd"sv, compute_type),
       {input},
       {{inputShape, c10::ScalarType::Char}});
 
@@ -122,7 +123,7 @@ void NansumList::AddNode(
   // where on is_nan
   auto where = BuildOp(
       graph,
-      get_guid_with_precision("where_fwd", compute_type),
+      get_guid_with_precision("where_fwd"sv, compute_type),
       {is_nan[0].get(), zero_constant.get(), input},
       {{inputShape, compute_type}});
 
@@ -136,7 +137,7 @@ void NansumList::AddNode(
 
   auto reduce_sum = BuildOp(
       graph,
-      get_guid_with_precision("reduce_sum_multi_dim_fwd", compute_type),
+      get_guid_with_precision("reduce_sum_multi_dim_fwd"sv, compute_type),
       {where[0].get()},
       {out_attr},
       &params,

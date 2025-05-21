@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_lazy_test_infra.h"
 #include <absl/strings/match.h>
@@ -158,7 +158,7 @@ at::Tensor create_empty_tensor(
     bool is_shape_tensor) {
   if (is_shape_tensor) {
     auto pt_tensor = habana_lazy::empty_hpu_lazy(
-        tshape, tensor_options, c10::nullopt, false, SHAPE_TENSOR);
+        tshape, tensor_options, std::nullopt, false, SHAPE_TENSOR);
     return pt_tensor;
   }
   auto pt_tensor = at::empty(tshape, tensor_options);

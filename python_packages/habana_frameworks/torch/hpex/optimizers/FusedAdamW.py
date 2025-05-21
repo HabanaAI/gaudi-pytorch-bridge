@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@
 ###############################################################################
 
 import math
-from typing import Callable, Iterable, Optional, Tuple, Union
+from collections.abc import Callable, Iterable
 
-import torch
 from habana_frameworks.torch import core as htcore
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch.optim import Optimizer
 
 
@@ -29,27 +30,27 @@ class FusedAdamW(Optimizer):
         self,
         params: Iterable[torch.nn.parameter.Parameter],
         lr: float = 1e-3,
-        betas: Tuple[float, float] = (0.9, 0.999),
+        betas: tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-6,
         weight_decay: float = 0.0,
         bias_correction: bool = True,
-        moments_dtype: Optional[Union[torch.dtype, Tuple[torch.dtype, torch.dtype]]] = None,
+        moments_dtype: torch.dtype | tuple[torch.dtype, torch.dtype] | None = None,
     ):
         if lr < 0.0:
-            raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
+            raise ValueError(f"Invalid learning rate: {lr} - should be >= 0.0")
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[0]))
+            raise ValueError(f"Invalid beta parameter: {betas[0]} - should be in [0.0, 1.0[")
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[1]))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {} - should be >= 0.0".format(eps))
-        defaults = dict(
-            lr=lr,
-            betas=betas,
-            eps=eps,
-            weight_decay=weight_decay,
-            bias_correction=bias_correction,
-        )
+            raise ValueError(f"Invalid beta parameter: {betas[1]} - should be in [0.0, 1.0[")
+        if not eps >= 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps} - should be >= 0.0")
+        defaults = {
+            "lr": lr,
+            "betas": betas,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "bias_correction": bias_correction,
+        }
         super().__init__(params, defaults)
 
         self.neg_step_list = []

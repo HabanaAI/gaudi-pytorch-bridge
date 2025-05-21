@@ -2,6 +2,7 @@
 common:
   testRepos:
     - repository: automation
+      githubOrg: habana-internal
     - repository: pytorch-integration
       githubOrg: habana-internal
     - repository: coral-sim
@@ -41,10 +42,6 @@ common:
     Install Python test dependencies and artifacts:
       command: 'set_up_pytorch_artifacts_for_testing next'
 testsMap:
-  Test_pytorch_modules_gaudi_sim_py_suite_lazy_future:
-    stages:
-      Run PY lazy tests gaudi sim:
-        filter: -t py_tests --pytest-mode lazy
   Test_pytorch_modules_gaudi2_sim_py_suite_lazy_future:
     dependencies:
       - TPC_LLVM

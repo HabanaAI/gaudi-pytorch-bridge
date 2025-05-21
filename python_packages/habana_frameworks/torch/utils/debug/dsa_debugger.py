@@ -20,6 +20,7 @@ import argparse
 import csv
 import gc
 import json
+import math
 import multiprocessing as mp
 import os
 import shutil
@@ -28,7 +29,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import numpy as np
 from tqdm import tqdm
 
 
@@ -52,34 +52,41 @@ def remove_dir(path, strict=True):
 
 
 def calc_difference(a, b):
-    diff = np.subtract(a, b)
-    abs_diff = np.abs(diff)
-    abs_max = np.amax(abs_diff)
-    abs_min = np.amin(abs_diff)
+    diff = [x - y for x, y in zip(a, b, strict=False)]
+    abs_diff = [abs(d) for d in diff]
 
-    mse = np.mean(np.square(diff))
-    rmse = np.sqrt(mse)
-    return {"abs_max": abs_max.item(), "abs_min": abs_min.item(), "mse": mse.item(), "rmse": rmse.item()}
+    abs_max = max(abs_diff)
+    abs_min = min(abs_diff)
 
+    mse = sum(d**2 for d in diff) / len(diff)
+    rmse = math.sqrt(mse)
 
-def calc_similarity(
-    a,
-    b,
-    threshold=0.0,
-):
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-
-    norm_relative = np.divide(norm_a, norm_b)
-    angle = np.arccos(min(np.dot(a, b) / norm_a / norm_b, 1.0)) / np.pi * 180
-    angle = np.around(angle, 2)
-    cosine_similarity = np.less_equal(angle, threshold)
-    all_close = np.allclose(a, b)
     return {
-        "norm_a": norm_a.item(),
-        "norm_b": norm_b.item(),
-        "norm_relative": norm_relative.item(),
-        "angle": angle.item(),
+        "abs_max": abs_max,
+        "abs_min": abs_min,
+        "mse": mse,
+        "rmse": rmse,
+    }
+
+
+def calc_similarity(a, b, threshold=0.0):
+    norm_a = math.sqrt(sum(x**2 for x in a))
+    norm_b = math.sqrt(sum(y**2 for y in b))
+
+    norm_relative = norm_a / norm_b if norm_b != 0 else float("inf")
+
+    dot_product = sum(x * y for x, y in zip(a, b, strict=False))
+    cosine_value = max(min(dot_product / (norm_a * norm_b + 1e-10), 1.0), -1.0)
+    angle = round(math.degrees(math.acos(cosine_value)), 2)
+
+    cosine_similarity = angle <= threshold
+    all_close = all(math.isclose(x, y) for x, y in zip(a, b, strict=False))
+
+    return {
+        "norm_a": norm_a,
+        "norm_b": norm_b,
+        "norm_relative": norm_relative,
+        "angle": angle,
         "cosine_similarity": cosine_similarity,
         "all_close": all_close,
     }
@@ -356,7 +363,7 @@ class DivergenceAnalyzer:
         data_ids_table1 = [item[idx_data] for item in tensors_static[:compare_len]]
         data_ids_table2 = [item[idx_data] for item in tensors_dynamic[:compare_len]]
         if data_ids_table1 != data_ids_table2:
-            for t_static, t_dynamic in zip(tensors_static[:compare_len], tensors_dynamic[:compare_len]):
+            for t_static, t_dynamic in zip(tensors_static[:compare_len], tensors_dynamic[:compare_len], strict=False):
                 # Check if tensor is valid and data is different
                 if (
                     (t_static[idx_validation] == 0)
@@ -393,9 +400,9 @@ class DivergenceAnalyzer:
 
     @staticmethod
     def read_values(path):
-        with open(path, "r") as file:
+        with open(path) as file:
             # skip first line as it contains tensor name
-            return np.float64(file.read().strip().split("\n")[1:])
+            return [float(value) for value in file.read().strip().split("\n")[1:]]
 
     @staticmethod
     def compare_values(values_static, values_dynamic):
@@ -406,7 +413,7 @@ class DivergenceAnalyzer:
 
     @staticmethod
     def get_node(path, graph_name, tensor):
-        with open(path, "r") as file:
+        with open(path) as file:
             json_data = json.load(file)
         for graph in json_data["graphs"]:
             if graph["name"] == graph_name:
@@ -443,7 +450,7 @@ class DivergenceAnalyzer:
 
         self.json_tests_bin = self.get_json_tests_bin()
 
-        pairs = list(zip(self.mismatch_static, self.mismatch_dynamic))
+        pairs = list(zip(self.mismatch_static, self.mismatch_dynamic, strict=False))
         results = [None] * len(pairs)
         if self.cfg.max_threads > 1:
             with ThreadPoolExecutor(max_workers=self.cfg.max_threads) as executor:

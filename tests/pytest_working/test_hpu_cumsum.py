@@ -18,19 +18,18 @@
 
 import torch
 import torch.nn as nn
+from habana_frameworks.torch.hpu import random as hpu_random
 from test_utils import cpu, hpu
 
 
 class Model(nn.Module):
     def __init__(self):
-        super(Model, self).__init__()
+        super().__init__()
 
     def forward(self, x, dim):
         t = torch.cumsum(x, dim)
         return t
 
-
-from habana_frameworks.torch.hpu import random as hpu_random
 
 seed = 42
 torch.manual_seed(seed)

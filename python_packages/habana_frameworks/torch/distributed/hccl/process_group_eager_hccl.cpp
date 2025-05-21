@@ -1,22 +1,21 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "process_group_eager_hccl.hpp"
 #include "habana_eager/ops/eager_op.h"
 
 #include <c10/core/TensorImpl.h>
-#include <c10/util/Exception.h>
 #include <hccl.h>
 #include <hccl_types.h>
 #include <pybind11/chrono.h>
@@ -26,24 +25,19 @@
 #include <vector>
 
 #include <unistd.h>
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/collective_utils.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/permute_tensors.h"
-#include "habana_lazy/tensor_impl.h"
+#include "habana_helpers/towl.h"
 #include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.hpp"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
 #include "hpu_ops/op_logger.h"
 #include "process_group_registry.hpp"
+
+#include "backend/helpers/generic_resource_holder.h"
 
 namespace c10d {
 
@@ -71,7 +65,7 @@ class CollectiveContext {
       std::vector<at::Tensor>& outputs,
       bool is_pipelined = false)
       : inputs_(inputs), outputs_(outputs), is_pipelined_(is_pipelined) {
-    TORCH_CHECK(inputs.size() == outputs.size());
+    HABANA_ASSERT(inputs.size() == outputs.size());
     ensure_input_output_tensors_contiguity();
   }
   CollectiveContext(const CollectiveContext&) = delete;
@@ -164,7 +158,7 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
           store->set("HCCL_GROUP_UNIQUE_ID", vec);
         } else {
           auto vec = store->get("HCCL_GROUP_UNIQUE_ID");
-          TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
+          HABANA_ASSERT(vec.size() == sizeof(hcclUniqueId));
           std::memcpy(hcclID, vec.data(), vec.size());
         }
       });
@@ -209,6 +203,13 @@ void ProcessGroupEagerHCCL::destroy() {
       ", rank:",
       rank_);
 
+  // Synchronization is needed in case where execute thread have outstanding
+  // tasks. In such case destroy may came before tasks are processed. Due to
+  // that segfault can be observed because comm_ is destroyed here and passed to
+  // task as copy, so we have to make sure that outstanding tasks are processed
+  // before destroy. Maybe there's other way to ensure synchronization because
+  // now we're blocking main thread.
+  habana::eager::JoinPendingPipelineThreads();
   hostBarrier();
 
   if (comm_) {
@@ -298,7 +299,14 @@ void Synchronize_Execute_Task(
 
 bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
                                             [[maybe_unused]]) {
+  if (is_coalescing_fn_()) {
+    PT_DISTRIBUTED_DEBUG(
+        "WorkEager::wait | Skip, because work is within group, wait have no effect as operation won't start before groupEnd will be called.");
+    return false;
+  }
+
   PT_DISTRIBUTED_DEBUG("WorkEager::wait");
+
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
 
@@ -349,7 +357,9 @@ void PointToPoint_Execute_Task(
     habana::HcclCommunicator& comm,
     std::unique_ptr<CollectiveContext> ctx,
     PointToPointFn&& fn,
-    int peerRank) {
+    int peerRank,
+    bool is_coalescing,
+    std::vector<absl::AnyInvocable<void()>>& group_submit_events_tasks_queue) {
   auto deviceCtxt = comm.getDeviceCtxt();
   for (auto& input_output : ctx->tensors()) {
     at::Tensor& tensor = input_output.first;
@@ -361,7 +371,7 @@ void PointToPoint_Execute_Task(
     if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
       tensor = *org_tensor;
     }
-    TORCH_CHECK(
+    HABANA_ASSERT(
         tensor.get_device() == 0,
         "All tensors are expected to be assigned to device with id 0");
     synStreamHandle collective_stream = comm.getCommStream();
@@ -372,16 +382,24 @@ void PointToPoint_Execute_Task(
 
     auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-    struct ResourceHolder {
-      at::Tensor tensor_;
-      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-    };
-    auto resource_holder = std::make_shared<ResourceHolder>();
-    resource_holder->tensor_ = tensor;
+    auto resource_holder = std::make_shared<GenericResourceHolder>();
+    if (!(common::IsRecordStreamEnabled() &&
+          GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+      resource_holder->add_tensor(tensor);
+    } else {
+      auto& device = habana::HPUDeviceContext::get_device();
+      synapse_helpers::hpuStream_t hpu_stream;
+      deviceCtxt->get_hpu_stream(collective_stream, &hpu_stream);
+
+      void* data_ptr = tensor.data_ptr();
+      device.get_device_memory().recordStream(data_ptr, hpu_stream);
+    }
 
     void* tensor_address;
     deviceCtxt->lock_address(
-        tensor.data_ptr(), &tensor_address, resource_holder->address_lock);
+        tensor.data_ptr(),
+        &tensor_address,
+        resource_holder->get_address_lock());
 
     hcclResult_t hccl_result =
         fn(tensor,
@@ -389,16 +407,33 @@ void PointToPoint_Execute_Task(
            *(comm.GetHcclHandle()),
            collective_stream,
            peerRank);
-    TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+    HABANA_ASSERT(hcclSuccess == hccl_result, "P2P call returned error");
 
     recipe_counter.increase();
-    deviceCtxt->submit_events(
-        collective_stream,
-        tensor_storage_ptr,
-        [resource_holder, &recipe_counter]() mutable {
-          resource_holder.reset();
-          recipe_counter.decrease_and_notify();
-        });
+    auto _submit_events_task = [deviceCtxt,
+                                collective_stream,
+                                tensor_storage_ptr,
+                                resource_holder,
+                                &recipe_counter]() mutable {
+      deviceCtxt->submit_events(
+          collective_stream,
+          tensor_storage_ptr,
+          [resource_holder, &recipe_counter]() mutable {
+            resource_holder.reset();
+            recipe_counter.decrease_and_notify();
+          });
+    };
+
+    if (is_coalescing) {
+      PT_DISTRIBUTED_DEBUG(
+          "HCCL point_to_point call within group, postpone submit events after groupEnd");
+      // Postponing submit events is needed because calls within group are
+      // batched and run at groupEnd, due to that submit events before groupEnd
+      // leads to problem with synchronization due to missing events.
+      group_submit_events_tasks_queue.push_back(_submit_events_task);
+    } else {
+      _submit_events_task();
+    }
   }
 
   return;
@@ -436,23 +471,36 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
   if (pipeline_flag) {
     const auto tensors = ctx->tensors();
     habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
-        [comm = comm_,
-         ctx = std::move(ctx),
+        [ctx = std::move(ctx),
          fn = std::move(fn),
-         peerRank]() mutable {
+         peerRank,
+         coalescing_state = coalescing_state_,
+         this]() mutable {
           PointToPoint_Execute_Task(
-              *comm, std::move(ctx), std::move(fn), peerRank);
+              *comm_,
+              std::move(ctx),
+              std::move(fn),
+              peerRank,
+              coalescing_state,
+              group_submit_events_tasks_queue_);
         });
     // Restore the output tensors i.e. copy D2D in the main thread
     // So that such copies are also pipelined.
     restore_output_tensors(tensors, tensors_backend);
   } else {
     habana::eager::JoinPendingPipelineThreads();
-    PointToPoint_Execute_Task(*comm_, std::move(ctx), std::move(fn), peerRank);
+    PointToPoint_Execute_Task(
+        *comm_,
+        std::move(ctx),
+        std::move(fn),
+        peerRank,
+        coalescing_state_,
+        group_submit_events_tasks_queue_);
   }
 
   auto work =
       c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(tensors, comm_);
+  work->is_coalescing_fn_ = [this]() -> bool { return coalescing_state_; };
   return work;
 }
 
@@ -464,7 +512,9 @@ void Collective_Execute_Task(
     habana::HcclCommunicator& comm,
     std::unique_ptr<CollectiveContext> ctx,
     CollectiveFn&& fn,
-    [[maybe_unused]] bool is_allreduce) {
+    [[maybe_unused]] bool is_allreduce,
+    bool is_coalescing,
+    std::vector<absl::AnyInvocable<void()>>& group_submit_events_tasks_queue) {
   PT_DISTRIBUTED_DEBUG("Collective_Execute_Task");
   auto deviceCtxt = comm.getDeviceCtxt();
 
@@ -480,7 +530,7 @@ void Collective_Execute_Task(
       continue;
     }
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         input.get_device() == 0 && output.get_device() == 0,
         "All tensors are expected to be assigned to device with id 0");
     synStreamHandle collective_stream = comm.getCommStream();
@@ -498,22 +548,32 @@ void Collective_Execute_Task(
     hcclResult_t hccl_result = hcclSuccess;
     auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
-    struct ResourceHolder {
-      std::vector<at::Tensor> tensors_;
-      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-    };
-    auto resource_holder = std::make_shared<ResourceHolder>();
-    resource_holder->tensors_ = {input, output};
+    auto resource_holder = std::make_shared<GenericResourceHolder>();
+    if (!(common::IsRecordStreamEnabled() &&
+          GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+      resource_holder->add_tensor(input);
+      resource_holder->add_tensor(output);
+    } else {
+      auto& device = habana::HPUDeviceContext::get_device();
+      synapse_helpers::hpuStream_t hpu_stream;
+      deviceCtxt->get_hpu_stream(collective_stream, &hpu_stream);
+
+      void* in_data_ptr = input.data_ptr();
+      void* out_data_ptr = output.data_ptr();
+      device.get_device_memory().recordStream(in_data_ptr, hpu_stream);
+      device.get_device_memory().recordStream(out_data_ptr, hpu_stream);
+    }
 
     void* input_address;
     void* output_address;
     deviceCtxt->lock_address(
-        {input.data_ptr(), output.data_ptr()}, resource_holder->address_lock);
+        {input.data_ptr(), output.data_ptr()},
+        resource_holder->get_address_lock());
     input_address =
-        reinterpret_cast<void*>(resource_holder->address_lock->at(0));
+        reinterpret_cast<void*>(resource_holder->get_address_lock()->at(0));
     HABANA_ASSERT(input_address != nullptr, "input_address is null");
     output_address =
-        reinterpret_cast<void*>(resource_holder->address_lock->at(1));
+        reinterpret_cast<void*>(resource_holder->get_address_lock()->at(1));
     HABANA_ASSERT(output_address != nullptr, "output_address is null");
 
     hccl_result =
@@ -523,30 +583,91 @@ void Collective_Execute_Task(
            output_address,
            *(comm.GetHcclHandle()),
            collective_stream);
-    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+    HABANA_ASSERT(hcclSuccess == hccl_result, "Collective call returned error");
 
     recipe_counter.increase();
-    deviceCtxt->submit_events(
-        collective_stream,
-        output_storage_ptr,
-        [resource_holder, &recipe_counter]() mutable {
-          resource_holder.reset();
-          recipe_counter.decrease_and_notify();
-        });
+    towl::emitCollectiveLaunch("eager");
+
+    auto _submit_events_task = [deviceCtxt,
+                                collective_stream,
+                                output_storage_ptr,
+                                resource_holder,
+                                &recipe_counter]() mutable {
+      deviceCtxt->submit_events(
+          collective_stream,
+          output_storage_ptr,
+          [resource_holder, &recipe_counter]() mutable {
+            resource_holder.reset();
+            recipe_counter.decrease_and_notify();
+            towl::emitCollectiveFinished("eager");
+          });
+
+      if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_SYNC)) {
+        // each rank should wait `output_storage_ptr` mapping shared_event done
+        deviceCtxt->wait_until_address_ready(output_storage_ptr);
+      }
+    };
+
+    if (is_coalescing) {
+      PT_DISTRIBUTED_DEBUG(
+          "HCCL collective call within group, postpone submit events after groupEnd");
+      // Postponing submit events is needed because calls within group are
+      // batched and run at groupEnd, due to that submit events before groupEnd
+      // leads to problem with synchronization due to missing events.
+      group_submit_events_tasks_queue.push_back(_submit_events_task);
+    } else {
+      _submit_events_task();
+    }
   }
 
   return;
 }
 
 void ProcessGroupEagerHCCL::groupStart() {
-  initComms();
-  TORCH_CHECK(
-      hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+  auto _groupStart = [this]() {
+    initComms();
+    HABANA_ASSERT(
+        hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+    group_submit_events_tasks_queue_.clear();
+  };
+
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  if (pipeline_flag) {
+    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
+        _groupStart);
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    _groupStart();
+  }
 }
 
 void ProcessGroupEagerHCCL::groupEnd() {
-  TORCH_CHECK(
-      hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+  auto _groupEnd = [this]() {
+    HABANA_ASSERT(
+        hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+    PT_DISTRIBUTED_DEBUG(
+        "Calling postponed ",
+        group_submit_events_tasks_queue_.size(),
+        " submit events tasks after groupEnd");
+
+    // This can be optimized to submit one event with all addresses
+    // TODO: [SW-223384]
+    for (auto& submit_event_task : group_submit_events_tasks_queue_) {
+      submit_event_task();
+    }
+  };
+
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  if (pipeline_flag) {
+    habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(_groupEnd);
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    _groupEnd();
+  }
 }
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
@@ -557,7 +678,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   PT_DISTRIBUTED_BEGIN;
   PT_DISTRIBUTED_DEBUG("ProcessGroupEagerHCCL::collective");
 
-  TORCH_CHECK(inputs.size() == outputs.size());
+  HABANA_ASSERT(inputs.size() == outputs.size());
   const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
 
@@ -590,12 +711,18 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   if (pipeline_flag) {
     const auto input_output_tensors = ctx->tensors();
     habana::eager::PipelineTask<habana::eager::ThreadType::EXECUTE>(
-        [comm = comm_,
-         ctx = std::move(ctx),
+        [ctx = std::move(ctx),
          fn = std::move(fn),
-         is_allreduce]() mutable {
+         is_allreduce,
+         coalescing_state = coalescing_state_,
+         this]() mutable {
           Collective_Execute_Task(
-              *comm, std::move(ctx), std::move(fn), is_allreduce);
+              *comm_,
+              std::move(ctx),
+              std::move(fn),
+              is_allreduce,
+              coalescing_state,
+              group_submit_events_tasks_queue_);
         });
     // Restore the output tensors i.e. copy D2D in the main thread
     // So that such copies are also pipelined.
@@ -603,11 +730,17 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   } else {
     habana::eager::JoinPendingPipelineThreads();
     Collective_Execute_Task(
-        *comm_, std::move(ctx), std::move(fn), is_allreduce);
+        *comm_,
+        std::move(ctx),
+        std::move(fn),
+        is_allreduce,
+        coalescing_state_,
+        group_submit_events_tasks_queue_);
   }
 
   auto work =
       c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs, comm_);
+  work->is_coalescing_fn_ = [this]() -> bool { return coalescing_state_; };
   return work;
 }
 
@@ -651,52 +784,50 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
     clone_tensor_hb_tmeta->set_tensor_pipelined();
   }
 
-  auto pipeline_or_direct_send_permutes =
-      [tensors_pair = std::move(tensors_backend)]() {
-        for (auto&& tensor_pair : tensors_pair) {
-          auto&& send_tensor = tensor_pair.first;
-          auto&& clone_tensor = tensor_pair.second;
-          synapse_helpers::layouts::MemoryPermutation permutation;
-          std::tie(permutation, std::ignore) =
-              habana_helpers::get_tensor_memory_permutation(send_tensor);
-          PT_DISTRIBUTED_DEBUG("Send: permutation: ", VecToString(permutation));
-          const bool is_permuted = !permutation.empty();
+  auto pipeline_or_direct_send_permutes = [tensors_pair =
+                                               std::move(tensors_backend)]() {
+    for (auto&& tensor_pair : tensors_pair) {
+      auto&& send_tensor = tensor_pair.first;
+      auto&& clone_tensor = tensor_pair.second;
+      synapse_helpers::layouts::MemoryPermutation permutation;
+      std::tie(permutation, std::ignore) =
+          habana_helpers::get_tensor_memory_permutation(send_tensor);
+      PT_DISTRIBUTED_DEBUG("Send: permutation: ", VecToString(permutation));
+      const bool is_permuted = !permutation.empty();
 
-          /*
-           * Get send tensor permutations (current op lowering stage).
-           * Set send org tensor as a metadata to the clone tensor.
-           * In the next op, i.e. copy send tensor to the clone tensor.
-           * If (permutation)
-           *   This copy clears the permutation on the cloned tensor.
-           * Else
-           *   Copy op is discarded at its lowering stage.
-           *
-           * In the pipeline stage, a clone tensor is used, which contains
-           * org send tensor in the metadata. The idea is to use the
-           * clone tensor in case the org send tensor has permutation set.
-           *
-           * If there is no permutation, then an org send tensor is used.
-           * Further, this metadata can be used to discard the next D2D copy op
-           * since clone tensor is not required and to avoid unnecessary copy
-           *
-           * This metadata is queried in the later pipeline stages to select
-           * either clone tensor. or org send tensor for registering events on
-           * collective stream/user streams.
-           *
-           * To avoid data race, this is the sequence of tensor metadata used.
-           * Write in current op lowering and Read in next op lowering/execute.
-           * Current Op Lowering: Set Send Org Metadata on the clone tensor
-           * Next Op Copy D2D Lowering: Get MetaData or Tensor Permutation
-           * Next Op P2P collective Op Execute: Get MetaData
-           * Next Op Work Wait Execute: Get MetaData
-           */
+      /*
+       * Get send tensor permutations (current op lowering stage).
+       * Set send org tensor as a metadata to the clone tensor.
+       * In the next op, i.e. copy send tensor to the clone tensor.
+       * If (permutation)
+       *   This copy clears the permutation on the cloned tensor.
+       * Else
+       *   Copy op is discarded at its lowering stage.
+       *
+       * In the pipeline stage, a clone tensor is used, which contains
+       * org send tensor in the metadata. The idea is to use the
+       * clone tensor in case the org send tensor has permutation set.
+       *
+       * If there is no permutation, then an org send tensor is used.
+       * Further, this metadata can be used to discard the next D2D copy op
+       * since clone tensor is not required and to avoid unnecessary copy
+       *
+       * This metadata is queried in the later pipeline stages to select
+       * either clone tensor. or org send tensor for registering events on
+       * collective stream/user streams.
+       *
+       * To avoid data race, this is the sequence of tensor metadata used.
+       * Write in current op lowering and Read in next op lowering/execute.
+       * Current Op Lowering: Set Send Org Metadata on the clone tensor
+       * Next Op Copy D2D Lowering: Get MetaData or Tensor Permutation
+       * Next Op P2P collective Op Execute: Get MetaData
+       * Next Op Work Wait Execute: Get MetaData
+       */
 
-          auto clone_tensor_hb_tmeta{
-              habana::get_tensor_extra_meta(clone_tensor)};
-          clone_tensor_hb_tmeta->set_send_org_tensor_meta(
-              is_permuted, send_tensor);
-        }
-      };
+      auto clone_tensor_hb_tmeta{habana::get_tensor_extra_meta(clone_tensor)};
+      clone_tensor_hb_tmeta->set_send_org_tensor_meta(is_permuted, send_tensor);
+    }
+  };
 
   habana::eager::PipelineOrExecuteTask(
       std::move(pipeline_or_direct_send_permutes));
@@ -735,20 +866,20 @@ void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
     tensor_hb_tmeta->set_tensor_pipelined();
   }
 
-  auto pipeline_or_direct_clear_permutes =
-      [tensors = std::move(tensors_backend)]() {
-        for (auto&& tensor : tensors) {
-          auto s_meta{habana::get_storage_extra_meta(tensor)};
-          if (s_meta) {
-            auto t_meta{habana::get_tensor_extra_meta(tensor)};
-            PT_DISTRIBUTED_DEBUG(
-                "Receive: tensor: ",
-                t_meta->get_id(),
-                " clearing its permutation.");
-            s_meta->set_memory_permutation({});
-          }
-        }
-      };
+  auto pipeline_or_direct_clear_permutes = [tensors =
+                                                std::move(tensors_backend)]() {
+    for (auto&& tensor : tensors) {
+      auto s_meta{habana::get_storage_extra_meta(tensor)};
+      if (s_meta) {
+        auto t_meta{habana::get_tensor_extra_meta(tensor)};
+        PT_DISTRIBUTED_DEBUG(
+            "Receive: tensor: ",
+            t_meta->get_id(),
+            " clearing its permutation.");
+        s_meta->set_memory_permutation({});
+      }
+    }
+  };
   habana::eager::PipelineOrExecuteTask(
       std::move(pipeline_or_direct_clear_permutes));
 }

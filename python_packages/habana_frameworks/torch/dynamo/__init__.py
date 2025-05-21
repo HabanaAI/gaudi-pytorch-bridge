@@ -16,6 +16,7 @@
 ###############################################################################
 
 from habana_frameworks.torch.dynamo.device_interface import HpuInterface
+
 from torch._dynamo.device_interface import register_interface_for_device
 
 # we do not support device indices >0, so eiter hpu or hpu:0

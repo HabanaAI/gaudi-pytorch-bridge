@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/masked_fill.h"
 
 namespace habana {
@@ -95,8 +95,9 @@ void MaskedFill::AddNode(
   bool check_long = (out_dtype == c10::ScalarType::Long ||
                      out_dtype == c10::ScalarType::UInt64) &&
       common::IsInt64Supported();
+  using namespace std::literals;
   auto guid =
-      get_guid_with_precision("masked_fill_fwd", ScalarType(), check_long);
+      get_guid_with_precision("masked_fill_fwd"sv, ScalarType(), check_long);
   auto result = BuildOp(
       graph,
       guid,

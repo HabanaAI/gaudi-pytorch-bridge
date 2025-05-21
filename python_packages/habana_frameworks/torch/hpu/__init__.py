@@ -20,11 +20,11 @@ import contextlib
 import os
 import threading
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any
+
+from habana_frameworks.torch import _hpu_C
 
 import torch
-from habana_frameworks.torch import _hpu_C
-from habana_frameworks.torch.utils.internal import is_lazy
 from torch.types import Device
 from torch.utils.checkpoint import DefaultDeviceType
 
@@ -37,15 +37,13 @@ from ._utils import (
     _get_module_id_from_environ,
 )
 from .events import *
+from .graphs import *
 from .memory import *
 from .metrics import *
 from .random import *
 from .streams import *
 
-if is_lazy():
-    from .graphs import *
-
-_device_t = Union[torch.device, str, int, None]
+_device_t = torch.device | str | int | None
 _initialized = False
 _tls = threading.local()
 _initialization_lock = threading.Lock()
@@ -118,7 +116,7 @@ def is_available() -> bool:
     return device_count() > 0
 
 
-def get_device_name(device: Optional[_device_t] = None) -> str:
+def get_device_name(device: _device_t | None = None) -> str:
     r"""Gets the name of a device.
 
     Args:
@@ -230,6 +228,10 @@ def enable_inference_mode():
     _hpu_C.enable_inference_mode()
 
 
+def is_inference_mode_enabled():
+    return _hpu_C.is_inference_mode_enabled()
+
+
 def disable_inference_mode():
     _hpu_C.disable_inference_mode()
 
@@ -266,6 +268,10 @@ def disable_matmul3d_2d_reshape():
     _hpu_C.disable_matmul3d_2d_reshape()
 
 
+def is_matmul3d_2d_reshape_enabled():
+    return _hpu_C.is_matmul3d_2d_reshape_enabled()
+
+
 def is_bf16_supported():
     r"""Check if bf16 is supported."""
     if is_available():
@@ -274,7 +280,7 @@ def is_bf16_supported():
         return False
 
 
-def get_device_capability(device: Optional[_device_t] = None) -> str:
+def get_device_capability(device: _device_t | None = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
         return ""
@@ -286,7 +292,7 @@ def get_device_capability(device: Optional[_device_t] = None) -> str:
     return _hpu_C.get_device_capability()
 
 
-def get_device_properties(device: Optional[_device_t] = None) -> str:
+def get_device_properties(device: _device_t | None = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
         return ""
@@ -307,9 +313,9 @@ def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
     peer_device = _get_device_index(peer_device, optional=True)
     count = device_count()
     if device < 0 or device >= count:
-        raise AssertionError("Invalid device id : {}".format(device))
+        raise AssertionError(f"Invalid device id : {device}")
     if peer_device < 0 or peer_device >= count:
-        raise AssertionError("Invalid device id : {}".format(peer_device))
+        raise AssertionError(f"Invalid device id : {peer_device}")
     if device == peer_device:
         raise AssertionError("Both the ids are same.")
     if device <= count and peer_device <= count:
@@ -323,7 +329,7 @@ def get_gencode_flags() -> str:
     return ""
 
 
-def get_arch_list() -> List[str]:
+def get_arch_list() -> list[str]:
     r"""Returns the architecture the library is compiled with"""
     arch_list = []
     device = current_device()
@@ -375,7 +381,7 @@ def set_device(device: _device_t) -> None:
 set_device.current_device_idx = -1
 
 
-class device(object):
+class device:
     r"""Context manager that changes the selected device."""
 
     def __init__(self, device: Any):
@@ -406,10 +412,10 @@ class device_of(device):
 
     def __init__(self, obj):
         idx = obj.get_device() if obj.is_hpu else -1
-        super(device_of, self).__init__(idx)
+        super().__init__(idx)
 
 
-def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
+def memory_usage(device: Device | int | None = None) -> int:
     r"""Returns the memory used. as given by `hl-smi`.
 
     Args:
@@ -424,7 +430,7 @@ def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
     return _hpu_C.get_mem_stats(device_idx)["InUse"]
 
 
-def utilization(device: Optional[Union[Device, int]] = None) -> int:
+def utilization(device: Device | int | None = None) -> int:
     r"""Returns the usage as given by `hl-smi`.
 
     Args:
@@ -453,13 +459,13 @@ def _create_tensor_alias(name, dtype):
     class TypeFabric(torch.Tensor):
         @staticmethod
         def __new__(cls, *args, **kwargs):  # no __init__ due torch.Tensor is C object
-            input_device = kwargs.get("device", None)
+            input_device = kwargs.get("device")
             if input_device is not None and input_device != target_device:
                 raise RuntimeError(
                     f"legacy constructor expects device type: {target_device} but device type: {input_device} was passed"
                 )
 
-            input_dtype = kwargs.get("dtype", None)
+            input_dtype = kwargs.get("dtype")
             if input_dtype is not None and input_dtype != dtype:
                 raise RuntimeError(f"legacy constructor expects dtype: {dtype} but dtype: {input_dtype} was passed")
 

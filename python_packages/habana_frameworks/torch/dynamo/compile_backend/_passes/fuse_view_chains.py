@@ -15,11 +15,16 @@
 #
 ###############################################################################
 
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 from torch.fx.passes.shape_prop import TensorMetadata
 
-from .._helpers import calculate_default_strides, fill_propagated_tensor_metadata_to_node, is_view_node
+from .._helpers import (
+    calculate_default_strides,
+    fill_propagated_tensor_metadata_to_node,
+    is_view_node,
+)
 from .utils import OptimizerContext
 
 logger = get_compile_backend_logger()
@@ -68,14 +73,16 @@ def pass_fuse_view_chains(ctx: OptimizerContext) -> bool:
         # Output of an HPU clustered node can come from node itself
         # or be extracted in case of tuple by getitem nodes
         if (
-            "fused" in node.name and not node.meta.get("val", None) is None and not isinstance(node.meta["val"], tuple)
+            "fused" in node.name and node.meta.get("val", None) is not None and not isinstance(node.meta["val"], tuple)
         ) or node.op == "getitem":
             users = list(node.users.keys())
             cluster_output_contiguity = node.meta["output_contiguous"]
+            if len(cluster_output_contiguity) != len(users) and len(cluster_output_contiguity) == 1:
+                cluster_output_contiguity = cluster_output_contiguity * len(users)
 
             # Needed to update strides of outputs which are noncontiguous acording to dynamo
             # but are in fact contiguous due to being calculated on HPU
-            for cluster_user, is_input_contiguous in zip(users, cluster_output_contiguity):
+            for cluster_user, is_input_contiguous in zip(users, cluster_output_contiguity, strict=False):
                 cluster_output_contiguous_meta_to_node[cluster_user] = is_input_contiguous
                 if not is_input_contiguous:
                     strides = calculate_default_strides(node.meta["output_shapes"][0])

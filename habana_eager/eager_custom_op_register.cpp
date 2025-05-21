@@ -25,13 +25,19 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/mixture_of_experts.h"
 #include "habana_helpers/logging.h"
+#include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/op_logger.h"
+#include "hpu_ops/op_validator.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "hpu_ops/sdpa_gen.h"
+#include "hpu_ops/shared_meta_common.h"
 #include "ops/batch_as_strided.h"
 
+using namespace habana;
+
 namespace {
+using habana::dispatch_fallback; // For VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE
 using habana::to_string; // For DUMP_*ARGS
 
 /***********************************************************************************
@@ -205,8 +211,8 @@ void optimizer_adamw(
     const double epsilon,
     const at::Tensor& weight_decay,
     const bool has_weight_decay,
-    c10::optional<at::TensorList> exp_avg_scales = c10::nullopt,
-    c10::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt) {
+    std::optional<at::TensorList> exp_avg_scales = std::nullopt,
+    std::optional<at::TensorList> exp_avg_sq_scales = std::nullopt) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
@@ -224,10 +230,10 @@ void optimizer_adamw(
           exp_avg_scales,
           exp_avg_sq_scales));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weight_vec.size() > 0),
       "optimizer_adamw : can not process empty weight vector");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
       "optimizer_adamw : expects both or neighter scales to be set");
 
@@ -267,7 +273,7 @@ at::Tensor fused_clip_norm(
   PT_EAGER_TRACE;
   PT_OP_INFO("fused_clip_norm :", DUMP_3ARGS(grad, max_norm, norm_type));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (grad.size() > 0),
       "fused_clip_norm : can not process empty grad vector (eager)");
 
@@ -297,7 +303,7 @@ void optimizer_sgd(
   PT_OP_INFO(
       " optimizer_sgd:",
       DUMP_7ARGS(gradients, weights, lr, wd, mom, damp, nesterov));
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weights.size() > 0),
       "optimizer_sgd : can not process empty weight vector");
   habana::eager::EagerOp<void> hpu_op{
@@ -332,7 +338,7 @@ void optimizer_sgd_momentum(
           wd,
           damp,
           nesterov));
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weights.size() > 0),
       "optimizer_sgd_momentum : can not process empty weight vector");
   habana::eager::EagerOp<void> hpu_op{
@@ -373,7 +379,7 @@ at::Tensor slice_ds(
     c10::SymInt start,
     c10::SymInt end,
     c10::SymInt step,
-    [[maybe_unused]] c10::optional<c10::SymIntArrayRef> size) {
+    [[maybe_unused]] std::optional<c10::SymIntArrayRef> size) {
   PT_EAGER_TRACE;
   PT_OP_INFO("slice_ds :", DUMP_5ARGS(self, size, dim, start, end));
   return at::native::slice(
@@ -388,7 +394,7 @@ at::Tensor constant_pad_nd_ds(
     const at::Tensor& self,
     c10::SymIntArrayRef pad,
     const c10::Scalar& value,
-    [[maybe_unused]] c10::optional<c10::SymIntArrayRef> size) {
+    [[maybe_unused]] std::optional<c10::SymIntArrayRef> size) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "constant_pad_ds :",
@@ -406,7 +412,7 @@ void accumulate_grads_(
   PT_EAGER_TRACE;
   PT_OP_INFO("accumulate_grads_ :", DUMP_2ARGS(variables, new_grads));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       variables.size() == new_grads.size(),
       "Inputs to hpu::accumulate_grads_ must be of the same size, got: ",
       variables.size(),
@@ -438,14 +444,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_fwd :",
@@ -463,7 +469,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
           seq_padding_type));
 
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -524,13 +530,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "sdpa_fwd :",
@@ -546,7 +552,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
           valid_seq_len,
           seq_padding_type));
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -600,20 +606,20 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "fp8_sdpa_fwd :",
@@ -653,7 +659,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
   }
 
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -726,12 +732,12 @@ fp8_sdpa_recomp_fwd_common(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     T d_scale_q,
     T d_scale_k,
     T d_scale_v,
@@ -740,8 +746,8 @@ fp8_sdpa_recomp_fwd_common(
     T d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type,
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type,
     c10::ScalarType fwdOutType) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
@@ -783,7 +789,7 @@ fp8_sdpa_recomp_fwd_common(
   }
 
   if (p > 0.0) {
-    int seed = habana::get_seed_hpu(c10::nullopt);
+    int seed = habana::get_seed_hpu(std::nullopt);
     at::TensorOptions o;
     o = o.dtype(at::kInt).device(at::kHPU);
     at::Tensor seed_t = at::tensor(seed, o);
@@ -879,29 +885,29 @@ fp8_sdpa_recomp_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
 
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
       (!q_scale_o.has_value()))
     fwdOutType = at::ScalarType::BFloat16;
-  return fp8_sdpa_recomp_fwd_common<c10::optional<at::Tensor>>(
+  return fp8_sdpa_recomp_fwd_common<std::optional<at::Tensor>>(
       q,
       k,
       v,
@@ -935,12 +941,12 @@ fp8_sdpa_recomp_scalar_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
+    std::string_view softmax_mode,
     const double d_scale_q,
     const double d_scale_k,
     const double d_scale_v,
@@ -949,8 +955,8 @@ fp8_sdpa_recomp_scalar_fwd(
     const double d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_EAGER_TRACE;
   auto fwdOutType = q.scalar_type();
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
@@ -984,22 +990,22 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_recomp_bwd(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const at::Tensor& m,
     const at::Tensor& linv,
-    const c10::optional<at::Tensor>& seed,
+    const std::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
     const double scale,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& d_scale_s,
-    const c10::optional<at::Tensor>& d_scale_do,
-    const c10::optional<at::Tensor>& d_scale_ds,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_ds,
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& d_scale_s,
+    const std::optional<at::Tensor>& d_scale_do,
+    const std::optional<at::Tensor>& d_scale_ds,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_ds,
     const bool is_amax_ds,
     const at::Tensor& fwd_out) {
   PT_EAGER_TRACE;
@@ -1170,26 +1176,124 @@ at::Tensor dropout(const at::Tensor& input, double p, bool train) {
   return std::get<0>(at::native_dropout(input, p, train));
 }
 
+struct DropoutFunction : public torch::autograd::Function<DropoutFunction> {
+  static constexpr bool is_traceable = true;
+
+  static at::Tensor forward(
+      torch::autograd::AutogradContext* ctx,
+      at::Tensor input,
+      double p,
+      bool train) {
+    ctx->saved_data["p"] = train ? p : 0.0;
+    if ((p == 0) || !train)
+      return input.clone();
+
+    at::Tensor result1, result2;
+    std::tie(result1, result2) = at::native_dropout(input, p, train);
+    ctx->save_for_backward({result2});
+
+    return result1;
+  }
+
+  static torch::autograd::variable_list backward(
+      torch::autograd::AutogradContext* ctx,
+      torch::autograd::variable_list grad_output) {
+    auto p = ctx->saved_data["p"].toDouble();
+    if (p == 0) {
+      return {grad_output[0], torch::Tensor(), torch::Tensor()};
+    } else if (p == 1) {
+      return {grad_output[0] * 0.0, torch::Tensor(), torch::Tensor()};
+    }
+
+    torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
+    auto mask = saved_vars[0];
+    auto scale = 1.0 / (1.0 - p);
+    at::Tensor result = grad_output[0] * mask * scale;
+
+    return {result, torch::Tensor(), torch::Tensor()};
+  }
+};
+
+at::Tensor dropout_wrap(const at::Tensor& input, double p, bool train) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("dropout :", DUMP_3ARGS(input, p, train));
+
+  FALLBACK_IF_UNSUPPORTED_OP(dropout, PARAMS1(input), PARAMS2(input, p, train))
+  if (input.dim() > 5) {
+    return dispatch_fallback<ATEN_OP(dropout)>::call(
+        OpSupportLevel::Value::unsupported_rank, PARAMS2(input, p, train));
+  }
+  return DropoutFunction::apply(input, p, train);
+}
+
 // pytorch decomposes this op to at::_euclidean_dist in some cases
 // For hpu we prefer to call _cdist_forward in all cases
 at::Tensor cdist(
     const at::Tensor& x1,
     const at::Tensor& x2,
     const double p,
-    c10::optional<int64_t> compute_mode) {
+    std::optional<int64_t> compute_mode) {
   PT_EAGER_TRACE;
   PT_OP_INFO("cdist :", DUMP_4ARGS(x1, x2, p, compute_mode));
 
   return _cdist_forward(x1, x2, p, compute_mode);
 }
 
+habana::CheckNodeWithSharedLayerValidator validator_one_hot(
+    "one_hot",
+    habana::OneHotSharedMeta,
+    habana_helpers::HabanaExecutionMode::EAGER);
+
 at::Tensor one_hot_forward(const at::Tensor& self, int64_t num_classes) {
   PT_EAGER_TRACE;
   PT_OP_INFO("one_hot: ", DUMP_2ARGS(self, num_classes));
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(one_hot, false, self, num_classes)
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::one_hot", {self, num_classes}};
   hpu_op.SetOutputMetaFn(habana::OneHotMeta);
   return hpu_op.call();
+}
+
+at::Tensor dequantize_nf4_impl(
+    const at::Tensor& input,
+    const at::Tensor& absmax,
+    c10::SymInt blocksize,
+    at::IntArrayRef out_shape,
+    at::ScalarType out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_nf4: ",
+      DUMP_5ARGS(input, absmax, blocksize, out_shape, out_dtype));
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::dequantize_nf4",
+      {input, absmax, blocksize, out_shape, out_dtype},
+      {out_shape.vec()}};
+  hpu_op.set_scalar_types({out_dtype});
+  return hpu_op.call();
+}
+
+void amp_foreach_non_finite_check_and_unscale_inplace(
+    at::TensorList self,
+    at::Tensor& found_inf,
+    const at::Tensor& inv_scale) {
+  // In this op implementation we will multiply by inv_scale and if any inf
+  // value is there inside a tensor we will return found_inf as [1.0] and
+  // modified TensorList
+
+  std::vector<at::Tensor> has_inf;
+  for (auto& tensor : self) {
+    // we can compare 1d bool tensor using logical_or
+    auto temp = torch::logical_or(
+        torch::any(torch::isinf(tensor)), torch::any(torch::isnan(tensor)));
+    has_inf.emplace_back(temp);
+    tensor.mul_(inv_scale);
+  }
+  c10::ArrayRef<at::Tensor> tensor_array_ref(has_inf);
+  auto inf_ref = torch::any(torch::stack(tensor_array_ref), 0, true);
+  found_inf.copy_(inf_ref);
+  return;
 }
 
 } // namespace
@@ -1204,6 +1308,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
+  m.def(
+      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
   m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
@@ -1231,9 +1337,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def(
-      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
+      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
+      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
   m.def(
       "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
@@ -1243,17 +1349,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
-      "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+      "hpu::mixture_of_experts_compile(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts_compile(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts_compile.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
+      "hpu::mixture_of_experts_compile.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
   m.def(
       "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
   m.def(
@@ -1263,14 +1361,13 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor router_weights, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+      "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]");
   m.def(
       "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
   m.def(
-      "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor router_weights, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+      "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]");
   m.def(
       "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
-
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
   m.def("hpu::view_neg(Tensor input, Tensor shape, int[] shape) -> Tensor");
   m.def("hpu::slice_ht(Tensor input, Tensor shape, Tensor shape) -> Tensor");
@@ -1419,6 +1516,22 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::mixture_of_experts.fp8_fused_weights_scalars",
       mixture_of_experts_fp8_fused_weights_scalars);
+  m.impl("hpu::mixture_of_experts.fp8_dynamic", mixture_of_experts_fp8_dynamic);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_fused_weights_dynamic",
+      mixture_of_experts_fp8_fused_weights_dynamic);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_scalars_dynamic",
+      mixture_of_experts_fp8_scalars_dynamic);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_fused_weights_scalars_dynamic",
+      mixture_of_experts_fp8_fused_weights_scalars_dynamic);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_blockwise",
+      mixture_of_experts_fp8_blockwise);
+  m.impl(
+      "hpu::mixture_of_experts.fp8_fused_weights_blockwise",
+      mixture_of_experts_fp8_fused_weights_blockwise);
   m.impl("hpu::optimizer_sgd", optimizer_sgd);
   m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum);
   m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd);
@@ -1443,12 +1556,20 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fused_clip_norm", fused_clip_norm);
   m.impl("hpu::weight_permutation", weight_permutation);
   m.impl("hpu::one_hot", one_hot_forward);
+  m.impl("hpu::dequantize_nf4", dequantize_nf4_impl);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("cdist", cdist);
   m.impl("dropout", dropout);
   m.impl("one_hot", one_hot_forward);
+  m.impl(
+      "_amp_foreach_non_finite_check_and_unscale_",
+      amp_foreach_non_finite_check_and_unscale_inplace);
+}
+
+TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
+  m.impl("dropout", dropout_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
@@ -1462,6 +1583,10 @@ TORCH_LIBRARY_IMPL(hpu, Autograd, m) {
   m.impl(
       "hpu::mixture_of_experts_compile.fused_weights",
       mixture_of_experts_fwd_fused_weights_autograd);
+  m.impl("hpu::mixture_of_experts", mixture_of_experts);
+  m.impl(
+      "hpu::mixture_of_experts.fused_weights",
+      mixture_of_experts_fused_weights);
 }
 
 } // namespace habana::eager
@@ -1470,11 +1595,14 @@ namespace {
 // Inplace ops must be additionally registered to Functionalize backend
 // to be handled in torch.compile
 // https://gist.github.com/bdhirsh/7dadbf6296f8f7d1abcf4c482f438aaa
-at::Tensor get_functional_tensor(const at::Tensor& tensor) {
-  TORCH_INTERNAL_ASSERT(
-      at::functionalization::impl::isFunctionalTensor(tensor));
-  at::functionalization::impl::sync(tensor);
-  return at::functionalization::impl::from_functional_tensor(tensor);
+template <class T>
+T get_functional_tensor(const T& tensor) {
+  if (at::functionalization::impl::isFunctionalTensor(tensor)) {
+    at::functionalization::impl::sync(tensor);
+    return at::functionalization::impl::from_functional_tensor(tensor);
+  } else {
+    return tensor;
+  }
 }
 
 at::Tensor& kv_reorder_functionalization_glue(
@@ -1525,6 +1653,64 @@ at::Tensor& in_place_interleave_functionalization_glue(at::Tensor& self) {
   at::functionalization::impl::sync(self);
   return self;
 }
+
+at::Tensor& fp8_gemm_functionalization_glue(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const at::Tensor& D,
+    at::ScalarType out_dtype,
+    const std::optional<at::Tensor>& A_scale_inv,
+    const std::optional<at::Tensor>& B_scale_inv,
+    const std::optional<at::Tensor>& bias,
+    bool accumulate,
+    at::Tensor& out) {
+  auto A_ = get_functional_tensor(A);
+  auto B_ = get_functional_tensor(B);
+  auto D_ = get_functional_tensor(D);
+  auto A_scale_inv_ = get_functional_tensor(A_scale_inv);
+  auto B_scale_inv_ = get_functional_tensor(B_scale_inv);
+  auto bias_ = get_functional_tensor(bias);
+  auto out_ = get_functional_tensor(out);
+
+  static auto op_handle = c10::Dispatcher::singleton()
+                              .findSchemaOrThrow("hpu::fp8_gemm_v2", "")
+                              .typed<at::Tensor(
+                                  const at::Tensor&,
+                                  bool,
+                                  const at::Tensor&,
+                                  bool,
+                                  const std::optional<at::Tensor>&,
+                                  at::ScalarType,
+                                  const std::optional<at::Tensor>&,
+                                  const std::optional<at::Tensor>&,
+                                  const std::optional<at::Tensor>&,
+                                  bool,
+                                  at::OptionalIntArrayRef)>();
+
+  at::Tensor tmp_output;
+  {
+    at::AutoDispatchSkipFunctionalize guard;
+    tmp_output = op_handle.call(
+        A_,
+        trans_A,
+        B_,
+        trans_B,
+        D_,
+        out_dtype,
+        A_scale_inv_,
+        B_scale_inv_,
+        bias_,
+        accumulate,
+        std::nullopt);
+  }
+
+  at::functionalization::impl::replace_(out, tmp_output);
+  at::functionalization::impl::commit_update(out);
+  at::functionalization::impl::sync(out);
+  return out;
+}
 } // namespace
 
 namespace habana::eager {
@@ -1532,6 +1718,7 @@ namespace habana::eager {
 TORCH_LIBRARY_IMPL(hpu, Functionalize, m) {
   m.impl("kv_reorder_", kv_reorder_functionalization_glue);
   m.impl("in_place_interleave_", in_place_interleave_functionalization_glue);
+  m.impl("fp8_gemm", fp8_gemm_functionalization_glue);
 }
 
 } // namespace habana::eager

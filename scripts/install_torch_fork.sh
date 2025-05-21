@@ -47,10 +47,31 @@ main() {
     storage=$(mktemp -d 2>/dev/null || mktemp -d -t 'torch-fork-wheels')
     readonly storage
 
+    source /etc/os-release
+    if [[ "$ID" == "ubuntu" ]]; then
+        if [[ "$VERSION_ID" == "22.04" ]]; then
+            os="ubuntu2204"
+        elif [[ "$VERSION_ID" == "24.04" ]]; then
+            os="ubuntu2404"
+        fi
+    elif [[ "$ID" == "rhel" ]]; then
+        if [[ "$VERSION_ID" == "86" ]]; then
+            os="rhel86"
+        elif [[ "$VERSION_ID" == "92" ]]; then
+            os="rhel92"
+        elif [[ "$VERSION_ID" == "94" ]]; then
+            os="rhel94"
+        fi
+    elif [[ "$ID" == "suse" ]]; then
+        os="suse155"
+    elif [[ "$ID" == "tencentos" ]]; then
+        os="tencentos31"
+    fi
+
     # shellcheck disable=SC2064  # Otherwise storage is already out of scope
     trap "rm -r \"$storage\"" EXIT
 
-    wget "https://vault.habana.ai/artifactory/gaudi-pt-modules/${version}/${build}/pytorch/ubuntu2204/pytorch_modules-v${current_torch}_${version}_${build}.tgz" -O - \
+    wget "https://vault.habana.ai/artifactory/gaudi-pt-modules/${version}/${build}/pytorch/${os}/pytorch_modules-v${current_torch}_${version}_${build}.tgz" -O - \
         | tar -C "$storage" -xz --wildcards --no-anchored "torch-${current_torch}*"
     pip install "$storage/torch-${current_torch}"*
 }

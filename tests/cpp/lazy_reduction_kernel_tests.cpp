@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
@@ -71,8 +71,8 @@ TEST_F(LazyReductionKernelTest, SumDimIntOut) {
   torch::Tensor Out = torch::randn({2});
   torch::Tensor hOut = Out.to("hpu");
 
-  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, c10::nullopt, Out);
-  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, c10::nullopt, hOut);
+  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, std::nullopt, Out);
+  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, std::nullopt, hOut);
   auto hOut_cpu = out_hpu.to(torch::kCPU);
   EXPECT_EQ(
       allclose(hOut_cpu, out_cpu, COMMON_ATOL_FLOAT, COMMON_RTOL_FLOAT), true);

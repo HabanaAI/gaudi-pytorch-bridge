@@ -14,23 +14,37 @@
  */
 
 #include "backend/profiling/profiling.h"
+#include <sys/types.h>
 #include <array>
 #include <stdexcept>
 #include "backend/profiling/trace_sources/bridge_logs_source.h"
 #include "backend/profiling/trace_sources/memory_source.h"
-#include "backend/profiling/trace_sources/synapse_logger_source.h"
 #include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include "backend/synapse_helpers/env_flags.h"
 
+namespace {
+constexpr size_t kMaxThreadName = 32;
+} // namespace
+
 namespace habana {
 namespace profile {
+
+std::string getThreadName() {
+  std::array<char, kMaxThreadName + 1> name{};
+  int result = pthread_getname_np(pthread_self(), name.data(), name.size());
+
+  if (result != 0 || name[0] == '\0') {
+    return "UnnamedThread";
+  } else {
+    name[kMaxThreadName] = '\0';
+    return std::string(name.data());
+  }
+}
 
 int64_t getOffset(TraceSourceVariant variant) {
   switch (variant) {
     case TraceSourceVariant::SYNAPSE_PROFILER:
       return 0;
-    case TraceSourceVariant::SYNAPSE_LOGGER:
-      return 10000;
     case TraceSourceVariant::BRIDGE_LOGS:
       return 0;
     case TraceSourceVariant::MEMORY_LOGS:
@@ -42,7 +56,6 @@ int64_t getOffset(TraceSourceVariant variant) {
 Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {}
 
 void Profiler::init_sources(
-    bool synapse_logger,
     bool bridge,
     bool memory,
     const std::vector<std::string>& mandatory_events) {
@@ -52,10 +65,6 @@ void Profiler::init_sources(
   trace_sources_.clear();
 
   trace_sources_.push_back(std::make_unique<SynapseProfilerSource>());
-  if (synapse_logger || !mandatory_events.empty()) {
-    trace_sources_.push_back(std::make_unique<SynapseLoggerSource>(
-        synapse_logger, mandatory_events));
-  }
   if (bridge || !mandatory_events.empty()) {
     trace_sources_.push_back(
         std::make_unique<BridgeLogsSource>(bridge, mandatory_events));

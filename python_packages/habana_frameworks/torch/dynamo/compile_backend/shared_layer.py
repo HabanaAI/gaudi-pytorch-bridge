@@ -15,17 +15,17 @@
 #
 ###############################################################################
 
-from typing import Dict, List
 
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
+import torch
+
+from ._shared_layer_C import check_cpu_fallback_op
 from .random_utils import HABANA_CHECKPOINT_OPS
 
 logger = get_compile_backend_logger()
-from ._shared_layer_C import check_cpu_fallback_op
 
 hpu_supported_op_list = {
     "_to_copy",
@@ -48,6 +48,7 @@ hpu_supported_op_list = {
     "cast_to_fp8_v2",
     "convert_from_int4",
     "convert_from_uint4",
+    "dequantize_nf4",
     "conv2d_fp8",
     "ctc_loss_custom",
     "ctc_loss_custom_backward",
@@ -121,6 +122,7 @@ hpu_supported_op_list = {
     # Activation checkpoint
     "run_and_save_rng_state",
     "run_with_rng_state",
+    "habana_seed_generator",
 }
 
 # When below flag is enabled, aten.linear and aten.matmul decompositions
@@ -128,7 +130,7 @@ hpu_supported_op_list = {
 if bc.get_pt_hpu_override_linear_matmul_eager():
     hpu_supported_op_list.update(["matmul_bwd", "linear", "linear_backward"])
 
-hpu_supported_ops_restricted = dict()
+hpu_supported_ops_restricted = {}
 
 if bc.get_pt_hpu_wrap_random_ops_compile():
     hpu_supported_op_list.update(["rand", "randint", "randn", "uniform"])
@@ -191,7 +193,7 @@ def check_for_conditional_eager_fallback(node, op_name, is_dynamic):
         eager_fallback = True
     t = node.args[0]
     indices = node.args[1]
-    for i, index in enumerate(indices):
+    for index in indices:
         # None indices are not supported inside graph
         if index is None:
             eager_fallback = True
@@ -225,6 +227,7 @@ def index_put_support_check(node, is_dynamic):
                 return True
         return True
 
+    bool_indices_count = 0
     for i, index in enumerate(indices):
         # None indices are not supported
         if index is None:
@@ -237,6 +240,11 @@ def index_put_support_check(node, is_dynamic):
         # Long and Bool indices mix are supported
         # Check for cases with accumulate flag
         if not accumulate_support_check(accumulate, index, i, t):
+            return False
+        for output_dtype in index.meta["output_dtypes"]:
+            if output_dtype == torch.bool:
+                bool_indices_count = bool_indices_count + 1  # return True
+        if bool_indices_count > 1:
             return False
 
     return True
@@ -253,7 +261,7 @@ def check_for_default_op_support(op_name, node, is_dynamic):
         if parameter in restrictions[1]:
             return True
     # Enable torch.compile for user's CustomOp API
-    if node.target.namespace == "custom_op":
+    if hasattr(node.target, "namespace") and node.target.namespace == "custom_op":
         return True
     return False
 
@@ -277,7 +285,7 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
     # bool has issue with JIT scalar representation
     # in the bool_fallback_list key is op_name and value is a list of
     # arguments that cannot be of type bool
-    bool_fallback_list: Dict[str, List[int]] = {"full": [1], "mul": [1]}
+    bool_fallback_list: dict[str, list[int]] = {"full": [1], "mul": [1]}
     if op_name in bool_fallback_list:
         for idx in bool_fallback_list[op_name]:
             if isinstance(node.args[idx], bool):
@@ -317,10 +325,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
         conditional_eager_fallback = check_for_conditional_eager_fallback(node, op_name, is_dynamic)
         conditional_add_to_graph = op_name in hpu_conditional_fallback_op_list and not conditional_eager_fallback
 
-        if check_for_default_fallback(op_name, node, is_dynamic):
-            do_fallback = True
-            logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
-        elif conditional_eager_fallback:
+        if check_for_default_fallback(op_name, node, is_dynamic) or conditional_eager_fallback:
             do_fallback = True
             logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
         elif not check_for_default_op_support(op_name, node, is_dynamic) or conditional_add_to_graph:
@@ -336,7 +341,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
                 try:
                     # Extracts unerlying values from sym nodes
                     def convert(val):
-                        if isinstance(val, (torch.SymInt, torch.SymFloat, torch.SymBool)):
+                        if isinstance(val, torch.SymInt | torch.SymFloat | torch.SymBool):
                             return val.node.hint
                         # if list, then check if it contains any sym node
                         elif isinstance(val, list):
@@ -354,7 +359,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
 
                     shared_meta = [
                         (len(shape), dtype)
-                        for shape, dtype in zip(node.meta["output_shapes"], node.meta["output_dtypes"])
+                        for shape, dtype in zip(node.meta["output_shapes"], node.meta["output_dtypes"], strict=False)
                     ]
                     do_fallback = check_cpu_fallback_op(
                         op_name,

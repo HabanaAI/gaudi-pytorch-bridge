@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "util.h"
 
@@ -60,9 +60,9 @@ TEST_P(NativeGroupNormTests, GroupNormFwdBwdExecute) {
   const auto [N, C, H, W, G] = groupNormSizes;
 
   const auto [atol, rtol] = dtype == torch::kFloat32
-      ? std::make_tuple(c10::nullopt, c10::nullopt)
+      ? std::make_tuple(std::nullopt, std::nullopt)
       : std::make_tuple(
-            c10::optional<double>(0.05), c10::optional<double>(0.05));
+            std::optional<double>(0.05), std::optional<double>(0.05));
 
   // Input, weight, bias, grad
   GenerateInputs(4, {{N, C, H, W}, {C}, {C}, {N, C, H, W}}, {dtype});

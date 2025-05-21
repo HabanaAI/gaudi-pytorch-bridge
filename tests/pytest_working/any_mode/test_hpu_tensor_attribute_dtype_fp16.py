@@ -16,12 +16,9 @@
 ###############################################################################
 
 
-import pytest
 import torch
-from test_utils import is_gaudi1
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
 def test_hpu():
     tmp_cpu = torch.nn.Linear(12, 12, dtype=torch.float16)
     print(f"{tmp_cpu.weight.dtype=} | {tmp_cpu.weight.requires_grad=}")

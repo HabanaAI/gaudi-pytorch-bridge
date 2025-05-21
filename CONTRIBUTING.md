@@ -1,11 +1,9 @@
 # Contributing to pytorch-integration
 
 ## Python linters
-Each patchset uploaded to Gerrit is automatically run against below linters to keep high code quality and consistent look and feel:
+Each submitted PR is automatically run against below linters to keep high code quality and consistent look and feel:
 * [black](https://github.com/psf/black)
-* [flake8](https://github.com/PyCQA/flake8)
-* [isort](https://github.com/PyCQA/isort)
-* [mypy](https://github.com/python/mypy)
+* [ruff](https://github.com/astral-sh/ruff)
 
 ### pre-commit
 To save your time, you can run all above linters automatically on your workstation before committing a change.

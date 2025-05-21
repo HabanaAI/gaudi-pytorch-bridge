@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/searchsorted.h"
 
 namespace habana {
@@ -30,7 +30,7 @@ OutputMetaDataVector SearchSortedMeta(const at::Stack& stack) {
   auto old_outshape = outshape;
   old_seqshape.erase(old_seqshape.end() - 1);
   old_outshape.erase(old_outshape.end() - 1);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       seqshape.empty() || (old_seqshape == old_outshape),
       "torch.searchsorted(): boundaries tensor should be 1 dimension or ",
       "the first N-1 dimensions of boundaries tensor and input value tensor ",

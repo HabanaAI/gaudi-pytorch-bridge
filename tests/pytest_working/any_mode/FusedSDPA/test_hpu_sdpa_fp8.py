@@ -19,29 +19,31 @@
 import copy
 import math  # for ceil etc
 import os
-import sys
 
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
-import numpy as np
 import pytest
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from habana_frameworks.torch.core.quantization import (
+    _check_params_as_const,
+    _mark_params_as_const,
+)
 from habana_frameworks.torch.hpex.kernels import fp8_fused_sdpa
-from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, inference, vb_print
+from sdpa_test_utils import (  # noqa F401
+    check_dbg_env_var,
+    get_dbg_env_var_num,
+    inference,
+    vb_print,
+)
 from test_utils import (
-    check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
-    is_gaudi1,
     is_gaudi3,
 )
 
 print_max_diff = False
 
-
-from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
 
 # LNEG = float('-inf')
 LNEG = -1e9
@@ -203,7 +205,7 @@ class TestModel(torch.nn.Module):
         inference=False,
         is_scalar_run=False,
     ):
-        super(TestModel, self).__init__()
+        super().__init__()
 
         def get_first_scalar(scaleOpt):
             if is_scalar_run and (scaleOpt is not None):
@@ -270,7 +272,7 @@ class TestModel(torch.nn.Module):
 def create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s, dtype, shape, float_mask=True):
     attn_mask = torch.randint(0, 2, (seq_len_N_s,)).float()
     if float_mask:
-        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, float(0.0))
+        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, 0.0)
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":
@@ -1032,50 +1034,28 @@ def test_sdpa(
     scalar_run,
 ):
     config_name = (
-        "BatchSize = "
-        + str(batch_size)
-        + " q_heads = "
-        + str(q_heads)
-        + " kv_heads = "
-        + str(kv_heads)
-        + " Nt = "
-        + str(seq_len_N_t)
-        + " Ns = "
-        + str(seq_len_N_s)
-        + " head_dim_qk = "
-        + str(head_dim_qk)
-        + " head_dim_v = "
-        + str(head_dim_v)
-        + " dropout_p = "
-        + str(dropout_p)
-        + "use_attn_mask = "
-        + str(use_attn_mask)
-        + " use_float_mask = = "
-        + str(use_float_mask)
-        + " enable_autocast = "
-        + str(enable_autocast)
-        + " is_causal = "
-        + str(is_causal)
-        + " recompute = "
-        + str(recompute)
-        + " rhSlice = "
-        + str(rhslice)
-        + " inference = "
-        + str(inference)
-        + " softmax_mode = "
-        + str(softmax_mode)
-        + " is_amax_s = "
-        + str(is_amax_s)
-        + " is_amx_o = "
-        + str(is_amax_o)
-        + " is_amax_ds = "
-        + str(is_amax_ds)
-        + " fp8_run_out_type= "
-        + str(fp8_run_out_type)
-        + "is_scalar_run"
-        + str(scalar_run)
+        f"BatchSize = {batch_size} "
+        f"q_heads = {q_heads} "
+        f"kv_heads = {kv_heads} "
+        f"Nt = {seq_len_N_t} "
+        f"Ns = {seq_len_N_s} "
+        f"head_dim_qk = {head_dim_qk} "
+        f"head_dim_v = {head_dim_v} "
+        f"dropout_p = {dropout_p} "
+        f"use_attn_mask = {use_attn_mask} "
+        f"use_float_mask = {use_float_mask} "
+        f"enable_autocast = {enable_autocast} "
+        f"is_causal = {is_causal} "
+        f"recompute = {recompute} "
+        f"rhslice = {rhslice} "
+        f"inference = {inference} "
+        f"softmax_mode = {softmax_mode} "
+        f"is_amax_s = {is_amax_s} "
+        f"is_amax_o = {is_amax_o} "
+        f"is_amax_ds = {is_amax_ds} "
+        f"fp8_run_out_type = {fp8_run_out_type} "
+        f"is_scalar_run = {scalar_run}"
     )
-
     print(config_name)
 
     test_case_valid = is_param_combo_valid(
@@ -1101,8 +1081,6 @@ def test_sdpa(
         fp8_run_out_type,
         scalar_run,
     )
-    if is_gaudi1():
-        pytest.skip("Fp8 tests not supported on G1")
 
     if not is_gaudi3():
         if not inference:

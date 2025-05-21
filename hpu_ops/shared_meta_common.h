@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -32,6 +32,10 @@
   SharedMetaDataVector name##SharedMeta( \
       const at::Stack& stack, const std::string& guid);
 
+#define SHARED_META_GUID_CONDITIONAL(name) \
+  SharedMetaDataVector name##SharedMeta(   \
+      const at::Stack& stack, const std::string& guid, bool);
+
 namespace habana {
 
 SHARED_META_GUID(Input0)
@@ -51,7 +55,7 @@ SHARED_META_GUID(BinaryWithAlpha)
 SHARED_META_GUID(BitwiseLogical)
 SHARED_META(Topk)
 SHARED_META_GUID(RandomSeedTensorInput)
-SHARED_META_GUID(MatrixMulWithAdd)
+SHARED_META_GUID_CONDITIONAL(MatrixMulWithAdd)
 SHARED_META(PadBwd)
 SHARED_META_GUID(MaxPoolWithIndicesFwd)
 SHARED_META_GUID(MaxPoolWithIndicesBwd)
@@ -59,5 +63,10 @@ SHARED_META(Empty)
 SHARED_META(Matmul)
 SHARED_META(StridedView)
 SHARED_META(InstanceNorm)
+SHARED_META(AddInplace)
+SHARED_META(KlDiv)
+SHARED_META(CopyShared)
+SHARED_META(Alias)
+SHARED_META(OneHot)
 
 } // namespace habana

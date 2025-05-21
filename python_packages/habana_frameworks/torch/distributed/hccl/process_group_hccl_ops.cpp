@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "process_group_hccl_base.hpp"
 
 #include <hccl.h>
@@ -22,14 +22,13 @@
 
 #include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch/csrc/distributed/c10d/Types.hpp>
-#include <torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
 #include "backend/helpers/collective_utils.h"
 #include "common/utils.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/pt_version_check.h"
 
 namespace c10d {
 namespace ops {
-using Work = c10d_ver::Work;
 
 c10::intrusive_ptr<Work> send_hpu_(
     at::TensorList tensors,
@@ -39,10 +38,6 @@ c10::intrusive_ptr<Work> send_hpu_(
   auto tensor_vec = tensors.vec();
   return process_group->getBackend(c10::DeviceType::HPU)
       ->send(tensor_vec, static_cast<int>(dstRank), static_cast<int>(tag));
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("send", send_hpu_);
 }
 
 c10::intrusive_ptr<Work> recv_hpu_(
@@ -55,10 +50,6 @@ c10::intrusive_ptr<Work> recv_hpu_(
       ->recv(tensor_vec, static_cast<int>(srcRank), static_cast<int>(tag));
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("recv_", recv_hpu_);
-}
-
 c10::intrusive_ptr<Work> recv_any_source_hpu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
@@ -66,10 +57,6 @@ c10::intrusive_ptr<Work> recv_any_source_hpu_(
   auto tensor_vec = tensors.vec();
   return process_group->getBackend(c10::DeviceType::HPU)
       ->recvAnysource(tensor_vec, static_cast<int>(tag));
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("recv_any_source_", recv_any_source_hpu_);
 }
 
 c10::intrusive_ptr<Work> reduce_hpu_(
@@ -88,10 +75,6 @@ c10::intrusive_ptr<Work> reduce_hpu_(
               root_rank,
               root_tensor,
               std::chrono::milliseconds(timeout)});
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("reduce_", reduce_hpu_);
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_hpu_(
@@ -114,10 +97,6 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_hpu_(
       std::move(tensor_vec), work);
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("broadcast_", broadcast_hpu_);
-}
-
 // Return input tensors as output tensors to make inplace allreduce look like
 // a functional API, so that make_fx can correctly build the dependencies in
 // the graph later.
@@ -125,7 +104,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
     const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    [[maybe_unused]] const c10::optional<at::Tensor>& sparse_indices,
+    [[maybe_unused]] const std::optional<at::Tensor>& sparse_indices,
     int64_t timeout) {
   auto tensor_vec = tensors.vec();
   auto work =
@@ -136,10 +115,6 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_hpu_(
                   *reduce_op.get(), std::chrono::milliseconds(timeout)});
   return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
       std::move(tensor_vec), work);
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("allreduce_", allreduce_hpu_);
 }
 
 c10::intrusive_ptr<Work> allreduce_coalesced_hpu_(
@@ -153,10 +128,6 @@ c10::intrusive_ptr<Work> allreduce_coalesced_hpu_(
   opts.timeout = std::chrono::milliseconds(timeout);
   return process_group->getBackend(c10::DeviceType::HPU)
       ->allreduce_coalesced(tensor_vec, opts);
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("allreduce_coalesced_", allreduce_coalesced_hpu_);
 }
 
 // Copy output tensors (not storage) so that this can be used in a functional
@@ -179,10 +150,6 @@ allgather_hpu_(
           output_tensors, work);
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("allgather_", allgather_hpu_);
-}
-
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_hpu_(
     at::Tensor& output_tensor,
     at::Tensor& input_tensor,
@@ -198,10 +165,6 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_hpu_(
   return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("_allgather_base_", _allgather_base_hpu_);
-}
-
 c10::intrusive_ptr<Work> allgather_coalesced_hpu_(
     const std::vector<std::vector<at::Tensor>>& output_lists,
     const at::TensorList& input_list,
@@ -211,10 +174,6 @@ c10::intrusive_ptr<Work> allgather_coalesced_hpu_(
       ->allgather_coalesced(
           const_cast<std::vector<std::vector<at::Tensor>>&>(output_lists),
           input_list_vec);
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("allgather_coalesced_", allgather_coalesced_hpu_);
 }
 
 c10::intrusive_ptr<c10d::Work> allgather_into_tensor_coalesced_hpu_(
@@ -227,27 +186,14 @@ c10::intrusive_ptr<c10d::Work> allgather_into_tensor_coalesced_hpu_(
       ->allgather_into_tensor_coalesced(output_vec, input_vec);
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl(
-      "allgather_into_tensor_coalesced_", allgather_into_tensor_coalesced_hpu_);
-}
-
 void startCoalescing_(
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group) {
   return process_group->getBackend(c10::DeviceType::HPU)->startCoalescing();
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("startCoalescing", startCoalescing_);
-}
-
 c10::intrusive_ptr<c10d::Work> endCoalescing_(
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group) {
   return process_group->getBackend(c10::DeviceType::HPU)->endCoalescing();
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("endCoalescing", endCoalescing_);
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
@@ -269,10 +215,6 @@ reduce_scatter_hpu_(
       output_tensors_vec, work);
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("reduce_scatter_", reduce_scatter_hpu_);
-}
-
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_hpu_(
     at::Tensor& output_tensor,
     at::Tensor& input_tensor,
@@ -291,10 +233,6 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_hpu_(
   return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("_reduce_scatter_base_", _reduce_scatter_base_hpu_);
-}
-
 c10::intrusive_ptr<c10d::Work> reduce_scatter_tensor_coalesced_hpu_(
     at::TensorList outputs,
     at::TensorList inputs,
@@ -311,11 +249,6 @@ c10::intrusive_ptr<c10d::Work> reduce_scatter_tensor_coalesced_hpu_(
               *reduce_op.get(), std::chrono::milliseconds(timeout)});
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl(
-      "reduce_scatter_tensor_coalesced_", reduce_scatter_tensor_coalesced_hpu_);
-}
-
 c10::intrusive_ptr<Work> gather_hpu_(
     const std::vector<std::vector<at::Tensor>>& output_tensors,
     const at::TensorList& input_tensors,
@@ -328,10 +261,6 @@ c10::intrusive_ptr<Work> gather_hpu_(
           const_cast<std::vector<std::vector<at::Tensor>>&>(output_tensors),
           input_tensors_vec,
           GatherOptions{root_rank, std::chrono::milliseconds(timeout)});
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("gather_", gather_hpu_);
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_hpu_(
@@ -353,10 +282,6 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_hpu_(
       std::move(output_tensors_vec), work);
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("scatter_", scatter_hpu_);
-}
-
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> alltoall_hpu_(
     const at::TensorList& output_tensors,
     const at::TensorList& input_tensors,
@@ -371,10 +296,6 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> alltoall_hpu_(
                       AllToAllOptions{std::chrono::milliseconds(timeout)});
   return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
       std::move(output_tensors_vec), work);
-}
-
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("alltoall_", alltoall_hpu_);
 }
 
 c10::intrusive_ptr<Work> alltoall_base_hpu_(
@@ -393,10 +314,6 @@ c10::intrusive_ptr<Work> alltoall_base_hpu_(
           AllToAllOptions{std::chrono::milliseconds(timeout)});
 }
 
-TORCH_LIBRARY_IMPL(c10d, HPU, m) {
-  m.impl("alltoall_base_", alltoall_base_hpu_);
-}
-
 c10::intrusive_ptr<Work> barrier_hpu_(
     at::Tensor /* unused */,
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group,
@@ -409,7 +326,29 @@ c10::intrusive_ptr<Work> barrier_hpu_(
 }
 
 TORCH_LIBRARY_IMPL(c10d, HPU, m) {
+  m.impl("_allgather_base_", _allgather_base_hpu_);
+  m.impl("_reduce_scatter_base_", _reduce_scatter_base_hpu_);
+  m.impl("allgather_", allgather_hpu_);
+  m.impl("allgather_coalesced_", allgather_coalesced_hpu_);
+  m.impl(
+      "allgather_into_tensor_coalesced_", allgather_into_tensor_coalesced_hpu_);
+  m.impl("allreduce_", allreduce_hpu_);
+  m.impl("allreduce_coalesced_", allreduce_coalesced_hpu_);
+  m.impl("alltoall_", alltoall_hpu_);
+  m.impl("alltoall_base_", alltoall_base_hpu_);
   m.impl("barrier", barrier_hpu_);
+  m.impl("broadcast_", broadcast_hpu_);
+  m.impl("endCoalescing", endCoalescing_);
+  m.impl("gather_", gather_hpu_);
+  m.impl("recv_", recv_hpu_);
+  m.impl("recv_any_source_", recv_any_source_hpu_);
+  m.impl("reduce_", reduce_hpu_);
+  m.impl("reduce_scatter_", reduce_scatter_hpu_);
+  m.impl(
+      "reduce_scatter_tensor_coalesced_", reduce_scatter_tensor_coalesced_hpu_);
+  m.impl("scatter_", scatter_hpu_);
+  m.impl("send", send_hpu_);
+  m.impl("startCoalescing", startCoalescing_);
 }
 
 } // namespace ops

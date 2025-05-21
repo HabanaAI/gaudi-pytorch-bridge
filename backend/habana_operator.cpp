@@ -16,6 +16,7 @@
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel_recipe_signature.h"
@@ -118,12 +119,6 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
   return result;
 }
 
-namespace {
-struct ResourceHolder {
-  std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-};
-} // namespace
-
 static size_t getRecipeKey(
     std::string node,
     std::vector<c10::IValue> stack,
@@ -151,8 +146,8 @@ static void launchRecipe(
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe->launch(input_buffers, output_buffers, address_lock, stream_handle);
     recipe_counter.increase();
-    auto holder = std::make_shared<ResourceHolder>();
-    holder->address_lock = std::move(address_lock);
+    auto holder = std::make_shared<GenericResourceHolder>();
+    holder->set_address_lock(std::move(address_lock));
     const auto& recipe_ptr = recipe->getRecipeHandle();
     // Get the reference to the tensor it is operating on to prevent
     // it from being deallocated while the operation is still in flight.
@@ -306,17 +301,17 @@ void habana::HabanaOperator::SetPTOutput(const at::Tensor& output) {
 
 void habana::HabanaOperator::SetPTOutput(torch::jit::Stack& inputs) {
   static_cast<void>(inputs);
-  TORCH_CHECK(0, "Should never reach this empty base SetPTOutput Stack");
+  HABANA_ASSERT(0, "Should never reach this empty base SetPTOutput Stack");
 }
 
 void habana::HabanaOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   static_cast<void>(inputs);
-  TORCH_CHECK(0, "Should never reach this empty base SetPTOutputs Stack");
+  HABANA_ASSERT(0, "Should never reach this empty base SetPTOutputs Stack");
 }
 
 void habana::HabanaOperator::SetPTOutputs(
     const std::vector<at::Tensor>& outputs) {
-  TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
 
   for (auto& output : outputs) {
     p_context_->pt_outputs_.emplace_back(output);
@@ -341,7 +336,6 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     void* host_ptr,
     const std::string& idx) {
   PT_BRIDGE_TRACE;
-  // TORCH_CHECK(input != nullptr, "Input cannot be null");
   if (input.scalar_type() == c10::ScalarType::Long &&
       !common::IsInt64Supported()) {
     auto tmeta{habana::get_tensor_extra_meta(input)};
@@ -382,9 +376,17 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
           guid_ == "convert_from_int4_i32" ? syn_type_int4 : syn_type_uint4;
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
           input, graph, is_persistent, false, syn_type));
+    } else if (
+        // packed_nf4 dtype tensors are exposed to Pytorch via torch.uint8
+        // type, therefore for uint8 ops synTensors must have manually set
+        // syn_type_packed_nf4 type
+        (guid_.find("cast_packed_nf4_to") != std::string::npos) &&
+        input.scalar_type() == c10::ScalarType::Byte) {
+      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
+          input, graph, is_persistent, false, syn_type_packed_nf4));
     } else {
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
-          input, graph, is_persistent, false, c10::nullopt, idx, idx));
+          input, graph, is_persistent, false, std::nullopt, idx, idx));
     }
   } else {
     p_context_->syn_inputs_.emplace_back(
@@ -399,8 +401,6 @@ void habana::HabanaOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& inputs,
     bool is_persistent) {
-  // TORCH_CHECK(!inputs.empty(), "Inputs cannot be null");
-
   for (auto& input : inputs) {
     AllocateSynapseInput(graph, input, is_persistent);
   }
@@ -460,7 +460,7 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         graph,
         output_metadata.persistent,
         output_metadata.external,
-        c10::nullopt,
+        std::nullopt,
         output_metadata.name,
         output_metadata.module_name + '.' +
             std::to_string(p_context_->syn_outputs_.size())));
@@ -533,8 +533,8 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& outputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
-  TORCH_CHECK(
+  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(
       outputs.size() == output_metadata.size(),
       "#output should match #output_metadata");
   for (unsigned int i = 0; i < outputs.size(); ++i) {
@@ -550,7 +550,7 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
   static_cast<void>(graph);
   static_cast<void>(inputs);
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       0, "Should never reach this empty base AllocateAndAddSynapseNode");
 }
 
@@ -572,13 +572,13 @@ void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(
   static_cast<void>(inputs);
   static_cast<void>(syn_t_vec);
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       0, "Should never reach this empty base ReuseMemoryAndAddSynapseNode");
 };
 
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput([
     [maybe_unused]] synapse_helpers::tensor_or_ref&& tensor) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       0, "Should never reach this SetSynapseInput, avoid using std::move");
 }
 
@@ -691,7 +691,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
 synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
     synapse_helpers::graph& graph,
     const c10::Scalar& scalar_val,
-    c10::optional<at::ScalarType> force_type) {
+    std::optional<at::ScalarType> force_type) {
   auto val_type = scalar_val.type();
 
   const auto init_val_size = elementSize(val_type);

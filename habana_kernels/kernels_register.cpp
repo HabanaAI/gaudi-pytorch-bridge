@@ -34,7 +34,6 @@
 #include "hpu_ops/shared_meta_common.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace torch;
 using namespace at;
@@ -42,7 +41,7 @@ using namespace habana;
 using namespace habana_lazy;
 
 #define FP8_CHECK                                 \
-  TORCH_CHECK(                                    \
+  HABANA_ASSERT(                                  \
       synapse_helpers::device_supports_fp8(       \
           HPUDeviceContext::get_device().type()), \
       "FP8 data type is not available on this device.")
@@ -71,7 +70,7 @@ static CheckNodeWithSharedLayerValidator validator_instance_norm(
 
 bool hpu_wrap::is_pinned(
     const at::Tensor& self,
-    c10::optional<at::Device> device) {
+    std::optional<at::Device> device) {
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "is_pinned :", " self=", to_string(self), " device=", to_string(device));
@@ -107,7 +106,7 @@ Tensor hpu_wrap::_pin_memory(
 
 Tensor hpu_wrap::bincount(
     const Tensor& self,
-    const c10::optional<Tensor>& weights,
+    const std::optional<Tensor>& weights,
     int64_t minlength) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -158,7 +157,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
       to_string(src),
       " non_blocking=",
       to_string(non_blocking));
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= 8 && src.dim() <= 8, "HPU doesn't support rank > 8D");
   return copy_hpu_lazy_(self, src, non_blocking);
 }
@@ -320,7 +319,7 @@ Tensor& hpu_wrap::scatter_add_(
 
 at::Tensor& hpu_wrap::_index_put_impl_(
     at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
+    const c10::List<std::optional<at::Tensor>>& indices,
     const at::Tensor& values,
     bool accumulate,
     bool unsafe) {
@@ -398,41 +397,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
         PARAMS2(self, sorted, return_inverse, return_counts));
   }
   return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
-}
-
-Tensor& hpu_wrap::index_add_out(
-    const Tensor& self,
-    int64_t dim,
-    const Tensor& index,
-    const Tensor& source,
-    const Scalar& alpha,
-    Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "index_add_out :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      " index=",
-      to_string(index),
-      " source=",
-      to_string(source),
-      " alpha=",
-      to_string(alpha),
-      " out=",
-      to_string(out));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      index_add_out,
-      PARAMS1(self, index, source, out),
-      PARAMS2(self, dim, index, source, alpha, out))
-  if (self.dim() > 5 || index.dim() > 5 || source.dim() > 5) {
-    return dispatch_fallback<ATEN_OP2(index_add, out)>::call(
-        OpSupportLevel::Value::unsupported_rank,
-        PARAMS2(self, dim, index, source, alpha, out));
-  }
-  return index_add_hpu_lazy_out(self, dim, index, source, alpha, out);
 }
 
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
@@ -722,7 +686,7 @@ Tensor hpu_wrap::instance_norm(
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
-    c10::optional<c10::SymInt> output_size) {
+    std::optional<c10::SymInt> output_size) {
   habana_lazy::NoAccThread no_acc_thread;
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -749,7 +713,7 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
       torch::autograd::AutogradContext* ctx,
       at::Tensor input,
       int64_t dim,
-      c10::optional<at::ScalarType> dtype) {
+      std::optional<at::ScalarType> dtype) {
     bool need_fp8_to_fp32_cast =
         input.scalar_type() == at::ScalarType::Float8_e5m2 ||
         input.scalar_type() == at::ScalarType::Float8_e4m3fn;
@@ -825,11 +789,11 @@ Tensor hpu_wrap::softmax(
 
 Tensor hpu_wrap::empty(
     SymIntArrayRef size,
-    c10::optional<ScalarType> dtype,
-    c10::optional<Layout> layout,
-    c10::optional<Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<MemoryFormat> optional_memory_format) {
+    std::optional<ScalarType> dtype,
+    std::optional<Layout> layout,
+    std::optional<Device> device,
+    std::optional<bool> pin_memory,
+    std::optional<MemoryFormat> optional_memory_format) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -859,10 +823,10 @@ Tensor hpu_wrap::empty(
 Tensor hpu_wrap::empty_strided(
     SymIntArrayRef size,
     SymIntArrayRef stride,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory) {
+    std::optional<at::ScalarType> dtype,
+    std::optional<at::Layout> layout,
+    std::optional<at::Device> device,
+    std::optional<bool> pin_memory) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -969,7 +933,7 @@ std::vector<at::Tensor> hpu_wrap::split(
   // lower aten::split as split_with_sizes using the logic used in Fork
   int64_t dim_size = self.size(dim);
   auto split_size = split_size_symint.expect_int();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       split_size > 0 || self.size(dim) == 0,
       "split_size can only be 0 if dimension size is 0, "
       "but got dimension size of ",
@@ -1080,8 +1044,8 @@ void optimizer_adamw_hpu_wrap(
     const double beta2,
     const double epsilon,
     const double weight_decay,
-    c10::optional<at::TensorList> exp_avg_scales,
-    c10::optional<at::TensorList> exp_avg_sq_scales) {
+    std::optional<at::TensorList> exp_avg_scales,
+    std::optional<at::TensorList> exp_avg_sq_scales) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1099,10 +1063,10 @@ void optimizer_adamw_hpu_wrap(
           exp_avg_scales,
           exp_avg_sq_scales));
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (weight_vec.size() > 0),
       "optimizer_adamw : can not process empty weight vector");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
       "optimizer_adamw : expects both or neighter scales to be set");
 
@@ -1134,7 +1098,7 @@ Tensor fused_norm_hpu_wrap(
       to_string(max_norm),
       " norm_type=",
       to_string(norm_type));
-  TORCH_CHECK((grad.size() > 0), "Can not process empty grad vector");
+  HABANA_ASSERT((grad.size() > 0), "Can not process empty grad vector");
   return fused_norm_hpu_lazy(grad, max_norm, norm_type);
 }
 
@@ -1336,7 +1300,7 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1357,7 +1321,7 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
     const at::Tensor& permute,
     const at::Tensor& lengths,
     const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1428,7 +1392,7 @@ habana_bounds_check_indices_wrap(
     at::Tensor& warning,
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
-    const c10::optional<at::Tensor>& weights) {
+    const std::optional<at::Tensor>& weights) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1454,13 +1418,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1494,20 +1458,20 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& d_scale_q,
+    const std::optional<at::Tensor>& d_scale_k,
+    const std::optional<at::Tensor>& d_scale_v,
+    const std::optional<at::Tensor>& q_scale_s,
+    const std::optional<at::Tensor>& q_scale_o,
+    const std::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1555,14 +1519,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
-    const c10::optional<at::Tensor>& attention_mask,
+    const std::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    std::string_view softmax_mode,
+    const std::optional<at::Tensor>& valid_seq_len,
+    std::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -1645,8 +1609,8 @@ Tensor matmul_inference(const Tensor& self, const Tensor& other) {
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
-    c10::optional<c10::SymInt> start,
-    c10::optional<c10::SymInt> end,
+    std::optional<c10::SymInt> start,
+    std::optional<c10::SymInt> end,
     c10::SymInt step) {
   auto temp_start = start.has_value() ? start.value().expect_int() : 0;
   auto temp_end = end.has_value() ? end.value().expect_int() : INT64_MAX;
@@ -1680,7 +1644,7 @@ struct DropoutFunction : public Function<DropoutFunction> {
     } else if (p == 1) {
       return input * 0.0;
     }
-    c10::optional<at::Generator> gen = c10::nullopt;
+    std::optional<at::Generator> gen = std::nullopt;
     at::Tensor result1, result2;
     std::tie(result1, result2) = _fused_dropout(input, p, gen);
     ctx->save_for_backward({result2});
@@ -1969,6 +1933,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
+      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
+  m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
   m.def(
@@ -1982,9 +1948,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
+      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=False) -> Tensor");
+      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, bool? recomp=True) -> Tensor");
   m.def(
       "hpu::mixture_of_experts.fp8_measurement(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
@@ -1994,14 +1960,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::mixture_of_experts_fp8_measurement.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, bool measurement_mode) -> (Tensor, Tensor)");
   m.def(
-      "hpu::mixture_of_experts.fp8(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w1, Tensor[] d_scale_w2, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts.fp8_fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, Tensor d_scale_hidden_states, Tensor[] d_scale_intermediate_hidden_states, Tensor[] d_scale_w12, Tensor[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts.fp8_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w1, float[] d_scale_w2, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
-      "hpu::mixture_of_experts.fp8_fused_weights_scalars(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, float d_scale_hidden_states, float[] d_scale_intermediate_hidden_states, float[] d_scale_w12, float[] d_scale_w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
-  m.def(
       "hpu::mixture_of_experts_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
   m.def(
       "hpu::mixture_of_experts_recomp_fwd(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
@@ -2010,11 +1968,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::mixture_of_experts_recomp_fwd.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor router_weights, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+      "hpu::mixture_of_experts_bwd(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm1_out, Tensor gemm2_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]");
   m.def(
       "hpu::mixture_of_experts_recomp_bwd(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
   m.def(
-      "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor router_weights, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
+      "hpu::mixture_of_experts_bwd.fused_weights(Tensor grad_tokens_in, Tensor chunks_input, Tensor token_to_chunk, Tensor token_in_chunk, Tensor chunks_routing_table, Tensor chunks_routing_weights, Tensor gemm12_out, Tensor activation_out, Tensor mult_out, Tensor mlp_out, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max, *, int[] router_weights_size) -> Tensor[]");
   m.def(
       "hpu::mixture_of_experts_recomp_bwd.fused_weights(Tensor grad_tokens_in, Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor[]");
   m.def(
@@ -2098,6 +2056,7 @@ TORCH_LIBRARY(hpu, m) {
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
   m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
+  m.impl("hpu::dequantize_nf4", dequantize_nf4_lazy);
   m.impl("hpu::mixture_of_experts", mixture_of_experts_lazy);
   m.impl(
       "hpu::mixture_of_experts.fused_weights",
@@ -2108,16 +2067,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::mixture_of_experts.fp8_measurement_fused_weights",
       mixture_of_experts_fp8_measurement_fused_weights_lazy);
-  m.impl("hpu::mixture_of_experts.fp8", mixture_of_experts_fp8_lazy);
-  m.impl(
-      "hpu::mixture_of_experts.fp8_fused_weights",
-      mixture_of_experts_fp8_fused_weights_lazy);
-  m.impl(
-      "hpu::mixture_of_experts.fp8_scalars",
-      mixture_of_experts_fp8_scalars_lazy);
-  m.impl(
-      "hpu::mixture_of_experts.fp8_fused_weights_scalars",
-      mixture_of_experts_fp8_fused_weights_scalars_lazy);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm_hpu_lazy);
   m.impl(
       "hpu::optimizer_resource_apply_momentum",

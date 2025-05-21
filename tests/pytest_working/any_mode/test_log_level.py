@@ -62,7 +62,7 @@ def test_log_level_all_pt_0():
             res_cpu = fn(input_cpu)
             assert torch.equal(res_hpu.to("cpu"), res_cpu)
             log_dir = os.environ.get("HABANA_LOGS")
-            with open(log_dir + "/pytorch_log.txt", "r") as logs:
+            with open(log_dir + "/pytorch_log.txt") as logs:
                 assert any(check_mesg in line for line in logs)
         except Exception as e:
             failed_message = e

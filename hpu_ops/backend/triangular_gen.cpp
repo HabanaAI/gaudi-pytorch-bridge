@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/tril.h"
 #include "generated/backend/tril_indices.h"
@@ -105,8 +105,8 @@ OutputMetaDataVector TriluIndicesMeta(
   const auto out_dtype =
       stack.at(3).toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
 
-  TORCH_CHECK((row > 0 && col > 0), "row and col must be greater than 0");
-  TORCH_CHECK(
+  HABANA_ASSERT((row > 0 && col > 0), "row and col must be greater than 0");
+  HABANA_ASSERT(
       (out_dtype == at::ScalarType::Long || out_dtype == at::ScalarType::Int),
       "tri(l/u)_indices output must be either int32 or int64");
 
@@ -133,6 +133,16 @@ SharedMetaDataVector TriluSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   return Input0SharedMeta(stack, "matrix_band_part_fwd");
+}
+
+SharedMetaDataVector TrilTriuIndicesSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto dtype =
+      stack.at(3).toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
+  SharedMetaData triluIndicesMeta{"trilu_indices"};
+  triluIndicesMeta.outputs_data.emplace_back(2, dtype);
+  return {triluIndicesMeta};
 }
 
 void TriluIndices::AddNode(

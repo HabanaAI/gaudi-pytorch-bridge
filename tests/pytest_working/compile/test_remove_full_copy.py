@@ -16,7 +16,10 @@
 ###############################################################################
 
 import torch
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizationPassPlacement,
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_fake_propagation,
     pass_remove_unnecessary_full_copy,

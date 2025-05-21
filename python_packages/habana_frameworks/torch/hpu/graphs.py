@@ -21,15 +21,16 @@ import copy
 import gc
 import inspect
 import os
-import warnings
+from dataclasses import fields, is_dataclass
 from functools import wraps
-from typing import List
 
 import habana_frameworks.torch as htorch
 import habana_frameworks.torch.core as htcore
-import torch
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.utils.debug import _hg_print as hpu_graph_print
+from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 
 
 def stringify(*args):
@@ -39,7 +40,7 @@ def stringify(*args):
     return string
 
 
-class HPUGraph(object):
+class HPUGraph:
     r"""
     Wrapper around a HPU graph.
 
@@ -48,6 +49,8 @@ class HPUGraph(object):
     """
 
     def __init__(self):
+        if not is_lazy():
+            raise RuntimeError("HPUGraph class is available in lazy mode only.")
         self.hpu_graph = _hpu_C.HPUGraph()
 
     def capture_begin(self, dry_run=False):
@@ -69,7 +72,7 @@ class HPUGraph(object):
         """
         _hpu_C.replay(self.hpu_graph, asynchronous)
 
-    def replayV2(self, static_tlist: List[torch.Tensor], tlist: List[torch.Tensor], asynchronous=False):
+    def replayV2(self, static_tlist: list[torch.Tensor], tlist: list[torch.Tensor], asynchronous=False):
         r"""
         Replays the HPU work captured by this graph.
 
@@ -81,7 +84,7 @@ class HPUGraph(object):
         """
         _hpu_C.replayV2(self.hpu_graph, static_tlist, tlist, asynchronous)
 
-    def replayV3(self, tlistI: List[torch.Tensor], asynchronous=False):
+    def replayV3(self, tlistI: list[torch.Tensor], asynchronous=False):
         r"""
         Replays the HPU work captured by this graph.
 
@@ -101,7 +104,7 @@ class HPUGraph(object):
         """
         _hpu_C.clear_inputs(self.hpu_graph)
 
-    def mark_user_outputs(self, static_tlist: List[torch.Tensor]):
+    def mark_user_outputs(self, static_tlist: list[torch.Tensor]):
         r"""
         Marks user needed output after graph capture
 
@@ -113,7 +116,7 @@ class HPUGraph(object):
         """
         _hpu_C.mark_user_outputs(self.hpu_graph, static_tlist)
 
-    def mark_user_inputs(self, static_tlist: List[torch.Tensor]):
+    def mark_user_inputs(self, static_tlist: list[torch.Tensor]):
         r"""
         Marks user provided input during graph capture
 
@@ -139,7 +142,7 @@ class HPUGraph(object):
         return _hpu_C.get_user_input_match_indices(self.hpu_graph)
 
 
-class graph(object):
+class graph:
     r"""
     Context-manager that captures HPU work into a :class:`torch.hpu.HPUGraph`
     object for later replay.
@@ -159,6 +162,8 @@ class graph(object):
         # Lazy-init of default_capture_stream helps avoid circular-import errors.
         # Not thread safe, but graphs already have the general (explicitly documented)
         # restriction that only one capture may be underway at a time in the process.
+        if not is_lazy():
+            raise RuntimeError("Context-manager for HPUGraph is available in lazy mode only.")
         if self.__class__.default_capture_stream is None:
             self.__class__.default_capture_stream = htorch.hpu.Stream()
 
@@ -235,7 +240,7 @@ def make_graphed_callables(
         callables = (callables,)
         sample_args = (sample_args,)
 
-    for c, args in zip(callables, sample_args):
+    for c, args in zip(callables, sample_args, strict=False):
         if isinstance(c, torch.nn.Module):
             assert len(c._backward_hooks) == 0 and len(c._forward_hooks) == 0 and len(c._forward_pre_hooks) == 0, (
                 "Modules must not have hooks registered at the time they are passed. However, registering hooks "
@@ -261,7 +266,9 @@ def make_graphed_callables(
     if warmups > 0:
         htorch.hpu.synchronize()
         with htorch.hpu.stream(htorch.hpu.default_stream()):
-            for func, args, static_input_surface in zip(callables, sample_args, per_callable_static_input_surfaces):
+            for func, args, static_input_surface in zip(
+                callables, sample_args, per_callable_static_input_surfaces, strict=False
+            ):
                 for _ in range(warmups):
                     outputs = func(*args)
                     outputs = (outputs,) if isinstance(outputs, torch.Tensor) else outputs
@@ -278,7 +285,7 @@ def make_graphed_callables(
     # Capture forward graphs
     per_callable_static_outputs = []
     per_callable_output_was_tensor = []
-    for func, args, fwd_graph in zip(callables, sample_args, fwd_graphs):
+    for func, args, fwd_graph in zip(callables, sample_args, fwd_graphs, strict=False):
         with htorch.hpu.graph(
             fwd_graph, stream=htorch.hpu.default_stream(), dry_run=True if disable_tensor_cache else dry_run
         ):
@@ -295,12 +302,13 @@ def make_graphed_callables(
     per_callable_static_grad_outputs = []
     per_callable_static_grad_inputs = []
     bwd_mark_user_inputs_len = []
-    for static_input_surface, args, static_outputs, bwd_graph, module_params in zip(
+    for static_input_surface, args, static_outputs, bwd_graph, _ in zip(
         reversed(per_callable_static_input_surfaces),
         reversed(sample_args),
         reversed(per_callable_static_outputs),
         reversed(bwd_graphs),
         reversed(per_callable_module_params),
+        strict=False,
     ):
         # assert all(o.requires_grad for o in static_outputs), "Outputs of graphed callables must require grad."
         static_grad_outputs = tuple(torch.empty_like(o) if o.requires_grad else None for o in static_outputs)
@@ -341,7 +349,7 @@ def make_graphed_callables(
     if disable_tensor_cache:
         per_callable_input_surfaces_optim = []
         for fwd_graph, static_input_surface, len_user_args in zip(
-            fwd_graphs, per_callable_static_input_surfaces, per_callable_len_user_args
+            fwd_graphs, per_callable_static_input_surfaces, per_callable_len_user_args, strict=False
         ):
             len_module_params = len(per_callable_static_input_surfaces) - len_user_args
             matched_input_index = fwd_graph.get_user_input_match_indices()
@@ -355,7 +363,7 @@ def make_graphed_callables(
 
         per_callable_grad_outputs_optim = []
         for bwd_graph, static_grad_outputs, bwd_uin_len in zip(
-            bwd_graphs, reversed(per_callable_static_grad_outputs), reversed(bwd_mark_user_inputs_len)
+            bwd_graphs, reversed(per_callable_static_grad_outputs), reversed(bwd_mark_user_inputs_len), strict=False
         ):
             matched_input_index = bwd_graph.get_user_input_match_indices()
             grad_outputs_list = list(static_grad_outputs)
@@ -412,7 +420,7 @@ def make_graphed_callables(
                     marked_grads = ()
                     matched_input_index = bwd_graph.get_user_input_match_indices()
                     i = 0
-                    for g, grad in zip(static_grad_outputs, grads):
+                    for g, grad in zip(static_grad_outputs, grads, strict=False):
                         if g is not None:
                             if i not in matched_input_index:
                                 g.copy_(grad)
@@ -422,7 +430,7 @@ def make_graphed_callables(
                     bwd_graph.replayV3((marked_grads) + (ctx.saved_tensors), asynchronous)
                     return tuple(b.detach() if b is not None else b for b in static_grad_inputs)
                 else:
-                    for g, grad in zip(static_grad_outputs, grads):
+                    for g, grad in zip(static_grad_outputs, grads, strict=False):
                         if g is not None:
                             # if g.data_ptr() != grad.data_ptr():
                             #     g.copy_(grad)
@@ -462,7 +470,6 @@ def make_graphed_callables(
                         return graphed(*user_args)
                     else:
                         return orig_fwd(*user_args)
-                    return new_fw
 
                 return new_fwd
 
@@ -492,9 +499,11 @@ def input_hash(obj):
         # torch.Size is specialization of tuple, so we don't want extra recursion.
         return hash((tuple(input_hash(el) for el in obj), torch.hpu.is_autocast_hpu_enabled()))
     elif torch.is_tensor(obj):
-        return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()]))
+        return hash((obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()))
     elif isinstance(obj, collections.UserDict):
         return hash(tuple((k, tuple(input_hash(v_el) for v_el in v)) for k, v in obj.items()))
+    elif is_dataclass(obj):
+        return hash(tuple((field.name, input_hash(getattr(obj, field.name))) for field in fields(obj)))
     else:
         return hash((obj, torch.hpu.is_autocast_hpu_enabled()))
 
@@ -502,12 +511,15 @@ def input_hash(obj):
 def copy_to(dst, src):
     assert type(dst) is type(src)
     if isinstance(dst, dict):
-        for (dk, dv), (sk, sv) in zip(dst.items(), src.items()):
+        for (dk, dv), (sk, sv) in zip(dst.items(), src.items(), strict=False):
             assert dk == sk
             copy_to(dv, sv)
     elif isinstance(dst, list) or (isinstance(dst, tuple) and not isinstance(dst, torch.Size)):
-        for d, s in zip(dst, src):
+        for d, s in zip(dst, src, strict=False):
             copy_to(d, s)
+    elif is_dataclass(dst):
+        for field in fields(dst):
+            copy_to(getattr(dst, field.name), getattr(src, field.name))
     elif torch.is_tensor(dst):
         dst.copy_(src, non_blocking=True)
 
@@ -519,6 +531,9 @@ def get_user_input_tensor_list(inputs, tlist):
     elif isinstance(inputs, list) or isinstance(inputs, tuple):
         for inp in inputs:
             tlist = get_user_input_tensor_list(inp, tlist)
+    elif is_dataclass(inputs):
+        for field in fields(inputs):
+            tlist = get_user_input_tensor_list(getattr(inputs, field.name), tlist)
     elif torch.is_tensor(inputs):
         tlist = tlist + (inputs,)
     return tlist
@@ -531,7 +546,7 @@ def extract_tensors(data):
     tensors = []
     if isinstance(data, torch.Tensor):
         tensors.append(data)
-    elif isinstance(data, (list, tuple)):
+    elif isinstance(data, list | tuple):
         for item in data:
             tensors.extend(extract_tensors(item))
     elif isinstance(data, dict):
@@ -540,6 +555,9 @@ def extract_tensors(data):
     elif hasattr(data, "__dict__"):
         for value in data.__dict__.values():
             tensors.extend(extract_tensors(value))
+    elif is_dataclass(data):
+        for field in fields(data):
+            tensors.extend(extract_tensors(getattr(data, field.name)))
     return tensors
 
 
@@ -772,7 +790,7 @@ class TensorPacker:
             self.value = value
 
         def __repr__(self):
-            return "#{0:d}".format(self.value)
+            return f"#{self.value:d}"
 
     def pack(self, outs):
         tensor_list = []
@@ -802,7 +820,7 @@ class TensorPacker:
 
         else:
             if self._verbose:
-                print("[WARNING] Variable of type {0} will not be dynamic".format(type(outs)))
+                print(f"[WARNING] Variable of type {type(outs)} will not be dynamic")
             return outs
 
         return metadata
@@ -839,7 +857,7 @@ class TensorPacker:
 
 class GraphModel(torch.nn.Module):
     def __init__(self, model, allow_unused_input=False, asynchronous=False, disable_tensor_cache=False, dry_run=False):
-        super(GraphModel, self).__init__()
+        super().__init__()
         self.model = model
         self.input_packer = TensorPacker()
         self.input_meta = None
@@ -888,9 +906,9 @@ class GraphModel(torch.nn.Module):
 
         UNSUPPORTED = [inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL]
         for key in list(func_parameters):
-            assert func_parameters[key].kind not in UNSUPPORTED, "Unsupported argument type : {0}".format(
-                func_parameters[key].kind
-            )
+            assert (
+                func_parameters[key].kind not in UNSUPPORTED
+            ), f"Unsupported argument type : {func_parameters[key].kind}"
             if func_parameters[key].kind == inspect.Parameter.VAR_KEYWORD:
                 print("[WARNING] Variable keyword arguments will not be supported.")
                 del func_parameters[key]
@@ -959,14 +977,14 @@ class ModuleCacher(torch.nn.Module):
         self.model.capture_end = self.capture_end
 
     def __init__(self, max_graphs=10):
-        super(ModuleCacher, self).__init__()
+        super().__init__()
         self.max_graphs = max_graphs
         self.model_dict = {}
         self.input_count_dict = {}
         self.priority_keys = []
         self.is_capturing = False
         self.iteration_cnt = -1
-        self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
+        self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "0") == "1"
         self.hpugraph_tracing = False
         # Variables for statistics collection
         self.cached_hits_dict = {}

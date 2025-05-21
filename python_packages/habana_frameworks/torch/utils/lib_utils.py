@@ -17,7 +17,6 @@
 
 
 import os
-from typing import Pattern
 
 import habana_frameworks.torch as hftorch
 

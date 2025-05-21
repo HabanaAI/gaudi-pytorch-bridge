@@ -18,8 +18,9 @@
 
 import operator
 
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
 
 logger = get_compile_backend_logger()
 nodes_replaced = 0
@@ -173,7 +174,7 @@ def get_dequant_node(node):
         if is_node(node, "dequantize_per_tensor.default"):
             return node
         if node.target.__name__ not in view_nodes:
-            logger.debug("Traced back to a non view node {}".format(node.target.__name__))
+            logger.debug(f"Traced back to a non view node {node.target.__name__}")
             break
         node = node.args[0]
     return None
@@ -317,8 +318,11 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
         weight_transpose = source_fn_stack and source_fn_stack[-1][1] in [torch.nn.Linear, torch.nn.functional.linear]
 
         gemm_users_node = next(iter(gemm_node.users), None)
-        output_view_node = gemm_users_node if is_node(gemm_users_node, "_unsafe_view.default") else None
-
+        output_view_node = (
+            gemm_users_node
+            if (is_node(gemm_users_node, "_unsafe_view.default") or is_node(gemm_users_node, "view.default"))
+            else None
+        )
         is_addmm_node = is_node(gemm_node, "addmm.default")
         weight_idx = 2 if is_addmm_node else 1
         input_idx = 1 if is_addmm_node else 0
@@ -506,4 +510,4 @@ class PatternMatchAndReplacer:
         logger.debug("=================AFTER PASS================")
         logger.debug(self._graph_module.graph)
         logger.debug("===========================================")
-        logger.debug("=================TOTAL CHANGES {} ================".format(nodes_replaced))
+        logger.debug(f"=================TOTAL CHANGES {nodes_replaced} ================")

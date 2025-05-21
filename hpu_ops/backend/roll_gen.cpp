@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/roll.h"
 
@@ -39,7 +39,9 @@ std::shared_ptr<void> FillRollParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-SharedMetaDataVector RollSharedMeta(const at::Stack& stack) {
+SharedMetaDataVector RollSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto rank = self.dim();
   auto dtype = self.scalar_type();
@@ -162,7 +164,7 @@ void RollHabanaOperator::AddNode(
 
     auto is_final_output = !flatten_and_restore && i == (axisElementsCount - 1)
         ? c10::make_optional<int>(0)
-        : c10::nullopt;
+        : std::nullopt;
 
     if (to_shift != 0 && remain_shift != 0) {
       // Calculate the output shape

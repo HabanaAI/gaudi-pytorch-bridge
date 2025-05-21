@@ -21,7 +21,7 @@ import torch.nn.functional as F
 
 class MnistNet(nn.Module):
     def __init__(self):
-        super(MnistNet, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 20, 5, 1)
         self.conv2 = nn.Conv2d(20, 50, 5, 1)
         self.fc1 = nn.Linear(3 * 3 * 50, 500, bias=False)
@@ -42,7 +42,7 @@ class MnistNet(nn.Module):
 # reinforcement learning example
 class Policy(nn.Module):
     def __init__(self):
-        super(Policy, self).__init__()
+        super().__init__()
         self.affine1 = nn.Linear(4, 128, bias=False)
         self.affine2 = nn.Linear(128, 2, bias=False)
 
@@ -77,7 +77,7 @@ class BasicBlock(nn.Module):
     __constants__ = ["downsample"]
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(BasicBlock, self).__init__()
+        super().__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
@@ -109,7 +109,7 @@ class ResNet(nn.Module):
     __constants__ = ["layer1", "layer2", "layer3", "layer4"]
 
     def __init__(self, block, layers, num_classes=1000):
-        super(ResNet, self).__init__()
+        super().__init__()
         self.inplanes = 64
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)

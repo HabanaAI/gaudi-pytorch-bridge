@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ if _is_torch_fork:
     from habana_frameworks.torch.lib.fork_pybind._activity_profiler_C import (
         _export_logs,
         _setup_activity_profiler_sources,
+        _setup_habana_profiler_configs,
         _start_activity_profiler,
         _stop_activity_profiler,
     )
@@ -30,6 +31,7 @@ else:
     from habana_frameworks.torch.lib.upstream_pybind._activity_profiler_C import (
         _export_logs,
         _setup_activity_profiler_sources,
+        _setup_habana_profiler_configs,
         _start_activity_profiler,
         _stop_activity_profiler,
     )

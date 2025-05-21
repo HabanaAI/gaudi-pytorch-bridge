@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <immintrin.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -102,9 +102,9 @@ ProfilerEngine::ProfilerEngine()
 
 struct Compare {
   bool operator()(
-      const std::tuple<std::string, int>& a,
-      const std::tuple<std::string, int>& b) {
-    return std::get<1>(a) < std::get<1>(b);
+      const std::tuple<std::string, uint64_t>& a,
+      const std::tuple<std::string, uint64_t>& b) {
+    return std::get<1>(a) > std::get<1>(b);
   }
 };
 
@@ -113,7 +113,8 @@ void print_histogram(
     uint64_t max_time,
     const std::vector<Event>& events,
     FILE* metrics_file) {
-  uint64_t bucket_size = (max_time - min_time) / NUM_BUCKETS;
+  uint64_t range = (max_time > min_time) ? (max_time - min_time + 1) : 1;
+  uint64_t bucket_size = std::max(range / NUM_BUCKETS, (uint64_t)1);
   std::vector<uint64_t> buckets(NUM_BUCKETS, 0);
   uint64_t jit_cache_hit_count_threshold =
       GET_ENV_FLAG_NEW(PT_HPU_LOP_JIT_WARM_UP_STEPS);
@@ -121,10 +122,10 @@ void print_histogram(
     if (event.jit_cache_hit_count > jit_cache_hit_count_threshold) {
       if (event.is_begin)
         continue;
-      int bucket_index = (event.stage_time - min_time) / bucket_size;
-      if (bucket_index >= NUM_BUCKETS) {
-        bucket_index = NUM_BUCKETS - 1;
-      }
+      uint64_t offset =
+          (event.stage_time > min_time) ? (event.stage_time - min_time) : 0;
+      uint64_t bucket_index =
+          std::min(offset / bucket_size, (uint64_t)(NUM_BUCKETS - 1));
       buckets[bucket_index]++;
     }
   }
@@ -135,7 +136,8 @@ void print_histogram(
 
   for (int i = 0; i < NUM_BUCKETS; ++i) {
     uint64_t bucket_min = min_time + i * bucket_size;
-    uint64_t bucket_max = bucket_min + bucket_size;
+    uint64_t bucket_max =
+        (i == NUM_BUCKETS - 1) ? max_time : (bucket_min + bucket_size - 1);
     fprintf(
         metrics_file, " [%lu, %lu]\t%lu\n", bucket_min, bucket_max, buckets[i]);
   }

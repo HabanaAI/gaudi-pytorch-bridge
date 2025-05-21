@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,13 +18,11 @@
 import pytest
 import torch
 from fp8_utils import fp8_dtypes
-from test_utils import compare_tensors, is_gaudi1
+from test_utils import compare_tensors
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]
-dtypes = [torch.float, torch.bfloat16, torch.int]
-if not is_gaudi1():
-    dtypes = dtypes + fp8_dtypes
+dtypes = [torch.float, torch.bfloat16, torch.int] + fp8_dtypes
 
 
 @pytest.mark.parametrize("shape", shapes)

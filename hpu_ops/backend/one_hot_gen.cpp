@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ namespace habana {
 int64_t calculateNumberOfClasses(const at::Stack& stack) {
   const auto num_classes = stack.at(1).toInt();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       num_classes != DEFAULT_NUM_OF_CLASSES, "Number of classes cannot be -1");
 
   return num_classes;
@@ -47,26 +47,6 @@ OutputMetaDataVector OneHotMeta(const at::Stack& stack) {
   meta.dtype = input.scalar_type();
 
   return {meta};
-}
-
-SharedMetaDataVector OneHotSharedMeta(
-    const at::Stack& stack,
-    habana_helpers::HabanaExecutionMode) {
-  const auto& self = stack_tensor(stack, 0);
-  auto dtype = self.scalar_type();
-  const auto rank = self.dim();
-  auto outputDtype = c10::ScalarType::Float;
-  if (!isIntegralType(dtype, true)) {
-    outputDtype = dtype;
-    dtype = (dtype == c10::ScalarType::Half || dtype == c10::ScalarType::Float)
-        ? c10::ScalarType::Int
-        : c10::ScalarType::Short;
-  }
-
-  SharedMetaData oneHotSharedMeta{"one_hot_fwd"};
-  oneHotSharedMeta.inputs_data.emplace_back(rank, dtype);
-  oneHotSharedMeta.outputs_data.emplace_back(rank + 1, outputDtype);
-  return {oneHotSharedMeta};
 }
 
 struct OneHot : OpBackend {

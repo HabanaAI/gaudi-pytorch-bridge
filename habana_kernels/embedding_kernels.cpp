@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/InferSize.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_api.h>
@@ -44,12 +44,12 @@ std::vector<int64_t> PadOperator::compute_output_shape(
   auto ndim = self.dim();
   auto lpad = pad.size() / 2;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       pad.size() % 2 == 0,
       "Length of pad must be even but instead it equals ",
       pad.size());
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ndim >= (int64_t)lpad,
       "Length of pad should be no more than twice the number of "
       "dimensions of the input. Pad length is ",
@@ -64,7 +64,7 @@ std::vector<int64_t> PadOperator::compute_output_shape(
     auto pad_start = pad[2 * i];
     auto pad_end = pad[2 * i + 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         shape[ndim - i - 1] > 0,
         "The input size ",
         self.sizes()[i],
@@ -92,7 +92,7 @@ std::vector<int64_t> PadOperator::compute_output_shape_ds(
     auto pad_start = pad_before[MAX_DIMENSIONS_NUM - i - 1];
     auto pad_end = pad_after[MAX_DIMENSIONS_NUM - i - 1];
     shape[ndim - i - 1] += (pad_start + pad_end);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         shape[ndim - i - 1] > 0,
         "The input size ",
         self.sizes()[i],
@@ -112,16 +112,16 @@ void PadOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of inputs expected for PadOperator Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for PadOperator Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList(),
       "Input arg2 expected to be IntList for PadOperator Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isScalar(),
       "Input arg3 expected to be Scalar for PadOperator Operator");
 
@@ -176,32 +176,32 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of inputs expected for PadOperatorHT Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for PadOperatorHT Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be of type Tensor for PadOperatorHT operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input arg3 expected to be of type Tensor for PadOperatorHT operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isScalar(),
       "Input arg4 expected to be of type Scalar for PadOperatorHT operator");
 
   std::vector<int64_t> shape;
   auto self = inputs[0].toTensor();
 
-  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
+  HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
   shape = inputs[2].toTensor().sizes().vec();
   at::Tensor host_tensor = inputs[1].toTensor();
   auto tmeta{get_tensor_extra_meta(host_tensor)};
   auto output_shape = inputs[2].toTensor().sizes().vec();
   auto input_shape = self.sizes().vec();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tmeta->get_host_dt_type() == habana::HostDataType::UINT32_T,
       "Incorrect datatype of HOST");
   if (habana::ShapeInference::GetCurrentPass() ==
@@ -247,24 +247,24 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5,
       "Incorrect size of inputs expected for EmbeddingBagSumOperator operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isInt(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isInt(), "Input arg5 type expected to be tensor");
 
   auto input = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
   auto offsets = inputs[2].toTensor();
   auto valid_count = inputs[3].toTensor();
 
-  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
-  TORCH_CHECK(offsets.dim() <= 1, "offsets tensor cannot be more than 1D")
-  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
-  TORCH_CHECK(valid_count.dim() == 1, "valid count tensor should be 1D")
+  HABANA_ASSERT(indices.dim() <= 1, "index tensor cannot be more than 1D")
+  HABANA_ASSERT(offsets.dim() <= 1, "offsets tensor cannot be more than 1D")
+  HABANA_ASSERT(input.dim() == 2, "Input tensor should be 2D")
+  HABANA_ASSERT(valid_count.dim() == 1, "valid count tensor should be 1D")
 
   auto kernel_mode = inputs[4].toInt();
   auto output_size_dim0 =
@@ -275,15 +275,16 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(), // TBD: not reqd?
       output_metadata.at(0).persistent);
+  using namespace std::literals;
   if (kernel_mode == 0) {
     auto guid = get_guid_with_precision(
-        "gather_with_valid_count_2d", input.scalar_type());
+        "gather_with_valid_count_2d"sv, input.scalar_type());
     SetGuid(guid);
     p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin() + 2);
     p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin() + 2);
   } else if (kernel_mode == 2) {
     auto guid = get_guid_with_precision(
-        "embedding_bag_sum_small_lengths_2d_fwd", input.scalar_type());
+        "embedding_bag_sum_small_lengths_2d_fwd"sv, input.scalar_type());
     SetGuid(guid);
   }
   AllocateSynapseOutput(graph, output, output_metadata.at(0));

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 // clang-format off
 #include <ATen/EmptyTensor.h>
@@ -21,10 +21,8 @@
 #include <ATen/autocast_mode.h>
 #include <ATen/native/CPUFallback.h>
 #include <ATen/ops/result_type.h>
-#include <ATen_ver/native/CPUFallback.h>
 #include "habana_kernels/op_support_level.h"
 #include "habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 // clang-format on
 
 namespace habana {
@@ -47,8 +45,8 @@ inline bool is_unchanged(const at::Tensor& t1, const at::Tensor& t2) {
 }
 
 inline bool is_unchanged(
-    const c10::optional<at::Tensor>& t1,
-    const c10::optional<at::Tensor>& t2) {
+    const std::optional<at::Tensor>& t1,
+    const std::optional<at::Tensor>& t2) {
   if (t1.has_value())
     if (t2.has_value())
       return t1->unsafeGetTensorImpl() == t2->unsafeGetTensorImpl();
@@ -81,7 +79,7 @@ inline bool is_eligible_for_redispatch(const at::Tensor& t) {
   return t.is_floating_point();
 }
 
-inline bool is_eligible_for_redispatch(const c10::optional<at::Tensor>& t) {
+inline bool is_eligible_for_redispatch(const std::optional<at::Tensor>& t) {
   if (t.has_value())
     return t->is_floating_point();
   return true;
@@ -106,8 +104,8 @@ inline void set_attribute(const at::Tensor& arg, at::Tensor tensor) {
 
 // Overload to process optional<Tensor>
 inline void set_attribute(
-    const c10::optional<at::Tensor>& arg,
-    c10::optional<at::Tensor> tensor) {
+    const std::optional<at::Tensor>& arg,
+    std::optional<at::Tensor> tensor) {
   if (arg.has_value() && tensor.has_value()) {
     (tensor.value()).set_requires_grad((arg.value()).requires_grad());
   }
@@ -208,7 +206,7 @@ struct redispatch_if_any_arg_changed final {
     if (redispatch_to_hpu) {
       return Op::call(args...);
     }
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
   }
 };
@@ -293,7 +291,7 @@ at::ScalarType expected_result_dtype(
 template <class... ParameterTypes>
 at::ScalarType expected_result_dtype(
     [[maybe_unused]] const c10::SymInt& sint,
-    const std::optional<at::Generator>& gen,
+    [[maybe_unused]] const std::optional<at::Generator>& gen,
     std::optional<c10::ScalarType>& dtypeOpt,
     ParameterTypes...) {
   if (dtypeOpt.has_value()) {
@@ -381,7 +379,7 @@ struct _dispatch_fallback<
       }
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
   }
 };
@@ -423,7 +421,7 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
         return t;
       }
     }
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
   }
 };
@@ -470,7 +468,7 @@ struct _dispatch_fallback<
       }
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
   }
 };
@@ -564,7 +562,7 @@ struct _dispatch_fallback<
         return std::get<0>(helper::call(arg, args...));
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         arg, args...);
   }
 };
@@ -601,7 +599,7 @@ struct _dispatch_fallback<
         return helper::call(args...);
     }
 
-    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
   }
 };

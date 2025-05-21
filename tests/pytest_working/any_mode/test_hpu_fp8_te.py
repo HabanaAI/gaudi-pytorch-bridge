@@ -29,25 +29,31 @@ import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
 from fp8_utils import simulateFp8Precision
-from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import cast_from_fp8, cast_to_fp8
-from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import FP8GlobalStateManager
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
-from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import FP8FwdTensors, FP8TensorMeta
+from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
+    cast_from_fp8,
+    cast_to_fp8,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import (
+    FP8GlobalStateManager,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
+    DelayedScaling,
+    Format,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import (
+    FP8FwdTensors,
+    FP8TensorMeta,
+)
 from test_utils import (
     _is_simulator,
     check_ops_executed_in_jit_ir,
     compare_tensors,
     compile_function_if_compile_mode,
-    is_gaudi1,
     is_gaudi2,
     is_gaudi3,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
 )
-
-pytestmark = [
-    pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8"),
-]
 
 
 class EnvironmentVariableSetter:
@@ -100,8 +106,6 @@ def _assert_amax_history_equal(a, b):
 @pytest.mark.parametrize("format", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["e5m2", "e4m3fn"])
 @pytest.mark.parametrize("measure_amax", [True, False], ids=["with_amax", "no_amax"])
 def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, format, measure_amax):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     input_value = 18.5
     input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
 
@@ -167,7 +171,7 @@ class MyLinear(torch.nn.Module):
         skip_weight_param_allocation: bool = False,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
-        super(MyLinear, self).__init__()
+        super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.skip_weight_param_allocation = skip_weight_param_allocation
@@ -198,9 +202,7 @@ class MyLinear(torch.nn.Module):
         )
 
     def extra_repr(self) -> str:
-        return "in_features={}, out_features={}, bias={}".format(
-            self.in_features, self.out_features, self.bias is not None
-        )
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
 
 
 def fwd_step(linear, inp, *args, fp8_enabled=True, fp8_recipe=None, skip_fp8_context=False, **kwargs):
@@ -271,8 +273,6 @@ def get_train_step_bwd_function(eager_fallbacks=None):
     "skip_weight_param_allocation", [False, True], ids=["allocate_weight", "skip_weight_allocation"]
 )
 def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_allocation):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(fp8_format=fp8_format)
 
@@ -376,7 +376,14 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
 
     # First run - common for E5M2 and HYBRID
     linear = MyLinear(w_cpu.shape[1], w_cpu.shape[0], bias=False, skip_weight_param_allocation=True)
-    out = linear(_fp8_quantize(in_cpu, torch.float8_e5m2), weight=_fp8_quantize(w_cpu, torch.float8_e5m2))
+    out = linear(
+        _fp8_quantize(
+            in_cpu, torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn
+        ),
+        weight=_fp8_quantize(
+            w_cpu, torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn
+        ),
+    )
     loss = out.sum()
     loss.backward()
     grad_in = in_cpu.grad.clone().detach()
@@ -384,7 +391,7 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
     out = out.detach()
 
     # In HYBRID mode, calculate output (but not gradients) using E4M3 quantized values
-    if fp8_format == Format.HYBRID:
+    if fp8_format == Format.HYBRID and not is_gaudi3():
         out = linear(_fp8_quantize(in_cpu, torch.float8_e4m3fn), weight=_fp8_quantize(w_cpu, torch.float8_e4m3fn))
         out = out.detach()
 
@@ -392,7 +399,7 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
 
 
 def _cast_node_name(fp8_format):
-    return "cast_to_fp8_v2" if fp8_format == Format.E5M2 else "cast_to_fp8_hybrid"
+    return "cast_to_fp8_v2" if fp8_format == Format.E5M2 or is_gaudi3() else "cast_to_fp8_hybrid"
 
 
 def _verify_executed_ops(fp8_format):
@@ -408,11 +415,6 @@ def _verify_executed_ops(fp8_format):
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 @pytest.mark.skipif(is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()), reason="SW-189837")
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
-
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
 
     inp_size, weight_size, _ = _get_inp_weigth_bias_size(size_B, size_A, size_A)
@@ -448,8 +450,6 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 @pytest.mark.parametrize("force_sr_bwd_flag", [True, False, None], ids=["force_sr_1", "force_sr_0", "no_force_sr"])
 def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
 
     expected = force_sr_bwd_flag if force_sr_bwd_flag is not None else fp8_format == Format.HYBRID
@@ -467,10 +467,6 @@ def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 @pytest.mark.parametrize("out_of_scale_tensor", ["input", "weight", "grad"])
 def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     device = torch.device("hpu:0")
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
@@ -512,14 +508,14 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     # calculate cpu reference
     in_cpu = torch.full(
         inp_size,
-        fp8_e5m2_in_val,
+        fp8_e5m2_in_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_in_val,
         dtype=dtype,
         device=torch.device("cpu"),
         requires_grad=True,
     )
     w_cpu = torch.full(
         weight_size,
-        fp8_e5m2_w_val,
+        fp8_e5m2_w_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_w_val,
         dtype=dtype,
         device=torch.device("cpu"),
         requires_grad=True,
@@ -528,7 +524,7 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     ref_out, grad_in_ref, grad_w_ref = _train_step(in_cpu, w_cpu, ref_linear)
 
     # If format is hybrid, output should be calculated using e4m3 format
-    if fp8_format == Format.HYBRID:
+    if fp8_format == Format.HYBRID and not is_gaudi3():
         in_cpu = torch.full(
             inp_size,
             fp8_e4m3_in_val,
@@ -611,8 +607,6 @@ def _changed_history_size(params=None, eager_fallbacks=None):
 
 @pytest.mark.xfail(pytest.mode == "compile", reason="SW-188040", strict=True)
 def test_shorter_history_size():
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
 
     # Test simple case with shrinking amax history
     _changed_history_size([(3, 5), (2, 1), (2, 1)])
@@ -620,8 +614,6 @@ def test_shorter_history_size():
 
 @pytest.mark.xfail(pytest.mode == "compile", reason="SW-188034", strict=True)
 def test_shorter_history_size_fallback():
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
 
     eager_fallbacks = {"index_put"}
 
@@ -631,8 +623,6 @@ def test_shorter_history_size_fallback():
 
 @pytest.mark.xfail(pytest.mode == "compile", reason="SW-188040", strict=True)
 def test_shorter_history_size_index_in_the_middle():
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
 
     # Test case, where index is lower than new amax_history length,
     # So the new amax history needs to be constructed from two slices
@@ -641,8 +631,6 @@ def test_shorter_history_size_index_in_the_middle():
 
 @pytest.mark.xfail(pytest.mode == "compile", reason="SW-188040", strict=True)
 def test_longer_history_size():
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
 
     # Changing history size to a longer one
     _changed_history_size([(4, 6), (8, 4), (8, 1)])
@@ -652,10 +640,6 @@ def test_longer_history_size():
 @pytest.mark.parametrize("lp_dtype", [torch.bfloat16])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
 
@@ -691,10 +675,6 @@ def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
 
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torch.float32):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     # Prepare te linear module
     torch.manual_seed(12345)
@@ -751,10 +731,6 @@ def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torc
 def test_te_multiple_fwd_multiple_bwd(
     minimize_memory, microbatches_approach, fp8_format, device=torch.device("hpu:0"), dtype=torch.float32
 ):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
 
     def is_first_microbatch(i):
         if not microbatches_approach:
@@ -828,11 +804,6 @@ def test_te_multiple_fwd_multiple_bwd(
 # Verify if the weight caching is working well for micro batches case
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_linear_weight_caching_in_microbatches_case(fp8_format):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format == Format.HYBRID and is_gaudi3():
-        pytest.skip(reason="SW-185949 will modify how HYBRID mode works on G3")
-
     torch.manual_seed(12345)
     device = torch.device("hpu:0")
     dtype = torch.bfloat16
@@ -908,8 +879,6 @@ def test_linear_weight_caching_in_microbatches_case(fp8_format):
 
 @pytest.mark.parametrize("interval", [1, 4])
 def test_measurement_interval_auto_mode(interval):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     FP8GlobalStateManager.reset_global_state()
 
@@ -921,8 +890,6 @@ def test_measurement_interval_auto_mode(interval):
 
 
 def test_force_measurement_mode():
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     FP8GlobalStateManager.reset_global_state()
 
@@ -944,8 +911,6 @@ def test_force_measurement_mode():
 
 
 def test_auto_measurement_after_force_mode():
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     FP8GlobalStateManager.reset_global_state()
 
@@ -961,8 +926,6 @@ def test_auto_measurement_after_force_mode():
 # We need to be able to check if amax measure is enabled after we go out of the fp8 context
 # (recipe doesn't exist anymore). This is the case in backward pass in some workloads.
 def test_measurement_auto_mode_outside_fp8_autocast_context():
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     FP8GlobalStateManager.reset_global_state()
 
@@ -984,8 +947,6 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 @pytest.mark.skipif(is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()), reason="SW-189837, SW-207314")
 @pytest.mark.xfail(is_gaudi2() and is_pytest_mode_compile(), reason="SW-207314")
 def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce_amax, fp8_format, margin=0):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     if _is_simulator() and (interval > 3 or amax_history_len > 3):
         pytest.skip(reason="No need to run this long-running test on simulator")
     if (
@@ -1099,24 +1060,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 
                 for m, my_linear in enumerate(my_linears):
                     suffix = f"at iter {iter}, input {i}, module {m}"
-                    if not manual and my_linear.run_cnt < interval:
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_fwd"].scale,
-                            refs[m]["fwd_scale"],
-                        ), f"wrong fwd scale computed {suffix}"
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_fwd"].scale_inv,
-                            refs[m]["fwd_scale_inv"],
-                        ), f"wrong fwd scale_inv computed {suffix}"
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_bwd"].scale,
-                            refs[m]["bwd_scale"],
-                        ), f"wrong bwd scale computed {suffix}"
-                        assert torch.equal(
-                            my_linear.fp8_meta["scaling_bwd"].scale_inv,
-                            refs[m]["bwd_scale_inv"],
-                        ), f"wrong bwd scale_inv computed {suffix}"
-                    elif manual:
+                    if not manual and my_linear.fp8_meta["run_cnt"] < interval or manual:
                         assert torch.equal(
                             my_linear.fp8_meta["scaling_fwd"].scale,
                             refs[m]["fwd_scale"],
@@ -1170,8 +1114,6 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 @pytest.mark.xfail((is_gaudi2() or is_gaudi3()) and is_pytest_mode_compile(), reason="SW-207314")
 def test_save_load_module(init_before_load, amax_history_len, fp8_format):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     from copy import deepcopy
 
     torch.manual_seed(123)
@@ -1225,9 +1167,9 @@ def test_save_load_module(init_before_load, amax_history_len, fp8_format):
 
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_gradient_checkpointing(fp8_format):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import activation_checkpointing
+    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import (
+        activation_checkpointing,
+    )
     from torch.utils.checkpoint import checkpoint
 
     fwd_step = get_train_step_fwd_function()
@@ -1235,7 +1177,7 @@ def test_gradient_checkpointing(fp8_format):
 
     class Subnet(torch.nn.Module):
         def __init__(self, hidden_dim):
-            super(Subnet, self).__init__()
+            super().__init__()
             self.hidden_dim = hidden_dim
             self.fc = te.Linear(self.hidden_dim, self.hidden_dim, bias=False)
 
@@ -1245,7 +1187,7 @@ def test_gradient_checkpointing(fp8_format):
 
     class Net(torch.nn.Module):
         def __init__(self, input_dim, hidden_dim, output_dim):
-            super(Net, self).__init__()
+            super().__init__()
             self.input_dim = input_dim
             self.hidden_dim = hidden_dim
             self.output_dim = output_dim
@@ -1298,7 +1240,7 @@ LNEG = -1e9
 def _create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s, dtype, shape, float_mask=True):
     attn_mask = torch.randint(0, 2, (seq_len_N_s,)).float()
     if float_mask:
-        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, float(0.0))
+        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, 0.0)
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":
@@ -1427,7 +1369,7 @@ class VanillaAttnFunc(torch.autograd.Function):
         OVERRIDE_TE_SDPA_DOUT_PATH = os.getenv("PT_TE_OVERRIDE_SDPA_DOUT", "")
         if OVERRIDE_TE_SDPA_DOUT_PATH:
             print(f"Overriding VanillaAttnFunc dout with {OVERRIDE_TE_SDPA_DOUT_PATH}")
-            dout = torch.load(OVERRIDE_TE_SDPA_DOUT_PATH).to("cpu")
+            dout = torch.load(OVERRIDE_TE_SDPA_DOUT_PATH, weights_only=True).to("cpu")
         torch.autograd.backward(ctx.out, dout)
         return ctx.query.grad, ctx.key.grad, ctx.value.grad, None, None, None, None, None
 
@@ -1484,8 +1426,6 @@ def test_te_fused_sdpa(
     enable_act_ckpt,
     fp8_format,
 ):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
     if is_causal and use_attn_mask:
         pytest.skip(reason="is_causal and use_attn_mask not supported together")
     if softmax_mode == "fast" and is_causal is False:
@@ -1497,7 +1437,9 @@ def test_te_fused_sdpa(
 
     from contextlib import nullcontext
 
-    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import activation_checkpointing
+    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import (
+        activation_checkpointing,
+    )
     from torch.utils.checkpoint import checkpoint
 
     fp8_enabled = fp8_format is not None
@@ -1539,9 +1481,9 @@ def test_te_fused_sdpa(
 
     USE_REAL_DATA_PATH = os.getenv("USE_REAL_DATA", "")
     if USE_REAL_DATA_PATH:
-        q = torch.load(f"{USE_REAL_DATA_PATH}_q_1.pt").to("cpu")
-        k = torch.load(f"{USE_REAL_DATA_PATH}_k_1.pt").to("cpu")
-        v = torch.load(f"{USE_REAL_DATA_PATH}_v_1.pt").to("cpu")
+        q = torch.load(f"{USE_REAL_DATA_PATH}_q_1.pt", weights_only=True).to("cpu")
+        k = torch.load(f"{USE_REAL_DATA_PATH}_k_1.pt", weights_only=True).to("cpu")
+        v = torch.load(f"{USE_REAL_DATA_PATH}_v_1.pt", weights_only=True).to("cpu")
         fwd_out_shape = (q.shape[0], q.shape[1], q.shape[2], v.shape[3], q.shape[4])
         g = torch.ones(fwd_out_shape).to(grad_dtype)
 
@@ -1663,7 +1605,7 @@ def test_te_fused_sdpa(
 
     class AttentionSubnet(torch.nn.Module):
         def __init__(self, scale, attention_dropout, enable_recompute, enable_act_ckpt):
-            super(AttentionSubnet, self).__init__()
+            super().__init__()
             self.activation_checkpointing = enable_act_ckpt
             self.sdpa = te.FusedAttention(
                 scale=scale, attention_dropout=attention_dropout, enable_recompute=enable_recompute
@@ -1843,8 +1785,6 @@ def test_save_load_te_module_indirectly(
     train_iters,
     lr,
 ):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
 
     torch.manual_seed(123)
 
@@ -1870,7 +1810,7 @@ def test_save_load_te_module_indirectly(
             device=device,
             dtype=dtype,
         ):
-            super(TestFP8Linear, self).__init__(
+            super().__init__(
                 in_features=input_size,
                 out_features=output_size,
                 bias=True,
@@ -1942,7 +1882,7 @@ def test_save_load_te_module_indirectly(
                 skip_opt=True,
                 optimizer=optimizer,
             )
-            if model.output_linear.module.run_cnt < measure_interval:
+            if model.output_linear.module.fp8_meta["run_cnt"] < measure_interval:
                 # FWD scale in fp8_meta has 2 values - [scale of input, scale of weight]
                 fwd_scale_size = 2
                 assert torch.allclose(
@@ -1968,7 +1908,7 @@ def test_save_load_te_module_indirectly(
                     if isinstance(loaded_extra_state[key][k], list):
                         # 'global_fp8_buffer' - 'FWD_AMAX_*', 'BWD_AMAX_*'
                         # 'extra_fp8_variables' - 'run_id_fwd_stack',
-                        for val, load_val in zip(loaded_extra_state[key][k], saved_extra_state[key][k]):
+                        for val, load_val in zip(loaded_extra_state[key][k], saved_extra_state[key][k], strict=False):
                             assert torch.allclose(
                                 val, load_val, rtol=0.0, atol=0.0
                             ), f"loaded {key}-{k} from saved state not matching to saved state"
@@ -1993,7 +1933,7 @@ def test_save_load_te_module_indirectly(
         elif isinstance(extra_state, io.BytesIO):
             FIRST_CHARACTER = 0
             extra_state.seek(FIRST_CHARACTER)
-            extra_state = torch.load(extra_state)
+            extra_state = torch.load(extra_state, weights_only=True)
 
         return extra_state
 
@@ -2092,8 +2032,6 @@ def test_te_amax_measure_state_perf(
     in_features,
     out_features,
 ):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
 
     linear = te.Linear(in_features, out_features, skip_weight_param_allocation=False, bias=True, params_dtype=dtype)
     output_linear = FP8ModuleRunner(linear, manual)

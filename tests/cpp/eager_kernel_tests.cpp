@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <ATen/ExpandUtils.h>
 #include <gtest/gtest.h>
@@ -343,13 +343,13 @@ TEST_F(EagerKernelTest, IndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({{0, 1}, {0, 1}})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
@@ -369,13 +369,13 @@ TEST_F(EagerKernelTest, BroadCastIndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
@@ -399,13 +399,13 @@ TEST_F(EagerKernelTest, BroadCastIndexTest1) {
       torch::tensor({0, 1}),
       torch::tensor({{0, 1}, {1, 1}})};
 
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
@@ -605,8 +605,8 @@ TEST_F(EagerKernelTest, DISABLED_SumDimIntOut) {
   torch::Tensor hOut = at::empty_like(hA);
   torch::Tensor Out = at::empty_like(A);
 
-  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, c10::nullopt, Out);
-  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, c10::nullopt, hOut);
+  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, std::nullopt, Out);
+  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, std::nullopt, hOut);
 
   EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu), true);
 }

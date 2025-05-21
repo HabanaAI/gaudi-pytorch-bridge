@@ -17,9 +17,9 @@
 
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import format_tc
 
-dtypes = [torch.float32, torch.bfloat16, torch.float16] if not is_gaudi1() else [torch.float32, torch.bfloat16]
+dtypes = [torch.float32, torch.bfloat16, torch.float16]
 
 atol = {torch.float32: 0.001, torch.float16: 0.001, torch.bfloat16: 0.01}
 rtol = {torch.float32: 0.001, torch.float16: 0.001, torch.bfloat16: 0.01}

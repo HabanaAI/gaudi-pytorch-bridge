@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ def pass_propose_collective_blocks(ctx: OptimizerContext) -> bool:
             color_graph.add_output_node(node.meta.get("collective_block_color"))
 
     collective_blocks = color_graph.get_parallel_blocks()
-    new_color_mappings = dict()
+    new_color_mappings = {}
     for i, comm_block_colors in enumerate(collective_blocks):
         for color in comm_block_colors:
             new_color_mappings[color] = i

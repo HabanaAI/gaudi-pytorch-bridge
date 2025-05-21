@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 // #include <ATen/native/TensorIterator.h> // TODO: fix this include
 #include <bitset>
 
@@ -116,7 +116,7 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       keepdim,
       LoweringUtil::GetDtype(output, self, dtype, false),
       true);
-  /*TORCH_CHECK(
+  /*HABANA_ASSERT(
       output.scalar_type() == self.scalar_type(),
       "Habana reduction ops don't support casts yet");*/
   std::vector<at::Tensor> v{output};
@@ -238,19 +238,19 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5,
       "Incorrect size of inputs expected for reduction operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for reduction operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for reduction operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isIntList(),
       "Input arg3 expected to be IntList for reduction operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isBool(),
       "Input arg4 expected to be Bool for reduction operator");
 
@@ -347,7 +347,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         keepdim,
         LoweringUtil::GetDtype(output, self_reshaped, dtype, false),
         output_metadata.at(0).persistent);
-    /*TORCH_CHECK(
+    /*HABANA_ASSERT(
         output.scalar_type() == self_reshaped.scalar_type(),
         "Habana reduction ops don't support casts yet");*/
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
@@ -372,7 +372,7 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         keepdim,
         LoweringUtil::GetDtype(output, self, dtype, false),
         output_metadata.at(0).persistent);
-    /*TORCH_CHECK(
+    /*HABANA_ASSERT(
         output.scalar_type() == self.scalar_type(),
         "Habana reduction ops don't support casts yet");*/
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
@@ -571,16 +571,16 @@ void SumDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of inputs expected for SumDim operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for SumDim operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList(),
       "Input arg2 expected to be IntList for SumDim operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isBool(), "Input arg3 expected to be Bool for SumDim operator");
 
   auto self = inputs[0].toTensor();
@@ -653,19 +653,19 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5,
       "Incorrect size of inputs expected for SumDimOut operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for SumDimOut operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList(),
       "Input arg2 expected to be IntList for SumDimOut operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isBool(),
       "Input arg3 expected to be Bool for SumDimOut operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[4].isTensor(),
       "Input arg5 expected to be tensor for SumDimOut operator");
 
@@ -722,9 +722,9 @@ void SumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2, "Incorrect size of inputs expected for Sum operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for Sum operator");
 
@@ -794,10 +794,10 @@ void MeanOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for Mean operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for Mean operator");
 
@@ -853,10 +853,10 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of inputs expected for MaxDimOperator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for MaxDimOperator");
 

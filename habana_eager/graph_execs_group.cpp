@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 // clang-format off
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -78,19 +78,23 @@ void GraphExecsGroup::CopyGraphAndEmplace(
           m_has_randoms,
           m_in_symbol_idx_map,
           m_range_infos,
-          m_mark_dynamic));
+          m_const_indexes,
+          m_mark_dynamic,
+          m_is_reusable));
 }
 
 GraphExecsGroup::GraphExecsGroup(
     size_t recipe_id,
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
+    const std::vector<bool>& is_reusable,
     bool dynamic,
     bool inference,
     bool has_preallocated_outputs,
     bool has_randoms,
     InputSymbolIndexMap in_symbol_idx_map,
     std::vector<habana_helpers::RangeInfo>& range_infos,
+    std::vector<int64_t>& const_indexes,
     bool mark_dynamic)
     : m_graph_group_index(recipe_id),
       m_original_graph(graph),
@@ -100,7 +104,9 @@ GraphExecsGroup::GraphExecsGroup(
       m_has_randoms(has_randoms),
       m_in_symbol_idx_map(in_symbol_idx_map),
       m_range_infos(range_infos),
-      m_mark_dynamic(mark_dynamic) {
+      m_const_indexes(const_indexes),
+      m_mark_dynamic(mark_dynamic),
+      m_is_reusable(is_reusable) {
   PT_EAGER_TRACE;
 
   m_graphs_group_name = "graphs_group_" + std::to_string(recipe_id);

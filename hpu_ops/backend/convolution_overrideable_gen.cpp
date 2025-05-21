@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -282,7 +282,7 @@ void ConvolutionOverrideable::AddNode(
 
   NodeAttr::NodeOutputAttr node_output_attr = {meta.shape, meta.dtype, 0};
   if ((transposed && bias.defined()) || is_conv_1d)
-    node_output_attr.final_result_index = c10::nullopt;
+    node_output_attr.final_result_index = std::nullopt;
 
   auto convOp = BuildOp(
       graph,
@@ -310,11 +310,12 @@ void ConvolutionOverrideable::AddNode(
         &expandParams,
         sizeof(expandParams))[0]);
 
-    c10::optional<int> final_result_index_0 =
-        is_conv_1d ? c10::optional<int>{c10::nullopt} : c10::optional<int>{0};
+    std::optional<int> final_result_index_0 =
+        is_conv_1d ? std::optional<int>{std::nullopt} : std::optional<int>{0};
+    using namespace std::literals;
     auto addOp = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", meta.dtype),
+        get_guid_with_precision("add_fwd"sv, meta.dtype),
         {convOp[0].get(), biasExpanded.get()},
         {{meta.shape, meta.dtype, final_result_index_0}});
     IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(addOp[0], meta.shape, 0);

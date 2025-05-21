@@ -15,10 +15,7 @@
 #
 ###############################################################################
 
-from functools import partial
-from typing import Union
 
-import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import clear_t_compile_logs, compile_function_if_compile_mode
@@ -31,7 +28,7 @@ except ModuleNotFoundError:
     skip_test = True
 
 
-def check_hints_in_jit_ir(op_name: str, expected_hints: Union[list, dict], op_idx=0):
+def check_hints_in_jit_ir(op_name: str, expected_hints: list | dict, op_idx=0):
     """
     op_name: name of op to be checked
     expected_hints: can be a list or a dict
@@ -42,7 +39,9 @@ def check_hints_in_jit_ir(op_name: str, expected_hints: Union[list, dict], op_id
     """
     import re
 
-    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import logger as graph_logger
+    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import (
+        logger as graph_logger,
+    )
 
     op_found = False
     pattern = r"::(\w+)(\[|\()"

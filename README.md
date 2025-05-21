@@ -13,8 +13,7 @@ These steps assume you are building on Ubuntu 22.04. If you use a different OS, 
 
 Follow the below steps once to configure your environment for the repository build.
 
-1. If you are not using a prebuilt Intel Gaudi container, install the Intel Gaudi software and driver by following the steps from the [Installation Guide]
-(https://docs.habana.ai/en/latest/Installation_Guide/Driver_Installation.html#driver-installation). For example:
+1. Install the Intel Gaudi software and driver using steps from the [Installation Guide](https://docs.habana.ai/en/latest/Installation_Guide/Driver_Installation.html#driver-installation). For example:
 
 ```bash
 sudo apt update && sudo apt install -y curl gnupg pciutils wget
@@ -22,13 +21,6 @@ wget 'https://vault.habana.ai/artifactory/gaudi-installer/latest/habanalabs-inst
 bash habanalabs-installer.sh install -t base -y
 
 sudo ln -s /usr/lib/habanalabs/libaeon.so.1 /usr/lib/habanalabs/libaeon.so
-```
-
-If you are using a custom container provided in the Intel Gaudi vault, download the habanalabs-installer.sh without running it:
-
-```bash
-sudo apt update && sudo apt install -y curl gnupg pciutils wget
-wget 'https://vault.habana.ai/artifactory/gaudi-installer/latest/habanalabs-installer.sh'
 ```
 
 2. Prepare the Intel Gaudi PyTorch bridge repository and install a proper version of the Gaudi-enabled `torch` wheel:
@@ -61,22 +53,16 @@ sed -i 's/namespace nlohmann/namespace nlohmannV340/; s/nlohmann::/nlohmannV340:
 popd
 ```
 
-4. Set up additional build dependencies:
+4. Install the requirements:
 ```bash
-git clone --depth 1 --branch 1.20.0-543 https://github.com/HabanaAI/HCL.git
-git clone --depth 1 --branch main https://github.com/HabanaAI/Intel_Gaudi3_Software.git
-
-sudo ln -s /usr/include/habanalabs/ /usr/include/habanalabs/include
+pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
+pip install habana-media-loader==$VERSION.$BUILD
 ```
 
-5. Patch the `Intel_Gaudi3_Software` repository:
-```bash
-patch -p1 <$PYTORCH_MODULES_ROOT_PATH/.devops/patches/Intel_Gaudi3_Software.patch
-```
+5. Allow the build command to install artifacts:
 
-6. Install the media interface:
 ```bash
-sudo cp $PYTORCH_MODULES_ROOT_PATH/.devops/patches/media_pytorch_proxy.h /usr/include/habanalabs/media_pytorch_proxy.h
+sudo chmod +w /usr/lib/habanalabs/
 ```
 
 ### Code Build
@@ -88,26 +74,20 @@ Once the one-time setup is complete, you can configure the necessary environment
 export HABANA_SOFTWARE_STACK="$(pwd)"
 export THIRD_PARTIES_ROOT="$HABANA_SOFTWARE_STACK/3rd-parties"
 
-export HCL_ROOT="$HABANA_SOFTWARE_STACK/HCL/hcl/"
-export HL_LOGGER_INCLUDE_DIRS="$HABANA_SOFTWARE_STACK/HCL/dependencies/swtools_sdk/hl_logger/include;$THIRD_PARTIES_ROOT"
-export MEDIA_ROOT=/usr/include/habanalabs/
-export SPECS_EXT_ROOT="$HABANA_SOFTWARE_STACK/Intel_Gaudi3_Software/specs_external/"
-export SYNAPSE_ROOT=/usr/include/habanalabs/
-export SYNAPSE_UTILS_ROOT=/usr/include/habanalabs/
+export HCL_INCLUDE_DIR=/usr/include/habanalabs/
+export HL_LOGGER_INCLUDE_DIRS=/usr/include/habanalabs/hl_logger
+export MEDIA_ROOT=$(python -c "import habana_frameworks.mediapipe, os;print(os.path.dirname(habana_frameworks.mediapipe.__file__))")
+export SPECS_EXT_ROOT=/usr/include/habanalabs/
+export SYNAPSE_INCLUDE_DIR=/usr/include/habanalabs/
+export SYNAPSE_UTILS_INCLUDE_DIR=/usr/include/habanalabs/
 
 export BUILD_ROOT="$HOME/builds"
 export BUILD_ROOT_LATEST=/usr/lib/habanalabs/
 export PYTORCH_MODULES_RELEASE_BUILD="$BUILD_ROOT/pytorch_modules_release"  # the release build artifact directory
-export PYTORCH_MODULES_DEBUG_BUILD="$BUILD_ROOT/pytorch_modules_debug"  # the debug build artifact directory
 export PYTORCH_MODULES_ROOT_PATH="$HABANA_SOFTWARE_STACK/gaudi-pytorch-bridge"
 ```
 
-2. Install the requirements:
-```bash
-pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
-```
-
-3. Build the Intel Gaudi PyTorch bridge:
+2. Build the Intel Gaudi PyTorch bridge:
 ```bash
 "$PYTORCH_MODULES_ROOT_PATH"/.devops/build.py -cir
 ```
@@ -115,12 +95,3 @@ pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
 - The `-i` flag installs the wheels after they are built.
 - It is recommended to leverage CCache and Icecream for faster compilation. Icecream (icecc) allows using a much larger parallel job count (`-j N`). The `N` depends on your compute cluster size.
 - Sometimes the final build command is interrupted while preparing the environment. In this case you can add `--recreate-venv force` to resolve any potential issues.
-
-### Usage
-
-Once the code building is complete it can be used as shown below.
-```
-import torch # Loads package destined for running on CPU
-import habana_frameworks.torch # Loads HPU plugin
-```
-Using package habana_frameworks is the desired way of accessing code.

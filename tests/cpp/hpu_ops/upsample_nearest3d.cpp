@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "util.h"
 
@@ -20,9 +20,9 @@ class HpuOpTest : public HpuOpTestUtil {};
 TEST_F(HpuOpTest, upsample_nearest3d_fwd_out) {
   GenerateInputs(1, {{2, 7, 3, 4, 5}});
   std::vector<int64_t> size = {6, 12, 10};
-  c10::optional<double> scale_h = 6.0;
-  c10::optional<double> scale_w = 4.0;
-  c10::optional<double> scale_d = 4.0;
+  std::optional<double> scale_h = 6.0;
+  std::optional<double> scale_w = 4.0;
+  std::optional<double> scale_d = 4.0;
   torch::ScalarType dtype = torch::kFloat;
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
@@ -46,9 +46,9 @@ TEST_F(HpuOpTest, upsample_nearest3d_fwd_scale) {
 TEST_F(HpuOpTest, upsample_nearest3d_bwd_size) {
   GenerateInputs(1, {{1, 4, 6, 8, 4}});
   std::vector<int64_t> out_size = {6, 8, 4};
-  c10::optional<double> scale_d = 2.0;
-  c10::optional<double> scale_h = 2.0;
-  c10::optional<double> scale_w = 1.0;
+  std::optional<double> scale_d = 2.0;
+  std::optional<double> scale_h = 2.0;
+  std::optional<double> scale_w = 1.0;
   std::vector<int64_t> input_size = {1, 4, 3, 4, 4};
 
   torch::ScalarType dtype = torch::kFloat;

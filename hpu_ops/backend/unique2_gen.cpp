@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "hpu_ops/unique2.h"
 
 namespace habana {
@@ -26,10 +26,10 @@ std::vector<synapse_helpers::tensor> UniqueCommon(
     synapse_helpers::graph& graph,
     Unique2Params_t self_params,
     synTensor self_synin,
-    c10::optional<int> final_result_index_0,
-    c10::optional<int> final_result_index_1,
-    [[maybe_unused]] c10::optional<int> final_result_index_2,
-    [[maybe_unused]] c10::optional<int> final_result_index_3) {
+    std::optional<int> final_result_index_0,
+    std::optional<int> final_result_index_1,
+    [[maybe_unused]] std::optional<int> final_result_index_2,
+    [[maybe_unused]] std::optional<int> final_result_index_3) {
   int elements = self_params.numel;
   std::vector<int64_t> output_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
@@ -39,7 +39,8 @@ std::vector<synapse_helpers::tensor> UniqueCommon(
   params.returnInverse = self_params.return_inverted;
   params.dim = -5; /// NOTE - arbitrary value based on the documentation
   std::vector<synTensor> inputs = {self_synin};
-  auto guid = get_guid_with_precision("unique_fwd", self_params.dtype);
+  using namespace std::literals;
+  auto guid = get_guid_with_precision("unique_fwd"sv, self_params.dtype);
   auto shape_tensor_dtype =
       (common::IsInt64Supported() ? c10::ScalarType::Long
                                   : c10::ScalarType::Int);

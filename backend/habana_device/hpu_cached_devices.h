@@ -1,31 +1,27 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
-#include <c10/util/Exception.h>
 #include <synapse_api_types.h>
 
-#include <array>
+#include <atomic>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/PinnedMemoryAllocator.h"
-#include "backend/helpers/dynamic_shape_info.h"
-#include "backend/synapse_helpers/device.h"
-#include "backend/synapse_helpers/session.h"
+#include "habana_helpers/logging.h"
 
 namespace habana {
 
@@ -109,31 +105,31 @@ class HPURegistrar {
   }
 
   void register_acc_thread(CallFinally::FinalFunc&& acc_thread_cleanup) {
-    TORCH_CHECK(!accumulation_thread_cleanup_);
+    HABANA_ASSERT(!accumulation_thread_cleanup_);
     accumulation_thread_cleanup_.reset(std::move(acc_thread_cleanup));
   }
 
   void register_lazy_exec_thread_pool(
       CallFinally::FinalFunc&& lazy_exec_thread_pool_cleanup) {
-    TORCH_CHECK(!lazy_exec_thread_pool_cleanup_);
+    HABANA_ASSERT(!lazy_exec_thread_pool_cleanup_);
     lazy_exec_thread_pool_cleanup_.reset(
         std::move(lazy_exec_thread_pool_cleanup));
   }
 
   void register_lazy_execution_arena(
       CallFinally::FinalFunc&& lazy_execution_arena_cleanup) {
-    TORCH_CHECK(!lazy_execution_arena_cleanup_);
+    HABANA_ASSERT(!lazy_execution_arena_cleanup_);
     lazy_execution_arena_cleanup_.reset(
         std::move(lazy_execution_arena_cleanup));
   }
 
   void register_thread_deleter(CallFinally::FinalFunc&& thread_deleter) {
-    TORCH_CHECK(!thread_deleter_);
+    HABANA_ASSERT(!thread_deleter_);
     thread_deleter_.reset(std::move(thread_deleter));
   }
 
   void register_device_deleter(CallFinally::FinalFunc&& device_deleter) {
-    TORCH_CHECK(!device_deleter_);
+    HABANA_ASSERT(!device_deleter_);
     device_deleter_.reset(std::move(device_deleter));
   }
 

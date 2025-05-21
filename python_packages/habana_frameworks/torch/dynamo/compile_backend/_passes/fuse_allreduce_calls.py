@@ -102,7 +102,7 @@ import math
 import operator
 from dataclasses import dataclass
 from itertools import groupby
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Any, cast
 
 import torch
 from torch._inductor import config
@@ -115,12 +115,12 @@ from .utils import OptimizerContext
 
 @dataclass(unsafe_hash=True)
 class CommBlock:
-    shape: Union[torch.Size, List[torch.Size]]
-    node_list: List[torch.fx.Node]
-    inputs: List[torch.fx.Node]
-    wait_nodes: List[torch.fx.Node]
+    shape: torch.Size | list[torch.Size]
+    node_list: list[torch.fx.Node]
+    inputs: list[torch.fx.Node]
+    wait_nodes: list[torch.fx.Node]
     comm_node: torch.fx.Node
-    outputs: Set[torch.fx.Node]
+    outputs: set[torch.fx.Node]
     color: int
 
 
@@ -166,7 +166,7 @@ def get_comm_block(comm_node: torch.fx.Node) -> CommBlock:
         raise RuntimeError("The wait nodes are too far away from the comm node {comm_node}.")
 
     # Identify all the outputs of this collective block.
-    outputs: Set[torch.fx.Node] = set()
+    outputs: set[torch.fx.Node] = set()
     nodes = collections.deque(wait_nodes)
     while nodes:
         node = nodes.popleft()
@@ -203,15 +203,15 @@ def pass_fuse_collectives(ctx: OptimizerContext) -> bool:
     return graph_changed
 
 
-def get_all_comm_blocks_by_color(gm: torch.fx.Graph, comm_ops: Union[Tuple[str, ...], str]) -> List[List[CommBlock]]:
+def get_all_comm_blocks_by_color(gm: torch.fx.Graph, comm_ops: tuple[str, ...] | str) -> list[list[CommBlock]]:
     return [list(grp) for _, grp in groupby(get_all_comm_blocks(gm, comm_ops), lambda elem: elem.color)]
 
 
-def get_all_comm_blocks(gm: torch.fx.Graph, comm_ops: Union[Tuple[str, ...], str]) -> List[CommBlock]:
+def get_all_comm_blocks(gm: torch.fx.Graph, comm_ops: tuple[str, ...] | str) -> list[CommBlock]:
     return [get_comm_block(node) for node in gm.graph.nodes if node.name.startswith(comm_ops)]
 
 
-def _expedite_comm_ops(gm: torch.fx.Graph, comm_blocks: List[CommBlock]) -> None:
+def _expedite_comm_ops(gm: torch.fx.Graph, comm_blocks: list[CommBlock]) -> None:
     node_indices = {node: i for i, node in enumerate(gm.graph.nodes)}
     for comm_block in comm_blocks:
         last_input = comm_block.comm_node
@@ -297,7 +297,7 @@ def _create_meta_val(
 def _call_function(
     gm: torch.fx.Graph,
     fake_tensor_mode: FakeTensorMode,
-    meta_val: Optional[FakeTensor],
+    meta_val: FakeTensor | None,
     function: Any,
     *args: Any,
     **kwargs: Any,
@@ -328,7 +328,7 @@ def _call_function(
     return node
 
 
-def _move_after(nodes_to_move: List[torch.fx.Node], target_node: torch.fx.Node) -> None:
+def _move_after(nodes_to_move: list[torch.fx.Node], target_node: torch.fx.Node) -> None:
     actual_target_node = target_node
     for node in nodes_to_move:
         actual_target_node.append(node)
@@ -337,8 +337,8 @@ def _move_after(nodes_to_move: List[torch.fx.Node], target_node: torch.fx.Node) 
 
 def _fuse_with_cat(
     gm: torch.fx.Graph,
-    comm_blocks: List[CommBlock],
-    node_indices: Dict[torch.fx.Node, int],
+    comm_blocks: list[CommBlock],
+    node_indices: dict[torch.fx.Node, int],
 ) -> CommBlock:
     """Fuse the CommBlocks using concat given a list of CommBlock (only allreduce)."""
 
@@ -429,8 +429,8 @@ def _fuse_with_cat(
 def _scatter_wait_result(
     gm: torch.fx.Graph,
     fused_comm_block: CommBlock,
-    comm_blocks: List[CommBlock],
-    node_indices: Dict[torch.fx.Node, int],
+    comm_blocks: list[CommBlock],
+    node_indices: dict[torch.fx.Node, int],
 ) -> None:
     """Scatter the result of the fused communication node to the original users -- splitting the output and reshape each subitem."""
     last_wait_node_idx = 0

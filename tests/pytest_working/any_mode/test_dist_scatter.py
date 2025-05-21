@@ -37,21 +37,36 @@ def cleanup():
     dist.destroy_process_group()
 
 
-def simple(rank, world_size, args):
+def simple(rank, world_size, dtype):
     print("rank :: ", rank)
     print("world_size :: ", world_size)
     device = f"{device_hpu}:{rank}"
     setup(rank, world_size)
     if rank == 0:
-        scatter_list = [torch.ones(3, 3, device="hpu") * rank for rank in range(world_size)]
+        scatter_list = [torch.ones(3, 3, device="hpu", dtype=dtype) * rank for rank in range(world_size)]
     else:
         scatter_list = None
-    output_tensor = torch.empty(3, 3, device="hpu")
+    output_tensor = torch.empty(3, 3, device="hpu", dtype=dtype)
     dist.scatter(output_tensor, scatter_list)
-    result_cmp = torch.ones(3, 3, device="hpu") * rank
+    result_cmp = torch.ones(3, 3, device="hpu", dtype=dtype) * rank
     result = torch.all(output_tensor.eq(result_cmp))
     assert result.item() is True
     print("DONE for rank :: ", rank)
+    cleanup()
+
+
+def empty_tensor(rank, world_size, dtype):
+    device = f"{device_hpu}:{rank}"
+    setup(rank, world_size)
+    if rank == 0:
+        scatter_list = [torch.ones(0, device="hpu", dtype=dtype) * rank for rank in range(world_size)]
+    else:
+        scatter_list = None
+    output_tensor = torch.empty(0, device="hpu", dtype=dtype)
+    dist.scatter(output_tensor, scatter_list)
+    result_cmp = torch.ones(0, device="hpu", dtype=dtype) * rank
+    result = torch.all(output_tensor.eq(result_cmp))
+    assert result.item() is True
     cleanup()
 
 
@@ -65,4 +80,9 @@ if __name__ == "__main__":
         os.environ["TORCH_SHOW_CPP_STACKTRACES"] = "1"
     WORLD_SIZE = habana_frameworks.torch.hpu.device_count()
     if WORLD_SIZE > 1:
-        mp.spawn(simple, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(simple, args=(WORLD_SIZE, torch.float32), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(simple, args=(WORLD_SIZE, torch.int8), nprocs=WORLD_SIZE, join=True)
+        os.environ["PT_HPU_ENABLE_LAZY_COLLECTIVES"] = "1"
+        mp.spawn(simple, args=(WORLD_SIZE, torch.float32), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(simple, args=(WORLD_SIZE, torch.int8), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(empty_tensor, args=(WORLD_SIZE, torch.float32), nprocs=WORLD_SIZE, join=True)

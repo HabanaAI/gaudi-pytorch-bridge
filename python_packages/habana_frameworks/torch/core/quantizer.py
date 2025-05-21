@@ -26,11 +26,13 @@ This module implements Habana quantizers that can be used in PT2E-Quantization.
 # However, they have been renamed and amended as per the present need.
 
 import itertools
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+import habana_frameworks.torch.internal.bridge_config as bc
+from habana_frameworks.torch.core.observer import AbsMaxObserver
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
-from habana_frameworks.torch.core.observer import AbsMaxObserver, SimpleAbsMaxObserver
-from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from torch.ao.quantization.observer import PlaceholderObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer.x86_inductor_quantizer import (
@@ -50,19 +52,22 @@ from torch.ao.quantization.quantizer.xnnpack_quantizer_utils import (
     get_weight_qspec,
 )
 from torch.fx import Node
-from torch.fx.passes.utils.source_matcher_utils import SourcePartition, get_source_partitions
+from torch.fx.passes.utils.source_matcher_utils import (
+    SourcePartition,
+    get_source_partitions,
+)
 
 logger = get_compile_backend_logger()
 
 QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
-extra_args_act: Dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
-extra_args_weight: Dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
+extra_args_act: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
+extra_args_weight: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
 
 
 # ======================================================================================
 # Utility functions used by Habana Quantizer definition
 # ======================================================================================
-def _mark_nodes_as_annotated(nodes: List[Node]):
+def _mark_nodes_as_annotated(nodes: list[Node]):
     for node in nodes:
         if node is not None:
             if "quantization_annotation" not in node.meta:
@@ -70,7 +75,7 @@ def _mark_nodes_as_annotated(nodes: List[Node]):
             node.meta["quantization_annotation"]._annotated = True
 
 
-def _is_annotated(nodes: List[Node]):
+def _is_annotated(nodes: list[Node]):
     annotated = False
     for node in nodes:
         annotated = annotated or (
@@ -107,7 +112,7 @@ class habana_quantizer(Quantizer):
     def __init__(self):
         super().__init__()
         self.global_config: QuantizationConfig = None  # type: ignore[assignment]
-        self.operator_type_config: Dict[str, Optional[QuantizationConfig]] = {}
+        self.operator_type_config: dict[str, QuantizationConfig | None] = {}
 
     def set_global(self, quantization_config: QuantizationConfig):
         """set global QuantizationConfig used for the backend.
@@ -128,13 +133,56 @@ class habana_quantizer(Quantizer):
     def annotate_symmetric_config(
         self, model: torch.fx.GraphModule, config: QuantizationConfig
     ) -> torch.fx.GraphModule:
+
+        if bc.get_pt_hpu_pt2eq_kvcq():
+            self._annotate_kvcache(model, config)
+
+        self._annotate_conv2d(model, config)
         self._annotate_linear(model, config)
         self._annotate_matmul(model, config)
-        self._annotate_conv2d(model, config)
         self._annotate_maxpool2d(model, config)
-        # self._annotate_softmax(model, config)
 
         return model
+
+    def _annotate_kvcache(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+        from .pattern_matcher import is_node
+
+        for node in gm.graph.nodes:
+            # For prefill / prompt stage
+            # full --> copy
+            if is_node(node, "full.default"):
+                logger.debug(f"Found full.default node: {node.name}")
+                assert len(node.users) == 1
+                full_user_node = next(iter(node.users), None)
+
+                if is_node(full_user_node, "copy.default"):
+                    logger.debug(f"Found copy.default node: {node.name}")
+
+                    input_qspec_map = {}
+                    input_src = full_user_node.args[1]
+                    assert isinstance(input_src, Node)
+                    input_qspec_map[input_src] = get_input_act_qspec(quantization_config)
+
+                    full_user_node.meta["quantization_annotation"] = QuantizationAnnotation(
+                        input_qspec_map=input_qspec_map,
+                        output_qspec=None,
+                        _annotated=True,
+                    )
+
+            # For token generation stage
+            # index_copy --> copy_
+            if is_node(node, "index_copy.default"):
+                logger.debug(f"Found index_copy.default node: {node.name}")
+                input_qspec_map = {}
+                input_3 = node.args[3]
+                assert isinstance(input_3, Node)
+                input_qspec_map[input_3] = get_input_act_qspec(quantization_config)
+
+                node.meta["quantization_annotation"] = QuantizationAnnotation(
+                    input_qspec_map=input_qspec_map,
+                    output_qspec=get_input_act_qspec(quantization_config),
+                    _annotated=True,
+                )
 
     def _annotate_conv2d(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
         conv_partitions = get_source_partitions(gm.graph, [torch.nn.Conv2d, torch.nn.functional.conv2d])
@@ -191,7 +239,10 @@ class habana_quantizer(Quantizer):
                     weight_node = None
                     bias_node = None
                     for node in p.params:
-                        weight_or_bias = getattr(gm, node.target)  # type: ignore[arg-type]
+                        try:
+                            weight_or_bias = getattr(gm, node.target)  # type: ignore[arg-type]
+                        except:
+                            continue
                         if weight_or_bias.ndim == 2:  # type: ignore[attr-defined]
                             weight_node = node
                         if weight_or_bias.ndim == 1:  # type: ignore[attr-defined]
@@ -218,7 +269,7 @@ class habana_quantizer(Quantizer):
 
         input_act_qspec = get_input_act_qspec(quantization_config)
         output_act_qspec = get_output_act_qspec(quantization_config)
-        for module_or_fn_type, partitions in matmul_partitions.items():
+        for _, partitions in matmul_partitions.items():
             for p in partitions:
                 assert len(p.input_nodes) == 2
                 act_node1 = p.input_nodes[0]
@@ -273,7 +324,7 @@ class habana_quantizer(Quantizer):
 
         output_act_qspec = get_input_act_qspec(quantization_config)
         input_act_qspec = get_input_act_qspec(quantization_config)
-        for module_or_fn_type, partitions in softmax_partitions.items():
+        for _, partitions in softmax_partitions.items():
             for p in partitions:
                 assert len(p.input_nodes) == 1
                 act_node = p.input_nodes[0]
@@ -291,7 +342,7 @@ class habana_quantizer(Quantizer):
         pass
 
     @classmethod
-    def get_supported_operators(cls) -> List[OperatorConfig]:
+    def get_supported_operators(cls) -> list[OperatorConfig]:
         return []
 
 

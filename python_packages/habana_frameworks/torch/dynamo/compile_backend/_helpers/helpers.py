@@ -18,8 +18,11 @@
 from collections.abc import Iterable
 
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
+
+import torch
+from torch._dynamo.utils import detect_fake_mode
+from torch._subclasses.fake_tensor import FakeTensorMode
 
 from ..random_utils import (
     backward_random_op_inputs,
@@ -28,7 +31,12 @@ from ..random_utils import (
     is_random_op,
     random_op_inputs,
 )
-from ..symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
+from ..symbolic_execution import (
+    HPUExprPrinter,
+    SymExprNodeManager,
+    substitute_sympyfn,
+    sympify_expression,
+)
 
 logger = get_compile_backend_logger()
 
@@ -190,14 +198,11 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     This function takes out basic information from propagated fake tensor, like
     dtype, layout and device and puts it to the node that created it.
     """
-    if not bc.get_pt_hpu_use_jit_fork():
-        # todo - cleanup [SW-199903]
-        # just skip for get_attr node since it's not necessary
-        if node.op == "get_attr":
-            return
-
     if node.meta.get("val") is None:
         node.meta["val"] = result
+
+    if node.op == "get_attr":
+        return
 
     result = handle_noncontiguous_output(node, result)
 
@@ -219,6 +224,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         type(None): None,
     }
 
+    logger.debug("node name: %s", node.name)
     if (
         type(result) is torch._subclasses.FakeTensor
         or type(result) is torch._subclasses.fake_tensor.FakeTensor
@@ -256,32 +262,75 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     else:
         devices = []
         assert isinstance(result, Iterable), "expecting iterable at this point"
-        for res in result:
-            if res is None:
-                continue
 
-            if hasattr(res, "device"):
-                devices.append(res.device)
-            if hasattr(res, "dtype"):
-                dtypes.append(res.dtype)
-            if hasattr(res, "layout"):
-                layouts.append(res.layout)
+        def collect_result(
+            result,
+            devices=devices,
+            dtypes=dtypes,
+            layouts=layouts,
+            output_shapes=output_shapes,
+            output_contiguous=output_contiguous,
+            output_offset=output_offset,
+            output_strides=output_strides,
+        ):
+            if hasattr(result, "device"):
+                devices.append(result.device)
+            if hasattr(result, "dtype"):
+                dtypes.append(result.dtype)
+            if hasattr(result, "layout"):
+                layouts.append(result.layout)
 
-            if hasattr(res, "shape"):
-                output_shapes.append(res.shape)
-                output_contiguous.append(res.is_contiguous())
+            if hasattr(result, "shape"):
+                output_shapes.append(result.shape)
+                output_contiguous.append(result.is_contiguous())
                 # todo https://jira.habana-labs.com/browse/SW-199903:
                 #  this must be a bug!
                 # output_strides.append(res.storage_offset())
-                output_offset.append(res.storage_offset())
-                output_strides.append(res.stride())
-                logger.debug("    result shape: %s", res.shape)
+                output_offset.append(result.storage_offset())
+                output_strides.append(result.stride())
+                logger.debug("    result shape: %s", result.shape)
+
+        for res in result:
+            if res is None:
+                continue
+            if isinstance(res, tuple | list):
+                devices_list = []
+                dtypes_list = []
+                layouts_list = []
+                output_shapes_list = []
+                output_contiguous_list = []
+                output_offset_list = []
+                output_strides_list = []
+
+                for r in res:
+                    collect_result(
+                        r,
+                        devices=devices_list,
+                        dtypes=dtypes_list,
+                        layouts=layouts_list,
+                        output_shapes=output_shapes_list,
+                        output_contiguous=output_contiguous_list,
+                        output_offset=output_offset_list,
+                        output_strides=output_strides_list,
+                    )
+
+                devices.append(tuple(devices_list))
+                dtypes.append(tuple(dtypes_list))
+                layouts.append(tuple(layouts_list))
+                output_shapes.append(tuple(output_shapes_list))
+                output_contiguous.append(tuple(output_contiguous_list))
+                output_offset.append(tuple(output_offset_list))
+                output_strides.append(tuple(output_strides_list))
+            else:
+                collect_result(res)
 
         if len(devices) > 0:
             # run_and_save_rng_state op has first output always on cpu, so the device
             # is set based on the second output.
             if str(node.target) == "run_and_save_rng_state":
                 device = devices[1] if len(devices) > 1 else result[1][0].device
+                if isinstance(device, tuple):
+                    device = device[0]
             elif devices.count(devices[0]) != len(devices) and "output" not in node.op:
                 logger.error(
                     "multiple devices in single node\n%s\n at node: %s",
@@ -328,18 +377,21 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     node.meta["output_contiguous"] = output_contiguous  # list expected
     node.meta["output_offset"] = output_offset  # list expected
 
-    if bc.get_pt_hpu_use_jit_fork() and (type(result) not in [torch.SymInt, torch.SymBool, torch.SymFloat]):
-        logger.debug('Filling metadata "val" for Lowering pass')
+
+def fill_propagated_tensor_metadata_jitfork(node: torch.fx.Node):
+    if bc.get_pt_hpu_use_jit_fork():
+        logger.debug('Filling metadata "val" for node: %s', node.name)
         meta_output_vals = []
-        for i in range(len(dtypes)):
+        for i in range(len(node.meta["output_dtypes"])):
             meta_output_vals.append(  # output_strides consists of storage_offset, strides, acccess only strides
                 torch.empty_strided(
-                    output_shapes[i],
-                    output_strides[i],
-                    dtype=dtypes[i],
-                    device=device,
+                    node.meta["output_shapes"][i],
+                    node.meta["output_strides"][i],
+                    dtype=node.meta["output_dtypes"][i],
+                    device=node.meta["output_device"],
                 )
             )
+
         node.meta["val"] = meta_output_vals[0] if len(meta_output_vals) == 1 else tuple(meta_output_vals)
 
 
@@ -407,7 +459,6 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
 
     from torch._subclasses.fake_tensor import FakeTensor
     from torch.fx.experimental.proxy_tensor import py_sym_types
-    from torch.fx.passes.shape_prop import TensorMetadata
 
     is_dynamic = False
     for node in input_module.graph.nodes:
@@ -449,7 +500,7 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
         input_module.recompile()
 
     if len(random_ops) == 0:
-        return
+        return False
 
     with input_module.graph.inserting_before():
         counter_pl = input_module.graph.placeholder("counter_pl")
@@ -481,6 +532,60 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
                     selector.args = (node, idx + 1)
 
     input_module.recompile()
+    return True
+
+
+class TensorInfoPropagation(torch.fx.Interpreter):
+    """
+    This class is responsible for tracing through the graph module, and
+    propagating all the necessary tensor information. All is done using
+    fake_tensors so it does not make any real computations.
+    """
+
+    def __init__(
+        self,
+        graph_module: torch.fx.GraphModule,
+        fake_mode: FakeTensorMode | None = None,
+    ):
+        super().__init__(graph_module)
+        if fake_mode is None:
+            fake_mode = FakeTensorMode()
+        self._mode = fake_mode
+
+    def run_node(self, node: torch.fx.Node):
+        args = kwargs = result = None
+        if SymExprNodeManager.node_name in node.name:
+            result = node.meta["val"]
+            args, kwargs = self.fetch_args_kwargs_from_env(node)
+        else:
+            result = super().run_node(node)
+            args, kwargs = self.fetch_args_kwargs_from_env(node)
+
+        node.val_args = args
+        node.val_kwargs = kwargs
+        fill_propagated_tensor_metadata_to_node(result, node)
+
+        return result
+
+    def propagate(self, *args):
+        fake_args = [self._mode.from_tensor(a) if isinstance(a, torch.Tensor) else a for a in args]
+        return self.propagate_dont_convert_inputs(*fake_args)
+
+    def propagate_dont_convert_inputs(self, *args):
+        with self._mode:
+            return super().run(*args)
+
+
+def propagate_meta(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], propagator_class):
+    fake_mode = detect_fake_mode(example_inputs)
+    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
+        # Disabling autocast in fake tensor propagation as autocasting has been
+        # already done and all dtypes has been already deduced.
+        if not fake_mode:
+            fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
+            propagator_class(graph_module, fake_mode).propagate(*example_inputs)
+        else:
+            propagator_class(graph_module, fake_mode).propagate_dont_convert_inputs(*example_inputs)
 
 
 def jit_node_annotation_propagation(jit_ir, fx_module):
@@ -517,16 +622,16 @@ def jit_node_annotation_propagation(jit_ir, fx_module):
         return
 
     is_annotated_graph = False
-    for jit_node, fx_node in zip(jit_graph_nodes, fx_nodes):
+    for jit_node, fx_node in zip(jit_graph_nodes, fx_nodes, strict=False):
         fx_node_name = fx_node.target.__name__.split(".")[0]
         if fx_node_name not in jit_node.kind():
-            logger.debug("FX node {} doesn't match with Jit node {}".format(fx_node_name, jit_node.kind()))
+            logger.debug(f"FX node {fx_node_name} doesn't match with Jit node {jit_node.kind()}")
             break
 
         # extract hints from FX node metadata
         context_hints = fx_node.meta.get("context_hints", None)
         if context_hints:
-            logger.debug("node {} has context hints {}".format(fx_node_name, context_hints))
+            logger.debug(f"node {fx_node_name} has context hints {context_hints}")
             # combine hints into a single string in format "name1:value1;[name2:value2;]"
             hints_str = ""
             for k, v in context_hints.items():

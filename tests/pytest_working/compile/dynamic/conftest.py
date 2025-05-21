@@ -22,7 +22,7 @@ import pytest
 
 @pytest.fixture(autouse=True, scope="package")
 def setup_teardown_env():
-    if 1 == int(os.environ.get("PT_HPU_LAZY_MODE", 1)):
+    if int(os.environ.get("PT_HPU_LAZY_MODE", 0)) == 1:
         pytest.skip("This test requires PT_HPU_LAZY_MODE=0")
     import habana_frameworks.torch.hpu as hthpu
 

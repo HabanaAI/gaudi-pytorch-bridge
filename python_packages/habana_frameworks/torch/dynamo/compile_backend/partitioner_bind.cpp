@@ -86,31 +86,31 @@
  *https://github.com/pytorch/pytorch/blob/main/torch/fx/passes/infra/partitioner.py
  */
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-#include <memory>
-#include <unordered_map>
-#include <set>
-#include <vector>
-#include <string>
-#include <algorithm>
-#include <cassert>
-#include <stdexcept>
+#include <absl/container/flat_hash_set.h>
 #include <pybind11/chrono.h>
 #include <pybind11/stl.h>
-#include <absl/container/flat_hash_set.h>
+#include <algorithm>
+#include <cassert>
+#include <memory>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #define NO_PARTITION -1
 
@@ -123,16 +123,17 @@ class InsertionOrderUnorderedSet {
   std::vector<T> tracker;
 
  public:
-
   InsertionOrderUnorderedSet() = default;
 
   InsertionOrderUnorderedSet(const InsertionOrderUnorderedSet& other)
-        : container(other.container), tracker(other.tracker) {}
+      : container(other.container), tracker(other.tracker) {}
 
   InsertionOrderUnorderedSet(InsertionOrderUnorderedSet&& other) noexcept
-        : container(std::move(other.container)), tracker(std::move(other.tracker)) {}
+      : container(std::move(other.container)),
+        tracker(std::move(other.tracker)) {}
 
-  InsertionOrderUnorderedSet& operator=(const InsertionOrderUnorderedSet& other) {
+  InsertionOrderUnorderedSet& operator=(
+      const InsertionOrderUnorderedSet& other) {
     if (this != &other) {
       container = other.container;
       tracker = other.tracker;
@@ -140,7 +141,8 @@ class InsertionOrderUnorderedSet {
     return *this;
   }
 
-  InsertionOrderUnorderedSet& operator=(InsertionOrderUnorderedSet&& other) noexcept {
+  InsertionOrderUnorderedSet& operator=(
+      InsertionOrderUnorderedSet&& other) noexcept {
     if (this != &other) {
       container = std::move(other.container);
       tracker = std::move(other.tracker);
@@ -180,9 +182,9 @@ class InsertionOrderUnorderedSet {
   }
 
   void clear() {
-        container.clear();
-        tracker.clear();
-    }
+    container.clear();
+    tracker.clear();
+  }
 
   size_t size() const {
     return container.size();
@@ -341,7 +343,8 @@ class Partition {
     static_assert(
         std::is_same<
             typename std::iterator_traits<
-                typename Iterable::iterator>::value_type, Node*>::value,
+                typename Iterable::iterator>::value_type,
+            Node*>::value,
         "Iterable must be a container of Node* type");
     for (auto& item : nodes_iterable) {
       _nodes.insert(item);
@@ -465,8 +468,9 @@ class BindedPartitioner {
   std::vector<PartitionDTO> propose_partitions() {
     std::unordered_map<int, absl::flat_hash_set<int>> partition_map;
     InsertionOrderUnorderedMap<Node*, int> assignment;
-    InsertionOrderUnorderedMap<int, std::shared_ptr<Partition>> partitions_by_id;
-    int new_partition_id = 0;
+    InsertionOrderUnorderedMap<int, std::shared_ptr<Partition>>
+        partitions_by_id;
+    static int new_partition_id = 0;
 
     for (auto it = _nodes.rbegin(); it != _nodes.rend(); it++) {
       Node* node = &(*it);
@@ -560,7 +564,8 @@ class BindedPartitioner {
 
     std::vector<PartitionDTO> proposed_partitions;
     for (auto& it : partitions_by_id)
-      proposed_partitions.push_back(partitions_by_id.get(it)->second->convert_to_dto());
+      proposed_partitions.push_back(
+          partitions_by_id.get(it)->second->convert_to_dto());
 
     return proposed_partitions;
   }
@@ -603,8 +608,10 @@ class BindedPartitioner {
       const int other_id,
       std::unordered_map<int, absl::flat_hash_set<int>>& partition_map,
       InsertionOrderUnorderedMap<Node*, int>& assignment,
-      InsertionOrderUnorderedMap<int, std::shared_ptr<Partition>>& partitions_by_id) {
-    InsertionOrderUnorderedSet<Node*>& self_nodes = partitions_by_id.get(self_id)->second->nodes();
+      InsertionOrderUnorderedMap<int, std::shared_ptr<Partition>>&
+          partitions_by_id) {
+    InsertionOrderUnorderedSet<Node*>& self_nodes =
+        partitions_by_id.get(self_id)->second->nodes();
     InsertionOrderUnorderedSet<Node*>& other_nodes =
         partitions_by_id.get(other_id)->second->nodes();
     InsertionOrderUnorderedSet<Node*> merged_nodes;
@@ -666,9 +673,11 @@ class BindedPartitioner {
       int id,
       std::unordered_map<int, absl::flat_hash_set<int>>& partition_map,
       InsertionOrderUnorderedMap<Node*, int>& assignment,
-      InsertionOrderUnorderedMap<int, std::shared_ptr<Partition>>& partitions_by_id) {
+      InsertionOrderUnorderedMap<int, std::shared_ptr<Partition>>&
+          partitions_by_id) {
     if (assignment.exist(node))
-      partitions_by_id.get(assignment.get(node)->second)->second->remove_node(node);
+      partitions_by_id.get(assignment.get(node)->second)
+          ->second->remove_node(node);
 
     if (id == NO_PARTITION)
       assignment.erase(node);
@@ -678,7 +687,8 @@ class BindedPartitioner {
         partitions_by_id.get(id)->second->add_node(node);
         update_partition_map(node, id, partition_map, assignment);
       } else {
-        partitions_by_id.insert(id, std::make_shared<Partition>(id, std::vector<Node*>{node}));
+        partitions_by_id.insert(
+            id, std::make_shared<Partition>(id, std::vector<Node*>{node}));
         update_partition_map(node, id, partition_map, assignment);
       }
     }

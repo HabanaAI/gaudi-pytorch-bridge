@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/poisson.h"
 #include "hpu_ops/habana_random_ops.h"
@@ -44,6 +44,8 @@ SharedMetaDataVector PoissonSharedMeta(
   return {poissonSharedMeta};
 }
 
+using namespace std::literals;
+
 HabanaPoissonBase::HabanaPoissonBase(
     int device_id,
     c10::ScalarType scalar_type,
@@ -67,7 +69,7 @@ void HabanaPoissonBase::AddNode(
   auto poisson = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("random_poisson_fwd", dtype),
+      {get_guid_with_precision("random_poisson_fwd"sv, dtype),
        inputs,
        {{input_tensor.sizes().vec(), dtype, 0}},
        params.get(),
@@ -101,7 +103,7 @@ void HabanaPoissonCheckpoint::AddNode(
   auto poisson = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("random_poisson_fwd", dtype),
+      {get_guid_with_precision("random_poisson_fwd"sv, dtype),
        inputs,
        {{input_tensor.sizes().vec(), dtype, 1}},
        params.get(),

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <ATen/WrapDimUtils.h>
@@ -60,9 +60,9 @@ int ArangeOperator::GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   auto end = end_.to<double>();
   auto step = step_.to<double>();
 
-  TORCH_CHECK(step != 0, "step value can not be 0.");
-  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
-  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
+  HABANA_ASSERT(step != 0, "step value can not be 0.");
+  HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
+  HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
   float max, min, abs_del;
   int depth;
@@ -102,18 +102,18 @@ void GatherOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of input expected for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input type expected to be Tensor for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isInt(), "Input type expected to be Int for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input type expected to be Tensor for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isBool(), "Input type expected to be Bool for Gather operator");
 
   auto self = inputs[0].toTensor();
@@ -121,7 +121,7 @@ void GatherOperator::AllocateAndAddSynapseNode(
   auto index = inputs[2].toTensor();
   auto sparse_grad = inputs[3].toBool();
 
-  TORCH_CHECK(sparse_grad == false, "spare_grad is not supported")
+  HABANA_ASSERT(sparse_grad == false, "spare_grad is not supported")
   if (index.dim() == 0) {
     SET_SIZE_STRIDE_1D(index);
   }
@@ -198,19 +198,19 @@ void GatherElemOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5,
       "Incorrect size of input expected for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input type expected to be Tensor for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input type expected to be Int for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor() or inputs[2].isNone(),
       "Input type expected to be Tensor for Gather operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[4].isBool(), "Input type expected to be Bool for Gather operator");
 
   auto self = inputs[0].toTensor();
@@ -255,18 +255,18 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of input expected for Scatter operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input type expected to be Tensor for Scatter operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isInt(), "Input type expected to be Int for Scatter operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input type expected to be Tensor for Scatter operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isTensor(),
       "nput type expected to be Int for Scatter operator");
 
@@ -301,19 +301,19 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of input expected for Scatter Add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input type expected to be Tensor for Scatter Add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isInt(),
       "Input type expected to be Int for Scatter Add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input type expected to be Tensor for Scatter Add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isTensor(),
       "Input type expected to be Int for Scatter Add operator");
 
@@ -347,6 +347,13 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       at::globalContext().deterministicAlgorithms() == false &&
       HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
+      // Special handling if the length of indices is 1
+      if (index.sizes() == 1) {
+        SetGuid("unsorted_scatter_add_fwd_bf16");
+        AddNodeToSynapseGraph(graph, &params, sizeof(params));
+        return;
+      }
+
       auto cast_op1 = make_operator<CastOperator>(
           self.device().index(), "cast_bf16_to_f32");
       auto cast_op2 = make_operator<CastOperator>(
@@ -396,7 +403,10 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       p_context_->pt_outputs_[0] = std::move(cast_op3->GetOutputs()[0]);
       return;
     }
-    SetGuid("unsorted_scatter_add_fwd_f32");
+    const std::string guid = (self.scalar_type() == at::ScalarType::Int)
+        ? "unsorted_scatter_add_fwd_i32"
+        : "unsorted_scatter_add_fwd_f32";
+    SetGuid(guid);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   } else { // On Gaudi1
     // "To sort or not to sort, that is the question..."!!
@@ -445,7 +455,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
           std::vector<c10::IValue> gather_stack{
               IValue(src),
               IValue(topkOp->GetOutputs()[1]),
-              IValue(c10::nullopt),
+              IValue(std::nullopt),
               IValue(dim),
               IValue(sparse_grad)};
           gatherOp->AllocateAndAddSynapseNode(
@@ -596,138 +606,30 @@ SharedMetaDataVector IndexAddSharedMeta(
 }
 } // namespace habana
 
-void IndexAddOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 5, "Incorrect size of inputs for index_add operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input 0 type expected to be Tensor for index_add operator");
-  TORCH_CHECK(
-      inputs[1].isInt(),
-      "Input 1 type expected to be int64_t for index_add operator");
-  TORCH_CHECK(
-      inputs[2].isTensor(),
-      "Input 2 type expected to be Tensor for index_add operator");
-  TORCH_CHECK(
-      inputs[3].isTensor(),
-      "Input 3 type expected to be Tensor for index_add operator");
-  TORCH_CHECK(
-      inputs[4].isScalar(),
-      "Input 4 type expected to be Scalar for index_add operator");
-
-  auto self = inputs[0].toTensor();
-  auto dim = inputs[1].toInt();
-  auto index = inputs[2].toTensor();
-  auto value = inputs[3].toTensor();
-  auto alpha = inputs[4].toScalar();
-
-  std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
-  torch::jit::Stack temp_stack;
-  dim = at::maybe_wrap_dim(dim, self.dim());
-
-  ////auto slice = at::index_select(self, 0, indices[0]);
-  auto index_selectOp = make_operator<IndexSelectOperator>(
-      this->p_context_->device_id_, self.scalar_type());
-  temp_stack = {IValue(self), IValue(dim), IValue(index)};
-  index_selectOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  index_selectOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  index_selectOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
-
-  ////alpha_value = value * alpha;
-  auto mulOp = make_operator<MulOperator>(
-      this->p_context_->device_id_, value.scalar_type());
-  temp_stack = {IValue(value), IValue(alpha)};
-  mulOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-  mulOp->AllocateAndAddSynapseNode(graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
-
-  ////value_acc += slice;
-  auto addOp = make_operator<AddOperator>(
-      this->p_context_->device_id_, value.scalar_type());
-  temp_stack = {
-      IValue(mulOp->GetOutputs()[0]),
-      IValue(index_selectOp->GetOutputs()[0]),
-      IValue(Scalar(1.0))};
-  addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
-  addOp->SetSynapseInput(index_selectOp->GetSynOutputs()[0]);
-  addOp->AllocateAndAddSynapseNode(graph, temp_stack, OutputMetaDataVector(1));
-  addSynOutput.push_back(std::move(addOp->GetSynOutputs()[0]));
-  temp_stack.clear();
-
-  // Expand 1D index tensor to same number of dimensions as value tensor
-  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
-  expanded_sizes[dim] = index.sizes()[0];
-
-  ////auto index_expanded = index.view(expanded_sizes)
-  auto reshapeOp = make_operator<ReshapeOperator>(
-      this->p_context_->device_id_, index.scalar_type());
-  temp_stack = {IValue(index), IValue(expanded_sizes)};
-  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  reshapeOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
-
-  // Broadcast index tensor to same shape as value tensor
-  bool implicit =
-      false; // The value of implicit is currently ignored in broadcast kernel
-  auto bcastOp = make_operator<BroadcastOperator>(
-      this->p_context_->device_id_, reshapeOp->GetOutputs()[0].scalar_type());
-  temp_stack = {
-      IValue(reshapeOp->GetOutputs()[0]),
-      IValue(value.sizes()),
-      IValue(implicit)};
-  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
-  bcastOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
-
-  auto scatterOp = make_operator<ScatterHelperOperator>(
-      this->p_context_->device_id_, self.scalar_type());
-  temp_stack = {
-      IValue(self),
-      IValue(dim),
-      IValue(bcastOp->GetOutputs()[0]),
-      IValue(value)};
-
-  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-  scatterOp->SetSynapseInput(addSynOutput[0]);
-  scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
-
-  p_context_->syn_outputs_.emplace_back(
-      std::move(scatterOp->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
-}
-
 /*
  Implementation to take care of duplicate entries in index tensor and also
  the case where index tensor size can be greater than the self tensor size at
  the relevant dim.
 */
-void IndexAddV2Operator::AllocateAndAddSynapseNode(
+void IndexAddOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5, "Incorrect size of inputs for index_add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input 0 type expected to be Tensor for index_add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isInt(),
       "Input 1 type expected to be int64_t for index_add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input 2 type expected to be Tensor for index_add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isTensor(),
       "Input 3 type expected to be Tensor for index_add operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[4].isScalar(),
       "Input 4 type expected to be Scalar for index_add operator");
 
@@ -843,7 +745,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
 
   auto non_zero_op =
       make_operator<NonZeroOperator>(device_id, c10::ScalarType::Bool);
-  stack = {IValue(indices[0]), IValue{c10::nullopt}};
+  stack = {IValue(indices[0]), IValue{std::nullopt}};
   non_zero_op->SetSynapseInput(p_context_->syn_inputs_[1]);
 
   non_zero_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(2));
@@ -1511,19 +1413,19 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (inputs.size() == 4 || inputs.size() == 5),
       "Incorrect size of inputs for index_put operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input 0 type expected to be Tensor for index_put operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (inputs[1].isTensorList() || inputs[1].isOptionalTensorList()),
       "Input 1 type expected to be TensorList for index_put operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input 2 type expected to be Tensor for index_put operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isBool(),
       "Input 3 type expected to be Bool for index_put operator");
 
@@ -1535,7 +1437,7 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   if (inputs[1].isOptionalTensorList()) {
     PT_KERNEL_DEBUG("index_put: received list of optional tensors");
     auto opt_tensorlist_args = inputs[1].toOptionalTensorList();
-    for (c10::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+    for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
       auto input = input_ind.value_or(at::Tensor());
       if (input.defined()) {
         PT_KERNEL_DEBUG(
@@ -1545,7 +1447,7 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
         PT_KERNEL_DEBUG("undefined indices tensor");
         HABANA_ASSERT(
             0 &&
-            "index_put: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+            "index_put: unsupported case: None is not yet supported on HPU for c10::List<std::optional<Tensor>>");
       }
     }
     HABANA_ASSERT(0, "index_put: OptionalTensorList is not handled in kernel");
@@ -1602,7 +1504,7 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 3,
       "Incorrect number of inputs passed to ScatterNdONNXOperator");
 
@@ -1610,10 +1512,10 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
   auto indices = inputs[1].toTensor();
   auto values = inputs[2].toTensor();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (indices.numel() / indices.sizes().vec()[1]) <= inp.numel(),
       "number of indices should be less than of self");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       isInputValid(inputs) == true, "Invalid inputs for scatter_nd_onnx");
 
   auto shape = DimVector(inp.sizes());
@@ -1655,7 +1557,7 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5,
       "Incorrect number of inputs passed to ScatterNdOperator");
 
@@ -1727,21 +1629,21 @@ void IndexSelectOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of input expected for IndexSelect operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input type expected to be Tensor for IndexSelect operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isInt(),
       "Input type expected to be Int for IndexSelect operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input type expected to be Tensor for IndexSelect operator");
 
   auto index = inputs[2].toTensor();
-  TORCH_CHECK(index.dim() <= 1, "index tensor cannot be more than 1D")
+  HABANA_ASSERT(index.dim() <= 1, "index tensor cannot be more than 1D")
   bool sparse_grad = false;
   inputs.emplace_back(IValue(sparse_grad));
   GatherOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
@@ -1758,7 +1660,7 @@ InferOutputMetaRetType IndexSelectOperator::InferOutputMeta(
 
 void IndexSelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto index = inputs[2].toTensor();
-  TORCH_CHECK(index.dim() <= 1, "index tensor cannot be more than 1D")
+  HABANA_ASSERT(index.dim() <= 1, "index tensor cannot be more than 1D")
   bool sparse_grad = false;
   inputs.emplace_back(IValue(sparse_grad));
   GatherOperator::SetPTOutputs(inputs);
@@ -1768,26 +1670,27 @@ void NarrowOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of inputs expected for narrow operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
-  TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
-  TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be integer");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isInt(), "Input arg2 type expected to be integer");
+  HABANA_ASSERT(inputs[2].isInt(), "Input arg3 type expected to be integer");
+  HABANA_ASSERT(inputs[3].isInt(), "Input arg4 type expected to be integer");
 
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   auto start = inputs[2].toInt();
   auto length = inputs[3].toInt();
 
-  TORCH_CHECK(self.dim() > 0, "narrow() cannot be applied to a 0-dim tensor.");
+  HABANA_ASSERT(
+      self.dim() > 0, "narrow() cannot be applied to a 0-dim tensor.");
   auto cur_size = self.size(dim);
   if (start != cur_size) { // start being the end is valid, but not a valid dim
                            // specification.
     start = at::maybe_wrap_dim(start, cur_size);
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       length >= 0 && start <= cur_size - length,
       "start (",
       start,
@@ -1818,7 +1721,7 @@ std::vector<std::vector<int64_t>> SliceOperator::compute_output_shape(
   std::vector<int64_t> sizes(self_size.begin(), self_size.end());
 
   // TODO: support negative strides
-  TORCH_CHECK(step > 0, "slice step must be positive");
+  HABANA_ASSERT(step > 0, "slice step must be positive");
 
   // INT64_MAX stands for default value.
   if (start_val == INT64_MAX) {
@@ -1862,7 +1765,7 @@ std::vector<int64_t> SliceOperator::compute_output_shape(
   std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
 
   // TODO: support negative strides
-  TORCH_CHECK(step > 0, "slice step must be positive");
+  HABANA_ASSERT(step > 0, "slice step must be positive");
 
   // INT64_MAX stands for default value.
   if (start_val == INT64_MAX) {
@@ -1941,7 +1844,7 @@ void SliceOperator::ValidateSliceInputs(
   for (unsigned i = 0; i < inp_shape.size(); i++) {
     // exclude ZST from shape validation check
     if (inp_shape[i]) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           (start[i] <= inp_shape[i]),
           "Slice invalid starts param, which is greater or equal to the dimension");
     }
@@ -1953,7 +1856,7 @@ void SliceOperator::ValidateSliceInputs(
     // end_val = sizes[dim]*step + 1 - step + start_val
     auto end_val = out_shape[i] * step[i] + 1 - step[i] + start[i];
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (end_val <= inp_shape[i]),
         "Slice invalid end param, which is greater or equal to the dimension ",
         end_val,
@@ -2104,7 +2007,7 @@ void SliceOperator::UpdateMaxPassSliceInputs(
       }
     }
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       min <= start, "SliceOperator Start tensor min is greater than max");
 }
 
@@ -2112,23 +2015,23 @@ void SliceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   auto self = inputs[0].toTensor();
   int64_t dim, start, end, step;
   std::vector<int64_t> shape;
 
   bool has_shape_tensor = inputs[2].isTensor();
   if (has_shape_tensor && inputs.size() == 4) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (inputs.size() == 4 || inputs.size() == 5),
         "Incorrect size of inputs expected for slice operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[1].ref().is_shape_tensor(),
         "Synapse input2 type expected to be shape tensor");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[2].ref().is_shape_tensor(),
         "Synapse input3 type expected to be shape tensor");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[3].ref().is_shape_tensor(),
         "Synapse input4 type expected to be shape tensor");
     shape = p_context_->syn_inputs_[1].ref().pt_shape();
@@ -2159,13 +2062,13 @@ void SliceOperator::AllocateAndAddSynapseNode(
     }
     ValidateSliceInputs(inp_shape, out_shape, step, start);
   } else if (has_shape_tensor && inputs.size() == 3) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs.size() == 3,
         "Incorrect size of inputs expected for slice operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[1].ref().is_shape_tensor(),
         "Synapse input2 type expected to be shape tensor");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p_context_->syn_inputs_[2].ref().is_host_to_device_tensor(),
         "Synapse input3 type expected to be host to device tensor");
     shape = p_context_->syn_inputs_[1].ref().pt_shape();
@@ -2221,15 +2124,15 @@ void SliceOperator::AllocateAndAddSynapseNode(
     }
     ValidateSliceInputs(inp_shape, out_shape, step, start);
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (inputs.size() == 5) || (inputs.size() == 6),
         "Incorrect size of inputs expected for slice operator");
-    TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
-    TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
-    TORCH_CHECK(
+    HABANA_ASSERT(inputs[1].isInt(), "Input arg2 type expected to be integer");
+    HABANA_ASSERT(inputs[2].isInt(), "Input arg3 type expected to be integer");
+    HABANA_ASSERT(
         inputs[3].isNone() || inputs[3].isInt(),
         "Input arg4 type expected to be optional integer");
-    TORCH_CHECK(inputs[4].isInt(), "Input arg5 type expected to be integer");
+    HABANA_ASSERT(inputs[4].isInt(), "Input arg5 type expected to be integer");
     dim = inputs[1].toInt();
     start = inputs[2].toInt();
     end = inputs[3].isNone() ? INT64_MAX : inputs[3].toInt();
@@ -2292,19 +2195,19 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Arange operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isScalar(),
       "Input arg0 expected to be Scalar for Arange operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isScalar(),
       "Input arg1 expected to be Scalar for Arange operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isScalar(),
       "Input arg2 expected to be Scalar for Arange operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isTensor(),
       "Input arg3 expected to be tensor for Arange operator");
   auto start = inputs[0].toScalar();
@@ -2313,8 +2216,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
   auto result = inputs[3].toTensor();
 
   // save to be used as input to cast operator if required
-  synapse_helpers::tensor& range_syn_input =
-      std::move(p_context_->syn_inputs_.at(0));
+  synapse_helpers::tensor& range_syn_input = std::move(get_syn_input_at(0));
   bool cast_required =
       !(result.scalar_type() == ScalarType::Int ||
         result.scalar_type() == ScalarType::Float ||
@@ -2497,21 +2399,21 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4 || inputs.size() == 3,
       "Incorrect size of inputs expected for Arange operator");
   // inputs size == 2 when the idst tensor is added from frontend.
   if (inputs.size() == 3) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[0].isTensor(),
         "Input arg0 expected to be tensor for Arange operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[1].isTensor(),
         "Input arg1 expected to be tensor for Arange operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[2].isTensor(),
         "Input arg2 expected to be tensor for Arange operator");
-    TORCH_CHECK(p_context_->syn_inputs_[0].ref().is_host_to_device_tensor());
+    HABANA_ASSERT(p_context_->syn_inputs_[0].ref().is_host_to_device_tensor());
     kernel_meta_data_.tpc_input_order = {0};
     auto output_shape_tensor = inputs[2].toTensor();
 
@@ -2559,16 +2461,16 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(result);
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[3].isTensor(),
         "Input arg0 expected to be tensor for Arange operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[0].isScalar(),
         "Input arg1 expected to be Scalar for Arange operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[1].isScalar(),
         "Input arg2 expected to be Scalar for Arange operator");
-    TORCH_CHECK(
+    HABANA_ASSERT(
         inputs[2].isScalar(),
         "Input arg3 expected to be Scalar for Arange operator");
 
@@ -3007,7 +2909,7 @@ std::vector<int64_t> SqueezeOperator::compute_output_shape(
     int64_t dim) {
   std::vector<int64_t> out_shape;
   auto dims = self.dim();
-  TORCH_CHECK(dim <= HABANA_DIM_MAX, "incorrect dim for SqueezeOperator");
+  HABANA_ASSERT(dim <= HABANA_DIM_MAX, "incorrect dim for SqueezeOperator");
   if (dim < HABANA_DIM_MAX) {
     if (dims == 0 || (dims == 1 && self.numel() == 1)) {
       out_shape = {};
@@ -3051,10 +2953,10 @@ void SqueezeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2, "Incorrect size of inputs for squeeze operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isInt(), "Input arg2 type expected to be integer");
 
   auto input = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
@@ -3116,10 +3018,10 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2, "Incorrect size of inputs for unsqueeze operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isInt(), "Input arg2 type expected to be integer");
 
   auto input = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
@@ -3155,8 +3057,7 @@ static auto& IndexKernelsKernelRegistry =
         .add("hpu::slice", KERNEL_FN(SliceOperator))
         .add("hpu::slice_ds", KERNEL_FN(SliceOperator))
         .add("hpu::slice_ht", KERNEL_FN(SliceOperator))
-        .add("aten::index_add", KERNEL_FN(IndexAddOperator))
-        .add("hpu::index_add", KERNEL_FN(IndexAddV2Operator))
+        .add("hpu::index_add", KERNEL_FN(IndexAddOperator))
         .add("hpu::_unique2", KERNEL_FN(UniqueOperator))
         .add("hpu::_unique", KERNEL_FN(Unique_Operator))
         .add("hpu::unique_dim", KERNEL_FN(UniqueDimOperator))

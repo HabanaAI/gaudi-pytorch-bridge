@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,10 +17,8 @@
 
 
 import math
-import os
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch._higher_order_ops.hints_wrap import hints_wrapper
 

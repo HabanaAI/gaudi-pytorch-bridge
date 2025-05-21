@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,16 +17,18 @@
 
 import logging
 from functools import partial
-from typing import List
+
+import habana_frameworks.torch.internal.bridge_config as bc
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 
 import torch
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend
 
+from .decomposition import get_hpu_decompositions, override_composite_ops
+
 logger = logging.getLogger(__name__)
 
-from .decomposition import get_hpu_decompositions, override_composite_ops
 
 """
 The following two functions are used to postone importing the compilers and hpu_partition until the actual usage of the backend
@@ -36,7 +38,11 @@ For more detailed information, see create_and_apply_on_import_wrapper() function
 
 def import_compilers():
     global hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
-    from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
+    from .compilers import (
+        hpu_inference_compiler,
+        hpu_training_compiler_bw,
+        hpu_training_compiler_fw,
+    )
 
 
 def import_hpu_partition():
@@ -45,10 +51,12 @@ def import_hpu_partition():
 
 
 @register_backend
-def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], **kwargs):
+def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], **kwargs):
     """
     This function implements interface for HPU training/inference backend.
     """
+    if bc.get_pt_hpu_disallow_torch_compile():
+        raise RuntimeError("Use of torch.compile is prohibited by PT_HPU_DISALLOW_TORCH_COMPILE.")
 
     options = kwargs["options"] if "options" in kwargs else None
 

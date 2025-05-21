@@ -178,3 +178,21 @@ def test_hpu_target_unpadded_unbatched_ctc_loss(T, C, reduction, enable_int64_su
         target = torch.randint(low=1, high=C, size=(target_lengths,), dtype=torch.long)
 
         execute_test(input, target, input_lengths, target_lengths, 0, reduction)
+
+
+# Tests fix for https://github.com/pytorch/pytorch/commit/01f226bfb8f2c343f5c614a6bbf685d91160f3af
+# It was mentioned in National Vulnerability Database https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-3730
+def test_log_probs_0_elements():
+    num_classes = 4
+    log_probs = torch.rand(0, 0, num_classes).to("hpu")
+    targets = torch.tensor([], dtype=torch.long).to("hpu")
+    input_lengths = torch.tensor([], dtype=torch.long).to("hpu")
+    target_lengths = torch.tensor([], dtype=torch.long).to("hpu")
+
+    model = torch.nn.CTCLoss(reduction="none").to("hpu")
+    fn = compile_function_if_compile_mode(model)
+
+    with pytest.raises(Exception) as e_info:
+        fn(log_probs, targets, input_lengths, target_lengths).cpu()
+
+    assert str(e_info.value) == "log_probs tensor must not be empty"

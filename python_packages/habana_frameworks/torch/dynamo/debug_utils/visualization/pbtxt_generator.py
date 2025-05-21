@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ if HAS_PROTOBUF and HAS_PYDOT:
                 s[0]: s[1]
                 for s in [
                     s.strip().split("=")
-                    for s in label.replace("\\n", "").replace("\l", "").replace("{", "").replace("}", "").split("|")
+                    for s in label.replace("\\n", "").replace("\\l", "").replace("{", "").replace("}", "").split("|")
                 ]
                 if len(s) == 2
             }

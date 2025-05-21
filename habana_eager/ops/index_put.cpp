@@ -1,19 +1,20 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/InferSize.h>
 #include <ATen/core/TensorBody.h>
+#include <c10/core/ScalarType.h>
 #include <c10/core/SymIntArrayRef.h>
 
 #include "backend/backend_meta.h"
@@ -30,21 +31,30 @@ namespace habana {
 namespace eager {
 
 static bool check_for_advanced_indexing(
-    const c10::List<c10::optional<at::Tensor>>& indices) {
+    const c10::List<std::optional<at::Tensor>>& indices) {
   bool advanced_indexing = false;
   c10::ScalarType prev_scalar_type = c10::ScalarType::Long;
   bool first_scalar = true;
+  int bool_indices_count = 0;
 
   if (indices.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
-    for (c10::optional<at::Tensor> input_ind : indices) {
+    for (std::optional<at::Tensor> input_ind : indices) {
       auto input = input_ind.value_or(at::Tensor());
       if (!input.defined()) {
         advanced_indexing = true;
         break;
       } else {
-        // if we are indexing using a mixture of long and boolean indices,then
+        // if we are indexing using a mixture of long and boolean indices,
+        // or if we have more than one bool indices, then
         // also we will work in advanced indexing mode
         auto cur_scalar_type = input.scalar_type();
+        if (cur_scalar_type == c10::ScalarType::Bool) {
+          bool_indices_count++;
+          if (bool_indices_count > 1) {
+            advanced_indexing = true;
+            break;
+          }
+        }
         if (first_scalar) {
           first_scalar = false;
         } else if (prev_scalar_type != cur_scalar_type) {
@@ -58,12 +68,12 @@ static bool check_for_advanced_indexing(
   return advanced_indexing;
 }
 
-static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
-    const c10::List<c10::optional<at::Tensor>>& indices) {
-  std::vector<c10::optional<at::Tensor>> bool_indices_vec;
+static c10::List<std::optional<at::Tensor>> check_for_boolean_advanced_indexing(
+    const c10::List<std::optional<at::Tensor>>& indices) {
+  std::vector<std::optional<at::Tensor>> bool_indices_vec;
   at::Tensor t_nz;
   bool has_bool_mask = false;
-  for (c10::optional<at::Tensor> input_ind : indices) {
+  for (std::optional<at::Tensor> input_ind : indices) {
     auto input_temp = input_ind.value_or(at::Tensor());
     at::Tensor input;
     if (input.defined() &&
@@ -97,94 +107,37 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
     }
   }
   if (has_bool_mask) {
-    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
-    return bool_mask_indices;
+    return c10::List<std::optional<at::Tensor>>(bool_indices_vec);
   } else {
-    return indices;
-  }
-}
-
-#if IS_PYTORCH_AT_LEAST(2, 6)
-#else
-static C10_UNUSED int hasContiguousSubspace(
-    c10::ArrayRef<c10::IValue> indices_ival) {
-  bool explicit_indices_together = false;
-  int index_tensor_groups = 0;
-  int index_tensor_group_start = 0;
-  int dim = 0;
-  for (auto input : indices_ival) {
-    auto o1 = input.toOptional<at::Tensor>();
-    if (o1.has_value() && !o1->defined()) {
-      if (explicit_indices_together) {
-        explicit_indices_together = false;
+    c10::List<std::optional<at::Tensor>> upcast_indices;
+    for (std::optional<at::Tensor> ind : indices) {
+      // For non-bool case we need to upcast the indices to long as it may
+      // happen that different indices have different dtypes.
+      if (ind.has_value() && ind.value().defined() &&
+          ind.value().scalar_type() != c10::kLong) {
+        upcast_indices.push_back(ind.value().to(c10::kLong));
+      } else {
+        upcast_indices.push_back(ind);
       }
-    } else if (o1.has_value() && o1->defined()) {
-      if (!explicit_indices_together) {
-        index_tensor_group_start = dim;
-        index_tensor_groups++;
-      }
-      explicit_indices_together = true;
     }
-    dim++;
+    return upcast_indices;
   }
-  if (index_tensor_groups <= 1)
-    return index_tensor_group_start;
-  else
-    return 0;
 }
-
-// Transposes the tensor and indices together so that all the non-null indices
-// index the first k dimensions of the tensor. Returns the transposed tensor
-// and the reordered indices. For example:
-// transposeToFront(tensor, {nullptr, a, nullptr, b})
-// returns
-// tensor.permute([1, 3, 0, 2]), {a, b, nullptr, nullptr}
-static C10_UNUSED std::tuple<at::Tensor, std::vector<c10::optional<at::Tensor>>>
-transposeToFront(const at::Stack& stack) {
-  const at::Tensor self = stack_tensor(stack, 0);
-  c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
-  std::vector<int64_t> dims;
-  std::vector<c10::optional<at::Tensor>> transposedIndices;
-  std::vector<c10::optional<at::Tensor>> indices;
-  for (const auto& index_opt : indices_ival) {
-    auto o1 = index_opt.toOptional<at::Tensor>();
-    if (o1.has_value() && o1.value().defined()) {
-      const auto& index = o1.value();
-      indices.emplace_back(std::move(index));
-    } else {
-      indices.emplace_back(c10::nullopt);
-    }
-  }
-  dims.reserve(self.dim());
-  for (const auto i : c10::irange(self.dim())) {
-    if (indices[i].has_value()) {
-      dims.push_back(i);
-      transposedIndices.emplace_back(indices[i]);
-    }
-  }
-  for (const auto i : c10::irange(self.dim())) {
-    if (!indices[i].has_value()) {
-      dims.push_back(i);
-      transposedIndices.emplace_back(c10::nullopt);
-    }
-  }
-  return std::make_tuple(self.permute(dims), std::move(transposedIndices));
-}
-#endif
 
 static std::tuple<at::Tensor, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack) {
   at::Tensor self = stack_tensor(stack, 0);
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
 
-  std::vector<c10::optional<at::Tensor>> indices;
+  std::vector<std::optional<at::Tensor>> indices;
+  indices.reserve(indices_ival.size());
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (o1.has_value() && o1.value().defined()) {
       const auto& index = o1.value();
       indices.emplace_back(std::move(index));
     } else {
-      indices.emplace_back(c10::nullopt);
+      indices.emplace_back(std::nullopt);
     }
   }
 
@@ -249,10 +202,12 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   // TODO:
   // adjust this algorithm to larger dim tensors as the r/ri logic
   // is applied dim wise and not on the flattened shape.
-  int64_t repeats_needed[self.dim()];
-  int64_t repeat_interleaves_needed[self.dim()];
+  absl::FixedArray<int64_t, MAX_DIMS_FOR_ADVANCED_INDEXING> repeats_needed(
+      self.dim());
+  absl::FixedArray<int64_t, MAX_DIMS_FOR_ADVANCED_INDEXING>
+      repeat_interleaves_needed(self.dim());
   int repeat_index = 0;
-  // Array holding a schape that was already processed through the r/ri logic
+  // Array holding a shape that was already processed through the r/ri logic
   // keep the index of the indice in order to copy schema if necessary from
   // repeats_needed and repeat_interleaves_needed arrays.
   std::vector<std::pair<std::vector<int64_t>, int64_t>> explicit_indice_handled;
@@ -278,7 +233,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       }
       // if the current indice is explicit, then save it in order
       // not to apply r/ri, if the same shape exists in the indice array input.
-      shapes_handled.push_back(shape_to_find);
+      shapes_handled.emplace_back(std::move(shape_to_find));
     }
 
     for (int j = 0; j < self.dim(); ++j) {
@@ -300,7 +255,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
           // and already handled, don't r/ri the i indice
           continue;
 
-        shapes_handled.push_back(indices[j].value().sizes().vec());
+        shapes_handled.emplace_back(indices[j].value().sizes().vec());
 
         if (repeat_index >= j)
           repeats_needed[i] *= index_t_sizes[j];
@@ -329,15 +284,15 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       at::TensorOptions options =
           self.options().dtype(c10::ScalarType::Long).device(c10::kHPU);
       auto generated_index_tensor =
-          at::empty(arange_size, options, c10::nullopt);
+          at::empty(arange_size, options, std::nullopt);
       generated_index_tensor = at::arange(
           0,
           self.sizes().vec()[dim],
           1,
           c10::ScalarType::Long,
-          c10::nullopt,
+          std::nullopt,
           c10::kHPU,
-          c10::nullopt);
+          std::nullopt);
       auto it_repeat_interleave = generated_index_tensor.repeat_interleave(
           repeat_interleaves_needed[dim]);
       indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
@@ -361,11 +316,11 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
 
 at::Tensor& _index_put_impl_eager(
     at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices_in,
+    const c10::List<std::optional<at::Tensor>>& indices_in,
     const at::Tensor& value,
     bool accumulate,
     [[maybe_unused]] bool unsafe) {
-  c10::List<c10::optional<at::Tensor>> indices;
+  c10::List<std::optional<at::Tensor>> indices;
   bool advanced_indexing = check_for_advanced_indexing(indices_in);
   if (advanced_indexing) {
     // if we have boolean mask tensors, convert them to long int indices
@@ -373,23 +328,27 @@ at::Tensor& _index_put_impl_eager(
   } else {
     indices = indices_in;
   }
-  std::vector<at::Tensor> indices_vec;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
       "index_put op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,
       " dims");
   at::Tensor self_permuted;
-  if (self.device().type() != c10::DeviceType::HPU)
+  if (self.device().type() != c10::DeviceType::HPU) {
     self_permuted = self.to(c10::kHPU);
-  else
+  } else {
     self_permuted = self;
+  }
 
   at::Tensor value_in;
-  if (value.device().type() != c10::DeviceType::HPU)
+  if (value.device().type() != c10::DeviceType::HPU) {
     value_in = value.to(c10::kHPU);
-  else
+  } else {
     value_in = value;
+  }
+
+  std::vector<at::Tensor> indices_vec;
+
   if (advanced_indexing) {
     at::Stack stack;
     stack.emplace_back(self);
@@ -397,7 +356,7 @@ at::Tensor& _index_put_impl_eager(
     std::tie(self_permuted, indices_vec) =
         generate_advanced_indexing_indices_list(stack); //(self, indices_in);
   } else {
-    for (c10::optional<at::Tensor> input_ind : indices) {
+    for (std::optional<at::Tensor> input_ind : indices) {
       auto input_temp = input_ind.value_or(at::Tensor());
       at::Tensor input;
       if (input_temp.defined() &&
@@ -411,29 +370,25 @@ at::Tensor& _index_put_impl_eager(
       } else {
         HABANA_ASSERT(
             0 &&
-            "index_put: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+            "index_put: unsupported case: None is not yet supported on HPU for c10::List<std::optional<Tensor>>");
       }
     }
   }
-  std::vector<c10::optional<at::Tensor>> indices_out_opt_vec;
+  std::vector<std::optional<at::Tensor>> indices_out_opt_vec;
   for (auto ind : indices_vec) {
     if (ind.defined()) {
       indices_out_opt_vec.emplace_back(ind);
     } else {
-      indices_out_opt_vec.emplace_back(c10::nullopt);
+      indices_out_opt_vec.emplace_back(std::nullopt);
     }
   }
 
   indices_vec.clear();
-  for (c10::optional<at::Tensor> input : indices_out_opt_vec) {
+  for (std::optional<at::Tensor> input : indices_out_opt_vec) {
     indices_vec.push_back(input.value());
   }
 
-  const bool areAllIndicesBool =
-      std::all_of(indices_vec.cbegin(), indices_vec.cend(), [](const auto& i) {
-        return i.scalar_type() == c10::ScalarType::Bool;
-      });
-  auto only_single_index_tensor = ((int)indices_vec.size() == 1) ? true : false;
+  auto only_single_index_tensor = (indices_vec.size() == 1ull);
   auto self_clone = self;
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
@@ -449,41 +404,18 @@ at::Tensor& _index_put_impl_eager(
       return self;
     }
   }
-  std::vector<at::Tensor> indices_vec_out{};
-  at::Tensor nzt;
 
-  if (areAllIndicesBool &&
-      (advanced_indexing || !only_single_index_tensor ||
-       !GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED))) {
-    for (size_t i = 0; i < indices_vec.size(); i++) {
-      auto ind = indices_vec.at(i);
-      at::Tensor nz = ind.nonzero();
-      if (!nz.dim()) { // bool mask has all False entries
-        return self;
-      } else {
-        auto expanded_ind = indices_vec.at(i).expand_as(self);
-        nzt = at::nonzero(expanded_ind);
-      }
-      indices_vec_out.emplace_back(nzt);
-    }
-  }
-
-  at::TensorList indices_final =
-      (areAllIndicesBool &&
-       (advanced_indexing || !only_single_index_tensor ||
-        !GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)))
-      ? indices_vec_out
-      : indices_vec;
   at::Tensor result;
-  if (areAllIndicesBool && !advanced_indexing && only_single_index_tensor &&
+  if (!advanced_indexing && only_single_index_tensor &&
+      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)) {
     habana::eager::EagerOp<at::Tensor> hpu_op{
         "hpu::_index_put_impl_bool_eager",
-        {self, indices_final, value, accumulate}};
+        {self, indices_vec, value, accumulate}};
     result = hpu_op.call();
   } else {
     habana::eager::EagerOp<at::Tensor> hpu_op{
-        "hpu::_index_put_impl_eager", {self, indices_final, value, accumulate}};
+        "hpu::_index_put_impl_eager", {self, indices_vec, value, accumulate}};
     result = hpu_op.call();
   }
   self.copy_(result);

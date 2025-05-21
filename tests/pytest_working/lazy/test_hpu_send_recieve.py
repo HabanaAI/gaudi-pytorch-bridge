@@ -28,7 +28,7 @@ import torch.multiprocessing as mp
 def setuphccl(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa F401
 
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
 

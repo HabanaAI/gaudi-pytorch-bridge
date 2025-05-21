@@ -15,10 +15,11 @@
 #
 ###############################################################################
 
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
+
+from habana_frameworks.torch import core as htcore
 
 import torch
-from habana_frameworks.torch import core as htcore
 from torch.optim import Optimizer
 
 hpu = torch.device("hpu")
@@ -35,24 +36,25 @@ class FusedAdagrad(Optimizer):
         initial_accumulator_value: float = 0,
         eps: float = 1e-10,
     ):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= lr_decay:
-            raise ValueError("Invalid lr_decay value: {}".format(lr_decay))
-        if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
-        if not 0.0 <= initial_accumulator_value:
-            raise ValueError("Invalid initial_accumulator_value value: {}".format(initial_accumulator_value))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
+        if not lr >= 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if not lr_decay >= 0.0:
+            raise ValueError(f"Invalid lr_decay value: {lr_decay}")
+        if not weight_decay >= 0.0:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+        if not initial_accumulator_value >= 0.0:
+            raise ValueError(f"Invalid initial_accumulator_value value: {initial_accumulator_value}")
+        if not eps >= 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
 
-        defaults = dict(
-            lr=lr,
-            lr_decay=lr_decay,
-            eps=eps,
-            weight_decay=weight_decay,
-            initial_accumulator_value=initial_accumulator_value,
-        )
+        defaults = {
+            "lr": lr,
+            "lr_decay": lr_decay,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "initial_accumulator_value": initial_accumulator_value,
+        }
+
         super().__init__(params, defaults)
 
         # State initialization

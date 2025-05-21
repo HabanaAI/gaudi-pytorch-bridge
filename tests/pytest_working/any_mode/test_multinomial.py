@@ -18,11 +18,13 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, compile_function_if_compile_mode, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    is_pytest_mode_compile,
+)
 
-multinomial_dtypes = [torch.float, torch.bfloat16]
-if not is_gaudi1():
-    multinomial_dtypes.append(torch.float16)
+multinomial_dtypes = [torch.float, torch.bfloat16, torch.float16]
 
 
 @pytest.mark.parametrize("size", [(10,), (8, 8)])
@@ -56,7 +58,7 @@ def test_multinomial_output(dtype):
     diff = torch.abs(result_prob - original_prob)
     standard_error = torch.sqrt((original_prob * (1 - original_prob)) / N)
 
-    assert np.alltrue((3 * standard_error > diff).numpy())
+    assert np.all((3 * standard_error > diff).numpy())
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("habana_multinomial")

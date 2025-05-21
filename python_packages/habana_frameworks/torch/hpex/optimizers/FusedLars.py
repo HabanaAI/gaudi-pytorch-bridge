@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@
 
 import os
 
-import torch
 from habana_frameworks.torch import _hpex_C
 from habana_frameworks.torch import core as htcore
-from torch import nn
-from torch.autograd import Variable
-from torch.nn.parameter import Parameter
+
+import torch
 from torch.optim.optimizer import Optimizer
 
 
@@ -34,13 +32,7 @@ class FusedLars(Optimizer):
         self.skip_mask = skip_mask
 
         defaults = optimizer.defaults
-        defaults.update(
-            dict(
-                skip_mask=skip_mask,
-                eeta=eeta,
-                eps=eps,
-            )
-        )
+        defaults.update({"skip_mask": skip_mask, "eeta": eeta, "eps": eps})
         super().__init__(optimizer.param_groups, defaults)
         self.state = self.optim.__getstate__()["state"]
 
@@ -70,7 +62,7 @@ class FusedLars(Optimizer):
                 if len(param_list) != 0:
                     htcore.step_closure._mark_step_if_lazy()
 
-                    if os.getenv("PT_HPU_LAZY_MODE", "1") != "0":
+                    if os.getenv("PT_HPU_LAZY_MODE", "0") != "0":
                         lars_impl = _hpex_C.fused_lars
                     else:
                         lars_impl = torch.ops.hpu.optimizer_lars

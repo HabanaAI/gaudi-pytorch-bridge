@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <ATen/native/TypeProperties.h>
@@ -76,7 +76,7 @@ void CatOperator::validate_cat_tensor_dim_sizes(
     auto sz2 = tensors->at(tempT_i);
     for (j = 0; j < tensors->at(i).size(); j++) {
       if (j != dim && (sz1[j] - sz2[j]) != 0) {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             ((sz1[j] - sz2[j]) == 0),
             "Sizes of tensors along one of the non-cat dimensions don't match");
       }
@@ -89,13 +89,13 @@ Tensor CatOperator::CheckAllocateOutput(
     Stack& inputs,
     const OutputMetaData& output_metadata,
     bool is_dry_run) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2 || inputs.size() == 3,
       "Incorrect size of inputs expected for cat operator");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg2 type expected to be tensor list");
-  TORCH_CHECK(inputs[1].isInt(), "Input arg3 type expected to be int");
+  HABANA_ASSERT(inputs[1].isInt(), "Input arg3 type expected to be int");
 
   auto tensors = inputs[0].toTensorList();
   auto dim_ = inputs[1].toInt();
@@ -103,7 +103,7 @@ Tensor CatOperator::CheckAllocateOutput(
   auto first_tensor = tensors.get(0);
   int64_t dim =
       at::maybe_wrap_dim(dim_, first_tensor.dim(), /*wrap_scalar=*/true);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dim < first_tensor.ndimension(),
       "Cat dimension specified exceeds tensors dimensions");
 
@@ -211,7 +211,7 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> TransposeOperator::
     compute_output_shape(const at::Tensor& self, int dim0_, int dim1_) {
   int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
   int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (dim0 < self.dim()) && (dim1 < self.dim()),
       "Specified dims are beyond tensor dims");
 
@@ -247,16 +247,16 @@ void TransposeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of input arguments for Transpose Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg 1 for transpose op needs to be tensor type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isInt(),
       "Input arg 2 for transpose op needs to be of Int type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isInt(),
       "Input arg 3 for transpose op needs to be of Int type");
   Tensor self = inputs[0].toTensor();
@@ -325,7 +325,7 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> PermuteOperator::
     compute_output_shape(
         const at::Tensor& in,
         const std::vector<int64_t>& dims) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dims.size() == static_cast<size_t>(in.dim()),
       "Number of dims in tensor don't match in permute");
   auto self_sizes = in.sizes().vec();
@@ -362,22 +362,22 @@ void PermuteOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of input arguments for Permute Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg 1 for permute op needs to be tensor type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList(),
       "Input arg 2 for permute op needs to be of Int List type");
   Tensor self = inputs[0].toTensor();
   const auto dims = inputs[1].toIntVector();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dims.size() == static_cast<size_t>(self.dim()),
       "Number of dims in tensor don't match in permute");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (self.dim() <= HABANA_DIM_MAX),
       "Number of tensor dims larger then allowed max limit");
 
@@ -496,7 +496,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2 || inputs.size() == 3,
       "Incorrect size of input arguments for Reshape Operator");
   std::vector<int64_t> inferred_size;
@@ -511,7 +511,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
     auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
     inferred_size = habana_helpers::infer_size(input_shape, self.numel());
   } else {
-    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+    HABANA_ASSERT(p_context_->syn_inputs_.back().ref().is_shape_tensor());
     inferred_size = p_context_->syn_inputs_.back().ref().pt_shape();
   }
 
@@ -533,7 +533,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
         output_metadata.at(0).persistent);
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.numel() == output.numel(),
       "Reshape doesnt support change in number of elements: ",
       self.sizes(),
@@ -584,12 +584,12 @@ void ViewOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2 || inputs.size() == 3,
       "Incorrect size of input arguments for View Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(), "Input arg 1 for View op needs to be tensor type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList() || inputs[1].isTensor(),
       "Input arg 2 for View op needs to be either Int List or Shape Tensor");
 
@@ -604,7 +604,7 @@ void ViewOperator::AllocateAndAddSynapseNode(
     // insert computed shape into inputs stack before calling reshape
     inputs.push_back(IValue(inferred_dims));
   } else {
-    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+    HABANA_ASSERT(p_context_->syn_inputs_.back().ref().is_shape_tensor());
   }
 
   ReshapeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
@@ -647,10 +647,10 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of input arguments for Broadcast Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList() || inputs[1].isTensor(),
       "Input 1 can be either int list or shape tensor");
   auto self = inputs[0].toTensor();
@@ -667,7 +667,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   if (inputs[1].isIntList()) {
     auto size = inputs[1].toIntList();
     auto sizeI = IntArrayRef(size.vec());
-    TORCH_CHECK(
+    HABANA_ASSERT(
         sizeI.size() >= (size_t)self.dim(),
         "expand(",
         self.toString(),
@@ -706,7 +706,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
       AllocateSynapseShapeTensor(graph, result);
     }
   } else {
-    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
+    HABANA_ASSERT(p_context_->syn_inputs_.back().ref().is_shape_tensor());
     auto expand_shape = p_context_->syn_inputs_.back().ref().pt_shape();
     // This call is to check compatibility of shapes for broadcast and fail in
     // bridge if required (instead of failing at GC). Also required for

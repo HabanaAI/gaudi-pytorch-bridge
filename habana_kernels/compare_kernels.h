@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include "backend/habana_operator.h"
 #include "backend/helpers/tensor_utils.h"
@@ -91,7 +91,12 @@ class GtOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            get_guid_with_precision("greater_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "greater_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 class EqOperator : public CompareWrapperOperator {
@@ -100,7 +105,12 @@ class EqOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            get_guid_with_precision("equal_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "equal_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 class LtOperator : public CompareWrapperOperator {
@@ -109,7 +119,12 @@ class LtOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            get_guid_with_precision("less_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "less_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 } // namespace habana

@@ -18,7 +18,7 @@
 import copy
 import os
 from dataclasses import dataclass, field
-from typing import Callable, List
+from typing import Callable  # noqa UP035
 
 import pytest
 import torch
@@ -27,7 +27,6 @@ from test_utils import (
     compare_tensors,
     compile_function_if_compile_mode,
     format_tc,
-    is_gaudi1,
     is_pytest_mode_compile,
     place_on_hpu,
 )
@@ -36,8 +35,7 @@ Verbose = False
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 dtypes_fp8 = [torch.float8_e5m2, torch.float8_e4m3fn]
-if not is_gaudi1():
-    dtypes += dtypes_fp8
+dtypes += dtypes_fp8
 
 
 @pytest.mark.parametrize("shape", [(2, 2), (512,), (5, 4, 3, 8)], ids=format_tc)
@@ -78,8 +76,8 @@ def test_hpu_view_copy_(dtype, view_mode, op):
     @dataclass
     class TestData:
         make_view: Callable[torch.Tensor, torch.Tensor]
-        src_shape: List[int]
-        dst_shape: List[int] = complex_default([8, 6])
+        src_shape: list[int]
+        dst_shape: list[int] = complex_default([8, 6])
 
     test_data = {}
 
@@ -115,7 +113,7 @@ def test_hpu_view_copy_(dtype, view_mode, op):
 
     fn_op = compile_function_if_compile_mode(fn_op)
 
-    for fn, tensors in zip([fn_op_cpu, fn_op], [cpu_tensors, hpu_tensors]):
+    for fn, tensors in zip([fn_op_cpu, fn_op], [cpu_tensors, hpu_tensors], strict=False):
         dst_view = make_view(tensors["dst"])
         tensors["result"] = fn(dst_view, tensors["src"])
 

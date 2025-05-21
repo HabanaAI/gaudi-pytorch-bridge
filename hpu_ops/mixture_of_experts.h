@@ -32,17 +32,6 @@ struct MixtureOfExperts : OpBackend {
  private:
   bool measurement_mode;
 };
-
-struct MixtureOfExpertsFp8 : OpBackend {
-  MixtureOfExpertsFp8(int device_id, c10::ScalarType scalar_type);
-  void AddNode(sh::graph&, const at::Stack&) override;
-};
-
-struct MixtureOfExpertsFp8Scalars : OpBackend {
-  MixtureOfExpertsFp8Scalars(int device_id, c10::ScalarType scalar_type);
-  void AddNode(sh::graph&, const at::Stack&) override;
-};
-
 struct MixtureOfExpertsFwd : OpBackend {
   MixtureOfExpertsFwd(int device_id, c10::ScalarType scalar_type, bool recomp);
   void AddNode(sh::graph&, const at::Stack&) override;

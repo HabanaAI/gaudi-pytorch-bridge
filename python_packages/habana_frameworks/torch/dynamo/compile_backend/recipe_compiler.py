@@ -15,21 +15,27 @@
 #
 ###############################################################################
 
-import logging
-import os
 import sys
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import sympy
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from habana_frameworks.torch.dynamo.debug_utils.logger import dump_fx_graph, get_compile_backend_logger
+from habana_frameworks.torch.dynamo.debug_utils.logger import (
+    dump_fx_graph,
+    get_compile_backend_logger,
+)
 from sympy import sympify
+
+import torch
 from torch._subclasses.fake_tensor import FakeTensor
 from torch.fx.experimental.proxy_tensor import py_sym_types, unset_fake_temporarily
 
 from .random_utils import is_random_op
-from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator, substitute_sympyfn
+from .symbolic_execution import (
+    PythonPrinter,
+    SymbolicShapeEvaluator,
+    substitute_sympyfn,
+)
 
 logger = get_compile_backend_logger()
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
@@ -120,7 +126,7 @@ def get_input_symbolic(graph_module, inputs):
                 if input_node.meta:
                     if "val" in input_node.meta:
                         input_meta = input_node.meta["val"]
-                        if isinstance(input_meta, (FakeTensor, torch.Tensor)):
+                        if isinstance(input_meta, FakeTensor | torch.Tensor):
                             input_shape = input_meta.size()
                             logger.debug(f"Getting Min/Max for Tensor {input_node.name}")
                             min, max, expr = get_input(input_shape)
@@ -172,11 +178,14 @@ class HabanaGraphModule(torch.nn.Module):
         outputs_metadata,
         symbolic_metadata,
         pholder_symbolic_dict,
+        const_input_indexes,
         is_training=False,
         dynamic=False,
         force_static_compile=False,
+        has_random_ops=False,
+        is_reusables: list[bool] = [],
     ):
-        from ._recipe_compiler_C import EmptyBatchData, RangeInfo
+        from ._recipe_compiler_C import EmptyBatchData
 
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
@@ -186,14 +195,25 @@ class HabanaGraphModule(torch.nn.Module):
         self._in_to_out_dups = graph_module.meta.get("in_to_out_dups", None)
         self._outputs_metadata = outputs_metadata.copy()
         self._pholder_symbolic_dict = pholder_symbolic_dict
+        self._const_input_indexes = const_input_indexes
         self._range_list = []
         self._inference = not is_training
         self._recipe_id = None
         self._dynamic = dynamic
         self._mark_dynamic = False
         self._force_static_compile = force_static_compile
+        # To reuse a input tensor's memory, we have to satisfy two conditions:
+        # - Current partition is the last user of the input tensor
+        # - The compiled recipe of current partition can reuse the tensor internally
+
+        # The @is_reusables here is to represent the first condition. If the
+        # N-th element of is_reusables is True, it means the memory of the N-th
+        # input tensor of this partition can be reused. We pass this information
+        # to synapse graph compiler, and graph compiler will compelete the
+        # second condition.
+        self.is_reusables = is_reusables
         self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
-        self._has_randoms = False
+        self._has_randoms = has_random_ops
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
         self._outputs_batch_data = []
         self._symval_recipe_id_map = {}
@@ -240,7 +260,13 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = []
         inputs = tuple(args)
 
-        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_symval_hashcode, graph_compile, graph_launch
+        from ._recipe_compiler_C import (
+            RangeInfo,
+            batch_empty,
+            calculate_symval_hashcode,
+            graph_compile,
+            graph_launch,
+        )
 
         curr_symval_hash = (
             calculate_symval_hashcode(inputs, self._pholder_symbolic_dict) if self._pholder_symbolic_dict else None
@@ -252,12 +278,14 @@ class HabanaGraphModule(torch.nn.Module):
                 output_sizes = [
                     self._symbol_evaluator.calculate_shape(metadata[0], inputs) for metadata in self._outputs_metadata
                 ]
-                for output, size in zip(self._outputs_batch_data, output_sizes):
+                for output, size in zip(self._outputs_batch_data, output_sizes, strict=False):
                     output.size = size
                 if curr_symval_hash is not None:
                     self._symval_output_size_map[curr_symval_hash] = output_sizes
             else:
-                for output, size in zip(self._outputs_batch_data, self._symval_output_size_map[curr_symval_hash]):
+                for output, size in zip(
+                    self._outputs_batch_data, self._symval_output_size_map[curr_symval_hash], strict=False
+                ):
                     output.size = size
 
         outputs = batch_empty(self._outputs_batch_data)
@@ -277,23 +305,18 @@ class HabanaGraphModule(torch.nn.Module):
                 self._recipe_id = None
             self._dynamic = False
 
-        if self._get_pt_hpu_use_jit_fork:
-            # insert the inputs into the out stack
-            if self._in_to_out_dups is not None:
-                out_idxes = list(self._out_to_in_dups.keys())
-                for out_idx in out_idxes:
-                    outputs.insert(out_idx, args[self._out_to_in_dups[out_idx]])
-
         if self._recipe_id is None:
-            self.check_for_random_ops()
+            # self.check_for_random_ops()
             if self._dynamic:
                 self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
                 if self._has_randoms:
                     self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
                     self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
 
+            is_reusable = tuple(self.is_reusables)
             if self._has_randoms:
                 inputs = (None, None) + inputs
+                is_reusable = (False, False) + is_reusable
 
             if self._get_pt_hpu_use_jit_fork:
                 graph = self._jit_ir
@@ -303,12 +326,14 @@ class HabanaGraphModule(torch.nn.Module):
             self._recipe_id = graph_compile(
                 graph=graph,
                 inputs=inputs,
+                is_reusable=is_reusable,
                 dynamic=self._dynamic,
                 inference=self._inference,
                 has_preallocated_outputs=bool(outputs),
                 has_randoms=self._has_randoms,
                 in_symbol_idx_map=self._pholder_symbolic_dict,
                 range_infos=self._range_list,
+                const_indexes=self._const_input_indexes,
                 mark_dynamic=self._mark_dynamic,
             )
 
@@ -326,16 +351,13 @@ class HabanaGraphModule(torch.nn.Module):
             outputs=outputs,
         )
 
-        if not self._get_pt_hpu_use_jit_fork:
-            # insert the inputs into the out stack
-            if self._in_to_out_dups is not None:
-                out_stack = (
-                    list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else list())
-                )
-                out_indexes = self._out_to_in_dups.keys()
-                for out_idx in out_indexes:
-                    out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
-                out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
+        # insert the inputs into the out stack
+        if self._in_to_out_dups is not None:
+            out_stack = list(out_stack) if type(out_stack) is tuple else ([out_stack] if out_stack is not None else [])
+            out_indexes = self._out_to_in_dups.keys()
+            for out_idx in out_indexes:
+                out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
+            out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
 
         return out_stack
 
@@ -347,7 +369,13 @@ class HabanaGraphModule(torch.nn.Module):
 
 
 def get_callable_recipe(
-    jit_ir, graph_module: torch.fx.GraphModule, parent_graph_name, is_training=False, is_dynamic=False
+    jit_ir,
+    graph_module: torch.fx.GraphModule,
+    parent_graph_name,
+    is_training=False,
+    is_dynamic=False,
+    has_random_ops=False,
+    is_reusables: list[bool] = [],
 ):
     """
     Calls backend to create compiled recipe or just returns unchanged module to
@@ -362,6 +390,8 @@ def get_callable_recipe(
         outputs_metadata = get_outputs_metadata_dynamic(graph_module)
         symbolic_metadata, pholder_symbolic_dict = get_symbolic_metadata(graph_module, outputs_metadata)
 
+    const_input_indexes = get_const_input_indexes(graph_module)
+
     if hpu_backend_config.use_compiled_recipes:
         return HabanaGraphModule(
             jit_ir,
@@ -370,13 +400,31 @@ def get_callable_recipe(
             outputs_metadata,
             symbolic_metadata,
             pholder_symbolic_dict,
+            const_input_indexes,
             is_training=is_training,
             dynamic=is_dynamic,
             force_static_compile=hpu_backend_config.force_static_compile,
+            has_random_ops=has_random_ops,
+            is_reusables=is_reusables,
         )
     else:
         # Return unchanged module, it will be ran eagerly.
         return graph_module
+
+
+def get_const_input_indexes(graph_module):
+    const_indexes = []
+    placeholder_idx = 0
+    for node in graph_module.graph.nodes:
+        if node.op != "placeholder":
+            continue
+
+        is_frozen_param = node.meta.get("frozen_param", False)
+        if is_frozen_param:
+            const_indexes.append(placeholder_idx)
+            logger.debug("Constant input nodes:", node.target)
+        placeholder_idx += 1
+    return const_indexes
 
 
 def get_symbolic_metadata(graph_module, outputs_metadata):
@@ -463,6 +511,7 @@ def get_outputs_metadata(graph_module):
                         if "output_strides_has_zero" not in i.meta or not i.meta["output_strides_has_zero"]
                         else i.meta["output_strides"]
                     ),
+                    strict=False,
                 ):
                     outputs_metadata.append((shape, dtype, strides))
 
@@ -492,6 +541,7 @@ def get_outputs_metadata_dynamic(graph_module):
                         if "output_strides_has_zero" not in i.meta or not i.meta["output_strides_has_zero"]
                         else i.meta["output_strides"]
                     ),
+                    strict=False,
                 ):
                     dynamic_shape_sympy = []
                     dynamic_shape_sym_expr_token = []

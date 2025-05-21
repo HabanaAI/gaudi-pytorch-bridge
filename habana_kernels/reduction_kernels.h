@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include "backend/habana_operator.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -81,7 +81,12 @@ class MeanOperator : public ReduceOperator {
   MeanOperator(int device_id, c10::ScalarType scalar_type)
       : ReduceOperator(
             device_id,
-            get_guid_with_precision("reduce_mean_fwd", scalar_type)) {
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "reduce_mean_fwd"sv;
+                }(),
+                scalar_type)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
   InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
@@ -100,7 +105,12 @@ class SumDimOutOperator : public ReduceOperator {
   SumDimOutOperator(int device_id, c10::ScalarType scalarType)
       : ReduceOperator(
             device_id,
-            get_guid_with_precision("reduce_sum_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "reduce_sum_fwd"sv;
+                }(),
+                scalarType)) {}
 
   InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
@@ -118,7 +128,12 @@ class SumDimOperator : public ReduceOperator {
   SumDimOperator(int device_id, c10::ScalarType scalarType)
       : ReduceOperator(
             device_id,
-            get_guid_with_precision("reduce_sum_fwd", scalarType)) {
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "reduce_sum_fwd"sv;
+                }(),
+                scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
   InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
@@ -143,7 +158,12 @@ class SumOperator : public ReduceOperator {
   SumOperator(int device_id, c10::ScalarType scalarType)
       : SumOperator(
             device_id,
-            get_guid_with_precision("reduce_sum_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "reduce_sum_fwd"sv;
+                }(),
+                scalarType)) {}
   InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -160,7 +180,12 @@ class SumSquareOperator : public SumOperator {
   SumSquareOperator(int device_id, c10::ScalarType scalarType)
       : SumOperator(
             device_id,
-            get_guid_with_precision("reduce_sum_square_fwd", scalarType)) {}
+            get_guid_with_precision(
+                [] {
+                  using namespace std::literals;
+                  return "reduce_sum_square_fwd"sv;
+                }(),
+                scalarType)) {}
 };
 
 class ReduceMultiOutputOperator : public ReduceOperator {

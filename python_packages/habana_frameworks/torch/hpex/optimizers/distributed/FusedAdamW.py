@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 ###############################################################################
 
 import math
-from typing import Dict, List, Optional, Tuple, Union
+
+from habana_frameworks.torch.utils.internal import is_lazy
 
 import torch
-from habana_frameworks.torch.utils.internal import is_lazy
 from torch import Tensor
 
 # The following Function is a modified version of _FunctionalFuseAdamW from
@@ -40,29 +40,29 @@ from torch import Tensor
 # @torch.jit.script # Do not use Torch script for Habana impl.
 
 
-class FusedAdamW(object):
+class FusedAdamW:
     def __init__(
         self,
-        params: List[Tensor],
+        params: list[Tensor],
         lr: float = 1e-3,
-        betas: Tuple[float, float] = (0.9, 0.999),
+        betas: tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-6,  # Habana Impl. Modified from PT default of 1e-8
         weight_decay: float = 0.0,  # Habana Impl. Modified from PT default of 1e-2
         # amsgrad: bool = False, # Habana Impl does not support
         # maximize: bool = False, # Habana Impl does not support
         _allow_empty_param_list: bool = False,  # retained for PT compatibility
-        moments_dtype: Optional[Union[torch.dtype, Tuple[torch.dtype, torch.dtype]]] = None,
+        moments_dtype: torch.dtype | tuple[torch.dtype, torch.dtype] | None = None,
     ):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
+        if not lr >= 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if not eps >= 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
+        if not weight_decay >= 0.0:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
         # Habana impl. does not support True for these as of now
         amsgrad = False
@@ -78,7 +78,7 @@ class FusedAdamW(object):
         self.amsgrad = amsgrad
         self.maximize = maximize
         # self.state = torch.jit.annotate(Dict[torch.Tensor, Dict[str, torch.Tensor]], {}) # Torch script not used for Habana
-        self.state: Dict[torch.Tensor, Dict[str, torch.Tensor]] = dict()
+        self.state: dict[torch.Tensor, dict[str, torch.Tensor]] = {}
 
         if len(params) == 0 and not _allow_empty_param_list:
             raise ValueError("optimizer got an empty parameter list")
@@ -92,13 +92,13 @@ class FusedAdamW(object):
         self.moments_dtype = moments_dtype
         self.moments_in_fp8 = self.check_moments_in_fp8()
 
-    def step_param(self, param: Tensor, grad: Optional[Tensor]):
+    def step_param(self, param: Tensor, grad: Tensor | None):
         params_with_grad = []
         grads = []
         exp_avgs = []
         exp_avg_sqs = []
         max_exp_avg_sqs = []
-        state_steps: List[int] = []
+        state_steps: list[int] = []
         if grad is not None:
             params_with_grad.append(param)
             grads.append(grad)
@@ -131,14 +131,14 @@ class FusedAdamW(object):
         with torch.no_grad():
             raise RuntimeError("This AdamW optimizer does not support step_param() as of now")
 
-    def step(self, gradients: List[Optional[Tensor]]):
+    def step(self, gradients: list[Tensor | None]):
         params = self.param_group["params"]
         params_with_grad = []
         grads = []
         exp_avgs = []
         exp_avg_sqs = []
         max_exp_avg_sqs = []
-        state_steps: List[int] = []
+        state_steps: list[int] = []
         self.neg_step_list.clear()
         self.modified_wd_list.clear()
 
@@ -155,7 +155,7 @@ class FusedAdamW(object):
                 + f"Gradients length: {len(gradients)}"
             )
 
-        for param, gradient in zip(self.param_group["params"], gradients):
+        for param, gradient in zip(self.param_group["params"], gradients, strict=False):
             if gradient is not None:
                 params_with_grad.append(param)
                 grads.append(gradient)

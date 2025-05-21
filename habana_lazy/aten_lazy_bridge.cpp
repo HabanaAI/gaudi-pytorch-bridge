@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "aten_lazy_bridge.h"
 #include "backend/backend_meta.h"
 #include "habana_helpers/misc_utils.h"
@@ -27,7 +27,7 @@ namespace habana_lazy {
 
 void CreateStorageForAtenTensor(
     size_t tensor_size,
-    c10::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> size,
     c10::Storage& lazy_storage) {
   auto storage_size = tensor_size;
   if (size.has_value()) {
@@ -41,10 +41,10 @@ void CreateStorageForAtenTensor(
 
 at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor&& HbLazy_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
@@ -63,10 +63,10 @@ at::Tensor AtenFromHbLazyTensor(
 
 at::Tensor AtenFromHbLazyTensor(
     const HbLazyTensor& HbLazy_tensor,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
@@ -87,10 +87,10 @@ at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor&& HbLazy_tensor,
     const c10::Storage& storage,
     c10::DispatchKeySet key_set,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
@@ -105,10 +105,10 @@ at::Tensor AtenFromHbLazyTensor(
 at::Tensor AtenInternalHbTensor(
     c10::Storage&& storage,
     const caffe2::TypeMeta& data_type,
-    c10::optional<synTensorType> tensor_type,
-    c10::optional<c10::IntArrayRef> size,
-    c10::optional<c10::IntArrayRef> stride,
-    c10::optional<c10::MemoryFormat> mem_format) {
+    std::optional<synTensorType> tensor_type,
+    std::optional<c10::IntArrayRef> size,
+    std::optional<c10::IntArrayRef> stride,
+    std::optional<c10::MemoryFormat> mem_format) {
   at::Tensor tensor = at::Tensor(
       c10::make_intrusive<HbInternalTensorImpl>(std::move(storage), data_type));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
@@ -126,7 +126,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
   PT_LAZY_TRACE;
 
   auto t = AtenFromHbLazyTensor(
-      hl_t, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      hl_t, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
   auto impl = GetHbLazyTensorImpl(t);
 
   if (impl->storage().data_ptr() != nullptr) {
@@ -146,7 +146,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
     HbLazyTensor& hl_t_updated = hl_t;
     auto pTensor = hl_t_updated.GetTensorData();
     auto hl_tensor_size_zero = true;
-    if (pTensor != c10::nullopt) {
+    if (pTensor != std::nullopt) {
       auto old_tensor_data = pTensor.value();
       if (old_tensor_data.sizes().size() > 0) {
         for (auto i = 0; i < (int)old_tensor_data.sizes().size(); i++) {
@@ -205,7 +205,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
 }
 } // namespace
 
-c10::optional<HbLazyTensor> TryGetHbLazyTensor(
+std::optional<HbLazyTensor> TryGetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated,
     bool handle_collective,
@@ -214,7 +214,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   auto const_id = habana::get_tensor_const_id(tensor);
   HbLazyTensorImpl* impl = GetHbLazyTensorImpl(tensor);
   if (impl == nullptr) {
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   HbLazyTensor hl_t = impl->tensor();
@@ -318,7 +318,7 @@ int64_t GetHbLazyTensorId(
 }
 
 HbLazyTensor GetOrCreateHbLazyTensor(
-    const c10::optional<at::Tensor>& tensor,
+    const std::optional<at::Tensor>& tensor,
     const c10::Device& device) {
   PT_LAZY_TRACE;
   if (!IsDefined(tensor)) {
@@ -346,7 +346,7 @@ ir::Value GetIrValueForScalar(const c10::Scalar& scalar) {
 
 at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
-    const c10::optional<at::Device>& device) {
+    const std::optional<at::Device>& device) {
   PT_LAZY_TRACE;
   if (tensor.defined() && device) {
     bool is_input_lazy = IsHbLazyTensor(tensor);
@@ -355,10 +355,10 @@ at::Tensor CreateHbLazyTensor(
     if (!is_input_lazy) {
       tensor = AtenFromHbLazyTensor(
           hblazy_tensor,
-          c10::nullopt,
-          c10::nullopt,
-          c10::nullopt,
-          c10::nullopt);
+          std::nullopt,
+          std::nullopt,
+          std::nullopt,
+          std::nullopt);
     } else {
       return tensor;
     }
@@ -375,7 +375,7 @@ ir::Value GetIrValueForListConstruct(
 void* GetLazyTensorDataPtr(const at::Tensor& t) {
   auto lazy_t = GetHbLazyTensor(t);
   auto internal_tensor = lazy_t.GetHbLazyTensorDataForMedia();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       internal_tensor,
       "Internal error: GetLazyTensorDataPtr doesn't have "
       "tensor with HBM storage");

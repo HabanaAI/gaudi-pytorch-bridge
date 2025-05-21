@@ -25,11 +25,13 @@
 
 #include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/runtime_tracing.h"
 
+#include <fmt/compile.h>
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
+#define HLLOG_FMT_EXTERNAL
 #include <hl_logger/hllog.hpp>
+#include <synapse_api.h>
 #include <synapse_common_types.h>
 
 #define BRACED_PARAM(p) "{}"
@@ -152,6 +154,15 @@ inline std::ostream& _str(std::ostream& ss) {
 template <typename T>
 inline std::ostream& _str(std::ostream& ss, const T& t) {
   ss << t;
+  return ss;
+}
+
+template <typename T>
+inline std::ostream& _str(std::ostream& ss, const std::optional<T>& t) {
+  if (t.has_value()) {
+    return _str(ss, t.value());
+  }
+  ss << "std::nullopt";
   return ss;
 }
 
@@ -284,7 +295,6 @@ class PTFuncLog {
               ": begin of ",
               pName));
     }
-    synapse_helpers::trace_start(name.data());
     habana::profile::bridge::trace_start(name);
   }
   ~PTFuncLog() {
@@ -294,7 +304,6 @@ class PTFuncLog {
           FORMAT_AND_MSG(
               "[Rank:", Logger::get_rank(), "] ", module, ": end of ", pName));
     }
-    synapse_helpers::trace_end(name.data());
     habana::profile::bridge::trace_end(name);
   }
 };
@@ -306,6 +315,10 @@ class PTFuncLog {
 #define HABANA_ASSERT(condition, ...)                                    \
   if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {            \
     auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__)); \
+    const char* synErrorMsg = synGetLastErrorMessage();                  \
+    if (synErrorMsg) {                                                   \
+      MSG_ += std::string("\nLast synapse error: ") + synErrorMsg;       \
+    }                                                                    \
     HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(__FILE__, __LINE__, MSG_));    \
     hl_logger::logStacktrace(                                            \
         HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);             \
@@ -541,7 +554,7 @@ std::string VecToString(const std::vector<Integer>& vec) {
   do { /* NOLINT(cppcoreguidelines-avoid-do-while) */ \
     synStatus __err = EXPR;                           \
     if (__err != synStatus::synSuccess) {             \
-      TORCH_CHECK(                                    \
+      HABANA_ASSERT(                                  \
           false,                                      \
           "synStatus=",                               \
           __err,                                      \

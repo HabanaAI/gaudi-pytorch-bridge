@@ -36,19 +36,19 @@ void ScaledTriangularSoftmax::AddNode(
   auto self = stackGetter.getNextInput<TensorsPair>();
   stackGetter.getNextInput<double>(); // inv_scale_attn
   auto exp_sum_recpr_opt =
-      stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto max_opt = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+      stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto max_opt = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
-  TORCH_CHECK(self.pt_t.dim() == 3, "Self tensor must be 3D.");
+  HABANA_ASSERT(self.pt_t.dim() == 3, "Self tensor must be 3D.");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (exp_sum_recpr_opt && max_opt) || (!exp_sum_recpr_opt && !max_opt),
       "Inputs max and exp_sum_recpr must be both given or Null.");
 
   if (exp_sum_recpr_opt) {
     auto exp_sum_recpr_shape = exp_sum_recpr_opt->pt_t.sizes().vec();
     auto max_shape = max_opt->pt_t.sizes().vec();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         exp_sum_recpr_shape == max_shape,
         "exp_sum_recpr and max inputs must have the same shape.");
 
@@ -61,7 +61,7 @@ void ScaledTriangularSoftmax::AddNode(
     expected_shape.back() = 1;
 #pragma GCC diagnostic pop
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         exp_sum_recpr_shape == expected_shape,
         "exp_sum_recpr and max inputs must have shape [self_shape[0], self_shape[1], 1].");
   }
@@ -89,7 +89,7 @@ void ScaledTriangularSoftmax::AddNode(
 
 OutputMetaDataVector ScaledTriangularSoftmaxRetainMeta(const at::Stack& stack) {
   const auto self = stack[0].toTensor();
-  TORCH_CHECK(self.dim() == 3, "Self tensor must be 3D.");
+  HABANA_ASSERT(self.dim() == 3, "Self tensor must be 3D.");
   auto out_shape = self.sizes().vec();
   auto retain_output_shape = out_shape;
   retain_output_shape.back() = 1;

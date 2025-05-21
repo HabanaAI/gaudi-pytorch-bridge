@@ -34,12 +34,15 @@ def _get_decomp_mode(env_var: str, default: str):
     env_str_value = os.getenv(env_var, default).lower()
     assert env_str_value in [
         "habana",
+        "inductor",
         "core_aten",
         "none",
     ], f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
     return env_str_value
 
 
+# dump all fx graphs straight after dynamo as executable python scripts
+dump_graph_repro = _get_bool_from_env("PT_HPU_DUMP_GRAPH_REPRO", "0")
 use_compiled_recipes = _get_bool_from_env("PT_HPU_COMPILE_USE_RECIPES", "1")
 # decomposition_mode can take values "habana", "core_aten" and "none" and
 # with each of those values, hpu backend creates AOT Autograd instance with decomposition list
@@ -52,6 +55,7 @@ use_eager_fallback = _get_bool_from_env("PT_HPU_USE_EAGER_FALLBACK", "1")
 discard_frozen_params = _get_bool_from_env("PT_HPU_COMPILE_DISCARD_FROZEN_PARAMS", "0")
 # enables removing unnecessary clone ops from the joint graph
 remove_unnecessary_clones = _get_bool_from_env("PT_HPU_COMPILE_REMOVE_UNNECESSARY_CLONES", "1")
+joint_graph_constant_folding = _get_bool_from_env("PT_HPU_COMPILE_JOINT_GRAPH_CONSTANT_FOLDING", "1")
 use_inplace_allreduce = _get_bool_from_env("PT_HPU_USE_INPLACE_COLLECTIVE", "1")
 use_inplace_index_copy = _get_bool_from_env("PT_HPU_USE_INPLACE_INDEX_COPY", "1")
 # for compile enable autograd, so that the training compiler is chosen
@@ -71,6 +75,7 @@ reassign_copy_ = _get_bool_from_env("PT_HPU_REASSIGN_COPY_", "1")
 # use boxed input to enable input reuse
 use_boxed_input = _get_bool_from_env("PT_HPU_USE_BOXED_INPUT", "1")
 use_generic_reinplacer = _get_bool_from_env("PT_HPU_USE_GENERIC_REINPLACER", "1")
+enable_synapse_input_reuse = _get_bool_from_env("PT_HPU_ENABLE_SYNAPSE_INPUT_REUSE", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/scatter_reduce.h"
 namespace habana {
@@ -26,14 +26,14 @@ std::shared_ptr<void> ScatterReduceParams(
     size_t& size) {
   PARAMS_STUB(ns_ScatterReduceKernel::Params);
   const auto dim = stack.at(DIM_INDEX).toInt();
-  auto reduce = stack.at(REDUCE_INDEX).to<c10::string_view>();
+  auto reduce = stack.at(REDUCE_INDEX).to<std::string_view>();
   auto baseScatterOp = (reduce == "add" || reduce == "multiply");
   auto includeSelf =
       baseScatterOp ? true : stack.at(INCLUDE_SELF_INDEX).toBool();
 
   ScatterReduceMode_t mode;
 
-  static const std::unordered_map<c10::string_view, ScatterReduceMode_t>
+  static const std::unordered_map<std::string_view, ScatterReduceMode_t>
       reduceModes = {
           {"sum", ScatterReduceMode_t::SCATTER_REDUCE_SUM},
           {"add", ScatterReduceMode_t::SCATTER_REDUCE_SUM},
@@ -48,7 +48,7 @@ std::shared_ptr<void> ScatterReduceParams(
   if (it != reduceModes.end())
     mode = it->second;
   else
-    TORCH_CHECK(false, "Unsupported reduce: ", reduce);
+    HABANA_ASSERT(false, "Unsupported reduce: ", reduce);
 
   params->dim = dim;
   params->include_self = includeSelf;

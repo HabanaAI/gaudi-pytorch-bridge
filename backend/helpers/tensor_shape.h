@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
@@ -31,7 +31,7 @@ class TensorShape {
     return m_dim;
   }
   int64_t dim_size(size_t dim) const {
-    TORCH_CHECK(dim < m_dim, "dim idx is out of range");
+    HABANA_ASSERT(dim < m_dim, "dim idx is out of range");
     return m_sizes[dim];
   }
   int64_t num_elements() const {
@@ -45,7 +45,7 @@ class TensorShape {
     return (m_dim == 0);
   }
   void set_dim(size_t dim, int64_t size) {
-    TORCH_CHECK(dim < m_dim, "dim idx is out of range");
+    HABANA_ASSERT(dim < m_dim, "dim idx is out of range");
     m_sizes[dim] = size;
   }
   void set_size(const std::vector<int64_t>& sizes);
@@ -55,7 +55,7 @@ class TensorShape {
     scalar_type_ = scalar_type;
   }
   at::ScalarType get_scalar_type() {
-    TORCH_CHECK(is_scalar_initialized, "Scalar Type is not initialized");
+    HABANA_ASSERT(is_scalar_initialized, "Scalar Type is not initialized");
     return scalar_type_;
   }
   bool operator==(const TensorShape& shape) const {

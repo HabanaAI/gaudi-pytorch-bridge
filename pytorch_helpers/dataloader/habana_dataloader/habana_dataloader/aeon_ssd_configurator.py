@@ -95,7 +95,7 @@ class AeonSSDConfigurator:
         prefix = "Generating aeon manifest: "
         bar_size = 50
         x = int(j * bar_size / size)
-        file.write("%s[%s%s] %i/%i\r" % (prefix, "#" * x, "." * (bar_size - x), j, size))
+        file.write(f"{prefix}[{'#' * x}{'.' * (bar_size - x)}] {j}/{size}\r")
         file.flush()
 
     def _generate_aeon_manifest(self):

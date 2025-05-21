@@ -56,7 +56,7 @@ hardtanh                                 Yes      Yes      Yes     Yes   torch.n
 hardtanh\_                               Yes      Yes      Yes     Yes   torch.nn.functional
 huber_loss                               Yes      Yes      Yes     No    torch.nn.functional
 instance_norm                            Yes      Yes      No      No    torch.nn.functional
-kl_div                                   Yes      Yes      No      No    torch.nn.functional
+kl_div                                   Yes      Yes      Yes     No    torch.nn.functional
 l1_loss                                  Yes      Yes      No      No    torch.nn.functional
 layer_norm                               Yes      Yes      Yes     No    torch.nn.functional
 leaky_relu                               Yes      Yes      Yes     No    torch.nn.functional
@@ -68,6 +68,8 @@ max_pool2d                               Yes      Yes      Yes     No    torch.n
 max_pool2d_with_indices                  Yes      Yes      Yes     No    torch.nn.functional
 max_pool3d                               Yes      Yes      Yes     No    torch.nn.functional
 max_pool3d_with_indices                  Yes      Yes      Yes     No    torch.nn.functional
+max_unpool2d                             Yes      Yes      Yes     No    torch.nn.functional
+max_unpool3d                             Yes      Yes      Yes     No    torch.nn.functional
 mish                                     Yes      Yes      Yes     No    torch.nn.functional
 mish\_                                   Yes      Yes      Yes     No    torch.nn.functional
 mse_loss                                 Yes      Yes      Yes     No    torch.nn.functional
@@ -84,8 +86,8 @@ rrelu                                    Yes      Yes      Yes     No    torch.n
 rrelu\_                                  Yes      Yes      Yes     No    torch.nn.functional
 sigmoid                                  Yes      Yes      Yes     No    torch.nn.functional
 sigmoid\_                                Yes      Yes      Yes     No    torch.nn.functional
-silu                                     Yes      Yes      No      No    torch.nn.functional
-silu\_                                   Yes      Yes      No      No    torch.nn.functional
+silu                                     Yes      Yes      Yes     No    torch.nn.functional
+silu\_                                   Yes      Yes      Yes     No    torch.nn.functional
 smooth_l1_loss                           Yes      Yes      Yes     No    torch.nn.functional
 softmax                                  Yes      Yes      Yes     No    torch.nn.functional
 softplus                                 Yes      Yes      Yes     No    torch.nn.functional
@@ -97,6 +99,7 @@ upsample                                 Yes      Yes      Yes     No    torch.n
 upsample_bilinear                        Yes      Yes      Yes     No    torch.nn.functional
 upsample_nearest                         Yes      Yes      Yes     No    torch.nn.functional
 cross                                    Yes      Yes      Yes     Yes   torch.linalg
+linalg_cholesky_ex                       Yes      No       No      No    torch.linalg
 vector_norm                              Yes      Yes      Yes     No    torch.linalg
 _adaptive_avg_pool2d                     Yes      Yes      Yes     No    torch
 _adaptive_avg_pool3d                     Yes      Yes      Yes     No    torch
@@ -104,6 +107,8 @@ _add_relu                                Yes      Yes      Yes     No    torch
 _add_relu\_                              Yes      Yes      Yes     No    torch
 _addmm_activation                        Yes      Yes      Yes     No    torch
 _aminmax                                 Yes      Yes      Yes     Yes   torch
+_copy_from                               Yes      Yes      Yes     Yes   torch
+_copy_from_and_resize                    Yes      Yes      Yes     Yes   torch
 _ctc_loss                                Yes      No       No      No    torch
 _efficientzerotensor                     Yes      Yes      Yes     Yes   torch
 _foreach_abs                             Yes      Yes      Yes     No    torch
@@ -195,16 +200,18 @@ _masked_scale                            Yes      Yes      Yes     Yes   torch
 _native_batch_norm_legit                 Yes      Yes      Yes     No    torch
 _native_batch_norm_legit_no_training     Yes      Yes      Yes     No    torch
 _resize_output\_                         Yes      Yes      Yes     Yes   torch
+_safe_softmax                            Yes      Yes      Yes     No    torch
+_softmax                                 Yes      Yes      Yes     No    torch
 _unique                                  Yes      No       No      No    torch
 _unique2                                 Yes      No       No      No    torch
 _weight_norm_interface                   Yes      Yes      Yes     No    torch
 abs                                      Yes      Yes      Yes     No    torch
 abs\_                                    Yes      Yes      Yes     No    torch
 absolute                                 Yes      Yes      Yes     No    torch
-acos                                     Yes      Yes      No      No    torch
-acos\_                                   Yes      Yes      No      No    torch
-acosh                                    Yes      Yes      No      No    torch
-acosh\_                                  Yes      Yes      No      No    torch
+acos                                     Yes      No       No      No    torch
+acos\_                                   Yes      No       No      No    torch
+acosh                                    Yes      No       No      No    torch
+acosh\_                                  Yes      No       No      No    torch
 add                                      Yes      Yes      Yes     Yes   torch
 addbmm                                   Yes      Yes      Yes     Yes   torch
 addcdiv                                  Yes      Yes      Yes     No    torch
@@ -217,35 +224,35 @@ all                                      Yes      Yes      Yes     No    torch
 amax                                     Yes      Yes      Yes     Yes   torch
 amin                                     Yes      Yes      Yes     Yes   torch
 aminmax                                  Yes      Yes      Yes     Yes   torch
+angle                                    Yes      Yes      Yes     No    torch
 any                                      Yes      Yes      Yes     Yes   torch
 arange                                   Yes      Yes      Yes     No    torch
-arccos                                   Yes      Yes      No      No    torch
-arccos\_                                 Yes      Yes      No      No    torch
-arccosh                                  Yes      Yes      No      No    torch
-arccosh\_                                Yes      Yes      No      No    torch
-arcsin                                   Yes      Yes      No      No    torch
-arcsin\_                                 Yes      Yes      No      No    torch
-arcsinh                                  Yes      Yes      No      No    torch
-arcsinh\_                                Yes      Yes      No      No    torch
-arctan                                   Yes      Yes      No      No    torch
+arccos                                   Yes      No       No      No    torch
+arccos\_                                 Yes      No       No      No    torch
+arccosh                                  Yes      No       No      No    torch
+arccosh\_                                Yes      No       No      No    torch
+arcsin                                   Yes      No       No      No    torch
+arcsin\_                                 Yes      No       No      No    torch
+arcsinh                                  Yes      No       No      No    torch
+arcsinh\_                                Yes      No       No      No    torch
+arctan                                   Yes      No       No      No    torch
 arctan2                                  Yes      Yes      Yes     No    torch
-arctan\_                                 Yes      Yes      No      No    torch
-arctanh                                  Yes      Yes      No      No    torch
-arctanh\_                                Yes      Yes      No      No    torch
+arctan\_                                 Yes      No       No      No    torch
+arctanh                                  Yes      No       No      No    torch
+arctanh\_                                Yes      No       No      No    torch
 argmax                                   Yes      Yes      Yes     No    torch
 argmin                                   Yes      Yes      Yes     No    torch
-argsort                                  Yes      Yes      Yes     No    torch
-as_strided                               Yes      Yes      Yes     No    torch
-as_strided\_                             Yes      Yes      Yes     No    torch
-asin                                     Yes      Yes      No      No    torch
-asin\_                                   Yes      Yes      No      No    torch
-asinh                                    Yes      Yes      No      No    torch
-asinh\_                                  Yes      Yes      No      No    torch
-atan                                     Yes      Yes      No      No    torch
+as_strided                               Yes      Yes      Yes     Yes   torch
+as_strided\_                             Yes      Yes      Yes     Yes   torch
+asin                                     Yes      No       No      No    torch
+asin\_                                   Yes      No       No      No    torch
+asinh                                    Yes      No       No      No    torch
+asinh\_                                  Yes      No       No      No    torch
+atan                                     Yes      No       No      No    torch
 atan2                                    Yes      Yes      Yes     No    torch
-atan\_                                   Yes      Yes      No      No    torch
-atanh                                    Yes      Yes      No      No    torch
-atanh\_                                  Yes      Yes      No      No    torch
+atan\_                                   Yes      No       No      No    torch
+atanh                                    Yes      No       No      No    torch
+atanh\_                                  Yes      No       No      No    torch
 baddbmm                                  Yes      Yes      Yes     Yes   torch
 batch_norm                               Yes      Yes      Yes     No    torch
 bernoulli                                Yes      Yes      Yes     No    torch
@@ -265,6 +272,7 @@ ceil                                     Yes      Yes      Yes     No    torch
 ceil\_                                   Yes      Yes      Yes     No    torch
 channel_shuffle                          Yes      Yes      Yes     No    torch
 cholesky                                 Yes      No       No      No    torch
+cholesky_inverse                         Yes      No       No      No    torch
 chunk                                    Yes      Yes      No      No    torch
 clamp                                    Yes      Yes      Yes     Yes   torch
 clamp\_                                  Yes      Yes      Yes     Yes   torch
@@ -275,6 +283,7 @@ clamp_min\_                              Yes      Yes      Yes     Yes   torch
 clip                                     Yes      Yes      No      No    torch
 clip\_                                   Yes      Yes      No      No    torch
 clone                                    Yes      Yes      Yes     Yes   torch
+complex                                  Yes      Yes      Yes     No    torch
 conj                                     Yes      Yes      No      No    torch
 constant_pad_nd                          Yes      Yes      Yes     Yes   torch
 conv1d                                   Yes      Yes      Yes     Yes   torch
@@ -333,15 +342,18 @@ frexp                                    Yes      Yes      Yes     No    torch
 full                                     Yes      Yes      Yes     Yes   torch
 full_like                                Yes      Yes      Yes     Yes   torch
 gather                                   Yes      Yes      Yes     No    torch
-ge                                       Yes      Yes      Yes     Yes   torch
-greater                                  Yes      Yes      Yes     Yes   torch
-greater_equal                            Yes      Yes      Yes     Yes   torch
+ge                                       Yes      Yes      Yes     No    torch
+greater                                  Yes      Yes      Yes     No    torch
+greater_equal                            Yes      Yes      Yes     No    torch
 grid_sampler_2d                          Yes      Yes      Yes     No    torch
 grid_sampler_3d                          Yes      Yes      Yes     No    torch
-gt                                       Yes      Yes      Yes     Yes   torch
+gt                                       Yes      Yes      Yes     No    torch
 hardshrink                               Yes      Yes      Yes     No    torch
 heaviside                                Yes      Yes      Yes     No    torch
+histc                                    Yes      No       No      No    torch
+histogram                                Yes      No       No      No    torch
 hypot                                    Yes      Yes      Yes     No    torch
+igamma                                   Yes      No       No      No    torch
 index_copy                               Yes      Yes      Yes     Yes   torch
 index_fill                               Yes      Yes      Yes     Yes   torch
 index_put                                Yes      Yes      No      No    torch
@@ -358,13 +370,13 @@ isinf                                    Yes      Yes      Yes     No    torch
 isnan                                    Yes      Yes      Yes     No    torch
 isneginf                                 Yes      Yes      Yes     No    torch
 isposinf                                 Yes      Yes      Yes     No    torch
-kl_div                                   Yes      Yes      No      No    torch
+kl_div                                   Yes      Yes      Yes     No    torch
 kthvalue                                 Yes      Yes      Yes     No    torch
 layer_norm                               Yes      Yes      Yes     No    torch
-le                                       Yes      Yes      Yes     Yes   torch
+le                                       Yes      Yes      Yes     No    torch
 lerp                                     Yes      Yes      Yes     Yes   torch
-less                                     Yes      Yes      Yes     Yes   torch
-less_equal                               Yes      Yes      Yes     Yes   torch
+less                                     Yes      Yes      Yes     No    torch
+less_equal                               Yes      Yes      Yes     No    torch
 lgamma                                   Yes      Yes      Yes     No    torch
 linspace                                 Yes      Yes      Yes     Yes   torch
 log                                      Yes      Yes      Yes     No    torch
@@ -387,7 +399,7 @@ logit                                    Yes      Yes      Yes     No    torch
 logit\_                                  Yes      Yes      Yes     No    torch
 logspace                                 Yes      Yes      Yes     Yes   torch
 logsumexp                                Yes      Yes      No      No    torch
-lt                                       Yes      Yes      Yes     Yes   torch
+lt                                       Yes      Yes      Yes     No    torch
 masked_fill                              Yes      Yes      Yes     Yes   torch
 masked_scatter                           Yes      Yes      Yes     No    torch
 masked_select                            Yes      Yes      No      No    torch
@@ -412,14 +424,14 @@ narrow                                   Yes      No       No      No    torch
 native_dropout                           Yes      Yes      Yes     No    torch
 native_group_norm                        Yes      Yes      Yes     No    torch
 native_layer_norm                        Yes      Yes      Yes     No    torch
-ne                                       Yes      Yes      Yes     Yes   torch
+ne                                       Yes      Yes      Yes     No    torch
 neg                                      Yes      Yes      Yes     No    torch
 neg\_                                    Yes      Yes      Yes     No    torch
 nextafter                                Yes      Yes      Yes     No    torch
 nonzero                                  Yes      Yes      No      No    torch
 norm                                     Yes      Yes      Yes     No    torch
 normal                                   Yes      Yes      Yes     No    torch
-not_equal                                Yes      Yes      Yes     Yes   torch
+not_equal                                Yes      Yes      Yes     No    torch
 ones                                     Yes      Yes      No      Yes   torch
 ones_like                                Yes      Yes      No      Yes   torch
 permute                                  Yes      Yes      Yes     Yes   torch
@@ -439,7 +451,7 @@ reshape                                  Yes      Yes      Yes     Yes   torch
 resolve_conj                             Yes      Yes      No      No    torch
 resolve_neg                              Yes      Yes      No      No    torch
 result_type                              Yes      Yes      No      No    torch
-roll                                     Yes      Yes      No      Yes   torch
+roll                                     Yes      Yes      Yes     Yes   torch
 round                                    Yes      Yes      Yes     No    torch
 round\_                                  Yes      Yes      Yes     No    torch
 rsqrt                                    Yes      Yes      Yes     No    torch
@@ -460,8 +472,8 @@ sin                                      Yes      Yes      Yes     No    torch
 sin\_                                    Yes      Yes      Yes     No    torch
 sinc                                     Yes      Yes      Yes     No    torch
 sinc\_                                   Yes      Yes      Yes     No    torch
-sinh                                     Yes      Yes      Yes     No    torch
-sinh\_                                   Yes      Yes      Yes     No    torch
+sinh                                     Yes      No       Yes     No    torch
+sinh\_                                   Yes      No       Yes     No    torch
 softmax                                  Yes      Yes      Yes     No    torch
 sort                                     Yes      Yes      Yes     No    torch
 split_with_sizes                         Yes      Yes      No      Yes   torch
@@ -477,8 +489,8 @@ sub                                      Yes      Yes      Yes     Yes   torch
 sum                                      Yes      Yes      Yes     Yes   torch
 t                                        Yes      Yes      Yes     Yes   torch
 take                                     Yes      Yes      Yes     No    torch
-tan                                      Yes      Yes      No      No    torch
-tan\_                                    Yes      Yes      No      No    torch
+tan                                      Yes      No       No      No    torch
+tan\_                                    Yes      No       No      No    torch
 tanh                                     Yes      Yes      Yes     No    torch
 tanh\_                                   Yes      Yes      Yes     No    torch
 threshold                                Yes      Yes      Yes     No    torch
@@ -504,7 +516,11 @@ xlogy\_                                  Yes      Yes      Yes     No    torch
 zero\_                                   Yes      Yes      Yes     Yes   torch
 zeros                                    Yes      Yes      Yes     Yes   torch
 zeros_like                               Yes      Yes      Yes     Yes   torch
+_local_scalar_dense                      Yes      Yes      Yes     Yes   torch.ops.aten
+_pdist_backward                          Yes      Yes      Yes     No    torch.ops.aten
+alias                                    Yes      Yes      Yes     Yes   torch.ops.aten
 glu_jvp                                  Yes      Yes      Yes     No    torch.ops.aten
+im2col                                   Yes      Yes      Yes     No    torch.ops.aten
 AdaptiveAvgPool1d                        Yes      Yes      Yes     No    torch.nn
 AdaptiveAvgPool2d                        Yes      Yes      Yes     No    torch.nn
 AdaptiveAvgPool3d                        Yes      Yes      Yes     No    torch.nn
@@ -535,7 +551,7 @@ Hardswish                                Yes      Yes      No      No    torch.n
 Hardtanh                                 Yes      Yes      Yes     Yes   torch.nn
 HuberLoss                                Yes      Yes      Yes     No    torch.nn
 InstanceNorm2d                           Yes      Yes      No      No    torch.nn
-KLDivLoss                                Yes      Yes      No      No    torch.nn
+KLDivLoss                                Yes      Yes      Yes     No    torch.nn
 LayerNorm                                Yes      Yes      Yes     No    torch.nn
 LeakyReLU                                Yes      Yes      Yes     No    torch.nn
 Linear                                   Yes      Yes      Yes     No    torch.nn
@@ -544,6 +560,8 @@ LogSoftmax                               Yes      Yes      Yes     No    torch.n
 MSELoss                                  Yes      Yes      Yes     No    torch.nn
 MaxPool2d                                Yes      Yes      Yes     No    torch.nn
 MaxPool3d                                Yes      Yes      Yes     No    torch.nn
+MaxUnpool2d                              Yes      Yes      Yes     No    torch.nn
+MaxUnpool3d                              Yes      Yes      Yes     No    torch.nn
 Mish                                     Yes      Yes      Yes     No    torch.nn
 MultiLabelMarginLoss                     Yes      Yes      Yes     No    torch.nn
 MultiMarginLoss                          Yes      Yes      Yes     No    torch.nn
@@ -558,7 +576,7 @@ ReflectionPad3d                          Yes      Yes      Yes     Yes   torch.n
 ReplicationPad1d                         Yes      Yes      Yes     Yes   torch.nn
 ReplicationPad2d                         Yes      Yes      Yes     Yes   torch.nn
 ReplicationPad3d                         Yes      Yes      Yes     Yes   torch.nn
-SiLU                                     Yes      Yes      No      No    torch.nn
+SiLU                                     Yes      Yes      Yes     No    torch.nn
 Sigmoid                                  Yes      Yes      Yes     No    torch.nn
 SmoothL1Loss                             Yes      Yes      Yes     No    torch.nn
 Softmax                                  Yes      Yes      Yes     No    torch.nn
@@ -580,14 +598,15 @@ __lshift__                               No       No       No      No    torch.T
 __or__                                   No       No       No      No    torch.Tensor
 __rshift__                               No       No       No      No    torch.Tensor
 __xor__                                  No       No       No      No    torch.Tensor
+_addmm_activation                        Yes      Yes      Yes     No    torch.Tensor
 abs                                      Yes      Yes      Yes     No    torch.Tensor
 abs\_                                    Yes      Yes      Yes     No    torch.Tensor
 absolute                                 Yes      Yes      Yes     No    torch.Tensor
 absolute\_                               Yes      Yes      Yes     No    torch.Tensor
-acos                                     Yes      Yes      No      No    torch.Tensor
-acos\_                                   Yes      Yes      No      No    torch.Tensor
-acosh                                    Yes      Yes      No      No    torch.Tensor
-acosh\_                                  Yes      Yes      No      No    torch.Tensor
+acos                                     Yes      No       No      No    torch.Tensor
+acos\_                                   Yes      No       No      No    torch.Tensor
+acosh                                    Yes      No       No      No    torch.Tensor
+acosh\_                                  Yes      No       No      No    torch.Tensor
 add                                      Yes      Yes      Yes     Yes   torch.Tensor
 add\_                                    Yes      Yes      Yes     Yes   torch.Tensor
 addbmm                                   Yes      Yes      Yes     Yes   torch.Tensor
@@ -607,35 +626,34 @@ amax                                     Yes      Yes      Yes     Yes   torch.T
 amin                                     Yes      Yes      Yes     Yes   torch.Tensor
 aminmax                                  Yes      Yes      Yes     Yes   torch.Tensor
 any                                      Yes      Yes      Yes     Yes   torch.Tensor
-arccos                                   Yes      Yes      No      No    torch.Tensor
-arccos\_                                 Yes      Yes      No      No    torch.Tensor
-arccosh                                  Yes      Yes      No      No    torch.Tensor
-arccosh\_                                Yes      Yes      No      No    torch.Tensor
-arcsin                                   Yes      Yes      No      No    torch.Tensor
-arcsin\_                                 Yes      Yes      No      No    torch.Tensor
-arcsinh                                  Yes      Yes      No      No    torch.Tensor
-arcsinh\_                                Yes      Yes      No      No    torch.Tensor
-arctan                                   Yes      Yes      No      No    torch.Tensor
+arccos                                   Yes      No       No      No    torch.Tensor
+arccos\_                                 Yes      No       No      No    torch.Tensor
+arccosh                                  Yes      No       No      No    torch.Tensor
+arccosh\_                                Yes      No       No      No    torch.Tensor
+arcsin                                   Yes      No       No      No    torch.Tensor
+arcsin\_                                 Yes      No       No      No    torch.Tensor
+arcsinh                                  Yes      No       No      No    torch.Tensor
+arcsinh\_                                Yes      No       No      No    torch.Tensor
+arctan                                   Yes      No       No      No    torch.Tensor
 arctan2                                  Yes      Yes      Yes     No    torch.Tensor
 arctan2\_                                Yes      Yes      Yes     No    torch.Tensor
-arctan\_                                 Yes      Yes      No      No    torch.Tensor
-arctanh                                  Yes      Yes      No      No    torch.Tensor
-arctanh\_                                Yes      Yes      No      No    torch.Tensor
+arctan\_                                 Yes      No       No      No    torch.Tensor
+arctanh                                  Yes      No       No      No    torch.Tensor
+arctanh\_                                Yes      No       No      No    torch.Tensor
 argmax                                   Yes      Yes      Yes     No    torch.Tensor
 argmin                                   Yes      Yes      Yes     No    torch.Tensor
-argsort                                  Yes      Yes      Yes     No    torch.Tensor
-as_strided                               Yes      Yes      Yes     No    torch.Tensor
-as_strided\_                             Yes      Yes      Yes     No    torch.Tensor
-asin                                     Yes      Yes      No      No    torch.Tensor
-asin\_                                   Yes      Yes      No      No    torch.Tensor
-asinh                                    Yes      Yes      No      No    torch.Tensor
-asinh\_                                  Yes      Yes      No      No    torch.Tensor
-atan                                     Yes      Yes      No      No    torch.Tensor
+as_strided                               Yes      Yes      Yes     Yes   torch.Tensor
+as_strided\_                             Yes      Yes      Yes     Yes   torch.Tensor
+asin                                     Yes      No       No      No    torch.Tensor
+asin\_                                   Yes      No       No      No    torch.Tensor
+asinh                                    Yes      No       No      No    torch.Tensor
+asinh\_                                  Yes      No       No      No    torch.Tensor
+atan                                     Yes      No       No      No    torch.Tensor
 atan2                                    Yes      Yes      Yes     No    torch.Tensor
 atan2\_                                  Yes      Yes      Yes     No    torch.Tensor
-atan\_                                   Yes      Yes      No      No    torch.Tensor
-atanh                                    Yes      Yes      No      No    torch.Tensor
-atanh\_                                  Yes      Yes      No      No    torch.Tensor
+atan\_                                   Yes      No       No      No    torch.Tensor
+atanh                                    Yes      No       No      No    torch.Tensor
+atanh\_                                  Yes      No       No      No    torch.Tensor
 baddbmm                                  Yes      Yes      Yes     Yes   torch.Tensor
 baddbmm\_                                Yes      Yes      Yes     Yes   torch.Tensor
 bernoulli                                Yes      Yes      Yes     No    torch.Tensor
@@ -700,7 +718,7 @@ exp                                      Yes      Yes      Yes     No    torch.T
 exp2                                     Yes      Yes      Yes     No    torch.Tensor
 exp2\_                                   Yes      Yes      Yes     No    torch.Tensor
 exp\_                                    Yes      Yes      Yes     No    torch.Tensor
-expand                                   Yes      Yes      Yes     No    torch.Tensor
+expand                                   Yes      Yes      Yes     Yes   torch.Tensor
 expand_as                                Yes      Yes      Yes     No    torch.Tensor
 expm1                                    Yes      Yes      No      No    torch.Tensor
 expm1\_                                  Yes      Yes      No      No    torch.Tensor
@@ -720,20 +738,23 @@ frac                                     Yes      Yes      Yes     No    torch.T
 frac\_                                   Yes      Yes      Yes     No    torch.Tensor
 frexp                                    Yes      Yes      Yes     No    torch.Tensor
 gather                                   Yes      Yes      Yes     No    torch.Tensor
-ge                                       Yes      Yes      Yes     Yes   torch.Tensor
-ge\_                                     Yes      Yes      Yes     Yes   torch.Tensor
+ge                                       Yes      Yes      Yes     No    torch.Tensor
+ge\_                                     Yes      Yes      Yes     No    torch.Tensor
 geometric\_                              Yes      Yes      Yes     No    torch.Tensor
-greater                                  Yes      Yes      Yes     Yes   torch.Tensor
-greater\_                                Yes      Yes      Yes     Yes   torch.Tensor
-greater_equal                            Yes      Yes      Yes     Yes   torch.Tensor
-greater_equal\_                          Yes      Yes      Yes     Yes   torch.Tensor
-gt                                       Yes      Yes      Yes     Yes   torch.Tensor
-gt\_                                     Yes      Yes      Yes     Yes   torch.Tensor
+greater                                  Yes      Yes      Yes     No    torch.Tensor
+greater\_                                Yes      Yes      Yes     No    torch.Tensor
+greater_equal                            Yes      Yes      Yes     No    torch.Tensor
+greater_equal\_                          Yes      Yes      Yes     No    torch.Tensor
+gt                                       Yes      Yes      Yes     No    torch.Tensor
+gt\_                                     Yes      Yes      Yes     No    torch.Tensor
 hardshrink                               Yes      Yes      Yes     No    torch.Tensor
 heaviside                                Yes      Yes      Yes     No    torch.Tensor
 heaviside\_                              Yes      Yes      Yes     No    torch.Tensor
+histc                                    Yes      No       No      No    torch.Tensor
+histogram                                Yes      No       No      No    torch.Tensor
 hypot                                    Yes      Yes      Yes     No    torch.Tensor
 hypot\_                                  Yes      Yes      Yes     No    torch.Tensor
+index_add                                Yes      Yes      Yes     Yes   torch.Tensor
 index_add\_                              Yes      Yes      Yes     No    torch.Tensor
 index_copy                               Yes      Yes      Yes     Yes   torch.Tensor
 index_copy\_                             Yes      Yes      Yes     Yes   torch.Tensor
@@ -754,14 +775,14 @@ isneginf                                 Yes      Yes      Yes     No    torch.T
 isposinf                                 Yes      Yes      Yes     No    torch.Tensor
 item                                     Yes      No       No      No    torch.Tensor
 kthvalue                                 Yes      Yes      Yes     No    torch.Tensor
-le                                       Yes      Yes      Yes     Yes   torch.Tensor
-le\_                                     Yes      Yes      Yes     Yes   torch.Tensor
+le                                       Yes      Yes      Yes     No    torch.Tensor
+le\_                                     Yes      Yes      Yes     No    torch.Tensor
 lerp                                     Yes      Yes      Yes     Yes   torch.Tensor
 lerp\_                                   Yes      Yes      Yes     Yes   torch.Tensor
-less                                     Yes      Yes      Yes     Yes   torch.Tensor
+less                                     Yes      Yes      Yes     No    torch.Tensor
 less\_                                   Yes      Yes      Yes     No    torch.Tensor
-less_equal                               Yes      Yes      Yes     Yes   torch.Tensor
-less_equal\_                             Yes      Yes      Yes     Yes   torch.Tensor
+less_equal                               Yes      Yes      Yes     No    torch.Tensor
+less_equal\_                             Yes      Yes      Yes     No    torch.Tensor
 log                                      Yes      Yes      Yes     No    torch.Tensor
 log10                                    Yes      Yes      Yes     No    torch.Tensor
 log10\_                                  Yes      Yes      Yes     No    torch.Tensor
@@ -770,7 +791,7 @@ log1p\_                                  Yes      Yes      Yes     No    torch.T
 log2                                     Yes      Yes      Yes     No    torch.Tensor
 log2\_                                   Yes      Yes      Yes     No    torch.Tensor
 log\_                                    Yes      Yes      Yes     No    torch.Tensor
-log_normal\_                             Yes      Yes      Yes     Yes   torch.Tensor
+log_normal\_                             Yes      Yes      No      No    torch.Tensor
 log_softmax                              Yes      Yes      Yes     No    torch.Tensor
 logaddexp                                Yes      Yes      No      No    torch.Tensor
 logaddexp2                               Yes      Yes      Yes     No    torch.Tensor
@@ -786,7 +807,7 @@ logical_xor\_                            Yes      Yes      Yes     No    torch.T
 logit                                    Yes      Yes      Yes     No    torch.Tensor
 logit\_                                  Yes      Yes      Yes     No    torch.Tensor
 logsumexp                                Yes      Yes      No      No    torch.Tensor
-lt                                       Yes      Yes      Yes     Yes   torch.Tensor
+lt                                       Yes      Yes      Yes     No    torch.Tensor
 lt\_                                     Yes      Yes      Yes     No    torch.Tensor
 masked_fill                              Yes      Yes      Yes     Yes   torch.Tensor
 masked_fill\_                            Yes      Yes      Yes     Yes   torch.Tensor
@@ -809,8 +830,8 @@ nan_to_num                               Yes      Yes      Yes     No    torch.T
 nan_to_num\_                             Yes      Yes      Yes     No    torch.Tensor
 nansum                                   Yes      Yes      Yes     No    torch.Tensor
 narrow                                   Yes      No       No      No    torch.Tensor
-ne                                       Yes      Yes      Yes     Yes   torch.Tensor
-ne\_                                     Yes      Yes      Yes     Yes   torch.Tensor
+ne                                       Yes      Yes      Yes     No    torch.Tensor
+ne\_                                     Yes      Yes      Yes     No    torch.Tensor
 neg                                      Yes      Yes      Yes     No    torch.Tensor
 neg\_                                    Yes      Yes      Yes     No    torch.Tensor
 new_empty                                Yes      Yes      No      No    torch.Tensor
@@ -822,9 +843,9 @@ nextafter                                Yes      Yes      Yes     No    torch.T
 nextafter\_                              Yes      Yes      Yes     No    torch.Tensor
 nonzero                                  Yes      Yes      No      No    torch.Tensor
 norm                                     Yes      Yes      Yes     No    torch.Tensor
-normal\_                                 Yes      Yes      Yes     Yes   torch.Tensor
-not_equal                                Yes      Yes      Yes     Yes   torch.Tensor
-not_equal\_                              Yes      Yes      Yes     Yes   torch.Tensor
+normal\_                                 Yes      Yes      Yes     No    torch.Tensor
+not_equal                                Yes      Yes      Yes     No    torch.Tensor
+not_equal\_                              Yes      Yes      Yes     No    torch.Tensor
 permute                                  Yes      Yes      Yes     Yes   torch.Tensor
 pin_memory                               Yes      Yes      No      No    torch.Tensor
 pow                                      Yes      Yes      Yes     No    torch.Tensor
@@ -845,7 +866,7 @@ reshape                                  Yes      Yes      Yes     Yes   torch.T
 resize\_                                 Yes      Yes      Yes     Yes   torch.Tensor
 resolve_conj                             Yes      Yes      No      No    torch.Tensor
 resolve_neg                              Yes      Yes      No      No    torch.Tensor
-roll                                     Yes      Yes      No      Yes   torch.Tensor
+roll                                     Yes      Yes      Yes     Yes   torch.Tensor
 round                                    Yes      Yes      Yes     No    torch.Tensor
 round\_                                  Yes      Yes      Yes     No    torch.Tensor
 rsqrt                                    Yes      Yes      Yes     No    torch.Tensor
@@ -857,6 +878,7 @@ scatter_add\_                            Yes      Yes      Yes     No    torch.T
 scatter_reduce                           Yes      Yes      Yes     No    torch.Tensor
 scatter_reduce\_                         Yes      Yes      Yes     No    torch.Tensor
 select                                   Yes      Yes      Yes     Yes   torch.Tensor
+set\_                                    Yes      Yes      Yes     Yes   torch.Tensor
 sgn                                      Yes      Yes      Yes     No    torch.Tensor
 sgn\_                                    Yes      Yes      Yes     No    torch.Tensor
 sigmoid                                  Yes      Yes      Yes     No    torch.Tensor
@@ -868,8 +890,8 @@ sin                                      Yes      Yes      Yes     No    torch.T
 sin\_                                    Yes      Yes      Yes     No    torch.Tensor
 sinc                                     Yes      Yes      Yes     No    torch.Tensor
 sinc\_                                   Yes      Yes      Yes     No    torch.Tensor
-sinh                                     Yes      Yes      Yes     No    torch.Tensor
-sinh\_                                   Yes      Yes      Yes     No    torch.Tensor
+sinh                                     Yes      No       Yes     No    torch.Tensor
+sinh\_                                   Yes      No       Yes     No    torch.Tensor
 sort                                     Yes      Yes      Yes     No    torch.Tensor
 split_with_sizes                         Yes      Yes      No      Yes   torch.Tensor
 sqrt                                     Yes      Yes      Yes     No    torch.Tensor
@@ -884,8 +906,8 @@ sub\_                                    Yes      Yes      Yes     Yes   torch.T
 sum                                      Yes      Yes      Yes     Yes   torch.Tensor
 t                                        Yes      Yes      Yes     Yes   torch.Tensor
 take                                     Yes      Yes      Yes     No    torch.Tensor
-tan                                      Yes      Yes      No      No    torch.Tensor
-tan\_                                    Yes      Yes      No      No    torch.Tensor
+tan                                      Yes      No       No      No    torch.Tensor
+tan\_                                    Yes      No       No      No    torch.Tensor
 tanh                                     Yes      Yes      Yes     No    torch.Tensor
 tanh\_                                   Yes      Yes      Yes     No    torch.Tensor
 to                                       Yes      Yes      Yes     Yes   torch.Tensor
@@ -930,7 +952,9 @@ batched_nms                              Yes      Yes      No      No    torchvi
 deform_conv2d                            Yes      No       No      No    torchvision.ops
 nms                                      Yes      Yes      No      No    torchvision.ops
 roi_align                                Yes      No       No      No    torchvision.ops
-_safe_softmax                            Yes      Yes      Yes     No    torch.ops
+alias                                    Yes      Yes      Yes     Yes   torch.ops
+index                                    Yes      Yes      Yes     No    torch.ops
+rrelu_with_noise_functional              Yes      Yes      Yes     No    torch.ops
 ====================================  ======== ======== ======== ======= ======================
 
 PyTorch Operators Support Summary - Integer types
@@ -985,6 +1009,8 @@ max_pool2d                                No       No        No        No       
 max_pool2d_with_indices                   No       No        No        No       No     torch.nn.functional
 max_pool3d                                No       No        No        No       No     torch.nn.functional
 max_pool3d_with_indices                   No       No        No        No       No     torch.nn.functional
+max_unpool2d                              No       No        No        No       No     torch.nn.functional
+max_unpool3d                              No       No        No        No       No     torch.nn.functional
 mish                                      No       No        No        No       No     torch.nn.functional
 mish\_                                    No       No        No        No       No     torch.nn.functional
 mse_loss                                  No       No        No        No       No     torch.nn.functional
@@ -1014,6 +1040,7 @@ upsample                                  Yes      Yes       Yes       Yes      
 upsample_bilinear                         Yes      Yes       Yes       Yes      Yes    torch.nn.functional
 upsample_nearest                          Yes      Yes       Yes       Yes      Yes    torch.nn.functional
 cross                                     Yes      Yes       Yes       Yes      Yes    torch.linalg
+linalg_cholesky_ex                        No       No        No        No       No     torch.linalg
 vector_norm                               No       No        No        No       No     torch.linalg
 _adaptive_avg_pool2d                      No       No        No        No       No     torch
 _adaptive_avg_pool3d                      No       No        No        No       No     torch
@@ -1021,6 +1048,8 @@ _add_relu                                 No       No        No        No       
 _add_relu\_                               No       No        No        No       No     torch
 _addmm_activation                         No       No        No        No       No     torch
 _aminmax                                  Yes      Yes       Yes       Yes      Yes    torch
+_copy_from                                Yes      Yes       Yes       Yes      Yes    torch
+_copy_from_and_resize                     Yes      Yes       Yes       Yes      Yes    torch
 _ctc_loss                                 No       No        No        No       No     torch
 _efficientzerotensor                      Yes      Yes       Yes       Yes      Yes    torch
 _foreach_abs                              Yes      Yes       Yes       Yes      Yes    torch
@@ -1112,6 +1141,8 @@ _masked_scale                             Yes      Yes       Yes       Yes      
 _native_batch_norm_legit                  No       No        No        No       No     torch
 _native_batch_norm_legit_no_training      No       No        No        No       No     torch
 _resize_output\_                          Yes      Yes       Yes       Yes      Yes    torch
+_safe_softmax                             No       No        No        No       No     torch
+_softmax                                  No       No        No        No       No     torch
 _unique                                   No       Yes       No        No       No     torch
 _unique2                                  No       Yes       No        No       No     torch
 _weight_norm_interface                    No       No        No        No       No     torch
@@ -1134,6 +1165,7 @@ all                                       Yes      Yes       Yes       Yes      
 amax                                      Yes      Yes       Yes       Yes      Yes    torch
 amin                                      Yes      Yes       Yes       Yes      Yes    torch
 aminmax                                   Yes      Yes       Yes       Yes      Yes    torch
+angle                                     No       No        No        No       No     torch
 any                                       Yes      Yes       Yes       Yes      Yes    torch
 arange                                    Yes      Yes       Yes       Yes      Yes    torch
 arccos                                    Yes      Yes       Yes       Yes      Yes    torch
@@ -1151,9 +1183,8 @@ arctanh                                   No       No        No        No       
 arctanh\_                                 No       No        No        No       No     torch
 argmax                                    Yes      Yes       No        Yes      Yes    torch
 argmin                                    Yes      Yes       No        Yes      Yes    torch
-argsort                                   Yes      Yes       Yes       No       No     torch
-as_strided                                Yes      Yes       No        Yes      Yes    torch
-as_strided\_                              Yes      Yes       No        Yes      Yes    torch
+as_strided                                Yes      Yes       Yes       Yes      Yes    torch
+as_strided\_                              Yes      Yes       Yes       Yes      Yes    torch
 asin                                      Yes      Yes       Yes       Yes      Yes    torch
 asin\_                                    Yes      Yes       Yes       Yes      Yes    torch
 asinh                                     Yes      Yes       Yes       Yes      Yes    torch
@@ -1182,6 +1213,7 @@ ceil                                      Yes      Yes       Yes       Yes      
 ceil\_                                    Yes      Yes       Yes       Yes      Yes    torch
 channel_shuffle                           Yes      Yes       Yes       Yes      Yes    torch
 cholesky                                  No       No        No        No       No     torch
+cholesky_inverse                          No       No        No        No       No     torch
 chunk                                     No       Yes       No        No       No     torch
 clamp                                     Yes      Yes       Yes       Yes      Yes    torch
 clamp\_                                   Yes      Yes       Yes       Yes      Yes    torch
@@ -1192,6 +1224,7 @@ clamp_min\_                               Yes      Yes       Yes       Yes      
 clip                                      No       Yes       No        No       No     torch
 clip\_                                    No       Yes       No        No       No     torch
 clone                                     Yes      Yes       Yes       Yes      Yes    torch
+complex                                   No       No        No        No       No     torch
 conj                                      No       Yes       No        No       No     torch
 constant_pad_nd                           Yes      Yes       Yes       Yes      Yes    torch
 conv1d                                    No       No        No        No       No     torch
@@ -1258,7 +1291,10 @@ grid_sampler_3d                           No       No        No        No       
 gt                                        Yes      Yes       No        Yes      Yes    torch
 hardshrink                                No       No        No        No       No     torch
 heaviside                                 Yes      Yes       No        No       No     torch
+histc                                     Yes      Yes       No        No       No     torch
+histogram                                 Yes      Yes       No        No       No     torch
 hypot                                     No       No        No        No       No     torch
+igamma                                    No       No        No        No       No     torch
 index_copy                                Yes      Yes       Yes       Yes      Yes    torch
 index_fill                                Yes      Yes       Yes       Yes      Yes    torch
 index_put                                 No       Yes       No        No       No     torch
@@ -1356,7 +1392,7 @@ reshape                                   Yes      Yes       Yes       Yes      
 resolve_conj                              No       No        No        No       No     torch
 resolve_neg                               No       No        No        No       No     torch
 result_type                               No       Yes       No        No       No     torch
-roll                                      No       Yes       Yes       Yes      Yes    torch
+roll                                      Yes      Yes       Yes       Yes      Yes    torch
 round                                     Yes      Yes       Yes       Yes      Yes    torch
 round\_                                   Yes      Yes       Yes       Yes      Yes    torch
 rsqrt                                     Yes      Yes       Yes       Yes      Yes    torch
@@ -1421,7 +1457,11 @@ xlogy\_                                   Yes      Yes       Yes       Yes      
 zero\_                                    Yes      Yes       Yes       Yes      Yes    torch
 zeros                                     No       Yes       Yes       Yes      Yes    torch
 zeros_like                                No       Yes       Yes       Yes      Yes    torch
+_local_scalar_dense                       Yes      Yes       Yes       Yes      Yes    torch.ops.aten
+_pdist_backward                           No       No        No        No       No     torch.ops.aten
+alias                                     Yes      Yes       Yes       Yes      Yes    torch.ops.aten
 glu_jvp                                   No       No        No        No       No     torch.ops.aten
+im2col                                    No       No        No        No       No     torch.ops.aten
 AdaptiveAvgPool1d                         No       No        No        No       No     torch.nn
 AdaptiveAvgPool2d                         No       No        No        No       No     torch.nn
 AdaptiveAvgPool3d                         No       No        No        No       No     torch.nn
@@ -1461,6 +1501,8 @@ LogSoftmax                                No       No        No        No       
 MSELoss                                   No       No        No        No       No     torch.nn
 MaxPool2d                                 No       No        No        No       No     torch.nn
 MaxPool3d                                 No       No        No        No       No     torch.nn
+MaxUnpool2d                               No       No        No        No       No     torch.nn
+MaxUnpool3d                               No       No        No        No       No     torch.nn
 Mish                                      No       No        No        No       No     torch.nn
 MultiLabelMarginLoss                      No       No        No        No       No     torch.nn
 MultiMarginLoss                           No       No        No        No       No     torch.nn
@@ -1497,6 +1539,7 @@ __lshift__                                Yes      Yes       Yes       Yes      
 __or__                                    No       Yes       No        Yes      Yes    torch.Tensor
 __rshift__                                Yes      Yes       Yes       Yes      Yes    torch.Tensor
 __xor__                                   No       Yes       No        Yes      Yes    torch.Tensor
+_addmm_activation                         No       No        No        No       No     torch.Tensor
 abs                                       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 abs\_                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
 absolute                                  Yes      Yes       Yes       Yes      Yes    torch.Tensor
@@ -1540,9 +1583,8 @@ arctanh                                   No       No        No        No       
 arctanh\_                                 No       No        No        No       No     torch.Tensor
 argmax                                    Yes      Yes       No        Yes      Yes    torch.Tensor
 argmin                                    Yes      Yes       No        Yes      Yes    torch.Tensor
-argsort                                   Yes      Yes       Yes       No       No     torch.Tensor
-as_strided                                Yes      Yes       No        Yes      Yes    torch.Tensor
-as_strided\_                              Yes      Yes       No        Yes      Yes    torch.Tensor
+as_strided                                Yes      Yes       Yes       Yes      Yes    torch.Tensor
+as_strided\_                              Yes      Yes       Yes       Yes      Yes    torch.Tensor
 asin                                      Yes      Yes       Yes       Yes      Yes    torch.Tensor
 asin\_                                    Yes      Yes       Yes       Yes      Yes    torch.Tensor
 asinh                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
@@ -1617,7 +1659,7 @@ exp                                       Yes      Yes       Yes       Yes      
 exp2                                      Yes      Yes       Yes       Yes      Yes    torch.Tensor
 exp2\_                                    Yes      Yes       Yes       Yes      Yes    torch.Tensor
 exp\_                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
-expand                                    Yes      Yes       No        No       No     torch.Tensor
+expand                                    Yes      Yes       Yes       Yes      Yes    torch.Tensor
 expand_as                                 Yes      Yes       No        Yes      Yes    torch.Tensor
 expm1                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
 expm1\_                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
@@ -1649,8 +1691,11 @@ gt\_                                      Yes      Yes       No        Yes      
 hardshrink                                No       No        No        No       No     torch.Tensor
 heaviside                                 Yes      Yes       No        No       No     torch.Tensor
 heaviside\_                               Yes      Yes       No        No       No     torch.Tensor
+histc                                     Yes      Yes       No        No       No     torch.Tensor
+histogram                                 Yes      Yes       No        No       No     torch.Tensor
 hypot                                     No       No        No        No       No     torch.Tensor
 hypot\_                                   No       No        No        No       No     torch.Tensor
+index_add                                 Yes      Yes       Yes       Yes      Yes    torch.Tensor
 index_add\_                               No       Yes       No        No       No     torch.Tensor
 index_copy                                Yes      Yes       Yes       Yes      Yes    torch.Tensor
 index_copy\_                              Yes      Yes       Yes       Yes      Yes    torch.Tensor
@@ -1762,7 +1807,7 @@ reshape                                   Yes      Yes       Yes       Yes      
 resize\_                                  Yes      Yes       Yes       Yes      Yes    torch.Tensor
 resolve_conj                              No       No        No        No       No     torch.Tensor
 resolve_neg                               No       No        No        No       No     torch.Tensor
-roll                                      No       Yes       Yes       Yes      Yes    torch.Tensor
+roll                                      Yes      Yes       Yes       Yes      Yes    torch.Tensor
 round                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
 round\_                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
 rsqrt                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
@@ -1774,6 +1819,7 @@ scatter_add\_                             No       No        No        No       
 scatter_reduce                            No       No        No        No       No     torch.Tensor
 scatter_reduce\_                          No       No        No        No       No     torch.Tensor
 select                                    Yes      Yes       Yes       Yes      Yes    torch.Tensor
+set\_                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
 sgn                                       Yes      Yes       Yes       Yes      Yes    torch.Tensor
 sgn\_                                     Yes      Yes       Yes       Yes      Yes    torch.Tensor
 sigmoid                                   Yes      Yes       Yes       Yes      Yes    torch.Tensor
@@ -1847,5 +1893,7 @@ batched_nms                               No       No        No        No       
 deform_conv2d                             No       No        No        No       No     torchvision.ops
 nms                                       No       No        No        No       No     torchvision.ops
 roi_align                                 No       No        No        No       No     torchvision.ops
-_safe_softmax                             No       No        No        No       No     torch.ops
+alias                                     Yes      Yes       Yes       Yes      Yes    torch.ops
+index                                     Yes      Yes       No        Yes      Yes    torch.ops
+rrelu_with_noise_functional               No       No        No        No       No     torch.ops
 ====================================  ========= ========= ========= ======== ========  ======================

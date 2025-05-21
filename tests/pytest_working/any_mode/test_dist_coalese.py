@@ -17,7 +17,7 @@
 
 
 import os
-from typing import Callable
+from collections.abc import Callable
 
 import habana_frameworks.torch
 import torch
@@ -60,7 +60,7 @@ def coalescing_manager_no_device_init_test(rank, world_size, kwargs):
         cs = pg._end_coalescing(torch.device(device))
         cs.wait()
         assert 0, "Check HPUinit is done before _start_coalescing"
-    except RuntimeError as e:
+    except RuntimeError:
         pass
 
 
@@ -74,7 +74,7 @@ def coalescing_manager_no_start_coalese_test(rank, world_size, kwargs):
         cs = pg._end_coalescing(torch.device(device))
         cs.wait()
         assert 0, "Check _start_coalescing is done before _end_coalescing"
-    except RuntimeError as e:
+    except RuntimeError:
         pass
 
 
@@ -128,7 +128,7 @@ def reduce_scatter_tensor_coalesced_test(rank, world_size, kwargs):
     opts.reduceOp = ReduceOp.SUM
     pg.reduce_scatter_tensor_coalesced(output_tensors, input_tensors, opts)
 
-    for i, output in enumerate(output_tensors):
+    for output in output_tensors:
         assert output.eq(world_size).all()
 
 
@@ -142,7 +142,7 @@ def allgather_into_tensor_coalesced_test(rank, world_size, kwargs):
     comm_ranks = list(range(world_size))
     pg = dist.new_group(ranks=comm_ranks)
     pg._start_coalescing(torch.device(device))
-    for output, input in zip(output_tensors, input_tensors):
+    for output, input in zip(output_tensors, input_tensors, strict=False):
         torch.distributed.distributed_c10d.all_gather_into_tensor(output, input, group=pg, async_op=kwargs["async_op"])
     cs = pg._end_coalescing(torch.device(device))
     cs.wait()

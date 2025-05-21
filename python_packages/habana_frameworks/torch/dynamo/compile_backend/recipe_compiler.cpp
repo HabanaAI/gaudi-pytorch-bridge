@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <pybind11/stl.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
@@ -98,39 +98,50 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "graph_compile",
       [](std::shared_ptr<torch::jit::Graph> graph,
          const py::tuple& inputs,
+         const py::tuple& is_reusable,
          bool dynamic,
          bool inference,
          bool has_preallocated_outputs,
          bool has_randoms,
          InputSymbolIndexMap& in_symbol_idx_map,
          std::vector<habana_helpers::RangeInfo>& range_infos,
+         std::vector<int64_t>& const_indexes,
          bool mark_dynamic) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
           stack.push_back(torch::jit::toTypeInferredIValue(obj));
         }
+        std::vector<bool> is_reusable_vec;
+        is_reusable_vec.reserve(is_reusable.size());
+        for (auto& obj : is_reusable) {
+          is_reusable_vec.push_back(obj.cast<bool>());
+        }
         auto& graph_storage{habana::graph::GraphStorage::get()};
         return graph_storage.add_new_recipe(
             graph,
             stack,
+            is_reusable_vec,
             dynamic,
             inference,
             has_preallocated_outputs,
             has_randoms,
             in_symbol_idx_map,
             range_infos,
+            const_indexes,
             mark_dynamic);
       },
       py::return_value_policy::copy,
       py::arg("graph"),
       py::arg("inputs"),
+      py::arg("is_reusable"),
       py::arg("dynamic"),
       py::arg("inference"),
       py::arg("has_preallocated_outputs"),
       py::arg("has_randoms"),
       py::arg("in_symbol_idx_map"),
       py::arg("range_infos"),
+      py::arg("const_indexes"),
       py::arg("mark_dynamic"));
   m.def(
       "graph_launch",

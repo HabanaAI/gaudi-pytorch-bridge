@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/arange.h"
 #include "generated/backend/randperm.h"
 #include "habana_kernels/random_gen_kernels.h"
@@ -40,6 +40,7 @@ synapse_helpers::tensor RandPermCommon(
   int start = 0;
   int end = n;
   int step = 1;
+  using namespace std::literals;
   auto arange_op = ArangeCommon(
       op,
       graph,
@@ -49,11 +50,11 @@ synapse_helpers::tensor RandPermCommon(
       tpc_supported_randperm_dtype,
       arange_synin,
       std::nullopt,
-      get_guid_with_precision("range", tpc_supported_randperm_dtype),
+      get_guid_with_precision("range"sv, tpc_supported_randperm_dtype),
       out_shape,
       params,
       size,
-      c10::nullopt);
+      std::nullopt);
 
   std::vector<synTensor> inputs;
   inputs.emplace_back(arange_op.get());
@@ -64,7 +65,7 @@ synapse_helpers::tensor RandPermCommon(
         op,
         graph,
         {std::move(get_guid_with_precision(
-             "random_shuffle", tpc_supported_randperm_dtype)),
+             "random_shuffle"sv, tpc_supported_randperm_dtype)),
          std::move(inputs),
          {{out_shape, tpc_supported_randperm_dtype, final_result_index}}});
     return std::move(randperm[0]);
@@ -73,7 +74,7 @@ synapse_helpers::tensor RandPermCommon(
         op,
         graph,
         {std::move(get_guid_with_precision(
-             "random_shuffle", tpc_supported_randperm_dtype)),
+             "random_shuffle"sv, tpc_supported_randperm_dtype)),
          std::move(inputs),
          {{out_shape, tpc_supported_randperm_dtype}}});
     if ((out_dtype == c10::ScalarType::Long) &&

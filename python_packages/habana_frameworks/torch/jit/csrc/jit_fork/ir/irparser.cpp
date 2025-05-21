@@ -206,7 +206,7 @@ void IRParser::parseOperatorOutputs(std::vector<VarWithType>* outs) {
 ParsedLiteral IRParser::parseScalarLiteral(Node* n, std::string starting_str) {
   auto token = L.cur();
   std::string& str = starting_str;
-  std::pair<TypePtr, c10::optional<c10::AliasInfo>> type_alias;
+  std::pair<TypePtr, std::optional<c10::AliasInfo>> type_alias;
   ParsedLiteral r;
   switch (token.kind) {
     case TK_STRINGLITERAL:
@@ -611,7 +611,7 @@ void IRParser::parseOperator(Block* b) {
     vmap[v.name]->setDebugName(v.name, true /*allow_numbers*/);
 
     if (schema && !schema->is_varret()) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           schema->returns().size() > idx,
           "Operator parsing error: out of bounds access at ",
           idx,

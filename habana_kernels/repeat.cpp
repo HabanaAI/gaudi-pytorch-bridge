@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "repeat.h"
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
@@ -125,10 +125,10 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for RepeatHTOperator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 & arg3 expected to be shape tensor for RepeatHTOperator");
   auto input = inputs[0].toTensor();
@@ -181,10 +181,10 @@ void RepeatOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for repeat operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isIntList(),
       "Input arg2 expected to be intlist for repeat operator");
   auto input = inputs[0].toTensor();
@@ -257,16 +257,16 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for repeat-interleave operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for repeat-interleave operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isInt(),
       "Input arg3 expected to be Int for repeat-interleave operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isTensor(),
       "Input arg4 expected to be tensor for repeat-interleave operator");
 
@@ -346,13 +346,13 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for repeat-interleave operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for repeat-interleave operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isInt(),
       "Input arg3 expected to be Int for repeat-interleave operator");
 
@@ -360,10 +360,10 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
   auto dim = inputs[2].toInt();
 
   auto repeats_ht = inputs[1].toTensor();
-  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
+  HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
   auto tmeta{get_tensor_extra_meta(repeats_ht)};
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tmeta->get_host_dt_type() == habana::HostDataType::INT32_T,
       "Incorrect datatype of HOST ",
       tmeta->get_host_dt_type(),

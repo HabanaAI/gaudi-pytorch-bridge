@@ -16,7 +16,6 @@
 ###############################################################################
 
 
-import os
 import random
 
 import numpy as np
@@ -26,10 +25,18 @@ from habana_frameworks.torch.core.quantizer import (
     _mark_nodes_as_annotated,
     _update_input_qspec_map,
     habana_quant_config_symmetric,
-    habana_quantizer,
 )
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
+
+if is_pytorch_older_than("2.7.0"):
+    from habana_frameworks.torch.core.quantizer import habana_quantizer
+
+import habana_frameworks.torch.internal.bridge_config as bc
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import fga_assert_helper, inference_env_fixture, is_gaudi1
+from test_utils import (
+    fga_assert_helper,
+    inference_env_fixture,  # noqa F401
+)
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer
@@ -41,19 +48,9 @@ from torch.ao.quantization.quantizer.xnnpack_quantizer_utils import (
 from torch.fx.passes.utils.source_matcher_utils import get_source_partitions
 
 
-# Fixture to set the environment variable
-@pytest.fixture
-def set_env_variable():
-    variable_name_fx_pass = "USE_FX_GRAPH_PATTERN_MATCHING"
-    os.environ[variable_name_fx_pass] = "1"
-    # Yield to provide the value for the test
-    yield "1"
-    os.environ[variable_name_fx_pass] = "0"
-
-
 class SimpleModel(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModel, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
 
@@ -65,7 +62,7 @@ class SimpleModel(torch.nn.Module):
 
 class SimpleModelWithMultipleGraphs(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModelWithMultipleGraphs, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
         self.gemm2 = torch.nn.Linear(2, 2, dtype=dtype)
@@ -111,6 +108,49 @@ def verify_nodes(ops_summary, expected_op_count):
             fga_assert_helper(ops_summary=ops_summary, op=op, count_list=count_list)
 
 
+class custom_quantizer(Quantizer):
+
+    def __init__(self, quantization_config):
+        super().__init__()
+        self.global_config: QuantizationConfig = quantization_config
+
+    def validate(self, model: torch.fx.GraphModule) -> None:
+        pass
+
+    def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
+
+        def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+            module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
+            if len(module_partitions) == 0:
+                return
+
+            act_qspec = get_input_act_qspec(quantization_config)
+            weight_qspec = get_weight_qspec(quantization_config)
+            for module_or_fn_type, partitions in module_partitions.items():
+                if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
+                    for p in partitions:
+                        act_node = p.input_nodes[0]
+                        weight_node = None
+                        for node in p.params:
+                            weight_or_bias = getattr(gm, node.target, None)
+                            if weight_or_bias is None:
+                                continue
+                            if weight_or_bias.ndim == 2:
+                                weight_node = node
+
+                        if weight_node is None:
+                            continue
+
+                        _update_input_qspec_map(p, act_node, act_qspec)
+                        _update_input_qspec_map(p, weight_node, weight_qspec)
+
+                        nodes_to_mark_annotated = list(p.nodes)
+                        _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
+        _annotate_linear(model, self.global_config)
+        return model
+
+
 def use_pt2e_quant_flow(
     test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
 ):
@@ -144,26 +184,42 @@ def use_pt2e_quant_flow(
     inputs0 = inputs0.to(HPU)
     inputs1 = inputs1.to(HPU)
     inputs2 = inputs2.to(HPU)
-    example_inputs0 = [
-        inputs0,
-    ]
-    example_inputs1 = [
-        inputs1,
-    ]
-    example_inputs2 = [
-        inputs2,
-    ]
+    if is_pytorch_older_than("2.7.0"):
+        example_inputs0 = [
+            inputs0,
+        ]
+        example_inputs1 = [
+            inputs1,
+        ]
+        example_inputs2 = [
+            inputs2,
+        ]
+    else:
+        example_inputs0 = (inputs0,)
+        example_inputs1 = (inputs1,)
+        example_inputs2 = (inputs2,)
 
     model.to(device=HPU)
     model.eval()
 
     with torch.no_grad():
-        from torch._export import capture_pre_autograd_graph
+        if is_pytorch_older_than("2.7.0"):
+            from torch._export import capture_pre_autograd_graph
 
-        if pass_input_during_export:
-            model = capture_pre_autograd_graph(model, example_inputs0)
+            if pass_input_during_export:
+                model = capture_pre_autograd_graph(model, example_inputs0)
+            else:
+                model = capture_pre_autograd_graph(model)
         else:
-            model = capture_pre_autograd_graph(model)
+            from torch.export import export_for_training
+
+            if pass_input_during_export:
+                model = export_for_training(model, example_inputs0)
+            else:
+                model = export_for_training(model)
+
+            if isinstance(model, torch.export.exported_program.ExportedProgram):
+                model = model.module()
 
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
             from torch.ao.quantization.quantize_pt2e import prepare_pt2e
@@ -191,147 +247,114 @@ def use_pt2e_quant_flow(
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_float(
-    set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture
-):
+def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
+    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", True), bc.env_setting(
+        "PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False
+    ):
+        if is_pytorch_older_than("2.7.0"):
+            quantizer = habana_quantizer()
+            quant_config = habana_quant_config_symmetric(quant_dtype)
+            quantizer.set_global(quant_config)
+        else:
+            quant_config = habana_quant_config_symmetric(quant_dtype)
+            quantizer = custom_quantizer(quant_config)
 
-    quantizer = habana_quantizer()
-    quant_config = habana_quant_config_symmetric(quant_dtype)
-    quantizer.set_global(quant_config)
+        expected_op_count = {
+            "after_prepare_pt2e": {
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.copy_.default": [(4, 0), (4, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+            },
+            "after_convert_pt2e": {
+                "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
+                "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+            },
+        }
 
-    expected_op_count = {
-        "after_prepare_pt2e": {
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy_.default": [(4, 0), (4, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-        },
-        "after_convert_pt2e": {
-            "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
-            "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-        },
-    }
-
-    use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export)
+        use_pt2e_quant_flow(
+            test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
+        )
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
 def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
+    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False):
 
-    class custom_quantizer(Quantizer):
+        def custom_quant_config_symmetric(quant_dtype):
+            quant_min = int(torch.iinfo(quant_dtype).min)
+            quant_max = int(torch.iinfo(quant_dtype).max)
 
-        def __init__(self, quantization_config):
-            super().__init__()
-            self.global_config: QuantizationConfig = quantization_config
+            act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+            act_quantization_spec = QuantizationSpec(
+                dtype=quant_dtype,
+                quant_min=quant_min,
+                quant_max=quant_max,
+                qscheme=torch.per_tensor_symmetric,
+                is_dynamic=False,
+                observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
+            )
 
-        def validate(self, model: torch.fx.GraphModule) -> None:
-            pass
+            weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+            weight_quantization_spec = QuantizationSpec(
+                dtype=quant_dtype,
+                quant_min=quant_min,
+                quant_max=quant_max,
+                qscheme=torch.per_tensor_symmetric,
+                ch_axis=0,
+                is_dynamic=False,
+                observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
+            )
 
-        def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
+            quantization_config = QuantizationConfig(
+                act_quantization_spec,
+                None,
+                weight_quantization_spec,
+                None,
+            )
 
-            def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
-                module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
-                if len(module_partitions) == 0:
-                    return
+            return quantization_config
 
-                act_qspec = get_input_act_qspec(quantization_config)
-                weight_qspec = get_weight_qspec(quantization_config)
-                for module_or_fn_type, partitions in module_partitions.items():
-                    if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
-                        for p in partitions:
-                            act_node = p.input_nodes[0]
-                            weight_node = None
-                            for node in p.params:
-                                weight_or_bias = getattr(gm, node.target)
-                                if weight_or_bias.ndim == 2:
-                                    weight_node = node
+        quant_config = custom_quant_config_symmetric(quant_dtype)
+        quantizer = custom_quantizer(quant_config)
 
-                            if weight_node is None:
-                                continue
+        expected_op_count = {
+            "after_prepare_pt2e": {
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.copy_.default": [(4, 0), (4, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+            },
+            "after_convert_pt2e": {
+                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
+                "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+            },
+        }
 
-                            _update_input_qspec_map(p, act_node, act_qspec)
-                            _update_input_qspec_map(p, weight_node, weight_qspec)
-
-                            nodes_to_mark_annotated = list(p.nodes)
-                            _mark_nodes_as_annotated(nodes_to_mark_annotated)
-
-            _annotate_linear(model, self.global_config)
-            return model
-
-    def custom_quant_config_symmetric(quant_dtype):
-        quant_min = int(torch.iinfo(quant_dtype).min)
-        quant_max = int(torch.iinfo(quant_dtype).max)
-
-        act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-        act_quantization_spec = QuantizationSpec(
-            dtype=quant_dtype,
-            quant_min=quant_min,
-            quant_max=quant_max,
-            qscheme=torch.per_tensor_symmetric,
-            is_dynamic=False,
-            observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
+        use_pt2e_quant_flow(
+            test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
         )
-
-        weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-        weight_quantization_spec = QuantizationSpec(
-            dtype=quant_dtype,
-            quant_min=quant_min,
-            quant_max=quant_max,
-            qscheme=torch.per_tensor_symmetric,
-            ch_axis=0,
-            is_dynamic=False,
-            observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
-        )
-
-        quantization_config = QuantizationConfig(
-            act_quantization_spec,
-            None,
-            weight_quantization_spec,
-            None,
-        )
-
-        return quantization_config
-
-    quant_config = custom_quant_config_symmetric(quant_dtype)
-    quantizer = custom_quantizer(quant_config)
-
-    expected_op_count = {
-        "after_prepare_pt2e": {
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy_.default": [(4, 0), (4, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-        },
-        "after_convert_pt2e": {
-            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
-            "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-        },
-    }
-
-    use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export)

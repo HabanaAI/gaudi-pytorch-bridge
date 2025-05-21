@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "synapse_shim/synapse_api_shim.h"
 #include <dlfcn.h>
 #include <link.h>
@@ -148,67 +148,4 @@ hccl_api_t* GetHcclApi() {
 void EnableSynapseApi() {
   syn_api = GetSynapseApi();
   hccl_api = GetHcclApi();
-}
-
-/*
- * Synapse API implementation that loggs api calls.
- *
- * Works similarily to LazySynapseApi but uses API symbols from
- * synapse_logger.so
- */
-class LoggerSynapseApi {
- public:
-  LoggerSynapseApi(synapse_logger::SynapseLoggerObserver* observer)
-      : synapse_logger_lib_handle_{nullptr} {
-    synapse_logger_lib_handle_ =
-        dlopen("pytorch_synapse_logger.so", RTLD_LOCAL | RTLD_NOW);
-    CHECK_NULL(synapse_logger_lib_handle_);
-    LoggerSynapseApi& loader{*this};
-    SYN_API_SYMBOL_VISIT(INIT_SYN_FUNC);
-    // TODO: SW-141655 - Currently there's no hccl logger available
-    // HCCL_API_SYMBOL_VISIT(INIT_HCCL_FUNC);
-    if (observer) {
-      using register_synapse_logger_oberver_t =
-          void(synapse_logger::SynapseLoggerObserver*);
-      auto register_synapse_logger_oberver =
-          (register_synapse_logger_oberver_t*)dlsym(
-              synapse_logger_lib_handle_, "register_synapse_logger_oberver");
-      CHECK_NULL(register_synapse_logger_oberver);
-      register_synapse_logger_oberver(observer);
-    }
-  }
-  ~LoggerSynapseApi() {
-    if (synapse_logger_lib_handle_ != nullptr) {
-      Uninstall();
-      dlclose(synapse_logger_lib_handle_);
-      synapse_logger_lib_handle_ = nullptr;
-    }
-  }
-
-  void* DlSym(const char* sym) const {
-    void* result{dlsym(synapse_logger_lib_handle_, sym)};
-    return result;
-  }
-
-  void Uninstall() {
-    syn_api = old_syn_api_;
-  }
-
-  void Install() {
-    old_syn_api_ = syn_api;
-    syn_api = &synapse_api_;
-    // TODO: SW-141655 - Currently there's no hccl logger available
-    // hccl_api = &hccl_api_;
-  }
-
- private:
-  void* synapse_logger_lib_handle_;
-  synapse_api_t* old_syn_api_ = nullptr;
-  synapse_api_t synapse_api_;
-  hccl_api_t hccl_api_;
-};
-
-void EnableSynapseApiLogger(synapse_logger::SynapseLoggerObserver* observer) {
-  static LoggerSynapseApi instance{observer};
-  instance.Install();
 }

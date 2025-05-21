@@ -17,7 +17,10 @@
 
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizationPassPlacement,
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_allreduce_parents,
     pass_fuse_partitions,
@@ -28,7 +31,7 @@ from torch.fx.experimental.proxy_tensor import make_fx
 
 
 def test_reorder_allreduce_with_no_users():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)

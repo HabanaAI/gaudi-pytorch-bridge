@@ -19,7 +19,10 @@ import os
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
-from test_utils import inference_env_fixture
+from test_utils import (
+    inference_env_fixture,  # noqa F401
+    is_gaudi2,
+)
 
 
 @pytest.fixture
@@ -49,8 +52,6 @@ def variant_from_dtype(dtype):
     return "152" if (dtype is None or dtype is torch.float8_e5m2) else "143"
 
 
-from test_utils import is_gaudi2
-
 pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports fp8")
 
 
@@ -65,11 +66,14 @@ def test_fp8_quant_model(set_env_variable, inference_env_fixture):
     shapeA = (8, 4096)
     shapeB = (4096, 4096)
 
-    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import (
+        _check_params_as_const,
+        _mark_params_as_const,
+    )
 
     class TestModel(torch.nn.Module):
         def __init__(self, input_scale, input_scale_inv, other_scale, other_scale_inv):
-            super(TestModel, self).__init__()
+            super().__init__()
             if outside_parameter:
                 print(f"TestModel::__init__ {type(input_scale)=} {type(input_scale_inv)=}")
                 self.input_scale = input_scale if input_scale is not None else None

@@ -1,19 +1,20 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/helpers/tensor_utils.h"
 #include <ATen/InferSize.h>
+#include <absl/strings/str_cat.h>
 #include <c10/core/ScalarType.h>
 #include <perf_lib_layer_params.h>
 #include <algorithm>
@@ -21,6 +22,7 @@
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
+#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/device_helpers.h"
@@ -251,7 +253,7 @@ void habana_helpers::copy_scalars_to_device(
   for (auto pair : tensors_list) {
     auto src = pair.first;
     auto dst = pair.second;
-    TORCH_CHECK(dst.nbytes() >= src.nbytes());
+    HABANA_ASSERT(dst.nbytes() >= src.nbytes());
 
     synapse_helpers::device::transfer_desc desc;
     desc.src = reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr());
@@ -412,20 +414,7 @@ void habana_helpers::copy_data_to_host(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    struct ResourceHolder {
-      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
-          : src_(src), dst_(dst) {}
-
-      at::Tensor src_;
-      at::Tensor dst_;
-
-      void release_resources() {
-        src_ = at::Tensor();
-        dst_ = at::Tensor();
-      }
-    };
-
-    auto callback = [rh = std::make_shared<ResourceHolder>(
+    auto callback = [rh = std::make_shared<GenericResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
     habana::HPUDeviceContext::copy_data_to_host(
@@ -499,20 +488,7 @@ void habana_helpers::copy_data_to_device(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    struct ResourceHolder {
-      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
-          : src_(src), dst_(dst) {}
-
-      at::Tensor src_;
-      at::Tensor dst_;
-
-      void release_resources() {
-        src_ = at::Tensor();
-        dst_ = at::Tensor();
-      }
-    };
-
-    auto callback = [rh = std::make_shared<ResourceHolder>(
+    auto callback = [rh = std::make_shared<GenericResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
     habana::HPUDeviceContext::copy_data_to_device(
@@ -564,20 +540,7 @@ void habana_helpers::copy_data_within_device(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    struct ResourceHolder {
-      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
-          : src_(src), dst_(dst) {}
-
-      at::Tensor src_;
-      at::Tensor dst_;
-
-      void release_resources() {
-        src_ = at::Tensor();
-        dst_ = at::Tensor();
-      }
-    };
-
-    auto callback = [rh = std::make_shared<ResourceHolder>(
+    auto callback = [rh = std::make_shared<GenericResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
     habana::HPUDeviceContext::copy_data_within_device(
@@ -688,7 +651,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::ComplexHalf:
     case c10::ScalarType::ComplexFloat:
     case c10::ScalarType::ComplexDouble: {
-      TORCH_CHECK(false, "Complex datatype is not supported on HPU device.");
+      HABANA_ASSERT(false, "Complex datatype is not supported on HPU device.");
       return false;
     }
     case c10::ScalarType::Float8_e5m2:

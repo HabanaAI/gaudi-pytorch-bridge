@@ -20,10 +20,9 @@ import os
 import subprocess as sp
 from unittest.mock import MagicMock
 
+import build
 import pytest
 from build_profiles.version import Version
-
-import build
 
 FORK_BUILD_DIR = "/tmp/PYTORCH_FORK_RELEASE_BUILD/"
 MODULES_BUILD_DIR = "/tmp/PYTORCH_MODULES_RELEASE_BUILD/"

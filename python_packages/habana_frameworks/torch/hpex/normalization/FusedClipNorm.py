@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 #
 ###############################################################################
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.hpu as hthpu
-import torch
 from habana_frameworks.torch import _hpex_C
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 
 
 class FusedClipNorm:
@@ -30,9 +30,11 @@ class FusedClipNorm:
         self.dtype = torch.float32
         if len(params_list) != 0:
             self.dtype = params_list[0].dtype  # assume params are of same type and use type of first param
-        self.max_norm_t = (torch.ones((1)) * max_norm).to(self.dtype).to(torch.device("hpu"))
+        if not isinstance(max_norm, torch.Tensor):
+            max_norm = torch.tensor(max_norm)
+        self.max_norm_t = max_norm.to(self.dtype).to(torch.device("hpu"))
         self.norm_type = 2.0
-        super(FusedClipNorm, self).__init__()
+        super().__init__()
 
     def clip_norm(self, parameters):
         htcore.step_closure._mark_step_if_lazy()

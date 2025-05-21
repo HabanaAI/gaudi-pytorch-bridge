@@ -2,10 +2,6 @@
 testJobConfig:
   cpp_suite:
     devices:
-      gaudi:
-        hwType:
-          sim:
-            jobTimeout: '180'
       gaudi2:
         hwType:
           sim:
@@ -15,9 +11,6 @@ testJobConfig:
           sim:
   py_suite_lazy:
     devices:
-      gaudi:
-        hwType:
-          sim:
       gaudi2:
         hwType:
           sim:
@@ -26,9 +19,14 @@ testJobConfig:
           sim:
   py_suite_compile:
     devices:
-      gaudi:
+      gaudi2:
         hwType:
           sim:
+      gaudi3:
+        hwType:
+          sim:
+  py_suite_compile_jit_fork:
+    devices:
       gaudi2:
         hwType:
           sim:
@@ -37,9 +35,6 @@ testJobConfig:
           sim:
   py_suite_eager:
     devices:
-      gaudi:
-        hwType:
-          sim:
       gaudi2:
         hwType:
           sim:
@@ -48,9 +43,6 @@ testJobConfig:
           sim:
   cpp_suite_future:
     devices:
-      gaudi:
-        hwType:
-          sim:
       gaudi2:
         hwType:
           sim:
@@ -60,9 +52,6 @@ testJobConfig:
           sim:
   py_suite_lazy_future:
     devices:
-      gaudi:
-        hwType:
-          sim:
       gaudi2:
         hwType:
           sim:
@@ -71,9 +60,6 @@ testJobConfig:
           sim:
   py_suite_compile_future:
     devices:
-      gaudi:
-        hwType:
-          sim:
       gaudi2:
         hwType:
           sim:
@@ -82,25 +68,12 @@ testJobConfig:
           sim:
   py_suite_eager_future:
     devices:
-      gaudi:
-        hwType:
-          sim:
       gaudi2:
         hwType:
           sim:
       gaudi3:
         hwType:
           sim:
-  topology:
-    envVars:
-      IS_K8S_CONTAINER_TESTER: 'true'
-    devices:
-      gaudi2:
-        hwType:
-          asic:
-      gaudi:
-        hwType:
-          asic:
   topology_group_1:
     envVars:
       IS_K8S_CONTAINER_TESTER: 'true'
@@ -118,14 +91,6 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
-  perf:
-    devices:
-      gaudi2:
-        hwType:
-          asic:
-      gaudi_hls:
-        hwType:
-          asic:
   accuracy:
     devices:
       gaudi2:
@@ -134,12 +99,6 @@ testJobConfig:
   lightning_habana_uts:
     devices:
       gaudi2:
-        hwType:
-          asic:
-            envVars:
-              IS_K8S_CONTAINER_TESTER: 'true'
-          sim:
-      gaudi:
         hwType:
           asic:
             envVars:

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/cast_sequence.h"
 #include "generated/backend/_foreach_add.h"
@@ -141,10 +141,11 @@ static auto BuildBinary(
   if (alpha.has_value() and alpha.value().toFloat() != 1.) {
     constant = std::make_unique<synapse_helpers::tensor>(
         OpBackend::BuildConstant(op, graph, *alpha, result_type));
+    using namespace std::literals;
     mul = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult", result_type),
+        {get_guid_with_precision("mult"sv, result_type),
          {inputs[OTHER_INDEX], constant->get()},
          {{sizes[OTHER_INDEX], result_type}}});
     inputs[OTHER_INDEX] = mul[0].get();
@@ -157,6 +158,23 @@ static auto BuildBinary(
   }
   return OpBackend::BuildNode(
       op, graph, {guid, inputs, {{outshape, result_type, out_index}}});
+}
+
+bool MulTensorDSSTMetaFn(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("MulDSSTMeta called");
+  static_cast<void>(outputs);
+
+  if (inputs[0].isScalar() || inputs[1].isScalar())
+    return false;
+
+  // detect type promotion for mul.Tensor and update output shape
+  if (inputs[0].getScalarType() != inputs[1].getScalarType()) {
+    std::vector<int64_t> out_shape = {1};
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+  }
+  return true;
 }
 
 static void update_result_type(
@@ -203,9 +221,9 @@ static synapse_helpers::tensor createForeachBinaryNode(
   std::vector<synTensor> inputs = syn_inputs;
   std::vector<at::ScalarType> dtypes = {self.scalar_type()};
 
-  at::optional<at::Scalar> alpha = c10::nullopt;
+  at::optional<at::Scalar> alpha = std::nullopt;
   at::ScalarType result_type;
-  at::optional<synapse_helpers::tensor> scalar = c10::nullopt;
+  at::optional<synapse_helpers::tensor> scalar = std::nullopt;
   bool update_guid = true;
 
   if (pt_inputs[1].isTensor()) {
@@ -265,7 +283,7 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
   const auto other = stack.at(OTHER_INDEX);
   auto selfRank = self.dim();
   int64_t otherRank = 1;
-  at::optional<at::Scalar> alpha = c10::nullopt;
+  at::optional<at::Scalar> alpha = std::nullopt;
   bool autocastToF32 = false;
   at::ScalarType resultType;
   std::string updatedGuid = guid;
@@ -278,7 +296,22 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
     }
 
     otherRank = otherTensor.dim();
-    resultType = at::result_type(self, otherTensor);
+    // aten.result_type doesn't implicitly allow number as tensor, so here we
+    // need explicitly create scalar and then call result_type.Scalar variant
+    if (!otherTensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+      resultType = at::result_type(self, otherTensor);
+    } else {
+      // create a new dummy scalar with default type, and
+      // then call result_type(Tensor, Scalar) variant
+      at::Scalar newOtherScalar;
+      if (at::is_floating_point(otherTensor)) {
+        newOtherScalar = at::Scalar(1.0f);
+      } else {
+        newOtherScalar = at::Scalar(1LL);
+      }
+      resultType = at::result_type(self, newOtherScalar);
+    }
+
     update_result_type(
         resultType, updatedGuid, castIntToFloat, supportI8, supportI16);
   } else {

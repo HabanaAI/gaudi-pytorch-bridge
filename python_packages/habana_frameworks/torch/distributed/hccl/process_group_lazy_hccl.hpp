@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 #include <pybind11/chrono.h>
@@ -19,15 +19,13 @@
 #include <pybind11/pybind11.h>
 #include <torch/extension.h>
 
-#include <torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
-#include <torch_ver/csrc/distributed/c10d/Store.hpp>
-#include <torch_ver/csrc/distributed/c10d/Types.hpp>
-#include <torch_ver/csrc/distributed/c10d/Utils.hpp>
+#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
+#include <torch/csrc/distributed/c10d/Store.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
 
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-
-using Work = c10d_ver::Work;
 
 namespace c10d {
 class TORCH_API ProcessGroupLazyHCCL : public Backend {
@@ -92,6 +90,11 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
       std::vector<at::Tensor>& inputTensors,
       const AllgatherOptions& opts = AllgatherOptions()) override;
 
+  c10::intrusive_ptr<Work> allgather_into_tensor_coalesced(
+      std::vector<at::Tensor>& outputs,
+      std::vector<at::Tensor>& inputs,
+      const AllgatherOptions& opts = AllgatherOptions()) override;
+
   c10::intrusive_ptr<Work> reduce_scatter_tensor_coalesced(
       std::vector<at::Tensor>& outputs,
       std::vector<at::Tensor>& inputs,
@@ -146,6 +149,13 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
 
+  void setSequenceNumberForGroup() override{
+      /* HCCL just starts sequence numbers at 0. */};
+
+  uint64_t getSequenceNumberForGroup() override {
+    return seq_;
+  };
+
   // Provides an API to abort the ProcessGroup (hcclCommAbort)
   // instead of relying on ProcessGroupHCCL destructor.
   // return true if abort is successful, otherwise false
@@ -196,6 +206,7 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   std::string group_name_;
   bool emulate_distributed_;
   bool is_destroyed_ = false;
+  uint64_t seq_{0};
 
  protected:
   std::shared_ptr<habana::HcclCommunicator> comm_;

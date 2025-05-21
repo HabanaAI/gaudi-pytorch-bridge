@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_lazy_test_infra.h"
 
 #include <algorithm>
@@ -30,7 +30,6 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #include "utils/device_type_util.h"
 
 using namespace habana_lazy;
@@ -1172,8 +1171,8 @@ TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
 void compute_iou(
     torch::Tensor& boxes,
     std::vector<std::vector<float>>& iou_vec_2d) {
-  TORCH_CHECK(boxes.dim() == 2, "Expecting a 2D tensor, got ", boxes.dim());
-  TORCH_CHECK(
+  HABANA_ASSERT(boxes.dim() == 2, "Expecting a 2D tensor, got ", boxes.dim());
+  HABANA_ASSERT(
       boxes.sizes()[1] == 4, "Expecting the FCD=4, got ", boxes.sizes()[1]);
 
   auto num_boxes = boxes.sizes()[0];
@@ -1193,7 +1192,7 @@ void compute_iou(
       float y0i = boxes[i][Y0].item<float>();
       float x1i = boxes[i][X1].item<float>();
       float y1i = boxes[i][Y1].item<float>();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           x0i < x1i && y0i < y1i,
           "invalid box coordinate received ",
           "  x0i=",
@@ -1221,7 +1220,7 @@ void compute_iou(
       float y0j = boxes[j][Y0].item<float>();
       float x1j = boxes[j][X1].item<float>();
       float y1j = boxes[j][Y1].item<float>();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           x0j < x1j && y0j < y1j,
           "invalid box coordinate received ",
           "  x0j=",
@@ -1298,7 +1297,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
 
     auto nms_boxid = torchvision_nms_hpu_wrap(hboxes, hscores, 1.0);
     auto nms_boxid_c = nms_boxid.to(torch::kCPU);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         nms_boxid_c.dim() == 1,
         "Expecting a 1D tensor, got ",
         boxes.dim(),
@@ -1345,7 +1344,7 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
 
       auto nms_boxid = torchvision_nms_hpu_wrap(hboxes, hscores, 1.0);
       auto nms_boxid_c = nms_boxid.to(torch::kCPU);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           nms_boxid_c.dim() == 1,
           "Expecting a 1D tensor, got ",
           boxes_cur.dim(),
@@ -1419,7 +1418,7 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
       auto nms_boxid =
           batched_nms_hpu_lazy(hboxes, hscores, hclasses, score_th);
       auto nms_boxid_c = nms_boxid.to(torch::kCPU);
-      TORCH_CHECK(
+      HABANA_ASSERT(
           nms_boxid_c.dim() == 1,
           "Expecting a 1D tensor, got ",
           boxes_cur.dim(),
@@ -1493,8 +1492,8 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
         torch::randint(0, (W - 1), {index_size}, torch::dtype(torch::kInt64));
 
     // Make list
-    c10::List<c10::optional<at::Tensor>> indices_cpu;
-    c10::List<c10::optional<at::Tensor>> indices_list{};
+    c10::List<std::optional<at::Tensor>> indices_cpu;
+    c10::List<std::optional<at::Tensor>> indices_list{};
     at::Tensor temp = torch::slice(index, 0, 0, end_sizes[i], step_sizes[i]);
     indices_cpu.push_back(c10::make_optional(temp));
     temp =
@@ -1517,12 +1516,12 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest1) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
@@ -1538,12 +1537,12 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest1) {
 
   std::vector<torch::Tensor> vec_cpu1{
       torch::tensor({1, 0}), torch::tensor({0})};
-  c10::List<c10::optional<at::Tensor>> indices_cpu1{};
+  c10::List<std::optional<at::Tensor>> indices_cpu1{};
   indices_cpu1.reserve(vec_cpu1.size());
   for (auto t : vec_cpu1) {
     indices_cpu1.push_back(c10::make_optional(t));
   }
-  c10::List<c10::optional<at::Tensor>> indices_list1{};
+  c10::List<std::optional<at::Tensor>> indices_list1{};
   indices_list1.reserve(vec_cpu1.size());
   for (auto t : vec_cpu1) {
     indices_list1.push_back(c10::make_optional(t.to(torch::kHPU)));
@@ -1844,8 +1843,8 @@ TEST_F(LazyDynamicShapesTest, RandpermOutTest) {
   std::vector<int> in_sizes{8, 10, 15};
   for (int i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
-    c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-    c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+    std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+    std::optional<at::Device> hb_device = at::DeviceType::HPU;
     at::TensorOptions hb_options =
         at::TensorOptions().dtype(dtype).device(hb_device);
     torch::manual_seed(0);
@@ -1937,36 +1936,6 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest) {
   pad_test({0, 0, 0, 22}, {3, 87, 80});
   pad_test({0, 28, 0, 0}, {3, 80, 106});
   pad_test({0, 0, 0, 20}, {3, 119, 80});
-}
-
-TEST_F(LazyDynamicShapesTest, DISABLED_DS_GridSamplerTest) {
-  auto grid_sampler_test = [](std::vector<int64_t> pad_sizes,
-                              std::vector<int64_t> input_shape) {
-    torch::Tensor tensor = torch::randn(pad_sizes).to(torch::kFloat);
-    torch::Tensor tensorHabana = tensor.to(torch::kHPU);
-    torch::Tensor grid_tensor = torch::randn(input_shape).to(torch::kFloat);
-    torch::Tensor gridHabana = grid_tensor.to(torch::kHPU);
-    namespace F = torch::nn::functional;
-    auto outHabana = F::grid_sample(
-        tensorHabana,
-        gridHabana,
-        F::GridSampleFuncOptions()
-            .mode(torch::kBilinear)
-            .padding_mode(torch::kZeros)
-            .align_corners(false));
-    auto out = F::grid_sample(
-        tensor,
-        grid_tensor,
-        F::GridSampleFuncOptions()
-            .mode(torch::kBilinear)
-            .padding_mode(torch::kZeros)
-            .align_corners(false));
-    bool equal = out.allclose(outHabana.to(torch::kCPU), 0.000001, 0.000001);
-    EXPECT_EQ(equal, true);
-  };
-  grid_sampler_test({2, 3, 4, 4}, {2, 10, 10, 2});
-  grid_sampler_test({1, 1, 2, 2}, {1, 3, 3, 2});
-  grid_sampler_test({1, 1, 2, 2}, {1, 4, 4, 2});
 }
 
 void runIndexPutDynamicTestBool(int N, bool acc) {
@@ -2283,7 +2252,7 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor beta =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
-    c10::optional<at::Tensor> mean;
+    std::optional<at::Tensor> mean;
     torch::Tensor var =
         torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor h_gamma = gamma.to(torch::kHPU);

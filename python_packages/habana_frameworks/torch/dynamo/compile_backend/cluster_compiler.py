@@ -16,13 +16,20 @@
 ###############################################################################
 
 
+import copy
+
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
 from habana_frameworks.torch.dynamo._fx_to_jit_lowering import FxToJitLowering
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes import run_jit_fork_passes
+from habana_frameworks.torch.jit.csrc.jit_fork.python_passes.forked_passes import (
+    run_jit_fork_passes,
+)
+
+import torch
 
 from ._helpers import (
     get_dynamic_config_value,
@@ -31,6 +38,7 @@ from ._helpers import (
     remove_duplicated_outputs,
     remove_no_effect_inplace_add,
 )
+from ._passes.random import propagate_for_random_ops, wrap_random_ops
 from .recipe_compiler import get_callable_recipe
 
 logger = get_compile_backend_logger()
@@ -44,7 +52,6 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
 
     from torch._subclasses.fake_tensor import FakeTensor
     from torch.fx.experimental.proxy_tensor import py_sym_types
-    from torch.fx.passes.shape_prop import TensorMetadata
 
     is_dynamic = False
     for node in input_module.graph.nodes:
@@ -66,11 +73,14 @@ class _ClusterCompiler(torch.fx.Interpreter):
         self.graph_module = graph_module
         self.ctx = ctx
         self.subgraph_cnt = 0
+        self._has_random_ops = False
 
     def fx_to_jit_ir(self, submod, args):
-        # temporarily skiping this
-        # wrap_random_ops(submod)
-        # remove_duplicated_outputs(submod)
+        additional_random_args: tuple[torch.Tensor, torch.Tensor] = wrap_random_ops(submod)
+        if additional_random_args:
+            self._has_random_ops = True
+            propagate_for_random_ops(submod, args, additional_random_args)
+        remove_duplicated_outputs(submod)
         remove_no_effect_inplace_add(submod)
 
         submod.graph.lint()
@@ -111,6 +121,7 @@ class _ClusterCompiler(torch.fx.Interpreter):
         # This function has been overwritten because we need
         # access to FX nodes, not node.target as done in the base
         # run_node function.
+        logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
         with self._set_current_node(n):
             assert "val" in n.meta.keys(), f"{n=} {n.target=} {n.meta.keys()=}"
             if n.op == "call_module":
@@ -131,8 +142,9 @@ class _ClusterCompiler(torch.fx.Interpreter):
         #         f"FX_GRAPH:\nNode name: {self.ctx.graph_name}\n" f"Target: {node.target}\n" f"Code: {submod.code}"
         #     )
 
-        jit_ir = self.fx_to_jit_ir(submod, args)
-        jit_node_annotation_propagation(jit_ir, submod)
+        submod_updated = copy.deepcopy(submod)
+        jit_ir = self.fx_to_jit_ir(submod_updated, args)
+        jit_node_annotation_propagation(jit_ir, submod_updated)
 
         is_submod_dynamic = is_module_dynamic(submod)
         refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
@@ -142,10 +154,17 @@ class _ClusterCompiler(torch.fx.Interpreter):
                 is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
 
             if is_submod_dynamic and optim_output_sif_ds:
-                jit_node_shape_propagation(jit_ir, submod)
+                jit_node_shape_propagation(jit_ir, submod_updated)
 
+        is_reusables: list[bool] = submod.meta["is_reusables"] if "is_reusables" in submod.meta else []
         syngraph_module = get_callable_recipe(
-            jit_ir, submod, self.ctx.graph_name, is_training=self.ctx.is_training, is_dynamic=is_submod_dynamic
+            jit_ir,
+            submod,
+            self.ctx.graph_name,
+            is_training=self.ctx.is_training,
+            is_dynamic=is_submod_dynamic,
+            has_random_ops=self._has_random_ops,
+            is_reusables=is_reusables,
         )
         # todo https://jira.habana-labs.com/browse/SW-201169:
         # in our case compilation:
@@ -166,6 +185,13 @@ class _ClusterCompiler(torch.fx.Interpreter):
         self.ctx.graph_module.add_submodule(target, syngraph_module)
 
         self.subgraph_cnt += 1
+
+        self._has_random_ops = False
+
+        logger.debug(
+            "####PyTorch (JIT fork)-generated JIT IR graph for this HPU graph:####\n%s",
+            str(syngraph_module.graph) if isinstance(syngraph_module, torch.fx.GraphModule) else jit_ir,
+        )
 
         return node.meta["val"]
 

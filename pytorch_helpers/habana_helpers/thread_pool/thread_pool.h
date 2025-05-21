@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <unistd.h>
@@ -114,9 +114,24 @@ class ThreadPoolBase {
  public:
   ThreadPoolBase(
       bool propagate_exception = false,
-      uint64_t queue_capacity = 0,
       const std::function<void()>& init_thread = nullptr);
+
+  template <
+      typename T = ThreadPolicy,
+      typename std::enable_if_t<std::is_same_v<T, MultiThreadPolicy>, bool> =
+          true>
+  ThreadPoolBase(
+      bool propagate_exception,
+      const std::function<void()>& init_thread,
+      uint64_t threads_number);
+
   ~ThreadPoolBase();
+
+  template <
+      typename T = Task,
+      typename std::
+          enable_if_t<std::is_same_v<T, move_only_function_void>, bool> = true>
+  void enqueue(T&& task);
 
   template <
       class F,
@@ -145,25 +160,18 @@ class ThreadPoolBase {
   std::string ToString() const;
   uint64_t get_active_task_count() const;
 
-  // utility function for debug capability to change queue capacity
-  void set_queue_capacity(uint64_t queue_capacity) {
-    queue_capacity_ = queue_capacity;
-  }
-
  private:
   Queue<Task> tasks_;
 
   std::vector<std::thread> threads_;
-  std::atomic_bool stop_;
-  std::exception_ptr ex_ptr_;
+  std::atomic_bool stop_ = false;
+  std::exception_ptr ex_ptr_ = nullptr;
   std::condition_variable cond_;
   std::mutex mutex_;
 
   pid_t original_pid_;
 
   bool propagate_exception_ = false;
-  // queue capacity: 0 means unlimit and no throttling
-  uint64_t queue_capacity_ = 0;
 
   std::atomic<uint64_t> active_task_count_{0};
 
@@ -177,8 +185,42 @@ class ThreadPoolBase {
     }
   }
   void executePendingTask(Task&& task);
-  void throttleIfNeeded();
+  void Init(const std::function<void()>& init_thread, uint64_t threads_number);
 };
+
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+template <
+    typename T,
+    typename std::enable_if_t<std::is_same_v<T, MultiThreadPolicy>, bool>>
+ThreadPoolBase<Queue, Task, ThreadPolicy>::ThreadPoolBase(
+    bool propagate_exception,
+    const std::function<void()>& init_thread,
+    uint64_t threads_number)
+    : propagate_exception_(propagate_exception) {
+  Init(
+      init_thread,
+      threads_number == 0
+          ? ThreadPolicy::GetNumThreads()
+          : std::min(threads_number, ThreadPolicy::GetNumThreads()));
+}
+
+template <
+    template <typename>
+    typename Queue,
+    typename Task,
+    typename ThreadPolicy>
+template <
+    typename T,
+    typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
+void ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(T&& task) {
+  RethrowIfException();
+  ++active_task_count_;
+  tasks_.push(std::move(task));
+}
 
 template <
     template <typename>
@@ -192,7 +234,6 @@ template <
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
 void ThreadPoolBase<Queue, Task, ThreadPolicy>::enqueue(F&& f, Args&&... args) {
   RethrowIfException();
-  throttleIfNeeded();
   ++active_task_count_;
   auto task = [args = std::make_tuple(std::forward<Args>(args)...),
                func = std::move(f)]() mutable {

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "local_scalar_dense.h"
 #include <ATen/Dispatch.h>
 #include <ATen/core/TensorBody.h>
@@ -53,14 +53,14 @@ void Copy_Scalar_To_Host_Empty_Lowering_Task(
     const at::Tensor& dst,
     uint32_t size,
     c10::hpu::HPUStream stream) {
-  habana::HPUDeviceContext::compile_thread().enqueue(
+  habana::HPUDeviceContext::compile_thread_pool().enqueue(
       Copy_Scalar_To_Host_Empty_Compile_Task,
       std::move(src),
       std::move(dst),
       size,
       std::move(stream));
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
+    habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete();
   }
 }
 
@@ -86,15 +86,17 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Warray-bounds"
 
-  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND3(
+  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND5(
       at::ScalarType::Bool,
       at::ScalarType::BFloat16,
       at::ScalarType::Half,
+      at::ScalarType::Float8_e5m2,
+      at::ScalarType::Float8_e4m3fn,
       self.scalar_type(),
       "_local_scalar_dense",
       [&] {
         scalar_t val;
-        TORCH_CHECK(
+        HABANA_ASSERT(
             elementSize(self.scalar_type()) == sizeof(val),
             " source and destination size mismatch");
         auto dst =

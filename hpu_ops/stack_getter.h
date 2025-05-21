@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include "hpu_ops/op_backend.h"
@@ -69,7 +69,7 @@ class StackGetter {
 
  private:
   void CheckStackPos() {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stackPos < stack.size(),
         label,
         " expected at least ",
@@ -119,7 +119,7 @@ class StackGetter {
       std::string_view orNoneStrOpt,
       TensorsPair*) {
     auto pos = CheckGetAndIncrStackPos();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stack[pos].isTensor(),
         "Input ",
         pos,
@@ -133,7 +133,7 @@ class StackGetter {
       std::string_view orNoneStrOpt,
       std::vector<TensorsPair>*) {
     auto pos = CheckGetAndIncrStackPos();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         stack[pos].isTensorList(),
         "Input ",
         pos,
@@ -185,7 +185,7 @@ class StackGetter {
 #define GET_NEXT_INPUT_INTERNAL(T, isFn, toFn, Tstr)          \
   T getNextInputInternal(std::string_view orNoneStrOpt, T*) { \
     auto pos = CheckGetAndIncrStackPos();                     \
-    TORCH_CHECK(                                              \
+    HABANA_ASSERT(                                            \
         stack[pos].isFn(),                                    \
         "Input ",                                             \
         pos,                                                  \
@@ -212,7 +212,7 @@ class StackGetter {
       isDoubleList,
       toDoubleVector,
       "double list")
-  GET_NEXT_INPUT_INTERNAL(c10::string_view, isString, toStringView, "string")
+  GET_NEXT_INPUT_INTERNAL(std::string_view, isString, toStringView, "string")
 #undef GET_NEXT_INPUT_INTERNAL
 
 #undef MATCH_INPUT_INTERNAL_TO_TYPE
@@ -268,7 +268,7 @@ class StackGetter {
     try {
       return matchInputToTypeList<Ts...>(stack[pos], pVarT);
     } catch (const std::string& typesListStr) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false,
           "Input ",
           pos,

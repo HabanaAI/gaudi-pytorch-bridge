@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <ATen/core/TensorBody.h>
@@ -107,31 +107,69 @@ class PipeliningTask {
 
 template <typename T>
 class PipeliningExecutor {
+  static_assert(std::is_base_of_v<
+                habana_helpers::SingleThreadPool,
+                std::remove_reference<decltype(
+                    habana::HPUDeviceContext::lowering_thread())>::type>);
+  static_assert(std::is_base_of_v<
+                habana_helpers::ThreadPool,
+                std::remove_reference<decltype(
+                    habana::HPUDeviceContext::compile_thread_pool())>::type>);
+  static_assert(std::is_base_of_v<
+                habana_helpers::SingleThreadPool,
+                std::remove_reference<decltype(
+                    habana::HPUDeviceContext::execute_thread())>::type>);
+
  public:
   static void LoweringStage(T&& pipe_task) {
     pipe_task.LoweringCall();
 
     if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-      habana::HPUDeviceContext::compile_thread().waitWorkComplete();
+      habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete();
       habana::HPUDeviceContext::execute_thread().waitWorkComplete();
       pipe_task.CompileCall();
       pipe_task.ExecuteCall();
       return;
     }
 
-    if (pipe_task.IsCompileNeeded())
-      habana::HPUDeviceContext::compile_thread().enqueue(
-          PipeliningExecutor::CompileStage, std::move(pipe_task));
-  }
-
-  static void CompileStage(T&& pipe_task) {
-    pipe_task.CompileCall();
-    if (pipe_task.IsExecuteNeeded())
+    if (pipe_task.IsCompileNeeded()) {
+      std::promise<T> compile_done;
+      auto is_compile_done = compile_done.get_future();
+      habana::HPUDeviceContext::compile_thread_pool().enqueue(
+          PipeliningExecutor::CompileStage,
+          std::move(pipe_task),
+          std::move(compile_done));
       habana::HPUDeviceContext::execute_thread().enqueue(
-          PipeliningExecutor::ExecuteStage, std::move(pipe_task));
+          PipeliningExecutor::ExecuteStage, std::move(is_compile_done));
+    } else {
+      if (pipe_task.IsExecuteNeeded()) {
+        habana::HPUDeviceContext::execute_thread().enqueue(
+            PipeliningExecutor::ExecuteStageNoCompile, std::move(pipe_task));
+      }
+    }
   }
 
-  static void ExecuteStage(T&& pipe_task) {
+  static void CompileStage(T&& pipe_task, std::promise<T>&& compile_done) {
+    try {
+      pipe_task.CompileCall();
+    } catch (...) {
+      compile_done.set_exception(std::current_exception());
+      throw;
+    }
+    compile_done.set_value(std::move(pipe_task));
+  }
+
+  static void ExecuteStage(std::future<T>&& is_compile_done) {
+    std::optional<T> pipe_task;
+    try {
+      pipe_task = is_compile_done.get();
+    } catch (...) {
+      return;
+    }
+    pipe_task->ExecuteCall();
+  }
+
+  static void ExecuteStageNoCompile(T&& pipe_task) {
     pipe_task.ExecuteCall();
   }
 };

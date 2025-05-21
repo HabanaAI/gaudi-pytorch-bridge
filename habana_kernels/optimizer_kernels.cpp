@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
 
@@ -49,18 +49,18 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer_sparse_sgd operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isBool(), "Input arg8 type expected to be Bool");
-  TORCH_CHECK(
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isBool(), "Input arg8 type expected to be Bool");
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "OptimizerSparseSgdOperator: #output_metadata should be 2");
 
@@ -92,16 +92,16 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 6,
       "Incorrect size of inputs for optimizer_adagrad_sgd operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "OptimizerSparseAdagradOperator: #output_metadata should be 2");
 
@@ -137,7 +137,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 10,
       "Incorrect size of inputs for adamw optimizer graph creation call");
 
@@ -237,7 +237,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // therefore 3rd synapse tensor will be unused. We can give
     // a dummy tensor
     auto syn_in_3 = habana_helpers::create_tensor(
-        gradients.get(i), graph, true, false, c10::nullopt);
+        gradients.get(i), graph, true, false, std::nullopt);
     addcmul_exp_avg_sq->SetSynapseInput(syn_in_3);
     stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(gradients.get(i)));
@@ -344,17 +344,17 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer_adagrad operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
 
   auto gradients = inputs[0].toTensor();
   auto weights = inputs[1].toTensor();
@@ -392,20 +392,20 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer fused adagrad operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensorList(), "Input arg3 type expected to be tensorlist");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
 
   auto gradients = inputs[0].toTensorList();
   auto weights = inputs[1].toTensorList();
@@ -457,16 +457,16 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 7,
       "Incorrect size of inputs for optimizer SGD operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
-  TORCH_CHECK(inputs[4].isDouble(), "Input arg5 type expected to be float");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isBool(), "Input arg7 type expected to be bool");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isDouble(), "Input arg4 type expected to be float");
+  HABANA_ASSERT(inputs[4].isDouble(), "Input arg5 type expected to be float");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isBool(), "Input arg7 type expected to be bool");
 
   auto gradients = inputs[0].toTensor();
   auto weights = inputs[1].toTensor();
@@ -496,18 +496,18 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 7,
       "Incorrect size of inputs for optimizer fused SGD operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
-  TORCH_CHECK(inputs[4].isDouble(), "Input arg5 type expected to be float");
-  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
-  TORCH_CHECK(inputs[6].isBool(), "Input arg7 type expected to be bool");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isDouble(), "Input arg4 type expected to be float");
+  HABANA_ASSERT(inputs[4].isDouble(), "Input arg5 type expected to be float");
+  HABANA_ASSERT(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  HABANA_ASSERT(inputs[6].isBool(), "Input arg7 type expected to be bool");
 
   auto gradients = inputs[0].toTensorList();
   auto weights = inputs[1].toTensorList();
@@ -550,15 +550,15 @@ void OptimizerFusedEMAOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of inputs for fused ema optimizer graph creation call");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be Tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be Tensor");
 
   auto model_inputs = inputs[0].toTensorList();
   auto updated_ema = inputs[1].toTensorList();
@@ -640,18 +640,18 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
   static_cast<void>(output_metadata);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 9,
       "Incorrect size of inputs for optimizer SGD operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
-  TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[8].isBool(), "Input arg9 type expected to be bool");
 
   auto gradients = inputs[0].toTensor();
   if (habana_lazy::GetHbInternalTensorImpl(gradients)) {
@@ -725,21 +725,21 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 9,
       "Incorrect size of inputs for optimizer fused SGD operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensorList(), "Input arg3 type expected to be tensorlist");
-  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
-  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
-  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
-  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
-  TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  HABANA_ASSERT(inputs[8].isBool(), "Input arg9 type expected to be bool");
 
   auto gradients = inputs[0].toTensorList();
   auto weights = inputs[1].toTensorList();
@@ -827,6 +827,8 @@ OutputMetaDataVector OptimizerFusedLarsOperatorLazy::OptimizerFusedLarsMeta(
   return meta_vec;
 }
 
+using namespace std::literals;
+
 void OptimizerFusedLarsOperatorLazy::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
@@ -860,7 +862,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     if (!skipMasks[i]) {
       auto mul0 = BuildOp(
           graph,
-          get_guid_with_precision("mult", dtype),
+          get_guid_with_precision("mult"sv, dtype),
           {syn_grad, syn_lr},
           {{outshape, dtype, i}});
       syn_out(i) = std::move(mul0[0]);
@@ -871,7 +873,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto mul1 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {syn_param, syn_param},
         {{outshape, dtype}});
 
@@ -889,7 +891,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     reduce_params.reductionDimension = 0;
     auto sum1 = BuildOp(
         graph,
-        get_guid_with_precision("reduce_sum_fwd", dtype),
+        get_guid_with_precision("reduce_sum_fwd"sv, dtype),
         std::move(reduction_inputs1),
         {{1, dtype}},
         &reduce_params,
@@ -897,14 +899,14 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto sqrt1 = BuildOp(
         graph,
-        get_guid_with_precision("sqrt_fwd", dtype),
+        get_guid_with_precision("sqrt_fwd"sv, dtype),
         {sum1[0].get()},
         {{1, dtype}});
 
     // Norm calculation for 1-st argument viz. param: mul2, sum2, sqrt2
     auto mul2 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {syn_grad, syn_grad},
         {{outshape, dtype}});
 
@@ -920,7 +922,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto sum2 = BuildOp(
         graph,
-        get_guid_with_precision("reduce_sum_fwd", dtype),
+        get_guid_with_precision("reduce_sum_fwd"sv, dtype),
         std::move(reduction_inputs2),
         {{1, dtype}},
         &reduce_params,
@@ -928,97 +930,97 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
     auto sqrt2 = BuildOp(
         graph,
-        get_guid_with_precision("sqrt_fwd", dtype),
+        get_guid_with_precision("sqrt_fwd"sv, dtype),
         {sum2[0].get()},
         {{1, dtype}});
 
     // torch.greater(param_norm, 0)
     auto ge1 = BuildOp(
         graph,
-        get_guid_with_precision("greater_fwd", dtype),
+        get_guid_with_precision("greater_fwd"sv, dtype),
         {sqrt1[0].get(), zero_constant.get()},
         {{outshape, dtype}});
 
     // torch.greater(grad_norm, 0)
     auto ge2 = BuildOp(
         graph,
-        get_guid_with_precision("greater_fwd", dtype),
+        get_guid_with_precision("greater_fwd"sv, dtype),
         {sqrt2[0].get(), zero_constant.get()},
         {{outshape, dtype}});
 
     // eeta*paramNorm
     auto mul3 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {sqrt1[0].get(), eetaTensor.get()},
         {{outshape, dtype}});
 
     // paranNorm*weightDecay
     auto mul4 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {sqrt1[0].get(), weightDecayTensor.get()},
         {{outshape, dtype}});
 
     // weightDecay*paranNorm + eps
     auto add1 = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", dtype),
+        get_guid_with_precision("add_fwd"sv, dtype),
         {mul4[0].get(), epsTensor.get()},
         {{outshape, dtype}});
 
     // gradNorm + weightDecay*paranNorm + eps
     auto add2 = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", dtype),
+        get_guid_with_precision("add_fwd"sv, dtype),
         {add1[0].get(), sqrt2[0].get()},
         {{outshape, dtype}});
 
     //(eeta*param_norm) / (gradNorm + weightDecay*paranNorm + eps)
     auto div1 = BuildOp(
         graph,
-        get_guid_with_precision("div_fwd", dtype),
+        get_guid_with_precision("div_fwd"sv, dtype),
         {mul3[0].get(), add2[0].get()},
         {{outshape, dtype}});
 
     auto where1 = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", dtype),
+        get_guid_with_precision("where_fwd"sv, dtype),
         {ge2[0].get(), div1[0].get(), one_constant.get()},
         {{outshape, dtype}});
 
     // trust_ratio
     auto where2 = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", dtype),
+        get_guid_with_precision("where_fwd"sv, dtype),
         {ge1[0].get(), where1[0].get(), one_constant.get()},
         {{outshape, dtype}});
 
     // scaled_lr = lr*trust_ratio
     auto mul5 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {where2[0].get(), syn_lr},
         {{outshape, dtype}});
 
     // param*weightDecayTensor
     auto mul6 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {syn_param, weightDecayTensor.get()},
         {{outshape, dtype}});
 
     // grad + param*weightDecayTensor
     auto add3 = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", dtype),
+        get_guid_with_precision("add_fwd"sv, dtype),
         {syn_grad, mul6[0].get()},
         {{outshape, dtype}});
 
     // param*weightDecayTensor
     auto mul7 = BuildOp(
         graph,
-        get_guid_with_precision("mult", dtype),
+        get_guid_with_precision("mult"sv, dtype),
         {add3[0].get(), mul5[0].get()},
         {{outshape, dtype, i}});
 

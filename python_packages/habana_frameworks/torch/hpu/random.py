@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,16 +15,17 @@
 #
 ###############################################################################
 
-from typing import Iterable, List, Union
+from collections.abc import Iterable
 
 import habana_frameworks.torch._core_C as htcore
+
 import torch
 from torch import Tensor
 
 from ._utils import _get_device_index
 
 # Keeping default_generators as a list with single instance to keep aligned to cuda
-default_generators: List[torch._C.Generator] = [htcore._get_default_generator()]
+default_generators: list[torch._C.Generator] = [htcore._get_default_generator()]
 
 
 def _default_generator():
@@ -44,14 +45,14 @@ __all__ = [
 ]
 
 
-def get_rng_state(device: Union[int, str, torch.device] = "hpu") -> Tensor:
+def get_rng_state(device: int | str | torch.device = "hpu") -> Tensor:
     device_index = _get_device_index(device, optional=True)
     if device_index != 0:
         raise RuntimeError("hpu get_rng_state supports only device 0")
     return _default_generator().get_state()
 
 
-def set_rng_state(new_state: torch.Tensor, device: Union[int, str, torch.device] = "hpu") -> None:
+def set_rng_state(new_state: torch.Tensor, device: int | str | torch.device = "hpu") -> None:
     device_index = _get_device_index(device, optional=True)
     if device_index != 0:
         raise RuntimeError("hpu set_rng_state supports only device 0")
@@ -71,7 +72,7 @@ def initial_seed() -> int:
     return _default_generator().initial_seed()
 
 
-def get_rng_state_all() -> List[Tensor]:
+def get_rng_state_all() -> list[Tensor]:
     return [get_rng_state(0)]
 
 

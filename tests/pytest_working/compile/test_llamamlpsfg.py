@@ -15,22 +15,16 @@
 #
 ###############################################################################
 
-import functools
-import logging
 import os
 import time
-from importlib import reload
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import habana_frameworks.torch as ht
 import torch
 import torch._dynamo
-import torch._dynamo as dynamo
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import compile_function_if_compile_mode
-from torch.autograd import Variable
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.parameter import Parameter
 
 try:
@@ -93,7 +87,7 @@ def init_weights(m):
 
 def ensure_divisibility(numerator: int, denominator: int) -> None:
     """Ensure that numerator is divisible by the denominator."""
-    assert numerator % denominator == 0, "{} is not divisible by {}".format(numerator, denominator)
+    assert numerator % denominator == 0, f"{numerator} is not divisible by {denominator}"
 
 
 def divide_and_check_no_remainder(numerator: int, denominator: int) -> int:
@@ -154,7 +148,7 @@ class ColumnParallelLinear(torch.nn.Module):
         stride: int = 1,
         keep_master_weight_for_test: bool = False,
     ) -> None:
-        super(ColumnParallelLinear, self).__init__()
+        super().__init__()
 
         # Keep input parameters
         self.in_features = in_features
@@ -183,11 +177,11 @@ class ColumnParallelLinear(torch.nn.Module):
         input_parallel = copy_to_model_parallel_region(input_)
         # Matrix multiply.
         output_parallel = F.linear(input_parallel, self.weight, self.bias)
-        if self.gather_output:
-            # All-gather across the partitions.
-            output = gather_from_model_parallel_region(output_parallel)
-        else:
-            output = output_parallel
+        # if self.gather_output:
+        #     # All-gather across the partitions.
+        #     output = gather_from_model_parallel_region(output_parallel)
+        # else:
+        output = output_parallel
         return output
 
 
@@ -228,7 +222,7 @@ class RowParallelLinear(torch.nn.Module):
         stride: int = 1,
         keep_master_weight_for_test: bool = False,
     ):
-        super(RowParallelLinear, self).__init__()
+        super().__init__()
 
         # Keep input parameters
         self.in_features = in_features
@@ -254,10 +248,10 @@ class RowParallelLinear(torch.nn.Module):
 
     def forward(self, input_: torch.Tensor) -> torch.Tensor:  # type:ignore
         # Set up backprop all-reduce.
-        if self.input_is_parallel:
-            input_parallel = input_
-        else:
-            input_parallel = scatter_to_model_parallel_region(input_)
+        # if self.input_is_parallel:
+        #     input_parallel = input_
+        # else:
+        #     input_parallel = scatter_to_model_parallel_region(input_)
         output_parallel = F.linear(input_, self.weight)
         output_ = reduce_from_model_parallel_region(output_parallel)
         if self.bias is not None:
@@ -274,7 +268,7 @@ class FeedForward(nn.Module):
         dim: int,
         hidden_dim: int,
         multiple_of: int,
-        ffn_dim_multiplier: Optional[float],
+        ffn_dim_multiplier: float | None,
     ):
         super().__init__()
         hidden_dim = int(2 * hidden_dim / 3)
@@ -291,7 +285,7 @@ class FeedForward(nn.Module):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
-class HabanaDeviceProfile(object):
+class HabanaDeviceProfile:
     def __init__(self, profiler, device_profiler_step) -> None:
         if device_profiler_step:
             print(
@@ -447,9 +441,6 @@ def run_single_node(rank, *arguments):
         os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES") is None or os.environ["PT_HPU_ENABLE_LAZY_COLLECTIVES"] != "1"
     )
 
-    import habana_frameworks.torch.core as htcore
-    import habana_frameworks.torch.distributed.hccl
-
     torch._inductor.config._fuse_ddp_communication = False
 
     torch.manual_seed(12345)
@@ -498,7 +489,7 @@ def run_single_node(rank, *arguments):
     outputs_refs = []
     outputs_sfg = []
 
-    for cnt in range(ITERATIONS):
+    for _ in range(ITERATIONS):
         inp_linear = torch.randn([BS, input_size, hidden_dimension], dtype=torch.bfloat16).to(device)
         out_ref = model(inp_linear, 1)
         inputs.append(inp_linear)
@@ -549,6 +540,6 @@ if __name__ == "__main__":
     device_count = ht.hpu.device_count()
     if device_count < world_size:
         world_size = device_count
-    input_args = tuple((world_size,))
+    input_args = (world_size,)
     torch.multiprocessing.spawn(run_single_node, args=(args,), nprocs=world_size)
     print("Time taken :", time.time() - start)

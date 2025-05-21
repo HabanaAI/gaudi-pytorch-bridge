@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@ import math
 from copy import deepcopy
 
 import habana_frameworks.torch.core as htcore
-import torch
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch import nn
 
 hpu = torch.device("hpu")
@@ -45,8 +46,8 @@ def copy_attr(a, b, include=(), exclude=()):
 
 class FusedEMA:
     def __init__(self, model: nn.Module, decay: float = 0.9999, updates: float = 0):
-        if not 0.0 <= decay:
-            raise ValueError("Invalid decay value: {}".format(decay))
+        if not decay >= 0.0:
+            raise ValueError(f"Invalid decay value: {decay}")
 
         self.ema = deepcopy(model.module if is_parallel(model) else model).eval()  # FP32 EMA
         self.decay = lambda x: decay * (1 - math.exp(-x / 2000))  # decay exponential ramp (to help early epochs) #decay

@@ -17,22 +17,19 @@
 
 from contextlib import contextmanager
 from itertools import accumulate
-from typing import Optional
+
+import habana_frameworks.torch.internal.bridge_config as bc
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
 import torch._prims_common as utils
 from torch._decomp import core_aten_decompositions, get_decompositions
 from torch._ops import DispatchKey
 
-aten = torch.ops.aten
-
-import habana_frameworks.torch.internal.bridge_config as bc
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
-
 logger = get_compile_backend_logger()
 
+aten = torch.ops.aten
 # List of built-in pytorch framework decompositions we would like to use in HPU
 # backend in both training and inference.
 hpu_backend_decompositions_list = [
@@ -235,6 +232,7 @@ hpu_backend_decompositions_list = [
     aten.unbind.int,
     aten.unfold.default,
     aten.unfold_backward.default,
+    aten._unsafe_view.default,
     aten.unfold_backward.out,
     aten.upsample_bilinear2d.vec,
     aten.upsample_bilinear2d.default,
@@ -338,7 +336,7 @@ def register_custom_decomposition(ops, decomposition_list):
     return torch._decomp.register_decomposition(ops, decomposition_list)
 
 
-def get_like_layout(tensor: torch.Tensor, memory_format: Optional[torch.memory_format]) -> torch.memory_format:
+def get_like_layout(tensor: torch.Tensor, memory_format: torch.memory_format | None) -> torch.memory_format:
     if memory_format in (torch.preserve_format, None):
         return utils.suggest_memory_format(tensor)
     else:
@@ -350,9 +348,9 @@ def full_like(
     a: utils.TensorLikeType,
     fill_value: utils.NumberType,
     *,
-    dtype: Optional[torch.dtype] = None,
-    layout: Optional[torch.layout] = None,
-    device: Optional[torch.device] = None,
+    dtype: torch.dtype | None = None,
+    layout: torch.layout | None = None,
+    device: torch.device | None = None,
     pin_memory: bool = False,
     requires_grad: bool = False,
     memory_format: torch.memory_format = torch.preserve_format,
@@ -436,9 +434,9 @@ def bernoulli_Tensor(input, p, *, generator=None):
 def randngen(
     size,
     generator=None,
-    dtype: Optional[torch.dtype] = None,
-    layout: Optional[torch.layout] = None,
-    device: Optional[torch.device] = None,
+    dtype: torch.dtype | None = None,
+    layout: torch.layout | None = None,
+    device: torch.device | None = None,
     pin_memory: bool = False,
 ):
     mean = torch.full(
@@ -487,7 +485,7 @@ def sort(
     a: utils.Tensor,
     dim: int = -1,
     descending: bool = False,
-) -> utils.Tuple[utils.Tensor, utils.Tensor]:
+) -> tuple[utils.Tensor, utils.Tensor]:
     k = a.size(dim) if a.dim() > 0 else 1
     return torch.topk(a, k, dim, descending)
 
@@ -750,33 +748,15 @@ def split(self, split_size, dim=0):
     return tuple(result)
 
 
-if not is_pytorch_older_than("2.6.0"):
-
-    @register_custom_decomposition(aten.rrelu_with_noise_functional, hpu_backend_decompositions_common)
-    def rrelu_with_noise_functional(
-        self: torch.Tensor,
-        noise: torch.Tensor,
-        lower: float = 0.125,
-        upper: float = 0.3333333333333333,
-        training: bool = False,
-        generator: Optional[torch.Generator] = None,
-    ) -> utils.Tuple[torch.Tensor, torch.Tensor]:
-        if training:
-            not_positive = self <= 0
-            r = aten.uniform(self, lower, upper, generator=generator)
-            output = torch.where(not_positive, self * r, self)
-            noise_out = torch.where(not_positive, r, 1)
-            return output, noise_out
-        else:
-            negative_slope = (lower + upper) / 2
-            return aten.leaky_relu(self, negative_slope), torch.Tensor()
-
-
 def get_hpu_decompositions():
     if hpu_backend_config.decomposition_mode == "habana":
         return {
             **hpu_backend_decompositions_common,
         }
+    elif hpu_backend_config.decomposition_mode == "inductor":
+        from torch._inductor.decomposition import decompositions
+
+        return decompositions
     elif hpu_backend_config.decomposition_mode == "core_aten":
         return {**core_aten_decompositions()}
     else:

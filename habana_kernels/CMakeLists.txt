@@ -1,7 +1,6 @@
-
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,11 +15,6 @@
 #
 ###############################################################################
 
-add_habana_library(habana_kernels OBJECT
-  index_kernels.cpp
-  )
+add_habana_library(habana_kernels OBJECT index_kernels.cpp)
 
-set_target_properties(habana_kernels PROPERTIES
-  CXX_STANDARD 17
-  CXX_STANDARD_REQUIRED ON
-)
+set_target_properties(habana_kernels PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)

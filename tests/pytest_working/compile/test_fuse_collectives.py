@@ -47,7 +47,7 @@ def fn(x, y, pg):
 
 
 def test_collective_block_fuse():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     with fuse_ddp_setter():
         if not dist.is_initialized():
@@ -84,7 +84,7 @@ def fn1(x, y, pg):
 
 
 def test_allreduce_graph_split():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     with allreduce_graph_split_setter():
         if not dist.is_initialized():
@@ -119,7 +119,7 @@ def allreduce_upstreams_surrounding_fused_node(x, y, pg):
     "fn_shape_fallbackop_tuple", [(allreduce_upstreams_surrounding_fused_node, [[6, 6], [2, 6]], "add")]
 )
 def test_allreduce_reordering(fn_shape_fallbackop_tuple):
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa F401
 
     fn, in_shapes, fallback_op = fn_shape_fallbackop_tuple
     with allreduce_graph_split_setter(), force_op_eager_fallback(fallback_op), use_eager_fallback():

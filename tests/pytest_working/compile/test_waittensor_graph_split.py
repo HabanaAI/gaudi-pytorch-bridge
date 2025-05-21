@@ -32,7 +32,7 @@ def set_env():
 
 
 def test_waittensor_graph_split(set_env):
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
@@ -119,3 +119,78 @@ def test_waittensor_graph_split(set_env):
         c_fn(*example_inputs, pg)
         part_num = fga.get_partition_num()
         assert part_num == 3, "enable_waittensor_graph_split can't be disabled"
+
+
+def test_avoid_pure_view_partitions(set_env):
+    from parallel_model_utils import FeedForward
+
+    class ToyModel(torch.nn.Module):
+        def __init__(self, weight_size):
+            super().__init__()
+            self.MLP = FeedForward(dim=weight_size, hidden_dim=4 * weight_size, multiple_of=8, ffn_dim_multiplier=None)
+            self.ffn_norm = torch.nn.RMSNorm(weight_size, eps=1e-5)
+
+        def forward(self, inp, num_shards):
+            if num_shards > 1:
+                ffn_norm_out = self.ffn_norm(inp)
+                total_shard_size = inp.size()[0]
+                shard_size = int(total_shard_size // num_shards)
+                start_offset = 0
+
+                out_shard_list = []
+                for i in range(num_shards):
+                    curr_shard_size = shard_size if i < num_shards - 1 else total_shard_size - start_offset
+                    if curr_shard_size > 0:
+                        mlp_out_shard = self.MLP(ffn_norm_out[start_offset : start_offset + curr_shard_size, :])
+                        out_shard = inp[start_offset : start_offset + curr_shard_size, :] + mlp_out_shard
+                        out_shard_list.append(out_shard)
+                        start_offset += curr_shard_size
+
+                return torch.cat(out_shard_list)
+
+            else:
+                mlp_out = self.MLP(self.ffn_norm(inp))
+                return inp + mlp_out
+
+    num_shards = 2
+
+    torch.manual_seed(12345)
+    if not torch.distributed.is_initialized():
+        torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
+
+    device = torch.device("hpu")
+
+    # Shape configs
+    hidden_dimension = 32
+    input_size = 16
+
+    model = ToyModel(hidden_dimension)
+    model.bfloat16()
+    model.to(device)
+
+    inputs = []
+    outputs_refs = []
+    outputs_sfg = []
+    ITERATIONS = 2
+    BS = 128
+    for _ in range(ITERATIONS):
+        torch.manual_seed(0)
+        inp_linear = torch.randn([BS, input_size, hidden_dimension], dtype=torch.bfloat16).to(device)
+        out_ref = model(inp_linear, 1)
+        inputs.append(inp_linear)
+        outputs_refs.append(out_ref)
+        print(out_ref.cpu().sum())
+
+    model = torch.compile(model, backend="hpu_backend", options={"use_eager_fallback": True})
+
+    def run_iterations(prof=None):
+        for cnt in range(ITERATIONS):
+            inp_linear = inputs[cnt]
+            with torch.no_grad():
+                output = model(inp_linear, num_shards)
+            outputs_sfg.append(output)
+
+    run_iterations()
+
+    for cnt in range(ITERATIONS):
+        assert torch.allclose(outputs_refs[cnt].cpu(), outputs_sfg[cnt].cpu())

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -156,8 +156,8 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
 sym_sizes_vec fp8_sdpa_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<float>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
   sym_sizes_vec out_sizes = SDPAFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -173,8 +173,8 @@ REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_sdpa_fwd, fp8_sdpa_fwd_out_shape);
 sym_sizes_vec sdpa_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<float>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
 
   return SDPAFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
@@ -229,12 +229,12 @@ sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
 }
 
 static void fillSdpaParams(
-    ns_Sdpa::ParamsV3& params,
+    ns_Sdpa::ParamsV5& params,
     double p,
     double scale,
     bool is_causal,
     bool is_inference,
-    c10::string_view softmax_mode = "",
+    std::string_view softmax_mode = "",
     unsigned int flags = 0) {
   SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
   if (softmax_mode == "fast") {
@@ -248,6 +248,10 @@ static void fillSdpaParams(
   params.is_inference = is_inference;
   params.softmax_mode = sfmx_mode;
   params.flags = flags;
+
+  const auto& device = habana::HPUDeviceContext::get_device();
+  params.is_hw_aligned = device.get_scale_attribute_is_hw_aligned();
+  params.scale_method_hash_id = device.get_scale_attribute_hash_id();
 }
 
 sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
@@ -256,6 +260,8 @@ sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
   out_shapes.push_back({1});
   return out_shapes;
 }
+
+using namespace std::literals;
 
 void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "SDPAFwd::AddNode");
@@ -271,23 +277,24 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto q = stackGetter.getNextInput<TensorsPair>();
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
-  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto attention_mask = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
-  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
+  auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(params, p, scale, is_causal, false, softmax_mode, flags);
 
-  std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_fwd"sv, q.pt_t.scalar_type());
   auto out_shapes = SDPAFwdOutputShape(stack);
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
@@ -337,22 +344,22 @@ void Fp8SDPAFwd::AddNode(
   auto q = stackGetter.getNextInput<TensorsPair>();
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
-  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto attention_mask = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
-  auto d_scale_q = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_k = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_v = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto q_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto q_scale_o = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
+  auto d_scale_q = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_k = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_v = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto q_scale_s = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto q_scale_o = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_s = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto is_amax_s = stackGetter.getNextInput<bool>();
-  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
@@ -372,7 +379,8 @@ void Fp8SDPAFwd::AddNode(
   fillSdpaParams(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode, flags);
 
-  std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_fwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
   if (attention_mask) {
@@ -456,18 +464,17 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
   auto P = stackGetter.getNextInput<TensorsPair>();
-  auto dm = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto dm = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
-
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
-  std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_bwd"sv, q.pt_t.scalar_type());
   auto meta = SDPABwdMeta(stack);
 
   std::vector<synTensor> syn_inputs = {
@@ -480,9 +487,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // Same CGUID is used for fp8 and non-fp8. So fill null ptr
   // for all the fp8 scales
   syn_inputs.insert(syn_inputs.end(), 8, nullptr);
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {meta[0].shape, meta[0].dtype, 0},
@@ -521,26 +526,24 @@ void Fp8SDPABwd::AddNode(
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
   auto P = stackGetter.getNextInput<TensorsPair>();
-  auto dm = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto dm = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
-  auto d_scale_q = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_k = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_v = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_do = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_ds = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto d_scale_q = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_k = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_v = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_s = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_do = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_ds = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
-  auto q_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto q_scale_ds = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto q_scale_s = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto q_scale_ds = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
-
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
   SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
   SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
@@ -564,7 +567,8 @@ void Fp8SDPABwd::AddNode(
       flags);
 
   // TODO: check if  143 or 152 may matter
-  std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("sdpa_bwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {
       grad.syn_t, q.syn_t, k.syn_t, v.syn_t, P.syn_t};
@@ -583,9 +587,7 @@ void Fp8SDPABwd::AddNode(
   SDPA_ADD_INPUTS(q_scale_s)
   SDPA_ADD_INPUTS(q_scale_ds)
 
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   auto meta = Fp8SDPABwdMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
@@ -675,8 +677,8 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
 sym_sizes_vec sdpa_recomp_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
   return SDPARecompFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -687,8 +689,8 @@ sym_sizes_vec sdpa_recomp_fwd_out_shape(
 sym_sizes_vec fp8_sdpa_recomp_fwd_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(params.size() == 1);
   sym_sizes_vec out_sizes = SDPARecompFwdOutputShapeCommon(
       inputs[0].sym_sizes(),
       inputs[1].sym_sizes(),
@@ -757,21 +759,21 @@ void SDPARecompFwd::AddNode(
   auto q = stackGetter.getNextInput<TensorsPair>();
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
-  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto attention_mask = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto requires_backward = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
-  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
+  auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(
       params,
       p,
@@ -782,7 +784,7 @@ void SDPARecompFwd::AddNode(
       flags);
 
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_fwd"sv, q.pt_t.scalar_type());
   auto out_shapes = SDPARecompFwdOutputShape(stack);
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
@@ -843,12 +845,12 @@ void Fp8SDPARecompFwd::AddNode(
   auto q = stackGetter.getNextInput<TensorsPair>();
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
-  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto attention_mask = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto requires_backward = stackGetter.getNextInput<bool>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto d_scale_q =
       stackGetter.getNextInput<std::variant<TensorsPair, c10::IValue>>();
   auto d_scale_k =
@@ -866,10 +868,10 @@ void Fp8SDPARecompFwd::AddNode(
   // amax_s and/or amax_o needed
   bool is_amax = is_amax_s or is_amax_o;
 
-  auto valid_seq_len = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto seq_padding_type = stackGetter.getNextInput<c10::string_view>();
+  auto valid_seq_len = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto seq_padding_type = stackGetter.getNextInput<std::string_view>();
 
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
 
   SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
@@ -883,7 +885,7 @@ void Fp8SDPARecompFwd::AddNode(
   //}
 
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_fwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
   if (attention_mask) {
@@ -1019,24 +1021,22 @@ void SDPARecompBwd::AddNode(
   auto q = stackGetter.getNextInput<TensorsPair>();
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
-  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto attention_mask = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto m = stackGetter.getNextInput<TensorsPair>();
   auto linv = stackGetter.getNextInput<TensorsPair>();
-  auto seed = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto seed = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
-
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   fillSdpaParams(
       params, p, scale, is_causal, false /*is_inference*/, softmax_mode);
 
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_bwd"sv, q.pt_t.scalar_type());
   auto meta = SDPARecompBwdMeta(stack);
 
   std::vector<synTensor> syn_inputs = {grad.syn_t, q.syn_t, k.syn_t, v.syn_t};
@@ -1057,9 +1057,7 @@ void SDPARecompBwd::AddNode(
   // Same CGUID is used for fp8 and non-fp8. So fill null ptr
   // for all the fp8 scales
   syn_inputs.insert(syn_inputs.end(), 8, nullptr);
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {meta[0].shape, meta[0].dtype, 0},
@@ -1082,30 +1080,28 @@ void Fp8SDPARecompBwd::AddNode(
   auto q = stackGetter.getNextInput<TensorsPair>();
   auto k = stackGetter.getNextInput<TensorsPair>();
   auto v = stackGetter.getNextInput<TensorsPair>();
-  auto attention_mask = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto attention_mask = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto m = stackGetter.getNextInput<TensorsPair>();
   auto linv = stackGetter.getNextInput<TensorsPair>();
-  auto seed = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto seed = stackGetter.getNextInput<std::optional<TensorsPair>>();
   auto is_causal = stackGetter.getNextInput<bool>();
   auto p = stackGetter.getNextInput<double>();
   auto scale = stackGetter.getNextInput<double>();
-  auto softmax_mode = stackGetter.getNextInput<c10::string_view>();
-  auto d_scale_q = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_k = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_v = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_do = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto d_scale_ds = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto softmax_mode = stackGetter.getNextInput<std::string_view>();
+  auto d_scale_q = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_k = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_v = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_s = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_do = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto d_scale_ds = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
-  auto q_scale_s = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto q_scale_ds = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto q_scale_s = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto q_scale_ds = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   auto is_amax_ds = stackGetter.getNextInput<bool>();
   auto fwd_out = stackGetter.getNextInput<TensorsPair>();
 
-  bool use_fwd_out = GET_ENV_FLAG_NEW(PT_HPU_SDPA_SFMX_BWD_V2);
-
-  ns_Sdpa::ParamsV3 params{};
+  ns_Sdpa::ParamsV5 params{};
   unsigned int flags = 0;
   SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
   SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
@@ -1124,7 +1120,7 @@ void Fp8SDPARecompBwd::AddNode(
 
   // TODO: check if  143 or 152 may matter
   std::string guid =
-      get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
+      get_guid_with_precision("sdpa_recomp_bwd"sv, q.pt_t.scalar_type());
 
   std::vector<synTensor> syn_inputs = {grad.syn_t, q.syn_t, k.syn_t, v.syn_t};
 
@@ -1151,9 +1147,7 @@ void Fp8SDPARecompBwd::AddNode(
   SDPA_ADD_INPUTS(q_scale_s)
   SDPA_ADD_INPUTS(q_scale_ds)
 
-  if (use_fwd_out) {
-    syn_inputs.push_back(fwd_out.syn_t);
-  }
+  syn_inputs.push_back(fwd_out.syn_t);
 
   auto out_shapes = Fp8SDPARecompBwdOutputShape(stack);
   // set gradType to BF16 for now.

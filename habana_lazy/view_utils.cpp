@@ -111,7 +111,7 @@ ir::NodePtr strided_insert_h2d(
 
   auto stride_st = empty_hpu_lazy(
       stride_data_vec.size() * 2,
-      orig_t.options(),
+      orig_t.options().dtype(c10::ScalarType::Int),
       orig_t.suggest_memory_format(),
       false,
       HOST_TO_DEVICE_TENSOR);
@@ -436,7 +436,7 @@ Tensor HbLazyTensorViews::add_strided_view_node(
     IntArrayRef stride_in,
     int64_t storage_offset,
     bool is_update_view,
-    c10::optional<Tensor> out_t,
+    std::optional<Tensor> out_t,
     bool is_out) {
   PT_LAZY_TRACE;
   IntArrayRef size = size_in;
@@ -567,7 +567,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
     if (src.is_contiguous()) {
       base =
           get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
-      TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+      HABANA_ASSERT(base.storage(), "base tensor should have valid storage");
       base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
       auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);
       auto synapse_permute = hb_impl->GetMemoryPermutation();
@@ -589,7 +589,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
           c10::Storage(storage_impl->storage()),
           c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
               base_internal_tensor.scalar_type())),
-          c10::nullopt,
+          std::nullopt,
           src.sizes(),
           src.strides(),
           c10::MemoryFormat::Contiguous);
@@ -645,7 +645,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
 
       if (t_updated.is_contiguous()) {
         // optimization for contiguous views
-        TORCH_CHECK(
+        HABANA_ASSERT(
             base.storage().data_ptr(),
             "base tensor is expected to be have storage");
         auto storage = base.storage();
@@ -683,7 +683,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
     }
 
     // Note: storage() api call also sets the front end storage()
-    TORCH_CHECK(
+    HABANA_ASSERT(
         (t_updated.numel() == 0 ||
          (t_updated.storage().data_ptr() && (t_updated.data_ptr() != nullptr))),
         "t_updated tensor is expected to be have storage and valid data_ptr");
@@ -723,7 +723,7 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
     return std::vector<StridedOpSliceParams>();
   }
   std::vector<StridedOpSliceParams> back_to_back_slices{};
-  c10::optional<StrideParams> params_link_opt = params;
+  std::optional<StrideParams> params_link_opt = params;
   std::unordered_set<int64_t> dims;
   while (params_link_opt.value().optype == kStridedOpSlice) {
     back_to_back_slices.push_back(params_link_opt.value().params.slice_param);
@@ -777,7 +777,7 @@ bool HbLazyTensorViews::HandleViewsD2D(
     auto t = empty_hpu_lazy(
         dst.sizes(),
         dst.options(),
-        c10::nullopt,
+        std::nullopt,
         false /*storage*/,
         DATA_TENSOR);
     auto t_opt = c10::make_optional(t);
@@ -814,7 +814,7 @@ bool HbLazyTensorViews::HandleViewsD2D(
 Tensor HbLazyTensorViews::add_view_lazy(
     const Tensor& self,
     IntArrayRef size,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
   int64_t sum_elm = 1;
   for (auto& i : self.sizes()) {
@@ -833,7 +833,7 @@ Tensor HbLazyTensorViews::add_view_lazy(
 
 Tensor HbLazyTensorViews::add_identity_lazy(
     const Tensor& self,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
 
   HABANA_ASSERT(out_t.has_value());
@@ -848,7 +848,7 @@ Tensor HbLazyTensorViews::add_identity_lazy(
 Tensor HbLazyTensorViews::add_slice_lazy(
     const Tensor& self,
     const StridedOpSliceParams& params,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
   int64_t dim = params.dim;
   int64_t step = params.step;
@@ -867,7 +867,7 @@ Tensor HbLazyTensorViews::add_slice_lazy(
 Tensor HbLazyTensorViews::add_transpose_lazy(
     const Tensor& self,
     const StridedOpTransposeParams& params,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
   int64_t dim0 = params.dim0;
   int64_t dim1 = params.dim1;
@@ -882,7 +882,7 @@ Tensor HbLazyTensorViews::add_transpose_lazy(
 
 Tensor HbLazyTensorViews::add_t_lazy(
     const Tensor& self,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   hl_self = HandleViewsOrUpdate(self, hl_self);
   auto node = ir::Node::Create(
@@ -899,7 +899,7 @@ Tensor HbLazyTensorViews::add_t_lazy(
 Tensor HbLazyTensorViews::add_permute_lazy(
     const Tensor& self,
     std::vector<int64_t> dims_vec,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
   for (unsigned i = 0; i < dims_vec.size(); i++) {
     dims_vec[i] =
@@ -917,7 +917,7 @@ Tensor HbLazyTensorViews::add_permute_lazy(
 Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
     const Tensor& self,
     const int64_t dim,
-    c10::optional<Tensor> out_t,
+    std::optional<Tensor> out_t,
     std::string node_str) {
   PT_LAZY_TRACE;
   auto hl_self = GetHbLazyTensor(self);
@@ -935,7 +935,7 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
 Tensor HbLazyTensorViews::add_squeeze_dims_lazy(
     const Tensor& self,
     std::vector<int64_t> dims_vec,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
   IntArrayRef dims_(dims_vec);
   ir::NodePtr node = std::make_shared<ir::SqueezeDims>(self, dims_);
@@ -980,7 +980,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
     const Tensor& self,
     std::vector<int64_t> sizes,
     bool implicit,
-    c10::optional<Tensor> out_t) {
+    std::optional<Tensor> out_t) {
   PT_LAZY_TRACE;
 
   IntArrayRef size_in{sizes};
@@ -1074,7 +1074,7 @@ void add_strided_view_output_node(
   // pick the most recent version
   auto recent_orig_t = HbLazyTensorViews::get_recent_base_tensor(params.base);
   auto t = AtenFromHbLazyTensor(
-      hl_t, c10::nullopt, params.sizes, c10::nullopt, c10::nullopt);
+      hl_t, std::nullopt, params.sizes, std::nullopt, std::nullopt);
   auto t_opt = c10::make_optional(t);
 
   HbLazyTensorViews::add_strided_view_node(
@@ -1252,7 +1252,7 @@ size_t HbLazyTensorViews::updateViewHash(
         hash = at::hash_combine(hash, params.viewStatus);
         break;
       default:
-        TORCH_CHECK("incorrect optype for views ", optype);
+        HABANA_ASSERT("incorrect optype for views ", optype);
     } // switch (optype)
   }
 
@@ -1273,7 +1273,7 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
     if (src.is_contiguous()) {
       base =
           get_recent_base_tensor(hl_t.getDataPtr()->stride_params.value().base);
-      TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+      HABANA_ASSERT(base.storage(), "base tensor should have valid storage");
       base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
       auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);
       auto synapse_permute = hb_impl->GetMemoryPermutation();
@@ -1295,7 +1295,7 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
           c10::Storage(storage_impl->storage()),
           c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
               base_internal_tensor.scalar_type())),
-          c10::nullopt,
+          std::nullopt,
           src.sizes(),
           src.strides(),
           c10::MemoryFormat::Contiguous);

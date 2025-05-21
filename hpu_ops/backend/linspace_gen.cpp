@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/linspace.h"
 
@@ -43,7 +43,7 @@ std::shared_ptr<void> LinspaceRangeParams(
   float end = stack[1].isScalar() ? stack[1].toScalar().to<float>()
                                   : stack[1].toTensor().item<float>();
   int steps = stack[2].isScalar() ? stack[2].toScalar().to<float>()
-                                     : stack[2].toTensor().item<int>();
+                                  : stack[2].toTensor().item<int>();
 
   float endValueModification = 0.000001;
   int arange_step = steps;
@@ -135,9 +135,10 @@ void LinspaceOut::AddNode(
   float end = stack[1].isScalar() ? stack[1].toScalar().to<float>()
                                   : stack[1].toTensor().item<float>();
   int steps = stack[2].isScalar() ? stack[2].toScalar().to<float>()
-                                     : stack[2].toTensor().item<int>();
+                                  : stack[2].toTensor().item<int>();
 
-  // For Scalar_Tensor/Tensor_Scalar variants, int/int64 need to be cast to float32
+  // For Scalar_Tensor/Tensor_Scalar variants, int/int64 need to be cast to
+  // float32
   bool is_tensor_variant = !stack.at(3).isTensor();
   auto dtype = is_tensor_variant &&
           (ScalarType() == c10::ScalarType::Long ||
@@ -154,7 +155,8 @@ void LinspaceOut::AddNode(
     if (start != end && steps != 1) {
       size_t size = 0;
       auto params = LinspaceRangeParams(stack, size);
-      auto guid = get_guid_with_precision("range", dtype);
+      using namespace std::literals;
+      auto guid = get_guid_with_precision("range"sv, dtype);
       std::vector<synTensor> syn_inputs;
       if (dtype == c10::ScalarType::Float &&
           habana::HPUDeviceContext::get_device().type() !=
@@ -164,12 +166,12 @@ void LinspaceOut::AddNode(
           syn_inputs.emplace_back(syn_in(0));
           syn_inputs.emplace_back(syn_in(1));
         }
-         auto linspaceParams = std::make_shared<ns_LinspaceKernel::Params>();
-         linspaceParams->start = start;
-         linspaceParams->end = end;
-         linspaceParams->steps = steps;
-         params = linspaceParams;
-         size = sizeof(ns_LinspaceKernel::Params);
+        auto linspaceParams = std::make_shared<ns_LinspaceKernel::Params>();
+        linspaceParams->start = start;
+        linspaceParams->end = end;
+        linspaceParams->steps = steps;
+        params = linspaceParams;
+        size = sizeof(ns_LinspaceKernel::Params);
       }
 
       auto range = BuildOp(

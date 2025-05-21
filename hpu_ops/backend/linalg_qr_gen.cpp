@@ -15,7 +15,7 @@
 
 namespace habana {
 
-QRMode_t GetQrMode(c10::string_view mode_str) {
+QRMode_t GetQrMode(std::string_view mode_str) {
   if (mode_str == "complete") {
     return QRMode_t::COMPLETE;
   } else if (mode_str == "r") {
@@ -23,7 +23,7 @@ QRMode_t GetQrMode(c10::string_view mode_str) {
   } else if (mode_str == "reduced") {
     return QRMode_t::REDUCED;
   } else {
-    TORCH_CHECK(false, "Invalid QR mode: ", mode_str);
+    HABANA_ASSERT(false, "Invalid QR mode: ", mode_str);
   }
 }
 
@@ -33,7 +33,7 @@ OutputMetaDataVector QrMeta(const at::Stack& stack) {
   const auto modeString = stack.at(1).toStringView();
 
   auto selfDims = selfShape.size();
-  TORCH_CHECK(selfDims >= 2, "Input tensor must be at least 2D");
+  HABANA_ASSERT(selfDims >= 2, "Input tensor must be at least 2D");
   auto m = selfShape[selfDims - 2];
   auto n = selfShape[selfDims - 1];
   auto k = std::min(m, n);
@@ -55,7 +55,7 @@ OutputMetaDataVector QrMeta(const at::Stack& stack) {
       rShape[selfDims - 2] = k;
       break;
     default:
-      TORCH_CHECK(false, "Invalid QR mode: ", modeString);
+      HABANA_ASSERT(false, "Invalid QR mode: ", modeString);
   }
 
   return OutputMetaDataVector{

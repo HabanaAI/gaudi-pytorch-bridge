@@ -15,8 +15,9 @@
 #
 ###############################################################################
 
-import torch
 from packaging.version import Version
+
+import torch
 
 
 def is_pytorch_older_than(version: str) -> bool:

@@ -60,9 +60,7 @@ print("compute_stream", htexp._compute_stream())
 x = torch.randn(10, device="hpu")
 print("data_ptr", htexp._data_ptr(x))
 device_type = htexp._get_device_type()
-if device_type == htexp.synDeviceType.synDeviceGaudi:
-    print("gaudi")
-elif device_type == htexp.synDeviceType.synDeviceGaudi2:
+if device_type == htexp.synDeviceType.synDeviceGaudi2:
     print("gaudi2")
 elif device_type == htexp.synDeviceType.synDeviceGaudi3:
     print("gaudi3")
@@ -72,3 +70,4 @@ else:
 print("set_profiler_tracer_memory", htexp._set_profiler_tracer_memory(0))
 
 htdebug._hg_print("HPU Graph prints, user can invoke through LOG_LEVEL_PT_HPUGRAPH")
+htexp._set_scale_attributes(True, 13)

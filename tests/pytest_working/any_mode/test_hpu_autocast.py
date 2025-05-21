@@ -35,7 +35,7 @@ def assert_device(tensors, device):
 
 
 def assert_tensors_equal(tensors, tensor_refs):
-    for tensor, tensor_ref in zip(tensors, tensor_refs):
+    for tensor, tensor_ref in zip(tensors, tensor_refs, strict=False):
         assert torch.equal(tensor, tensor_ref)
 
 

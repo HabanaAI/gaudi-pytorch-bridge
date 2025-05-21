@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -195,7 +195,7 @@ class PtTensorInfo {
     buffer_ = pt_tensor.data_ptr();
     buffer_start_ = pt_tensor.storage().data_ptr().get();
     auto new_offset = get_buffer_syn() - get_buffer_start_syn();
-    TORCH_CHECK(
+    HABANA_ASSERT(
         shape_agnostic_flag || offset_ == new_offset,
         "offset_ ",
         offset_,
@@ -257,6 +257,18 @@ class PtTensorInfo {
   }
   void set_offset(synapse_helpers::device_ptr val) {
     offset_ = val;
+  }
+  synapse_helpers::device_ptr get_external_offset() const {
+    return external_offset_;
+  }
+  void set_external_offset(synapse_helpers::device_ptr val) {
+    external_offset_ = val;
+  }
+  uint64_t get_external_numel() const {
+    return external_numel_;
+  }
+  void set_external_numel(uint64_t val) {
+    external_numel_ = val;
   }
 
   void set_shape(const std::vector<int64_t>& shape) {
@@ -383,6 +395,9 @@ class PtTensorInfo {
   void* buffer_start_{nullptr};
   // offset is used for view tensor only
   synapse_helpers::device_ptr offset_{0};
+  // external_offset_ and external_numel_ are used for collective ops only
+  synapse_helpers::device_ptr external_offset_{(uint64_t)-1};
+  uint64_t external_numel_{(uint64_t)-1};
   std::string ir_name_;
   std::string syn_name_;
 

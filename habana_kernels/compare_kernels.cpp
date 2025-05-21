@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <synapse_api.h>
@@ -41,16 +41,16 @@ void CompareOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of input arguments for Compare Out Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg 1 for compare op needs to be tensor type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg 2 for compare op needs to be of tensor type");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input arg 3 for compare op needs to be of tensor type");
   // Tensor self = inputs[0].toTensor();
@@ -79,16 +79,16 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   // this check is for stack during graph execution
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of input expected for Compare operator");
   // Note that there is no (Scalar, Tensor) version for comparison ops
   // in native_functions.yaml
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(
+  HABANA_ASSERT(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  HABANA_ASSERT(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
 
   std::shared_ptr<HabanaOperator> compareOp;
   if (inputs[1].isTensor()) { // Both inputs are tensors
@@ -172,11 +172,12 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of input arguments for Compare Operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be a tensor");
-  TORCH_CHECK(
+  HABANA_ASSERT(
+      inputs[0].isTensor(), "Input arg1 type expected to be a tensor");
+  HABANA_ASSERT(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
   std::vector<int64_t> out_shape;

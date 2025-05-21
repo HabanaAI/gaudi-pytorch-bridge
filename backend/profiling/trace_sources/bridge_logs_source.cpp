@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "bridge_logs_source.h"
 #include <syscall.h>
@@ -21,6 +21,7 @@
 #include <deque>
 #include <mutex>
 #include <regex>
+#include <sstream>
 #include <unordered_set>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
@@ -45,6 +46,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
       pid_t tid = syscall(__NR_gettid);
       std::string event_id{id};
       std::lock_guard<std::mutex> lg{m};
+      updateThreadNames(tid);
       events_.emplace_back(std::move(event_id), dtime, tid, is_begin);
     }
   }
@@ -116,6 +118,11 @@ struct BridgeLogsSourceImpl : public TraceSource {
           event.time,
           event.begin);
     }
+    for (const auto& entry : threadNames) {
+      std::string name =
+          "thread " + std::to_string(entry.first) + " (" + entry.second + ")";
+      output.addResource(name, pid, entry.first);
+    }
     output.addDevice("Bridge Logs", pid);
     events_.clear();
   }
@@ -127,6 +134,12 @@ struct BridgeLogsSourceImpl : public TraceSource {
   }
 
  private:
+  void updateThreadNames(pid_t tid) {
+    if (not threadNames.count(tid)) {
+      auto name = getThreadName();
+      threadNames[tid] = name;
+    }
+  }
   struct Event {
     std::string name;
     int64_t time;
@@ -146,6 +159,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
   } checked_;
   unsigned offset_{};
   std::mutex m{};
+  std::unordered_map<int64_t, std::string> threadNames;
 };
 
 BridgeLogsSource::BridgeLogsSource(

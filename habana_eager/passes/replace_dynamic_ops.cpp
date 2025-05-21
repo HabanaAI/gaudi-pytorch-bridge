@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <c10/util/ArrayRef.h>
 
@@ -57,33 +57,6 @@ struct HandleDynamicOpsPass {
         m_dmeta->remove_input_indexes.push_back(i);
       }
       i--;
-    }
-  }
-
-  void handlePrimConstantNode(torch::jit::Node* node) {
-    auto node_vals = node->outputs();
-    for (const auto value : node_vals) {
-      torch::jit::IValue const_ivalue = toIValue(value).value();
-      m_value_ivalue_map[value] = std::make_shared<IVal>(const_ivalue);
-    }
-  }
-
-  void handlePrimListConstructNode(torch::jit::Node* node) {
-    auto node_vals = node->outputs();
-    HABANA_ASSERT(node_vals.size() == 1);
-    IValPtrShared ival =
-        GetPrimListConstructNodeOuputIValue(node, m_value_ivalue_map);
-    m_value_ivalue_map[node_vals[0]] = ival;
-  }
-
-  void handlePrimListUnpackNode(torch::jit::Node* node) {
-    auto node_vals = node->outputs();
-    for (const auto& input : node->inputs()) {
-      auto tensors = (*m_value_ivalue_map[input]).toTensorList();
-      for (size_t i = 0; i < tensors.size(); ++i) {
-        const at::Tensor& tensor = tensors[i];
-        m_value_ivalue_map[node_vals[i]] = std::make_shared<IVal>(tensor);
-      }
     }
   }
 
@@ -205,6 +178,7 @@ struct HandleDynamicOpsPass {
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
       std::string node_name = it->kind().toQualString();
       torch::jit::Node* node{*it};
+
       if (!maxTensorDimsCheck(node, node_name))
         m_dmeta->static_fallback = true;
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
@@ -261,10 +235,11 @@ void HandleDynamicOps(
     std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes,
     std::vector<habana_helpers::RangeInfo>* range_infos) {
   PT_EAGER_TRACE;
-  // Replace inplace ops with out-of-place variant for which DS support is needed
-  // Currently supports strided_insert_
-  // This leverages DS support of out-of-place variant op for inplace variant
-  ReplaceInplaceOpsDS(graph, habana::graph::DSOpsRegistry().getRegisteredDSOpsList());
+  // Replace inplace ops with out-of-place variant for which DS support is
+  // needed Currently supports strided_insert_ This leverages DS support of
+  // out-of-place variant op for inplace variant
+  ReplaceInplaceOpsDS(
+      graph, habana::graph::DSOpsRegistry().getRegisteredDSOpsList());
   HandleDynamicOpsPass pass{graph, dmeta, input_new_base_sizes, range_infos};
   bool changed{pass.run(stack)};
   if (changed) {

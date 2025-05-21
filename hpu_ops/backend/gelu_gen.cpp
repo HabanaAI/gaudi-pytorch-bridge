@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/gelu.h"
 #include "generated/backend/gelu_backward.h"
 #include "hpu_ops/op_backend.h"
@@ -59,9 +59,10 @@ void Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = GeluMeta(stack)[0];
   size_t size = 0;
   auto params = FillGeluFwdParams(stack, size);
+  using namespace std::literals;
   auto gelu = BuildOp(
       graph,
-      get_guid_with_precision("gelu_fwd", meta.dtype),
+      get_guid_with_precision("gelu_fwd"sv, meta.dtype),
       {syn_in(0)},
       {{meta.shape, meta.dtype, 0}, {meta.shape, meta.dtype}},
       params.get(),

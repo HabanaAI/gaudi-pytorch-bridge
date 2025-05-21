@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
@@ -24,7 +24,6 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -84,8 +83,8 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
 
     torch::Tensor grad_mat1_h;
 
-    c10::optional<double> scales_h(2.0);
-    c10::optional<double> scales_w(3.0);
+    std::optional<double> scales_h(2.0);
+    std::optional<double> scales_w(3.0);
     std::array<int64_t, 2> out_sizes = {8, 21};
     c10::IntArrayRef out_size = out_sizes;
     grad_mat1_h = torch::upsample_nearest2d_backward(
@@ -112,8 +111,8 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest_channelLast) {
 
     torch::Tensor grad_mat1_h;
 
-    c10::optional<double> scales_h(2.0);
-    c10::optional<double> scales_w(3.0);
+    std::optional<double> scales_h(2.0);
+    std::optional<double> scales_w(3.0);
     std::array<int64_t, 2> out_sizes = {8, 21};
     c10::IntArrayRef out_size = out_sizes;
     grad_mat1_h = torch::upsample_nearest2d_backward(
@@ -136,9 +135,9 @@ TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
     auto mat1_h = mat1.to(torch::kHPU);
     mat1.set_requires_grad(true);
     std::array<double, 2> scales = {2.0, 3.0};
-    c10::optional<c10::ArrayRef<double>> scale_factors = scales;
+    std::optional<c10::ArrayRef<double>> scale_factors = scales;
     std::array<int64_t, 2> out_sizes = {8, 21};
-    c10::optional<c10::IntArrayRef> out_size = c10::nullopt;
+    std::optional<c10::IntArrayRef> out_size = std::nullopt;
 
     auto out = torch::upsample_nearest2d(mat1, out_size, scale_factors);
     auto grad_out = torch::ones_like(out);
@@ -149,8 +148,8 @@ TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
     torch::Tensor grad_mat1_h;
 
     c10::IntArrayRef out_size2 = out_sizes;
-    c10::optional<double> scales_h(2.0);
-    c10::optional<double> scales_w(3.0);
+    std::optional<double> scales_h(2.0);
+    std::optional<double> scales_w(3.0);
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size2, size1, scales_h, scales_w);
 

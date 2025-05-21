@@ -1,23 +1,22 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_kernels/kernel_input_checks.h"
 #include <c10/core/ScalarType.h>
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging_pt.h"
-#include "habana_helpers/pt_version_check.h"
 
 std::unordered_map<
     std::string,
@@ -31,14 +30,14 @@ void OpAttributeCheck::populate_attribute_checks() {
        {{4, {c10::IValue(1), c10::IValue(1.0)}},
         {5, {c10::IValue(1), c10::IValue(1.0)}}}},
       // checking for divisor_override = None
-      {"avg_pool2d", {{7, {c10::IValue(c10::nullopt)}}}},
+      {"avg_pool2d", {{7, {c10::IValue(std::nullopt)}}}},
       // checking for divisor_override = None
-      {"avg_pool2d_backward", {{8, {c10::IValue(c10::nullopt)}}}},
+      {"avg_pool2d_backward", {{8, {c10::IValue(std::nullopt)}}}},
       // checking for divisor_override = None
-      {"avg_pool2d_backward_out", {{8, {c10::IValue(c10::nullopt)}}}},
+      {"avg_pool2d_backward_out", {{8, {c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined, reduction = Mean or Sum
       {"binary_cross_entropy",
-       {{3, {c10::IValue(false), c10::IValue(c10::nullopt)}},
+       {{3, {c10::IValue(false), c10::IValue(std::nullopt)}},
         {4,
          {c10::IValue(at::Reduction::Reduction::Mean),
           c10::IValue(at::Reduction::Reduction::Sum)}}}},
@@ -46,7 +45,7 @@ void OpAttributeCheck::populate_attribute_checks() {
       // None/undefined,
       // reduction = Mean or Sum
       {"binary_cross_entropy_backward",
-       {{4, {c10::IValue(false), c10::IValue(c10::nullopt)}},
+       {{4, {c10::IValue(false), c10::IValue(std::nullopt)}},
         {5,
          {c10::IValue(at::Reduction::Reduction::Mean),
           c10::IValue(at::Reduction::Reduction::Sum)}}}},
@@ -72,16 +71,16 @@ void OpAttributeCheck::populate_attribute_checks() {
       {"_log_softmax", {{3, {c10::IValue(false)}}}},
       // checking for weights = None/undefined
       {"nll_loss_forward",
-       {{3, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{3, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined
       {"nll_loss2d_forward",
-       {{3, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{3, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined
       {"nll_loss_backward",
-       {{4, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{4, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for weights = None/undefined
       {"nll_loss2d_backward",
-       {{4, {c10::IValue(false), c10::IValue(c10::nullopt)}}}},
+       {{4, {c10::IValue(false), c10::IValue(std::nullopt)}}}},
       // checking for half_to_float = false
       {"_softmax", {{3, {c10::IValue(false)}}}},
       // checking for thresold = 0
@@ -225,9 +224,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::Long}},
         },
         {
             "ne",
@@ -239,9 +236,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::Long}},
         },
         {
             "all",
@@ -930,9 +925,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "eq",
@@ -943,9 +936,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Char,
               at::ScalarType::Bool,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "lt",
@@ -955,9 +946,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "ge",
@@ -967,9 +956,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "le",
@@ -979,9 +966,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "scatter_",
@@ -1797,12 +1782,14 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
         {
             "dropout",
             {{at::ScalarType::Float,
+              at::ScalarType::Half,
               at::ScalarType::BFloat16,
               at::ScalarType::Double}},
         },
         {
             "dropout_",
             {{at::ScalarType::Float,
+              at::ScalarType::Half,
               at::ScalarType::BFloat16,
               at::ScalarType::Double}},
         },
@@ -1858,9 +1845,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "exp_fast",
@@ -2031,9 +2016,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "ge_",
@@ -2043,9 +2026,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "instance_norm",
@@ -2149,9 +2130,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "le_",
@@ -2161,9 +2140,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Float8_e5m2,
-              at::ScalarType::Float8_e4m3fn}},
+              at::ScalarType::BFloat16}},
         },
         {
             "log_lut",

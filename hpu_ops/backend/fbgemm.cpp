@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/fbgemm.h"
 
@@ -89,6 +89,8 @@ void LazyExpandIntoJaggedPermute::AddNode(
   syn_out(0) = std::move(permuted[0]);
 }
 
+using namespace std::literals;
+
 LazyBoundsCheckIndices::LazyBoundsCheckIndices(
     int device_id,
     c10::ScalarType scalar_type)
@@ -110,7 +112,7 @@ void LazyBoundsCheckIndices::AddNode(
   auto warning = stackGetter.getNextInput<TensorsPair>();
   auto rowsPerTable = stackGetter.getNextInput<TensorsPair>();
   auto boundsCheckMode = stackGetter.getNextInput<int>();
-  auto weights = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto weights = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   std::vector<synTensor> inputs = {
       rowsPerTable.syn_t, indices.syn_t, offsets.syn_t, warning.syn_t};
@@ -119,7 +121,7 @@ void LazyBoundsCheckIndices::AddNode(
   }
 
   std::string guid =
-      get_guid_with_precision("bounds_check_indices_fwd", ScalarType());
+      get_guid_with_precision("bounds_check_indices_fwd"sv, ScalarType());
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {indices.pt_t.sizes(), indices.pt_t.scalar_type(), 0},
@@ -161,7 +163,7 @@ void LazySplitPermuteCat::AddNode(
   auto dims = stackGetter.getNextInput<int>();
 
   std::string guid = get_guid_with_precision(
-      "split_permute_cat_fwd", input.pt_t.scalar_type());
+      "split_permute_cat_fwd"sv, input.pt_t.scalar_type());
 
   ns_SplitPermuteCat::Params params;
   params.batchSize = batchSize;

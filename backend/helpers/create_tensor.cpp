@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/create_tensor.h"
 #include <string>
@@ -141,7 +141,7 @@ synapse_helpers::tensor create_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     bool external,
-    const c10::optional<c10::ScalarType> dtype,
+    const std::optional<c10::ScalarType> dtype,
     const std::string& name,
     const std::string& inference_name) {
   PT_BRIDGE_DEBUG("[create_tensor-1] name: ", name);
@@ -713,7 +713,8 @@ synapse_helpers::tensor create_shape_tensor(
         builder.mark_persistence(persistent);
         break;
       case HOST_TO_DEVICE_TENSOR:
-        builder.mark_host_to_device_tensor(host_ptr);
+        builder.mark_host_to_device_tensor(
+            host_ptr, pytorch_to_synapse_type(tensor.scalar_type()));
         break;
       default:
         HABANA_ASSERT(0 && "Invalid shape_tensor_type");
@@ -744,7 +745,8 @@ synapse_helpers::tensor create_shape_tensor(
       builder.mark_persistence(persistent);
       break;
     case HOST_TO_DEVICE_TENSOR:
-      builder.mark_host_to_device_tensor(host_ptr);
+      builder.mark_host_to_device_tensor(
+          host_ptr, pytorch_to_synapse_type(tensor.scalar_type()));
       break;
     default:
       HABANA_ASSERT(0 && "Invalid shape_tensor_type");
@@ -854,8 +856,8 @@ create_tensors(
       graph,
       std::vector<bool>(tensors.size(), persistent),
       std::vector<bool>(tensors.size(), external),
-      std::vector<c10::optional<c10::ScalarType>>(
-          tensors.size(), c10::nullopt));
+      std::vector<std::optional<c10::ScalarType>>(
+          tensors.size(), std::nullopt));
 }
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
@@ -864,11 +866,11 @@ create_tensors(
     synapse_helpers::graph& graph,
     const std::vector<bool>& persistents,
     const std::vector<bool>& externals,
-    const std::vector<c10::optional<c10::ScalarType>> dtypes) {
+    const std::vector<std::optional<c10::ScalarType>> dtypes) {
   const auto num_tensors = tensors.size();
-  TORCH_CHECK(persistents.size() == num_tensors);
-  TORCH_CHECK(externals.size() == num_tensors);
-  TORCH_CHECK(dtypes.size() == num_tensors);
+  HABANA_ASSERT(persistents.size() == num_tensors);
+  HABANA_ASSERT(externals.size() == num_tensors);
+  HABANA_ASSERT(dtypes.size() == num_tensors);
 
   // tensor_helpers are used for tenor lifetime managment
   // syn_tensors are convinient to use with synapse API
@@ -915,7 +917,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
   }
 
   if (external) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         tensor.is_persistent(), "Cannot create non persistent external tensor");
   }
 
@@ -971,7 +973,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
         tensor.is_persistent());
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor.is_persistent(),
       "Why would you like to create another tensor in the same memory section for non persistent tensor?");
 
@@ -1057,43 +1059,49 @@ auto get_synapse_type_for_long() {
 } // namespace
 
 synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
-  static const std::unordered_map<c10::ScalarType, synDataType> map {
-    {c10::ScalarType::Byte, synDataType::syn_type_uint8},
-        {c10::ScalarType::Char, synDataType::syn_type_int8},
-        {c10::ScalarType::Short, synDataType::syn_type_int16},
-        {c10::ScalarType::Int, synDataType::syn_type_int32},
-        {c10::ScalarType::Long, get_synapse_type_for_long()},
-        {c10::ScalarType::Float, synDataType::syn_type_float},
-        {c10::ScalarType::Half, synDataType::syn_type_fp16},
-        {c10::ScalarType::Double, synDataType::syn_type_float},
-        {c10::ScalarType::Bool, synDataType::syn_type_int8},
-        {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
-        {c10::ScalarType::Float8_e5m2, synDataType::syn_type_fp8_152},
-        {c10::ScalarType::Float8_e4m3fn, synDataType::syn_type_fp8_143},
+  static const std::unordered_map<c10::ScalarType, synDataType> map{
+      {c10::ScalarType::Byte, synDataType::syn_type_uint8},
+      {c10::ScalarType::Char, synDataType::syn_type_int8},
+      {c10::ScalarType::UInt16, synDataType::syn_type_uint16},
+      {c10::ScalarType::Short, synDataType::syn_type_int16},
+      {c10::ScalarType::UInt32, synDataType::syn_type_uint32},
+      {c10::ScalarType::Int, synDataType::syn_type_int32},
+      {c10::ScalarType::UInt64, synDataType::syn_type_uint64},
+      {c10::ScalarType::Long, get_synapse_type_for_long()},
+      {c10::ScalarType::Float, synDataType::syn_type_float},
+      {c10::ScalarType::Half, synDataType::syn_type_fp16},
+      {c10::ScalarType::Double, synDataType::syn_type_float},
+      {c10::ScalarType::Bool, synDataType::syn_type_int8},
+      {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
+      {c10::ScalarType::Float8_e5m2, synDataType::syn_type_fp8_152},
+      {c10::ScalarType::Float8_e4m3fn, synDataType::syn_type_fp8_143},
   };
 
   auto result = map.find(pt_type);
-  TORCH_CHECK(result != map.end(), "Unsupported pytorch type ", pt_type);
+  HABANA_ASSERT(result != map.end(), "Unsupported pytorch type ", pt_type);
 
   return result->second;
 }
 
 c10::ScalarType synapse_to_pytorch_type(const synDataType type) {
   static const auto map = std::unordered_map<synDataType, c10::ScalarType>{
-    {synDataType::syn_type_uint8, c10::ScalarType::Byte},
-        {synDataType::syn_type_int8, c10::ScalarType::Char},
-        {synDataType::syn_type_int16, c10::ScalarType::Short},
-        {synDataType::syn_type_int32, c10::ScalarType::Int},
-        {synDataType::syn_type_float, c10::ScalarType::Float},
-        {synDataType::syn_type_fp16, c10::ScalarType::Half},
-        {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},
-        {synDataType::syn_type_int64, c10::ScalarType::Long},
-        {synDataType::syn_type_fp8_152, c10::ScalarType::Float8_e5m2},
-        {synDataType::syn_type_fp8_143, c10::ScalarType::Float8_e4m3fn},
+      {synDataType::syn_type_uint8, c10::ScalarType::Byte},
+      {synDataType::syn_type_int8, c10::ScalarType::Char},
+      {synDataType::syn_type_uint16, c10::ScalarType::UInt16},
+      {synDataType::syn_type_int16, c10::ScalarType::Short},
+      {synDataType::syn_type_uint32, c10::ScalarType::UInt32},
+      {synDataType::syn_type_int32, c10::ScalarType::Int},
+      {synDataType::syn_type_uint64, c10::ScalarType::UInt64},
+      {synDataType::syn_type_float, c10::ScalarType::Float},
+      {synDataType::syn_type_fp16, c10::ScalarType::Half},
+      {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},
+      {synDataType::syn_type_int64, c10::ScalarType::Long},
+      {synDataType::syn_type_fp8_152, c10::ScalarType::Float8_e5m2},
+      {synDataType::syn_type_fp8_143, c10::ScalarType::Float8_e4m3fn},
   };
 
   auto result = map.find(type);
-  TORCH_CHECK(result != map.end(), "Unsupported synapse type ", type);
+  HABANA_ASSERT(result != map.end(), "Unsupported synapse type ", type);
 
   return result->second;
 }
@@ -1113,7 +1121,7 @@ c10::ScalarType scalar_type(const c10::Scalar& s) {
   } else if (s.isBoolean()) {
     type = c10::ScalarType::Bool;
   } else {
-    TORCH_CHECK(!s.isComplex(), "Habana doesn't support complex types");
+    HABANA_ASSERT(!s.isComplex(), "Habana doesn't support complex types");
     throw std::runtime_error("Unknown type");
   }
 

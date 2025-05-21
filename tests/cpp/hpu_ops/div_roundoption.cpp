@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "util.h"
 
@@ -26,7 +26,7 @@ class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, divroundTrueDouble) {
   GenerateInputs(2, torch::kDouble);
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(GetCpuInput(0), GetCpuInput(1), mode);
   auto result = torch::div(GetHpuInput(0), GetCpuInput(1), mode);
 
@@ -35,7 +35,7 @@ TEST_F(HpuOpTest, divroundTrueDouble) {
 
 TEST_F(HpuOpTest, divroundTrueBFloat16) {
   GenerateInputs(2, torch::kBFloat16);
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(GetCpuInput(0), GetCpuInput(1), mode);
   auto result = torch::div(GetHpuInput(0), GetCpuInput(1), mode);
   // TPC Kernel's precision, slightly differs fro CPU version for bfloat16
@@ -61,7 +61,7 @@ TEST_F(HpuOpTest, divroundTrueBroadcast) {
   auto B = torch::randn({1, 3});
   auto hA = A.to("hpu");
   auto hB = B.to("hpu");
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(A, B, mode);
   auto result = torch::div(hA, hB, mode);
   Compare(expected, result);
@@ -77,7 +77,7 @@ TEST_F(HpuOpTest, divroundTrueTypePromoIntFloat) {
   auto B = torch::randn(tensor_size);
   auto hA = A.to("hpu");
   auto hB = B.to("hpu");
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(A, B, mode);
   auto result = torch::div(hA, hB, mode);
   Compare(expected, result);
@@ -154,7 +154,7 @@ TEST_F(HpuOpTest, divroundNoneTypePromoIntInt) {
       torch::dtype(torch::kInt));
   auto hA = A.to("hpu");
   auto hB = B.to("hpu");
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(A, B, mode);
   auto result = torch::div(hA, hB, mode);
   Compare(expected, result);
@@ -171,7 +171,7 @@ TEST_F(HpuOpTest, divroundTrueTypePromoIntInt1D) {
   auto hA = A.to("hpu");
   auto hB = B.to("hpu");
 
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(A, B, mode);
   auto result = torch::div(hA, hB, mode);
 
@@ -214,7 +214,7 @@ TEST_F(HpuOpTest, divroundFloorTypePromoIntInt1D) {
 
 TEST_F(HpuOpTest, div_inplace_f32) {
   GenerateInputs(1, torch::kFloat);
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto other = GenerateScalar<float>();
 
   GetCpuInput(0).div_(other, mode);
@@ -225,7 +225,7 @@ TEST_F(HpuOpTest, div_inplace_f32) {
 
 TEST_F(HpuOpTest, div_inplace_f32int) {
   GenerateInputs(1, torch::kFloat);
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto other = GenerateScalar<int>();
 
   GetCpuInput(0).div_(other, mode);
@@ -236,7 +236,7 @@ TEST_F(HpuOpTest, div_inplace_f32int) {
 
 TEST_F(HpuOpTest, div_inplace_bf16int8) {
   GenerateInputs(2, {torch::kBFloat16, torch::kInt8});
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
 
   GetCpuInput(0).div_(GetCpuInput(1), mode);
   GetHpuInput(0).div_(GetCpuInput(1), mode);
@@ -267,7 +267,7 @@ TEST_F(HpuOpTest, div_scalar_int8f32) {
 TEST_F(HpuOpTest, div_scalar_bf16int) {
   GenerateInputs(1, torch::kBFloat16);
   auto other = GenerateScalar<int>();
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(GetCpuInput(0), other, mode);
   auto result = torch::div(GetHpuInput(0), other, mode);
 
@@ -277,7 +277,7 @@ TEST_F(HpuOpTest, div_scalar_bf16int) {
 TEST_F(HpuOpTest, div_scalar_bf16f32) {
   GenerateInputs(1, torch::kBFloat16);
   auto other = GenerateScalar<float>();
-  c10::optional<c10::string_view> mode = c10::nullopt;
+  std::optional<std::string_view> mode = std::nullopt;
   auto expected = torch::div(GetCpuInput(0), other, mode);
   auto result = torch::div(GetHpuInput(0), other, mode);
 

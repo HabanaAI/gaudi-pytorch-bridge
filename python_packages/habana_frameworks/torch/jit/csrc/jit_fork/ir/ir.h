@@ -38,7 +38,6 @@
 #include <ATen/core/ivalue.h>
 #include <ATen/core/jit_type.h>
 #include <c10/util/ArrayRef.h>
-#include <c10/util/Optional.h>
 
 #include <torch/csrc/Export.h>
 #include <torch/csrc/jit/runtime/operator.h>
@@ -292,7 +291,7 @@ struct TORCH_API PythonOp : public Node {
   // recover the autograd.Function instance, if this PythonOp's function
   // was originally SomeFunction.apply
   // used in ONNX for discovering symbolics
-  virtual c10::optional<THPObjectPtr> autogradFunction() const = 0;
+  virtual std::optional<THPObjectPtr> autogradFunction() const = 0;
 
   virtual void lint_python() const = 0;
 };
@@ -366,17 +365,17 @@ struct FunctionSchemaMap {
     return false;
   }
 
-  c10::optional<T> find(const FunctionSchema& schema) const {
+  std::optional<T> find(const FunctionSchema& schema) const {
     const auto it = map.find(Symbol::fromQualString(schema.name()));
     if (it == map.end()) {
-      return c10::nullopt;
+      return std::nullopt;
     }
     for (auto vit = it->second.begin(); vit != it->second.end(); ++vit) {
       if (vit->first == schema) {
         return vit->second;
       }
     }
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   // TODO: return iterator

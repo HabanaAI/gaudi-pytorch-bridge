@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/_addmm_activation.h"
 #include "generated/backend/addbmm.h"
@@ -25,22 +25,22 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto mat1 = stack_tensor(stack, 1);
   auto mat2 = stack_tensor(stack, 2);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
       "addmm: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat1.dim() == 2,
       "addmm: Expected mat1 to be 2-D, but got ",
       mat1.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat2.dim() == 2,
       "addmm: Expected mat2 to be 2-D, but got ",
       mat2.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       mat1.sizes()[1] == mat2.sizes()[0],
       "Matrices sizes are not compatible to multiply them");
   // (n, m)@(m, p) -> (n, p)
@@ -52,8 +52,8 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
 OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
   OutputMetaData meta;
   // Take output tensor dtype
-  c10::optional<at::Tensor> output_tensor = c10::nullopt;
-  c10::optional<c10::ScalarType> output_type = c10::nullopt;
+  std::optional<at::Tensor> output_tensor = std::nullopt;
+  std::optional<c10::ScalarType> output_type = std::nullopt;
   if (stack.at(stack.size() - 1).isTensor()) {
     output_tensor = stack.at(stack.size() - 1).toTensor();
     output_type = stack.at(stack.size() - 1).toTensor().scalar_type();
@@ -71,24 +71,30 @@ OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
 SharedMetaDataVector AddMMSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  return MatrixMulWithAddSharedMeta(stack, "addmm");
+  return MatrixMulWithAddSharedMeta(stack, "addmm", false);
+}
+
+SharedMetaDataVector AddMMActivationSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return MatrixMulWithAddSharedMeta(stack, "addmm", true);
 }
 
 OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto batch1 = stack_tensor(stack, 1);
   auto batch2 = stack_tensor(stack, 2);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
       "addbmm: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       batch1.dim() == 3,
       "addbmm: Expected batch1 to be 3-D, but got ",
       batch1.dim(),
       "-D");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       batch2.dim() == 3,
       "addbmm: Expected batch2 to be 3-D, but got ",
       batch2.dim(),
@@ -102,20 +108,22 @@ OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
   return {meta};
 }
 
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> ComputeBetaSide(
     OpBackend* op,
     synapse_helpers::graph& graph,
     std::vector<synTensor> input_tensor,
     const at::IntArrayRef output_shape,
     const float beta_val,
-    c10::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   synapse_helpers::tensor beta_tensor = OpBackend::BuildConstant(
       op, graph, beta_val, op->ScalarType(), output_shape);
   std::vector<synTensor> node_inputs{input_tensor.at(0), beta_tensor.get()};
   std::vector<synapse_helpers::tensor> beta_side_out = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult", op->ScalarType()),
+      {get_guid_with_precision("mult"sv, op->ScalarType()),
        std::move(node_inputs),
        {{output_shape, op->ScalarType(), final_idx}}});
 
@@ -129,7 +137,7 @@ static std::vector<synapse_helpers::tensor> ComputeGEMM(
     const at::IntArrayRef output_shape,
     const at::IntArrayRef gemm_output_shape,
     const bool is_batch,
-    c10::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   NodeAttr::NodeOutputAttr gemm_node_output_attr = {
       gemm_output_shape, op->ScalarType()};
   if (!is_batch)
@@ -167,8 +175,8 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     const at::IntArrayRef gemm_output_shape,
     const float alpha_val,
     const bool is_batch,
-    c10::optional<int> final_idx = c10::nullopt) {
-  c10::optional<int> is_gemm_final_node = c10::nullopt;
+    std::optional<int> final_idx = std::nullopt) {
+  std::optional<int> is_gemm_final_node = std::nullopt;
   if (alpha_val == 1.0) {
     is_gemm_final_node = final_idx;
   }
@@ -192,7 +200,7 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult", op->ScalarType()),
+        {get_guid_with_precision("mult"sv, op->ScalarType()),
          std::move(mul_node_inputs),
          {{output_shape, op->ScalarType(), final_idx}}});
     return alpha_mul_out;
@@ -244,7 +252,7 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
     addmm_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("add", op->ScalarType()),
+        {get_guid_with_precision("add"sv, op->ScalarType()),
          std::move(add_node_inputs),
          {{output_shape, op->ScalarType(), 0}}});
   }
@@ -265,7 +273,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // Formula: out = beta * input0 + alpha * (input1 @ input2)
   // GEMM returns higher precision dtype, so input0 has to be (bf16/fp32).
   auto guid =
-      get_guid_with_precision("addmm", stack_tensor(stack, 1).scalar_type());
+      get_guid_with_precision("addmm"sv, stack_tensor(stack, 1).scalar_type());
 
   if (shouldUseParams) {
     ns_AddmmKernel::Params params{};
@@ -322,7 +330,7 @@ void AddMMActivation::AddNode(
         {syn_in(0), syn_in(1), syn_in(2)},
         {{meta.shape,
           meta.dtype,
-          append_activation ? c10::nullopt : c10::optional(0)}},
+          append_activation ? std::nullopt : std::optional(0)}},
         &params,
         sizeof(params));
   } else {
@@ -338,7 +346,7 @@ void AddMMActivation::AddNode(
          alpha_tensor.get()},
         {{meta.shape,
           meta.dtype,
-          append_activation ? c10::nullopt : c10::optional(0)}});
+          append_activation ? std::nullopt : std::optional(0)}});
   }
 
   if (append_activation) {
@@ -350,7 +358,8 @@ void AddMMActivation::AddNode(
     }
     auto act = BuildOp(
         graph,
-        get_guid_with_precision(use_gelu ? "gelu_fwd" : "relu_fwd", meta.dtype),
+        get_guid_with_precision(
+            use_gelu ? "gelu_fwd"sv : "relu_fwd"sv, meta.dtype),
         {result[0].get()},
         act_output_attr);
     syn_out(0) = std::move(act[0]);

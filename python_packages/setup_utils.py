@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -37,10 +37,10 @@ def InstallCMakeLibs(module_namespace, wheel_name, wheel_build_dir, wheel_pt_ver
             super().__init__(dist)
 
         def run(self):
-            super(_InstallCMakeLibs, self).run()
+            super().run()
 
         def install(self):
-            installed_files = super(_InstallCMakeLibs, self).install()
+            installed_files = super().install()
 
             for ext in self.distribution.ext_modules:
                 if isinstance(ext, PrebuiltPtExtension):
@@ -88,5 +88,5 @@ def get_version():
             sha = subprocess.check_output(["git", "-C", root, "rev-parse", "--short", "HEAD"]).decode("ascii").strip()
             return f"{version}+git{sha}"
         except Exception as e:
-            print("Error getting version: {}".format(e), file=sys.stderr)
+            print(f"Error getting version: {e}", file=sys.stderr)
             return f"{version}+unknown"

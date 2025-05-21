@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
@@ -334,9 +334,6 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexAddInplaceTest2) {
-  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-    GTEST_SKIP();
-  }
   torch::Tensor a = torch::randn({8, 2, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
@@ -358,9 +355,6 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest2) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexAddRepeatedIndicesInplaceTest) {
-  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
-    GTEST_SKIP();
-  }
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
@@ -478,12 +472,12 @@ TEST_F(LazyIndexKernelTest, ArangeFloatOutTest) {
   torch::Scalar end = tEnd.item();
   torch::Scalar step = tStep.item();
 
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+  std::optional<at::ScalarType> dtype = c10::ScalarType::Float;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  std::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+  std::optional<at::Device> cpu_device = at::DeviceType::CPU;
   at::TensorOptions cpu_options =
       at::TensorOptions().dtype(dtype).device(cpu_device);
 
@@ -501,12 +495,12 @@ TEST_F(LazyIndexKernelTest, ArangeIntOutTest) {
   torch::Scalar end = tEnd.item();
   torch::Scalar step = tStep.item();
 
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+  std::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  std::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+  std::optional<at::Device> cpu_device = at::DeviceType::CPU;
   at::TensorOptions cpu_options =
       at::TensorOptions().dtype(dtype).device(cpu_device);
 
@@ -524,12 +518,12 @@ TEST_F(LazyIndexKernelTest, ArangeCharOutTest) {
   torch::Scalar end = tEnd.item();
   torch::Scalar step = tStep.item();
 
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Char;
+  std::optional<at::ScalarType> dtype = c10::ScalarType::Char;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  std::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+  std::optional<at::Device> cpu_device = at::DeviceType::CPU;
   at::TensorOptions cpu_options =
       at::TensorOptions().dtype(dtype).device(cpu_device);
 
@@ -546,7 +540,7 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
   std::vector<torch::Tensor> vec_cpu{
       torch::tensor({0, 1}), torch::tensor({0, 1})};
 
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
   for (const auto& t : vec_cpu) {
@@ -555,7 +549,7 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
 
   // auto out_cpu = at::index(input_cpu, vec_cpu).to(torch::kInt32);
   // auto out_hpu = at::index(input_hpu, vec_hpu);
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (const auto& t : vec_cpu) {
@@ -581,12 +575,12 @@ TEST_F(LazyIndexKernelTest, ArangeLongOutTest) {
   torch::Scalar end = tEnd.item();
   torch::Scalar step = tStep.item();
 
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Long;
+  std::optional<at::ScalarType> dtype = c10::ScalarType::Long;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
+  std::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+  std::optional<at::Device> cpu_device = at::DeviceType::CPU;
   at::TensorOptions cpu_options =
       at::TensorOptions().dtype(dtype).device(cpu_device);
   auto h_a = torch::arange(start, end, step, hb_options);
@@ -831,7 +825,7 @@ TEST_F(LazyIndexKernelTest, IndexOutTest) {
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({0, 1}), torch::tensor({1})};
 
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   indices_cpu.reserve(vec_cpu.size() + 1);
   at::Tensor undef_t;
   indices_cpu.push_back(undef_t);
@@ -839,7 +833,7 @@ TEST_F(LazyIndexKernelTest, IndexOutTest) {
     indices_cpu.push_back(c10::make_optional(t));
   }
 
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.reserve(vec_cpu.size() + 1);
   indices_list.push_back(undef_t);
   for (const auto& t : vec_cpu) {
@@ -869,11 +863,11 @@ TEST_F(LazyIndexKernelTest, IndexMixedTest1) {
        {true, true, false},
        {false, true, true}});
   /*Index as input[bmask_cpu, index_t_cpu]*/
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   indices_cpu.emplace_back(bmask_cpu);
   indices_cpu.emplace_back(index_t_cpu);
 
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.push_back(c10::make_optional(bmask_cpu.to(torch::kHPU)));
   indices_list.push_back(c10::make_optional(index_t_cpu.to(torch::kHPU)));
   std::vector<int64_t> out_size = {6};
@@ -900,13 +894,13 @@ TEST_F(LazyIndexKernelTest, IndexMixedTest2) {
        {true, true, false},
        {false, true, true}});
   /*Index as input[bmask_cpu, :, index_t_cpu]*/
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   indices_cpu.emplace_back(bmask_cpu);
   at::Tensor undef_t;
   indices_cpu.push_back(undef_t);
   indices_cpu.emplace_back(index_t_cpu);
 
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.push_back(c10::make_optional(bmask_cpu.to(torch::kHPU)));
   indices_list.push_back(undef_t);
   indices_list.push_back(c10::make_optional(index_t_cpu.to(torch::kHPU)));
@@ -929,10 +923,10 @@ TEST_F(LazyIndexKernelTest, IndexMultiDimTest) {
   std::vector<torch::Tensor> vec_cpu;
   torch::Tensor index_t_cpu = torch::tensor({{0}});
   /*Index as input[bmask_cpu, index_t_cpu]*/
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   indices_cpu.emplace_back(index_t_cpu);
 
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.push_back(c10::make_optional(index_t_cpu.to(torch::kHPU)));
   auto out_cpu = at::index(input_cpu, indices_cpu);
 
@@ -950,13 +944,13 @@ TEST_F(LazyIndexKernelTest, IndexPutNegativeIndicesTest) {
   std::vector<torch::Tensor> vec_cpu{
       torch::tensor({0, 1, 2}), torch::tensor({0, -2, -1})};
 
-  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  c10::List<std::optional<at::Tensor>> indices_cpu{};
   indices_cpu.reserve(vec_cpu.size());
   for (const auto& t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
 
-  c10::List<c10::optional<at::Tensor>> indices_list{};
+  c10::List<std::optional<at::Tensor>> indices_list{};
   indices_list.reserve(vec_cpu.size());
   for (const auto& t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));

@@ -17,12 +17,19 @@
 
 
 import collections
-from typing import Deque, List, Tuple
+import os
+
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.dynamo.utils import str_to_bool
 
 import torch
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from torch._dynamo.utils import count_calls
-from torch._functorch.partitioners import default_partition, min_cut_rematerialization_partition
+from torch._functorch.partitioners import (
+    default_partition,
+    min_cut_rematerialization_partition,
+    reordering_to_mimic_autograd_engine,
+)
+from torch._inductor.fx_passes.joint_graph import constant_fold_uniform_value
 
 from .passes import is_view_node
 
@@ -47,7 +54,7 @@ def is_view_node_wrapper(node: torch.fx.Node):
 
 
 def has_mutation_users(producer: torch.fx.Node):
-    queue: Deque[torch.fx.Node] = collections.deque()
+    queue: collections.deque[torch.fx.Node] = collections.deque()
     queue.append(producer)
 
     while len(queue) != 0:
@@ -64,7 +71,7 @@ def has_mutation_users(producer: torch.fx.Node):
 
 
 def remove_unnecessary_clone(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
-    to_remove: List[torch.fx.Node] = []
+    to_remove: list[torch.fx.Node] = []
 
     # if only one clone op in graph, not remove it
     if count_calls(gm.graph) <= 1:
@@ -96,14 +103,34 @@ def remove_unnecessary_clone(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
     return gm
 
 
+def constant_fold_joint_graph(gm: torch.fx.GraphModule) -> torch.fx.GraphModule:
+    constant_fold_uniform_value(gm)
+
+    return gm
+
+
 def hpu_partition(
     joint_module: torch.fx.GraphModule, _joint_inputs, *, num_fwd_outputs
-) -> Tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
+) -> tuple[torch.fx.GraphModule, torch.fx.GraphModule]:
     # optimize the joint module before partitioning it
     if hpu_backend_config.remove_unnecessary_clones:
         joint_module = remove_unnecessary_clone(joint_module)
 
+    if hpu_backend_config.joint_graph_constant_folding:
+        joint_module = constant_fold_joint_graph(joint_module)
+
+    # optimize the joint module before partitioning it
+    # we will fuse the attention module here
+    if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
+        from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
+            hpu_recursive_joint_graph_passes,
+        )
+
+        hpu_recursive_joint_graph_passes(joint_module)
+
     try:
-        return default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
-    except AssertionError as e:
+        fw_module, bw_module = default_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)
+        bw_module = reordering_to_mimic_autograd_engine(bw_module)
+        return fw_module, bw_module
+    except AssertionError:
         return min_cut_rematerialization_partition(joint_module, _joint_inputs, num_fwd_outputs=num_fwd_outputs)

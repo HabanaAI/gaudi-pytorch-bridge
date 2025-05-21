@@ -82,6 +82,8 @@ class device_context : std::enable_shared_from_this<device_context> {
 
   synapse_helpers::stream& get_stream_fromhandle(synStreamHandle stream_handle);
 
+  void wait_until_address_ready(synapse_helpers::device_ptr address);
+
   hcclResult_t submit_events(
       synStreamHandle stream_handle,
       synapse_helpers::device_ptr output_address,
@@ -103,6 +105,10 @@ class device_context : std::enable_shared_from_this<device_context> {
       device_->flush_stream_events();
     }
   }
+
+  hcclResult_t get_hpu_stream(
+      synStreamHandle stream_handle,
+      synapse_helpers::hpuStream_t* hpu_stream_ptr);
 
  private:
   uint32_t get_sync_tag() const {

@@ -1,22 +1,21 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_eager/ops/set.h"
 #include "habana_kernels/resize.h"
 
 #include <ATen/native/Resize.h>
-#include <c10_ver/core/SymIntArrayRef.h>
 
 namespace habana {
 namespace eager {
@@ -30,9 +29,9 @@ at::Tensor& set_source_Storage_storage_offset(
   at::native::checkSetStorage(self, source, storage_offset, size, stride);
 
   auto int_storage_offset = storage_offset.as_int_unchecked();
-  c10::optional<at::IntArrayRef> stride_opt = stride.data() != nullptr
-      ? c10::optional<at::IntArrayRef>(C10_AS_INTARRAYREF_SLOW(stride))
-      : c10::nullopt;
+  std::optional<at::IntArrayRef> stride_opt = stride.data() != nullptr
+      ? std::optional<at::IntArrayRef>(C10_AS_INTARRAYREF_SLOW(stride))
+      : std::nullopt;
 
   auto hb_tmeta{habana::get_tensor_extra_meta(self)};
   hb_tmeta->set_tensor_pipelined();

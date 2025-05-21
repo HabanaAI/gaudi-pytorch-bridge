@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <absl/strings/str_format.h>
@@ -319,6 +319,14 @@ class tensor final {
     set_permutation();
   }
 
+  bool set_reusable(bool reusable) {
+    return is_reusable_ = reusable;
+  }
+
+  bool is_reusable() const {
+    return is_reusable_;
+  }
+
   synDataType type() const {
     return data_type_;
   }
@@ -532,6 +540,8 @@ class tensor final {
   bool dont_allow_permute_ = false;
 
   bool is_shape_agnostic_ = false;
+
+  bool is_reusable_ = false;
 };
 
 /**

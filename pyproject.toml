@@ -6,6 +6,61 @@ profile = "black"
 line_length = 120
 multi_line_output = 3
 
-[tool.mypy]
-disallow_untyped_defs = false
-follow_imports = "skip"
+[tool.ruff]
+target-version = "py312"
+
+# Rules: https://docs.astral.sh/ruff/rules
+[tool.ruff.lint]
+select = ["F","E","W","I","UP","B","C4","EXE","PYI","SIM","ARG","FIX"]
+ignore = [
+   "E203",
+   "E501",
+   "E721",
+   "E722",
+   "E741",
+   "F811",
+   "F841",
+   "B006",
+   "B008",
+   "B011",
+   "B023",
+   "B028",
+   "B904",
+   "C417",
+   "EXE001",
+   "PYI024",
+   "PYI026",
+   "PYI034",
+   "PYI036",
+   "SIM101",
+   "SIM102",
+   "SIM103",
+   "SIM105",
+   "SIM108",
+   "SIM115",
+   "SIM116",
+   "SIM117",
+   "SIM118",
+   "SIM201",
+   "SIM401",
+   "ARG001",
+   "ARG002",
+   "ARG003",
+   "ARG004",
+   "ARG005",
+   "FIX001",
+   "FIX002",
+   "FIX004",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "F401",
+    "E402",
+    "F403",
+    "F405",
+]
+"*_C.py" = [
+    "F401",
+    "F403",
+]

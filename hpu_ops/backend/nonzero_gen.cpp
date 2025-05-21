@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <ATen/WrapDimUtils.h>
@@ -107,14 +107,15 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
     synapse_helpers::graph& graph,
     NonZeroParams_t self_params,
     synTensor self_synin,
-    c10::optional<int> final_result_index_0,
-    c10::optional<int> final_result_index_1,
+    std::optional<int> final_result_index_0,
+    std::optional<int> final_result_index_1,
     bool use_tpc_impl = false) {
   auto output_shape = compute_nonzero_output_shape(self_params, use_tpc_impl);
   auto shape_tensor_shape = DimVector{5};
   ns_NonzeroV2::Params params = {};
   std::vector<synTensor> inputs = {self_synin};
-  auto guid = get_guid_with_precision("non_zero_v2_fwd", self_params.dtype);
+  using namespace std::literals;
+  auto guid = get_guid_with_precision("non_zero_v2_fwd"sv, self_params.dtype);
 
   auto shape_tensor_dtype =
       (common::IsInt64Supported() &&

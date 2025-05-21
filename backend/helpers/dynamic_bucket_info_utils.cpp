@@ -1,23 +1,23 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "backend/helpers/dynamic_bucket_info.h"
 
 namespace habana_helpers {
 std::string ResultShapes::DebugString() {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       min_shapes.size() == max_shapes.size(),
       "max and min have different shapes");
   std::ostringstream O;
@@ -71,7 +71,7 @@ bool HistoryItem::IsInRange(const ResultShapes& r) {
     auto& tidx{a.first};
     auto& tshape{a.second};
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         r.min_shapes.count(tidx) && r.max_shapes.count(tidx),
         "Tensor index ",
         tidx,

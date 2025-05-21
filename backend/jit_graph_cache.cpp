@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "backend/jit_graph_cache.h"
 #include <sstream>
 #define XXH_STATIC_LINKING_ONLY
@@ -63,7 +63,8 @@ void ComputeGraphHashCode(
     std::vector<bool> node_bcast_details,
     bool dynamic_graph,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes,
-    habana_helpers::HabanaFrontendTypes frontend_type) {
+    habana_helpers::HabanaFrontendTypes frontend_type,
+    std::vector<bool> is_reusable) {
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
@@ -103,13 +104,14 @@ void ComputeGraphHashCode(
       size_t pos = cstr.find(':');
       if (pos != std::string::npos && pos < cstr.size() - 1)
         cstr = cstr.substr(pos + 1);
-      if (dynamic_graph) {
-        size_t pos_comment = cstr.find('#');
-        if (pos_comment != std::string::npos && pos_comment < cstr.size() - 1) {
-          cstr = cstr.substr(0, pos_comment - 1);
-          cstr.append("\n");
-        }
+
+      // Remove # <eval_with_key> ... comments
+      size_t pos_comment = cstr.find('#');
+      if (pos_comment != std::string::npos && pos_comment < cstr.size() - 1) {
+        cstr = cstr.substr(0, pos_comment - 1);
+        cstr.append("\n");
       }
+
       op_strs.append(cstr);
       idx_const_map.emplace(idx, cstr);
     }
@@ -139,6 +141,8 @@ void ComputeGraphHashCode(
     HABANA_ASSERT(node);
     output_connection_hash =
         at::hash_combine(output_connection_hash, node_idx_map[node]);
+    output_connection_hash =
+        at::hash_combine(output_connection_hash, value_out->offset());
     connection_hash = at::hash_combine(connection_hash, output_connection_hash);
   }
 
@@ -222,6 +226,11 @@ void ComputeGraphHashCode(
   if (dynamic_graph) {
     graphHashCode =
         at::hash_combine(graphHashCode, GetWeightHash(input_refs, irgraph));
+  }
+
+  if (!is_reusable.empty()) {
+    std::hash<std::vector<bool>> hash_reusable;
+    graphHashCode = at::hash_combine(graphHashCode, hash_reusable(is_reusable));
   }
 
   size_t graphHashCodeNoConst = graphHashCode;
@@ -327,12 +336,14 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::string& id,
     const bool dynamic,
     const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes,
-    habana_helpers::HabanaFrontendTypes f_type)
+    habana_helpers::HabanaFrontendTypes f_type,
+    std::vector<bool> is_reusable)
     : jit_graph_to_lowering(JitGraphToLowering),
       unique_graph_cntr(ug_cntr),
       dynamic_graph(dynamic),
       node_bcast_details(bcast_details),
-      frontend_type(f_type) {
+      frontend_type(f_type),
+      m_is_reusable(is_reusable) {
   // Compute the graph hash
   ComputeGraphHashCode(
       JitGraphToLowering, input_refs, id, m_input_new_base_sizes);
@@ -355,7 +366,8 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
       node_bcast_details,
       dynamic_graph,
       m_input_new_base_sizes,
-      frontend_type);
+      frontend_type,
+      m_is_reusable);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {
@@ -396,6 +408,10 @@ std::vector<habana_helpers::RangeInfo> OptimizedJITGraphAndMetaData::
   return m_range_infos;
 }
 
+const std::vector<bool>& OptimizedJITGraphAndMetaData::GetIsReusable() {
+  return m_is_reusable;
+}
+
 void SynBuildCache::clear_cached_outputs_tensors() {
   for (auto& metadatas : outputs_metadata) {
     for (auto& metadata : metadatas) {
@@ -431,7 +447,7 @@ JitGraphCache::JitGraphCache() : m_mutex{} {}
 
 std::shared_ptr<habana::OptimizedJITGraphAndMetaData> JitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     // We found the graph in cache
@@ -444,14 +460,14 @@ std::shared_ptr<habana::OptimizedJITGraphAndMetaData> JitGraphCache::
 void JitGraphCache::Add(
     size_t key,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
-  TORCH_CHECK(!IsCached(key), "This key is already cached!");
+  HABANA_ASSERT(!IsCached(key), "This key is already cached!");
 
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.emplace(key, val);
 }
 
 void JitGraphCache::RemoveGraph(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     m_cache_map.erase(iter);
@@ -459,12 +475,9 @@ void JitGraphCache::RemoveGraph(size_t key) {
 }
 
 bool JitGraphCache::IsCached(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
-  if (!m_cache_map.empty() && iter != m_cache_map.end()) {
-    return true;
-  }
-  return false;
+  return (!m_cache_map.empty() && iter != m_cache_map.end());
 }
 
 bool JitGraphCache::Empty() {
@@ -472,6 +485,7 @@ bool JitGraphCache::Empty() {
 }
 
 void JitGraphCache::Clear() {
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.clear();
 }
 
@@ -485,7 +499,7 @@ OptimizedJitGraphCache::OptimizedJitGraphCache() : m_mutex{} {}
 
 std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedJitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     // We found the graph in cache
@@ -498,14 +512,14 @@ std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedJitGraphCache::
 void OptimizedJitGraphCache::Add(
     size_t key,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
-  TORCH_CHECK(!IsCached(key), "This key is already cached!");
+  HABANA_ASSERT(!IsCached(key), "This key is already cached!");
 
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.emplace(key, val);
 }
 
 void OptimizedJitGraphCache::RemoveGraph(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
     m_cache_map.erase(iter);
@@ -513,7 +527,7 @@ void OptimizedJitGraphCache::RemoveGraph(size_t key) {
 }
 
 bool OptimizedJitGraphCache::IsCached(size_t key) {
-  std::unique_lock<std::mutex> lck(m_mutex);
+  std::shared_lock<std::shared_mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (!m_cache_map.empty() && iter != m_cache_map.end()) {
     return true;
@@ -530,6 +544,7 @@ bool OptimizedJitGraphCache::Empty() {
 }
 
 void OptimizedJitGraphCache::Clear() {
+  std::unique_lock<std::shared_mutex> lck(m_mutex);
   m_cache_map.clear();
 }
 

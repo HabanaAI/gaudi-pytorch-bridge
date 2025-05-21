@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <ATen/Tensor.h>
 #include <c10/util/ArrayRef.h>
@@ -20,7 +20,6 @@
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/habana_tensor.h"
-#include "habana_helpers/pt_version_check.h"
 
 class PtTensorInfo;
 namespace habana_helpers {
@@ -51,7 +50,7 @@ synapse_helpers::tensor create_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     bool external,
-    const c10::optional<c10::ScalarType> dtype = c10::nullopt,
+    const std::optional<c10::ScalarType> dtype = std::nullopt,
     const std::string& name = std::string(),
     const std::string& inference_name = std::string());
 
@@ -143,7 +142,7 @@ create_tensors(
     synapse_helpers::graph& graph,
     const std::vector<bool>& persistents,
     const std::vector<bool>& externals,
-    const std::vector<c10::optional<c10::ScalarType>> dtypes);
+    const std::vector<std::optional<c10::ScalarType>> dtypes);
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(

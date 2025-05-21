@@ -16,6 +16,8 @@
 ###############################################################################
 
 import unittest
+from collections.abc import Generator
+from contextlib import contextmanager
 
 import habana_frameworks.torch as htorch
 import pytest
@@ -320,12 +322,6 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
 
 
 skip_if_no_hpu = pytest.mark.skipif(not torch.hpu.is_available(), reason="hpu required")
-
-
-from contextlib import contextmanager
-from typing import Generator
-
-import habana_frameworks.torch as htorch
 
 
 @contextmanager

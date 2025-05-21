@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -18,14 +18,13 @@
 import threading
 
 import habana_frameworks.torch._core_C as htcore
-import torch
 from habana_frameworks.torch.utils.internal import is_lazy, lazy_only
 
-_DEVICE_CONTEXTS = dict()
+_DEVICE_CONTEXTS = {}
 _DEVICE_CONTEXTS_LOCK = threading.Lock()
 
 
-class _DeviceContext(object):
+class _DeviceContext:
     def __init__(self, device):
         self.device = device
 
@@ -35,7 +34,7 @@ def _get_device_context(device=None):
         device = htcore._hb_get_default_device()
 
     with _DEVICE_CONTEXTS_LOCK:
-        devctx = _DEVICE_CONTEXTS.get(device, None)
+        devctx = _DEVICE_CONTEXTS.get(device)
         if devctx is None:
             devctx = _DeviceContext(device)
             _DEVICE_CONTEXTS[device] = devctx

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 ###############################################################################
 
 from enum import Enum
-from typing import Tuple
 
 import torch
 
@@ -28,7 +27,7 @@ class RotaryPosEmbeddingMode(Enum):
 
 def match_data_types(
     input: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if any(dtype is torch.float32 for dtype in [input.dtype, cos.dtype, sin.dtype]):
         if input.dtype != torch.float32:
             input = input.to(torch.float32)

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "hpu_ops/backend/reduction_template.h"
 #include "backend/helpers/lowering_util.h"
 #include "habana_kernels/kernel_utils.h"
@@ -39,7 +39,7 @@ ns_Reduction::ParamsV2 FillReductionParams(
 
 // Returns the input after cast to the supplied dtype. If dtype is none or if
 // dtype is same as input's dtype, returns nullopt.
-c10::optional<synapse_helpers::tensor> HandleReductionDtype(
+std::optional<synapse_helpers::tensor> HandleReductionDtype(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,
@@ -57,13 +57,13 @@ c10::optional<synapse_helpers::tensor> HandleReductionDtype(
       at::isIntegralType(self.scalar_type(), true)) {
     dtype_val = at::kFloat;
   } else {
-    return c10::nullopt;
+    return std::nullopt;
     // do nothing
   }
   op->SetGuid(update_guid_dtype(guid, dtype_val));
   if (habana_helpers::getInternalDtype(dtype_val) ==
       habana_helpers::getInternalDtype(self.scalar_type())) {
-    return c10::nullopt;
+    return std::nullopt;
   }
 
   op->SetScalarType(dtype_val);

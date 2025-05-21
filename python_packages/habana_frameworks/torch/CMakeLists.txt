@@ -35,7 +35,7 @@ else()
 endif()
 
 include(pt_ver)
-set_up_pt_ver_mechanism()
+detect_pt_version()
 
 target_compile_options(bindings INTERFACE -fopenmp -fpermissive)
 target_link_libraries(
@@ -50,6 +50,7 @@ target_link_libraries(
 
 add_subdirectory(internal/bridge_config)
 add_subdirectory(activity_profiler/csrc)
+add_subdirectory(hw_utilization_metric/csrc)
 add_subdirectory(core)
 add_subdirectory(distributed/hccl)
 add_subdirectory(dynamo/compile_backend)
@@ -60,6 +61,5 @@ add_subdirectory(low_overhead_profiler/csrc)
 add_subdirectory(utils/debug/csrc)
 add_subdirectory(utils/experimental/csrc)
 add_subdirectory(utils/event_dispatcher/csrc)
-add_subdirectory(utils/profiler/csrc)
 add_subdirectory(media_pyt_bridge/csrc)
 add_subdirectory(jit/csrc)

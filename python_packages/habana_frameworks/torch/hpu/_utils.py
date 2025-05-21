@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@
 
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import habana_frameworks.torch.hpu as hpu
+
 import torch
 
 HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
@@ -45,7 +46,7 @@ def _get_device_index(device: Any, optional: bool = False, allow_cpu: bool = Fal
         device_idx = device
     if isinstance(device, str):
         device = torch.device(device)
-    device_idx: Optional[int] = None
+    device_idx: int | None = None
     if isinstance(device, torch.device):
         if allow_cpu:
             if device.type not in ["hpu", "cpu"]:

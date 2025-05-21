@@ -158,14 +158,32 @@ graph graph::create(
     if (habana_helpers::IsInferenceMode()) {
       synStatus status = synSuccess;
       bool quantizationEnabled = habana_helpers::IsQuantizationEnabled();
-      uint64_t values[] = {true, quantizationEnabled};
+      synGraphAttributeVal values[] = {true, quantizationEnabled};
       synGraphAttribute att[] = {
           GRAPH_ATTRIBUTE_INFERENCE, GRAPH_ATTRIBUTE_QUANTIZATION};
       const uint32_t size = 2;
-      status = synGraphSetAttribute(syn_graph.graph_handle_, att, values, size);
+      status =
+          synGraphSetAttributes(syn_graph.graph_handle_, att, values, size);
       HABANA_ASSERT(
           status == synStatus::synSuccess,
           "Failed to set graph attributes. synStatus=",
+          Logger::formatStatusMsg(status));
+    }
+
+    if (const auto scale_hash_id = device.get_scale_attribute_hash_id();
+        scale_hash_id != 0) {
+      synStatus status = synSuccess;
+      synGraphAttributeVal values[] = {
+          device.get_scale_attribute_is_hw_aligned(), scale_hash_id};
+      synGraphAttribute att[] = {
+          GRAPH_ATTRIBUTE_IS_HW_ALIGNED_SCALE,
+          GRAPH_ATTRIBUTE_SCALE_METHOD_HASH_ID};
+      const uint32_t size = 2;
+      status =
+          synGraphSetAttributes(syn_graph.graph_handle_, att, values, size);
+      HABANA_ASSERT(
+          status == synStatus::synSuccess,
+          "Failed to set hw scaling graph attributes. synStatus=",
           Logger::formatStatusMsg(status));
     }
   }
@@ -902,8 +920,14 @@ std::string_view graph::name_suffix_from_type(
     case synDataType::syn_type_int16: {
       return "i16"sv;
     }
+    case synDataType::syn_type_uint16: {
+      return "u16"sv;
+    }
     case synDataType::syn_type_int32: {
       return "i32"sv;
+    }
+    case synDataType::syn_type_uint32: {
+      return "u32"sv;
     }
     case synDataType::syn_type_int64: {
       if (use_int64) {
@@ -915,6 +939,9 @@ std::string_view graph::name_suffix_from_type(
         // changed here.
         return "i32"sv;
       }
+    }
+    case synDataType::syn_type_uint64: {
+      return "u64"sv;
     }
     case synDataType::syn_type_bf16: {
       return "bf16"sv;

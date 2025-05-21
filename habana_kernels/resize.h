@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 // NOTE: file based on Resize.cuh. It uses THC
 
@@ -39,7 +39,7 @@ inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
   // for the first time (providing the necessary type). It is an ERROR to
   // invoke any PyTorch operations on such a half-constructed storage,
   // and this check tests for that case.
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor->storage(),
       "Cannot use PyTorch operations on a half-constructed "
       "tensor. If this tensor came from Caffe2, please call GetMutableData on "
@@ -53,11 +53,11 @@ inline void THStorage_resizeBytes(
     ptrdiff_t size_bytes,
     const caffe2::TypeMeta dtype,
     bool is_tensor_pipelined = false) {
-  TORCH_CHECK(size_bytes >= 0, "invalid size");
-  TORCH_CHECK(self->allocator() != nullptr);
+  HABANA_ASSERT(size_bytes >= 0, "invalid size");
+  HABANA_ASSERT(self->allocator() != nullptr);
   int device_id = habana::HPUDeviceAllocator::allocator_active_device_id;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self->resizable(), "Trying to resize storage that is not resizable");
 
   if (size_bytes == 0) {
@@ -134,7 +134,7 @@ inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
 inline TensorImpl* resize_impl_hpu_(
     TensorImpl* self,
     IntArrayRef size,
-    c10::optional<IntArrayRef> stride,
+    std::optional<IntArrayRef> stride,
     [[maybe_unused]] bool device_guard = true) {
   HABANA_ASSERT(
       self != nullptr, "Trying to resize tensor with non-existing TensorImpl");
@@ -188,7 +188,7 @@ inline void THHTensor_resizeNd(
     int nDimension,
     const int64_t* size,
     const int64_t* stride) {
-  TORCH_CHECK(nDimension >= 0, "resizeNd nDimension must be non-negative");
+  HABANA_ASSERT(nDimension >= 0, "resizeNd nDimension must be non-negative");
   at::IntArrayRef sizes(size, nDimension);
   at::optional<at::IntArrayRef> strides;
   if (stride) {
@@ -207,7 +207,7 @@ inline void THHTensor_resizeNd_nonpersistent(
     int nDimension,
     const int64_t* size,
     const int64_t* stride) {
-  TORCH_CHECK(nDimension >= 0, "resizeNd nDimension must be non-negative");
+  HABANA_ASSERT(nDimension >= 0, "resizeNd nDimension must be non-negative");
   at::IntArrayRef sizes(size, nDimension);
   at::optional<at::IntArrayRef> strides;
   if (stride) {

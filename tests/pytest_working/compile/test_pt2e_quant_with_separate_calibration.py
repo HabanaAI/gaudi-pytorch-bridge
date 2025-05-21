@@ -16,15 +16,13 @@
 ###############################################################################
 
 
-import copy
-import os
 import random
-import sys
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
-import torch.ao.quantization.quantize_pt2e as quantize_pt2e
+import torch.ao.quantization.quantize_pt2e as quantize_pt2e  # noqa F401
 from habana_frameworks.torch.core.quantizer import (
     _mark_nodes_as_annotated,
     _update_input_qspec_map,
@@ -32,7 +30,10 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_utils import inference_env_fixture
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
+from test_utils import (
+    inference_env_fixture,  # noqa F401
+)
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer
@@ -46,7 +47,7 @@ from torch.fx.passes.utils.source_matcher_utils import get_source_partitions
 
 def fga_assert_helper(ops_summary, op, count_list):
     assert len(ops_summary) == len(count_list)
-    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list):
+    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list, strict=False):
         if graph_eager_count is None:
             assert op not in single_graph_summary
         else:
@@ -58,19 +59,9 @@ def fga_assert_helper(ops_summary, op, count_list):
                 # assert single_graph_summary[op].eager_count == eager_count
 
 
-# Fixture to set the environment variable
-@pytest.fixture
-def set_env_variable():
-    variable_name_fx_pass = "USE_FX_GRAPH_PATTERN_MATCHING"
-    os.environ[variable_name_fx_pass] = "1"
-    # Yield to provide the value for the test
-    yield "1"
-    os.environ[variable_name_fx_pass] = "0"
-
-
 class SimpleModel(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModel, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
 
@@ -82,7 +73,7 @@ class SimpleModel(torch.nn.Module):
 
 class SimpleModelWithMultipleGraphs(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModelWithMultipleGraphs, self).__init__()
+        super().__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
         self.gemm2 = torch.nn.Linear(2, 2, dtype=dtype)
@@ -132,6 +123,7 @@ def verify_nodes(ops_summary, expected_op_count):
 def use_pt2e_quant_flow_with_separate_calibration(
     test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load="save"
 ):
+    # breakpoint()
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
     random.seed(0xDEADDEAD)
@@ -162,26 +154,38 @@ def use_pt2e_quant_flow_with_separate_calibration(
     inputs0 = inputs0.to(HPU)
     inputs1 = inputs1.to(HPU)
     inputs2 = inputs2.to(HPU)
-    example_inputs0 = [
-        inputs0,
-    ]
-    example_inputs1 = [
-        inputs1,
-    ]
-    example_inputs2 = [
-        inputs2,
-    ]
-
+    if is_pytorch_older_than("2.7.0"):
+        example_inputs0 = [
+            inputs0,
+        ]
+        example_inputs1 = [
+            inputs1,
+        ]
+        example_inputs2 = [
+            inputs2,
+        ]
+    else:
+        example_inputs0 = (inputs0,)
+        example_inputs1 = (inputs1,)
+        example_inputs2 = (inputs2,)
     model.to(device=HPU)
     model.eval()
 
     with torch.no_grad():
-        from torch._export import capture_pre_autograd_graph
+        if is_pytorch_older_than("2.7.0"):
+            from torch._export import capture_pre_autograd_graph
 
-        if pass_input_during_export:
-            model = capture_pre_autograd_graph(model, example_inputs0)
+            if pass_input_during_export:
+                model = capture_pre_autograd_graph(model, example_inputs0)
+            else:
+                model = capture_pre_autograd_graph(model)
         else:
-            model = capture_pre_autograd_graph(model)
+            from torch.export import export_for_training
+
+            if pass_input_during_export:
+                model = export_for_training(model, example_inputs0)
+            else:
+                model = export_for_training(model)
 
         if save_or_load == "save":
             with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -241,13 +245,12 @@ def use_pt2e_quant_flow_with_separate_calibration(
 
 
 @pytest.mark.skip("SW-203403 To Do Enable it once FP8 data type is added at torch.export serialization")
+@pytest.mark.parametrize("save_or_load", test_mode)
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
-@pytest.mark.parametrize("save_or_load", test_mode)
 def test_pt2e_quant_float(
-    set_env_variable,
     test_case,
     quant_dtype,
     use_graph_break,
@@ -255,33 +258,41 @@ def test_pt2e_quant_float(
     save_or_load,
     inference_env_fixture,
 ):
+    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", True), bc.env_setting(
+        "PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False
+    ):
+        quantizer = habana_quantizer()
+        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quantizer.set_global(quant_config)
 
-    quantizer = habana_quantizer()
-    quant_config = habana_quant_config_symmetric(quant_dtype)
-    quantizer.set_global(quant_config)
+        expected_op_count = {
+            "after_prepare_pt2e": {
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+            },
+            "after_convert_pt2e": {
+                "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
+                "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+            },
+        }
 
-    expected_op_count = {
-        "after_prepare_pt2e": {
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-        },
-        "after_convert_pt2e": {
-            "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
-            "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-        },
-    }
-
-    use_pt2e_quant_flow_with_separate_calibration(
-        test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load
-    )
+        use_pt2e_quant_flow_with_separate_calibration(
+            test_case,
+            quant_dtype,
+            quantizer,
+            expected_op_count,
+            use_graph_break,
+            pass_input_during_export,
+            save_or_load,
+        )
 
 
 class custom_quantizer(Quantizer):
@@ -360,44 +371,56 @@ def custom_quant_config_symmetric(quant_dtype):
     return quantization_config
 
 
+@pytest.mark.parametrize("save_or_load", test_mode)
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [True])
 @pytest.mark.parametrize("pass_input_during_export", [True, False])
-@pytest.mark.parametrize("save_or_load", test_mode)
 def test_pt2e_quant_int(
-    test_case, quant_dtype, use_graph_break, pass_input_during_export, save_or_load, inference_env_fixture
+    test_case,
+    quant_dtype,
+    use_graph_break,
+    pass_input_during_export,
+    save_or_load,
+    inference_env_fixture,
 ):
-    quant_config = custom_quant_config_symmetric(quant_dtype)
-    quantizer = custom_quantizer(quant_config)
+    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False):
+        quant_config = custom_quant_config_symmetric(quant_dtype)
+        quantizer = custom_quantizer(quant_config)
 
-    expected_op_count = {
-        "after_prepare_pt2e": {
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
-            "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-        },
-        "after_convert_pt2e": {
-            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
-            "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
-            "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-        },
-    }
+        expected_op_count = {
+            "after_prepare_pt2e": {
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
+                "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+            },
+            "after_convert_pt2e": {
+                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
+                "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
+                "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+                "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
+                "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
+                "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
+                "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+            },
+        }
 
-    use_pt2e_quant_flow_with_separate_calibration(
-        test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export, save_or_load
-    )
+        use_pt2e_quant_flow_with_separate_calibration(
+            test_case,
+            quant_dtype,
+            quantizer,
+            expected_op_count,
+            use_graph_break,
+            pass_input_during_export,
+            save_or_load,
+        )
 
 
 """

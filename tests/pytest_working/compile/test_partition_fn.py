@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 ###############################################################################
 
 import torch
-from habana_frameworks.torch.dynamo.compile_backend.partition_fn import remove_unnecessary_clone
+from habana_frameworks.torch.dynamo.compile_backend.partition_fn import (
+    remove_unnecessary_clone,
+)
 from torch.fx.experimental.proxy_tensor import make_fx
 
 

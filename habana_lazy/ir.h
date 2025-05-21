@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 #include <absl/container/flat_hash_set.h>
@@ -117,19 +117,19 @@ class Output {
 
   std::string ToString() const;
 
-  const c10::optional<c10::Device> get_device() const {
+  const std::optional<c10::Device> get_device() const {
     return device;
   }
 
-  const c10::optional<size_t> get_dims() const {
+  const std::optional<size_t> get_dims() const {
     return dims;
   }
 
-  const c10::optional<at::ScalarType> get_scalar_type() const {
+  const std::optional<at::ScalarType> get_scalar_type() const {
     return scalar_type;
   }
 
-  const c10::optional<SmallSizeVec> get_sizes() const {
+  const std::optional<SmallSizeVec> get_sizes() const {
     return sizes;
   }
 
@@ -137,10 +137,10 @@ class Output {
   Node* m_node = nullptr;
   size_t m_index;
   // OutInfo
-  c10::optional<c10::Device> device;
-  c10::optional<size_t> dims;
-  c10::optional<SmallSizeVec> sizes;
-  c10::optional<at::ScalarType> scalar_type;
+  std::optional<c10::Device> device;
+  std::optional<size_t> dims;
+  std::optional<SmallSizeVec> sizes;
+  std::optional<at::ScalarType> scalar_type;
   uint64_t unique_id;
 };
 using OutputList = std::vector<Output>;
@@ -318,7 +318,7 @@ struct Value final {
       NodePtr node,
       const c10::Device& device,
       const SmallSizeVec& dims,
-      const c10::optional<at::ScalarType> scalar_type,
+      const std::optional<at::ScalarType> scalar_type,
       size_t index = 0);
 
   size_t GetIndex() const {
@@ -358,19 +358,19 @@ struct Value final {
 
   bool DataPtrValidAndNotExpired() const;
 
-  const c10::optional<c10::Device> get_device() const {
+  const std::optional<c10::Device> get_device() const {
     return device;
   }
 
-  const c10::optional<size_t> get_dims() const {
+  const std::optional<size_t> get_dims() const {
     return dims;
   }
 
-  const c10::optional<at::ScalarType> get_scalar_type() const {
+  const std::optional<at::ScalarType> get_scalar_type() const {
     return scalar_type;
   }
 
-  const c10::optional<SmallSizeVec> get_sizes() const {
+  const std::optional<SmallSizeVec> get_sizes() const {
     return sizes;
   }
 
@@ -392,10 +392,10 @@ struct Value final {
 
  protected:
   // OutInfo
-  c10::optional<c10::Device> device;
-  c10::optional<size_t> dims;
-  c10::optional<SmallSizeVec> sizes;
-  c10::optional<at::ScalarType> scalar_type;
+  std::optional<c10::Device> device;
+  std::optional<size_t> dims;
+  std::optional<SmallSizeVec> sizes;
+  std::optional<at::ScalarType> scalar_type;
   /* The m_index field points to the output index from the node*/
   size_t m_index = 0;
 };
@@ -479,7 +479,8 @@ class Node {
   }
 
   const Output GetOutput(size_t index) const {
-    TORCH_CHECK(index < GetNumOutputs(), "Node::GetOutputs index out of range");
+    HABANA_ASSERT(
+        index < GetNumOutputs(), "Node::GetOutputs index out of range");
     return m_outputs[index];
   }
 

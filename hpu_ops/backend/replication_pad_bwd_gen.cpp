@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/common/replication_pad.h"
 
@@ -61,7 +61,7 @@ std::vector<synapse_helpers::tensor> CommonReplicationPadBwd(
 
     auto currentMaxShapeSize = currentMaxShape.size();
     for (size_t dim = 0; dim < currentMaxShapeSize; dim++)
-      TORCH_CHECK(
+      HABANA_ASSERT(
           (currentMaxShape[dim] <= outputShapeExpectedMax[dim]),
           "Dim (%d) size (%d) in max pass is greater than expected size (%d)",
           dim,
@@ -69,10 +69,11 @@ std::vector<synapse_helpers::tensor> CommonReplicationPadBwd(
           outputShapeExpectedMax[dim]);
   }
 
+  using namespace std::literals;
   return op->BuildNode(
       op,
       graph,
-      {get_guid_with_precision("pad_bwd", meta.dtype),
+      {get_guid_with_precision("pad_bwd"sv, meta.dtype),
        {input},
        {{meta.shape, meta.dtype, 0}},
        params.get(),

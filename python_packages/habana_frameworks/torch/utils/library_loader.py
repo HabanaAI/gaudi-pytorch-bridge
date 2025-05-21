@@ -21,15 +21,14 @@ import os
 import subprocess
 import sys
 
-import torch
 from habana_frameworks.torch import _hpu_C
 
+import torch
+
 _mandatory_libs = ["libhabana_pytorch_plugin.so"]
-# must be preloaded before _mandatory_libs for profiler to work
-_profiler_libs = ["pytorch_synapse_logger.so"]
 
 
-def _check_modules_directory(directory, library_list=list()):
+def _check_modules_directory(directory, library_list=[]):
     if not os.path.isdir(directory):
         return False
 
@@ -45,7 +44,7 @@ def _check_modules_directory(directory, library_list=list()):
     return True
 
 
-def _get_modules_directory(library_list=list()):
+def _get_modules_directory(library_list=[]):
     """
     Returns a directory containing Habana modules, which is:
         - habana_frameworks
@@ -77,7 +76,7 @@ def is_habana_available():
         result = check_output(cmd, stderr=STDOUT, shell=True).decode()
         if result.find("Habana") != -1:
             status = True
-    except Exception as e:
+    except Exception:
         # Workaround to mitigate hl-smi usage on simulators
         if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ["true", "True", "1"]:
             print("Enabling Gaudi Simulator As Habana Device !!")
@@ -98,7 +97,7 @@ def _load_habana_module(library_list):
     if habana_modules_directory is None:
         raise Exception("Cannot find Habana modules")
 
-    print("Loading Habana modules from {}".format(habana_modules_directory))
+    print(f"Loading Habana modules from {habana_modules_directory}")
     for module in library_list:
         torch.ops.load_library(os.path.abspath(os.path.join(habana_modules_directory, module)))
         sys.path.insert(0, habana_modules_directory)
@@ -108,7 +107,3 @@ def _load_habana_module(library_list):
 
 def load_habana_module():
     _load_habana_module(_mandatory_libs)
-
-
-def load_habana_profiler():
-    _load_habana_module(_profiler_libs)

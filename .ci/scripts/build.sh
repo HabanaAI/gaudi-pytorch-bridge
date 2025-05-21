@@ -115,7 +115,7 @@ function pytorch_usage()
         echo -e "  -d,  --debug                        Use debug test binary"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
-        echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or gaudi3. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests, cpp_lazy, cpp_eager]. Default: all"
@@ -162,7 +162,7 @@ function pytorch_usage()
         echo -e "  -s,  --specific-test TEST           Run TEST"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
-        echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or gaudi3. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
@@ -177,7 +177,7 @@ function pytorch_usage()
         echo -e "  -s,  --specific-test TEST           Run TEST"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
-        echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or gaudi3. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
@@ -306,11 +306,7 @@ build_pytorch_modules()
     set_os_specific_vars
 
     #CI job creates venv for every job. So we need to have python pkg install unconditionally
-    install_pkg=($__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt)
-    if ! __running_in_venv; then
-        install_pkg+=(--user)
-    fi
-    "${install_pkg[@]}"
+    $__pip_cmd install -r $PYTORCH_MODULES_ROOT_PATH/requirements.txt
 
     pushd $PYTORCH_MODULES_ROOT_PATH
 
@@ -364,7 +360,7 @@ build_pytorch_modules()
         fi
     fi
 
-    "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py $__variables_to_build
+    TORCH_DEVICE_BACKEND_AUTOLOAD=0 "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py $__variables_to_build
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Failed to run build.py. Exit code: " $__result
@@ -579,6 +575,9 @@ build_pytorch_fork()
         --install )
             __whl_params=" install"
             ;;
+        --develop )
+            __whl_params=" develop"
+            ;;
         --build-number )
             __env_vars+=" PYTORCH_BUILD_NUMBER=$2"
             shift
@@ -657,6 +656,15 @@ build_pytorch_fork()
         return $__result
     fi
 
+    $__python_cmd -m pip install -r requirements.txt
+    __result=$?
+    if [ $__result -ne 0 ]; then
+        echo "torch requirements installation failed!"
+        popd
+        restore_python_version
+        return $__result
+    fi
+
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
     fi
@@ -689,20 +697,22 @@ build_pytorch_fork()
         return $__result
     fi
 
-    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
-        TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
-    else
-        TORCH_WHL_PATH="$__pytorch_root/dist/"
-    fi
-    if [ -n "$__debug" ]; then
-       rm -rf $PYTORCH_FORK_DEBUG_BUILD/pkgs
-       mkdir -p $PYTORCH_FORK_DEBUG_BUILD/pkgs
-       cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_DEBUG_BUILD/pkgs
-    else
-       rm -rf $PYTORCH_FORK_RELEASE_BUILD/pkgs
-       mkdir -p $PYTORCH_FORK_RELEASE_BUILD/pkgs
-       cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_RELEASE_BUILD/pkgs
+    if [ ${__whl_params} != "develop" ];then
+        if [ "z${__build_manylinux_whl}" == "ztrue" ];then
+            bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
+            TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
+        else
+            TORCH_WHL_PATH="$__pytorch_root/dist/"
+        fi
+        if [ -n "$__debug" ]; then
+            rm -rf $PYTORCH_FORK_DEBUG_BUILD/pkgs
+            mkdir -p $PYTORCH_FORK_DEBUG_BUILD/pkgs
+            cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_DEBUG_BUILD/pkgs
+        else
+            rm -rf $PYTORCH_FORK_RELEASE_BUILD/pkgs
+            mkdir -p $PYTORCH_FORK_RELEASE_BUILD/pkgs
+            cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_RELEASE_BUILD/pkgs
+        fi
     fi
 
     popd
@@ -800,11 +810,7 @@ build_pytorch_tb_plugin()
         fi
     fi
 
-    install_cmd=($__pip_cmd install wheel)
-    if ! __running_in_venv; then
-        install_cmd+=(--user)
-    fi
-    "${install_cmd[@]}"
+    $__pip_cmd install wheel
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "pip install failed"
@@ -1105,7 +1111,7 @@ run_pytorch_modules_tests()
         if [ "$__dut" == "gaudi" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=1 $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
@@ -1117,7 +1123,7 @@ run_pytorch_modules_tests()
         elif [ "$__dut" == "gaudi2" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi2"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=1 $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
@@ -1129,7 +1135,7 @@ run_pytorch_modules_tests()
         elif [ "$__dut" == "gaudi3" ]; then
             if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
                 echo "Running tests on Gaudi3"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=1 $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter $__cpp_rerun_fail)
                 __test_status=$?
             fi
             if [ $__pt_major_version -eq 2 ]; then
@@ -1138,10 +1144,6 @@ run_pytorch_modules_tests()
                     __test_status=$((__test_status | $?))
                 fi
             fi
-        elif [ "$__dut" == "greco" ]; then
-            echo "Running greco tests"
-            (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter  $__cpp_rerun_fail)
-                __test_status=$?
         fi
     fi
 
@@ -1196,13 +1198,9 @@ run_pytorch_modules_tests()
         if [[ "$__pytest_mode" = "lazy" || "$__pytest_mode" = "all" ]] ; then
             (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
             __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_lazy_pytest_autoload.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
-            __test_status=$((__test_status | $?))
         fi
         if [[ "$__pytest_mode" = "compile" || "$__pytest_mode" = "all" ]] ; then
             (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
-            __test_status=$((__test_status | $?))
-            (set -x; eval PT_HPU_AUTOLOAD=1 DO_NOT_IMPORT_HABANA_TORCH=1 ${__pytorch_modules_tests_exe} pytest_working/test_autoload.py -v $__failures $__py_rerun_fail $__py_filter --junit-xml="${__xml}_compile_pytest_autoload.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
             __test_status=$((__test_status | $?))
         fi
         if [[ "$__pytest_mode" = "eager" || "$__pytest_mode" = "all" ]] ; then
@@ -1391,9 +1389,6 @@ run_pytorch_qa_tests()
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"lazy_single_op.xml"" --mode lazy )
         __test_status_2=$?
         __test_status=$((__test_status_1 | __test_status_2))
-    elif [ "$__pytest_marks" == "-m=smoke" ] && [ "$__suite_type" == "ops" ] && [ "${__dut}" == "greco" ]; then
-       (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"lazy_single_op.xml"" --mode lazy )
-        __test_status=$?
     elif [ "$__pytest_marks" == "-m=dsd_subgraph" ] && [ "$__suite_type" == "subgraph" ]; then
        (set -x; LOCK_GAUDI_SYNAPSE_API=1 ENABLE_CONSOLE=true PYTHONPATH="$PYTORCH_TESTS_ROOT" $opts_single_op ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"dynamic_subgraph.xml" " --mode lazy --dynamic)
         __test_status=$?
@@ -1457,20 +1452,12 @@ install_requirements_pytorch()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
+    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt
 }
 
 install_requirements_event_plugin()
 {
-    cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
+    $__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements_pinned.txt
 }
 
 run_habana_lightning_tests()
@@ -1772,11 +1759,7 @@ install_requirements_pytest()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
+    $__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt
 }
 
 uninstall_requirements_pytest()
@@ -1787,8 +1770,28 @@ uninstall_requirements_pytest()
 clean_pytorch_pkgs()
 {
     echo "-> Removing PyTorch-related packages"
-    $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
-    sudo -H $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
+    # shellcheck disable=SC2207
+    local -r packages_to_uninstall=(
+        hb-torch
+        torch
+        torch-debug
+
+        hmp
+        gather2d-cpp
+        HabanaEmbeddingBag-cpp
+        habanaOptimizerSparseSgd-cpp
+        preproc-cpp
+        habanaOptimizerSparseAdagrad-cpp
+
+        habana-torch-dataloader
+        habana-torch
+        habana-torch-plugin
+
+        triton
+        $(pip freeze | grep -E 'nvidia-.*-cu[0-9]+' | cut -d '=' -f 1)
+    )
+    pip uninstall -y "${packages_to_uninstall[@]}"
+    sudo -H pip uninstall -y "${packages_to_uninstall[@]}"
 }
 
 # Returns an error code 1 if any nvidia-related packages are installed.
@@ -2179,11 +2182,7 @@ install_pillow_simd()
 {
     $__pip_cmd uninstall -y pillow
     $__pip_cmd uninstall -y pillow-simd
-    cmd=($__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    CC="cc -mavx2" "${cmd[@]}"
+    CC="cc -mavx2" $__pip_cmd install -U --force-reinstall git+https://github.com/aostrowski-hbn/pillow-simd.git@simd/9.5.x
 }
 
 # set_python_version to set envs related to python version during build

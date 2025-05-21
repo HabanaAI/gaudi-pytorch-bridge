@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include "backend/habana_operator.h"
 #include "habana_kernels/index_kernels.h"
@@ -37,7 +37,12 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
  public:
   // Used in training mode
   BatchNormForwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("batch_norm_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "batch_norm_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
@@ -103,7 +108,12 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
  public:
   // NOTE: BatchNormBackwardOperator node_type differs for training and eval
   BatchNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("batch_norm_bwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "batch_norm_bwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
@@ -184,7 +194,12 @@ class BatchNormInfOperator : public habana::HabanaOperator {
  public:
   // Used in eval mode
   BatchNormInfOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("batch_norm_inf", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "batch_norm_inf"sv;
+            }(),
+            scalarType)) {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     // assign layouts for input and output tensors
@@ -219,7 +234,12 @@ class BatchNormInfOperator : public habana::HabanaOperator {
 class NormOperator : public HabanaOperator {
  public:
   NormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("norm_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "norm_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -251,7 +271,12 @@ class NormOperator : public HabanaOperator {
 class LpNormOperator : public HabanaOperator {
  public:
   LpNormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("lpnorm_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "lpnorm_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign(
@@ -268,8 +293,12 @@ class LpNormOperator : public HabanaOperator {
 class LpNormFrobeniusOperator : public HabanaOperator {
  public:
   LpNormFrobeniusOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("frobenius_norm_fwd", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "frobenius_norm_fwd"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -285,7 +314,12 @@ class LpNormFrobeniusOperator : public HabanaOperator {
 class FusedNormOperator : public HabanaOperator {
  public:
   FusedNormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("fused_norm", scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            [] {
+              using namespace std::literals;
+              return "fused_norm"sv;
+            }(),
+            scalarType)) {
     this->CreateSynContext(device_id);
   }
 

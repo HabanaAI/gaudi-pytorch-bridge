@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,12 +15,13 @@
 #
 ###############################################################################
 
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import habana_frameworks.torch.core as htcore
-import torch
 from habana_frameworks.torch import _hpex_C
 from habana_frameworks.torch.utils.internal import is_lazy
+
+import torch
 from torch.optim import Optimizer
 from torch.optim.optimizer import required
 
@@ -38,22 +39,22 @@ class FusedSGD(Optimizer):
         dampening: float = 0,
         nesterov: bool = False,
     ):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= momentum:
-            raise ValueError("Invalid momentum value: {}".format(momentum))
-        if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
-        if not 0.0 <= dampening:
-            raise ValueError("Invalid dampening value: {}".format(dampening))
+        if not lr >= 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if not momentum >= 0.0:
+            raise ValueError(f"Invalid momentum value: {momentum}")
+        if not weight_decay >= 0.0:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+        if not dampening >= 0.0:
+            raise ValueError(f"Invalid dampening value: {dampening}")
 
-        defaults = dict(
-            lr=lr,
-            momentum=momentum,
-            weight_decay=weight_decay,
-            dampening=dampening,
-            nesterov=nesterov,
-        )
+        defaults = {
+            "lr": lr,
+            "momentum": momentum,
+            "weight_decay": weight_decay,
+            "dampening": dampening,
+            "nesterov": nesterov,
+        }
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
 

@@ -21,11 +21,10 @@ import argparse
 import csv
 import json
 import os
-import sys
 
 
 def compileInfo(path):
-    recipe_dict = dict()
+    recipe_dict = {}
     total_iter_count = 0
     total_static_comp = 0
     total_dyn_comp = 0
@@ -108,7 +107,7 @@ def printJit(path, file_name):
     print("JIT_IR End :")
 
 
-graph_dict = dict()
+graph_dict = {}
 
 
 def statsParser(path, file_name):
@@ -121,7 +120,7 @@ def statsParser(path, file_name):
     miss_cnt = 0
     miss_freq = 0
     total_cnt = 0
-    data_dict = dict()
+    data_dict = {}
     for data in data_list:
         for k1 in data:
             total_cnt += 1.0
@@ -185,17 +184,11 @@ def strToList(val):
 
 
 def check_list_min(list1, list2):
-    for i in range(len(list1)):
-        if list1[i] < list2[i]:
-            return True
-    return False
+    any(list1[i] < list2[i] for i in range(len(list1)))
 
 
 def check_list_max(list1, list2):
-    for i in range(len(list1)):
-        if list1[i] > list2[i]:
-            return True
-    return False
+    any(list1[i] > list2[i] for i in range(len(list1)))
 
 
 def reasonMismatch(range_dict, shapes, bucket, compile):
@@ -213,24 +206,16 @@ def reasonMismatch(range_dict, shapes, bucket, compile):
             #  continue
 
             if check_list_min(val, min):
-                print(
-                    "Bucket {} Failed in MinShape {} - Input={} -> Range-[ min={} - max={} ]".format(
-                        r, keys, val, min, max
-                    )
-                )
+                print(f"Bucket {r} Failed in MinShape {keys} - Input={val} -> Range-[ min={min} - max={max} ]")
                 match = False
             if check_list_max(val, max):
-                print(
-                    "Bucket {} Failed in MaxShape {} - Input={} -> Range-[ min={} - max={} ]".format(
-                        r, keys, val, min, max
-                    )
-                )
+                print(f"Bucket {r} Failed in MaxShape {keys} - Input={val} -> Range-[ min={min} - max={max} ]")
                 match = False
         if match:
-            print("xxxxxxxxxxxxxxxxxxxx    Bucket found = {} xxxxxxxxxxxxxxxxxxx".format(r))
+            print(f"xxxxxxxxxxxxxxxxxxxx    Bucket found = {r} xxxxxxxxxxxxxxxxxxx")
             print("xxxxxxxxxxxxxxxxxxxx    Cache Hit     xxxxxxxxxxxxxxxxxxx")
             Hit = True
-            assert not (compile is True)
+            assert compile is not True
             break
 
     if Hit is False:
@@ -241,7 +226,7 @@ def analyzeBucket(path, file_name, bucket_analyze):
     f = open(path + "/" + file_name)
     # data is loaded as list of dicts
     data_list = json.load(f)
-    range_dict = dict()
+    range_dict = {}
     bucket = 0
     # process each dicts
     for data in data_list:
@@ -279,8 +264,8 @@ def analyzeBucketCall(path, file_name):
     f = open(path + "/" + file_name)
     # data is loaded as list of dicts
     data_list = json.load(f)
-    recipe_bucket_map = dict()
-    bucket_hit_count = dict()
+    recipe_bucket_map = {}
+    bucket_hit_count = {}
     # process each dicts
     for data in data_list:
         for iter in data:
@@ -307,7 +292,7 @@ def dumpShapes(path, file_name):
     f = open(path + "/" + file_name)
     # data is loaded as list of dicts
     data_list = json.load(f)
-    shape_dict = dict()
+    shape_dict = {}
 
     for data in data_list:
         for iter in data:
@@ -342,7 +327,7 @@ def dumpShapes(path, file_name):
                     if isinstance(shape_dict[sid][0], int):
                         temp.append("")
                     else:
-                        for item in shape_dict[sid][0]:
+                        for _ in shape_dict[sid][0]:
                             temp.append("")
                 else:
                     print("Exception: ", sid)  # DEBUG

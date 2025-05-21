@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import torch
 from test_utils import _is_simulator
 
 
-@pytest.mark.skipif(_is_simulator(), reason="high memory usage may couse problems on sim")
+@pytest.mark.skipif(_is_simulator(), reason="high memory usage may cause problems on sim")
 def test_add():
     # validating using the property a*X + b*X = (a+b)*X
     G = 1024 * 1024 * 1024
@@ -32,7 +32,7 @@ def test_add():
     assert torch.equal(torch.add(inp1, inp2), result_ref)
 
 
-@pytest.mark.skipif(_is_simulator(), reason="high memory usage may couse problems on sim")
+@pytest.mark.skipif(_is_simulator(), reason="high memory usage may cause problems on sim")
 def test_transpose():
     G = 1024 * 1024 * 1024
     shape = [G, 2]
@@ -44,7 +44,7 @@ def test_transpose():
     assert torch.equal(torch.transpose(result, dim0, dim1), inp_t)
 
 
-@pytest.mark.skipif(_is_simulator(), reason="high memory usage may couse problems on sim")
+@pytest.mark.skipif(_is_simulator(), reason="high memory usage may cause problems on sim")
 def test_detach():
     G = 1024 * 1024 * 1024
     shape = [2 * G]

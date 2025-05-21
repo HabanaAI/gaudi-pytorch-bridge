@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/common/div_round_gen.h"
 #include "backend/synapse_helpers/device_helpers.h"
@@ -19,13 +19,12 @@
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/binary_kernels.h"
 #include "hpu_ops/common/div_round_gen.h"
-#include "hpu_ops/div_mod_util.h"
 
 namespace habana {
 
 static void convert_scalar_to_tensor(
     at::Stack& stack,
-    c10::optional<c10::ScalarType> compute_dtype = c10::nullopt) {
+    std::optional<c10::ScalarType> compute_dtype = std::nullopt) {
   auto& other_ival = stack.at(1);
   const auto& other = other_ival.toScalar();
   other_ival = habana_lazy::get_tensor_for_scalar(
@@ -35,7 +34,7 @@ static void convert_scalar_to_tensor(
 static bool DivCommonCheck(
     const at::Tensor& self,
     const c10::IValue& other,
-    c10::optional<c10::string_view>&& rounding_mode) {
+    std::optional<std::string_view>&& rounding_mode) {
   auto promote_int_to_float = !rounding_mode;
   auto result_type = GetCommonDtype({self, other}, promote_int_to_float);
 
@@ -63,7 +62,7 @@ FALLBACK_CHECK(
     DivTensorModeFallbackCheck,
     const at::Tensor& self,
     const at::Tensor& other,
-    c10::optional<c10::string_view> rounding_mode) {
+    std::optional<std::string_view> rounding_mode) {
   return DivCommonCheck(self, other, std::move(rounding_mode));
 }
 
@@ -71,7 +70,7 @@ FALLBACK_CHECK(
     DivScalarModeFallbackCheck,
     const at::Tensor& self,
     const at::Scalar& other,
-    c10::optional<c10::string_view> rounding_mode) {
+    std::optional<std::string_view> rounding_mode) {
   return DivCommonCheck(self, other, std::move(rounding_mode));
 }
 
@@ -90,9 +89,9 @@ at::Tensor& LazyDivScalarInplace<at::Tensor&>::get_result_overrideable() {
 
 template <typename T>
 static void div_mode(habana_lazy::LazyOp<T>* op, at::Stack& inputs) {
-  c10::optional<c10::string_view> rounding_mode =
-      inputs.at(2).toOptional<c10::string_view>();
-  TORCH_CHECK(
+  std::optional<std::string_view> rounding_mode =
+      inputs.at(2).toOptional<std::string_view>();
+  HABANA_ASSERT(
       !rounding_mode.has_value() or (*rounding_mode == "trunc") or
           (*rounding_mode == StrModeFloor),
       "div expected rounding_mode to be one of None, '",

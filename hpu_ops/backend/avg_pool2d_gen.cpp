@@ -1,24 +1,24 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/avg_pool2d.h"
 #include "generated/backend/avg_pool2d_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
 #include "hpu_ops/shared_meta_common.h"
 
 #define CHECK_DIM(input_size)                                             \
-  TORCH_CHECK(                                                            \
+  HABANA_ASSERT(                                                          \
       input_size == 3 || input_size == 4,                                 \
       "Averagepool2D expects input_size equals to 3 or 4, but got size ", \
       input_size);
@@ -143,9 +143,10 @@ void Avgpool2dBwd::AddNode(
   }
   std::vector<synTensor> grad = {syn_in(0)};
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
+  using namespace std::literals;
   auto avg_pool = BuildOp(
       graph,
-      get_guid_with_precision("avg_pool_2d_bwd", meta.dtype),
+      get_guid_with_precision("avg_pool_2d_bwd"sv, meta.dtype),
       std::move(grad),
       {{meta.shape, meta.dtype, 0}},
       params.get(),

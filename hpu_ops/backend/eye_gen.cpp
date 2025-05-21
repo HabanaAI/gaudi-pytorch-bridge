@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/eye.h"
 
@@ -50,16 +50,17 @@ void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto meta = EyeMeta(stack)[0];
 
   auto computeDtype = meta.dtype;
-  c10::optional<int> finalResultIndex = 0;
+  std::optional<int> finalResultIndex = 0;
   if (meta.dtype == c10::ScalarType::Long) {
     computeDtype = c10::ScalarType::Int;
-    finalResultIndex = c10::nullopt;
+    finalResultIndex = std::nullopt;
   }
 
   auto constant = ConstantHelper(graph, 1.0f, computeDtype, meta.shape);
+  using namespace std::literals;
   eye_out = BuildOp(
       graph,
-      get_guid_with_precision("matrix_diagonal_fwd", computeDtype),
+      get_guid_with_precision("matrix_diagonal_fwd"sv, computeDtype),
       {constant.get()},
       {{meta.shape, computeDtype, finalResultIndex}});
   if (meta.dtype != computeDtype) {

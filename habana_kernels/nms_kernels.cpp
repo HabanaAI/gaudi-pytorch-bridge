@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
@@ -35,13 +35,13 @@ void FilterAndSqueezeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for filter&squeeze operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for filter&squeeze operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isScalar(),
       "Input arg2 expected to be scalar for filter&squeeze operator");
 
@@ -75,15 +75,15 @@ void NMSOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4, "Incorrect size of inputs expected for NMS operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for NMS operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for NMS operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input arg3 expected to be tensor for NMS operator");
 
@@ -106,13 +106,13 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for PostNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for PostNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for PostNms operator");
 
@@ -189,19 +189,19 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 4,
       "Incorrect size of inputs expected for HabanaNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for HabanaNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg1 expected to be tensor for HabanaNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isScalar(),
       "Input arg2 expected to be scalar for HabanaNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isScalar(),
       "Input arg2 expected to be scalar for HabanaNms operator");
 
@@ -348,7 +348,7 @@ InferOutputMetaRetType BatchedNMSOperator::InferOutputMeta(
   // broadcast and rejected but since shape tensor 2 is 81 its not rejected,
   // although calculation is wrong.
   auto shape_tensor_2_size = inputs[5].toTensor().sizes()[0];
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (scores.sizes()[0] * max_classes) == shape_tensor_2_size,
       "Shape tensor 2 calculation mismatch for batched_nms");
 
@@ -373,19 +373,19 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 7,
       "Incorrect size of inputs expected for HabanaBatchedNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for HabanaBatchedNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for HabanaBatchedNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[2].isTensor(),
       "Input arg3 expected to be tensor for HabanaBatchedNms operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[3].isScalar(),
       "Input arg4 expected to be scalar for HabanaBatchedNms operator");
 
@@ -404,10 +404,10 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
   // broadcast and rejected but since shape tensor 2 is 81 its not rejected,
   // although calculation is wrong.
   auto shape_tensor_2_size = inputs[5].toTensor().sizes()[0];
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (scores.sizes()[0] * max_classes) == shape_tensor_2_size,
       "Shape tensor 2 calculation mismatch for batched_nms");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       scores.sizes()[0] == indexes.sizes()[0],
       "Number of categories and scores missmatch for batched_nms");
 
@@ -432,19 +432,21 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+using namespace std::literals;
+
 static auto& NMSKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
             "hpu::habana_nms",
             [](int device_id, c10::ScalarType scalar_type) {
               std::string node_type =
-                  get_guid_with_precision("habana_nms", scalar_type);
+                  get_guid_with_precision("habana_nms"sv, scalar_type);
               return std::make_shared<HabanaNMSOperator>(device_id, node_type);
             })
         .add(
             "hpu::batched_nms",
             [](int device_id, c10::ScalarType scalar_type) {
               std::string node_type =
-                  get_guid_with_precision("batched_nms_fwd", scalar_type);
+                  get_guid_with_precision("batched_nms_fwd"sv, scalar_type);
               return std::make_shared<BatchedNMSOperator>(device_id, node_type);
             });

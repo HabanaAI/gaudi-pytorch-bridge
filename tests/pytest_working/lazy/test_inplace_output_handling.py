@@ -19,7 +19,7 @@ import habana_frameworks.torch.core as htcore
 import numpy
 import torch
 import torch.nn as nn
-from test_utils import inference_env_fixture
+from test_utils import inference_env_fixture  # noqa: F401
 
 # Run test on HPU
 hpu = torch.device("hpu")
@@ -29,7 +29,7 @@ cpu = torch.device("cpu")
 def test_inplace(inference_env_fixture):
     class CustomModel(nn.Module):
         def __init__(self):
-            super(CustomModel, self).__init__()
+            super().__init__()
             self.conv = nn.Conv2d(in_channels=32, out_channels=3, kernel_size=3, stride=1, padding=1)
             self.relu = nn.ReLU(inplace=True)
             self.linear1 = nn.Linear(30, 20)
@@ -89,7 +89,7 @@ def test_inplace(inference_env_fixture):
 
 
 def fmt_float(value, c):
-    return "{:.2f}{}".format(value, c)  # Formats float to 2 decimal pla
+    return f"{value:.2f}{c}"  # Formats float to 2 decimal pla
 
 
 def printStat():
@@ -112,7 +112,7 @@ def printStat():
 def test_kvcache_inplace(inference_env_fixture):
     class CustomModel(nn.Module):
         def __init__(self):
-            super(CustomModel, self).__init__()
+            super().__init__()
             self.relu = nn.ReLU(inplace=True)
             self.pool = nn.AvgPool1d(kernel_size=4, stride=4)
             self.eval()
@@ -195,7 +195,7 @@ def test_kvcache_inplace(inference_env_fixture):
 def test_input_reuse(inference_env_fixture):
     class InplaceOperationNet(nn.Module):
         def __init__(self):
-            super(InplaceOperationNet, self).__init__()
+            super().__init__()
             self.relu = nn.ReLU(inplace=True)
             self.fc1 = nn.Linear(10, 20)
             self.fc2 = nn.Linear(20, 30)

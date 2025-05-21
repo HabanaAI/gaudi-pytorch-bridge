@@ -75,7 +75,7 @@ def test_force_static_compile():
             assert len(list_of_files) > 0, "Compilation stat dumps not present"
             try:
                 for file_ in list_of_files:
-                    with open(file_, "r") as f:
+                    with open(file_) as f:
                         stats = json.loads(f.read() + "]")
                         for stat in stats:
                             for _, val in stat.items():

@@ -16,6 +16,10 @@
 #include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/_upsample_nearest_exact1d.h"
 #include "generated/backend/_upsample_nearest_exact1d_backward.h"
+#include "generated/backend/_upsample_nearest_exact2d.h"
+#include "generated/backend/_upsample_nearest_exact2d_backward.h"
+#include "generated/backend/_upsample_nearest_exact3d.h"
+#include "generated/backend/_upsample_nearest_exact3d_backward.h"
 #include "generated/backend/upsample_linear1d.h"
 #include "generated/backend/upsample_linear1d_backward.h"
 #include "generated/backend/upsample_nearest1d.h"
@@ -29,14 +33,46 @@
 using namespace synapse_helpers::layouts;
 
 #define CHECK_NULL_INPUT(out_size, scale)                     \
-  TORCH_CHECK(                                                \
-      !(out_size == c10::nullopt && scale == c10::nullopt) || \
-          (out_size != c10::nullopt &&                        \
-           (scale != c10::nullopt && !scale.isScalar())),     \
+  HABANA_ASSERT(                                              \
+      !(out_size == std::nullopt && scale == std::nullopt) || \
+          (out_size != std::nullopt &&                        \
+           (scale != std::nullopt && !scale.isScalar())),     \
       "Upsample: Must specify exactly one of output_size and scale_factors");
 
+inline void check_null_inputs_2d(
+    c10::IValue out_size,
+    std::optional<double> scale_h,
+    std::optional<double> scale_w) {
+  HABANA_ASSERT(
+      (scale_h.has_value() && scale_w.has_value()) || !out_size.isNone(),
+      "Upsample: Must specify output size if scales aren't given, but got output_size: ",
+      out_size,
+      " and scale_factors: ",
+      scale_h,
+      ", ",
+      scale_w);
+}
+
+inline void check_null_inputs_3d(
+    c10::IValue out_size,
+    std::optional<double> scale_d,
+    std::optional<double> scale_h,
+    std::optional<double> scale_w) {
+  HABANA_ASSERT(
+      (scale_d.has_value() && scale_h.has_value() && scale_w.has_value()) ||
+          !out_size.isNone(),
+      "Upsample: Must specify output size if scales aren't given, but got output_size: ",
+      out_size,
+      " and scale_factors: ",
+      scale_d,
+      ", ",
+      scale_h,
+      ", ",
+      scale_w);
+}
+
 #define CHECK_INPUT_OUTPUT_WIDTH(input_width, output_width)                               \
-  TORCH_CHECK(                                                                            \
+  HABANA_ASSERT(                                                                          \
       input_width > 0 && output_width > 0,                                                \
       "Upsample1D:  Input and output sizes should be greater than 0, but got input (W: ", \
       input_width,                                                                        \
@@ -46,7 +82,7 @@ using namespace synapse_helpers::layouts;
 
 #define CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(                                                  \
     input_height, output_height, input_width, output_width)                               \
-  TORCH_CHECK(                                                                            \
+  HABANA_ASSERT(                                                                          \
       (input_width > 0 && output_width > 0) &&                                            \
           (input_height > 0 && output_height > 0),                                        \
       "Upsample2D:  Input and output sizes should be greater than 0, but got input (W: ", \
@@ -64,7 +100,7 @@ using namespace synapse_helpers::layouts;
     output_height,                                                                       \
     input_width,                                                                         \
     output_width)                                                                        \
-  TORCH_CHECK(                                                                           \
+  HABANA_ASSERT(                                                                         \
       (input_depth > 0 && output_depth > 0) &&                                           \
           (input_width > 0 && output_width > 0) &&                                       \
           (input_height > 0 && output_height > 0),                                       \
@@ -90,20 +126,20 @@ void upsample_1d_common_check(
     const torch::Tensor& input,
     c10::IValue out_size,
     c10::IValue scales) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 3,
       "Upsample1D expects input_size equals to 3, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 1,
         "Upsample1D expects out_size equals to 1, but got ",
         out_size.toIntVector().size());
   }
 
   if (!scales.isNone() && !scales.isScalar()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         scales.toDoubleVector().size() == 1,
         "Upsample1D expects scales equals to 1, but got ",
         scales.toDoubleVector().size());
@@ -114,23 +150,37 @@ void upsample_2d_common_check(
     const torch::Tensor& input,
     c10::IValue out_size,
     c10::IValue scales) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 4,
       "Upsample2D expects input_size equals to 4, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 2,
         "Upsample2D expects out_size equals to 2, but got ",
         out_size.toIntVector().size());
   }
 
   if (!scales.isNone() && !scales.isScalar()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         scales.toDoubleVector().size() == 2,
         "Upsample2D expects scales equals to 2, but got ",
         scales.toDoubleVector().size());
+  }
+}
+
+void upsample_exact_2d_check(const torch::Tensor& input, c10::IValue out_size) {
+  HABANA_ASSERT(
+      input.dim() == 4,
+      "Upsample2D expects input_size equals to 4, but got size ",
+      input.dim());
+
+  if (!out_size.isNone()) {
+    HABANA_ASSERT(
+        out_size.toIntVector().size() == 2,
+        "Upsample2D expects out_size equals to 2, but got ",
+        out_size.toIntVector().size());
   }
 }
 
@@ -138,23 +188,37 @@ void upsample_3d_common_check(
     const torch::Tensor& input,
     c10::IValue out_size,
     c10::IValue scales) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       input.dim() == 5,
       "Upsample3D expects input_size equals to 5, but got size ",
       input.dim());
 
   if (!out_size.isNone()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         out_size.toIntVector().size() == 3,
         "Upsample3D expects out_size equals to 3, but got ",
         out_size.toIntVector().size());
   }
 
   if (!scales.isNone() && !scales.isScalar()) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         scales.toDoubleVector().size() == 3,
         "Upsample3D expects scales equals to 3, but got ",
         scales.toDoubleVector().size());
+  }
+}
+
+void upsample_exact_3d_check(const torch::Tensor& input, c10::IValue out_size) {
+  HABANA_ASSERT(
+      input.dim() == 5,
+      "Upsample3D expects input_size equals to 5, but got size ",
+      input.dim());
+
+  if (!out_size.isNone()) {
+    HABANA_ASSERT(
+        out_size.toIntVector().size() == 3,
+        "Upsample3D expects out_size equals to 3, but got ",
+        out_size.toIntVector().size());
   }
 }
 
@@ -303,6 +367,55 @@ std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
   }
   return out_shape;
 }
+std::vector<int64_t> UpsampleNearestExact2DFwdOutputShapeSynapseLayout(
+    const at::Stack& stack) {
+  auto self_sizes = stack.at(0).toTensor().sizes();
+  auto out_size = stack.at(1).toIntVector();
+  auto scale_h = stack.at(2).toOptional<double>().value_or(1.0);
+  auto scale_w = stack.at(3).toOptional<double>().value_or(1.0);
+  std::vector<int64_t> out_shape;
+  if (!out_size.empty()) {
+    // NCHW
+    out_shape = {
+        self_sizes.at(INPUT_N_IDX),
+        self_sizes.at(INPUT_C_IDX),
+        out_size.at(0),
+        out_size.at(1)};
+  } else if (scale_h != 1.0 || scale_w != 1.0) {
+    out_shape = {
+        self_sizes.at(INPUT_N_IDX),
+        self_sizes.at(INPUT_C_IDX),
+        static_cast<int64_t>(self_sizes.at(INPUT_H_IDX) * scale_h),
+        static_cast<int64_t>(self_sizes.at(INPUT_W_IDX) * scale_w)};
+  }
+  return out_shape;
+}
+std::vector<int64_t> UpsampleNearestExact3DFwdOutputShapeSynapseLayout(
+    const at::Stack& stack) {
+  auto self_sizes = stack.at(0).toTensor().sizes();
+  auto out_size = stack.at(1).toIntVector();
+  auto scale_d = stack.at(2).toOptional<double>().value_or(1.0);
+  auto scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  auto scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  std::vector<int64_t> out_shape;
+  if (!out_size.empty()) {
+    // NCDHW
+    out_shape = {
+        self_sizes.at(INPUT_N_IDX),
+        self_sizes.at(INPUT_C_IDX),
+        out_size.at(0),
+        out_size.at(1),
+        out_size.at(2)};
+  } else if (scale_d != 1.0 || scale_h != 1.0 || scale_w != 1.0) {
+    out_shape = {
+        self_sizes.at(INPUT_N_IDX),
+        self_sizes.at(INPUT_C_IDX),
+        static_cast<int64_t>(self_sizes.at(INPUT_C_IDX) * scale_d),
+        static_cast<int64_t>(self_sizes.at(INPUT_H_IDX) * scale_h),
+        static_cast<int64_t>(self_sizes.at(INPUT_W_IDX) * scale_w)};
+  }
+  return out_shape;
+}
 // Forward Meta Function - Nearest2D
 OutputMetaDataVector UpsampleNearest2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
@@ -332,6 +445,58 @@ OutputMetaDataVector UpsampleNearest2DBwdMeta(const at::Stack& stack) {
   upsample_2d_common_check(grad_in, out_size, scale);
   return {meta};
 }
+// Forward Meta Function - NearestExact2D
+OutputMetaDataVector UpsampleNearestExact2DFwdMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scales_h = stack.at(2).toOptional<double>();
+  auto scales_w = stack.at(3).toOptional<double>();
+  upsample_exact_2d_check(self, out_size);
+  check_null_inputs_2d(out_size, scales_h, scales_w);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = UpsampleNearestExact2DFwdOutputShapeSynapseLayout(stack);
+
+  CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
+      self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
+  return {meta};
+}
+// Backward Meta Function - NearestExact2D
+OutputMetaDataVector UpsampleNearestExact2DBwdMeta(const at::Stack& stack) {
+  auto grad_out = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto in_size = stack.at(2);
+  auto scales_h = stack.at(3).toOptional<double>();
+  auto scales_w = stack.at(4).toOptional<double>();
+  OutputMetaData meta;
+  meta.dtype = grad_out.scalar_type();
+  meta.shape = in_size.toIntVector();
+  check_null_inputs_2d(out_size, scales_h, scales_w);
+  upsample_exact_2d_check(grad_out, out_size);
+  return {meta};
+}
+// Forward Meta Function - NearestExact3D
+OutputMetaDataVector UpsampleNearestExact3DFwdMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scales_d = stack.at(2).toOptional<double>();
+  auto scales_h = stack.at(3).toOptional<double>();
+  auto scales_w = stack.at(4).toOptional<double>();
+  upsample_exact_3d_check(self, out_size);
+  check_null_inputs_3d(out_size, scales_d, scales_h, scales_w);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = UpsampleNearestExact3DFwdOutputShapeSynapseLayout(stack);
+
+  CHECK_INPUT_OUTPUT_DEPTH_HEIGHT_WIDTH(
+      self.sizes()[2],
+      meta.shape.at(2),
+      self.sizes()[3],
+      meta.shape.at(3),
+      self.sizes()[4],
+      meta.shape.at(4));
+  return {meta};
+}
 
 std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {
@@ -356,12 +521,35 @@ std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
   }
   return out_shape;
 }
+
+std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(
+    const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  auto scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  std::vector<int64_t> out_shape;
+  if (!out_size.isNone()) {
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        out_size.toIntVector().at(0),
+        out_size.toIntVector().at(1)};
+  } else if (scale_w != 1.0 || scale_h != 1.0) {
+    out_shape = {
+        self.sizes()[INPUT_N_IDX],
+        self.sizes()[INPUT_C_IDX],
+        static_cast<int64_t>(self.sizes()[INPUT_H_IDX] * scale_h),
+        static_cast<int64_t>(self.sizes()[INPUT_W_IDX] * scale_w)};
+  }
+  return out_shape;
+}
+
 // Forward Meta Function - Bicubic2D
 OutputMetaDataVector UpsampleBicubic2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
-  std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
 
@@ -372,6 +560,38 @@ OutputMetaDataVector UpsampleBicubic2DFwdMeta(const at::Stack& stack) {
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
 
+  return {meta};
+}
+// Forward Meta Function - Bicubic2D AA
+OutputMetaDataVector UpsampleBicubic2DFwdMetaAA(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_h = stack.at(3).toOptional<double>();
+  auto scale_w = stack.at(4).toOptional<double>();
+  upsample_exact_2d_check(self, out_size);
+  check_null_inputs_2d(out_size, scale_h, scale_w);
+
+  OutputMetaData meta;
+  meta.shape = UpsampleBicubic2DFwdOutputShapeSynapseLayoutAA(stack);
+  meta.dtype = self.scalar_type();
+
+  CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
+      self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
+
+  return {meta};
+}
+// Backward Meta Function - Bicubic2D AA
+OutputMetaDataVector UpsampleBicubic2DBwdMetaAA(const at::Stack& stack) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_h = stack.at(4).toOptional<double>();
+  auto scale_w = stack.at(5).toOptional<double>();
+  upsample_exact_2d_check(grad_in, out_size);
+  check_null_inputs_2d(out_size, scale_h, scale_w);
+
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = grad_in.scalar_type();
   return {meta};
 }
 // Backward Meta Function - Bicubic2D
@@ -471,6 +691,21 @@ OutputMetaDataVector UpsampleNearest3DBwdMeta(const at::Stack& stack) {
   meta.dtype = grad_in.scalar_type();
   return {meta};
 }
+// Backward Output Shape - NearestExact3D
+OutputMetaDataVector UpsampleNearestExact3DBwdMeta(const at::Stack& stack) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale_d = stack.at(3).toOptional<double>();
+  auto scale_h = stack.at(4).toOptional<double>();
+  auto scale_w = stack.at(5).toOptional<double>();
+  check_null_inputs_3d(out_size, scale_d, scale_h, scale_w);
+  upsample_exact_3d_check(grad_in, out_size);
+
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = grad_in.scalar_type();
+  return {meta};
+}
 
 enum modes { nearest, nearest_exact, linear, bicubic };
 
@@ -544,6 +779,12 @@ SharedMetaDataVector UpsampleNearest2DBwdSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   return UpsampleCommmonSharedLayer(stack, true, 3, false);
+}
+
+SharedMetaDataVector UpssampleTrilinear3DSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return UpsampleCommmonSharedLayer(stack, stack.at(2).toBool(), 3, true);
 }
 
 // Custom FillParams function
@@ -643,6 +884,56 @@ std::shared_ptr<void> FillBicubicFwdParams(
       scale_d,
       align_corners,
       false /*antialias*/);
+}
+
+std::shared_ptr<void> FillBicubicFwdParamsAA(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(2).toBool();
+  // scales
+  auto scales = stack.at(3);
+  double scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_d = 1.0;
+  bool antialias = true;
+  return FillResizeParams(
+      self.dim(),
+      size,
+      bicubic,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
+std::shared_ptr<void> FillBicubicBwdParamsAA(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(3).toBool();
+  // scales
+  auto scales = stack.at(4);
+  double scale_h = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(5).toOptional<double>().value_or(1.0);
+  double scale_d = 1.0;
+  bool antialias = true;
+  return FillResizeParams(
+      grad_in.dim(),
+      size,
+      bicubic,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
 }
 
 std::shared_ptr<void> FillBicubicBwdParams(
@@ -817,6 +1108,82 @@ std::shared_ptr<void> FillNearestFwdParams(
       false /*antialias*/);
 }
 
+std::shared_ptr<void> FillNearestExact2DFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  // scales
+  auto scales_h = stack.at(2);
+  auto scales_w = stack.at(3);
+  double scale_w = scales_w.toOptional<double>().value_or(1.0);
+  double scale_h = scales_h.toOptional<double>().value_or(1.0);
+  double scale_d = 1.0;
+  c10::IValue scales = scales_h;
+  bool align_corners = false;
+  bool antialias = false;
+  return FillResizeParams(
+      self.dim(),
+      size,
+      nearest_exact,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
+std::shared_ptr<void> FillNearestExact2DBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_out = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scales_h = stack.at(3);
+  auto scales_w = stack.at(4);
+  bool align_corners = false;
+  bool antialias = false;
+  double scale_d = 1.0;
+  double scale_w = scales_w.toOptional<double>().value_or(1.0);
+  double scale_h = scales_h.toOptional<double>().value_or(1.0);
+  return FillResizeParams(
+      grad_out.dim(),
+      size,
+      nearest_exact,
+      out_size,
+      scales_h,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
+std::shared_ptr<void> FillNearestExact3DFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  double scale_d = stack.at(2).toOptional<double>().value_or(1.0);
+  double scale_h = stack.at(3).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(4).toOptional<double>().value_or(1.0);
+  c10::IValue scales = stack.at(2);
+  bool align_corners = false;
+  bool antialias = false;
+  return FillResizeParams(
+      self.dim(),
+      size,
+      nearest_exact,
+      out_size,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
 std::shared_ptr<void> FillNearestBwdParams(
     const at::Stack& stack,
     size_t& size) {
@@ -844,6 +1211,30 @@ std::shared_ptr<void> FillNearestBwdParams(
       false /*antialias*/);
 }
 
+std::shared_ptr<void> FillNearestExact3DBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  auto grad_in = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  bool align_corners = false;
+  bool antialias = false;
+  double scale_d = stack.at(3).toOptional<double>().value_or(1.0);
+  double scale_h = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(5).toOptional<double>().value_or(1.0);
+
+  return FillResizeParams(
+      grad_in.dim(),
+      size,
+      nearest_exact,
+      out_size,
+      stack.at(3),
+      scale_w,
+      scale_h,
+      scale_d,
+      align_corners,
+      antialias);
+}
+
 // Resize TPC kernel
 static std::vector<synapse_helpers::tensor> Resize(
     OpBackend* op,
@@ -853,7 +1244,7 @@ static std::vector<synapse_helpers::tensor> Resize(
     const at::ScalarType& dtype,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = std::nullopt) {
   auto guid = op->GetGuid();
   update_guid_dtype(guid, dtype);
 
@@ -873,7 +1264,7 @@ static std::vector<synapse_helpers::tensor> Slice(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     const at::ScalarType& dtype,
-    c10::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = std::nullopt) {
   auto output_size = outshape.size();
 
   synSliceParamsV2 slice_params{};
@@ -959,8 +1350,8 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
       false /*antialias*/);
   auto final_index_for_resize =
       modifyInputWithOutputWidth || meta.dtype == c10::ScalarType::Byte
-      ? c10::optional<int>()
-      : c10::optional<int>(0);
+      ? std::optional<int>()
+      : std::optional<int>(0);
 
   auto resize = Resize(
       op,
@@ -975,8 +1366,8 @@ synapse_helpers::tensor UpsampleCommonFuncSynapseLayout(
   // For Fwd ops, when both size and scale is provided with align_corners=false
   if (modifyInputWithOutputWidth) {
     auto final_index_for_slice = (meta.dtype == c10::ScalarType::Byte)
-        ? c10::optional<int>()
-        : c10::optional<int>(0);
+        ? std::optional<int>()
+        : std::optional<int>(0);
 
     resize = Slice(
         op,
@@ -1195,7 +1586,7 @@ void UpSampleNearest2DOperator::AddNode(
   auto self = stack_tensor(stack, 0);
   std::vector<synTensor> input{syn_in(0)};
   std::optional<synapse_helpers::tensor> cast_storage;
-  c10::optional<int> final_index = 0;
+  std::optional<int> final_index = 0;
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
   auto intermediateDtype = meta.dtype;
   if (meta.dtype == c10::ScalarType::Byte) {
@@ -1209,7 +1600,7 @@ void UpSampleNearest2DOperator::AddNode(
         meta.dtype,
         intermediateDtype);
     input[0] = cast_storage->get();
-    final_index = c10::nullopt;
+    final_index = std::nullopt;
   }
 
   size_t size = 0;
@@ -1236,6 +1627,64 @@ void UpSampleNearest2DOperator::AddNode(
         0);
   }
   syn_out(0) = std::move(resize.at(0));
+}
+
+synapse_helpers::tensor UpsampleNearestExactFwdCommon(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Stack& stack,
+    std::vector<synTensor> input,
+    const std::shared_ptr<void>& params,
+    size_t size) {
+  auto meta = op->OutputMeta(stack)[0];
+  auto self = stack_tensor(stack, 0);
+  std::optional<synapse_helpers::tensor> cast_storage;
+  std::optional<int> final_index = 0;
+  op->CreateShapeTensorInput(
+      graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
+  auto intermediateDtype = meta.dtype;
+  if (meta.dtype == c10::ScalarType::Byte) {
+    // u8 to f32
+    intermediateDtype = c10::ScalarType::Float;
+    cast_storage = OpBackend::BuildCast(
+        op, graph, input[0], self.sizes().vec(), meta.dtype, intermediateDtype);
+    input[0] = cast_storage->get();
+    final_index = std::nullopt;
+  }
+
+  auto resize = Resize(
+      op,
+      graph,
+      input,
+      meta.shape,
+      intermediateDtype,
+      params,
+      size,
+      final_index);
+  if (meta.dtype != c10::ScalarType::Byte)
+    return std::move(resize[0]);
+
+  // f32 to u8
+  return OpBackend::BuildCast(
+      op, graph, resize[0].get(), meta.shape, intermediateDtype, meta.dtype, 0);
+}
+// AddNode FWD 2D Nearest Exact function
+void UpsampleNearestExact2DFwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size;
+  auto params = FillParams(stack, size);
+  syn_out(0) = UpsampleNearestExactFwdCommon(
+      this, graph, stack, {syn_in(0)}, params, size);
+}
+// AddNode FWD 3D Nearest Exact function
+void UpsampleNearestExact3DFwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size;
+  auto params = FillParams(stack, size);
+  syn_out(0) = UpsampleNearestExactFwdCommon(
+      this, graph, stack, {syn_in(0)}, params, size);
 }
 void UpSampleTrilinear3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
@@ -1264,6 +1713,28 @@ void UpSampleTrilinear3DFwdOperator::AddNode(
       {scale_d, scale_h, scale_w},
       meta,
       self_tensor);
+}
+// AddNode BWD 2D Nearest Exact function
+void UpsampleNearestExact2DBwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = UpsampleNearestExact2DBwdMeta(stack)[0];
+  std::optional<int> final_index = 0;
+
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+
+  auto resize = Resize(
+      this,
+      graph,
+      {syn_in(0)},
+      meta.shape,
+      meta.dtype,
+      params,
+      size,
+      final_index);
+
+  syn_out(0) = std::move(resize.at(0));
 }
 // AddNode FWD 3D Nearest function
 void UpSampleNearest3DFwdOperator::AddNode(
@@ -1328,4 +1799,33 @@ void UpSampleNearest3DBwdOperator::AddNode(
       meta,
       self_tensor);
 }
+// AddNode BWD 3D Nearest Exact function
+void UpsampleNearestExact3DBwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  // outshape
+  auto meta = UpsampleNearestExact3DBwdMeta(stack)[0];
+  auto self_tensor = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  // scales
+  auto scales_d = stack.at(3);
+  double scale_d = scales_d.toOptional<double>().value_or(1.0);
+  double scale_h = stack.at(4).toOptional<double>().value_or(1.0);
+  double scale_w = stack.at(5).toOptional<double>().value_or(1.0);
+  bool isForward = false;
+  bool align_corners = false;
+  syn_out(0) = UpsampleCommonFunc(
+      this,
+      graph,
+      nearest_exact,
+      isForward,
+      {syn_in(0)},
+      out_size,
+      align_corners,
+      scales_d,
+      {scale_d, scale_h, scale_w},
+      meta,
+      self_tensor);
+}
+
 } // namespace habana

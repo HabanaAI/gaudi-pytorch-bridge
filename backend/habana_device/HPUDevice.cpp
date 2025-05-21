@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,14 @@
 #include "backend/habana_device/HPUDevice.h"
 #include <c10/util/thread_name.h>
 #include <memory>
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
+#include "common/pipeline_deleter.h"
 
-namespace habana {
-
-void ThreadPoolWithGILRelease::waitWorkComplete() {
-  // TODO remove gil_release once SW-160978 is fixed
-  habana_helpers::AutoNoGIL gil_release;
-  habana_helpers::SingleThreadPool::waitWorkComplete();
-}
+namespace habana::HPUDeviceContext {
 
 struct HPUDeviceContextImpl {
   std::unique_ptr<habana_helpers::SingleThreadPool> garbage_collection_thread_;
@@ -36,11 +32,11 @@ struct HPUDeviceContextImpl {
 
   std::unique_ptr<RecipeCacheLRU> recipe_cache_;
 
-  std::unique_ptr<habana_helpers::ThreadPool> compile_thread_pool_;
+  std::unique_ptr<habana_helpers::ThreadPool> lazy_compile_thread_pool_;
 
-  std::unique_ptr<ThreadPoolWithGILRelease> execute_thread_;
-  std::unique_ptr<ThreadPoolWithGILRelease> compile_thread_;
-  std::unique_ptr<ThreadPoolWithGILRelease> lowering_thread_;
+  std::unique_ptr<PipeSingleThreadpool> execute_thread_;
+  std::unique_ptr<PipeThreadpool> compile_thread_pool_;
+  std::unique_ptr<PipeSingleThreadpool> lowering_thread_;
 
   // Holding this is required for proper destruction order
   std::shared_ptr<ConstantInformation> constant_information_;
@@ -70,7 +66,7 @@ void HPUDeviceContextImpl::JoinPipelineThreads() {
     throw;
   }
 
-  compile_thread_->waitWorkComplete();
+  compile_thread_pool_->waitWorkComplete();
   execute_thread_->waitWorkComplete();
 }
 
@@ -83,11 +79,6 @@ void HPUDeviceContextImpl::JoinLoweringThread() {
     exception_occurred_ = true;
     throw;
   }
-}
-
-synapse_helpers::device& HPUDeviceContext::get_device(int) {
-  HABANA_ASSERT(device_context.device_);
-  return *device_context.device_;
 }
 
 void HPUDeviceContextImpl::CreateDevice() {
@@ -109,14 +100,18 @@ void HPUDeviceContextImpl::Init() {
       std::make_unique<habana_helpers::SingleThreadPool>(true);
   recipe_cache_ = std::make_unique<RecipeCacheLRU>();
 
-  compile_thread_pool_ = std::make_unique<habana_helpers::ThreadPool>();
+  lazy_compile_thread_pool_ = std::make_unique<habana_helpers::ThreadPool>();
 
-  execute_thread_ = std::make_unique<ThreadPoolWithGILRelease>(
-      []() { c10::setThreadName("Pipeline Execute Thread"); });
-  compile_thread_ = std::make_unique<ThreadPoolWithGILRelease>(
-      []() { c10::setThreadName("Pipeline Compile Thread"); });
-  lowering_thread_ = std::make_unique<ThreadPoolWithGILRelease>(
-      []() { c10::setThreadName("Pipeline Lowering Thread"); });
+  execute_thread_ = std::make_unique<PipeSingleThreadpool>(true, []() {
+    c10::setThreadName("Pipeline Execute Thread");
+    common::PipelineDeleter::instance().install();
+  });
+  compile_thread_pool_ = std::make_unique<PipeThreadpool>(
+      true,
+      []() { c10::setThreadName("Pipeline Compile Thread"); },
+      GET_ENV_FLAG_NEW(PT_HPU_COMPILE_THREAD_POOL_SIZE));
+  lowering_thread_ = std::make_unique<PipeSingleThreadpool>(
+      true, []() { c10::setThreadName("Pipeline Lowering Thread"); });
   constant_information_ = ConstantInformationPtr();
   scalar_cache_ = std::make_unique<backend::ScalarCache>();
 
@@ -129,15 +124,16 @@ void HPUDeviceContextImpl::Init() {
 void HPUDeviceContextImpl::ThreadsRelease() {
   // Make sure all pipeline tasks finished before the reset
   JoinPipelineThreads();
+  common::PipelineDeleter::instance().uninstall();
 
   habana_helpers::AutoNoGIL gil_release;
   device_context.lowering_thread_.reset();
-  device_context.compile_thread_.reset();
+  device_context.compile_thread_pool_.reset();
   device_context.execute_thread_.reset();
 }
 
 void HPUDeviceContextImpl::Finish() {
-  compile_thread_pool_.reset();
+  lazy_compile_thread_pool_.reset();
   recipe_cache_.reset();
   scalar_cache_.reset();
 
@@ -164,7 +160,10 @@ void HPUDeviceContextImpl::Finish() {
   constant_information_.reset();
 }
 
-namespace HPUDeviceContext {
+synapse_helpers::device& get_device(int) {
+  HABANA_ASSERT(device_context.device_);
+  return *device_context.device_;
+}
 
 void join_all_threads() {
   device_context.JoinAllThreads();
@@ -185,9 +184,9 @@ bool get_exception_occurred() {
   return exception_occurred;
 }
 
-ThreadPoolWithGILRelease& compile_thread() {
-  HABANA_ASSERT(device_context.compile_thread_);
-  return *device_context.compile_thread_;
+PipeThreadpool& compile_thread_pool() {
+  HABANA_ASSERT(device_context.compile_thread_pool_);
+  return *device_context.compile_thread_pool_;
 }
 
 habana_helpers::SingleThreadPool& garbage_collection_thread() {
@@ -195,19 +194,19 @@ habana_helpers::SingleThreadPool& garbage_collection_thread() {
   return *device_context.garbage_collection_thread_;
 }
 
-ThreadPoolWithGILRelease& lowering_thread() {
+PipeSingleThreadpool& lowering_thread() {
   HABANA_ASSERT(device_context.lowering_thread_);
   return *device_context.lowering_thread_;
 }
 
-ThreadPoolWithGILRelease& execute_thread() {
+PipeSingleThreadpool& execute_thread() {
   HABANA_ASSERT(device_context.execute_thread_);
   return *device_context.execute_thread_;
 }
 
-habana_helpers::ThreadPool& compile_thread_pool() {
-  HABANA_ASSERT(device_context.compile_thread_pool_);
-  return *device_context.compile_thread_pool_;
+habana_helpers::ThreadPool& lazy_compile_thread_pool() {
+  HABANA_ASSERT(device_context.lazy_compile_thread_pool_);
+  return *device_context.lazy_compile_thread_pool_;
 }
 
 backend::ScalarCache& scalar_cache() {
@@ -387,5 +386,14 @@ void synchronize_device() {
   HABANA_ASSERT(device_context.device_);
   device_context.device_->synchronize();
 }
-} // namespace HPUDeviceContext
-} // namespace habana
+
+void set_scale_attributes(bool is_hw_aligned, uint32_t scale_hash_id) {
+  HABANA_ASSERT(device_context.device_);
+  device_context.device_->set_scale_attributes(is_hw_aligned, scale_hash_id);
+}
+
+uint32_t get_scale_attribute_hash_id() {
+  HABANA_ASSERT(device_context.device_);
+  return device_context.device_->get_scale_attribute_hash_id();
+}
+} // namespace habana::HPUDeviceContext

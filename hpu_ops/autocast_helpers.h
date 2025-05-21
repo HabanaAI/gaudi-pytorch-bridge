@@ -18,7 +18,6 @@
 #include <ATen/autocast_mode.h>
 #include <string_view>
 #include <unordered_set>
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace at {
 namespace autocast {
@@ -173,16 +172,16 @@ inline Tensor cast(
 
 template <
     class T,
-    std::enable_if_t<std::is_same_v<T, const c10::optional<Tensor>&>, bool> =
+    std::enable_if_t<std::is_same_v<T, const std::optional<Tensor>&>, bool> =
         true>
-inline c10::optional<Tensor> cast(
+inline std::optional<Tensor> cast(
     at::ScalarType to_type,
-    const c10::optional<Tensor>& arg,
+    const std::optional<Tensor>& arg,
     DeviceType device_type = DeviceType::HPU) {
   if (arg.has_value()) {
     return cast<decltype(*arg)>(to_type, *arg, device_type);
   } else {
-    return c10::nullopt;
+    return std::nullopt;
   }
 }
 

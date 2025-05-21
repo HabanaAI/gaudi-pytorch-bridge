@@ -16,10 +16,11 @@
 ###############################################################################
 
 import operator
-from typing import List, Mapping
+from collections.abc import Mapping
+
+from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 
 import torch
-from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from torch.fx.passes.operator_support import OperatorSupport
 
 from .._helpers import fill_propagated_tensor_metadata_to_node
@@ -33,7 +34,7 @@ class BatchAsStridedOperatorSupport(OperatorSupport):
         return "as_strided" in str(node.target) and "hpu" in str(node.meta["output_device"])
 
 
-def group_batch_as_strided(graph_module: torch.fx.GraphModule) -> List:
+def group_batch_as_strided(graph_module: torch.fx.GraphModule) -> list:
     """
     This pass is supposed to run partitioner that will create proposition of partitioning.
     """
@@ -91,6 +92,9 @@ def batch_as_strided(graph_module: torch.fx.GraphModule, current_batch_as_stride
             with graph_module.graph.inserting_before(list(node.users.keys())[0]):
                 getitem_node = graph_module.graph.call_function(operator.getitem, (batch_as_strided_node, index))
                 getitem_node.meta["placement"] = "eager"
+                getitem_input_tensors = batch_as_strided_node.meta["val"]
+                getitem_result = getitem_node.target(getitem_input_tensors, index)
+                fill_propagated_tensor_metadata_to_node(getitem_result, getitem_node)
             node.replace_all_uses_with(getitem_node)
             graph_module.graph.erase_node(node)
     graph_module.recompile()

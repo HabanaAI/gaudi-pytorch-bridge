@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/ExpandUtils.h>
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
@@ -47,11 +47,11 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(in_stack[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(in_stack[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(in_stack[5].isBool(), "Input type expected to be bool");
-  TORCH_CHECK(in_stack[6].isDouble(), "Input type expected to be double");
-  TORCH_CHECK(in_stack[7].isDouble(), "Input type expected to be double");
+  HABANA_ASSERT(in_stack[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(in_stack[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(in_stack[5].isBool(), "Input type expected to be bool");
+  HABANA_ASSERT(in_stack[6].isDouble(), "Input type expected to be double");
+  HABANA_ASSERT(in_stack[7].isDouble(), "Input type expected to be double");
 
   auto input = in_stack[0].toTensor();
   const auto momentum = in_stack[6].toDouble();
@@ -107,19 +107,19 @@ std::vector<int64_t> NormOperator::compute_output_shape(
 }
 
 void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 2 && inputs.size() <= 4,
       "Incorrect size of inputs expected for Norm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for Norm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for Norm Operator");
 
   auto self = inputs[0].toTensor();
   auto shape = NormOperator::compute_output_shape(self, {}, 0);
-  auto output = at::empty(shape, self.options(), c10::nullopt);
+  auto output = at::empty(shape, self.options(), std::nullopt);
   HabanaOperator::SetPTOutput(output);
 }
 
@@ -155,7 +155,8 @@ void NormOperator::AddL0NormNode(
   stack.emplace_back(IValue(0.0));
   ne_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
-  std::string node_type = get_guid_with_precision("cast_i8_to", scalar_type);
+  using namespace std::literals;
+  std::string node_type = get_guid_with_precision("cast_i8_to"sv, scalar_type);
   auto cast1 = make_operator<CastOperator>(device_id, node_type);
   cast1->SetSynapseInput(ne_op->GetSynOutputs()[0]);
   stack.emplace_back(IValue(ne_op->GetOutputs()[0]));
@@ -231,13 +232,13 @@ void NormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() >= 2 && inputs.size() <= 5,
       "Incorrect size of inputs expected for Norm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for Norm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for Norm Operator");
   auto self = inputs[0].toTensor();
@@ -383,20 +384,20 @@ void LpNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of inputs expected for LpNorm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for LpNorm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for LpNorm Operator");
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toScalar();
   auto dim = inputs[2].toInt();
 
-  TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
+  HABANA_ASSERT(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
   auto lpnorm_output = habana::createPTTensor(self, false);
   auto retain = habana::createPTTensor(self, false);
 
@@ -444,10 +445,10 @@ void LpNormFrobeniusOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 1,
       "Incorrect size of inputs expected for LpNorm Operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for LpNorm Operator");
 
@@ -620,7 +621,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of inputs expected for FusedNorm Operator");
 
@@ -654,7 +655,7 @@ void FusedNormLazyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 3,
       "Incorrect size of inputs expected for FusedNorm Operator");
 
@@ -701,7 +702,7 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     // tensor which lowering kernel is unaware of
     ret_tensor = at::empty({size}, device);
     auto syn_tensor = habana_helpers::create_tensor(
-        ret_tensor, graph, true, false, c10::nullopt);
+        ret_tensor, graph, true, false, std::nullopt);
     auto it = p_context_->syn_inputs_.begin() + syn_index;
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
@@ -733,17 +734,17 @@ at::Tensor BatchNormForwardOperator::create_or_return_pt_tensor_bn(
 void BatchNormForwardOperator::preProcessInputs(
     synapse_helpers::graph& graph,
     Stack& inputs) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect number of inputs against expected count for BatchNormForward operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[5].isBool(), "Input type expected to be bool");
-  TORCH_CHECK(inputs[6].isDouble(), "Input type expected to be double");
-  TORCH_CHECK(inputs[7].isDouble(), "Input type expected to be double");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[5].isBool(), "Input type expected to be bool");
+  HABANA_ASSERT(inputs[6].isDouble(), "Input type expected to be double");
+  HABANA_ASSERT(inputs[7].isDouble(), "Input type expected to be double");
 
   const auto input = inputs[0].toTensor();
   const auto weight = inputs[1].toTensor();
@@ -751,7 +752,7 @@ void BatchNormForwardOperator::preProcessInputs(
   const auto running_mean = inputs[3].toTensor();
   const auto running_var = inputs[4].toTensor();
   const auto training = inputs[5].toBool();
-  TORCH_CHECK(
+  HABANA_ASSERT(
       training, "BN Forward training flag should be set to 1 in training mode");
 
   Tensor wt_hpu, bias_hpu;
@@ -797,7 +798,7 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     Stack& in_stack,
     const OutputMetaDataVector& output_metadata) {
   preProcessInputs(graph, in_stack);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_metadata.size() == 5,
       "BatchNormForwardOperator: output_metadata should be 5 in training mode");
   const auto training = in_stack[5].toBool();
@@ -885,7 +886,7 @@ void BatchNormBackwardOperator::create_opt_input_tensor_bn_bwd(
   if (!input.defined()) {
     ret_tensor = at::empty({size}, device);
     auto syn_tensor = habana_helpers::create_tensor(
-        ret_tensor, graph, true, false, c10::nullopt);
+        ret_tensor, graph, true, false, std::nullopt);
     appended_tensor_infos.emplace_back(
         std::make_tuple(syn_tensor.name(), ret_tensor, syn_tensor.id()));
     // if input is not defined, we get dummy tensor from wrapper
@@ -904,15 +905,15 @@ void BatchNormBackwardOperator::create_opt_input_tensor_bn_bwd(
 void BatchNormBackwardOperator::preProcessInputs(
     synapse_helpers::graph& graph,
     Stack& inputs) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 5,
       "Incorrect number of inputs against expected count for BatchNormBackwardOperator preProcessInputs: expected 5 got ",
       inputs.size());
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[0].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[1].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[2].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[3].isTensor(), "Input type expected to be tensor");
+  HABANA_ASSERT(inputs[4].isTensor(), "Input type expected to be tensor");
 
   const auto input = inputs[0].toTensor();
   const auto mean = inputs[2].toTensor();
@@ -936,12 +937,12 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 8,
       "Incorrect number of inputs against expected count for BatchNormBackwardOperator AllocateAndAddSynapseNode");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[6].isDouble(), "Input type for eps is expected to be double");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_metadata.size() == 3,
       "BatchNormBackwardOperator: #output_metadata should be 3");
   if (CheckProprocessingDone() == false) {

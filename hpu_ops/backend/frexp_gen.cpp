@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/frexp.h"
 
@@ -43,18 +43,19 @@ c10::ScalarType GetKernelExponentType(const c10::ScalarType dtype) {
 SharedMetaDataVector FrexpSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  auto input = stack_tensor(stack, 0);
-  auto inputType = input.scalar_type();
-  auto rank = input.dim();
+  const auto& input = stack_tensor(stack, 0);
+  const auto inputType = input.scalar_type();
+  auto outputType = inputType;
+  const auto rank = input.dim();
 
   if (c10::isIntegralType(inputType, true))
-    inputType = c10::ScalarType::Float;
+    outputType = c10::ScalarType::Float;
 
-  auto exponentType = GetKernelExponentType(inputType);
+  const auto exponentType = GetKernelExponentType(outputType);
 
   SharedMetaData frexpSharedMeta{"frexp"};
   frexpSharedMeta.inputs_data.emplace_back(rank, inputType);
-  frexpSharedMeta.outputs_data = {{rank, exponentType}, {rank, inputType}};
+  frexpSharedMeta.outputs_data = {{rank, exponentType}, {rank, outputType}};
   return {frexpSharedMeta};
 }
 
@@ -62,8 +63,8 @@ void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto meta = FrexpMeta(stack);
   const auto kernelExponentType = GetKernelExponentType(meta[0].dtype);
   const bool castIsNeededForExponent = kernelExponentType != meta[1].dtype;
-  const c10::optional<int> exponentFinalResultIndex =
-      castIsNeededForExponent ? c10::nullopt : c10::optional<int>{1};
+  const std::optional<int> exponentFinalResultIndex =
+      castIsNeededForExponent ? std::nullopt : std::optional<int>{1};
 
   auto frexp = BuildOp(
       graph,

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include "HPUStream.h"
 #include "backend/habana_device/HPUStream.h"
@@ -30,7 +30,7 @@ struct SingleHPUGraph {
       habana_lazy::ir::ValueList output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
       std::unordered_map<size_t, size_t> user_input_indices,
-      std::unordered_map<int64_t, c10::optional<at::Generator>>
+      std::unordered_map<int64_t, std::optional<at::Generator>>
           seed_tensors_generator,
       size_t hash,
       size_t graphKey,
@@ -111,7 +111,7 @@ struct SingleHPUGraph {
   // user_input_indices_ : JIT graph input idx -> user provided input idx
   std::unordered_map<size_t, size_t> user_input_indices_;
   std::unordered_map<size_t, size_t> user_input_view_indices_;
-  std::unordered_map<int64_t, c10::optional<at::Generator>>
+  std::unordered_map<int64_t, std::optional<at::Generator>>
       seed_tensors_generator_;
   size_t hash_{0};
   size_t graphKey_{0};

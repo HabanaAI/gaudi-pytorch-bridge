@@ -15,16 +15,19 @@
 #
 ###############################################################################
 
-import pytest
 import torch
 import torch.distributed._functional_collectives as fcol
 from compile.test_dynamo_utils import use_eager_fallback
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizationPassPlacement,
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_eagerize_leaf_views,
     pass_fake_propagation,
     pass_reinplace_inplaceable_ops_v2,
 )
+from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import compile_function_if_compile_mode
 from torch.func import functionalize
 from torch.fx.experimental.proxy_tensor import make_fx
@@ -302,7 +305,7 @@ def test_not_reinpalce_single_add_with_viewed_input_e2e():
 
 
 def test_reinplace_allreduce():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa F401
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
@@ -336,7 +339,7 @@ def test_reinplace_allreduce():
 
 
 def test_reinplace_functionalized_allreduce():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa F401
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
@@ -413,15 +416,25 @@ def test_partition_in_out_duplicates_caused_by_index_copy_():
 
 
 def get_model_with_observer(model):
-    from habana_frameworks.torch.core.quantizer import habana_quant_config_symmetric, habana_quantizer
-    from torch._export import capture_pre_autograd_graph
+    from habana_frameworks.torch.core.quantizer import (
+        habana_quant_config_symmetric,
+        habana_quantizer,
+    )
     from torch.ao.quantization.quantize_pt2e import prepare_pt2e
+
+    if is_pytorch_older_than("2.7.0"):
+        from torch._export import capture_pre_autograd_graph
+    else:
+        from torch.export import export_for_training
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(torch.float8_e4m3fn)
     quantizer.set_global(quant_config)
 
-    exported_model = capture_pre_autograd_graph(model)
+    if is_pytorch_older_than("2.7.0"):
+        exported_model = capture_pre_autograd_graph(model)
+    else:
+        exported_model = export_for_training(model)
     prepared_model = prepare_pt2e(exported_model, quantizer)
 
     return prepared_model
@@ -430,8 +443,8 @@ def get_model_with_observer(model):
 def test_reinplace_index_copy_pt2e():
     import os
 
-    os.environ.setdefault("USE_FX_GRAPH_PATTERN_MATCHING", "1")
-    os.environ.setdefault("USE_FX_GRAPH_FREEZING", "1")
+    os.environ.setdefault("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", "1")
+    os.environ.setdefault("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", "1")
 
     class TestModule(torch.nn.Module):
         def __init__(self):
@@ -471,7 +484,7 @@ def test_avoid_cycle():
     class TestModule(torch.nn.Module):
         def __init__(self, sel_device):
             torch.manual_seed(777)
-            super(TestModule, self).__init__()
+            super().__init__()
             self.sel_device = sel_device
             self.state1 = torch.empty(size=[], dtype=torch.float32, device="cpu").uniform_(-1, 1).to(device=sel_device)
             self.state2 = torch.empty(size=[], dtype=torch.float32, device="cpu").uniform_(-1, 1).to(device=sel_device)
@@ -488,3 +501,42 @@ def test_avoid_cycle():
     compiled_model = torch.compile(model, backend="hpu_backend", dynamic=False)
     with use_eager_fallback():
         results = compiled_model()
+
+
+def test_reinplace_chain_of_inplaceable_ops():
+    """
+    Check whether a copy node, which dst is graph's input and src node
+    is not a direct user of that input will be deleted, under the condition that
+    there is a path, in form of a chain of inplaceable ops, between that
+    graph's input user and src of the copy node.
+    """
+
+    def fn(arg0):
+        x = torch.abs(arg0)
+        arg0 += x
+        arg0 += x
+        arg0 += x
+        return arg0
+
+    example_inputs = [torch.ones((2, 2), device="hpu", dtype=torch.bfloat16)]
+
+    graph_module = make_fx(functionalize(fn))(*example_inputs)
+    ctx = OptimizerContext(
+        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+    )
+
+    graph_changed = reinplace_test_helper(ctx)
+    assert graph_changed, "pass_reinplace_inplaceable_ops_v2 didn't change the graph"
+
+    reinplaced_fn_str = ctx.graph_module.print_readable(False)
+
+    sub_str = """\
+    def forward(self, arg0_1: "bf16[2, 2]"):
+        # No stacktrace found for following nodes
+        abs_1: "bf16[2, 2]" = torch.ops.aten.abs.default(arg0_1)
+        add: "bf16[2, 2]" = torch.ops.aten.add_.Tensor(arg0_1, abs_1);  arg0_1 = None
+        add_1: "bf16[2, 2]" = torch.ops.aten.add_.Tensor(add, abs_1);  add = None
+        add_2: "bf16[2, 2]" = torch.ops.aten.add_.Tensor(add_1, abs_1);  add_1 = abs_1 = None
+        return add_2
+    """
+    assert sub_str in ctx.graph_module.print_readable(False)

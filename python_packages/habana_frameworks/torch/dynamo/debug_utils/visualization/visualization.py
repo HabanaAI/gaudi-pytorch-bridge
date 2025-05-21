@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,11 +24,8 @@ from collections.abc import Callable
 import torch
 import torch.fx
 from habana_frameworks.torch.internal.bridge_config import bc
-from torch.fx.passes.graph_drawer import HAS_PYDOT, FxGraphDrawer
 
 from ..logger import get_compile_backend_logger
-from .graphml_generator import HAS_NETWORKX, GraphmlGenerator
-from .pbtxt_generator import HAS_PROTOBUF, PbtxtGenerator
 
 logger = get_compile_backend_logger()
 
@@ -52,9 +49,11 @@ class VisualizationStrategy(ABC):
 class SvgVisualizer(VisualizationStrategy):
     @staticmethod
     def is_available():
+        from torch.fx.passes.graph_drawer import HAS_PYDOT
+
         available = HAS_PYDOT
         if not available:
-            logger.warn("Dumping graph to SVG requires `pydot` package to be installed. " "Graphs will not be dumped!")
+            logger.error("Dumping graph to SVG requires `pydot` package to be installed. " "Graphs will not be dumped!")
         return available
 
     @staticmethod
@@ -64,6 +63,8 @@ class SvgVisualizer(VisualizationStrategy):
         directory: os.PathLike,
         node_coloring: Callable,
     ):
+        from torch.fx.passes.graph_drawer import FxGraphDrawer
+
         drawer = FxGraphDrawer(graph_module, graph_name)
         svg_filename = f"{graph_name}.svg"
         file_path = os.path.join(directory, svg_filename)
@@ -77,9 +78,11 @@ VisualizationStrategy.register(SvgVisualizer)
 class GraphmlVisualizer(VisualizationStrategy):
     @staticmethod
     def is_available():
+        from .graphml_generator import HAS_NETWORKX
+
         available = HAS_NETWORKX
         if not available:
-            logger.warn(
+            logger.error(
                 "Dumping graph to GraphML requires `networkx` package to be installed. " "Graphs will not be dumped!"
             )
         return available
@@ -91,6 +94,8 @@ class GraphmlVisualizer(VisualizationStrategy):
         directory: os.PathLike,
         node_coloring: Callable,
     ):
+        from .graphml_generator import GraphmlGenerator
+
         generator = GraphmlGenerator(graph_module, node_coloring)
         generator.run()
         filename = f"{graph_name}.graphml"
@@ -104,9 +109,13 @@ VisualizationStrategy.register(GraphmlVisualizer)
 class PbtxtVisualizer(VisualizationStrategy):
     @staticmethod
     def is_available():
+        from torch.fx.passes.graph_drawer import HAS_PYDOT
+
+        from .pbtxt_generator import HAS_PROTOBUF
+
         available = HAS_PYDOT and HAS_PROTOBUF
         if not available:
-            logger.warn(
+            logger.error(
                 "Dumping graph to pbtxt requires `pydot` and `protobuf` packages to be installed. "
                 "Graphs will not be dumped!"
             )
@@ -119,6 +128,8 @@ class PbtxtVisualizer(VisualizationStrategy):
         directory: os.PathLike,
         node_coloring: Callable,
     ):
+        from .pbtxt_generator import PbtxtGenerator
+
         generator = PbtxtGenerator(graph_module, graph_name)
         generator.run()
         generator.write(directory)
@@ -143,7 +154,7 @@ def get_node_coloring_strategy(stage=None, graph_pass=None):
         buffer_color = node.meta.get("buffer_color", 0)
         red_value = (buffer_color * 73 % 120) + 120
         green_value = (buffer_color * 29 % 120) + 120
-        hex_color = "#{:02X}{:02X}c0".format(red_value, green_value)
+        hex_color = f"#{red_value:02X}{green_value:02X}c0"
         return hex_color
 
     def color_by_placement(node: torch.fx.Node):
@@ -184,13 +195,13 @@ class GraphVisualizer:
 
             cls.graph_dir.mkdir(parents=True, exist_ok=True)
 
-            if "svg" == mode and SvgVisualizer.is_available():
+            if mode == "svg" and SvgVisualizer.is_available():
                 cls.strategy = SvgVisualizer()
 
-            if "graphml" == mode and GraphmlVisualizer.is_available():
+            if mode == "graphml" and GraphmlVisualizer.is_available():
                 cls.strategy = GraphmlVisualizer()
 
-            if "pbtxt" == mode and PbtxtVisualizer.is_available():
+            if mode == "pbtxt" and PbtxtVisualizer.is_available():
                 cls.strategy = PbtxtVisualizer()
 
         cls.visualizer_init_done = True

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "cpu_fallback.h"
 #include "backend/helpers/event_dispatcher.h"
@@ -61,8 +61,8 @@ at::Tensor& prepare_out(
   return copy;
 }
 
-auto to_cpu(const std::vector<c10::optional<at::Tensor>>& tensors) {
-  std::vector<c10::optional<at::Tensor>> result(tensors.size());
+auto to_cpu(const std::vector<std::optional<at::Tensor>>& tensors) {
+  std::vector<std::optional<at::Tensor>> result(tensors.size());
   for (const auto i : c10::irange(tensors.size())) {
     const auto& tensor = tensors[i];
     if (tensor && tensor->defined()) {
@@ -78,7 +78,7 @@ void convert_optional_tensor_lists_to_cpu(torch::jit::Stack* stack) {
   for (const auto idx : c10::irange(stack->size())) {
     const auto& ivalue = (*stack)[idx];
     if (ivalue.isOptionalTensorList()) {
-      auto cpu_ivalue = c10::IValue(c10::List<c10::optional<at::Tensor>>(
+      auto cpu_ivalue = c10::IValue(c10::List<std::optional<at::Tensor>>(
           to_cpu(ivalue.toOptionalTensorList().vec())));
       (*stack)[idx] = std::move(cpu_ivalue);
     }

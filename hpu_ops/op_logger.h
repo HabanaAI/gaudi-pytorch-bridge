@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 // clang-format off
@@ -40,7 +40,7 @@ std::string to_string(const T& val) {
 }
 
 template <typename T>
-std::string to_string(const c10::optional<T>& val) {
+std::string to_string(const std::optional<T>& val) {
   return val.has_value() ? to_string(*val) : "None";
 }
 
@@ -80,7 +80,7 @@ INSTANTIATE_FOR_LIST(c10::ArrayRef, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::IListRef, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::List, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::IListRef, at::OptionalTensorRef)
-INSTANTIATE_FOR_LIST(c10::List, c10::optional<at::Tensor>)
+INSTANTIATE_FOR_LIST(c10::List, std::optional<at::Tensor>)
 INSTANTIATE_FOR_LIST(std::vector, at::Tensor)
 #undef INSTANTIATE_FOR_LIST
 } // namespace habana

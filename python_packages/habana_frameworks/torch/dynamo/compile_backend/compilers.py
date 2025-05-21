@@ -15,17 +15,28 @@
 #
 ###############################################################################
 
-from typing import List
+import os
 from unittest import mock
 
 import functorch
-import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+from habana_frameworks.torch.dynamo.debug_utils.graph_repro_utils import (
+    map_hpu_backend_config_snapshot_to_dict,
+    store_fx_graph_as_code,
+)
 from habana_frameworks.torch.dynamo.debug_utils.logger import log_function_start_end
+from habana_frameworks.torch.dynamo.utils import str_to_bool
+
+import torch
 from torch._dynamo.utils import detect_fake_mode
 
 from .freezing_passes import freeze
-from .internal import optimize_post_partitioner, optimize_pre_partitioner, optimize_pre_placement, partition_module
+from .internal import (
+    optimize_post_partitioner,
+    optimize_pre_partitioner,
+    optimize_pre_placement,
+    partition_module,
+)
 
 
 def _gen_graph_name():
@@ -42,7 +53,7 @@ _gen_graph_name.ordinal = 0
 def hpu_freezing_compiler_inner(
     graph_module: torch.fx.GraphModule,
     dyn_graph_module: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ):
@@ -105,15 +116,32 @@ def hpu_freezing_compiler_inner(
 
 @log_function_start_end
 def hpu_compiler_inner(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], is_training: bool, is_backward: bool
 ):
     """
     This function will be called for each input FX graph. There will be at least
     three separate graphs for FWD, BWD and optimizer. Each of these phases can
     also generate multiple graphs and calls to this function.
     """
+    if not is_training:
+        # optimize the module before partitioning it
+        # we will fuse the attention module here
+        if str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)) is True:
+            from habana_frameworks.torch.dynamo.compile_backend._passes.fuse_attention import (
+                hpu_recursive_joint_graph_passes,
+            )
+
+            hpu_recursive_joint_graph_passes(graph_module)
 
     graph_name = _gen_graph_name()
+
+    if hpu_backend_config.dump_graph_repro:
+        store_fx_graph_as_code(
+            graph_module,
+            example_inputs,
+            graph_name,
+            options=map_hpu_backend_config_snapshot_to_dict(hpu_backend_config),
+        )
     # Perform optimizations on a graph before running passes for preparing the partitioner.
     optimize_pre_placement(graph_module, graph_name, example_inputs, is_training, is_backward)
 
@@ -138,14 +166,14 @@ def hpu_compiler_inner(
         return wrapper
 
 
-def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor]):
     """
     Just passthrough for forward pass training compilation.
     """
     return hpu_compiler_inner(graph_module, example_inputs, True, False)
 
 
-def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor]):
     """
     Just passthrough for backward pass training compilation.
     """
@@ -153,7 +181,7 @@ def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs:
 
 
 def hpu_inference_compiler(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], dyn_graph_module: torch.fx.GraphModule
+    graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], dyn_graph_module: torch.fx.GraphModule
 ):
     """
     Just passthrough for forward inference compilation.

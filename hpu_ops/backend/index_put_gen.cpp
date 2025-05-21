@@ -1,23 +1,25 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/core/DimVector.h>
 #include "hpu_ops/backend/nonzero.h"
 #include "hpu_ops/index_put.h"
 #include "hpu_ops/topk_util.h"
 
 namespace habana {
+
+using namespace std::literals;
 
 // brodcast index tensor shape and get the correct shape and size
 static std::vector<int64_t> broadcast_size(
@@ -27,21 +29,37 @@ static std::vector<int64_t> broadcast_size(
   if ((indices.size() == 1) && (indices[0].sizes().size() == 0)) {
     return size;
   }
-  auto isz = indices[0].sizes().vec();
+  bool all_bool_indices = true;
+  for (size_t i = 0; i < indices.size(); i++) {
+    if (indices[i].scalar_type() != c10::ScalarType::Bool) {
+      all_bool_indices = false;
+      break;
+    }
+  }
+
   auto self_sizes = self.sizes().vec();
-  if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
-    std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
-                                     // rows indicates broadcast size
-    size = sz;
+  if (all_bool_indices) {
+    for (size_t i = 0; i < indices.size(); i++) {
+      auto sz = indices[i].sizes().vec();
+      size.insert(size.end(), sz.begin(), sz.end());
+    }
+    return size;
   } else {
-    size = isz;
-  }
-  for (size_t i = 1; i < indices.size(); i++) {
-    size = at::infer_size(size, indices[i].sizes());
-  }
-  if ((indices[0].scalar_type() == c10::ScalarType::Bool) &&
-      (int)size.size() < self.dim()) {
-    size = self_sizes;
+    auto isz = indices[0].sizes().vec();
+    if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
+      std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
+                                       // rows indicates broadcast size
+      size = sz;
+    } else {
+      size = isz;
+    }
+    for (size_t i = 1; i < indices.size(); i++) {
+      size = at::infer_size(size, indices[i].sizes());
+    }
+    if ((indices[0].scalar_type() == c10::ScalarType::Bool) &&
+        (int)size.size() < self.dim()) {
+      size = self_sizes;
+    }
   }
   return size;
 }
@@ -59,7 +77,7 @@ static void validate_cat_tensor_dim_sizes(
     auto sz2 = tensors->at(tempT_i);
     for (j = 0; j < tensors->at(i).size(); j++) {
       if (j != dim && (sz1[j] - sz2[j]) != 0) {
-        TORCH_CHECK(
+        HABANA_ASSERT(
             ((sz1[j] - sz2[j]) == 0),
             "Sizes of tensors along one of the non-cat dimensions don't match");
       }
@@ -100,23 +118,23 @@ static std::vector<int64_t> CalcCatOutSize(
 }
 
 static bool CheckAndGetCastGuid(
-    std::string guid,
+    std::string_view guid,
     at::ScalarType dtype,
     std::string& cast_guid,
     at::ScalarType& cast_dtype) {
   cast_guid = "";
   switch (dtype) {
     case at::ScalarType::Short:
-      if (guid == "scatter_nd_fwd" || guid == "scatter_nd_onnx_fwd") {
-        cast_guid = "cast_i32_to_i16";
+      if (guid == "scatter_nd_fwd"sv || guid == "scatter_nd_onnx_fwd"sv) {
+        cast_guid = "cast_i32_to_i16"sv;
         cast_dtype = at::ScalarType::Int;
         return true;
       }
       break;
 
     case at::ScalarType::Byte:
-      if (guid == "scatter_nd_fwd") {
-        cast_guid = "cast_i32_to_u8";
+      if (guid == "scatter_nd_fwd"sv) {
+        cast_guid = "cast_i32_to_u8"sv;
         cast_dtype = at::ScalarType::Int;
         return true;
       }
@@ -126,6 +144,8 @@ static bool CheckAndGetCastGuid(
   }
   return false;
 }
+
+using namespace std::literals;
 
 static synapse_helpers::tensor HandleIndexPutWithAcc(
     OpBackend* op,
@@ -185,7 +205,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto mulOp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult_fwd", indices_scalar_type),
+      {get_guid_with_precision("mult_fwd"sv, indices_scalar_type),
        {catop.get(), reshape_ind_op.get()},
        {{catop.pt_shape(), indices_scalar_type}}});
 
@@ -206,7 +226,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto sumop = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_sum_fwd", reduce_sum_type),
+      {get_guid_with_precision("reduce_sum_fwd"sv, reduce_sum_type),
        {mulOp.at(0).get()},
        {{red_output_shape, reduce_sum_type}},
        &red_params,
@@ -265,14 +285,14 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
       outshape.insert(outshape.begin() + gather_dim, numel);
     }
   } else {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         size1,
         "Index put op (acc=True case) - gather op output shape cannot be 0");
   }
   auto gatherOp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("gather_fwd", indices_scalar_type),
+      {get_guid_with_precision("gather_fwd"sv, indices_scalar_type),
        {catop.get(), sort_res1.get()},
        {{outshape, indices_scalar_type}},
        &gather_params,
@@ -303,11 +323,11 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
     auto scatter_op = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
-        {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
-        {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
-        &scatter_params,
-        sizeof(scatter_params)});
+        {get_guid_with_precision("scatter_nd_fwd"sv, scatter_nd_fwd_dtype),
+         {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
+         {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
+         &scatter_params,
+         sizeof(scatter_params)});
     size_t size = 0;
     PARAMS_STUB(ns_CastKernel::Params);
     size = sizeof(params);
@@ -322,20 +342,19 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
          size});
 
   } else {
-      next_node = OpBackend::BuildNode(
+    next_node = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
-        {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
-        {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
-        &scatter_params,
-        sizeof(scatter_params)});
-
+        {get_guid_with_precision("scatter_nd_fwd"sv, scatter_nd_fwd_dtype),
+         {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
+         {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
+         &scatter_params,
+         sizeof(scatter_params)});
   }
   auto addOp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("add_fwd", self_scalar_type), // original dtype
+      {get_guid_with_precision("add_fwd"sv, self_scalar_type), // original dtype
        {syn_in_0, next_node.at(0).get()}, // cast node
        {{self.sizes().vec(), self_scalar_type, 0}}});
   return std::move(addOp[0]);
@@ -417,12 +436,11 @@ void IndexPutEager::AddNode(
       value_upd_dim.insert(
           std::begin(value_upd_dim),
           broadcastToElements / broadcastFromElements);
-
   }
 
   values_bcast_or_reshape_sh_tensor.emplace_back(std::move(BuildOp(
       graph,
-      get_guid_with_precision("index_put_broadcast_value", ScalarType()),
+      get_guid_with_precision("index_put_broadcast_value"sv, ScalarType()),
       {syn_in(0), catop.get(), syn_in(1 + indices.size())},
       {{value_upd_dim, ScalarType()}})[0]));
   auto self_scalar_type = self.scalar_type();
@@ -451,7 +469,7 @@ void IndexPutEager::AddNode(
         auto scatter_op = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd",
+                "scatter_nd_onnx_fwd"sv,
                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
             {syn_in(0), catop.get(), reshape_val_op.get()},
             {NodeAttr::NodeOutputAttr{
@@ -461,18 +479,17 @@ void IndexPutEager::AddNode(
             cast_guid,
             {scatter_op[0].get()},
             {{self.sizes().vec(), self_scalar_type, 0}},
-             0);
+            0);
 
-        } else {
+      } else {
         next_node = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd",
+                "scatter_nd_onnx_fwd"sv,
                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
             {syn_in(0), catop.get(), reshape_val_op.get()},
             {NodeAttr::NodeOutputAttr{
                 self.sizes().vec(), self_scalar_type, 0}});
-
       }
       syn_out(0) = std::move(next_node[0]);
 
@@ -489,13 +506,12 @@ void IndexPutEager::AddNode(
     }
   } else {
     if (!accumulate) {
-
       std::vector<synapse_helpers::tensor> next_node;
       if (cast_needed) {
         auto scatter_op = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
             {syn_in(0),
              catop.get(),
              values_bcast_or_reshape_sh_tensor[0].get()},
@@ -513,7 +529,7 @@ void IndexPutEager::AddNode(
         next_node = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
             {syn_in(0),
              catop.get(),
              values_bcast_or_reshape_sh_tensor[0].get()},
@@ -562,6 +578,7 @@ void IndexPutBoolEager::AddNode(
   auto shape_tensor_shape = at::DimVector{5};
 
   auto self_sizes = self.sizes().vec();
+  auto values_sizes = values.sizes().vec();
   std::vector<at::Tensor> cat_input;
   std::vector<synTensor> cat_input_synTensor;
   std::vector<synapse_helpers::tensor> cat_input_tensor;
@@ -607,16 +624,24 @@ void IndexPutBoolEager::AddNode(
         {{max_size, index_params.dtype}});
 
     index_params.sizes = max_size;
-    index_params.numel = std::accumulate(
-        std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
+    if (values.numel() > 1) {
+      index_params.numel = values_sizes[0];
+    } else {
+      index_params.numel = std::accumulate(
+          std::begin(max_size),
+          std::end(max_size),
+          1,
+          std::multiplies<size_t>());
+    }
     index_params.force_long = false;
+
     nonzero = NonZeroCommon(
         this,
         graph,
         index_params,
-        bcastOpInd[0].get(),
-        c10::nullopt,
-        c10::nullopt,
+        bcastOpInd[0].get(), // syn_in(1)
+        std::nullopt,
+        std::nullopt,
         false);
 
     nonzero_out_shape = nonzero[0].pt_shape();
@@ -631,7 +656,7 @@ void IndexPutBoolEager::AddNode(
         (1 == nonzero_out_shape.size()) ? 1 : nonzero_out_shape[1];
     auto slice = BuildOp(
         graph,
-        get_guid_with_precision("slice", indices_scalar_type),
+        get_guid_with_precision("slice"sv, indices_scalar_type),
         {nonzero[0].get()},
         {{{slice_numel, slice_output_shape_second_dim_size},
           indices_scalar_type}},
@@ -671,71 +696,42 @@ void IndexPutBoolEager::AddNode(
   if (values.numel() >
       1) { // if values has more than 1 elem, we have to assume the valid
     // count in indices will match values numel
-    auto values_sizes = values.sizes().vec();
-    if (indices[0].dim() != self.dim() &&
-        values.dim() != (1 + (self.dim() - indices[0].dim()))) {
-      size_t i = 0;
-      while (i < rank_idx) {
-        for (int j = 0; j < indices[i].dim(); j++)
-          value_upd_dim.push_back(indices[i].sizes()[j]);
-        i += indices[i].dim();
-      }
-      for (size_t i = rank_idx; i < rank_inp; i++)
-        value_upd_dim.push_back(self_sizes[i]);
-    } else {
-      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
-        value_upd_dim.push_back(values_sizes[i]);
-    }
+    auto indices_fcd = cat_pt_shape[1];
+    // Take leading dimensions of value from indices tensor
+    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++)
+      value_upd_dim.push_back(cat_pt_shape[i]);
+    // Take trailing dims of value from self
+    for (size_t i = indices_fcd; i < self_sizes.size(); i++)
+      value_upd_dim.push_back(self_sizes[i]);
   } else { // We are assuming uses passes value shapes correctly for scatter
-    size_t i = 0;
-    while (i < rank_idx) {
-      for (int j = 0; j < indices[i].dim(); j++)
-        value_upd_dim.push_back(indices[i].sizes()[j]);
-      i += indices[i].dim();
-    }
+    value_upd_dim.push_back(cat_pt_shape[0]);
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
-
   auto bcastOp = BuildOp(
       graph,
       get_guid_with_precision(
-          "index_put_bool_broadcast_value", values_scalar_type),
+          "index_put_bool_broadcast_value"sv, values_scalar_type),
       {syn_in(0), syn_in(1), syn_in(1 + indices.size()), nonzero[0].get()},
       {{value_upd_dim, values_scalar_type}});
-
-  auto flattened_size = std::accumulate(
-      std::begin(value_upd_dim),
-      std::end(value_upd_dim),
-      1,
-      std::multiplies<size_t>());
-  auto reshapebcastOp = BuildOp(
-      graph,
-      "flatten_fwd",
-      {bcastOp[0].get()},
-      {{{flattened_size}, values_scalar_type}});
-
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {syn_in(0), catop.get(), reshapebcastOp[0].get(), nonzero.at(1).get()},
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
+        {syn_in(0), catop.get(), bcastOp[0].get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
   } else {
     auto zero_op = ConstantHelper(graph, 0, self_scalar_type, self_sizes);
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {zero_op.get(),
-         catop.get(),
-         reshapebcastOp[0].get(),
-         nonzero.at(1).get()},
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
+        {zero_op.get(), catop.get(), bcastOp[0].get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", self_scalar_type),
+        get_guid_with_precision("add_fwd"sv, self_scalar_type),
         {syn_in(0), scatter_op.at(0).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(add_op[0]);
@@ -843,7 +839,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd",
+                 "scatter_nd_onnx_fwd"sv,
                  scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
              {self_synin, catop.get(), reshape_val_op.get()},
              {NodeAttr::NodeOutputAttr{
@@ -861,7 +857,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd",
+                 "scatter_nd_onnx_fwd"sv,
                  scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
              {self_synin, catop.get(), reshape_val_op.get()},
              {NodeAttr::NodeOutputAttr{
@@ -886,7 +882,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                 "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
              {self_synin,
               catop.get(),
               values_bcast_or_reshape_sh_tensor[0].get()},
@@ -906,7 +902,7 @@ static synapse_helpers::tensor IndexPutLongHelper(
             op,
             graph,
             {get_guid_with_precision(
-                 "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+                 "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
              {self_synin,
               catop.get(),
               values_bcast_or_reshape_sh_tensor[0].get()},
@@ -944,7 +940,7 @@ void IndexPutCompile::AddNode(
     PT_KERNEL_DEBUG(
         "index_put boolmask torch.compile: received list of optional tensors");
     auto opt_tensorlist_args = stack.at(1).toOptionalTensorList();
-    for (c10::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+    for (std::optional<at::Tensor> input_ind : opt_tensorlist_args) {
       auto input = input_ind.value_or(at::Tensor());
       if (input.defined()) {
         PT_KERNEL_DEBUG(
@@ -965,7 +961,7 @@ void IndexPutCompile::AddNode(
             "torch.compile: index_put boolmask: undefined indices tensor");
         HABANA_ASSERT(
             0 &&
-            "torch.compile: index_put boolmask: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+            "torch.compile: index_put boolmask: unsupported case: None is not yet supported on HPU for c10::List<std::optional<Tensor>>");
       }
     }
     HABANA_ASSERT(
@@ -1058,8 +1054,8 @@ void IndexPutCompile::AddNode(
           graph,
           index_params,
           bcastOpInd.get(),
-          c10::nullopt,
-          c10::nullopt,
+          std::nullopt,
+          std::nullopt,
           false);
 
       nonzero_out_shape = nonzero[0].pt_shape();
@@ -1074,7 +1070,7 @@ void IndexPutCompile::AddNode(
           (1 == nonzero_out_shape.size()) ? 1 : nonzero_out_shape[1];
       auto slice = BuildOp(
           graph,
-          get_guid_with_precision("slice", indices_scalar_type),
+          get_guid_with_precision("slice"sv, indices_scalar_type),
           {nonzero[0].get()},
           {{{slice_numel, slice_output_shape_second_dim_size},
             indices_scalar_type}},
@@ -1132,60 +1128,40 @@ void IndexPutCompile::AddNode(
       1) { // if values has more than 1 elem, we have to assume the valid
     // count in indices will match values numel
     auto values_sizes = values.sizes().vec();
-    if (indices[0].dim() != self.dim() &&
-        values.dim() != (1 + (self.dim() - indices[0].dim()))) {
-      size_t i = 0;
-      while (i < rank_idx) {
-        for (int j = 0; j < indices[i].dim(); j++)
-          value_upd_dim.push_back(indices[i].sizes()[j]);
-        i += indices[i].dim();
-      }
-      for (size_t i = rank_idx; i < rank_inp; i++)
-        value_upd_dim.push_back(self_sizes[i]);
-    } else {
-      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
-        value_upd_dim.push_back(values_sizes[i]);
-    }
+    auto indices_fcd = cat_pt_shape[1];
+    // Take leading dimensions of value from indices tensor
+    for (size_t i = 0; i < cat_pt_shape.size() - 1; i++)
+      value_upd_dim.push_back(cat_pt_shape[i]);
+    // Take trailing dims of value from self
+    for (size_t i = indices_fcd; i < self_sizes.size(); i++)
+      value_upd_dim.push_back(self_sizes[i]);
   } else { // We are assuming uses passes value shapes correctly for scatter
-    size_t i = 0;
-    while (i < rank_idx) {
-      for (int j = 0; j < indices[i].dim(); j++)
-        value_upd_dim.push_back(indices[i].sizes()[j]);
-      i += indices[i].dim();
-    }
+    value_upd_dim.push_back(cat_pt_shape[0]);
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
 
   auto bcastOp = BroadcastHelper(
       graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
-  auto flattened_size = std::accumulate(
-      std::begin(value_upd_dim),
-      std::end(value_upd_dim),
-      1,
-      std::multiplies<size_t>());
-  std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
-  auto reshapebcastOp =
-      ReshapeHelper(graph, bcastOp.get(), flattened_size, values_scalar_type);
 
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {syn_in(0), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
+        {syn_in(0), catop.get(), bcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
   } else {
     auto zero_op = ConstantHelper(graph, 0, self_scalar_type, self_sizes);
     auto scatter_op = BuildOp(
         graph,
-        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {zero_op.get(), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
+        get_guid_with_precision("scatter_nd_onnx_fwd"sv, self_scalar_type),
+        {zero_op.get(), catop.get(), bcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", self_scalar_type),
+        get_guid_with_precision("add_fwd"sv, self_scalar_type),
         {syn_in(0), scatter_op.at(0).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(add_op[0]);

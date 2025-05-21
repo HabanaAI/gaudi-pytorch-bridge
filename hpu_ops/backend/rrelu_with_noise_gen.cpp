@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/rrelu_with_noise.h"
 #include "generated/backend/rrelu_with_noise_backward.h"
 #include "habana_kernels/random_gen_kernels.h"
@@ -69,17 +69,28 @@ SharedMetaDataVector RreluWithNoiseSharedMeta(
   return out;
 }
 
+using namespace std::literals;
+
+bool is_rrelu_functional(const OpBackend& op) {
+  return op.GetGuid().find("rrelu_with_noise_functional") != std::string::npos;
+}
+
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "Rrelu_with_noise::AddNode");
   [[maybe_unused]] auto input = stackGetter.getNextInput<TensorsPair>();
-  auto noiseIn = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto noiseIn = stackGetter.getNextInput<std::optional<TensorsPair>>();
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto training = stack.at(4).toBool();
   auto lower = stack.at(2).toScalar().to<float>();
   auto upper = stack.at(3).toScalar().to<float>();
   size_t size = 0;
+  bool is_functional = is_rrelu_functional(*this);
+  std::optional<int> noise_out_idx{std::nullopt};
+  if (is_functional) {
+    noise_out_idx = 1;
+  }
   if (training) {
     std::optional<synapse_helpers::tensor> noiseStorageOpt;
     auto [noise_in_storage_or_idx] = get_or_create_tensor<STORAGE_IDX>(
@@ -105,7 +116,7 @@ void Rrelu_with_noise::AddNode(
     // uniform random tensor
     auto uniform_random = BuildOp(
         graph,
-        get_guid_with_precision("random_uniform_fwd", ScalarType()),
+        get_guid_with_precision("random_uniform_fwd"sv, ScalarType()),
         std::move(inputs),
         {{outshape, ScalarType()}},
         params.get(),
@@ -115,42 +126,51 @@ void Rrelu_with_noise::AddNode(
     // cond: condition tensor
     auto cond = BuildOp(
         graph,
-        get_guid_with_precision("less_equal_fwd", ScalarType()),
+        get_guid_with_precision("less_equal_fwd"sv, ScalarType()),
         {syn_in(0), zeros.get()},
         {{outshape, c10::ScalarType::Bool}});
     // noise: noise tensor
     auto noise = BuildOp(
         graph,
-        get_guid_with_precision("where_fwd", ScalarType()),
+        get_guid_with_precision("where_fwd"sv, ScalarType()),
         {cond[0].get(), uniform_random[0].get(), ones.get()},
         {NodeAttr::NodeOutputAttr{
             outshape,
             ScalarType(),
-            c10::nullopt,
+            noise_out_idx,
             DATA_TENSOR,
             syn_type_na,
             noise_in_storage_or_idx}});
     // output
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("mult", ScalarType()),
+        get_guid_with_precision("mult"sv, ScalarType()),
         {syn_in(0), noise[0].get()},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
-    GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        1, std::move(noise[0]), std::get<int>(noise_in_storage_or_idx)});
+    if (is_functional) {
+      syn_out(1) = std::move(noise[0]);
+    } else {
+      GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
+          1, std::move(noise[0]), std::get<int>(noise_in_storage_or_idx)});
+    }
   } else {
     PARAMS_STUB(ns_LeakyReluKernel::Params);
     auto negative_slope = (lower + upper) / 2;
     params->alpha = negative_slope;
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("leakyrelu_fwd", ScalarType()),
+        get_guid_with_precision("leakyrelu_fwd"sv, ScalarType()),
         {syn_in(0)},
         {{outshape, ScalarType(), 0}},
         params.get(),
         size);
     syn_out(0) = std::move(output[0]);
+    if (is_functional) { // return an empty tensor for non-training cases
+      auto result = habana::OpBackend::BuildOp(
+          graph, "memset", {}, {{1, ScalarType(), 1}});
+      syn_out(1) = std::move(result[0]);
+    }
   }
 }
 
@@ -186,7 +206,7 @@ void Rrelu_with_noise_bwd::AddNode(
     // grad_out * noise
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("mult", ScalarType()),
+        get_guid_with_precision("mult"sv, ScalarType()),
         {syn_in(0), syn_in(2)},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
@@ -197,7 +217,7 @@ void Rrelu_with_noise_bwd::AddNode(
     params->alpha = negative_slope;
     auto output = BuildOp(
         graph,
-        get_guid_with_precision("leakyrelu_bwd", ScalarType()),
+        get_guid_with_precision("leakyrelu_bwd"sv, ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}},
         params.get(),

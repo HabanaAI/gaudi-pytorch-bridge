@@ -17,13 +17,14 @@
 
 # define fmt target, so other deps will not compile it from sources. Otherwise we have conflicts
 add_library(fmt INTERFACE IMPORTED)
-set_target_properties(fmt PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include/")
+set_target_properties(fmt PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include")
 target_compile_definitions(fmt INTERFACE FMT_HEADER_ONLY)
 add_library(npu::fmt ALIAS fmt)
 
 add_library(hllogger SHARED IMPORTED)
 set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")
-set_target_properties(hllogger PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HL_LOGGER_INCLUDE_DIRS}")
+set_target_properties(hllogger PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                          "$ENV{HL_LOGGER_INCLUDE_DIRS};$ENV{THIRD_PARTIES_ROOT}")
 add_library(npu::hllogger ALIAS hllogger)
 
 add_library(nlohmann_json INTERFACE IMPORTED)
@@ -42,10 +43,10 @@ else()
 endif()
 
 add_library(hcl INTERFACE IMPORTED)
-set_target_properties(hcl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HCL_ROOT}/include")
+set_target_properties(hcl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HCL_INCLUDE_DIR}")
 add_library(npu::hcl ALIAS hcl)
 
-set_target_properties(Synapse PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_ROOT}/include")
+set_target_properties(Synapse PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_INCLUDE_DIR}")
 target_link_libraries(Synapse INTERFACE npu::hcl)
 add_library(npu::Synapse ALIAS Synapse)
 
@@ -53,16 +54,19 @@ add_library(specs_external INTERFACE IMPORTED)
 set_target_properties(specs_external PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
 add_library(npu::specs_external ALIAS specs_external)
 
-if (EXISTS "$ENV{SPECS_EMBEDDED_ROOT}/hlml_shm.h")
+if(EXISTS "$ENV{SPECS_EMBEDDED_ROOT}/hlml_shm.h")
   add_library(specs_embedded INTERFACE IMPORTED)
   set_target_properties(specs_embedded PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EMBEDDED_ROOT}")
   target_compile_definitions(specs_embedded INTERFACE PT_HLML_ENABLED)
   add_library(npu::specs_embedded ALIAS specs_embedded)
 else()
+  if(NOT DEFINED ENV{SPECS_EMBEDDED_ROOT})
+    message(STATUS "Environment variable SPECS_EMBEDDED_ROOT is not defined.")
+  endif()
   message(STATUS "Embedded specs repo not found. Will build without HLML support")
 endif()
 
-set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_ROOT}/include")
+set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_INCLUDE_DIR}")
 target_link_libraries(SynapseUtils INTERFACE npu::Synapse npu::specs_external)
 add_library(npu::SynapseUtils ALIAS SynapseUtils)
 

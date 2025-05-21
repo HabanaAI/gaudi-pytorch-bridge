@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -179,31 +179,12 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
     return ret;
   };
 
-  auto should_skip_case_on_gaudi = [](int N, int M, int gen1, int gen2) {
-    if (N == 3 && M == 5 && gen1 == 1 && (gen2 == 1 || gen2 == 2 || gen2 == 3))
-      return true;
-    if (N == 4 && M == 5 && (gen1 == 1 || gen1 == 2 || gen1 == 3) && gen2 == 1)
-      return true;
-    if (N == 4 && M == 5 && gen1 == 3 && (gen2 == 3 || gen2 == 5))
-      return true;
-    if (N == 5 && M == 3 && (gen1 == 1 || gen1 == 2 || gen1 == 3) && gen2 == 1)
-      return true;
-    if (N == 5 && M == 4 && gen1 == 1 && (gen2 == 1 || gen2 == 2 || gen2 == 3))
-      return true;
-    if (N == 5 && M == 4 && (gen1 == 3 || gen1 == 5) && gen2 == 3)
-      return true;
-
-    return false;
-  };
-
   // iterate over all combinations of N-D x M-D; N,M in range [1..5]
   for (int N = 1; N <= 5; N++) {
     for (int M = 1; M <= 5; M++) {
       // now iterate over all cases for each N and M
       for (int gen1 = 0; gen1 < 1 << std::max(0, N - 2); gen1++) {
         for (int gen2 = 0; gen2 < 1 << std::max(0, M - 2); gen2++) {
-          if (isGaudi() && should_skip_case_on_gaudi(N, M, gen1, gen2))
-            continue;
           // perform the test for each case
           matmulbwd_test(
               generator(N, gen1, {3, 4}), generator(M, gen2, {4, 5}));

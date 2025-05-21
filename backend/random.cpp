@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "random.h"
 #include <ATen/CPUGeneratorImpl.h>
@@ -35,7 +35,7 @@ at::Generator createHPUGenerator() {
 }
 } // namespace detail
 
-uint32_t get_seed_hpu(const c10::optional<at::Generator>& gen) {
+uint32_t get_seed_hpu(const std::optional<at::Generator>& gen) {
   at::CPUGeneratorImpl* generator =
       at::get_generator_or_default<at::CPUGeneratorImpl>(
           gen, detail::getDefaultHPUGenerator());
@@ -49,7 +49,7 @@ uint32_t get_seed_hpu(const c10::optional<at::Generator>& gen) {
   return generator->random();
 }
 
-at::Tensor get_seed_tensor_hpu(const c10::optional<at::Generator>& gen) {
+at::Tensor get_seed_tensor_hpu(const std::optional<at::Generator>& gen) {
   int seed = get_seed_hpu(gen);
   at::Tensor seed_tensor = at::tensor(seed);
   auto t = habana_lazy::append_to_batch_h2d_list(seed_tensor);

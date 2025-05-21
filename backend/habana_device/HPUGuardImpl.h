@@ -1,35 +1,30 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <c10/core/Device.h>
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
-#include <c10/util/Exception.h>
 #include <synapse_api.h>
-#include <unordered_set>
 
 #include "HPUAllocator.h"
 #include "HPUDevice.h"
 #include "HPUEvent.h"
 #include "HPUStream.h"
-#include "PinnedMemoryAllocator.h"
 #include "habana_helpers/logging.h"
-#include "habana_lazy/lazy_executor.h"
-#include "hpu_cached_devices.h"
 
 namespace habana {
 struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
@@ -44,7 +39,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     at::Device old_device = getDevice();
     if (old_device.index() != d.index()) {
       HPUDeviceAllocator::allocator_active_device_id = d.index();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",
           habana::HPUDeviceAllocator::allocator_active_device_id,
@@ -71,7 +66,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       TORCH_INTERNAL_ASSERT(d.type() == type());
       habana::HPUDeviceAllocator::allocator_active_device_id =
           HPUDeviceContext::get_device(d.index()).id();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",
           habana::HPUDeviceAllocator::allocator_active_device_id,
@@ -125,7 +120,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         hpu_flag = 1;
         break;
       default:
-        TORCH_CHECK(false, "event received unknown flag");
+        HABANA_ASSERT(false, "event received unknown flag");
     }
     return hpu_flag;
   }
@@ -146,7 +141,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       const at::Stream& stream,
       const at::DeviceIndex device_index,
       const at::EventFlag flag) const override {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         device_index == -1 || device_index == stream.device_index(),
         "Event device index ",
         device_index,
@@ -183,7 +178,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       void* event1,
       void* event2,
       C10_UNUSED const c10::DeviceIndex device_index) const override {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         event1 && event2,
         "Both events must be recorded before calculating elapsed time.");
     auto* hpu_event1 = static_cast<at::hpu::HPUEvent*>(event1);

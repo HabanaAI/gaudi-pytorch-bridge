@@ -19,6 +19,7 @@ import math  # for sqrt etc
 import os
 
 import habana_frameworks.torch.hpu as ht
+
 import torch
 
 
@@ -128,15 +129,16 @@ def fp8_sdpa_fwd_wrapper(
 
     assert softmax_mode != "fp32", "softmax_mode == fp32 is not supported in fp8 flow"
 
-    # Check if recompute variant is enabled
-    if recompute is None:
-        recompute = ht.recompute_sdp_enabled()
-
     if requires_backward:
-        assert is_causal, "Fp8 FusedSDPA in trining only supports Triangular mask"
+        assert is_causal, "Fp8 FusedSDPA in training only supports Triangular mask"
+        if recompute is None:
+            recompute = ht.recompute_sdp_enabled()
+    else:
+        recompute = True
+
     if valid_seq_len is not None:
-        assert (
-            is_causal and (requires_backward is False) and (attn_mask is None)
+        assert is_causal and (
+            requires_backward is False
         ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
 
     gqa = is_gqa(q, k)

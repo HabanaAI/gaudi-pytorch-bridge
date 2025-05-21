@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "backend/create_pt_tensor.h"
@@ -41,17 +41,19 @@ OptimizerLambNorm::OptimizerLambNorm(int device_id, c10::ScalarType scalar_type)
   SetOutputMetaFn(ComputeLambOutputMetadata);
 }
 
+using namespace std::literals;
+
 void OptimizerLambNorm::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 2, "OptimizerLambNorm must have 2 input arguments");
 
   StackGetter stackGetter(this, stack, "OptimizerLambNorm::AddNode");
   auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
   float max_grad_norm = static_cast<float>(stackGetter.getNextInput<double>());
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       gradients.size() > 0,
       "Gradiens list in OptimizerLambNorm cannot be empty");
 
@@ -69,7 +71,7 @@ void OptimizerLambNorm::AddNode(
     intermediate_reduce.emplace_back(std::move(OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("reduce_sum_square_multi_dim_fwd", dtype),
+        {get_guid_with_precision("reduce_sum_square_multi_dim_fwd"sv, dtype),
          {gradients[i].syn_t},
          {{{1}, dtype}},
          &params,
@@ -95,7 +97,7 @@ void OptimizerLambNorm::AddNode(
   auto sum_final = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("reduce_sum_fwd", dtype),
+      {get_guid_with_precision("reduce_sum_fwd"sv, dtype),
        {concated[0].get()},
        {{{1}, dtype}},
        &reduce_params,
@@ -104,21 +106,21 @@ void OptimizerLambNorm::AddNode(
   auto sqrt = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("sqrt_fwd", dtype),
+      {get_guid_with_precision("sqrt_fwd"sv, dtype),
        {sum_final[0].get()},
        {{{1}, dtype}}});
 
   auto div = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("div_fwd", dtype),
+      {get_guid_with_precision("div_fwd"sv, dtype),
        {sqrt[0].get(), syn_max_grad_norm.get()},
        {{{1}, dtype}}});
 
   auto less = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("less_equal_fwd", dtype),
+      {get_guid_with_precision("less_equal_fwd"sv, dtype),
        {sqrt[0].get(), syn_max_grad_norm.get()},
        {{{1}, at::kBool}}});
 
@@ -129,7 +131,7 @@ void OptimizerLambNorm::AddNode(
   auto mul1 = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("mult_fwd", dtype),
+      {get_guid_with_precision("mult_fwd"sv, dtype),
        {less_cast.get(), syn_clip_norm.get()},
        {{{1}, dtype}}});
 
@@ -142,14 +144,14 @@ void OptimizerLambNorm::AddNode(
   auto mul2 = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("mult_fwd", dtype),
+      {get_guid_with_precision("mult_fwd"sv, dtype),
        {eq_casted.get(), div[0].get()},
        {{{1}, dtype}}});
 
   auto add = OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("add_fwd", dtype),
+      {get_guid_with_precision("add_fwd"sv, dtype),
        {mul1[0].get(), mul2[0].get()},
        {{{1}, dtype, 0}}});
 
@@ -176,12 +178,12 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
     synTensor input_syn_tensor,
     const at::IntArrayRef input_shape,
     c10::ScalarType dtype,
-    c10::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   if (input_shape.size() <= 1 || input_shape[0] == 1) {
     auto norm_mul = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult_fwd", dtype),
+        {get_guid_with_precision("mult_fwd"sv, dtype),
          {input_syn_tensor, input_syn_tensor},
          {{input_shape, dtype}}});
 
@@ -191,7 +193,7 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
     auto sum = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("reduce_sum_multi_dim_fwd", dtype),
+        {get_guid_with_precision("reduce_sum_multi_dim_fwd"sv, dtype),
          {norm_mul[0].get()},
          {{{1}, dtype}},
          &reduce_params,
@@ -200,14 +202,14 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
     return OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("sqrt_fwd", dtype),
+        {get_guid_with_precision("sqrt_fwd"sv, dtype),
          {sum[0].get()},
          {{{1}, dtype, final_idx}}});
   } else {
     return OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("frobenius_norm_fwd", dtype),
+        {get_guid_with_precision("frobenius_norm_fwd"sv, dtype),
          {input_syn_tensor},
          {{{1}, dtype, final_idx}}});
   }
@@ -216,7 +218,7 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
 void OptimizerLambPhase1::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 15, "OptimizerLambPhase1 must have 15 input arguments");
 
   StackGetter stackGetter(this, stack, "OptimizerLambPhase1::AddNode");
@@ -256,7 +258,7 @@ void OptimizerLambPhase1::AddNode(
     auto div_grad = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("div_fwd", dtype),
+        {get_guid_with_precision("div_fwd"sv, dtype),
          {gradients[i].syn_t, clip_global_grad_norm.syn_t},
          {{div_grad_shape, dtype}}});
 
@@ -264,21 +266,21 @@ void OptimizerLambPhase1::AddNode(
     auto mul_exp_avg = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("mult_fwd", dtype),
+        {get_guid_with_precision("mult_fwd"sv, dtype),
          {exp_avg[i].syn_t, beta1_t.get()},
          {{mul_exp_avg_shape, dtype}}});
 
     auto add_exp_beta_avg = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("mult_fwd", dtype),
+        {get_guid_with_precision("mult_fwd"sv, dtype),
          {div_grad[0].get(), beta3_t.get()},
          {{div_grad_shape, dtype}}});
 
     auto add_exp_avg = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("add_fwd", dtype),
+        {get_guid_with_precision("add_fwd"sv, dtype),
          {mul_exp_avg[0].get(), add_exp_beta_avg[0].get()},
          {{mul_exp_avg_shape, dtype}}});
 
@@ -291,28 +293,28 @@ void OptimizerLambPhase1::AddNode(
     auto mul_exp_avg_sq = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("mult_fwd", dtype),
+        {get_guid_with_precision("mult_fwd"sv, dtype),
          {exp_avg_sq[i].syn_t, beta2_t.get()},
          {{mul_exp_avg_sq_shape, dtype}}});
 
     auto addcmul_a = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("mult_fwd", dtype),
+        {get_guid_with_precision("mult_fwd"sv, dtype),
          {div_grad[0].get(), div_grad[0].get()},
          {{mul_exp_avg_sq_shape, dtype}}});
 
     auto addcmul_b = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("mult_fwd", dtype),
+        {get_guid_with_precision("mult_fwd"sv, dtype),
          {addcmul_a[0].get(), one_minus_beta2_t.get()},
          {{mul_exp_avg_sq_shape, dtype}}});
 
     auto addcmul_exp_avg_sq = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("add_fwd", dtype),
+        {get_guid_with_precision("add_fwd"sv, dtype),
          {mul_exp_avg_sq[0].get(), addcmul_b[0].get()},
          {{mul_exp_avg_sq_shape, dtype}}});
 
@@ -328,42 +330,42 @@ void OptimizerLambPhase1::AddNode(
     auto div_exp_avg = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("div_fwd", dtype),
+        {get_guid_with_precision("div_fwd"sv, dtype),
          {add_exp_avg[0].get(), bias_correction1.syn_t},
          {{mul_exp_avg_shape, dtype}}});
 
     auto div_exp_avg_sq = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("div_fwd", dtype),
+        {get_guid_with_precision("div_fwd"sv, dtype),
          {addcmul_exp_avg_sq[0].get(), bias_correction2.syn_t},
          {{mul_exp_avg_sq_shape, dtype}}});
 
     auto sqrt_exp_avg_sq = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("sqrt_fwd", dtype),
+        {get_guid_with_precision("sqrt_fwd"sv, dtype),
          {div_exp_avg_sq[0].get()},
          {{mul_exp_avg_sq_shape, dtype}}});
 
     auto add_exp_avg_sq = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("add_fwd", dtype),
+        {get_guid_with_precision("add_fwd"sv, dtype),
          {sqrt_exp_avg_sq[0].get(), epsilon_t.get()},
          {{mul_exp_avg_sq_shape, dtype}}});
 
     const bool is_weight_decay = weight_decay != 0.0;
 
-    c10::optional<int> div_wt_result_index = is_weight_decay
-        ? c10::nullopt
+    std::optional<int> div_wt_result_index = is_weight_decay
+        ? std::nullopt
         : c10::make_optional<int>(i + 4 * num_params);
 
     std::vector<synapse_helpers::tensor> norm_input;
     auto div_wt = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("div_fwd", dtype),
+        {get_guid_with_precision("div_fwd"sv, dtype),
          {div_exp_avg[0].get(), add_exp_avg_sq[0].get()},
          {{mul_exp_avg_sq_shape, dtype, div_wt_result_index}}});
     norm_input.emplace_back(std::move(div_wt[0]));
@@ -372,14 +374,14 @@ void OptimizerLambPhase1::AddNode(
       auto add_wt_beta = OpBackend::BuildNode(
           this,
           graph,
-          {get_guid_with_precision("mult_fwd", dtype),
+          {get_guid_with_precision("mult_fwd"sv, dtype),
            {weights[i].syn_t, weight_decay_t.get()},
            {{div_grad_shape, dtype}}});
 
       auto add_wt = OpBackend::BuildNode(
           this,
           graph,
-          {get_guid_with_precision("add_fwd", dtype),
+          {get_guid_with_precision("add_fwd"sv, dtype),
            {norm_input.back().get(), add_wt_beta[0].get()},
            {{mul_exp_avg_shape, dtype, i + 4 * num_params}}});
       norm_input.emplace_back(std::move(add_wt[0]));
@@ -423,7 +425,7 @@ OptimizerLambPhase2::OptimizerLambPhase2(
 void OptimizerLambPhase2::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stack.size() == 7, "OptimizerLambPhase2 must have 7 input arguments");
 
   StackGetter stackGetter(this, stack, "OptimizerLambPhase2::AddNode");
@@ -453,21 +455,21 @@ void OptimizerLambPhase2::AddNode(
       auto div = OpBackend::BuildNode(
           this,
           graph,
-          {get_guid_with_precision("div_fwd", dtype),
+          {get_guid_with_precision("div_fwd"sv, dtype),
            {weight_norms[i].syn_t, adam_norms[i].syn_t},
            {{{1}, dtype}}});
 
       auto adam_mask = OpBackend::BuildNode(
           this,
           graph,
-          {get_guid_with_precision("greater_fwd", dtype),
+          {get_guid_with_precision("greater_fwd"sv, dtype),
            {adam_norms[i].syn_t, zero->get()},
            {{{1}, at::kBool}}});
 
       auto where = OpBackend::BuildNode(
           this,
           graph,
-          {get_guid_with_precision("where_fwd", dtype),
+          {get_guid_with_precision("where_fwd"sv, dtype),
            {adam_mask[0].get(), div[0].get(), one->get()},
            {{{1}, dtype}}});
 
@@ -477,7 +479,7 @@ void OptimizerLambPhase2::AddNode(
     auto mul = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("mult_fwd", dtype),
+        {get_guid_with_precision("mult_fwd"sv, dtype),
          {adam_steps[i].syn_t, neg_step.syn_t},
          {{adam_steps[i].pt_t.sizes(), dtype}}});
 
@@ -485,7 +487,7 @@ void OptimizerLambPhase2::AddNode(
       update = std::move(OpBackend::BuildNode(
           this,
           graph,
-          {get_guid_with_precision("mult_fwd", dtype),
+          {get_guid_with_precision("mult_fwd"sv, dtype),
            {mul[0].get(), trust_ratio->get()},
            {{adam_steps[i].pt_t.sizes(), dtype}}})[0]);
 
@@ -496,7 +498,7 @@ void OptimizerLambPhase2::AddNode(
     auto updated_weight = OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("add_fwd", dtype),
+        {get_guid_with_precision("add_fwd"sv, dtype),
          {weights[i].syn_t, update->get()},
          {{weights[i].pt_t.sizes(), dtype, i}}});
 

@@ -1,20 +1,19 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <torch/csrc/Exceptions.h>
 #include <torch/csrc/python_headers.h>
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 #include <array>
 #include <cstdarg>
@@ -30,7 +29,7 @@ namespace torch {
 
 void processErrorMsgInplace(std::string& str) {
   // Translate Aten types to their respective pytorch ones
-  constexpr std::array<std::pair<c10::string_view, c10::string_view>, 64>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 64>
       changes{{
           {"Variable[SparseHPUByteType]", "torch.hpu.sparse.ByteTensor"},
           {"Variable[SparseHPUCharType]", "torch.hpu.sparse.CharTensor"},

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
@@ -35,11 +35,13 @@
 using namespace torch;
 using namespace habana;
 
+using namespace std::literals;
+
 void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 1,
       "Incorrect size of inputs expected for NonZero operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg0 expected to be tensor for NonZero operator");
 
@@ -134,7 +136,7 @@ InferOutputMetaRetType NonZeroOperator::InferOutputMeta(
     return out;
 
   } else {
-    SetGuid(get_guid_with_precision("non_zero_v2_fwd", self.scalar_type()));
+    SetGuid(get_guid_with_precision("non_zero_v2_fwd"sv, self.scalar_type()));
     InferOutputMetaRetType out;
     // (i) This output_describing_shape_tensor is created to be used by
     // "reshape" node within CGUID. This should be created within CGUID in
@@ -182,13 +184,13 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs.size() == 2,
       "Incorrect size of inputs expected for NonZero operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputs[0].isTensor(),
       "Input arg0 expected to be tensor for NonZero operator");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       output_metadata.size() == 2,
       "output_metadata expected to be vector of size 2");
 
@@ -222,7 +224,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
         graph.is_dynamic_graph() ? true : false);
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
-    SetGuid(get_guid_with_precision("non_zero_v2_fwd", self.scalar_type()));
+    SetGuid(get_guid_with_precision("non_zero_v2_fwd"sv, self.scalar_type()));
 
     // (i) This output_describing_shape_tensor is created to be used by
     // "reshape" node within CGUID. This should be created within CGUID in

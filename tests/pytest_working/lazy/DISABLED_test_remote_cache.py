@@ -44,7 +44,7 @@ def distCleanup(rank):
 
 class NeuralNetwork(torch.nn.Module):
     def __init__(self):
-        super(NeuralNetwork, self).__init__()
+        super().__init__()
         self.L1 = torch.nn.Conv2d(3, 1, kernel_size=7)
 
     def forward(self, x):

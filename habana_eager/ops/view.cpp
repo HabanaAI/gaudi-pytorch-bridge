@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_eager/ops/view.h"
 #include <ATen/InferSize.h>
@@ -31,7 +31,7 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   auto inferred_size = at::infer_size_dv(size, self.numel());
   auto stride = at::detail::computeStride(
       self.sym_sizes(), self.sym_strides(), inferred_size);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       stride.has_value(),
       "view size is "
       "not compatible with input tensor's size and stride (at least one dimension"
@@ -63,7 +63,7 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
 
   HABANA_ASSERT(output_smeta);
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !input_tmeta->is_maybe_grad_view(),
       " Multilevel views on bucket grad view neither expected,  nor supported");
 

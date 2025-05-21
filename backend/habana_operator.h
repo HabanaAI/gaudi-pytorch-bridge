@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <ATen/Tensor.h>
 #include <absl/types/any.h>
@@ -282,7 +282,7 @@ class PytorchKernelContext {
   size_t params_size_;
   bool is_duplicate_input_{false};
   std::deque<synapse_helpers::tensor_or_ref> syn_input_orig_;
-  c10::optional<synapse_helpers::tensor_or_ref> syn_seed_;
+  std::optional<synapse_helpers::tensor_or_ref> syn_seed_;
 };
 
 struct KernelMetaData {
@@ -368,6 +368,25 @@ std::string get_guid_with_precision(
     const std::string_view guid,
     c10::ScalarType dtype,
     bool use_int64 = false);
+
+/**
+ * For performance reasons (save on invoking strlen in runtime) prefer
+ * string_view literal over char* literal.
+ * Add "using namespace std::literals" and "sv" suffix to literal and it will
+ * select proper overload (e.g., "mult"sv)
+ */
+std::string get_guid_with_precision(
+    const char* const,
+    c10::ScalarType,
+    bool = false) = delete;
+
+// Utility method for checked get from deque
+template <class T>
+inline T& get_checked(std::deque<T>& d, size_t index) {
+  HABANA_ASSERT(
+      index < d.size(), "index ", index, "is out of range ", d.size());
+  return d[index];
+}
 
 //
 // Generic Operator implementation class, holds the operator context
@@ -616,12 +635,20 @@ class HabanaOperator {
     p_context_->pt_inputs_.clear();
   }
 
+  inline synapse_helpers::tensor_or_ref& get_syn_input_at(size_t index) {
+    return get_checked(p_context_->syn_inputs_, index);
+  }
+
+  inline synapse_helpers::tensor_or_ref& get_syn_output_at(size_t index) {
+    return get_checked(p_context_->syn_outputs_, index);
+  }
+
   static std::vector<int64_t> CalculateStrides(
       const at::IntArrayRef sizes,
       c10::MemoryFormat format);
 
   virtual synapse_helpers::tensor_or_ref& SynInput(size_t index) {
-    return p_context_->syn_inputs_.at(index);
+    return get_syn_input_at(index);
   }
 
   void setDeterministic(bool val) {
@@ -651,7 +678,7 @@ class HabanaOperator {
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
       const c10::Scalar& value,
-      c10::optional<at::ScalarType> force_type = c10::nullopt);
+      std::optional<at::ScalarType> force_type = std::nullopt);
 
   template <class T, class U>
   static void CopyVecToHostPtr(const std::vector<T>& vec, void* host_ptr) {
@@ -774,7 +801,7 @@ class RegisterKernel {
     // Construct OperatorName from op
     c10::OperatorName opname = getOperatorName(op);
 
-    TORCH_CHECK(!kernels_.count(opname), opname, " is already registered!");
+    HABANA_ASSERT(!kernels_.count(opname), opname, " is already registered!");
     kernels_.emplace(opname, func);
     return *this;
   }

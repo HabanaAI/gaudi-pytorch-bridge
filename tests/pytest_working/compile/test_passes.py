@@ -49,7 +49,7 @@ def test_pass_fuse_view_chains():
         results_cpu = fnc_cpu(inp_cpu)
     ops_summary = fga.get_ops_summary()
     assert ops_summary[0]["torch.ops.hpu.batch_as_strided"].eager_count == 1
-    for r_hpu, r_cpu in zip(results_hpu, results_cpu):
+    for r_hpu, r_cpu in zip(results_hpu, results_cpu, strict=False):
         torch.allclose(r_hpu.to("cpu"), r_cpu)
 
 
@@ -70,7 +70,7 @@ def test_as_strided_batching():
         t1_hpu, t2_hpu = t1_cpu.to("hpu"), t2_cpu.to("hpu")
         cpu_res = func(t1_cpu, t2_cpu)
         hpu_res = tuple([r.to("cpu") for r in compiled_func(t1_hpu, t2_hpu)])
-        for c, h in zip(cpu_res, hpu_res):
+        for c, h in zip(cpu_res, hpu_res, strict=False):
             torch.allclose(c, h)
         ops_summary = fga.get_ops_summary()
         assert ops_summary[0]["torch.ops.hpu.batch_as_strided"].eager_count == 1

@@ -23,6 +23,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "backend/passes/fuse_collective_view_pass.h"
 #include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 namespace habana {
@@ -160,8 +161,11 @@ std::string DumpOpInfo(
 
 // Forward declaration
 class PersistenceMarkerPassData;
+class FuseCollectiveViewPassData;
 
 class HabanaLaunchOpPT {
+  friend class FuseCollectiveViewPass;
+
  public:
   explicit HabanaLaunchOpPT(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
@@ -418,6 +422,8 @@ class HabanaLaunchOpPT {
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
   std::shared_ptr<RecipeArgumentSpec> cur_rargpsh_{nullptr};
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
+  std::unique_ptr<FuseCollectiveViewPassData>
+      fuse_collective_view_pass_data_ptr_;
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info_ =
       nullptr;
 
@@ -439,6 +445,8 @@ class HabanaLaunchOpPT {
 
   std::vector<TensorMetaData> input_tms_;
 
+  std::vector<unsigned int> is_reusable_;
+
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their
@@ -458,9 +466,11 @@ class HabanaLaunchOpPT {
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
   std::string compile_stats_path_ = "";
-  std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
+  std::unordered_set<unsigned> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;
+
+  std::unordered_map<torch::jit::Value*, bool> input_reusable_pairs_;
 
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map_;
@@ -584,6 +594,7 @@ class HabanaLaunchOpPT {
   bool require_st_ = false;
 
   size_t jit_graph_cache_hit_count_ = 0;
+  unsigned set_module_name_in_outputs_metadata_count_ = 0;
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
@@ -627,6 +638,75 @@ class HabanaLaunchOpPT {
       torch::jit::Stack&,
       torch::jit::Node*,
       const std::string& opname);
+
+  OutputMetaDataVector& GetOutputsMetadata(
+      torch::jit::Node*,
+      size_t& outputs_metadata_index,
+      SynBuildCache&);
+
+  void HandleAllocatedOutputs(
+      std::vector<at::Tensor>::iterator&,
+      torch::jit::Node*,
+      OutputMetaDataVector&);
+
+  void SetModuleNameInOutputsMetadata(torch::jit::Node*, OutputMetaDataVector&);
+
+  void HandleSlicesAndStrides(
+      HabanaOperatorPtr&,
+      torch::jit::Stack&,
+      bool is_shape_inference,
+      std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
+          memory_reuse_pairs,
+      torch::jit::Node*,
+      unsigned node_idx,
+      const std::string_view opname,
+      OutputMetaDataVector&,
+      synapse_helpers::graph&);
+
+  struct ComputeShapeRT {
+    habana::InferOutputMetaRetType kernel_output_cs;
+    std::vector<IdxTensorTuple> intermediate_shape_tensor_cs;
+  };
+
+  ComputeShapeRT ComputeShape(
+      synDeviceId,
+      HabanaOperatorPtr&,
+      torch::jit::Stack&,
+      bool is_shape_inference,
+      torch::jit::Node*,
+      const std::string& node_qual_str,
+      const c10::OperatorName&,
+      const std::string& opname,
+      OutputMetaDataVector&,
+      synapse_helpers::graph&);
+
+  void ProcessSynapseInputsAndIntermediateShapeTensors(
+      HabanaOperatorPtr&,
+      const std::vector<IdxTensorTuple>& intermediate_shape_tensor_cs,
+      std::vector<size_t>& intermediate_shape_tensors_vec,
+      std::vector<size_t>& inputs_shape_tensors_vec,
+      const habana::InferOutputMetaRetType&,
+      synapse_helpers::graph&);
+
+  void HandleOptimOutputSif(
+      torch::jit::Stack&,
+      torch::jit::graph_node_list::iterator&,
+      torch::jit::Node*,
+      OutputMetaDataVector&);
+
+  void HandleHybridSif(
+      int64_t cur_sif_tidx,
+      HabanaOperatorPtr&,
+      bool is_shape_inference,
+      const habana::InferOutputMetaRetType&,
+      synapse_helpers::graph&);
+
+  void HandlePatchInfo(
+      std::string_view opname,
+      const std::vector<std::tuple<std::string, at::Tensor, uint64_t>>&
+          patch_info);
+
+  void HandleCollectives(HabanaOperatorPtr&, torch::jit::Node*);
 
   void GeneratePatchingInfoForGraphInputsDuringFastSif();
 
@@ -808,6 +888,8 @@ class HabanaLaunchOpPT {
     std::string ir_name = "%" + vp->debugName();
     AddAtenIntermediate(ivpsh, syntensor_name, ir_name, tensor_id);
   }
+
+  void CreateOutputReuseInputSynapseTensor(torch::jit::Value* value);
 
   // Member functions related to lowering IR to Synapse
   // To clear the non static members

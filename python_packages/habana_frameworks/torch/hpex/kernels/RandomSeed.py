@@ -16,7 +16,6 @@
 ###############################################################################
 
 import torch
-from habana_frameworks.torch import _hpex_C
 
 
 def random_seed(x: torch.tensor) -> torch.tensor:

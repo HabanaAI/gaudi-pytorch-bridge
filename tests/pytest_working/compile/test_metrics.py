@@ -34,7 +34,7 @@ from habana_frameworks.torch.hpu.metrics import (
     metric_localcontext,
     metrics_dump,
 )
-from habana_frameworks.torch.utils.event_dispatcher import *
+from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 from test_utils import compile_function_if_compile_mode
 
 
@@ -394,7 +394,7 @@ class TestMetricsDump:
         }
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
-        with open(metric_file, "r") as f:
+        with open(metric_file) as f:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
@@ -418,7 +418,7 @@ class TestMetricsDump:
         }
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
-        with open(metric_file, "r") as f:
+        with open(metric_file) as f:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
@@ -435,7 +435,7 @@ class TestMetricsDump:
         env_vars = {"PT_HPU_METRICS_FILE": metric_file}
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
-        with open(metric_file, "r") as f:
+        with open(metric_file) as f:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, "json")
 
@@ -503,7 +503,7 @@ class TestMetricsDump:
             else:
                 file_with_rank = f"{metric_file}.{rank}" if rank > 0 else metric_file
 
-            with open(file_with_rank, "r") as f:
+            with open(file_with_rank) as f:
                 payload = f.read()
             parsed = TestMetricsDump._parse_dump(payload, "json")
 
@@ -535,7 +535,7 @@ class TestMetricsDump:
         metric_file = f"{tmp_path}/metric.{format}"
         runner(TestMetricsDump._sample_worker_process_with_manual_metric_dump, metric_file, format)
 
-        with open(metric_file, "r") as f:
+        with open(metric_file) as f:
             payload = f.read()
 
         parsed = TestMetricsDump._parse_dump(payload, format)
@@ -545,9 +545,6 @@ class TestMetricsDump:
         assert metric["triggered_by"] == "user"
         assert int(metric["statistics"]["TotalNumber"]) == 2
         assert int(metric["statistics"]["TotalTime"]) > 0
-
-
-from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 
 
 def test_event_process():

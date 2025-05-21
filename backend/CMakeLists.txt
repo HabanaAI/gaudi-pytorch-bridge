@@ -17,7 +17,10 @@
 
 add_subdirectory(synapse_helpers)
 
-add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpers>
+add_habana_library(
+  habana_pytorch_backend
+  SHARED
+  $<TARGET_OBJECTS:pytorch_synapse_helpers>
   jit_graph_cache.cpp
   jitgraph_utils.cpp
   create_pt_tensor.cpp
@@ -39,6 +42,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   kernel/hpu_shape_inference.cpp
   kernel/refinement_engine.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
+  passes/fuse_collective_view_pass.cpp
   passes/replace_inplace_ops_ds.cpp
   habana_device/HPUAllocator.cpp
   habana_device/HPUEvent.cpp
@@ -67,50 +71,47 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   helpers/event_dispatcher.cpp
   profiling/json_activity_profiler.cpp
   profiling/json_file_parser.cpp
+  profiling/kineto_activity_profiler.cpp
   profiling/profiling.cpp
-  profiling/trace_sources/synapse_logger_source.cpp
   profiling/trace_sources/synapse_profiler_source.cpp
   profiling/trace_sources/bridge_logs_source.cpp
   profiling/trace_sources/trace_parser.cpp
-  profiling/trace_sources/memory_source.cpp
-)
+  profiling/trace_sources/memory_source.cpp)
 
-add_custom_command(TARGET habana_pytorch_backend POST_BUILD
+add_custom_command(
+  TARGET habana_pytorch_backend
+  POST_BUILD
   COMMENT "Creating ${TARGET_NAME} symbolic link in $ENV{BUILD_ROOT_LATEST}"
-  COMMAND "${CMAKE_COMMAND}" -E create_symlink
-  "$<TARGET_FILE:habana_pytorch_backend>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_backend>")
+  COMMAND "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:habana_pytorch_backend>"
+          "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_backend>")
 
 target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
 
-target_link_libraries(habana_pytorch_backend
-  PUBLIC
-  habana_pytorch_backend_ops
-  pytorch_synapse_helpers
-  c10
-  PRIVATE
-  Python::Python
-  habana_serialization
-  torch
-  nlohmann_json::nlohmann_json
-  absl::strings
-  absl::str_format
-  ${PYTORCH_SYNAPSE_UTILS_LIB}
-
-  # tensor_comparator_core
-  -lstdc++fs
-  npu::hllogger
-)
+target_link_libraries(
+  habana_pytorch_backend
+  PUBLIC habana_pytorch_backend_ops pytorch_synapse_helpers c10
+  PRIVATE Python::Python
+          habana_serialization
+          torch
+          nlohmann_json::nlohmann_json
+          absl::strings
+          absl::str_format
+          ${PYTORCH_SYNAPSE_UTILS_LIB}
+          # tensor_comparator_core
+          -lstdc++fs
+          npu::hllogger)
 
 target_include_directories(habana_pytorch_backend PUBLIC ${PROJECT_SOURCE_DIR})
-target_include_directories(
-  habana_pytorch_backend SYSTEM
-  PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
-)
+target_include_directories(habana_pytorch_backend SYSTEM PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
+                                                                $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
 
 target_compile_definitions(habana_pytorch_backend PUBLIC GENERIC_HELPERS)
 target_compile_features(habana_pytorch_backend PUBLIC cxx_std_14) # still required as this is transitive
-set_target_properties(habana_pytorch_backend PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+set_target_properties(
+  habana_pytorch_backend
+  PROPERTIES CXX_STANDARD 17
+             CXX_STANDARD_REQUIRED ON
+             CXX_EXTENSIONS OFF)
 
 if(MANYLINUX)
   target_link_libraries(habana_pytorch_backend PUBLIC pytorch_synapse_shim)

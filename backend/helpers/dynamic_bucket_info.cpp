@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "dynamic_bucket_info.h"
 
 #include <cmath>
@@ -60,7 +60,7 @@ SplitStatImplBase::~SplitStatImplBase() {}
 void Bucket::CreateSplitStatImpl(SplitPolicy sp) {
   switch (sp) {
     case SplitPolicy::UNSPECIFIED:
-      TORCH_CHECK(false, "Can not create Bucket with policy : ", sp);
+      HABANA_ASSERT(false, "Can not create Bucket with policy : ", sp);
       break;
     case SplitPolicy::DYNAMIC:
       split_stat_impl_ = std::make_shared<SplitStatImplDynamic>(ranges_.size());
@@ -74,7 +74,7 @@ void SplitStatImplDynamic::Increment(
   if (0 == num_dyn_ranges_)
     return;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ranges.size() <= dims.size(),
       "wrong dynamic dims size ",
       dims.size(),
@@ -100,7 +100,7 @@ void SplitStatImplDynamic::Increment(
 void SplitStatImplDynamic::CalculateNewRanges(
     const DynamicRanges& ranges,
     DynamicRanges& new_ranges) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ranges.size() == num_dyn_ranges_,
       "wrong dynamic dims size ",
       ranges.size(),
@@ -238,7 +238,7 @@ Bucket::Bucket(std::istream& is) {
 bool Bucket::IsInRange(
     const std::vector<int64_t>& dims,
     const std::set<int64_t>& skipped_ranges) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       ranges_.size() <= dims.size(),
       "wrong dynamic dims size ",
       dims.size(),
@@ -303,7 +303,7 @@ void Bucket::IncStats(const std::vector<int64_t>& dims) {
 }
 
 Bucket Bucket::CreateNewBucket(SplitPolicy sp) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       nullptr != split_stat_impl_, "Dynamic bucket : Refine stage is disabled");
 
   DynamicRanges new_ranges;
@@ -405,7 +405,7 @@ void DynamicBucketInfo::UpdateShapes(
 
 ResultShapes DynamicBucketInfo::CalculateShapes(uint64_t bucket) {
   ResultShapes result;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       bucket < buckets_.size(),
       "Invalid bucket index ",
       bucket,
@@ -465,7 +465,7 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& new_shapes) {
     }
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       shapes_.size() == new_shapes.size(),
       "new input shapes size ",
       new_shapes.size(),
@@ -526,7 +526,7 @@ void DynamicBucketInfo::UpdateMFUBucketDetails(size_t bucket_id) {
 size_t DynamicBucketInfo::GetBucketId(
     const InpTensorShapes& shapes,
     const PadShapes& pad_shapes) {
-  TORCH_CHECK(shapes_.size() == shapes.size(), "Shapes dont match");
+  HABANA_ASSERT(shapes_.size() == shapes.size(), "Shapes dont match");
 
   cumu_run_count_++;
   if (buckets_.empty()) {
@@ -781,7 +781,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
 size_t DynamicBucketInfo::GetUserBucketId(
     const InpTensorShapes& shapes,
     std::vector<habana_helpers::RangeInfo>& range_infos) {
-  TORCH_CHECK(shapes_.size() == shapes.size(), "Shapes dont match");
+  HABANA_ASSERT(shapes_.size() == shapes.size(), "Shapes dont match");
   PT_DYNAMIC_SHAPE_DEBUG("Creating bucket with user ranges");
   cumu_run_count_++;
   global_count++;
@@ -790,8 +790,8 @@ size_t DynamicBucketInfo::GetUserBucketId(
   DynamicRanges ranges;
   DynamicDims dd;
   // DynamicDims : input_idx => {dim_idx => range_idx in DynamicRanges}
-  TORCH_CHECK(!max_user_shapes_.empty(), "User max structure is empty");
-  TORCH_CHECK(!min_user_shapes_.empty(), "User min structure is empty");
+  HABANA_ASSERT(!max_user_shapes_.empty(), "User max structure is empty");
+  HABANA_ASSERT(!min_user_shapes_.empty(), "User min structure is empty");
   for (auto dynamic_dims{max_user_shapes_.begin()};
        dynamic_dims != max_user_shapes_.end();
        dynamic_dims++) {
@@ -1042,7 +1042,7 @@ std::vector<int64_t> DynamicBucketInfo::ExtractDynamicDimsValue(
     dims_new.push_back(dim_val);
   }
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dims == dims_new,
       "dims ",
       dims,
@@ -1059,7 +1059,7 @@ std::vector<int64_t> DynamicBucketInfo::ExtractDynamicDimsValue(
 bool DynamicBucketInfo::IsInRangeStaticDims(
     const std::vector<int64_t>& dims,
     int64_t num) const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       dynamic_dims_helper_.flat_dd_.size() >= dims.size(),
       "wrong dynamic dims size",
       dims.size(),
@@ -1158,7 +1158,7 @@ size_t DynamicBucketInfo::CalculateHistoric(
     std::function<bool(int64_t, int64_t)> comp,
     int64_t xin_val) {
   auto& dims_history{input_history_.hist_items()};
-  TORCH_CHECK(!dims_history.empty(), "dims history is empty");
+  HABANA_ASSERT(!dims_history.empty(), "dims history is empty");
 
   size_t xin_idx = 0;
   std::vector<int64_t> xin_hist_dims;
@@ -1177,7 +1177,7 @@ size_t DynamicBucketInfo::CalculateHistoric(
       int64_t dynamic_input_size =
           dynamic_dims_helper_.rem_size_[dynamic_dims->first];
       auto tensor_idx = dynamic_dims->first;
-      TORCH_CHECK(
+      HABANA_ASSERT(
           ref_tshapes.count(tensor_idx),
           "tensor index=",
           tensor_idx,
@@ -1192,7 +1192,7 @@ size_t DynamicBucketInfo::CalculateHistoric(
             shapes.at(dynamic_dims->first).dim_size(curr_dim->first);
 
         // Check for error condition
-        TORCH_CHECK(
+        HABANA_ASSERT(
             ref_tensor_dim_map.find(dim_idx) != ref_tensor_dim_map.end(),
             "Missing dim_index=",
             dim_idx,
@@ -1200,7 +1200,7 @@ size_t DynamicBucketInfo::CalculateHistoric(
 
         // Start by setting historic_dim_val to reference value of the
         // corresponding dim
-        TORCH_CHECK(
+        HABANA_ASSERT(
             ref_tshapes.count(tensor_idx),
             "dimension index=",
             dim_idx,
@@ -1234,7 +1234,7 @@ size_t DynamicBucketInfo::CalculateHistoric(
       is_xin_found = true;
     }
   }
-  TORCH_CHECK(
+  HABANA_ASSERT(
       is_xin_found,
       "CalculateHistoric",
       xin_name,
@@ -1250,7 +1250,7 @@ void DynamicBucketInfo::CalculateLocalHistoricPerTensor(
   auto idx = isMin ? 0 : 1;
   auto& local_history_success_shapes_ = local_pt_history_success_shapes_[idx];
   auto& local_history_tensor_shapes_ = local_pt_history_tensor_shapes_[idx];
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !local_history_tensor_shapes_.empty(),
       "Local per tensor history is empty");
   local_history_success_shapes_ = local_history_tensor_shapes_;
@@ -1335,7 +1335,7 @@ void DynamicBucketInfo::CalculateLocalHistoricPerTensor(
 
 void DynamicBucketInfo::CalculateLocalHistoricMin(
     const InpTensorShapes& shapes) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !local_min_history_tensor_shapes_.empty(), "Local min history is empty");
   local_min_history_success_shapes_ = local_min_history_tensor_shapes_;
   for (auto dynamic_dims{local_min_history_tensor_shapes_.begin()};
@@ -1361,7 +1361,7 @@ void DynamicBucketInfo::CalculateLocalHistoricMin(
 
 void DynamicBucketInfo::CalculateLocalHistoricMax(
     const InpTensorShapes& shapes) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       !local_max_history_tensor_shapes_.empty(), "Local max history is empty");
   local_max_history_success_shapes_ = local_max_history_tensor_shapes_;
   for (auto dynamic_dims{local_max_history_tensor_shapes_.begin()};
@@ -1435,7 +1435,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     auto ref_dim_val = el.previous_val;
     auto max_value = ref_dim_val;
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         shapes.find(el.num) != shapes.end(),
         "Tensor index ",
         el.num,
@@ -1447,7 +1447,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     int64_t dim_max_multiplier = max_multiplier;
     switch (min_policy_) {
       case DynamicDimsPolicy::DEFAULT:
-        TORCH_CHECK(0, "Unrecognized condition");
+        HABANA_ASSERT(0, "Unrecognized condition");
         break;
       case DynamicDimsPolicy::HISTORIC:
         min_value = ref_dim_val;
@@ -1484,7 +1484,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         min_value = current_shape.dim_size(el.pos);
         break;
       case DynamicDimsPolicy::FLATTENED:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             false,
             "Policy FLATTENED is currently unsupported for choosing min");
         min_value = dim_multipliers.at(el.num).at(el.pos).first;
@@ -1501,7 +1501,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     // historic should return max as 1 whenever min == 1
     switch (max_policy_) {
       case DynamicDimsPolicy::DEFAULT:
-        TORCH_CHECK(0, "Unrecognized condition");
+        HABANA_ASSERT(0, "Unrecognized condition");
         break;
       case DynamicDimsPolicy::HISTORIC:
         if (max_dim_shapes.count(tensor_idx)) {
@@ -1527,7 +1527,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         max_value = int64_t(shapes.at(el.num).dim_size(el.pos));
         break;
       case DynamicDimsPolicy::FLATTENED:
-        TORCH_CHECK(
+        HABANA_ASSERT(
             false,
             "Policy FLATTENED is currently unsupported for choosing max");
         dim_max_multiplier = dim_multipliers.at(el.num).at(el.pos).second;
@@ -1557,7 +1557,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     if (pad_shapes.count(el.num) > 0) {
       // paddings contain a pair of (before, after) num of pad elements for each
       // dimension
-      TORCH_CHECK(
+      HABANA_ASSERT(
           pad_shapes.at(el.num).output.dims() * 2 == shapes.at(el.num).dims(),
           "Incorect padding shape");
       int64_t pad_output_dim_size =
@@ -1573,7 +1573,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
               dim_max_multiplier;
     }
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING)) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           min != 1 || max == 1,
           "with min policy: ",
           min_policy_,
@@ -1614,7 +1614,7 @@ void DynamicBucketInfo::UpdateRunTimes() {
     // Ignore the first launch runtime
     if (!buckets_[bucket_id].IsFirstLaunch())
       input_history_.hist_items_[input_hist_idx].run_time_ = t_ns;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_id < buckets_.size(),
         "invalid bucket index access in UpdateRunTimes at ",
         __FILE__,
@@ -1627,7 +1627,7 @@ void DynamicBucketInfo::UpdateRunTimes() {
 }
 
 bool DynamicBucketInfo::NeedRunTimeSlot(uint64_t bucket) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       bucket < buckets_.size(),
       "Invalid bucket index access in NeedRunTimeSlot ",
       __FILE__,

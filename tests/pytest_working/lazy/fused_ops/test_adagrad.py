@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -31,14 +31,14 @@ def test_adagrad():
 
     u1 = torch.rand(d1, d2)
     v1 = u1.clone()
-    print("input ::\n{}".format(u1))
+    print(f"input ::\n{u1}")
 
     x1 = u1.detach().to(habana)
     x1.requires_grad = True
 
     u2 = torch.rand(d1, d2)
     v2 = u2.clone()
-    print("input ::\n{}".format(u2))
+    print(f"input ::\n{u2}")
 
     x2 = u2.detach().to(habana)
     x2.requires_grad = True
@@ -57,7 +57,7 @@ def test_adagrad():
         loss_x.backward()
         optim_x.step()
 
-    print("after  adagrad.step x ::\n{}".format(x.to(cpu)))
+    print(f"after  adagrad.step x ::\n{x.to(cpu)}")
 
     y1 = v1.detach().to(habana)
     y1.requires_grad = True
@@ -81,7 +81,7 @@ def test_adagrad():
 
         optim_y.step()
         htcore.mark_step()
-    print("after  adagrad_habana.step y ::\n{}".format(y.to(cpu)))
+    print(f"after  adagrad_habana.step y ::\n{y.to(cpu)}")
 
     x1_cpu = x1.to(cpu)
     y1_cpu = y1.to(cpu)

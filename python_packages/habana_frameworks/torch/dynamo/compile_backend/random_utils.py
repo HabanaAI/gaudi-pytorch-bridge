@@ -16,7 +16,10 @@
 ###############################################################################
 
 import habana_frameworks.torch.internal.bridge_config as bc
+
 import torch
+from torch._prims.rng_prims import run_and_save_rng_state
+from torch._subclasses.fake_tensor import FakeTensorMode
 
 HABANA_RANDOM_OPS_LIST = [
     "aten.bernoulli.default",
@@ -97,9 +100,6 @@ def backward_random_op_inputs(node):
 # the same as CPU and CUDA implementation does.
 # Therefore we need to call the original function in the eager fallback,
 # but new one aligned with seed tensor in compile mode.
-
-from torch._prims.rng_prims import run_and_save_rng_state
-from torch._subclasses.fake_tensor import FakeTensorMode
 
 
 def is_hpu(args, kwargs):

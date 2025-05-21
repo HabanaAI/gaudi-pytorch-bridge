@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <ATen/Tensor.h>
@@ -20,7 +20,6 @@
 #include <c10/core/Storage.h>
 #include <c10/core/TensorImpl.h>
 #include <c10/macros/Macros.h>
-#include <c10/util/Optional.h>
 #include "backend/backend_meta.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
@@ -75,15 +74,6 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   const at::Storage& storage() const override;
 
   bool has_storage() const override;
-
-#pragma GCC diagnostic push
-// Following done as internal fork has different function signature than
-// upstream, and clang16 fails on it.
-// And GCC fails on unknown option
-#pragma GCC diagnostic ignored "-Wpragmas"
-#pragma GCC diagnostic ignored "-Winconsistent-missing-override"
-  void set_storage_keep_dtype(at::Storage storage);
-#pragma GCC diagnostic pop
 
   void handle_view_cycles(HbLazyTensor& hl_src, HbLazyTensor& hl_dst);
 

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <ATen/Tensor.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
@@ -129,6 +129,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     device.cleanup_workspace_buffer();
     device.get_device_memory().reset_pool();
     habana_helpers::EventDispatcher::Instance().unsubscribe_all();
+  });
+  m.def("set_scale_attributes", [](bool is_hw_aligned, uint32_t scale_hash_id) {
+    habana::HPUDeviceContext::set_scale_attributes(
+        is_hw_aligned, scale_hash_id);
+  });
+  m.def("get_scale_attribute_hash_id", []() {
+    return habana::HPUDeviceContext::get_scale_attribute_hash_id();
   });
   m.doc() =
       "This module registers hpu experimental API used by Media internal component.";

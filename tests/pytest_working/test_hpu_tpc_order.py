@@ -19,21 +19,20 @@
 
 import torch
 import torch.nn as nn
+from habana_frameworks.torch.hpu import random as hpu_random
 
 
 # Model with non-aten op Conv1d (torch.nn)
 # Output of this model is passed to flip and topk op
 class Model(nn.Module):
     def __init__(self):
-        super(Model, self).__init__()
+        super().__init__()
         self.score = nn.Conv1d(96, 192, 1)
 
     def forward(self, x):
 
         return self.score(x)
 
-
-from habana_frameworks.torch.hpu import random as hpu_random
 
 seed = 42
 torch.manual_seed(seed)

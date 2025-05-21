@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/all.h"
 #include "hpu_ops/backend/reduction_template.h"
 
@@ -60,11 +60,12 @@ static auto AllCommon(
   auto rank = self.dim();
 
   auto reductionParams = FillReductionParams(rank, dim, keepdim);
+  using namespace std::literals;
   auto reduce_prod_node = [&](const std::vector<synTensor>& input_reduce) {
     return op->BuildNode(
         op,
         graph,
-        {get_guid_with_precision("reduce_prod_multi_dim_fwd", dtype),
+        {get_guid_with_precision("reduce_prod_multi_dim_fwd"sv, dtype),
          input_reduce,
          {{final_shape, dtype}},
          &reductionParams,
@@ -82,14 +83,14 @@ static auto AllCommon(
     auto abs = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("abs_fwd", dtype),
+        {get_guid_with_precision("abs_fwd"sv, dtype),
          {input},
          {{self.sizes().vec(), dtype}}});
 
     auto ceil = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("ceil_fwd", dtype),
+        {get_guid_with_precision("ceil_fwd"sv, dtype),
          {abs[0].get()},
          {{self.sizes().vec(), dtype}}});
     reduced = reduce_prod_node({ceil[0].get()});

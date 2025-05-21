@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/_foreach_clamp_max.h"
 #include "generated/backend/_foreach_clamp_min.h"
@@ -44,7 +44,7 @@ OutputMetaDataVector ClampMeta(const at::Stack& stack) {
 
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
 
@@ -79,7 +79,7 @@ static std::shared_ptr<void> FillClampParamsAndSetMinMax(
 std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
   auto result_type = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   if (c10::isFloatingType(result_type)) {
@@ -92,7 +92,7 @@ std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
 std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-          stack, c10::nullopt, false);
+          stack, std::nullopt, false);
 
   c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
@@ -107,7 +107,7 @@ std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
 std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
   auto dtype_helper =
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-          stack, c10::nullopt, false);
+          stack, std::nullopt, false);
 
   c10::ScalarType result_type = dtype_helper.get_result_dtype();
 
@@ -126,7 +126,7 @@ SharedMetaDataVector ClampSharedMeta(
     habana_helpers::HabanaExecutionMode) {
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      std::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   auto self = stack_tensor(stack, 0);
@@ -190,6 +190,8 @@ SharedMetaDataVector ForeachClampMaxSharedMeta(
   return CommonForeachBinarySharedMeta(stack, executionMode, sharedMetaCreator);
 }
 
+using namespace std::literals;
+
 static synapse_helpers::tensor ClampCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -200,7 +202,7 @@ static synapse_helpers::tensor ClampCommon(
   return std::move(OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("clamp_pt_fwd", dtype),
+      {get_guid_with_precision("clamp_pt_fwd"sv, dtype),
        inputs,
        {{shape, dtype, out_index}}})[0]);
 }
@@ -217,7 +219,7 @@ void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(OpBackend::BuildNode(
       this,
       graph,
-      {get_guid_with_precision("clamp_pt_fwd", compute_type),
+      {get_guid_with_precision("clamp_pt_fwd"sv, compute_type),
        inputs,
        {{meta.shape, meta.dtype, 0}},
        params.get(),
@@ -236,8 +238,8 @@ void clampTensor::AddNode(
 
   StackGetter stackGetter(this, stack, "clampTensor::AddNode");
   auto input = stackGetter.getNextInput<TensorsPair>();
-  auto min = stackGetter.getNextInput<c10::optional<TensorsPair>>();
-  auto max = stackGetter.getNextInput<c10::optional<TensorsPair>>();
+  auto min = stackGetter.getNextInput<std::optional<TensorsPair>>();
+  auto max = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
   std::vector<synTensor> inputs = {input.syn_t};
   inputs.push_back(min ? min.value().syn_t : nullptr);

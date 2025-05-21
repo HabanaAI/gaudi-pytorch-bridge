@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/linalg_cross.h"
 
@@ -21,7 +21,7 @@ static sizes_vec SplitOutputShape(
     bool,
     int64_t dim,
     std::vector<int64_t> outshape) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       outshape[dim] == 3,
       "LinAlgCross: dimension ",
       dim,
@@ -75,7 +75,7 @@ static std::vector<synapse_helpers::tensor> Transpose(
        std::move(input),
        {{outshape,
          op->ScalarType(),
-         is_persistent ? c10::make_optional<int>(0) : c10::nullopt}},
+         is_persistent ? c10::make_optional<int>(0) : std::nullopt}},
        &trans_params,
        sizeof(trans_params)});
 }
@@ -99,6 +99,9 @@ static std::vector<synapse_helpers::tensor> Split(
        &split_params,
        sizeof(split_params)});
 }
+
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> Mul(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -107,7 +110,7 @@ static std::vector<synapse_helpers::tensor> Mul(
   return OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult_fwd", op->ScalarType()),
+      {get_guid_with_precision("mult_fwd"sv, op->ScalarType()),
        std::move(inputs),
        {{outshape, op->ScalarType()}}});
 }
@@ -174,14 +177,14 @@ void LinAlgCross::AddNode(
   auto ndim = self.dim();
   int64_t dim_axis = -1;
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.scalar_type() == other.scalar_type(),
       "LinAlgCross: Tensor must have same dtype, but got ",
       self.scalar_type(),
       "and ",
       other.scalar_type(),
       "dtype tensors");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       self.sizes().vec() == other.sizes().vec(),
       "LinAlgCross: Tensor must have same shape, but got ",
       self.sizes().vec(),
@@ -198,7 +201,8 @@ void LinAlgCross::AddNode(
         break;
       }
     }
-    TORCH_CHECK(dim_axis >= 0, "LinAlgCross: no dimension of size 3 in input");
+    HABANA_ASSERT(
+        dim_axis >= 0, "LinAlgCross: no dimension of size 3 in input");
   } else {
     dim_axis = stack.at(2).toInt();
     dim_axis =
@@ -316,11 +320,11 @@ void LinAlgCross::AddNode(
 
   auto sub = BuildOp(
       graph,
-      get_guid_with_precision("sub", ScalarType()),
+      get_guid_with_precision("sub"sv, ScalarType()),
       {concat1[0].get(), concat2[0].get()},
       {{is_scd ? outshape : transpose_shape,
         ScalarType(),
-        is_scd ? c10::make_optional<int>(0) : c10::nullopt}});
+        is_scd ? c10::make_optional<int>(0) : std::nullopt}});
 
   // if syn_dim is scd, move the output of sub
   if (is_scd) {

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/baddbmm.h"
 
@@ -21,7 +21,7 @@ std::vector<synapse_helpers::tensor> ComputeGEMM(
     synapse_helpers::graph& graph,
     std::vector<synTensor> input_tensor,
     const habana::OutputMetaData& meta,
-    c10::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   habana::NodeAttr::NodeOutputAttr gemm_node_output_attr = {
       meta.shape, meta.dtype};
   gemm_node_output_attr.final_result_index = final_idx;
@@ -46,8 +46,8 @@ OutputMetaDataVector BaddbmmMeta(const at::Stack& stack) {
   auto batch2 = stack_tensor(stack, 2);
   const auto batch1_sizes = batch1.sizes();
   const auto batch2_sizes = batch2.sizes();
-  TORCH_CHECK(batch1.dim() == 3, "batch1 must be a 3D tensor");
-  TORCH_CHECK(batch2.dim() == 3, "batch2 must be a 3D tensor");
+  HABANA_ASSERT(batch1.dim() == 3, "batch1 must be a 3D tensor");
+  HABANA_ASSERT(batch2.dim() == 3, "batch2 must be a 3D tensor");
   int64_t bs = batch1_sizes[0];
   int64_t contraction_size = batch1_sizes[2];
   int64_t res_rows = batch1_sizes[1];
@@ -56,7 +56,7 @@ OutputMetaDataVector BaddbmmMeta(const at::Stack& stack) {
   meta.shape = {bs, res_rows, res_cols};
   meta.dtype = self.scalar_type();
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       batch2_sizes[0] == bs && batch2_sizes[1] == contraction_size,
       "Expected size for first two dimensions of batch2 tensor to be: [",
       bs,
@@ -71,13 +71,15 @@ OutputMetaDataVector BaddbmmMeta(const at::Stack& stack) {
   return {meta};
 }
 
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> ComputeBetaSide(
     OpBackend* op,
     synapse_helpers::graph& graph,
     std::vector<synTensor> input_tensor,
     const OutputMetaData& meta,
     const float beta_val,
-    c10::optional<int> final_idx = c10::nullopt) {
+    std::optional<int> final_idx = std::nullopt) {
   synapse_helpers::tensor beta_tensor =
       OpBackend::BuildConstant(op, graph, beta_val, meta.dtype, meta.shape);
 
@@ -85,7 +87,7 @@ static std::vector<synapse_helpers::tensor> ComputeBetaSide(
   std::vector<synapse_helpers::tensor> beta_side_out = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("mult", meta.dtype),
+      {get_guid_with_precision("mult"sv, meta.dtype),
        std::move(node_inputs),
        {{meta.shape, meta.dtype, final_idx}}});
 
@@ -98,8 +100,8 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synTensor> input_tensor,
     const OutputMetaData& meta,
     const float alpha_val,
-    c10::optional<int> final_idx = c10::nullopt) {
-  c10::optional<int> is_gemm_final_node = c10::nullopt;
+    std::optional<int> final_idx = std::nullopt) {
+  std::optional<int> is_gemm_final_node = std::nullopt;
   if (alpha_val == 1.0) {
     is_gemm_final_node = final_idx;
   }
@@ -117,7 +119,7 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult", meta.dtype),
+        {get_guid_with_precision("mult"sv, meta.dtype),
          std::move(mul_node_inputs),
          {{meta.shape, meta.dtype, final_idx}}});
     return alpha_mul_out;
@@ -159,7 +161,7 @@ static std::vector<synapse_helpers::tensor> BaddbMMCommon(
     baddbmm_out = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("add", meta.dtype),
+        {get_guid_with_precision("add"sv, meta.dtype),
          std::move(add_node_inputs),
          {{meta.shape, meta.dtype, 0}}});
   }

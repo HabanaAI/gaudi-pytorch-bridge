@@ -20,36 +20,61 @@ import operator
 import os
 import queue
 import sys
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
-import torch
-import torch.fx
+import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import dump_fx_graph
+from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import (
+    dump_fx_graph,
+)
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from habana_frameworks.torch.utils.debug.logger import LogLevel
 from habana_frameworks.torch.utils.internal import Timer
-from packaging.version import Version
+
+import torch
+import torch.fx
+from torch._inductor.pattern_matcher import stable_topological_sort
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
 
-from ._helpers import *
+from ._helpers import (
+    TensorInfoPropagation,
+    fill_propagated_tensor_metadata_jitfork,
+    get_node_args,
+    is_module_dynamic,
+    is_node_supported,
+    is_view_node,
+    jit_node_annotation_propagation,
+    jit_node_shape_propagation,
+    post_pass_finalize,
+    propagate_meta,
+    remove_duplicated_outputs,
+    remove_no_effect_inplace_add,
+    wrap_random_ops,
+)
 from ._passes.batch_as_strided import batch_as_strided, group_batch_as_strided
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.fuse_view_chains import pass_fuse_view_chains
 from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
 from ._passes.reorder_custom_ops import pass_reorder_custom_ops
-from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
+from ._passes.utils import (
+    ColorGraph,
+    OptimizationPassPlacement,
+    OptimizerContext,
+    SchedulePolicy,
+)
 from .cluster_compiler import pass_compile_clusters_jit_fork_version
 from .partitioner import HabanaPartitioner
 from .random_utils import is_backward_checkpoint_op
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
-from .symbolic_execution import HPUExprPrinter, SymExprNodeManager, substitute_sympyfn, sympify_expression
+from .symbolic_execution import SymExprNodeManager
 
 logger = get_compile_backend_logger()
 
@@ -84,6 +109,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_remove_unnecessary_expand,
             pass_remove_unnecessary_bmm_view,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
+            pass_fix_arange_device,
             pass_reinplace_inplaceable_ops,
             pass_mark_collective_input,
             pass_mark_placement,
@@ -100,12 +126,14 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_replace_sym_size,
             pass_inference_fuse_linear,
         ]
-
         return passes
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
             pass_graph_print,
+            pass_mark_frozen_params,
             pass_mark_waittensor_downstream_ops,
+            # Doing stable topological sort before partitioning
+            pass_stable_topological_sort,
             # These passes will prepare proper placement for some corner-cases.
             pass_propose_partitions,
             pass_post_process_partitions,
@@ -127,6 +155,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_summarize_graph,
             pass_check_eager_fallbacks,
             pass_detect_partition_in_to_out_duplicates,
+            pass_detect_reusable_inputs_for_partition,
             pass_compile_clusters,
             pass_make_boxed_graph,
         ]
@@ -226,9 +255,9 @@ def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
     pass_wa_fix_output(ctx)
 
     graph = ctx.graph_module.graph
-    collective_nodes = list()
-    wait_tensor_nodes = list()
-    traversed_nodes = list()
+    collective_nodes = []
+    wait_tensor_nodes = []
+    traversed_nodes = []
     col_move_target = None
     wt_move_target = None
     graph_changed = False
@@ -312,7 +341,44 @@ class InplaceableOp:
     extra_check: Callable[[torch.fx.Node], bool] = lambda node: True
 
 
-def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -> bool:
+def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
+    # 0d float CPU scales of fp8 ops are left on the CPU device for H2D optimization.
+    ops_to_scales_idx = {
+        "cast_to_fp8_v2.default": (1, 2),
+        "fp8_gemm_v2.default": (6, 8),
+        "fp8_sdpa_fwd_dropout.default": (8, 14),
+        "fp8_sdpa_fwd_non_dropout.default": (8, 14),
+        "fp8_sdpa_recomp_fwd_dropout.default": (9, 15),
+        "fp8_sdpa_recomp_fwd_non_dropout.default": (9, 15),
+    }
+
+    if (
+        h2d_scales_enabled
+        and node_arg.meta["output_dtypes"][0] == torch.float
+        and node_arg.meta["output_shapes"][0] == torch.Size([])
+    ):
+        idx_range = ops_to_scales_idx.get(node.target.__name__)
+        if idx_range is not None:
+            return node_arg in node.args[slice(*idx_range)]
+    return False
+
+
+def _check_unsupported_h2d_ops(node: torch.fx.Node):
+    ops_not_yet_supported = [
+        "conv2d_fp8.default",
+        "mixture_of_experts.fp8",
+        "mixture_of_experts.fp8_fused_weights",
+        "mixture_of_experts.fp8_dynamic",
+        "mixture_of_experts.fp8_fused_weights_dynamic",
+    ]
+
+    node_name = node.target.__name__
+    assert (
+        node_name not in ops_not_yet_supported
+    ), f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
+
+
+def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
     # This is list of scalar OPs
     scalar_ops = [
         "topk",
@@ -337,6 +403,10 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         if node_arg.type in [int, float] and node_target in scalar_ops:
             assert node_arg.meta["output_device"] == torch.device("cpu")
             copy_required = False
+        elif _is_cpu_scale_allowed(node, node_arg, h2d_scales_enabled):
+            copy_required = False
+        else:
+            _check_unsupported_h2d_ops(node)
     return copy_required
 
 
@@ -421,7 +491,7 @@ def optimize_graph(
     stage: OptimizationPassPlacement,
     graph_module: torch.fx.GraphModule,
     graph_name: str,
-    example_inputs: List[torch.Tensor],
+    example_inputs: list[torch.Tensor],
     is_training: bool,
     is_backward: bool,
 ) -> bool:
@@ -531,7 +601,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
     """
 
     def is_hints_wrapper_node(node: torch.fx.Node) -> bool:
-        return node.op == "call_function" and "hints_wrapper" == node.target.__name__
+        return node.op == "call_function" and node.target.__name__ == "hints_wrapper"
 
     def get_schedule_policy(hints: dict) -> SchedulePolicy:
         if "schedule_policy" not in hints:
@@ -542,7 +612,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
         if expected_policy.lower() == "strict":
             return SchedulePolicy.strict
 
-        logger.warn("Currently policy {} is not supported, fall back to strict policy.".format(expected_policy))
+        logger.warn(f"Currently policy {expected_policy} is not supported, fall back to strict policy.")
         return SchedulePolicy.strict
 
     def get_supported_hints() -> list:
@@ -560,9 +630,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
             for h in hints.keys():
                 if h not in get_supported_hints():
                     logger.warn(
-                        "hint key '{}' is not support yet hence expect to not take effect. Supported hint keys are {}".format(
-                            h, get_supported_hints()
-                        )
+                        f"hint key '{h}' is not support yet hence expect to not take effect. Supported hint keys are {get_supported_hints()}"
                     )
 
     def inline_hints_wrapper(
@@ -590,7 +658,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
                 continue
             new_node_args.append(arg)
 
-        replacement_mapping: Dict[torch.fx.Node, torch.fx.Node] = {}
+        replacement_mapping: dict[torch.fx.Node, torch.fx.Node] = {}
         # args starts from idx 1
         ph_count = 1
 
@@ -647,9 +715,7 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
 
             # annotate node from here
             n.meta["context_hints"] = parent_hints
-            logger.debug(
-                "annotated node {} with hints {} inside submodule {}".format(n, parent_hints, submodule_qualified_name)
-            )
+            logger.debug(f"annotated node {n} with hints {parent_hints} inside submodule {submodule_qualified_name}")
 
         inline_hints_wrapper(parent_module, wrapper_node, submodule)
         parent_module.delete_submodule(submodule_name)
@@ -686,6 +752,15 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
         StrictRunNode(ctx.graph_module).run(*ctx.example_inputs)
 
     return True
+
+
+def pass_mark_frozen_params(ctx: OptimizerContext) -> bool:
+    for n in ctx.graph_module.graph.nodes:
+        if n.op == "get_attr" or n.op == "placeholder":
+            if "_frozen_param" in n.target:
+                n.meta["frozen_param"] = True
+    ctx.graph_module.graph.lint()
+    ctx.graph_module.recompile()
 
 
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
@@ -731,6 +806,9 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
     """
     This pass just prints the graph in debug mode.
     """
+    if not logger.is_enabled_for(LogLevel.DEBUG):
+        return False
+
     assert ctx.graph_module is not None
 
     logger.debug("Readable:\n%s", ctx.graph_module.print_readable(False))
@@ -782,12 +860,15 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if node.op == "call_module":
+            submodule = node.graph.owning_module.get_submodule(node.target)
+            # for submodules that are not dynamic, we don't need to add symints
+            if not is_module_dynamic(submodule):
+                continue
             missing_symint_list = get_missing_symbolic_int_input_nodes(symint_list, node)
             if missing_symint_list == ():
                 continue
 
             node.args = missing_symint_list + node.args
-            submodule = node.graph.owning_module.get_submodule(node.target)
 
             # Get the First node in the graph to insert all the SymInts at the
             # beginning of the node_list
@@ -819,58 +900,7 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
     This function contains FakeMode propagation implementation for PT2.1+
     """
 
-    from torch._dynamo.utils import detect_fake_mode
-    from torch._subclasses.fake_tensor import FakeTensorMode
-
-    class TensorInfoPropagation(torch.fx.Interpreter):
-        """
-        This class is responsible for tracing through the graph module, and
-        propagating all the necessary tensor information. All is done using
-        fake_tensors so it does not make any real computations.
-        """
-
-        def __init__(
-            self,
-            graph_module: torch.fx.GraphModule,
-            fake_mode: Optional[FakeTensorMode] = None,
-        ):
-            super().__init__(graph_module)
-            if fake_mode is None:
-                fake_mode = FakeTensorMode()
-            self._mode = fake_mode
-
-        def run_node(self, node: torch.fx.Node):
-            args = kwargs = result = None
-            if SymExprNodeManager.node_name in node.name:
-                result = node.meta["val"]
-                args, kwargs = self.fetch_args_kwargs_from_env(node)
-            else:
-                result = super().run_node(node)
-                args, kwargs = self.fetch_args_kwargs_from_env(node)
-
-            node.val_args = args
-            node.val_kwargs = kwargs
-            fill_propagated_tensor_metadata_to_node(result, node)
-
-            return result
-
-        def propagate(self, *args):
-            fake_args = [self._mode.from_tensor(a) if isinstance(a, torch.Tensor) else a for a in args]
-            return self.propagate_dont_convert_inputs(*fake_args)
-
-        def propagate_dont_convert_inputs(self, *args):
-            with self._mode:
-                return super().run(*args)
-
-    fake_mode = detect_fake_mode(ctx.example_inputs)
-    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
-        # Disabling autocast in fake tensor propagation as autocasting has been
-        # already done and all dtypes has been already deduced.
-        if not fake_mode:
-            fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
-            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(*ctx.example_inputs)
-        else:
-            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate_dont_convert_inputs(*ctx.example_inputs)
+    propagate_meta(ctx.graph_module, ctx.example_inputs, TensorInfoPropagation)
 
     return True
 
@@ -989,7 +1019,7 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     return False
 
 
-def match_full_copy_pattern(node: torch.fx.Node) -> Tuple[bool, torch.fx.Node, torch.fx.Node]:
+def match_full_copy_pattern(node: torch.fx.Node) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
     is_full_copy_pattern = (
         node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
     )
@@ -1005,8 +1035,8 @@ def match_full_copy_pattern(node: torch.fx.Node) -> Tuple[bool, torch.fx.Node, t
 
 def post_process_partitions(
     graph_module: torch.fx.GraphModule,
-    current_partitions: List[torch.fx.passes.infra.partitioner.Partition],
-    current_partitions_non_mergeable: List[torch.fx.passes.infra.partitioner.Partition],
+    current_partitions: list[torch.fx.passes.infra.partitioner.Partition],
+    current_partitions_non_mergeable: list[torch.fx.passes.infra.partitioner.Partition],
 ):
     """
     This pass will do some post process for those proposed partitions from hpu
@@ -1020,7 +1050,7 @@ def post_process_partitions(
     partition_changed = False
 
     def reassign_full_copy_to_upstream_partition(
-        graph_module, assignments: Dict[torch.fx.Node, int], partitions_by_id: Dict[int, Partition]
+        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1053,7 +1083,7 @@ def post_process_partitions(
         return changed
 
     def reassign_copy__to_upstream_partition(
-        graph_module, assignments: Dict[torch.fx.Node, int], partitions_by_id: Dict[int, Partition]
+        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1085,8 +1115,25 @@ def post_process_partitions(
             changed = True
         return changed
 
-    assignments: Dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
-    partitions_by_id: Dict[int, Partition] = {}  # mapping from partition_id to partition
+    def eagerize_partitions_with_only_view_ops(
+        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+    ):
+        def is_partition_with_only_view_ops(part: Partition):
+            return all(is_view_node(node) for node in part.nodes)
+
+        partition_changed = False
+        for _id, partition in partitions_by_id.items():
+            if not is_partition_with_only_view_ops(partition):
+                continue
+
+            # clear the part to eagerize all view ops
+            partition.nodes = {}
+            partition_changed = True
+
+        return partition_changed
+
+    assignments: dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
+    partitions_by_id: dict[int, Partition] = {}  # mapping from partition_id to partition
     for partition in current_partitions + current_partitions_non_mergeable:
         id = partition.id
         partitions_by_id[id] = partition
@@ -1094,13 +1141,15 @@ def post_process_partitions(
             assignments[node] = id
 
     if hpu_backend_config.reassign_full_copy:
-        partition_changed = partition_changed or reassign_full_copy_to_upstream_partition(
-            graph_module, assignments, partitions_by_id
-        )
+        partition_changed = reassign_full_copy_to_upstream_partition(graph_module, assignments, partitions_by_id)
     if hpu_backend_config.reassign_copy_:
-        partition_changed = partition_changed or reassign_copy__to_upstream_partition(
-            graph_module, assignments, partitions_by_id
+        partition_changed = (
+            reassign_copy__to_upstream_partition(graph_module, assignments, partitions_by_id) or partition_changed
         )
+
+    partition_changed = (
+        eagerize_partitions_with_only_view_ops(graph_module, assignments, partitions_by_id) or partition_changed
+    )
 
     return partition_changed
 
@@ -1155,10 +1204,10 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             ), "Currently we are assuming that all args of output should be Nodes"
             meta_val = tuple([a.meta.get("val", None) for a in args])
 
-        assert meta_val, f"Target has 0 outputs: {target}"
-
-        graph_node.meta["val"] = meta_val if len(meta_val) > 1 else meta_val[0]
-        graph_changed = True
+        # it is possible to have zero graph outputs with KEEP_INPUT_MUTATIONS enabled
+        if meta_val:
+            graph_node.meta["val"] = meta_val if len(meta_val) > 1 else meta_val[0]
+            graph_changed = True
 
     return graph_changed
 
@@ -1176,8 +1225,9 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
     assert ctx.graph_module is not None
 
     graph_changed = False
-
     nodes_to_fix_list = []
+    h2d_scales_enabled = htexp._get_scale_attribute_hash_id() > 0 and bc.get_pt_hpu_enable_h2d_scales()
+
     for node in ctx.graph_module.graph.nodes:
         if (
             node.op != "placeholder"
@@ -1191,7 +1241,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                 if (
                     isinstance(arg, torch.fx.Node)
                     and ("output_device" in arg.meta and arg.meta["output_device"].type != "hpu")
-                    and _is_cpu_scalar_copy_required(node, arg)
+                    and _is_cpu_scalar_copy_required(node, arg, h2d_scales_enabled)
                 ):
                     nodes_to_fix_list.append(node)
                     break
@@ -1212,6 +1262,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                     input_copy_node.meta["output_strides"] = [arg.meta["output_strides"][0]]
                     input_copy_node.meta["output_contiguous"] = [arg.meta["output_contiguous"][0]]
                     input_copy_node.meta["output_offset"] = [arg.meta["output_offset"][0]]
+                    fill_propagated_tensor_metadata_jitfork(input_copy_node)
                     node.replace_input_with(arg, input_copy_node)
                 graph_changed = True
 
@@ -1233,6 +1284,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     "hpu_cluster" - such OPs will be later placed inside HPU clusters
     """
     assert ctx.graph_module is not None
+    h2d_scales_enabled = htexp._get_scale_attribute_hash_id() > 0 and bc.get_pt_hpu_enable_h2d_scales()
+
     for node in ctx.graph_module.graph.nodes:
         placement = None
         dynamic_call_function = is_call_function_dynamic(node, ctx.is_dynamic) if node.op == "call_function" else False
@@ -1252,7 +1305,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             assert input_node is not None
 
             # Internal HPU copies should be placed in the clusters.
-            if all([n.meta["output_device"].type == "hpu" for n in [input_node, node]]):
+            if all(n.meta["output_device"].type == "hpu" for n in [input_node, node]):
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
@@ -1281,6 +1334,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                         continue
                     elif is_constant_for_lift_fresh_copy(node, arg):
                         logger.debug("Argument {} to node {} is a _tensor_constant get_attr", arg, node)
+                        continue
+                    elif _is_cpu_scale_allowed(node, arg, h2d_scales_enabled):
+                        logger.debug("Argument {} to node {} is a cpu tensor for H2D optimization", arg, node)
                         continue
                     assert arg.meta["output_device"].type == "hpu"
 
@@ -1348,8 +1404,8 @@ def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
 
 
 def merge_paths(
-    graph_module: torch.fx.Graph, current_partitions: List[torch.fx.passes.infra.partitioner.Partition]
-) -> List[torch.fx.passes.infra.partitioner.Partition]:
+    graph_module: torch.fx.Graph, current_partitions: list[torch.fx.passes.infra.partitioner.Partition]
+) -> list[torch.fx.passes.infra.partitioner.Partition]:
     """
     This pass that will merge parallel partitions.
     """
@@ -1364,7 +1420,7 @@ def merge_paths(
     color_graph = ColorGraph()
 
     # Color all nodes in every partition on the same color
-    partitions_by_color = dict()
+    partitions_by_color = {}
 
     for part in current_partitions:
         partition_color = color_graph.assign_new_color(is_partition_color=True)
@@ -1394,7 +1450,7 @@ def merge_paths(
         logger.debug("New partition list (by colors): %s", new_partitions_desc_list)
         from torch.fx.passes.infra.partitioner import Partition
 
-        new_partitions = list()
+        new_partitions = []
         for desc in new_partitions_desc_list:
             new_part = Partition()
             for color in desc:
@@ -1443,7 +1499,6 @@ class resolve_negative_dim:
             "constant_pad_nd",  # it is not a neg-dim op, but requires to create a custom-schema for DS handling
         ]
 
-        from torch._subclasses.fake_tensor import FakeTensor
         from torch.fx.experimental.proxy_tensor import py_sym_types
 
         if node_name in negative_dim_ops:
@@ -1508,9 +1563,8 @@ class resolve_negative_dim:
                 return False
             else:
                 meta_val = node.args[0].meta.get("val", node.meta.get("tensor_meta", None))
-                idx = 0
                 new_args1 = list(meta_val.size())
-                for arg in list(meta_val.size()):
+                for idx, arg in enumerate(list(meta_val.size())):
                     new_args1[idx] = arg
                     if isinstance(arg, py_sym_types):
                         new_node = cls.py_node_manager.get_or_create(arg, int)
@@ -1518,7 +1572,6 @@ class resolve_negative_dim:
                         new_node.meta["placement"] = "eager"
                         new_node.meta["output_device"] = torch.device("cpu")
                         new_args1[idx] = new_node
-                    idx += 1
             # handle negative end values
             end = sys.maxsize if len(node.args) == 3 else node.args[3]
             end = new_args1[node.args[1]] if end == sys.maxsize else node.args[3]
@@ -1549,9 +1602,8 @@ class resolve_negative_dim:
                 return
             else:
                 meta_val = node.args[0].meta.get("val", node.meta.get("tensor_meta", None))
-                idx = 0
                 new_args1 = list(meta_val.size())
-                for arg in list(meta_val.size()):
+                for idx, arg in enumerate(list(meta_val.size())):
                     new_args1[idx] = arg
                     if isinstance(arg, py_sym_types):
                         new_node = cls.py_node_manager.get_or_create(arg, int)
@@ -1559,7 +1611,6 @@ class resolve_negative_dim:
                         new_node.meta["placement"] = "eager"
                         new_node.meta["output_device"] = torch.device("cpu")
                         new_args1[idx] = new_node
-                    idx += 1
             # replace call_function and recompile the graph
             val = 0 if len(node.args) == 2 else node.args[2]
             with ctx.graph_module.graph.inserting_before(node):
@@ -1609,7 +1660,7 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
         if node.op == "call_function":
             if resolve_negative_dim.required(node):
                 py_node_manager.set_insert_point(node.prev)
-                graph_changed = resolve_negative_dim(ctx, node)
+                graph_changed = resolve_negative_dim(ctx, node) or graph_changed
 
     if graph_changed:
         ctx.graph_module.recompile()
@@ -1649,7 +1700,7 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
             for arg in args:
                 if arg.meta["placement"] == "hpu_cluster":
                     node_target = arg.target.__name__.split(".")[0]
-                    if is_view_node(arg):
+                    if is_view_node(arg):  # noqa SIM114
                         arg.meta["pass_meta_color"] = "red"
                     # getitem is special-cased here since it may have view args and break the view ops chain
                     elif node_target == "getitem" and is_view_node(arg.args[0]):
@@ -1711,6 +1762,111 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     return graph_changed
 
 
+def pass_detect_reusable_inputs_for_partition(ctx: OptimizerContext):
+    """
+    This pass goes through each node in the main module. For each HPU partition,
+    we will check if it's input can be reused. If the input can be reused, then
+    we will record this information in the partition node's meta field.
+    """
+
+    if not hpu_backend_config.enable_synapse_input_reuse:
+        return False
+
+    from torch.fx.node import Node, map_arg
+
+    graph_inputs: list[Node] = []
+    arg_to_last_user: dict[Node, Node] = {}
+    user_to_last_used_args: dict[Node, list[Node]] = {}
+
+    def register_last_uses(arg: Node, user: Node):
+        if arg not in arg_to_last_user:
+            arg_to_last_user[arg] = user
+            user_to_last_used_args[user].append(arg)
+
+    def is_graph_input(node: Node):
+        return node.op == "placeholder" or (
+            node.op == "call_function" and node.target == operator.getitem and node.args[0].op == "placeholder"
+        )
+
+    def is_inplaced_node(node: Node):
+        return node.op == "call_function" and (
+            node.target.__name__.split(".")[0].endswith("_") or node.target == torch.ops.hpu.weight_permutation
+        )
+
+    def is_shared_with_partition_input(node: Node):
+        if node.op == "call_module":
+            out_idx = 0
+            submod_target = node.target
+        elif node.op == "call_function" and node.target == operator.getitem and node.args[0].op == "call_module":
+            out_idx = node.args[1]
+            submod_target = node.args[0].target
+        else:
+            return False
+
+        submod = ctx.graph_module.get_submodule(submod_target)
+        if "in_to_out_dups" not in submod.meta:
+            return False
+        in_to_out_dups = submod.meta["in_to_out_dups"]
+        out_to_in_dups = {v: k for k, v in in_to_out_dups.items()}
+
+        if out_idx in out_to_in_dups:
+            return True
+
+        return False
+
+    def not_share_mem_with_others(node: Node):
+        # make sure the tensor doesn't have any alias to easy the algo and ensure safety
+        # TODO: consider more complex situations, and refer to the alias check in reinplacer
+        no_other_alias = not any((is_view_node(user) or is_inplaced_node(user)) for user in node.users.keys())
+        not_an_alias = not (is_view_node(node) or is_inplaced_node(node) or is_shared_with_partition_input(node))
+        return no_other_alias and not_an_alias
+
+    def is_frozen(node: Node):
+        return node.meta.get("frozen_param", False)
+
+    for node in reversed(ctx.graph_module.graph.nodes):
+        logger.debug("Node: %s Op: %s Target: %s", node, node.op, node.target)
+
+        if is_graph_input(node):
+            graph_inputs.append(node)
+
+        user_to_last_used_args[node] = []
+        map_arg(node.args, lambda arg: register_last_uses(arg, node))
+
+    for user in user_to_last_used_args:
+        if user.op != "call_module":
+            continue
+
+        last_used_args = user_to_last_used_args[user]
+        is_reusables: list[bool] = []
+        for arg in user.args:
+            is_last_use = arg in last_used_args
+            not_graph_input = arg not in graph_inputs
+            no_share_mem = not_share_mem_with_others(arg)
+            not_frozen = not is_frozen(arg)
+
+            reusable = is_last_use and not_graph_input and no_share_mem and not_frozen
+            is_reusables.append(reusable)
+        submod = ctx.graph_module.get_submodule(user.target)
+        submod.meta["is_reusables"] = is_reusables
+        logger.debug(f"Partition {user.target} has reusable input information: {is_reusables}")
+
+    return True
+
+
+def pass_stable_topological_sort(ctx: OptimizerContext):
+    """
+    This pass is supposed to run stable topological sort on the graph.
+    """
+    graph = ctx.graph_module.graph
+    stable_topological_sort(graph)
+
+    ctx.graph_module.graph.lint()
+    ctx.graph_module.recompile()
+
+    return True
+
+
 def pass_compile_clusters(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated HPU cluster
@@ -1732,7 +1888,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
         from torch._functorch.compilers import _disable_jit_autocast
 
         module = copy.deepcopy(input_module)
-        wrap_random_ops(module)
+        has_random_ops = wrap_random_ops(module)
         remove_duplicated_outputs(module)
         remove_no_effect_inplace_add(module)
 
@@ -1771,20 +1927,24 @@ def pass_compile_clusters(ctx: OptimizerContext):
             f.graph,
         )
 
-        return f, module
+        return f, module, has_random_ops
 
     num_subgraphs = 0
     refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
     optim_output_sif_ds = bc.get_pt_hpu_optim_dynamic_output_sif()
-
     for n in ctx.graph_module.graph.nodes:
         logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
 
         if n.op == "call_module":
             assert not n.kwargs
+
             submod = ctx.graph_module.get_submodule(n.target)
 
-            jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
+            is_reusables: list[bool] = []
+            if "is_reusables" in submod.meta:
+                is_reusables = submod.meta["is_reusables"]
+
+            jit_ir_function, submod_updated, has_random_ops = generate_jit_ir_from_module(submod)
             jit_node_annotation_propagation(jit_ir_function, submod_updated)
 
             is_submod_dynamic = is_module_dynamic(submod)
@@ -1801,6 +1961,8 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 ctx.graph_name,
                 is_training=ctx.is_training,
                 is_dynamic=is_submod_dynamic,
+                is_reusables=is_reusables,
+                has_random_ops=has_random_ops,
             )
 
             ctx.graph_module.delete_submodule(n.target)
@@ -1857,9 +2019,9 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
         return graph_changed
 
     def reinplace_collective_ops(gm: torch.fx.GraphModule):
-        replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
+        replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
 
-        for idx, node in enumerate(gm.graph.nodes):
+        for node in gm.graph.nodes:
             if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:
                 mutated_arg = node.args[inplaceable_op.mutated_arg]
                 node_users = list(node.users)
@@ -1933,9 +2095,9 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
             torch.ops.aten.index_copy.default: InplaceableOp(torch.ops.aten.index_copy_.default, 0),
         }
 
-        replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
+        replace_dict: dict[torch.fx.Node, torch.fx.Node] = {}
 
-        for idx, node in enumerate(gm.graph.nodes):
+        for node in gm.graph.nodes:
             if (inplaceable_op := inplaceable_index_copy_ops.get(node.target, None)) is not None:
                 mutated_arg = node.args[inplaceable_op.mutated_arg]
                 mutated_arg_users = list(mutated_arg.users)
@@ -2036,7 +2198,7 @@ def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
             if node.op == "placeholder":
                 in_nodes.append(node)
 
-        in_to_out_dups = dict()
+        in_to_out_dups = {}
         visited = set()
         for in_idx, in_node in enumerate(in_nodes):
             queue = [in_node]
@@ -2261,9 +2423,40 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
 # because it will make bmm op consume non-3D input tensors and cause "batch1
 # must be a 3D tensor" error.
 def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
+    """
+    This pass remove the view ops which are the neightbors of bmm op
+    In fx graph, bmm args will change to 4d tensor but output tensor shape will show as
+    3d, internally in synapse we are handling and creating 4d tensor[ref jira: SW-191200]
+    we can easily understand to see the fx graph below.
+    before :
+    def forward(self, arg0_1: "bf16[2, 3, 5, 4]", arg1_1: "bf16[2, 3, 4, 5]"):
+         # File: /home/pradas/qnpu/pt/src/pytorch-integration/tests/pytest_working/any_mode/test_hpu_mytest.py:1873 in matmul_4d, code: return torch.matmul(A, B)* 0.2
+        expand: "bf16[2, 3, 4, 5]" = torch.ops.aten.expand.default(arg1_1, [2, 3, 4, 5]);  arg1_1 = None
+        view: "bf16[6, 4, 5]" = torch.ops.aten.view.default(expand, [6, 4, 5]);  expand = None
+        expand_1: "bf16[2, 3, 5, 4]" = torch.ops.aten.expand.default(arg0_1, [2, 3, 5, 4]);  arg0_1 = None
+        view_1: "bf16[6, 5, 4]" = torch.ops.aten.view.default(expand_1, [6, 5, 4]);  expand_1 = None
+        bmm: "bf16[6, 4, 4]" = torch.ops.aten.bmm.default(view, view_1);  view = view_1 = None
+        view_2: "bf16[2, 3, 4, 4]" = torch.ops.aten.view.default(bmm, [2, 3, 4, 4]);  bmm = None
+        mul: "bf16[2, 3, 4, 4]" = torch.ops.aten.mul.Tensor(view_2, 0.2);  view_2 = None
+        return (mul,)
+
+    after :
+    def forward(self, arg0_1: "bf16[2, 3, 5, 4]", arg1_1: "bf16[2, 3, 4, 5]"):
+         # File: /home/pradas/qnpu/pt/src/pytorch-integration/tests/pytest_working/any_mode/test_hpu_mytest.py:1873 in matmul_4d, code: return torch.matmul(A, B)* 0.2
+        bmm: "bf16[6, 4, 4]" = torch.ops.aten.bmm.default(arg1_1, arg0_1);  arg1_1 = arg0_1 = None
+        mul: "bf16[2, 3, 4, 4]" = torch.ops.aten.mul.Tensor(bmm, 0.2);  bmm = None
+        return (mul,)
+    So here, though the bmm output is 3d but mul is working on 4d tensor and give the result as 4d.
+    Note: It is really dangerous, we need to be very carefull about this pass.
+    """
+
     def is_view_node(node):
         view_ops = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
         return node.target in view_ops
+
+    def is_permute_node(node):
+        permute_ops = {torch.ops.aten.permute.default}
+        return node.target in permute_ops
 
     def get_node_dim(node):
         tensor_meta = node.meta.get("tensor_meta", None)
@@ -2280,6 +2473,26 @@ def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
             bmm_output = list(node.users.keys())[0]
 
             if all(map(is_view_node, [bmm_input_left, bmm_input_right, bmm_output])):
+                neighbor_nodes_for_view = (
+                    bmm_input_left.all_input_nodes + bmm_input_right.all_input_nodes + list(bmm_output.users.keys())
+                )
+                if all(map(is_permute_node, neighbor_nodes_for_view)):
+                    """
+                    here we are checking the view nodes `args` which appears before the bmm and view nodes `outputs` which appears after
+                    the bmm are `permute op` or not, if yes we simply skip this bmm node as this is unsafe.
+                    for example below fx graph should not be impacted for this pass:
+                    def forward(self, arg0_1: "bf16[1, 128, 108, 1, 108]", arg1_1: "bf16[1, 1, 1, 512, 108]"):
+                        permute_2: "bf16[128, 108, 108, 1, 1]" = torch.ops.aten.permute.default(arg0_1, [1, 2, 4, 0, 3]);  permute = None
+                        view: "bf16[1, 13824, 108]" = torch.ops.aten.view.default(permute_2, [1, 13824, 108]);  permute_2 = None
+                        permute_3: "bf16[108, 1, 512, 1, 1]" = torch.ops.aten.permute.default(arg1_1, [4, 0, 3, 1, 2]);  permute_1 = None
+                        view_1: "bf16[1, 108, 512]" = torch.ops.aten.view.default(permute_3, [1, 108, 512]);  permute_3 = None
+                        bmm: "bf16[1, 13824, 512]" = torch.ops.aten.bmm.default(view, view_1);  view = view_1 = None
+                        view_2: "bf16[128, 108, 1, 1, 512]" = torch.ops.aten.view.default(bmm, [128, 108, 1, 1, 512]);  bmm = None
+                        permute_4: "bf16[1, 128, 108, 512, 1]" = torch.ops.aten.permute.default(view_2, [3, 0, 1, 4, 2]);  view_2 = None
+                        return (permute_4,)
+                    """
+                    continue
+
                 left_dim = get_node_dim(bmm_input_left.args[0])
                 right_dim = get_node_dim(bmm_input_right.args[0])
 
@@ -2292,6 +2505,10 @@ def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
 
                     if "output_shapes" in node.meta:
                         node.meta["output_shapes"] = bmm_output.meta.get("output_shapes", None)
+                        node.meta["output_strides"] = bmm_output.meta.get("output_strides", None)
+                        fill_propagated_tensor_metadata_jitfork(node)
+                    else:
+                        logger.warn("There is no 'output_shapes' for bmm nodes")
 
                     graph_changed = True
 
@@ -2384,3 +2601,82 @@ def pass_make_boxed_graph(ctx: OptimizerContext) -> bool:
     ctx.graph_module.graph.lint()
     ctx.graph_module.recompile()
     return True
+
+
+def pass_fix_arange_device(ctx: OptimizerContext):
+    """
+    Eager supports:
+
+        aten.index(hpu_tensor, torch.arange(..., device="cpu"))
+
+    But this results in an implicit host-device-copy and breaks graphs. Rewrite the arange to use hpu.
+    Refer the fx graph without and with this pass for the test case at following location:
+
+    Test File: ~/qnpu/pt/src/pytorch-integration/tests/pytest_working/compile/test_passes_fix_arange_device.py
+    Before (without this pass):
+    def forward(self, arg0_1: "f32[64, 64]"):
+        # File: ~/qnpu/pt/src/pytorch-integration/tests/pytest_working/compile/test_passes_fix_arange_device.py:34 in func, code: return x[torch.arange(32)]
+        arange: "i64[32]" = torch.ops.aten.arange.start_step(0, 32, layout = torch.strided, device = device(type='cpu'), pin_memory = False)
+        index: "f32[32, 64]" = torch.ops.aten.index.Tensor(arg0_1, [arange]);  arg0_1 = arange = None
+        return (index,)
+
+    After (with this pass):
+    def forward(self, arg0_1: "f32[64, 64]"):
+        # File: ~/qnpu/pt/src/pytorch-integration/tests/pytest_working/compile/test_passes_fix_arange_device.py:34 in func, code: return x[torch.arange(32)]
+        arange_start_step: "i64[32]" = torch.ops.aten.arange.start_step(0, 32, layout = torch.strided, device = device(type='hpu', index=0), pin_memory = False)
+        index: "f32[32, 64]" = torch.ops.aten.index.Tensor(arg0_1, [arange_start_step]);  arg0_1 = arange_start_step = None
+        return index
+    """
+    replace_node_list = []
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "call_function" and node.target in (
+            torch.ops.aten.arange,
+            torch.ops.aten.arange.start,
+            torch.ops.aten.arange.start_step,
+        ):
+            replace_node_list.append(node)
+
+    graph_changed = False
+    for node in replace_node_list:
+        valid_node = True
+        user_devices: set[torch.device] = set()
+        for user in node.users:
+            if (
+                user.op == "call_function"
+                and user.target in (torch.ops.aten.index.Tensor, torch.ops.aten.index_put.default)
+                and hasattr(user.meta.get("val"), "device")
+            ):
+                user_devices.add(user.meta["val"].device)  # type: ignore[union-attr]
+            else:
+                valid_node = False
+                break  # bail out
+
+        if valid_node and len(user_devices) == 1 and "val" in node.meta:
+            node_device = node.meta["val"].device
+            (user_device,) = user_devices
+            if node_device.type != user_device.type:
+                repl_kwargs = {}
+                for k, v in node.kwargs.items():
+                    repl_kwargs[k] = v
+                repl_kwargs["device"] = user_device
+
+                with ctx.graph_module.graph.inserting_before(node):
+                    repl = ctx.graph_module.graph.call_function(
+                        node.target,
+                        node.args,
+                        repl_kwargs,
+                    )
+                    repl.meta.update(node.meta)
+                    repl.meta["val"] = repl.meta["val"].to(user_device)
+                    repl.meta["output_device"] = user_device
+                    repl.val_args = node.args
+                    repl.val_kwargs = repl_kwargs
+                    node.replace_all_uses_with(repl)
+
+                ctx.graph_module.graph.erase_node(node)
+                graph_changed = True
+
+    if graph_changed:
+        logger.debug("####### Pass to fix arange op device")
+        ctx.graph_module.graph.lint()
+        ctx.graph_module.recompile()

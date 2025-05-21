@@ -19,8 +19,10 @@ import copy
 import pytest
 import torch
 import torch.nn as nn
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from habana_frameworks.torch.dynamo.compile_backend._passes.utils import OptimizationPassPlacement, OptimizerContext
+from habana_frameworks.torch.dynamo.compile_backend._passes.utils import (
+    OptimizationPassPlacement,
+    OptimizerContext,
+)
 from habana_frameworks.torch.dynamo.compile_backend.passes import (
     match_full_copy_pattern,
     pass_fuse_partitions,
@@ -29,7 +31,6 @@ from habana_frameworks.torch.dynamo.compile_backend.passes import (
     pass_propose_partitions,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from test_utils import _is_simulator, compile_function_if_compile_mode
 from torch._dynamo import compiled_autograd
 from torch.fx import symbolic_trace
@@ -74,33 +75,27 @@ def compiler_fn(gm):
 def test_propose_partitions():
     torch.manual_seed(123)
 
-    _compiled_autograd_enable = (
-        compiled_autograd.enable if is_pytorch_older_than("2.6.0") else compiled_autograd._enable
-    )
-
-    with _compiled_autograd_enable(compiler_fn):
+    with compiled_autograd._enable(compiler_fn):
         input_dim = 100
         input = torch.rand((8, input_dim), dtype=torch.float, device="hpu")
         input_c = input.clone().detach()
         model = Net(input_dim)
         model_c = copy.deepcopy(model)
 
-        hpu_backend_config.use_cpp_partitioner = True
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model = compile_function_if_compile_mode(model, options={"keep_input_mutations": True}).to(
-                torch.device("hpu")
-            )
+            model = compile_function_if_compile_mode(
+                model, options={"keep_input_mutations": True, "use_cpp_partitioner": True}
+            ).to(torch.device("hpu"))
             optim = Adam(model.parameters())
             output_1 = model(input)
             output_1.sum().backward()
             optim.step()
         ops_summary_1 = fga.get_ops_summary()
 
-        hpu_backend_config.use_cpp_partitioner = False
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            model_c = compile_function_if_compile_mode(model_c, options={"keep_input_mutations": True}).to(
-                torch.device("hpu")
-            )
+            model_c = compile_function_if_compile_mode(
+                model_c, options={"keep_input_mutations": True, "use_cpp_partitioner": False}
+            ).to(torch.device("hpu"))
             optim = Adam(model_c.parameters())
             output_2 = model_c(input_c)
             output_2.sum().backward()
@@ -113,7 +108,7 @@ def test_propose_partitions():
 
 @pytest.mark.skipif(_is_simulator(), reason="using big tensor may cause problems on sim")
 def test_propose_partitions_post_process_full_copy():
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.distributed.hccl  # noqa
 
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="hpu:hccl", rank=0, world_size=1)
@@ -305,7 +300,7 @@ def test_propose_partitions_post_process_full_copy():
     assert changed, "pass_post_process_partitions didn't take effect"
 
     # recover the assignment
-    assignments = dict()
+    assignments = {}
     for partition in ctx.current_partitions:
         id = partition.id
         for node in list(partition.nodes):

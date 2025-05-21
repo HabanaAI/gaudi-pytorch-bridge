@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/bernoulli.h"
 #include "generated/backend/log_normal.h"
@@ -116,7 +116,7 @@ std::shared_ptr<void> RandomUniformParams(
       params->high.i = 2;
       break;
     default:
-      TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
+      HABANA_ASSERT(false, "Got unsupported type for random uniform: ", type);
       break;
   }
 
@@ -142,7 +142,7 @@ std::shared_ptr<void> RandomUniformParams(
       params->low.i = 0;
       break;
     default:
-      TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
+      HABANA_ASSERT(false, "Got unsupported type for random uniform: ", type);
       break;
   }
   if (c10::isFloatingType(type)) {
@@ -160,7 +160,7 @@ std::shared_ptr<void> RandomUniformParams(
 
 std::shared_ptr<void> FillRandomParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
-      stack_tensor(stack, 0).scalar_type(), c10::nullopt, c10::nullopt, size);
+      stack_tensor(stack, 0).scalar_type(), std::nullopt, std::nullopt, size);
 }
 
 std::shared_ptr<void> FillRandomFromParams(
@@ -168,7 +168,7 @@ std::shared_ptr<void> FillRandomFromParams(
     size_t& size) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
-      stack.at(1).isNone() ? c10::nullopt
+      stack.at(1).isNone() ? std::nullopt
                            : c10::make_optional<float>(stack.at(1).toInt()),
       c10::make_optional<float>(stack.at(2).toInt()),
       size);
@@ -177,7 +177,7 @@ std::shared_ptr<void> FillRandomFromParams(
 std::shared_ptr<void> FillRandomToParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
-      c10::nullopt,
+      std::nullopt,
       c10::make_optional<float>(stack.at(1).toInt()),
       size);
 }
@@ -206,6 +206,8 @@ std::shared_ptr<void> FillPhiloxUniformParams(
   return params;
 }
 
+using namespace std::literals;
+
 synapse_helpers::tensor NormalTensorHelper(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -233,7 +235,7 @@ synapse_helpers::tensor NormalTensorHelper(
   auto normal = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("random_normal_fwd", meta.dtype),
+      {get_guid_with_precision("random_normal_fwd"sv, meta.dtype),
        inputs,
        {{meta.shape, meta.dtype}},
        params.get(),
@@ -247,13 +249,13 @@ synapse_helpers::tensor NormalTensorHelper(
       auto mulOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("mult_fwd", meta.dtype),
+          {get_guid_with_precision("mult_fwd"sv, meta.dtype),
            {stddev_tensor.get(), normal[0].get()},
            {{meta.shape, meta.dtype}}});
       auto addOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("add_fwd", meta.dtype),
+          {get_guid_with_precision("add_fwd"sv, meta.dtype),
            {syn_in0, mulOp[0].get()},
            {{meta.shape, meta.dtype, 0}}});
 
@@ -262,7 +264,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto addOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("add_fwd", meta.dtype),
+          {get_guid_with_precision("add_fwd"sv, meta.dtype),
            {syn_in0, normal[0].get()},
            {{meta.shape, meta.dtype, 0}}});
       return std::move(addOp[0]);
@@ -274,7 +276,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto mulOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("mult_fwd", meta.dtype),
+          {get_guid_with_precision("mult_fwd"sv, meta.dtype),
            {syn_in0,
             normal[0].get()}, // in this variant syn_in0 is stddev tensor
            {{meta.shape, meta.dtype}}});
@@ -283,7 +285,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto addOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("add_fwd", meta.dtype),
+          {get_guid_with_precision("add_fwd"sv, meta.dtype),
            {mean_tensor.get(), mulOp[0].get()},
            {{meta.shape, meta.dtype, 0}}});
       return std::move(addOp[0]);
@@ -291,7 +293,7 @@ synapse_helpers::tensor NormalTensorHelper(
       auto mulOp = OpBackend::BuildNode(
           op,
           graph,
-          {get_guid_with_precision("mult_fwd", meta.dtype),
+          {get_guid_with_precision("mult_fwd"sv, meta.dtype),
            {syn_in0,
             normal[0].get()}, // in this variant syn_in0 is stddev tensor
            {{meta.shape, meta.dtype, 0}}});
@@ -301,13 +303,13 @@ synapse_helpers::tensor NormalTensorHelper(
     auto mulOp = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("mult_fwd", meta.dtype),
+        {get_guid_with_precision("mult_fwd"sv, meta.dtype),
          {syn_in1, normal[0].get()},
          {{meta.shape, meta.dtype}}});
     auto addOp = OpBackend::BuildNode(
         op,
         graph,
-        {get_guid_with_precision("add_fwd", meta.dtype),
+        {get_guid_with_precision("add_fwd"sv, meta.dtype),
          {syn_in0, mulOp[0].get()},
          {{meta.shape, meta.dtype, 0}}});
     return std::move(addOp[0]);
@@ -336,7 +338,7 @@ synapse_helpers::tensor NormalFloatFloatHelper(
   auto normal = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("random_normal_fwd", meta.dtype),
+      {get_guid_with_precision("random_normal_fwd"sv, meta.dtype),
        inputs,
        {{meta.shape, meta.dtype, 0}},
        params.get(),
@@ -369,7 +371,7 @@ SharedMetaDataVector NormalSharedMeta(
   else
     outputRank = stack.at(SIZE_INDEX).toIntVector().size();
 
-  c10::optional<int64_t> seedTensorIndex = c10::nullopt;
+  std::optional<int64_t> seedTensorIndex = std::nullopt;
   if (stack.at(stack.size() - 1).isTensor())
     seedTensorIndex = 2;
   else if (normalVariant == NORMAL_FF && stack.at(3).isTensor())
@@ -399,19 +401,13 @@ SharedMetaDataVector NormalSharedMeta(
     if (normalVariant == NORMAL_TF) {
       auto stddev = stack.at(1).toDouble();
       if (stddev != 1.0)
-        return {
-            randomSharedMeta,
-            multSharedMeta,
-            addSharedMeta};
+        return {randomSharedMeta, multSharedMeta, addSharedMeta};
 
       return {randomSharedMeta, addSharedMeta};
     } else if (normalVariant == NORMAL_FT) {
       auto mean = stack.at(0).toDouble();
       if (mean != 0.0)
-        return {
-            randomSharedMeta,
-            multSharedMeta,
-            addSharedMeta};
+        return {randomSharedMeta, multSharedMeta, addSharedMeta};
 
       return {randomSharedMeta, multSharedMeta};
     } else {
@@ -622,7 +618,7 @@ void RandomSeedTensorInputIntegers::AddNode(
     update_guid_dtype(guid_, "i16");
     out_attr.dtype = c10::ScalarType::Short;
   } else if (c10::isFloatingType(dtype)) {
-    post_op_guid = get_guid_with_precision("floor_fwd", dtype);
+    post_op_guid = get_guid_with_precision("floor_fwd"sv, dtype);
   } else {
     out_attr.final_result_index = 0;
   }

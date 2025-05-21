@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/indexing_ops_helper.h"
 #include <c10/core/ScalarType.h>
@@ -150,11 +150,11 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
   std::vector<int64_t> dims;
   std::vector<at::Tensor> transposedIndices;
-  std::vector<c10::optional<at::Tensor>> indices;
+  std::vector<std::optional<at::Tensor>> indices;
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (!o1.has_value() || !o1.value().defined()) {
-      indices.emplace_back(c10::nullopt);
+      indices.emplace_back(std::nullopt);
     } else if (o1.has_value() && o1.value().defined()) {
       const auto& index = o1.value();
       indices.emplace_back(std::move(index));
@@ -210,7 +210,7 @@ bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig) {
 bool handle_bool_mask_indices(
     c10::ArrayRef<c10::IValue>& indices_in_orig,
     std::vector<c10::IValue>& indices_in_ivals_vec,
-    std::vector<c10::optional<at::Tensor>>& bool_indices_vec) {
+    std::vector<std::optional<at::Tensor>>& bool_indices_vec) {
   at::Tensor t_nz;
   bool has_bool_mask = false;
 

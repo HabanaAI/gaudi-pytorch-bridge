@@ -19,16 +19,10 @@
 
 #include "backend/habana_device/HPUEvent.h"
 
-#if IS_PYTORCH_AT_LEAST(2, 6)
 #include <torch/csrc/Event.h>
 struct THP_HPU_Event : THPEvent {
   at::hpu::HPUEvent hpu_event;
 };
-#else
-struct THP_HPU_Event {
-  PyObject_HEAD at::hpu::HPUEvent hpu_event;
-};
-#endif
 extern PyObject* THP_HPU_EventClass;
 
 void THP_HPU_Event_init(PyObject* module);

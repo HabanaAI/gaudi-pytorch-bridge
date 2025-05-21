@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_lazy/permute_tensors.h"
 #include <c10/core/Storage.h>
@@ -41,7 +41,7 @@ void increasePermuteCount(torch::Tensor& weight) {
 
 void PermuteTensors::permuteWeight(torch::Tensor& weight) {
   PT_LAZY_TRACE;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       weight.device().type() == c10::DeviceType::HPU,
       "permuteWeight only for HPU tensors");
 
@@ -127,17 +127,17 @@ void PermuteTensors::handlePermutedTensor(
   PT_LAZY_TRACE;
   habana_helpers::print_tensor_debug(permutedTensor);
   habana_helpers::print_tensor_debug(cpuTensor);
-  TORCH_CHECK(
+  HABANA_ASSERT(
       permutedTensor.device().type() == c10::DeviceType::HPU,
       "handlePermutedTensor permutedTensor should be HPU");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       cpuTensor.device().type() == c10::DeviceType::CPU,
       "handlePermutedTensor cpuTensor should be CPU");
 
   auto synapse_permute = getMemoryPermutation(permutedTensor);
   if (synapse_permute.size() != 0) {
     if (non_blocking) {
-      TORCH_CHECK(
+      HABANA_ASSERT(
           false, "handlePermutedTensor we only support non_blocking = false");
     }
     // translate synapse permtue to pt permute
@@ -155,7 +155,7 @@ void PermuteTensors::handlePermutedTensor(
 MemoryPermutation PermuteTensors::getMemoryPermutation(
     const torch::Tensor& tensor) {
   PT_LAZY_TRACE;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor.device().type() == c10::DeviceType::HPU,
       "getMemoryPermutation tensor should be HPU");
 
@@ -169,7 +169,7 @@ void PermuteTensors::setMemoryPermutation(
     const torch::Tensor& tensor,
     MemoryPermutation permutation) {
   PT_LAZY_TRACE;
-  TORCH_CHECK(
+  HABANA_ASSERT(
       tensor.device().type() == c10::DeviceType::HPU,
       "setMemoryPermutation tensor should be HPU");
 

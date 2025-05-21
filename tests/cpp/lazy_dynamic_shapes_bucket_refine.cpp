@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "habana_lazy_test_infra.h"
 
 #include <algorithm>
@@ -28,7 +28,6 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace habana_lazy;
 
@@ -182,7 +181,7 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
     tensor.set_requires_grad(true);
     std::array<double, 2> scale_array = {2.0, 2.0};
     c10::ArrayRef<double> scale_factors = scale_array;
-    c10::optional<c10::IntArrayRef> out_size = c10::nullopt;
+    std::optional<c10::IntArrayRef> out_size = std::nullopt;
 
     auto outHabana =
         torch::upsample_nearest2d(tHabana, out_size, scale_factors);
@@ -196,8 +195,8 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
 
     std::array<int64_t, 2> out_sizes_arr = {8, 21};
     c10::IntArrayRef out_sizes = out_sizes_arr;
-    c10::optional<double> scales_h(2.0);
-    c10::optional<double> scales_w(2.0);
+    std::optional<double> scales_h(2.0);
+    std::optional<double> scales_w(2.0);
 
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_sizes, in_sizes, scales_h, scales_w);

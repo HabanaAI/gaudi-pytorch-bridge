@@ -22,7 +22,7 @@ from pathlib import Path
 import habana_frameworks.torch.core  # noqa F401
 import torch
 
-is_lazy = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
+is_lazy = os.environ.get("PT_HPU_LAZY_MODE", "0") == "1"
 
 
 def load_library(is_lazy, legacy):
@@ -62,7 +62,7 @@ def custom_add(compile, legacy):
     fn = torch.ops.custom_op.custom_add
     if compile:
         fn = torch.compile(fn, backend="hpu_backend")
-    a = torch.rand((1))
+    a = torch.rand(1)
     b = torch.rand((6, 4))
     a_hpu = a.to("hpu")
     b_hpu = b.to("hpu")

@@ -274,7 +274,7 @@ def fn13(a):
 
 @pytest.mark.parametrize("func", [fn, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn12, fn13])
 def test_hpu_non_contiguous_outputs(func):
-    import habana_frameworks.torch.core as htcore
+    import habana_frameworks.torch.core as htcore  # noqa
 
     def inner_compiler(fx_module: torch.fx.GraphModule, example_inputs):
         from functorch.compile import make_boxed_func
@@ -329,7 +329,7 @@ def fn_multi4(a):
 
 @pytest.mark.parametrize("func", [fn_multi, fn_multi2, fn_multi3, fn_multi4])
 def test_hpu_non_contiguous_more_outputs(func):
-    import habana_frameworks.torch.core as htcore
+    import habana_frameworks.torch.core as htcore  # noqa
 
     def inner_compiler(fx_module: torch.fx.GraphModule, example_inputs):
         from functorch.compile import make_boxed_func

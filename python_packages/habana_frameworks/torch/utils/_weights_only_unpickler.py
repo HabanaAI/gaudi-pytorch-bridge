@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ from pickle import (
 )
 from struct import unpack
 from sys import maxsize
-from typing import Any, Dict, List
+from typing import Any
 
 import torch
 
@@ -97,7 +97,7 @@ import torch
 # Unpickling machinery
 @_functools.lru_cache(maxsize=1)
 def _get_allowed_globals():
-    rc: Dict[str, Any] = {
+    rc: dict[str, Any] = {
         "collections.OrderedDict": OrderedDict,
         "torch.nn.parameter.Parameter": torch.nn.Parameter,
         "torch.serialization._get_layout": torch.serialization._get_layout,
@@ -203,7 +203,7 @@ class Unpickler:
         self.encoding = encoding
         self._file_readline = file.readline
         self._file_read = file.read
-        self.memo: Dict[int, Any] = {}
+        self.memo: dict[int, Any] = {}
 
     def load(self):
         """Read a pickled object representation from the open file.
@@ -215,7 +215,7 @@ class Unpickler:
         self.readline = self._unframer.readline
         self.readinto = self._unframer.readinto
         self.metastack = []
-        self.stack: List[Any] = []
+        self.stack: list[Any] = []
         self.append = self.stack.append
         read = self.read
         readline = self.readline
@@ -357,7 +357,7 @@ class Unpickler:
             elif key[0] == BINBYTES[0]:
                 (n,) = unpack("<I", read(4))
                 if n > maxsize:
-                    raise UnpicklingError("BINBYTES exceeds system's maximum size " "of %d bytes" % maxsize)
+                    raise UnpicklingError("BINBYTES exceeds system's maximum size of {maxsize} bytes")
                 self.append(read(n))
             elif key[0] == SHORT_BINBYTES[0]:
                 n = read(1)[0]
@@ -369,12 +369,12 @@ class Unpickler:
             elif key[0] == BINUNICODE8[0]:
                 (n,) = unpack("<Q", read(8))
                 if n > maxsize:
-                    raise UnpicklingError("BINUNICODE8 exceeds system's maximum size " "of %d bytes" % maxsize)
+                    raise UnpicklingError("BINUNICODE8 exceeds system's maximum size of {maxsize} bytes")
                 self.append(str(read(n), "utf-8", "surrogatepass"))
             elif key[0] == BINBYTES8[0]:
                 (n,) = unpack("<Q", read(8))
                 if n > maxsize:
-                    raise UnpicklingError("BINBYTES8 exceeds system's maximum size " "of %d bytes" % maxsize)
+                    raise UnpicklingError("BINBYTES8 exceeds system's maximum size of {maxsize} bytes")
                 self.append(read(n))
             elif key[0] == EMPTY_SET[0]:
                 self.append(set())
@@ -412,13 +412,13 @@ class Unpickler:
             elif key[0] == FRAME[0]:
                 (frame_size,) = unpack("<Q", read(8))
                 if frame_size > maxsize:
-                    raise ValueError("frame size > sys.maxsize: %d" % frame_size)
+                    raise ValueError(f"frame size > sys.maxsize: {frame_size}")
                 self._unframer.load_frame(frame_size)
             # Protocol 5 (no out-of-band buffer support)
             elif key[0] == BYTEARRAY8[0]:
                 (n,) = unpack("<Q", read(8))
                 if n > maxsize:
-                    raise UnpicklingError("BYTEARRAY8 exceeds system's maximum size " "of %d bytes" % maxsize)
+                    raise UnpicklingError(f"BYTEARRAY8 exceeds system's maximum size of {maxsize} bytes")
                 b = bytearray(n)
                 readinto(b)
                 self.append(b)

@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <torch/jit.h>
@@ -515,14 +515,14 @@ class DynamicBucketInfo {
       DynamicDimsPolicy max_policy);
 
   uint64_t GetTokenForBucketId(uint64_t bidx) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bidx < buckets_.size(),
         "Invalid bucket index ",
         bidx,
         " encountered, should be less than ",
         buckets_.size());
 
-    TORCH_CHECK(
+    HABANA_ASSERT(
         buckets_[bidx].getToken() != Bucket::uninitialized_token,
         "Token is uninitialized for bucket index ",
         bidx);
@@ -555,7 +555,7 @@ class DynamicBucketInfo {
   void UpdateCompileTime(uint64_t t_ns, uint64_t bucket_idx) {
     cumu_compile_time_stat_.Update(t_ns);
     cumu_compile_count_++;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_idx < buckets_.size(),
         "invalid bucket index access in UpdateCompileTime at ",
         __FILE__,
@@ -569,7 +569,7 @@ class DynamicBucketInfo {
       uint64_t bucket);
   void UpdateRunTimes();
   uint64_t GetTime(uint64_t bucket_idx) const {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_idx < buckets_.size(),
         "invalid bucket index access in GetTime at ",
         __FILE__,
@@ -578,7 +578,7 @@ class DynamicBucketInfo {
     return buckets_.at(bucket_idx).GetTime();
   };
   uint64_t GetTimeBase(uint64_t bucket_idx) const {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_idx < buckets_.size(),
         "invalid bucket index access in GetTimeBase at ",
         __FILE__,
@@ -588,7 +588,7 @@ class DynamicBucketInfo {
   };
 
   void SetInputMetaData(const torch::jit::Stack& stack, uint64_t bucket_idx) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_idx < buckets_.size(),
         "invalid bucket index access in SetInputMetaData at ",
         __FILE__,
@@ -598,7 +598,7 @@ class DynamicBucketInfo {
   };
 
   size_t GetRecipeKeyForBucket(size_t bucket_idx) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_idx < buckets_.size(),
         "invalid bucket index access in GetRecipeKeyForBucket at ",
         __FILE__,
@@ -607,7 +607,7 @@ class DynamicBucketInfo {
     return buckets_.at(bucket_idx).GetRecipeKey();
   };
   void SetRecipeKeyForBucket(size_t bucket_idx, size_t key) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_idx < buckets_.size(),
         "invalid bucket index access in SetRecipeKeyForBucket at ",
         __FILE__,
@@ -678,7 +678,7 @@ class DynamicBucketInfo {
   size_t ResetSynapseRecipePtr(
       std::shared_ptr<habana::RecipeValueSpec>& dropped_recipe) {
     auto bid = recipe_bucket_map[dropped_recipe];
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bid < buckets_.size(),
         "invalid bucket index access in ResetSynapseRecipePtr at ",
         __FILE__,
@@ -692,7 +692,7 @@ class DynamicBucketInfo {
       size_t bidx,
       std::shared_ptr<habana::RecipeValueSpec> rvpsh) {
     recipe_bucket_map[rvpsh] = bidx;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bidx < buckets_.size(),
         "invalid bucket index access in SetSynapseRecipePtr at ",
         __FILE__,
@@ -701,7 +701,7 @@ class DynamicBucketInfo {
     buckets_.at(bidx).SetSynapseRecipePtr(rvpsh);
   }
   std::shared_ptr<habana::RecipeValueSpec> GetSynapseRecipePtr(size_t bidx) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bidx < buckets_.size(),
         "invalid bucket index access in GetSynapseRecipePtr at ",
         __FILE__,
@@ -711,7 +711,7 @@ class DynamicBucketInfo {
   }
   void IncrementHitCount(size_t bucket_idx) {
     cumu_hit_count_++;
-    TORCH_CHECK(
+    HABANA_ASSERT(
         bucket_idx < buckets_.size(),
         "invalid bucket index access in IncrementHitCount at ",
         __FILE__,

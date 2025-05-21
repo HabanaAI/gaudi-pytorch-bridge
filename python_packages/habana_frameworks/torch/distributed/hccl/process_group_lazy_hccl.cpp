@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "process_group_lazy_hccl.hpp"
 
 #include <hccl.h>
@@ -58,6 +58,31 @@ bool resizeOddTensor(
       sizeList[i] = tensors[i].sizes().vec();
       strideList[i] = tensors[i].strides().vec();
       tensors[i] = tensors[i].resize_(tensors[i].numel() + 1);
+      change = true;
+    }
+  }
+  return change;
+}
+
+bool resizeTensor(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList,
+    std::vector<int64_t> extra_num_elems) {
+  bool change = false;
+  for (size_t i = 0; i < tensors.size(); i++) {
+    auto btensor_type = tensors[i].scalar_type();
+    changed[i] = false;
+    if ((at::kChar == btensor_type || at::kByte == btensor_type ||
+         at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
+         at::kFloat8_e4m3fn == btensor_type) &&
+        ((tensors[i].numel() % 2 != 0 && extra_num_elems[i] == 1) ||
+         extra_num_elems[i] != 1)) {
+      changed[i] = true;
+      sizeList[i] = tensors[i].sizes().vec();
+      strideList[i] = tensors[i].strides().vec();
+      tensors[i] = tensors[i].resize_(tensors[i].numel() + extra_num_elems[i]);
       change = true;
     }
   }
@@ -138,12 +163,12 @@ void restoreTensorsize(
       // from resized_out back to original output tensor. Now, output tensor
       // should have all updated elements at index 0~125 and is safe to do
       // resize.
-      TORCH_CHECK(
+      HABANA_ASSERT(
           ori_input_size != -1,
           "original input tensor size should be provided.");
 
       auto resized_out = at::empty_like(tensors[i], tensors[i].scalar_type());
-      TORCH_CHECK(tensors[i].sizes().size() == 1, "only support 1D tensor");
+      HABANA_ASSERT(tensors[i].sizes().size() == 1, "only support 1D tensor");
       auto resized_input_size = ori_input_size + 1;
       for (int n = 0; n < extra_num_elems; ++n) {
         auto dst = at::as_strided(
@@ -171,6 +196,71 @@ void restoreTensorsize(
     }
   }
 }
+
+void restoreTensorsize(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList,
+    std::vector<int64_t> extra_num_elems,
+    std::vector<int64_t> ori_input_size) {
+  for (size_t i = 0; i < tensors.size(); i++) {
+    if (changed[i] == true) {
+      if (extra_num_elems[i] == 1) {
+        tensors[i] = tensors[i].resize_(sizeList[i]);
+        tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
+            sizeList[i], strideList[i]);
+      } else {
+        // Here restore logic is like below, typically for output tensor:
+        //
+        // Considering we have input tensor with shape [63] on two ranks.
+        // Originally output tensor should have shape [126]. Hovever, after
+        // resize, each input tensor has shape [64] and output tensor shape
+        // [128]. So for output tensor, there are two extra elements added,
+        // specifically the positions are 63 and 127.
+        //
+        // For restore stage, simply resizing is not enough since the extra
+        // element is at pos 63. Instead separate copy is used below to recover
+        // output correctly. To do this, a temporary buffer is required,
+        // see `resized_out` in below code. Firstly, copy elements from
+        // ori_out[0, 1, ..., 62] to resized_out[0, 1,..., 62]. And then copy
+        // elements from ori_out[64, 65, ..., 126] to
+        // resized_out[63, 64, ..., 125]. After all these done, copy elements
+        // from resized_out back to original output tensor. Now, output tensor
+        // should have all updated elements at index 0~125 and is safe to do
+        // resize.
+
+        auto resized_out = at::empty_like(tensors[i], tensors[i].scalar_type());
+        HABANA_ASSERT(tensors[i].sizes().size() == 1, "only support 1D tensor");
+        auto resized_input_size = ori_input_size[i] + 1;
+        for (auto n = 0; n < extra_num_elems[i]; ++n) {
+          auto dst = at::as_strided(
+              resized_out,
+              {ori_input_size[i]},
+              resized_out.strides(),
+              n * ori_input_size[i]);
+          auto src = at::as_strided(
+              tensors[i],
+              {ori_input_size[i]},
+              tensors[i].strides(),
+              n * resized_input_size);
+          dst.copy_(src);
+        }
+        tensors[i].copy_(resized_out);
+
+        // need step marker here to ensure later resize_ has no conflict with
+        // above two as_strided operations.
+        PT_IRGRAPH_DEBUG("step marker due to restore tensor size");
+        habana_lazy::HbLazyTensor::StepMarker();
+
+        tensors[i] = tensors[i].resize_(sizeList[i]);
+        tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
+            sizeList[i], strideList[i]);
+      }
+    }
+  }
+}
+
 } // namespace
 
 ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
@@ -201,7 +291,7 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
           store->set("HCCL_GROUP_UNIQUE_ID", vec);
         } else {
           auto vec = store->get("HCCL_GROUP_UNIQUE_ID");
-          TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
+          HABANA_ASSERT(vec.size() == sizeof(hcclUniqueId));
           std::memcpy(hcclID, vec.data(), vec.size());
         }
       });
@@ -211,7 +301,6 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
     std::vector<at::Tensor>& outputs,
     std::vector<at::Tensor>& inputs,
     const ReduceScatterOptions& opts) {
-
   for (size_t index = 0; index < inputs.size(); ++index) {
     auto data_type = inputs.at(index).scalar_type();
     bool cast_tensor =
@@ -226,16 +315,14 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
           outputs.at(index));
     } else {
       t_updated = inputs.at(index).to(c10::ScalarType::Float);
-      auto output =
-          at::empty_like(outputs.at(index), c10::ScalarType::Float);
+      auto output = at::empty_like(outputs.at(index), c10::ScalarType::Float);
       habana_lazy::reduce_scatter_hpu_lazy_out(
           t_updated, (uint8_t)opts.reduceOp, comm_->GetId(), output);
       outputs.at(index).copy_(output.to(data_type));
     }
   }
 
-  auto work =
-      c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
   if (coalescing_state_) {
     coalesed_works_->append(work);
   }
@@ -374,6 +461,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
     auto data_type = t.scalar_type();
     bool cast_tensor =
         !(data_type == c10::ScalarType::Float ||
+          data_type == c10::ScalarType::Half ||
           data_type == c10::ScalarType::BFloat16);
     at::Tensor t_updated;
     if (!cast_tensor) {
@@ -492,9 +580,9 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
     at::Tensor& outputBuffer,
     at::Tensor& inputBuffer,
     [[maybe_unused]] const AllgatherOptions& opts) {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputBuffer.dtype() == outputBuffer.dtype(), "buffer types don't match");
-  TORCH_CHECK(
+  HABANA_ASSERT(
       inputBuffer.numel() * size_ == outputBuffer.numel(),
       "incompatible buffer sizes");
 
@@ -579,12 +667,13 @@ static constexpr int CoalActive = 0x01;
 void ProcessGroupLazyHCCL::groupStart() {
   hcclResult_t hccl_result = hcclSuccess;
   hccl_result = hcclGroupStart();
-  TORCH_CHECK(hcclSuccess == hccl_result, "hcclGroupStart call returned error");
+  HABANA_ASSERT(
+      hcclSuccess == hccl_result, "hcclGroupStart call returned error");
 }
 
 void ProcessGroupLazyHCCL::groupEnd() {
   hcclResult_t hccl_result = hcclGroupEnd();
-  TORCH_CHECK(hcclSuccess == hccl_result, "hcclGroupEnd call returned error");
+  HABANA_ASSERT(hcclSuccess == hccl_result, "hcclGroupEnd call returned error");
 }
 
 ProcessGroupLazyHCCL::CoalescedWorkHCCL::~CoalescedWorkHCCL() = default;
@@ -611,11 +700,11 @@ bool c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::wait(
 }
 
 void ProcessGroupLazyHCCL::startCoalescing() {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       habana::HPUDeviceContext::is_device_acquired(),
       "HPU Device not initialized! startCoalescing cannot be done without device init!")
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       coalescing_state_ == 0,
       "Coalescing is already in progress. Have you invoked startCoalescing again without endCoalescing. BTW nested coalesing is not supported.");
 
@@ -627,10 +716,10 @@ void ProcessGroupLazyHCCL::startCoalescing() {
 }
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::endCoalescing() {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       coalescing_state_ != 0, "endCoalescing invoked without startCoalescing");
 
-  TORCH_CHECK(
+  HABANA_ASSERT(
       coalesed_works_ != nullptr, "Error: coalesed_works_ is not initied")
 
   coalescing_state_ = 0;
@@ -643,7 +732,101 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
   return allgather(outputTensorLists, inputTensors, opts);
-};
+}
+
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_into_tensor_coalesced(
+    std::vector<at::Tensor>& outputs,
+    std::vector<at::Tensor>& inputs,
+    [[maybe_unused]] const AllgatherOptions& opts) {
+  // Ensure that inputs and outputs have the same size
+  HABANA_ASSERT(
+      inputs.size() == outputs.size(),
+      "inputs and outputs must have the same number of tensors");
+  auto tensor_size{inputs.size()};
+  std::vector<int64_t> ori_input_size(tensor_size);
+
+  for (size_t i = 0; i < tensor_size; ++i) {
+    at::Tensor& input_tensor = inputs[i];
+    at::Tensor& output_tensor = outputs[i];
+    if (input_tensor.dtype() != output_tensor.dtype()) {
+      HABANA_ASSERT(
+          false, "output tensor must have the same type as input tensor");
+    }
+
+    if (input_tensor.numel() * size_ != output_tensor.numel()) {
+      HABANA_ASSERT(
+          false,
+          "output tensor size must be equal to world_size times input tensor size");
+    }
+    ori_input_size[i] = input_tensor.numel();
+  }
+
+  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+
+  std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> out_strideList(tensor_size);
+
+  // Case 1 with even world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //
+  //    rank 0: output [126] -> no resize happen
+  //    rank 1: output [126] -> no resize happen
+  // actually require resize output tensor to [128]
+  //
+  // Case 2 with odd world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //    rank 2: input [63] -> resize to [64]
+  //
+  //    rank 0: output [189] -> resize to [190]
+  //    rank 1: output [189] -> resize to [190]
+  //    rank 2: output [189] -> resize to [190]
+  // resize happens, but got wrong size, should be [192] rather than [190]
+  bool changed =
+      resizeOddTensor(inputs, in_changed, in_sizeList, in_strideList);
+  // if no resize on input, keep current logic
+  std::vector<int64_t> out_resize_extra_num_elems(tensor_size);
+  for (size_t i = 0; i < tensor_size; i++) {
+    out_resize_extra_num_elems[i] = in_changed[i] ? size_ : 1;
+  }
+  changed |= resizeTensor(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      out_resize_extra_num_elems);
+
+  HOST_SYNC()
+  for (size_t i = 0; i < tensor_size; i++) {
+    habana_lazy::allgather_hpu_lazy_out(inputs[i], comm_->GetId(), outputs[i]);
+  }
+
+  if (changed) {
+    PT_IRGRAPH_DEBUG(
+        "step marker due to ProcessGroupLazyHCCL::_allgather_base");
+    habana_lazy::HbLazyTensor::StepMarker();
+  }
+
+  restoreOddTensorsize(inputs, in_changed, in_sizeList, in_strideList);
+
+  restoreTensorsize(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      out_resize_extra_num_elems,
+      ori_input_size);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
+}
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
@@ -676,8 +859,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
   std::vector<at::Tensor> outputs;
   c10::intrusive_ptr<Work> work;
   if (getRank() == opts.rootRank) {
-    TORCH_CHECK(outputTensors.size() == 1, "Requires a single element list");
-    TORCH_CHECK(
+    HABANA_ASSERT(outputTensors.size() == 1, "Requires a single element list");
+    HABANA_ASSERT(
         outputTensors[0].size() == static_cast<size_t>(getSize()),
         "Output list should be same size as process group");
     assertTypeAndSizesMatch(
@@ -698,7 +881,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
       }
     }
   } else {
-    TORCH_CHECK(outputTensors.size() == 0, "Requires empty output on non-root");
+    HABANA_ASSERT(
+        outputTensors.size() == 0, "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (change) {
@@ -834,10 +1018,78 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
-    [[maybe_unused]] std::vector<at::Tensor>& outputTensors,
-    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& inputTensors,
-    [[maybe_unused]] const ScatterOptions& opts) {
-  throw std::runtime_error("scatter is currently not supported with HCCL");
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<std::vector<at::Tensor>>& inputTensors,
+    const ScatterOptions& opts) {
+  bool change = false;
+  size_t tensor_size = inputTensors.empty() ? 0 : inputTensors[0].size();
+  std::vector<std::unique_ptr<bool[]>> changed(tensor_size);
+  std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
+  std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
+  for (size_t i = 0; i < inputTensors.size(); i++) {
+    changed[i] = std::make_unique<bool[]>(inputTensors[i].size());
+    sizeList[i].resize(inputTensors[i].size());
+    strideList[i].resize(inputTensors[i].size());
+    change |= resizeOddTensor(
+        inputTensors[i], changed[i], sizeList[i], strideList[i]);
+  }
+  size_t out_tensor_size = outputTensors.size();
+  std::unique_ptr<bool[]> out_changed(new bool[out_tensor_size]);
+  std::vector<std::vector<int64_t>> out_sizeList(out_tensor_size);
+  std::vector<std::vector<int64_t>> out_strideList(out_tensor_size);
+  change |=
+      resizeOddTensor(outputTensors, out_changed, out_sizeList, out_strideList);
+  HOST_SYNC()
+
+  static auto invalidArgument = [](const std::string& msg) {
+    C10_THROW_ERROR(ValueError, "ProcessGroupLazyHCCL::scatter: " + msg);
+  };
+
+  std::vector<at::Tensor> inputs;
+  c10::intrusive_ptr<Work> work;
+  if (getRank() == opts.rootRank) {
+    HABANA_ASSERT(inputTensors.size() == 1, "Requires a single element list");
+    HABANA_ASSERT(
+        inputTensors[0].size() == static_cast<size_t>(getSize()),
+        "Input list should be same size as process group");
+    assertTypeAndSizesMatch(
+        invalidArgument,
+        inputTensors[0],
+        outputTensors[0].options(),
+        outputTensors[0].sizes());
+    inputs = inputTensors[0];
+    int numRanks = getSize();
+    for (int r = 0; r < numRanks; r++) {
+      if (r == getRank()) {
+        outputTensors[0].copy_(inputs[r]);
+        work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputs);
+      } else {
+        std::vector<at::Tensor> sendTensor;
+        sendTensor.push_back(inputs[r]);
+        work = send(sendTensor, r, 0 /*tag*/);
+      }
+    }
+  } else {
+    HABANA_ASSERT(inputTensors.size() == 0, "Requires empty input on non-root");
+    work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
+  }
+
+  if (change) {
+    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::scatter");
+    habana_lazy::HbLazyTensor::StepMarker();
+    for (size_t i = 0; i < inputTensors.size(); i++) {
+      restoreOddTensorsize(
+          inputTensors[i], changed[i], sizeList[i], strideList[i]);
+    }
+
+    restoreOddTensorsize(
+        outputTensors, out_changed, out_sizeList, out_strideList);
+  }
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(inputs);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
@@ -984,7 +1236,7 @@ void ProcessGroupLazyHCCL::hostBarrier() {
   storeKey += std::to_string(size_);
 
   auto first_count = store_->add(storeKey, 1);
-  TORCH_CHECK(first_count - 1 < size_, "Host barrier Key error");
+  HABANA_ASSERT(first_count - 1 < size_, "Host barrier Key error");
   auto worker_count = store_->add(storeKey, 0);
   while (worker_count != size_) {
     worker_count = store_->add(storeKey, 0);

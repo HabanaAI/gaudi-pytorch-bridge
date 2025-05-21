@@ -18,8 +18,8 @@
 import json
 import os
 import random
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping, Union
 
 import numpy as np
 import pytest
@@ -28,6 +28,11 @@ import pytest
 
 SKIP_TESTS_LIST = "skip_tests_list.json"
 EAGER_FALLBACK_TESTS_LIST = "compile_eager_fallback_list.json"
+
+
+def set_env_var(env_name, value):
+    if os.getenv(env_name) is None:
+        os.environ[env_name] = str(value)
 
 
 @pytest.fixture(autouse=True)
@@ -55,6 +60,9 @@ def pytest_addoption(parser):
     parser.addoption(
         "--dut", action="store", default="gaudi2", help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version"
     )
+    parser.addoption(
+        "--vendor", action="store_true", default=False, help="Collect tests for Vendor CI (skip any simple ops)."
+    )
 
 
 backup_env = pytest.StashKey[Mapping]()
@@ -62,7 +70,9 @@ backup_env = pytest.StashKey[Mapping]()
 
 def pytest_runtest_setup(item):
 
-    from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+    from habana_frameworks.torch.dynamo.compile_backend.config import (
+        configuration_flags,
+    )
 
     configuration_flags["use_eager_fallback"] = False
 
@@ -93,7 +103,9 @@ def pytest_runtest_teardown(item):
         )
         and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
     ):
-        from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+        from habana_frameworks.torch.dynamo.compile_backend.config import (
+            configuration_flags,
+        )
 
         configuration_flags["use_eager_fallback"] = False
 
@@ -110,14 +122,16 @@ def pytest_configure(config):
 
     if pytest.mode == "eager":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
+        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
     elif pytest.mode == "lazy":
         os.environ["PT_HPU_LAZY_MODE"] = "1"
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
         os.environ["PT_HPU_USE_EAGER_FALLBACK"] = "0"
+        set_env_var("PT_HPU_USE_OVERRIDE_ATEN_SDPA", True)
         try:
             eager_fallback_path = Path(__file__).parent.joinpath(EAGER_FALLBACK_TESTS_LIST)
-            with open(eager_fallback_path, "r") as f:
+            with open(eager_fallback_path) as f:
                 pytest.eager_fallback_tests = json.load(f)
         except FileNotFoundError:
             import warnings
@@ -133,7 +147,13 @@ def pytest_configure(config):
 
 
 def pytest_ignore_collect(collection_path, config):
-    return not bool(pytest.mode in collection_path.parts or "any_mode" in collection_path.parts)
+    if config.getoption("--vendor") and "simple_ops" in collection_path.parts:
+        # Simple op tests not collected in Vendor CI mode
+        return True
+    if not bool(pytest.mode in collection_path.parts or "any_mode" in collection_path.parts):
+        return True
+
+    return None
 
 
 def pytest_unconfigure(config):
@@ -148,7 +168,7 @@ def pytest_collection_modifyitems(config, items):
     skip_dict = {}
     try:
         skip_path = Path(__file__).parent.joinpath(SKIP_TESTS_LIST)
-        with open(skip_path, "r") as f:
+        with open(skip_path) as f:
             skip_dict = json.load(f)
     except FileNotFoundError:
         import warnings
@@ -173,7 +193,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_marker)
 
 
-def get_testname(item: Union[pytest.Function, str]) -> str:
+def get_testname(item: pytest.Function | str) -> str:
     if isinstance(item, str):
         testname = item
     else:
@@ -181,7 +201,7 @@ def get_testname(item: Union[pytest.Function, str]) -> str:
     try:
         if "::" in testname:
             testname = testname.split("::")[1]
-    except Exception as e:
+    except Exception:
         import warnings
 
         warnings.warn(f"unable to parse testname: {testname}")

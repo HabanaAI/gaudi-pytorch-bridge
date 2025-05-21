@@ -29,7 +29,7 @@ def is_autoload_enabled():
         return False
 
     # If PT_HPU_AUTOLOAD isn't set, disable autoload for lazy mode
-    if os.getenv("PT_HPU_LAZY_MODE", "1") == "1":
+    if os.getenv("PT_HPU_LAZY_MODE", "0") == "1":
         return False
     return True
 

@@ -1,34 +1,25 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
-
-#include <cstdint>
-#include <utility>
 
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/Stream.h>
-#include <c10/util/Exception.h>
-//#include "hpu_cached_devices.h"
 
 #include <synapse_api_types.h>
-#include "backend/synapse_helpers/device.h"
+#include "backend/synapse_helpers/device_types.h"
 #include "habana_helpers/logging.h"
-
-//#include "habana_lazy/hpu_lazy_tensors.h"
-
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 /*
  * Stream pool note.
@@ -91,7 +82,7 @@ class HPUStream {
   /// Construct a HPUStream from a Stream.  This construction is checked,
   /// and will raise an error if the Stream is not, in fact, a HPU stream.
   explicit HPUStream(Stream stream) : stream_(stream) {
-    TORCH_CHECK(stream_.device_type() == DeviceType::HPU);
+    HABANA_ASSERT(stream_.device_type() == DeviceType::HPU);
   }
 
   /// Construct a HPUStream from a Stream with no error checking.

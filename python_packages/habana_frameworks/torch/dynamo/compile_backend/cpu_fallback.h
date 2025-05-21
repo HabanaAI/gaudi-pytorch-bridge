@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -42,17 +42,6 @@ struct SharedLayerOp {
     return false;                                                      \
   }
 
-#define RETURN_IF_UNSUPPORTED_DTYPE_ARG(input, dtype, opname, args...) \
-  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input, dtype))) {    \
-    return false;                                                      \
-  }
-
-#define RETURN_IF_UNSUPPORTED_DTYPE_ARG2(                           \
-    input, dtype, opname, overload, args...)                        \
-  if (ABSL_PREDICT_FALSE(!supported_dtypes_.count(input, dtype))) { \
-    return false;                                                   \
-  }
-
 #define RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(tensor, opname, args...) \
   if (ABSL_PREDICT_FALSE(                                               \
           tensor.defined() &&                                           \
@@ -67,71 +56,6 @@ struct SharedLayerOp {
           !supported_dtypes_##tensor.count(tensor.scalar_type()))) { \
     return false;                                                    \
   }
-
-#define RETURN_IF_UNSUPPORTED_INPUTS(check_fn, opname, args...) \
-  if (ABSL_PREDICT_FALSE(!check_fn)) {                          \
-    return false;                                               \
-  }
-
-#define RETURN_IF_UNSUPPORTED_INPUTS2(check_fn, opname, overload, args...) \
-  if (ABSL_PREDICT_FALSE(!check_fn)) {                                     \
-    return false;                                                          \
-  }
-
-// fallback macros for manual ops
-#define RETURN_IF_UNSUPPORTED_OP_RT(result_dtype, input, param1, param2) \
-  {                                                                      \
-    auto is_supported = hpu_check_inputs_impl(INQUOTE(input), {param1}); \
-    if (!is_supported)                                                   \
-      return false;                                                      \
-  }
-
-#define RETURN_IF_UNSUPPORTED_OP(input, param1, param2)                  \
-  {                                                                      \
-    auto is_supported = hpu_check_inputs_impl(INQUOTE(input), {param1}); \
-    if (!is_supported)                                                   \
-      return false;                                                      \
-  }
-
-#define RETURN_IF_UNSUPPORTED_OP_O(input, param1, param2, overload)      \
-  {                                                                      \
-    auto is_supported = hpu_check_inputs_impl(INQUOTE(input), {param1}); \
-    if (!is_supported)                                                   \
-      return false;                                                      \
-  }
-
-#define RETURN_IF_UNSUPPORTED_OP1(input, param1, param2)                 \
-  {                                                                      \
-    auto is_supported = hpu_check_inputs_impl(INQUOTE(input), {param1}); \
-    if (is_supported && !check_handle->get_status())                     \
-      is_supported = OpSupportLevel::Value::unsupported_args;            \
-    if (!is_supported)                                                   \
-      return false;                                                      \
-  }
-
-#define RETURN_IF_UNSUPPORTED_OP1_RT(result_dtype, input, param1, param2) \
-  {                                                                       \
-    auto is_supported = hpu_check_inputs_impl(INQUOTE(input), {param1});  \
-    if (is_supported && !check_handle->get_status())                      \
-      is_supported = OpSupportLevel::Value::unsupported_args;             \
-    if (!is_supported)                                                    \
-      return false;                                                       \
-  }
-
-#define RETURN_IF_UNSUPPORTED_OP1_O(input, param1, param2, overload)     \
-  {                                                                      \
-    auto is_supported = hpu_check_inputs_impl(INQUOTE(input), {param1}); \
-    if (is_supported && !check_handle->get_status())                     \
-      is_supported = OpSupportLevel::Value::unsupported_args;            \
-    if (!is_supported)                                                   \
-      return false;                                                      \
-  }
-
-#define RETURN_UNSUPPORTED_OP2(input, param2) return false;
-
-#define RETURN_UNSUPPORTED_OP2_DTYPE(input, dtype, param2) return false;
-
-#define RETURN_UNSUPPORTED_OP2_O(input, param2, overload) return false;
 
 #define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...) \
   if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(               \
@@ -159,9 +83,6 @@ struct SharedLayerOp {
     return false;                                                         \
   }
 
-#define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
-  const static SupportedDtypes supported_dtypes_##suffix dtypes;
-
 template <typename SharedOp>
 bool check_support(
     c10::FunctionSchema& schema,
@@ -177,7 +98,7 @@ bool check_support(
     //  Acquire GIL for py::args and py::kwargs processing.
     py::gil_scoped_acquire ag;
     stack =
-        torch::jit::createStackForSchema(schema, args, kwargs, c10::nullopt);
+        torch::jit::createStackForSchema(schema, args, kwargs, std::nullopt);
 
     for (const auto& sm : shared_meta) {
       const auto& meta = sm.cast<py::tuple>();

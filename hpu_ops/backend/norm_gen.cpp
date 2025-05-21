@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "generated/backend/linalg_vector_norm.h"
 #include "generated/backend/norm.h"
 
@@ -144,7 +144,7 @@ static void VecNormCheck(
       dtype);
 
   if (self.numel() == 0) {
-    TORCH_CHECK(
+    HABANA_ASSERT(
         p >= 0,
         "linalg.vector_norm of negative order cannot be performed on an empty tensor");
     if (p == INF) {
@@ -159,7 +159,7 @@ static void VecNormCheck(
           }
         }
       }
-      TORCH_CHECK(
+      HABANA_ASSERT(
           has_identity,
           "linalg.vector_norm cannot compute the infinity norm on an empty ",
           "dimension because the operation does not have an identity");
@@ -199,10 +199,11 @@ sh::tensor NormCommon(
   }
 
   auto params = FillPFormNormOpParams(self.dim(), dim, keepdim, ord);
+  using namespace std::literals;
   auto reduce_lp_output = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_Lp_multi_dim_fwd", dtype),
+      {get_guid_with_precision("reduce_Lp_multi_dim_fwd"sv, dtype),
        {input_tensor},
        output_attr,
        &params,

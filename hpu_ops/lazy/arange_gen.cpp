@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "hpu_ops/common/arange_gen.h"
 #include "generated/lazy/arange.h"
@@ -27,9 +27,9 @@ static int64_t get_arange_depth(
   const float end = _end.to<float>();
   const float step = _step.to<float>();
 
-  TORCH_CHECK(step != 0.0, "step value can not be 0.");
-  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
-  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
+  HABANA_ASSERT(step != 0.0, "step value can not be 0.");
+  HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
+  HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
   int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
   return num_elements;
@@ -64,7 +64,7 @@ ArangeFE<at::Tensor&>::ArangeFE(
     std::vector<int32_t> params_vec{start.toInt(), end.toInt(), step.toInt()};
     auto params_shape = habana_lazy::empty_hpu_lazy(
         params_vec.size(),
-        output.options(),
+        output.options().dtype(c10::ScalarType::Int),
         output.suggest_memory_format(),
         false,
         HOST_TO_DEVICE_TENSOR);
@@ -132,7 +132,7 @@ LazyArange<at::Tensor>::LazyArange(
 
     auto params_shape = habana_lazy::empty_hpu_lazy(
         params_vec.size(),
-        out_dtype,
+        at::ScalarType::Int,
         c10::MemoryFormat::Contiguous,
         false,
         HOST_TO_DEVICE_TENSOR);
@@ -177,7 +177,7 @@ LazyArange<at::Tensor>::LazyArange(
     std::vector<int32_t> params_vec{start.toInt(), end.toInt(), step.toInt()};
     auto params_shape = habana_lazy::empty_hpu_lazy(
         params_vec.size(),
-        out_dtype,
+        at::ScalarType::Int,
         c10::MemoryFormat::Contiguous,
         false,
         HOST_TO_DEVICE_TENSOR);

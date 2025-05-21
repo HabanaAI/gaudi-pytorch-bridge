@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 
 #include <fmt/format.h>
@@ -42,7 +42,7 @@ class stream {
   std::condition_variable cond_var_;
   std::condition_variable cond_var_empty;
   std::thread gc_worker_;
-
+  bool is_compute_stream_;
   synStreamHandle handle_;
 
   /*! \brief Internal garbage collector thread, that collects all the events
@@ -55,10 +55,12 @@ class stream {
    *  \param id of the device
    *  \param flavor dedicated usage type of the stream
    */
-  explicit stream(device& device);
+  explicit stream(device& device, bool is_compute_stream = false);
 
   stream(const stream& other)
-      : device_(other.device_), handle_(other.handle_) {}
+      : device_(other.device_),
+        is_compute_stream_(other.is_compute_stream_),
+        handle_(other.handle_) {}
 
   ~stream();
 

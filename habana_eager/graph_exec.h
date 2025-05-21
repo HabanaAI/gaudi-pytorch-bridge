@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -30,6 +30,7 @@ namespace habana {
 namespace graph {
 
 using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
+using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
 
 class GraphExec {
  public:
@@ -43,7 +44,9 @@ class GraphExec {
       bool has_randoms,
       InputSymbolIndexMap in_symbol_idx_map,
       std::vector<habana_helpers::RangeInfo>& range_infos,
-      bool mark_dynamic);
+      std::vector<int64_t>& const_indexes,
+      bool mark_dynamic,
+      const std::vector<bool>& is_reusable);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
@@ -81,6 +84,7 @@ class GraphExec {
   bool IsDynamicGraph();
   void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
   std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
+  void PatchScaleH2dTensors(torch::jit::Stack& orig_stack);
   void UpdateSeedTensors(torch::jit::Stack& stack);
   bool HasInvalidDynamicSymbols();
 
@@ -93,12 +97,14 @@ class GraphExec {
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::string m_graph_name;
   bool m_dynamic;
+  std::vector<bool> m_is_reusable;
 
   bool m_static_fallback = false;
   bool m_inference;
   bool is_first_launch = true;
   bool m_is_pipeline_supported = false;
   std::shared_ptr<DynamicGraphMetaData> m_dgraph_meta = nullptr;
+  H2dScalesIndicesNames m_h2d_scales_idx_names;
   DynamicPatchingData m_ds_patch_data;
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
@@ -109,6 +115,7 @@ class GraphExec {
   const bool m_has_randoms;
   InputSymbolIndexMap m_in_symbol_idx_map;
   std::vector<habana_helpers::RangeInfo> m_range_infos;
+  std::vector<int64_t> m_const_indexes;
   bool m_mark_dynamic = false;
   bool m_reset_seed = true;
   SeedTensors m_seed_tensors{};

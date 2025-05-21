@@ -21,7 +21,7 @@ import re
 
 
 def read_file(filepath):
-    with open(filepath, "r") as file:
+    with open(filepath) as file:
         return file.readlines()
     return None
 

@@ -23,7 +23,6 @@ import logging
 import os
 import sys
 import tempfile
-from typing import Any, Optional, Type, Union
 
 import packaging.version
 import requests
@@ -39,7 +38,7 @@ class Version(packaging.version.Version):
     PyPA reference for PEP-440: https://packaging.pypa.io/en/stable/version.html
     """
 
-    def __init__(self, version: Union[str, Type[sys.version_info]], label: Optional[str] = None) -> None:
+    def __init__(self, version: str | type[sys.version_info], label: str | None = None) -> None:
         """
         :param version a string in PEP-440 format or a Python system version
         :param label   optional custom symbolic label of the version. Used to generate @see Version.label.
@@ -59,7 +58,7 @@ class Version(packaging.version.Version):
         else:
             raise TypeError(f"Version must be a string or a sys.version_info: {version}")
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         try:
             rhs = Version(other) if isinstance(other, str) else other
             return super().__eq__(rhs)
@@ -122,7 +121,7 @@ class Version(packaging.version.Version):
         """
         wildcard, candidate_ver = self.release, candidate.release
         assert len(wildcard) <= len(candidate_ver)
-        release_matches = all(w == c for w, c in zip(wildcard, candidate_ver))
+        release_matches = all(w == c for w, c in zip(wildcard, candidate_ver, strict=False))
 
         if not self.is_prerelease:
             return release_matches

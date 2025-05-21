@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/_foreach_abs.h"
 #include "generated/backend/_foreach_add.h"
@@ -118,7 +118,7 @@ OutputMetaDataVector CommonForeachBinaryMeta(
     // Second arg could be tensorlist, scalarlist, tensor or scalar
     if (stack.at(1).isList()) {
       const auto& list2 = stack.at(1).toList();
-      TORCH_CHECK(
+      HABANA_ASSERT(
           list1.size() == list2.size(),
           "List1 size: ",
           list1.size(),
@@ -247,7 +247,7 @@ SharedMetaDataVector CommonForeachBinarySharedMeta(
     auto selfsSize = selfs.size();
     metaVec.reserve(selfsSize);
     const auto& others = stack[OTHER_INDEX];
-    c10::optional<c10::List<c10::IValue>> othersList = c10::nullopt;
+    std::optional<c10::List<c10::IValue>> othersList = std::nullopt;
     if (others.isList())
       othersList = others.toList();
 

@@ -16,8 +16,7 @@
 ###############################################################################
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 set(TARGET_NAME "_lop_profiler_C")
-add_library(${TARGET_NAME} SHARED
-    bindings.cpp)
+add_library(${TARGET_NAME} SHARED bindings.cpp)
 target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
 
 set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")

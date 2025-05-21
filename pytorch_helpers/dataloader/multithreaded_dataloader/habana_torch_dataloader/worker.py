@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 ###############################################################################
 
 
-r""""Contains definitions of the methods used by the _BaseDataLoaderIter workers.
+r""" "Contains definitions of the methods used by the _BaseDataLoaderIter workers.
 
 These **needs** to be in global scope since Py2 doesn't support serializing
 static methods.
@@ -26,11 +26,14 @@ import os
 import queue
 import random
 from collections import namedtuple
-from typing import Union
 
 import torch
 from torch._utils import ExceptionWrapper
-from torch.utils.data._utils import IS_WINDOWS, MP_STATUS_CHECK_INTERVAL, signal_handling
+from torch.utils.data._utils import (
+    IS_WINDOWS,
+    MP_STATUS_CHECK_INTERVAL,
+    signal_handling,
+)
 
 if IS_WINDOWS:
     import ctypes
@@ -39,7 +42,7 @@ if IS_WINDOWS:
     # On Windows, the parent ID of the worker process remains unchanged when the manager process
     # is gone, and the only way to check it through OS is to let the worker have a process handle
     # of the manager and ask if the process status has changed.
-    class ManagerWatchdog(object):
+    class ManagerWatchdog:
         def __init__(self):
             self.manager_pid = os.getppid()
 
@@ -67,7 +70,7 @@ if IS_WINDOWS:
 
 else:
 
-    class ManagerWatchdog(object):  # type: ignore[no-redef]
+    class ManagerWatchdog:  # type: ignore[no-redef]
         def __init__(self):
             self.manager_pid = os.getppid()
             self.manager_dead = False
@@ -81,7 +84,7 @@ else:
 _worker_info = None
 
 
-class WorkerInfo(object):
+class WorkerInfo:
     __initialized = False
 
     def __init__(self, **kwargs):
@@ -92,13 +95,13 @@ class WorkerInfo(object):
 
     def __setattr__(self, key, val):
         if self.__initialized:
-            raise RuntimeError("Cannot assign attributes to {} objects".format(self.__class__.__name__))
-        return super(WorkerInfo, self).__setattr__(key, val)
+            raise RuntimeError(f"Cannot assign attributes to {self.__class__.__name__} objects")
+        return super().__setattr__(key, val)
 
     def __repr__(self):
         items = []
         for k in self.__keys:
-            items.append("{}={}".format(k, getattr(self, k)))
+            items.append(f"{k}={getattr(self, k)}")
         return "{}({})".format(self.__class__.__name__, ", ".join(items))
 
 
@@ -181,7 +184,7 @@ def _worker_loop(
 
             fetcher = _DatasetKind.create_fetcher(dataset_kind, dataset, auto_collation, collate_fn, drop_last)
         except Exception:
-            init_exception = ExceptionWrapper(where="in DataLoader worker process {}".format(worker_id))
+            init_exception = ExceptionWrapper(where=f"in DataLoader worker process {worker_id}")
 
         # When using Iterable mode, some worker can exit earlier than others due
         # to the IterableDataset behaving differently for different workers.
@@ -202,7 +205,7 @@ def _worker_loop(
         while watchdog.is_alive():
             try:
                 r = index_queue.get(timeout=MP_STATUS_CHECK_INTERVAL)
-            except (queue.Empty, EOFError) as e:
+            except (queue.Empty, EOFError):
                 continue
             if isinstance(r, _ResumeIteration):
                 # Acknowledge the main process
@@ -221,7 +224,7 @@ def _worker_loop(
                 # processing steps.
                 continue
             idx, index = r
-            data: Union[_IterableDatasetStopIteration, ExceptionWrapper]
+            data: _IterableDatasetStopIteration | ExceptionWrapper
             if init_exception is not None:
                 data = init_exception
                 init_exception = None
@@ -239,11 +242,11 @@ def _worker_loop(
                         # It is important that we don't store exc_info in a variable.
                         # `ExceptionWrapper` does the correct thing.
                         # See NOTE [ Python Traceback Reference Cycle Problem ]
-                        data = ExceptionWrapper(where="in DataLoader worker process {}".format(worker_id))
+                        data = ExceptionWrapper(where=f"in DataLoader worker process {worker_id}")
             # TODO: need to resolve this for now just boycotting
             try:
                 data_queue.put((idx, data))
-            except AssertionError as error:
+            except AssertionError:
                 pass
             del data, idx, index, r  # save memory
     except KeyboardInterrupt:

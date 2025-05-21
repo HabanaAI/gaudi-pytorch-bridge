@@ -1,6 +1,6 @@
 ###############################################################################
 #
-#  Copyright (c) 2021-2024 Intel Corporation
+#  Copyright (c) 2021-2025 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@ from copy import deepcopy
 import pytest
 import torch
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
-from habana_frameworks.torch.hpex.optimizers.distributed import FusedAdamW as DistributedFusedAdamW
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
+from habana_frameworks.torch.hpex.optimizers.distributed import (
+    FusedAdamW as DistributedFusedAdamW,
+)
+from test_utils import format_tc, is_pytest_mode_compile
 from torch.optim import AdamW
 
 lr = 0.1
@@ -29,12 +31,8 @@ betas = (0.9, 0.99)
 weight_decay = 0.1
 eps = 1.0e-6
 shapes = [(3, 4), (5, 6)]
-moments_dtypes = [None, torch.bfloat16, torch.float32]
+moments_dtypes = [None, torch.bfloat16, torch.float32, (torch.float8_e4m3fn, torch.float8_e5m2)]
 dtypes = [torch.bfloat16, torch.float32]
-
-
-if not is_gaudi1():
-    moments_dtypes.append((torch.float8_e4m3fn, torch.float8_e5m2))
 
 
 class Net(torch.nn.Module):
@@ -142,7 +140,7 @@ def test_adamw(dtype, moments_dtype):
                 else hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
             )
 
-    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
+    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors, strict=False):
         rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)
 
@@ -174,6 +172,6 @@ def test_adamw_distributed(dtype, moments_dtype):
                 else hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
             )
 
-    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
+    for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors, strict=False):
         rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)

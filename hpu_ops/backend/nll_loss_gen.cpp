@@ -71,7 +71,7 @@ static std::shared_ptr<void> FillNllLossParams(
       params->mode = NLLLossMode_t::NLL_LOSS_MODE_SUM;
       break;
     default:
-      TORCH_CHECK(false, "Unsupported reduction in nll_loss: ", reduction);
+      HABANA_ASSERT(false, "Unsupported reduction in nll_loss: ", reduction);
   }
   params->ignoreIndexValue = ignore_index;
   return params;
@@ -101,7 +101,7 @@ static std::vector<synapse_helpers::tensor> NllLoss(
     const OutputMetaData& meta,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_index = c10::nullopt) {
+    std::optional<int> final_index = std::nullopt) {
   return OpBackend::BuildNode(
       op,
       graph,
@@ -134,7 +134,7 @@ static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     const OutputMetaData& meta,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_index = c10::nullopt,
+    std::optional<int> final_index = std::nullopt,
     at::IntArrayRef shapeTnsrSize = {}) {
   // This helper function is used only when weight is none
   op->CreateShapeTensorInput(graph, meta.dtype, shapeTnsrSize, input);
@@ -150,6 +150,8 @@ static void DummyOutput(
       p_context_->pt_outputs_.at(1), graph, persistent, external));
 }
 
+using namespace std::literals;
+
 static std::vector<synapse_helpers::tensor> ReduceWeight(
     OpBackend* op,
     const OutputMetaData& meta,
@@ -162,7 +164,7 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
       graph,
       {
 
-          get_guid_with_precision("reduce_sum_fwd", meta.dtype),
+          get_guid_with_precision("reduce_sum_fwd"sv, meta.dtype),
           std::move(input),
           {{1, meta.dtype}},
           &reduce_params,
@@ -198,7 +200,7 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
   auto targetMappedToWeights = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("gather_elements_fwd", weights.scalar_type()),
+      {get_guid_with_precision("gather_elements_fwd"sv, weights.scalar_type()),
        std::vector<synTensor>{
            std::move(inputs[synWeightIdx]), std::move(flattenTarget.get())},
        {{targetFlattenSize, weights.scalar_type()}},
@@ -210,7 +212,7 @@ static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
   return OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("reduce_sum_fwd", meta.dtype),
+      {get_guid_with_precision("reduce_sum_fwd"sv, meta.dtype),
        std::vector<synTensor>{std::move(targetMappedToWeights[0].get())},
        {{1, meta.dtype}},
        &reduceParams,
@@ -222,7 +224,8 @@ SharedMetaDataVector NllLoss2DFwdSharedMeta(
     habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto& target = stack_tensor(stack, 1);
-  const auto& weight = stack.at(2).toOptional<torch::Tensor>();
+  const auto& weight =
+      stack.at(2).toOptional<torch::Tensor>().value_or(at::Tensor());
   const int64_t reduction = stack.at(3).toInt();
   const auto outputRank =
       reduction == at::Reduction::Reduction::None ? target.dim() : 1;
@@ -233,22 +236,21 @@ SharedMetaDataVector NllLoss2DFwdSharedMeta(
   nllLossFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
   nllLossFwdSharedMeta.inputs_data = {
       {self.dim(), dtype}, {target.dim(), target.scalar_type()}};
-  if (weight.has_value() && weight->defined()) {
-    nllLossFwdSharedMeta.inputs_data.emplace_back(weight.value().dim(), dtype);
+  if (weight.defined()) {
+    nllLossFwdSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     nllLossFwdSharedMeta.inputs_data.emplace_back(1, dtype);
 
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      const auto weightDtype = weight.value().scalar_type();
+      const auto weightDtype = weight.scalar_type();
       SharedMetaData gatherElementsSharedMeta{"gather_elements_fwd"};
       gatherElementsSharedMeta.inputs_data = {
-          {weight.value().dim(), weightDtype}, {1, target.scalar_type()}};
+          {weight.dim(), weightDtype}, {1, target.scalar_type()}};
       gatherElementsSharedMeta.outputs_data.emplace_back(1, weightDtype);
       metaVec.push_back(gatherElementsSharedMeta);
     }
 
     SharedMetaData reduceWeightSharedMeta{"reduce_sum_fwd"};
-    reduceWeightSharedMeta.inputs_data.emplace_back(
-        weight.value().dim(), dtype);
+    reduceWeightSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     reduceWeightSharedMeta.outputs_data.emplace_back(1, dtype);
     metaVec.push_back(reduceWeightSharedMeta);
   }
@@ -319,11 +321,12 @@ SharedMetaDataVector NllLossBwdSharedMeta(
   const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
   const auto& target = stack_tensor(stack, 2);
-  const auto& weight = stack.at(3).toOptional<torch::Tensor>();
+  const auto& weight =
+      stack.at(3).toOptional<torch::Tensor>().value_or(at::Tensor());
   const auto& totalWeight = stack_tensor(stack, 6);
   auto rank = self.dim();
   auto dtype = grad.scalar_type();
-  const auto isWeightTensor = weight.has_value();
+  const auto isWeightTensor = weight.defined();
   const std::string guid = isWeightTensor ? "cnll_loss_bwd" : "nll_loss_bwd";
   SharedMetaData nllLossBwdSharedMeta{guid};
   nllLossBwdSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
@@ -332,7 +335,7 @@ SharedMetaDataVector NllLossBwdSharedMeta(
   nllLossBwdSharedMeta.inputs_data.emplace_back(
       target.dim(), target.scalar_type());
   if (isWeightTensor) {
-    nllLossBwdSharedMeta.inputs_data.emplace_back(weight.value().dim(), dtype);
+    nllLossBwdSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     nllLossBwdSharedMeta.inputs_data.emplace_back(totalWeight.dim(), dtype);
   }
 
@@ -362,7 +365,7 @@ void NllLossBwd::AddNode(
   } else { // weight is not none
     auto nll_loss = BuildOp(
         graph,
-        get_guid_with_precision("cnll_loss_bwd", meta.dtype),
+        get_guid_with_precision("cnll_loss_bwd"sv, meta.dtype),
         {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
         {{meta.shape, meta.dtype, 0}},
         params.get(),
@@ -377,7 +380,8 @@ SharedMetaDataVector NllLoss2DBwdSharedMeta(
   const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
   const auto& target = stack_tensor(stack, 2);
-  const auto& weight = stack.at(3).toOptional<torch::Tensor>();
+  const auto& weight =
+      stack.at(3).toOptional<torch::Tensor>().value_or(at::Tensor());
   auto rank = self.dim();
   auto dtype = grad.scalar_type();
 
@@ -386,13 +390,12 @@ SharedMetaDataVector NllLoss2DBwdSharedMeta(
   nllLossBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
   nllLossBwdSharedMeta.inputs_data = {
       {grad.dim(), dtype}, {target.dim(), target.scalar_type()}};
-  if (weight.has_value()) {
-    nllLossBwdSharedMeta.inputs_data.emplace_back(weight.value().dim(), dtype);
+  if (weight.defined()) {
+    nllLossBwdSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     nllLossBwdSharedMeta.inputs_data.emplace_back(1, dtype);
 
     SharedMetaData reduceWeightSharedMeta{"reduce_sum_fwd"};
-    reduceWeightSharedMeta.inputs_data.emplace_back(
-        weight.value().dim(), dtype);
+    reduceWeightSharedMeta.inputs_data.emplace_back(weight.dim(), dtype);
     reduceWeightSharedMeta.outputs_data.emplace_back(1, dtype);
     metaVec.push_back(reduceWeightSharedMeta);
   }

@@ -91,6 +91,8 @@
                 "test_gradient_checkpointing[E5M2]",
                 "test_gradient_checkpointing[HYBRID]",
                 "test_graph_mult_module_split",
+                "test_h2d_scales[src_dtype0-False]",
+                "test_h2d_scales[src_dtype1-False]",
                 "test_hpu_adaptive_avg_pool1d[bfloat16-10-[2x2x7]]",
                 "test_hpu_adaptive_avg_pool1d[bfloat16-10-[2x7]]",
                 "test_hpu_adaptive_avg_pool1d[bfloat16-1-[2x2x7]]",
@@ -1244,8 +1246,7 @@
                 "test_scalar_bool",
                 "test_recipe_cache1",
                 "test_index_put_ellipsis[inputs_shape0]",
-                "test_index_put_cpu_index[inputs_shape0]",
-                "test_smoke_jit_forked_lowering_eager_fallback"
+                "test_index_put_cpu_index[inputs_shape0]"
         ],
         "gaudi": [
                 "test_hpu_adaptive_avg_pool1d[bfloat16-10-[2x2x7]]",
@@ -1283,6 +1284,7 @@
         ],
         "gaudi3": [
                 "test_graph_mult_module_split",
-                "test_op_square_inplace_output"
+                "test_op_square_inplace_output",
+                "test_detach"
         ]
 }

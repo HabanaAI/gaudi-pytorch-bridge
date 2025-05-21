@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "device_context.h"
 #include <absl/memory/memory.h>
 #include <absl/types/optional.h>
@@ -59,6 +59,24 @@ hcclResult_t device_context::open_device(int device_id) {
       synapse_helpers::get_value(maybe_dev_handle);
   device_ = device;
   return hcclSuccess;
+}
+
+hcclResult_t device_context::get_hpu_stream(
+    synStreamHandle stream_handle,
+    synapse_helpers::hpuStream_t* hpu_stream_ptr) {
+  PT_DISTRIBUTED_DEBUG(
+      "Calling device_context::get_hpu_stream(stream_handle=",
+      stream_handle,
+      ")");
+
+  if (hpustream_handle_map_.count(stream_handle)) {
+    *hpu_stream_ptr = hpustream_handle_map_[stream_handle];
+    return hcclSuccess;
+  }
+
+  PT_DISTRIBUTED_FATAL(
+      "Unexpected stream_handle passed! No corresponding hpu stream for it");
+  return hcclInvalidArgument;
 }
 
 hcclResult_t device_context::acquire_collective_stream(
@@ -295,6 +313,11 @@ hcclResult_t device_context::submit_events(
   device_->register_producer_on_stream(
       std::move(addresses), *stream_objects_[stream_handle], done_callback);
   return hcclSuccess;
+}
+
+void device_context::wait_until_address_ready(
+    synapse_helpers::device_ptr address) {
+  device_->wait_until_address_ready(address);
 }
 
 hcclResult_t device_context::submit_future(

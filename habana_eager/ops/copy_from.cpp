@@ -1,22 +1,24 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2025 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "habana_eager/ops/copy_from.h"
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/generic_resource_holder.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
 #include "habana_eager/eager_context.h"
@@ -259,7 +261,7 @@ void Register_Copy_In_Pipeline(
     synStatus status =
         habana::HPUDeviceContext::get_device().get_host_memory().malloc(
             &host_ptr, total_bytes);
-    TORCH_CHECK(
+    HABANA_ASSERT(
         status == synStatus::synSuccess,
         Logger::formatStatusMsg(status),
         "Host malloc failed !");
@@ -271,25 +273,22 @@ void Register_Copy_In_Pipeline(
         reinterpret_cast<uint8_t*>(host_ptr));
   }
 
-  struct ResourceHolder {
-    at::Tensor src;
-    at::Tensor dst;
-    bool non_blocking;
-    c10::hpu::HPUStream stream;
-    void* host_ptr;
-  } rs = {std::move(src), std::move(dst), non_blocking, stream, host_ptr};
+  auto resource_holder = std::make_shared<GenericResourceHolder>(
+      src, dst, non_blocking, stream, host_ptr);
 
   PipelineTaskAllThreads(
-      std::move(rs),
-      [](ResourceHolder& rs) { clear_permutation_info(rs.dst); },
-      [](ResourceHolder&) {},
-      [](ResourceHolder& rs) {
+      std::move(resource_holder),
+      [](std::shared_ptr<GenericResourceHolder> rs) {
+        clear_permutation_info(rs->dst());
+      },
+      [](std::shared_ptr<GenericResourceHolder>) {},
+      [](std::shared_ptr<GenericResourceHolder> rs) {
         habana_helpers::copy_data_to_device(
-            std::move(rs.src),
-            std::move(rs.dst),
-            rs.non_blocking,
-            rs.stream,
-            rs.host_ptr);
+            rs->src(),
+            rs->dst(),
+            rs->non_blocking(),
+            rs->stream(),
+            rs->host_ptr());
       });
 }
 
@@ -462,7 +461,7 @@ at::Tensor _copy_from(
     if (!same_data_type) {
       auto tmp = at::empty_like(src, src.options().device(dst.device()));
       tmp = _copy_from_h2d(src, tmp, non_blocking);
-      result = _hpu_cast(dst, tmp);
+      result = _copy_from_d2d(tmp, dst);
     } else {
       result = _copy_from_h2d(src, dst, non_blocking);
     }

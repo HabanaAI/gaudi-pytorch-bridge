@@ -18,10 +18,9 @@
 
 import os
 import types
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Callable, Dict, Optional
 
 import habana_frameworks.torch.hpu as hthpu
 import habana_frameworks.torch.utils.debug as htdebug
@@ -29,7 +28,9 @@ import numpy as np
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
+from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+    hpu_fallback_op_list,
+)
 from packaging.version import Version
 
 hpu = torch.device("hpu")
@@ -44,10 +45,6 @@ def is_device(device_name):
     return hthpu.get_device_name() == device_name
 
 
-def is_gaudi1():
-    return is_device("GAUDI")
-
-
 def is_gaudi2():
     return is_device("GAUDI2")
 
@@ -57,7 +54,7 @@ def is_gaudi3():
 
 
 def is_lazy():
-    return int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1
+    return int(os.environ.get("PT_HPU_LAZY_MODE", 0)) == 1
 
 
 def evaluate_fwd_kernel(
@@ -224,8 +221,8 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
                 rtol=rtol,
             )
         else:
-            print("hpu_result[{}]".format(i), hpu_tensors[i].detach().numpy())
-            print("cpu_result[{}]".format(i), cpu_tensors[i].detach().numpy())
+            print(f"hpu_result[{i}]", hpu_tensors[i].detach().numpy())
+            print(f"cpu_result[{i}]", cpu_tensors[i].detach().numpy())
             return np.allclose(
                 hpu_tensors[i].detach().numpy(),
                 cpu_tensors[i].detach().numpy(),
@@ -239,7 +236,7 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
 def env_var_in_scope(vars=None):
     def set_flag_in_env(name: str, value):
         assert (
-            "PT_HPU_LAZY_MODE" != name
+            name != "PT_HPU_LAZY_MODE"
         ), "Setting PT_HPU_LAZY_MODE during test is forbidden. Use python3 -m pytest --mode argument instead"
         if value is None:
             os.environ[name] = ""
@@ -263,7 +260,7 @@ def env_var_in_scope(vars=None):
                     del os.environ[key]
 
 
-def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable] = None):
+def generic_setup_teardown_env(temp_test_env: dict, callback: Callable | None = None):
     htdebug._bridge_cleanup()
     assert isinstance(temp_test_env, Mapping)
 
@@ -404,7 +401,7 @@ class TcLimitedFormatter:
         if isinstance(val, np.ndarray):
             val = val.tolist()
 
-        if isinstance(val, torch.dtype):  # pylint: disable=no-member
+        if isinstance(val, torch.dtype):
             ret = repr(val)
             return ret.split(sep=".")[1]
         elif isinstance(val, tuple):
@@ -414,8 +411,8 @@ class TcLimitedFormatter:
                 assert val
                 ret = self.format_tc_common(val[0], limit_array)
             for i in range(1, len(val)):
-                ret = "{}x{}".format(ret, self.format_tc_common(val[i], limit_array))
-            return "[{}]".format(ret)
+                ret = f"{ret}x{self.format_tc_common(val[i], limit_array)}"
+            return f"[{ret}]"
         elif isinstance(val, list):
             if len(val) == 0:
                 return "[]"
@@ -425,24 +422,20 @@ class TcLimitedFormatter:
                 current_value = val[i]
                 if limited:
                     if i == limit_array:
-                        current_value = "_INNER{}_".format(self.counter)
+                        current_value = f"_INNER{self.counter}_"
                         self.counter += 1
                     elif i > limit_array and i < len(val) - limit_array:
                         continue
 
-                ret = "{}x{}".format(ret, self.format_tc_common(current_value, limit_array))
-            ret = "{}]".format(ret)
+                ret = f"{ret}x{self.format_tc_common(current_value, limit_array)}"
+            ret = f"{ret}]"
             if limit_str is not None and len(ret) > limit_str:
-                ret = ret[0:limit_str] + "___{}".format(self.counter)
+                ret = ret[0:limit_str] + f"___{self.counter}"
                 self.counter += 1
             return ret
         elif val is None:
             return "_None_"
-        elif isinstance(val, types.MethodDescriptorType):
-            return val.__name__
-        elif isinstance(val, types.BuiltinMethodType):
-            return val.__name__
-        elif isinstance(val, types.FunctionType):
+        elif isinstance(val, types.MethodDescriptorType | types.BuiltinMethodType | types.FunctionType):
             return val.__name__
         else:
             s = str(val)
@@ -481,9 +474,16 @@ def is_pytest_mode_lazy():
 
 
 def clear_t_compile_logs():
-    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import logger as helpers_logger
-    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
-    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
+
+    from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import (
+        logger as helpers_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
 
     helpers_logger.set_store_data(True)
     graph_logger.set_store_data(True)
@@ -516,8 +516,12 @@ def compile_function_if_compile_mode(
 def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(), forbidden_ops=set()):
     import re
 
-    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
-    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
 
     graphs_data = graph_logger.data
     fallback_data = fallback_logger.data
@@ -654,7 +658,7 @@ def is_dtype_floating_point(dtype):
 
 def print_tensors_internal(tensors, atol, rtol, index=[]):
     if isinstance(tensors[0], Iterable):
-        for i, (tensors_sub) in enumerate(zip(*tensors)):
+        for i, (tensors_sub) in enumerate(zip(*tensors, strict=False)):
             print_tensors_internal(tensors_sub, atol, rtol, index + [i])
     else:
         tolerance_ok = False
@@ -664,7 +668,7 @@ def print_tensors_internal(tensors, atol, rtol, index=[]):
             tolerance_ok = abs(a - b) <= (atol + rtol * abs(b))
 
         if not tolerance_ok:
-            l = 22
+            l = 24
             s = ""
             for v in tensors:
                 s += f"{v:{l}}"
@@ -672,14 +676,14 @@ def print_tensors_internal(tensors, atol, rtol, index=[]):
 
 
 def print_tensors(labels, tensors, atol=None, rtol=None):
-    for l, t in zip(labels, tensors):
+    for l, t in zip(labels, tensors, strict=False):
         print(f"{l} : {t.shape}")
     print_tensors_internal([t.tolist() for t in tensors], atol, rtol)
 
 
 def fga_assert_helper(ops_summary, op, count_list):
     assert len(ops_summary) == len(count_list)
-    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list):
+    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list, strict=False):
         if graph_eager_count is None:
             assert op not in single_graph_summary
         else:
@@ -691,9 +695,9 @@ def fga_assert_helper(ops_summary, op, count_list):
 
 
 @contextmanager
-def use_eager_fallback():
+def use_eager_fallback(enabled=True):
     original = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
+    configuration_flags["use_eager_fallback"] = enabled
     try:
         yield
     finally:

@@ -16,7 +16,11 @@
 ###############################################################################
 
 import torch
-from test_utils import compile_function_if_compile_mode, env_var_in_scope
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    env_var_in_scope,
+)
 
 
 def test_inplace_without_return():
@@ -35,6 +39,7 @@ def test_inplace_without_return():
     fn(x)
     compiled_fn(hx)
     assert torch.allclose(hx.cpu(), x, atol=0.01, rtol=0.01)
+    check_ops_executed_in_jit_ir("copy_")
 
 
 def test_hpu_view_copy():
@@ -60,6 +65,7 @@ def test_hpu_view_copy():
         hres = compiled_fn(hx, hy)
 
         assert torch.allclose(hres.cpu(), hx.cpu(), atol=0.001, rtol=0.001)
+        check_ops_executed_in_jit_ir("copy_")
 
 
 def test_hpu_copy_expand():
@@ -88,6 +94,7 @@ def test_hpu_copy_expand():
         hres = compiled_fn(hx, hy)
 
         assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
+        check_ops_executed_in_jit_ir("copy_")
 
 
 def test_hpu_copy_keepmutation():
@@ -113,6 +120,7 @@ def test_hpu_copy_keepmutation():
         hres = compiled_fn(hx, hy)
 
         assert torch.allclose(hres.cpu(), hx.cpu(), atol=0.001, rtol=0.001)
+        check_ops_executed_in_jit_ir("copy_")
 
 
 def test_hpu_inplace_copies():
@@ -140,6 +148,7 @@ def test_hpu_inplace_copies():
         hx = compiled_fn(hx)
 
         assert torch.allclose(hx.cpu(), x, atol=0.001, rtol=0.001)
+        check_ops_executed_in_jit_ir("copy_")
 
 
 def test_hpu_expand():
@@ -166,3 +175,4 @@ def test_hpu_expand():
         hres = compiled_fn(hx)
 
         assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
+        check_ops_executed_in_jit_ir({"expand", "add"})

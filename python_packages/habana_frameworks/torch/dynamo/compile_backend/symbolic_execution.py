@@ -20,23 +20,20 @@ import re
 import sys
 
 import sympy
-import torch
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
-from habana_frameworks.torch.utils.version_checker import is_pytorch_older_than
 from symengine import sympify as sympify_engine
 from sympy import Function, sympify
 from sympy.printing.precedence import PRECEDENCE
 from sympy.printing.printer import Printer
 
-if is_pytorch_older_than("2.6.0"):
-    from torch._inductor.codegen.common import ExprPrinter as ExprPrinterPT
-else:
-    from torch.utils._sympy.printers import ExprPrinter as ExprPrinterPT
-
+import torch
+from torch.utils._sympy.printers import ExprPrinter as ExprPrinterPT
 
 logger = get_compile_backend_logger()
 
 torch_sympy_functions = {}
+
+all_expr_hist = {}
 
 
 def substitute_sympyfn(expr):
@@ -163,8 +160,6 @@ class PythonPrinter(ExprPrinter):
 class HPUExprPrinter(ExprPrinterPT):
 
     def _paren(self, expr, precedence=None):
-        if is_pytorch_older_than("2.6.0"):
-            return self.paren(expr)
         return self.parenthesize(expr, precedence)
 
     def _print_ToFloat(self, expr):
@@ -328,12 +323,15 @@ class SymExprNodeManager:
             def symexpr_python(
                 *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
             ):
-                sym_value_dict = {}
-                for idx, sub_sym in enumerate(sym_expr_symbols):
-                    value = arguments[idx]
-                    sym_value_dict[sub_sym] = value
-                size_e = sym_expr.subs(sym_value_dict)
-                return int(size_e)
+                sym_value_dict = dict(zip(sym_expr_symbols, arguments, strict=False))
+                sym_value_set = frozenset(sym_value_dict.items())
+                expr_hist = all_expr_hist.setdefault(sym_expr, {})
+                if sym_value_set in expr_hist:
+                    return expr_hist[sym_value_set]
+                else:
+                    size = int(sym_expr.subs(sym_value_dict))
+                    expr_hist[sym_value_set] = size
+                    return size
 
             with self._graph_module.graph.inserting_after(self._insert_point_node):
                 new_kwargs = None
@@ -346,12 +344,15 @@ class SymExprNodeManager:
             def symexpr_python(
                 *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
             ):
-                sym_value_pair = []
-                for idx, sub_sym in enumerate(sym_expr_symbols):
-                    value = arguments[idx]
-                    sym_value_pair.append((sub_sym, value))
-                size = sym_expr.subs(sym_value_pair)
-                return int(size)
+                sym_value_pairs = list(zip(sym_expr_symbols, arguments, strict=False))
+                sym_value_set = frozenset(sym_value_pairs)
+                expr_hist = all_expr_hist.setdefault(sym_expr, {})
+                if sym_value_set in expr_hist:
+                    return expr_hist[sym_value_set]
+                else:
+                    size = int(sym_expr.subs(sym_value_pairs))
+                    expr_hist[sym_value_set] = size
+                    return size
 
             node_name = SymExprNodeManager.node_name
             with self._graph_module.graph.inserting_after(self._insert_point_node):
@@ -473,15 +474,13 @@ class SymbolicShapeEvaluator:
         Returns:
             Calculated output size.
         """
-        idx = 0
         concrete_size = [None] * out_shape_meta[3]
         output_shape_sympy = out_shape_meta[0]
-        for sz in output_shape_sympy:
+        for idx, sz in enumerate(output_shape_sympy):
             value = sz
             if out_shape_meta[2][idx] is not sys.maxsize:
                 value = self.calculate_symbol_size(sz, out_shape_meta[1][idx], out_shape_meta[2][idx], input_stack)
             concrete_size[idx] = value
-            idx += 1
 
         return concrete_size
 

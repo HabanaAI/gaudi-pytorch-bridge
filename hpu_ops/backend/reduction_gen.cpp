@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "generated/backend/mean.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -51,11 +51,11 @@ SharedMetaDataVector ReductionOpSharedMeta(
     bool isListVariant) {
   const auto& self = stack_tensor(stack, 0);
 
-  c10::optional<uint8_t> dimIndex =
-      isListVariant ? c10::make_optional<uint8_t>(1) : c10::nullopt;
-  c10::optional<uint8_t> keepDimIndex =
-      isListVariant ? c10::make_optional<uint8_t>(2) : c10::nullopt;
-  c10::optional<uint8_t> dtypeIndex = isListVariant
+  std::optional<uint8_t> dimIndex =
+      isListVariant ? c10::make_optional<uint8_t>(1) : std::nullopt;
+  std::optional<uint8_t> keepDimIndex =
+      isListVariant ? c10::make_optional<uint8_t>(2) : std::nullopt;
+  std::optional<uint8_t> dtypeIndex = isListVariant
       ? c10::make_optional<uint8_t>(3)
       : c10::make_optional<uint8_t>(1);
   auto dtype = get_dtype(stack, dtypeIndex);
@@ -162,8 +162,8 @@ static sh::tensor ReductionOpCommon(
   const bool isAdditionalCastNeeded =
       (isSumOutVersion &&
        !areTypesAllowedForSumOut(op->ScalarType(), dtype.value()));
-  const c10::optional<int> finalResultIndex =
-      isAdditionalCastNeeded ? c10::nullopt : c10::optional<int>(0);
+  const std::optional<int> finalResultIndex =
+      isAdditionalCastNeeded ? std::nullopt : std::optional<int>(0);
 
   auto result = OpBackend::BuildNode(
       op,
@@ -188,7 +188,7 @@ void ReductionOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   syn_out(0) = ReductionOpCommon(
-      this, graph, syn_in(0), stack, c10::nullopt, c10::nullopt, 1);
+      this, graph, syn_in(0), stack, std::nullopt, std::nullopt, 1);
 }
 
 void ReductionOpList::AddNode(

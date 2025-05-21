@@ -1,17 +1,17 @@
 /**
-* Copyright (c) 2021-2024 Intel Corporation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (c) 2021-2024 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include "backend/synapse_helpers/env_flags.h"
@@ -54,50 +54,53 @@ void WorkTask() {
 
 void ProducerTask() {
   for (int i = 0; i < 10; i++) {
-    habana::HPUDeviceContext::compile_thread().enqueue(WorkTask);
+    habana::HPUDeviceContext::compile_thread_pool().enqueue(WorkTask);
   }
 }
 
 TEST_F(EagerPipelineTest, PipelineThrottling) {
-  auto default_queue_capacity_ =
+  auto default_queue_capacity =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
 
   // make sure the thread pools are initialized
   at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
 
-  habana::ThreadPoolWithGILRelease& lowering_thread =
-      habana::HPUDeviceContext::lowering_thread();
-  habana::ThreadPoolWithGILRelease& compile_thread =
-      habana::HPUDeviceContext::compile_thread();
-  compile_thread.set_queue_capacity(2);
+  auto& lowering_thread = habana::HPUDeviceContext::lowering_thread();
+  auto& compile_thread_pool = habana::HPUDeviceContext::compile_thread_pool();
+  SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 2, 1);
   lowering_thread.enqueue(ProducerTask);
 
   auto producer_task = lowering_thread.get_active_task_count();
   while (producer_task > 0) {
-    auto work_task = compile_thread.get_active_task_count();
+    auto work_task = compile_thread_pool.get_active_task_count();
     ASSERT_LE(work_task, 2) << "Number of tasks exceeds capacity.";
     std::this_thread::yield();
     producer_task = lowering_thread.get_active_task_count();
   }
 
   lowering_thread.waitWorkComplete();
-  compile_thread.waitWorkComplete();
+  compile_thread_pool.waitWorkComplete();
 
-  compile_thread.set_queue_capacity(default_queue_capacity_);
+  SET_ENV_FLAG_NEW(
+      PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity, 1);
 }
 
 TEST_F(EagerPipelineTest, CompileError) {
+  // make sure the thread pools are initialized
+  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana::HPUDeviceContext::compile_thread().enqueue(CompileTask, true);
+  habana::HPUDeviceContext::compile_thread_pool().enqueue(CompileTask, true);
   EXPECT_ANY_THROW(
-      habana::HPUDeviceContext::compile_thread().waitWorkComplete());
+      habana::HPUDeviceContext::compile_thread_pool().waitWorkComplete());
   SET_ENV_FLAG_NEW(
       PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity_, 1);
 }
 
 TEST_F(EagerPipelineTest, ExecError) {
+  // make sure the thread pools are initialized
+  at::Device device = habana::HPUDeviceContext::get_or_create_aten_device();
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
