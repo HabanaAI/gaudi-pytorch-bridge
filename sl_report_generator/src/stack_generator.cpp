@@ -219,7 +219,7 @@ std::vector<c10::IValue> StackGenerator::generateIValues<InputType::PT_TENSOR>(
   std::vector<c10::IValue> values;
   for (const auto& dtype : dtypes) {
     for (const auto& tensor_rank : ranks) {
-      auto t = c10::IValue(createTensor(tensor_rank, dtype));
+      auto t = c10::IValue(createTensor(tensor_rank, dtype, dim_size));
       values.push_back(t);
     }
   }
@@ -537,12 +537,14 @@ SchemaStackGenerator::SchemaStackGenerator(
     const std::string& op_name,
     const std::string& op_name_and_overload_name,
     const std::vector<int64_t>& ranks,
-    const int default_array_length)
+    const int default_array_length,
+    const int dim_size)
     : StackGenerator(ranks) {
   this->op_name = op_name;
   this->op_and_overload_name =
       op_name_and_overload_name.empty() ? op_name : op_name_and_overload_name;
   this->default_array_length = default_array_length;
+  this->dim_size = dim_size;
   blacklisted_precision_types = getBlacklistedPrecisionTypes();
   whitelisted_precision_types = getWhitelistedPrecisionTypes();
   inputs = generateInputs(schema);

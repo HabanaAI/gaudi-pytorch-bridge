@@ -21,8 +21,11 @@
 #include <torch/torch.h>
 
 namespace slrg {
-at::Tensor createTensor(std::int64_t rank, at::ScalarType dtype) {
-  std::vector<std::int64_t> shape(rank, 1);
+at::Tensor createTensor(
+    std::int64_t rank,
+    at::ScalarType dtype,
+    const int dim_size = 1) {
+  std::vector<std::int64_t> shape(rank, dim_size);
   return at::zeros(shape, torch::TensorOptions().dtype(dtype));
 }
 } // namespace slrg

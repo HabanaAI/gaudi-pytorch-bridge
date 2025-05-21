@@ -70,6 +70,7 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_im2col_exception();
   void register_im2col_out_exception();
   void register_index_reduce__exception();
+  void register_in_place_interleave_exception();
   void register_linear_exception();
   void register_kv_reorder_exception();
   void register_masked_fill_exception();

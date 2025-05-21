@@ -33,6 +33,7 @@ void SharedLayerReportGenerator::register_exceptions() {
   register_im2col_exception();
   register_im2col_out_exception();
   register_index_reduce__exception();
+  register_in_place_interleave_exception();
   register_kv_reorder_exception();
   register_linear_exception();
   register_masked_fill_exception();
@@ -418,6 +419,25 @@ void SharedLayerReportGenerator::register_index_reduce__exception() {
       {/* op_name */ "index_reduce_",
        /* overload */ "",
        /* op_namespace */ "torch.Tensor"},
+      custom_executors.back().get());
+}
+
+void SharedLayerReportGenerator::register_in_place_interleave_exception() {
+  custom_stack_generators.push_back(std::make_unique<SchemaStackGenerator>(
+      /* schema */ "Tensor self",
+      /* op_name */ "in_place_interleave",
+      /* op_name_and_overload_name */ "",
+      /* ranks */ std::vector<std::int64_t>{4},
+      /* default_array_length */ 1,
+      /* dim_size */ 4));
+  custom_executors.push_back(std::make_unique<GenericSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(),
+      &habana::validator_in_place_interleave_));
+
+  register_op(
+      {/* op_name */ "in_place_interleave",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
       custom_executors.back().get());
 }
 

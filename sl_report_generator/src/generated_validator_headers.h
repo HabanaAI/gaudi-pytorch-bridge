@@ -24,6 +24,7 @@
 #include "generated/lazy/grid_sampler_2d.h"
 #include "generated/lazy/grid_sampler_3d.h"
 #include "generated/lazy/im2col.h"
+#include "generated/lazy/in_place_interleave.h"
 #include "generated/lazy/index_reduce.h"
 #include "generated/lazy/kv_reorder.h"
 #include "generated/lazy/linear.h"
