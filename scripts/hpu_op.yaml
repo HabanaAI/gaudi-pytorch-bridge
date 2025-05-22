@@ -168,13 +168,11 @@ __rshift__.Tensor_out:
 
 _copy_from:
   override_fn: _copy_from
-  op_validator: CopySharedMeta
-  namespaces: [torch]
+  op_validator_exception: perf drop
 
 _copy_from_and_resize:
   override_fn: _copy_from_and_resize
-  op_validator: CopySharedMeta
-  namespaces: [torch]
+  op_validator_exception: perf drop
 
 _efficientzerotensor:
   output_meta: EfficientZeroMeta
@@ -1279,14 +1277,12 @@ native_dropout_backward:
 
 as_strided:
   override_fn: as_strided_hpu
-  op_validator: StridedViewSharedMeta
-  namespaces: [torch, torch.Tensor]
+  op_validator_exception: perf drop
   acc_thread: true
 
 as_strided_:
   override_fn: as_strided_hpu_lazy_
-  op_validator: StridedViewSharedMeta
-  namespaces: [torch, torch.Tensor]
+  op_validator_exception: perf drop
   acc_thread: true
 
 set_:

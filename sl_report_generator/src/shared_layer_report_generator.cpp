@@ -2504,6 +2504,31 @@ void SharedLayerReportGenerator::register_static_exceptions() {
        /* op_namespace */ "torch.hpu"},
       allExecutor);
 
+  /* AS_STRIDED */
+  register_op(
+      {/* op_name */ "as_strided",
+       /* overload */ "",
+       /* op_namespace */ "torch"},
+      allExecutor);
+
+  register_op(
+      {/* op_name */ "as_strided",
+       /* overload */ "",
+       /* op_namespace */ "torch.Tensor"},
+      allExecutor);
+
+  register_op(
+      {/* op_name */ "as_strided_",
+       /* overload */ "",
+       /* op_namespace */ "torch"},
+      allExecutor);
+
+  register_op(
+      {/* op_name */ "as_strided_",
+       /* overload */ "",
+       /* op_namespace */ "torch.Tensor"},
+      allExecutor);
+
   /* BATCHED_NMS */
   register_op(
       {/* op_name */ "batched_nms",
@@ -2637,6 +2662,20 @@ void SharedLayerReportGenerator::register_static_exceptions() {
        /* overload */ "",
        /* op_namespace */ "torch.Tensor"},
       allExceptFp16I64I16Executor);
+
+  /* _COPY_FROM */
+  register_op(
+      {/* op_name */ "_copy_from",
+       /* overload */ "",
+       /* op_namespace */ "torch"},
+      allExecutor);
+
+  /* _COPY_FROM_AND_RESIZE */
+  register_op(
+      {/* op_name */ "_copy_from_and_resize",
+       /* overload */ "",
+       /* op_namespace */ "torch"},
+      allExecutor);
 
   /* CROSS_ENTROPY_LOSS */
   register_op(
