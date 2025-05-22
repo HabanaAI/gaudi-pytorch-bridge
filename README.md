@@ -56,6 +56,13 @@ popd
 4. Install the requirements:
 ```bash
 pip install -r "$PYTORCH_MODULES_ROOT_PATH"/requirements.txt
+pip install habana-media-loader==$VERSION.$BUILD
+```
+
+5. Allow the build command to install artifacts:
+
+```bash
+sudo chmod +w /usr/lib/habanalabs/
 ```
 
 ### Code Build
