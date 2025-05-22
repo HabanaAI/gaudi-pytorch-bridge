@@ -27,7 +27,6 @@ from torchgen import local
 from torchgen.api.translate import translate
 from torchgen.api.types import CppSignatureGroup
 from torchgen.api.unboxing import convert_arguments
-from yaml import CLoader as Loader
 
 from . import code_templates as templates
 from . import constants, parser
@@ -58,7 +57,7 @@ def should_write_and_go_to_next_file(idx: int, num_idxs_per_shard: int, file_idx
 class YamlContext:
     def __init__(self, yamlfile):
         with open(yamlfile) as ff:
-            self.op_data = yaml.load(ff.read(), Loader=Loader)
+            self.op_data = yaml.load(ff.read(), Loader=yaml.CSafeLoader)
             # Sometimes disabling ops for an upcoming pytorch version is necessary.
             # All ops added to skip_list won't be processed, same way if they were not present in hpu_op.yaml
             skip_ops = []
@@ -474,7 +473,7 @@ def generate_autocast_ops(op_metas, args):
     # only ops defined in 'at' namespace are applicable for autocast
     ops_not_in_at = set()
     with open(args.native_functions) as f:
-        native_functions = yaml.load(f.read(), Loader=Loader)
+        native_functions = yaml.load(f.read(), Loader=yaml.CSafeLoader)
     for function in native_functions:
         if "variants" in function and "function" not in function["variants"]:
             ops_not_in_at.add(re.search(r"(.*?)\(", function["func"]).group(1))
@@ -1996,7 +1995,11 @@ def add_fgen_idx_to_generate(
 
 
 def generate_functions_code(
-    fgens: list[constants.OpGen], fgen_pos: list[int], native_func_dict: dict[str, Any], functions: str, dtype_defs: str
+    fgens: list[constants.OpGen],
+    fgen_pos: list[int],
+    native_func_dict: dict[str, Any],
+    functions: str,
+    dtype_defs: str,
 ) -> tuple[str, str]:
     functions += generate_stack_pop(fgens, fgen_pos, native_func_dict)
     for fgen_idx in fgen_pos:
