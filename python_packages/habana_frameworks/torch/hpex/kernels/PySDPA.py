@@ -108,7 +108,7 @@ def FillQSliceFactors(QShapes, KShapes, flow_mask):
         if isTriangularMask:
             reshapedSoftmaxSliceSize = 1024
             if (Nt > reshapedSoftmaxSliceSize) and (q_slice_size % reshapedSoftmaxSliceSize):
-                assert False
+                raise AssertionError()
         useVariableQs = False
         if not useVariableQs:  # use uniform q slicing
             num_q_slices = multiple + 1 if remainder else multiple
@@ -165,7 +165,7 @@ def FillRHSliceFactors(QShapes, KShapes, useQslice):
 
         isValidSlice = (rc <= R) and (hc <= H)
         if not isValidSlice:
-            assert False
+            raise AssertionError()
 
         rhFactor.Rc = rc
         rhFactor.Hc = hc
