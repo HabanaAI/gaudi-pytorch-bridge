@@ -889,6 +889,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
     PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::gather");
     habana_lazy::HbLazyTensor::StepMarker();
   }
+
+  restoreOddTensorsize(inputTensors, in_changed, in_sizeList, in_strideList);
   for (size_t i = 0; i < outputTensors.size(); i++) {
     restoreOddTensorsize(
         outputTensors[i], changed[i], sizeList[i], strideList[i]);
