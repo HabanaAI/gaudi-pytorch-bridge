@@ -916,3 +916,11 @@ PT_HPU_HUGE_PAGES_POPULATE:
   type: bool
   default: false
   doc: "This flag enables MAP_POPULATE for huge pages."
+
+PT_HPU_AUTOCAST_LOWER_PRECISION_OPS_LIST:
+  default: ""
+  doc: "This flag contains list of operators in lower precision"
+
+PT_HPU_AUTOCAST_FP32_OPS_LIST:
+  default: ""
+  doc: "This flag contains list of operators upcasted to fp32"

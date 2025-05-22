@@ -21,22 +21,23 @@
 namespace at {
 namespace autocast {
 
-std::unordered_set<std::string> load_list(
-    const std::string_view list_name,
+std::unordered_set<std::string> load_ops_list(
+    const std::filesystem::path& path_to_list,
     const std::unordered_set<std::string>& default_list) {
-  auto path = std::getenv(list_name.data());
-  if (path == nullptr) {
+  if (path_to_list.empty()) {
     PT_BRIDGE_DEBUG("Loaded default autocast list.")
     return default_list;
   }
-  std::ifstream file(path);
-  if (!file.is_open()) {
+
+  std::ifstream file(path_to_list);
+  if (not file.is_open()) {
     PT_BRIDGE_WARN(
         "Failed to open file with ops to autocast: ",
-        path,
+        path_to_list,
         ". Default list loaded.");
     return default_list;
   }
+
   std::unordered_set<std::string> list;
   std::string line;
   std::string ops;
@@ -44,7 +45,8 @@ std::unordered_set<std::string> load_list(
     list.insert(line);
     ops += line + ", ";
   }
-  PT_BRIDGE_DEBUG("Autocast ops loaded via ", list_name, ": ", ops);
+
+  PT_BRIDGE_DEBUG("Autocast ops loaded via ", path_to_list, ": ", ops);
   return list;
 }
 
