@@ -77,7 +77,8 @@ add_habana_library(
   profiling/trace_sources/synapse_profiler_source.cpp
   profiling/trace_sources/bridge_logs_source.cpp
   profiling/trace_sources/trace_parser.cpp
-  profiling/trace_sources/memory_source.cpp)
+  profiling/trace_sources/memory_source.cpp
+  ${CMAKE_SOURCE_DIR}/pytorch_helpers/habana_helpers/stats.cpp)
 
 add_custom_command(
   TARGET habana_pytorch_backend

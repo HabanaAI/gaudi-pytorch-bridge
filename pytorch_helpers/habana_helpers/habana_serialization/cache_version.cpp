@@ -58,7 +58,8 @@ std::string habana_device_path(void) {
   dladdr((void*)habana_device_path, &dl_info);
   std::string lib_path = dl_info.dli_fname;
   HABANA_ASSERT(
-      lib_path.find("libhabana_pytorch_backend.so") != std::string::npos);
+      lib_path.find("libhabana_pytorch_backend.so") != std::string::npos ||
+      lib_path.find("libhabana_pytorch_backend.upstream.so") != std::string::npos);
   return lib_path;
 }
 

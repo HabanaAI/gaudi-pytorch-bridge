@@ -174,7 +174,6 @@ add_habana_library(
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
-  pytorch_helpers/habana_helpers/stats.cpp
   pytorch_helpers/habana_helpers/frontend_utils.cpp
   pytorch_helpers/habana_helpers/h2d_scales.cpp
   pytorch_helpers/habana_helpers/kernels_accumulation.cpp
@@ -286,7 +285,6 @@ add_habana_library(
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/misc_utils.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
-  pytorch_helpers/habana_helpers/stats.cpp
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/towl.cpp
