@@ -862,11 +862,13 @@ PT_HPU_ENABLE_H2D_SCALES:
 
 PT_HPU_PT2EQ_SCALE_LOAD_PATH:
   default: ""
+  settable: true
   doc: "This is the PT2E quantization scale path. During inference scales are loaded from this path
         which is saved after calibration."
 
 PT_HPU_PT2EQ_SCALE_DUMP_PATH:
   default: ""
+  settable: true
   doc: "This is the path PT2E quantization scales are dumped after calibration."
 
 PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING:
@@ -879,6 +881,7 @@ PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING:
 PT_HPU_PT2EQ_USE_EXPORT_PROGRAM:
   type: bool
   default: false
+  settable: true
   doc: "This flag enables the usage of export program in the PT2E quant backend."
 
 PT_HPU_PT2EQ_FX_GRAPH_FREEZING:
@@ -890,6 +893,7 @@ PT_HPU_PT2EQ_FX_GRAPH_FREEZING:
 PT_HPU_PT2EQ_KVCQ:
   type: bool
   default: true
+  settable: true
   doc: "This flag enable KVCache quantization and KV cache pattern matching in PT2E quant backend."
 
 PT_HPU_PRINT_DEVICE_CONFIG:

@@ -94,6 +94,8 @@ quant_int_dtype_list = [
 ]
 quant_float_dtype_list = [
     torch.float8_e4m3fn,
+]
+quant_float_dtype_list_extended = quant_float_dtype_list + [
     torch.float8_e5m2,
 ]
 
@@ -126,13 +128,31 @@ class custom_quantizer(Quantizer):
                 if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
                     for p in partitions:
                         act_node = p.input_nodes[0]
+                        linear_node = p.output_nodes[0]
+                        assert linear_node.op == "call_function"
                         weight_node = None
-                        for node in p.params:
-                            weight_or_bias = getattr(gm, node.target, None)
-                            if weight_or_bias is None:
-                                continue
-                            if weight_or_bias.ndim == 2:
-                                weight_node = node
+                        if linear_node.target in [
+                            torch.ops.aten.view.default,
+                            torch.ops.aten._unsafe_view.default,
+                        ]:
+                            linear_node = linear_node.args[0]
+                        if linear_node.target in [
+                            torch.ops.aten.linear.default,
+                        ]:
+                            weight_node = linear_node.args[1]
+                        if linear_node.target in [
+                            torch.ops.aten.mm.default,
+                            torch.ops.aten.addmm.default,
+                        ]:
+                            transpose_node = None
+                            for node in p.nodes:
+                                if node.op == "call_function" and node.target in [
+                                    torch.ops.aten.transpose.int,
+                                ]:
+                                    transpose_node = node
+                                    break
+                            assert transpose_node is not None
+                            weight_node = transpose_node.args[0]
 
                         if weight_node is None:
                             continue
@@ -145,6 +165,41 @@ class custom_quantizer(Quantizer):
 
         _annotate_linear(model, self.global_config)
         return model
+
+
+def custom_quant_config_symmetric(quant_dtype):
+    quant_min = int(torch.iinfo(quant_dtype).min)
+    quant_max = int(torch.iinfo(quant_dtype).max)
+
+    act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+    act_quantization_spec = QuantizationSpec(
+        dtype=quant_dtype,
+        quant_min=quant_min,
+        quant_max=quant_max,
+        qscheme=torch.per_tensor_symmetric,
+        is_dynamic=False,
+        observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
+    )
+
+    weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
+    weight_quantization_spec = QuantizationSpec(
+        dtype=quant_dtype,
+        quant_min=quant_min,
+        quant_max=quant_max,
+        qscheme=torch.per_tensor_symmetric,
+        ch_axis=0,
+        is_dynamic=False,
+        observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
+    )
+
+    quantization_config = QuantizationConfig(
+        act_quantization_spec,
+        None,
+        weight_quantization_spec,
+        None,
+    )
+
+    return quantization_config
 
 
 def use_pt2e_quant_flow(
@@ -202,6 +257,7 @@ def use_pt2e_quant_flow(
             from torch.ao.quantization.quantize_pt2e import prepare_pt2e
 
             model = prepare_pt2e(model, quantizer)
+
             # calibrate
             calibrate_result = model(*example_inputs0)
             calibrate_result = model(*example_inputs1)
@@ -212,13 +268,19 @@ def use_pt2e_quant_flow(
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
             from torch.ao.quantization.quantize_pt2e import convert_pt2e
 
-            model = convert_pt2e(model)
+            model = convert_pt2e(model, fold_quantize=False)
+
             # run inference with quantized model
             hpu_result2 = model(*example_inputs2)
             print(hpu_result2)
 
         if use_graph_break:
-            verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
+            expected_op_count_dict = (
+                expected_op_count["after_convert_pt2e_with_fx_pm"]
+                if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching()
+                else expected_op_count["after_convert_pt2e"]
+            )
+            verify_nodes(fga.get_ops_summary(), expected_op_count_dict)
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
         else:
             assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
@@ -226,7 +288,7 @@ def use_pt2e_quant_flow(
 
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
-@pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
+@pytest.mark.parametrize("quant_dtype", quant_float_dtype_list_extended)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
 def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
@@ -249,8 +311,13 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
                 "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
                 "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
             },
-            "after_convert_pt2e": {
+            "after_convert_pt2e_with_fx_pm": {
                 "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
+                "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
+                "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
+            },
+            "after_convert_pt2e": {
+                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
                 "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
                 "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
             },
@@ -267,42 +334,9 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
 def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
-    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False):
-
-        def custom_quant_config_symmetric(quant_dtype):
-            quant_min = int(torch.iinfo(quant_dtype).min)
-            quant_max = int(torch.iinfo(quant_dtype).max)
-
-            act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-            act_quantization_spec = QuantizationSpec(
-                dtype=quant_dtype,
-                quant_min=quant_min,
-                quant_max=quant_max,
-                qscheme=torch.per_tensor_symmetric,
-                is_dynamic=False,
-                observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr,
-            )
-
-            weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-            weight_quantization_spec = QuantizationSpec(
-                dtype=quant_dtype,
-                quant_min=quant_min,
-                quant_max=quant_max,
-                qscheme=torch.per_tensor_symmetric,
-                ch_axis=0,
-                is_dynamic=False,
-                observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr,
-            )
-
-            quantization_config = QuantizationConfig(
-                act_quantization_spec,
-                None,
-                weight_quantization_spec,
-                None,
-            )
-
-            return quantization_config
-
+    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", False), bc.env_setting(
+        "PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False
+    ):
         quant_config = custom_quant_config_symmetric(quant_dtype)
         quantizer = custom_quantizer(quant_config)
 

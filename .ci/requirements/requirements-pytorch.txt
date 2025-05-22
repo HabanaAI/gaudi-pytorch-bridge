@@ -6,6 +6,7 @@ protobuf==3.20.3,<4
 pybind11
 pydot
 regex>=2023.5.5
+tabulate
 wheel>=0.40
 
 # Lightning with Habana support

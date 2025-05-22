@@ -22,6 +22,7 @@ import io
 import json
 import os
 import sys
+import types
 from functools import partial
 from typing import Any
 
@@ -32,6 +33,7 @@ from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backen
 import torch
 from torch._dynamo.backends.common import aot_autograd
 from torch.ao.quantization.quantizer import Quantizer
+from torch.export.exported_program import ExportedProgram
 from torch.fx import GraphModule
 from torch.fx.passes.utils.source_matcher_utils import (
     get_source_partitions,
@@ -90,6 +92,78 @@ def get_scale_filename(key):
         filename = f"_{json_counter}_.json"
         json_counter = json_counter + 1
     return filename
+
+
+def print_readable(
+    module,
+    print_output=True,
+    include_stride=False,
+    include_device=False,
+    colored=False,
+):
+    if getattr(module, "graph", None) and (gms := module.graph.get_graph_modules()) != []:
+        prefix = "Graphs:\n"
+        module_code_list = [""]
+        for idx, gm in enumerate(gms):
+            module_code_list.append(f"graph[{idx}]:")
+            module_code_list.append(
+                gm.print_readable(
+                    False,
+                    include_stride,
+                    include_device,
+                    colored,
+                )
+            )
+        module_code = "\n".join(module_code_list)
+        suffix = "\nNote: Eager ops (if any) are not captured."
+        output = prefix + module_code + suffix
+    elif hasattr(module, "l_print_readable"):
+        output = module.l_print_readable
+    else:
+        output = HabanaPT2EQuantGraphManager.message_before_tracing
+    if print_output:
+        print(output, flush=True)
+    return output
+
+
+class HabanaPT2EQuantGraphManager:
+    message_before_tracing = "If you haven't provided sample input during export, run the model at least once with actual input to capture the graphs."
+
+    def __init__(self, gms: list[GraphModule] | Any):
+        self.graph = gms
+        self.l_graph = ""
+        self.l_print_tabular = ""
+
+    def get_graph_modules(self):
+        return self.graph
+
+    def set_loaded_graph_info(self, l_graph: str, l_print_tabular: str):
+        self.l_graph = l_graph
+        self.l_print_tabular = l_print_tabular
+
+    def print_tabular(self):
+        if self.graph:
+            print("Graphs:")
+            for idx, gm in enumerate(self.graph):
+                print(f"graph[{idx}]:")
+                gm.graph.print_tabular()
+                print("\n")
+            print("Note: Eager ops (if any) are not captured.", flush=True)
+        elif self.l_print_tabular:
+            print(self.l_print_tabular, flush=True)
+        else:
+            print(self.message_before_tracing, flush=True)
+
+    def __repr__(self):
+        if self.graph:
+            extra_repr_str = "Graphs:\n"
+            for idx, gm in enumerate(self.graph):
+                extra_repr_str = extra_repr_str + f"graph[{idx}]:\n{gm.graph}\n"
+        elif self.l_graph:
+            extra_repr_str = self.l_graph
+        else:
+            extra_repr_str = self.message_before_tracing
+        return extra_repr_str
 
 
 # ======================================================================================
@@ -151,29 +225,27 @@ class HabanaPT2EQuantContext:
         else:
             return self._kvcache_details_loaded
 
-    def extract_graphs(self, preprocessed=False, prepared=False, converted=False):
-        gms = None
-        if prepared:
-            gms = self._prepared_gm
-        elif converted:
+    def set_misc_attributes(self, model, preprocessed=False, prepared=False, converted=False):
+        model.traced = self._model.traced
+        gms = []
+        if converted or len(self._converted_gm) > 1:
             gms = self._converted_gm
-        elif preprocessed:
+        elif prepared or len(self._prepared_gm) > 1:
+            gms = self._prepared_gm
+        elif preprocessed or len(self._preprocessed_gms) > 1:
             gms = self._preprocessed_gms
-        graphs = self._model.graph
-        if len(gms) > 0:
-            graphs = "Multiple graphs found.\n"
-            for idx, gm in enumerate(gms):
-                graphs = graphs + f"graph[{idx}]:\n" + f"{gm.graph}\n"
-            self._model.graph = graphs
-        return graphs
+        model.graph = HabanaPT2EQuantGraphManager(gms)
+        model.print_readable = types.MethodType(print_readable, model)
+        model.module = types.MethodType(lambda m: m, model)
 
     def record_transformed_gm(self, transformed_gm, preprocessed=False, prepared=False, converted=False):
-        if prepared:
+        self._model.traced = True
+        if preprocessed:
+            self._preprocessed_gms.append(transformed_gm)
+        elif prepared:
             self._prepared_gm.append(transformed_gm)
         elif converted:
             self._converted_gm.append(transformed_gm)
-        elif preprocessed:
-            self._preprocessed_gms.append(transformed_gm)
 
     def replace_transformed_gm(self, old_transformed_gm, new_transformed_gm, prepared=False, converted=False):
         if prepared:
@@ -182,12 +254,18 @@ class HabanaPT2EQuantContext:
             self._converted_gm[self._converted_gm.index(old_transformed_gm)] = new_transformed_gm
 
     def get_all_transformed_gms(self, preprocessed=False, prepared=False, converted=False):
-        if prepared:
+        if preprocessed:
+            return self._preprocessed_gms
+        elif prepared:
             return self._prepared_gm
         elif converted:
             return self._converted_gm
-        elif preprocessed:
-            return self._preprocessed_gms
+
+    def extract_graph_info_from_loaded_model(self):
+        self._model.graph.set_loaded_graph_info(
+            getattr(self._model, "l_graph", ""), getattr(self._model, "l_print_tabular", "")
+        )
+        assert hasattr(self._model, "l_print_readable")
 
     def get_transformed_gm(self, prepared=False, converted=False):
         gm = None
@@ -230,10 +308,43 @@ class HabanaPT2EQuantContext:
         return self._input_for_tracing
 
     def set_model(self, model):
-        model.graph = "If you haven't provided sample input during export, run the model at least once with actual input to capture the graphs."
+        model.graph = getattr(model, "graph", HabanaPT2EQuantGraphManager([]))
+        model.traced = getattr(model, "traced", False)
         self._model = model
 
     def get_original_model(self):
+        import contextlib
+        import io
+
+        s = io.StringIO()
+        with contextlib.redirect_stdout(s):
+            print(self._original_model.graph)
+        self._original_model.l_graph = s.getvalue()
+        s.seek(0)
+        s.truncate(0)
+
+        with contextlib.redirect_stdout(s):
+            self._original_model.graph.print_tabular()
+        self._original_model.l_print_tabular = s.getvalue()
+        s.seek(0)
+        s.truncate(0)
+
+        with contextlib.redirect_stdout(s):
+            self._original_model.print_readable()
+        self._original_model.l_print_readable = s.getvalue()
+        s.seek(0)
+        s.truncate(0)
+        s.close()
+
+        if hasattr(self._original_model, "graph"):
+            delattr(self._original_model, "graph")
+        if hasattr(self._original_model, "print_readable"):
+            delattr(self._original_model, "print_readable")
+        if hasattr(self._original_model, "module"):
+            delattr(self._original_model, "module")
+        if hasattr(self._original_model, "traced"):
+            delattr(self._original_model, "traced")
+
         return self._original_model
 
     def set_quantizer(self, quantizer):
@@ -255,7 +366,7 @@ class HabanaPT2EQuantContext:
 # ======================================================================================
 # Habana's torch.compile based graph break detector
 # ======================================================================================
-def graph_breaks(
+def check_if_pt2e_quant_backend_needed(
     f: torch.nn.Module,
     args: tuple[Any],
     kwargs: dict[str, Any] | None = None,
@@ -435,6 +546,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     replacer.run()
 
                 assert self._converted_module is not None
+                self._pt2e_quant_context.record_transformed_gm(self._converted_module, converted=True)
 
                 # We call hpu_inference_compiler to convert it into synapse graph.
                 with torch.no_grad():
@@ -509,21 +621,41 @@ def export(
     args: tuple[Any] = None,
     kwargs: dict[str, Any] | None = None,
     dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
-) -> torch.nn.Module:
+) -> torch.nn.Module | ExportedProgram | GraphModule:
     """
     Habana's implementation of PT2E like multi-graph export.
     Note: It uses torch.compile based approach with custom quantization backend.
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [export]")
 
-    id_model = hash((id(f), type(f).__name__))
     global export_model_record
     global habana_pt2e_quant_context
+
+    # Check if we already have previous export result of the given module
+    # If so, retrieve the same and return the previous export result
+
+    id_model = hash((id(f), type(f).__name__))
     if id_model in export_model_record.keys():
         habana_pt2e_quant_context = export_model_record[id_model][1]
-        return export_model_record[id_model][0]
+        model = export_model_record[id_model][0]
+        assert getattr(model, "pt2e_quant_backend", False)
+        if not getattr(model, "traced", False) and args is not None:
+            model(*args)
+            habana_pt2e_quant_context.set_misc_attributes(model)
+        return model
+    if kwargs:
+        export_type = kwargs.get("export_type", "export.export_for_training")
+        id_model = hash((id(f), type(f).__name__, export_type))
+        if id_model in export_model_record.keys():
+            model = export_model_record[id_model][0]
+            assert not getattr(model, "pt2e_quant_backend", False)
+            return model
 
-    if graph_breaks(f, args, kwargs):
+    # Now that we have reached here, we need to check if habana_quant_backend
+    # needs to be used or not
+    use_pt2e_quant_backend = check_if_pt2e_quant_backend_needed(f, args, kwargs)
+
+    if use_pt2e_quant_backend:
         habana_pt2e_quant_context = HabanaPT2EQuantContext(f, id_model, args)
         global habana_quantization_map_queue
         model_key = len(habana_quantization_map_queue)
@@ -540,20 +672,35 @@ def export(
         habana_pt2e_quant_context.set_model(model)
         if args is not None:
             model(*args)
-            logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
 
-        model.graph = habana_pt2e_quant_context.extract_graphs(preprocessed=True)
-        model.multi_graph = True
+        habana_pt2e_quant_context.set_misc_attributes(model, preprocessed=True)
+        logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
+
+        model.pt2e_quant_backend = True
+        id_model = hash((id(f), type(f).__name__))
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
-        habana_pt2e_quant_context = None
-        if kwargs is not None and "graph_break_present" in kwargs:
-            kwargs.pop("graph_break_present")
-        model = _native_pt2e_quantization_interface("export")(f, args, kwargs)
+        assert args, "[Native flow] input missing!"
+        export_type = "export.export_for_training"
+        if kwargs:
+            if "graph_break_present" in kwargs:
+                kwargs.pop("graph_break_present")
+            if "strict" in kwargs:
+                kwargs.pop("strict")
+            if "export_type" in kwargs:
+                export_type = kwargs["export_type"]
+                kwargs.pop("export_type")
+
+        if hasattr(f, "_orig_mod") and isinstance(f._orig_mod, torch.fx.GraphModule):
+            f = f._orig_mod
+
+        model = _native_pt2e_quantization_interface(export_type)(f, args, kwargs)
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
-        model.multi_graph = False
-        export_model_record[id_model] = [model, habana_pt2e_quant_context]
+
+        model.pt2e_quant_backend = False
+        id_model = hash((id(f), type(f).__name__, export_type))
+        export_model_record[id_model] = [model, None]
         return model
 
 
@@ -569,8 +716,9 @@ def prepare_pt2e(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [prepare_pt2e]")
 
-    multi_graph = getattr(model, "multi_graph", False)
-    if multi_graph:
+    global export_model_record
+    use_pt2e_quant_backend = getattr(model, "pt2e_quant_backend", False)
+    if use_pt2e_quant_backend:
         reset_counters()
         # Set "prepare_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
@@ -597,13 +745,25 @@ def prepare_pt2e(
         habana_pt2e_quant_context.set_model(model)
         habana_pt2e_quant_context.set_quantizer(quantizer)
 
-        model.graph = habana_pt2e_quant_context.extract_graphs(prepared=True)
-        model.multi_graph = True
+        habana_pt2e_quant_context.set_misc_attributes(model, prepared=True)
+        model.pt2e_quant_backend = True
+        id_model = hash((id(model), type(model).__name__))
+        export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
+        if hasattr(model, "_orig_mod") and isinstance(model._orig_mod, torch.fx.GraphModule):
+            model = model._orig_mod
+
         model = _native_pt2e_quantization_interface("prepare_pt2e")(model, quantizer)
         logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
-        model.multi_graph = False
+
+        # Now we call hpu_inference_compiler to convert it into synapse graph.
+        with torch.no_grad():
+            model = torch.compile(model, backend="hpu_backend")
+
+        model.pt2e_quant_backend = False
+        id_model = hash((id(model), type(model).__name__))
+        export_model_record[id_model] = [model, None]
         return model
 
 
@@ -620,8 +780,9 @@ def convert_pt2e(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [convert_pt2e]")
 
-    multi_graph = getattr(model, "multi_graph", False)
-    if multi_graph:
+    global export_model_record
+    use_pt2e_quant_backend = getattr(model, "pt2e_quant_backend", False)
+    if use_pt2e_quant_backend:
         reset_counters()
         # Set "convert_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
@@ -659,15 +820,31 @@ def convert_pt2e(
         habana_pt2e_quant_context.set_model(model)
         habana_pt2e_quant_context.set_convert_settings(use_reference_representation, False)
 
-        model.graph = habana_pt2e_quant_context.extract_graphs(converted=True)
-        model.multi_graph = True
+        habana_pt2e_quant_context.set_misc_attributes(model, converted=True)
+        model.pt2e_quant_backend = True
+        id_model = hash((id(model), type(model).__name__))
+        export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
+        if hasattr(model, "_orig_mod") and isinstance(model._orig_mod, torch.fx.GraphModule):
+            model = model._orig_mod
+
         model = _native_pt2e_quantization_interface("convert_pt2e")(
             model, use_reference_representation, fold_quantize=fold_quantize
         )
         logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
-        model.multi_graph = False
+
+        if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
+            replacer = PatternMatchAndReplacer(model)
+            replacer.run()
+
+        # Now we call hpu_inference_compiler to convert it into synapse graph.
+        with torch.no_grad():
+            model = torch.compile(model, backend="hpu_backend")
+
+        model.pt2e_quant_backend = False
+        id_model = hash((id(model), type(model).__name__))
+        export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
 
 
@@ -719,7 +896,7 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     else None
                 )
                 if not weight_dequant_node:
-                    logger.debug("Weight pattern match failed")
+                    logger.debug("dump_scale: Weight pattern match failed")
                     continue
                 weight_quant_node = weight_dequant_node.args[0]
                 input_dequant_node = None
@@ -731,7 +908,7 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                 elif is_node(gemm_node.args[input_idx], "dequantize_per_tensor.default"):
                     input_dequant_node = gemm_node.args[input_idx]
                 if not input_dequant_node:
-                    logger.debug("Input pattern match failed")
+                    logger.debug("dump_scale: Input pattern match failed")
                     continue
                 input_quant_node = input_dequant_node.args[0]
                 dump_input_scale_attr = torch.tensor(input_quant_node.args[1], device="hpu")
@@ -906,7 +1083,7 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                 )
 
                 if not weight_dequant_node:
-                    logger.debug("Weight pattern match failed")
+                    logger.debug("load_scale: Weight pattern match failed")
                     continue
 
                 weight_quant_node = weight_dequant_node.args[0]
@@ -921,7 +1098,7 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                     input_dequant_node = gemm_node.args[input_idx]
 
                 if not input_dequant_node:
-                    logger.debug("Input pattern match failed")
+                    logger.debug("load_scale: Input pattern match failed")
                     continue
 
                 count = count + 1
@@ -1019,20 +1196,24 @@ def save_pt2e(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [save_pt2e]")
 
-    multi_graph = getattr(model, "multi_graph", False)
-    logger.debug(f"[save_pt2e] Multi graph: {multi_graph}")
+    use_pt2e_quant_backend = getattr(model, "pt2e_quant_backend", False)
+    logger.debug(f"[save_pt2e] Habana PT2E Quant backend used? {use_pt2e_quant_backend}")
 
-    if multi_graph:
+    if use_pt2e_quant_backend:
         reset_counters()
         global habana_pt2e_quant_context
         org_model = habana_pt2e_quant_context.get_original_model()
-        org_model.multi_graph = True
+        org_model.pt2e_quant_backend = True
+
+        dir_name = os.path.dirname(f)
+
+        saved_model_filename = f"{f}"
+        if os.path.isdir(f):
+            saved_model_filename = os.path.join(dir_name, "pt2e_quant_model.pt2")
 
         # save original model
         # ToDo: explore to save org model with out state dict
-        torch.save(org_model, f"{f}")
-
-        dir_name = os.path.dirname(f)
+        torch.save(org_model, saved_model_filename)
 
         use_export_program = bc.get_pt_hpu_pt2eq_use_export_program()
         if not use_export_program:
@@ -1082,21 +1263,14 @@ def save_pt2e(
             torch.save(fx_module_hashkeys, hashkeys_filename)
             logger.debug("[save_pt2e] Export Program Dump Completed.")
     else:
+        if hasattr(model, "_orig_mod") and isinstance(model._orig_mod, torch.fx.GraphModule):
+            model = model._orig_mod
+
         with torch.no_grad():
             _native_pt2e_quantization_interface("save_pt2e")(
                 model, f, extra_files=extra_files, opset_version=opset_version
             )
         return
-
-
-# Model wrapper to support module method incase of torch.export.load for multi-graph scenario
-class ModelWrapper(torch.nn.Module):
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
-
-    def module(self):
-        return self.model
 
 
 # ======================================================================================
@@ -1115,11 +1289,11 @@ def load_pt2e(
 
     # load original model
     # weights_only flag is True by default from PT2.6 onwards, Hence explicitly setting it as False
-    model = torch.load(f"{f}", weights_only=False)
-    multi_graph = getattr(model, "multi_graph", False)
-    logger.debug(f"[load_pt2e] Multi graph: {multi_graph}")
+    model = torch.load(f"{f}", weights_only=False).to(device="hpu")
+    use_pt2e_quant_backend = getattr(model, "pt2e_quant_backend", False)
+    logger.debug(f"[load_pt2e] Habana PT2E Quant backend used? {use_pt2e_quant_backend}")
 
-    if multi_graph:
+    if use_pt2e_quant_backend:
         reset_counters()
         org_model = model
         id_org_model = hash((id(org_model), type(org_model).__name__))
@@ -1143,6 +1317,7 @@ def load_pt2e(
         )
         model.meta_hb_quant_id = model_key
         habana_pt2e_quant_context.set_model(model)
+        habana_pt2e_quant_context.extract_graph_info_from_loaded_model()
 
         quantizer = None
         dir_name = os.path.dirname(f)
@@ -1158,7 +1333,7 @@ def load_pt2e(
                 exported_program_filename = os.path.join(dir_name, f"{key}.pt2")
                 with torch.no_grad():
                     exported_fx_graph = _native_pt2e_quantization_interface("load_pt2e")(exported_program_filename)
-                del exported_fx_graph._example_inputs
+                exported_fx_graph._example_inputs = ()
                 ep_dict[key] = exported_fx_graph
                 logger.debug(f"loading exported program from file {exported_program_filename}")
             habana_pt2e_quant_context.initialize_ep_dict(ep_dict)
@@ -1183,18 +1358,25 @@ def load_pt2e(
 
         habana_quantization_map_queue[model_key].append({"task": "inference_after_load", "dir_path": dir_name})
 
-        model.graph = ""
-        model.multi_graph = True
+        model.pt2e_quant_backend = True
         logger.debug("LOADING All export program COMPLETED !!!")
-        # ModelWrapper module() method will return the original model
-        return ModelWrapper(model)
+
+        habana_pt2e_quant_context.set_misc_attributes(model, converted=True)
+        return model
     else:
         with torch.no_grad():
             model = _native_pt2e_quantization_interface("load_pt2e")(
                 f, extra_files=extra_files, expected_opset_version=expected_opset_version
             )
+
         logger.debug(f"Graph after pt2e load:\n {model.graph}")
-        model.multi_graph = False
+
+        # Now we call hpu_inference_compiler to convert it into synapse graph.
+        with torch.no_grad():
+            model = torch.compile(model.module(), backend="hpu_backend")
+
+        model.module = types.MethodType(lambda m: m, model)
+        model.pt2e_quant_backend = False
         return model
 
 

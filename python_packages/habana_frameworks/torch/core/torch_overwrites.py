@@ -34,7 +34,9 @@ from habana_frameworks.torch.utils.internal import is_lazy
 
 import torch
 from torch.distributed.constants import default_pg_timeout
+from torch.export.exported_program import ExportedProgram
 from torch.functional import Tensor
+from torch.fx import GraphModule
 
 LAZY_DEFAULT_PROTOCOL = 4
 
@@ -562,7 +564,8 @@ def overwrite_torch_functions():
 # The fields that hold the implementations are set when overwrite_native_pt2e_quantization_interface() is called
 class NativeFunctions:
     org_export = None
-    _did_overwrite_export_function = False
+    org_export_for_training = None
+    _did_overwrite_export_functions = False
     org_prepare_pt2e = None
     org_convert_pt2e = None
     org_save_pt2e = None
@@ -582,11 +585,13 @@ def _native_pt2e_quantization_interface(name):
         ]
     ):
         overwrite_native_pt2e_quantization_interface()
-    if NativeFunctions.org_export is None:
-        overwrite_export_function()
+
+    if NativeFunctions.org_export is None or NativeFunctions.org_export_for_training is None:
+        overwrite_export_functions()
 
     return {
-        "export": NativeFunctions.org_export,
+        "export.export": NativeFunctions.org_export,
+        "export.export_for_training": NativeFunctions.org_export_for_training,
         "prepare_pt2e": NativeFunctions.org_prepare_pt2e,
         "convert_pt2e": NativeFunctions.org_convert_pt2e,
         "save_pt2e": NativeFunctions.org_save_pt2e,
@@ -594,26 +599,47 @@ def _native_pt2e_quantization_interface(name):
     }.get(name)
 
 
-def overwrite_export_function():
+def overwrite_export_functions():
     # calling this function more than one time makes the wrapper wrap itself, causing infinite recursion, hence the guard to make sure it doesn't happen
-    if NativeFunctions._did_overwrite_export_function:
+    if NativeFunctions._did_overwrite_export_functions:
         return
 
-    NativeFunctions._did_overwrite_export_function = True
-    NativeFunctions.org_export = torch.export.export_for_training
+    NativeFunctions._did_overwrite_export_functions = True
 
-    # wrap export_for_training
+    NativeFunctions.org_export = torch.export.export
+    NativeFunctions.org_export_for_training = torch.export.export_for_training
+
+    from habana_frameworks.torch.core.quantize_pt2e import export as habana_export
+
+    # add export_type field in kwargs
+    def add_export_type_kwargs(kwargs, type_name):
+        if not kwargs:
+            kwargs = {"export_type": type_name}
+        else:
+            kwargs.update({"export_type": type_name})
+        return kwargs
+
+    # wrap torch.export.export
+    @wraps(torch.export.export)
+    def wrap_export(
+        f: torch.nn.Module,
+        args: tuple[Any] = None,
+        kwargs: dict[str, Any] | None = None,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
+    ) -> torch.nn.Module | ExportedProgram | GraphModule:
+        return habana_export(f, args, add_export_type_kwargs(kwargs, "export.export"), dynamic_shapes)
+
+    # wrap torch.export.export_for_training
     @wraps(torch.export.export_for_training)
     def wrap_export_for_training(
         f: torch.nn.Module,
         args: tuple[Any] = None,
         kwargs: dict[str, Any] | None = None,
         dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
-    ) -> torch.nn.Module:
-        from habana_frameworks.torch.core.quantize_pt2e import export
+    ) -> torch.nn.Module | ExportedProgram | GraphModule:
+        return habana_export(f, args, add_export_type_kwargs(kwargs, "export.export_for_training"), dynamic_shapes)
 
-        return export(f, args, kwargs, dynamic_shapes)
-
+    torch.export.export = wrap_export
     torch.export.export_for_training = wrap_export_for_training
 
 

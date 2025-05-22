@@ -237,17 +237,40 @@ class habana_quantizer(Quantizer):
                 for p in partitions:
                     act_node = p.input_nodes[0]
                     output_node = p.output_nodes[0]
+                    assert output_node.op == "call_function"
                     weight_node = None
                     bias_node = None
-                    for node in p.params:
-                        try:
-                            weight_or_bias = getattr(gm, node.target)  # type: ignore[arg-type]
-                        except:
-                            continue
-                        if weight_or_bias.ndim == 2:  # type: ignore[attr-defined]
-                            weight_node = node
-                        if weight_or_bias.ndim == 1:  # type: ignore[attr-defined]
-                            bias_node = node
+
+                    if output_node.target in [
+                        torch.ops.aten.view.default,
+                        torch.ops.aten._unsafe_view.default,
+                    ]:
+                        output_node = output_node.args[0]
+
+                    if output_node.target in [
+                        torch.ops.aten.linear.default,
+                    ]:
+                        weight_node = output_node.args[1]
+                        if len(output_node.args) > 2:
+                            bias_node = output_node.args[2]
+
+                    if output_node.target in [
+                        torch.ops.aten.mm.default,
+                        torch.ops.aten.addmm.default,
+                    ]:
+                        transpose_node = None
+                        for node in p.nodes:
+                            if node.op == "call_function" and node.target in [
+                                torch.ops.aten.transpose.int,
+                            ]:
+                                transpose_node = node
+                                break
+                        assert transpose_node is not None
+                        weight_node = transpose_node.args[0]
+                        for node in p.params:
+                            if node.op == "get_attr" and (node != weight_node):
+                                bias_node = node
+                                break
 
                     if weight_node is None:
                         logger.warn("No weight found in Linear pattern")
