@@ -129,8 +129,6 @@ def fp8_sdpa_fwd_wrapper(
     if scale is None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
-    assert softmax_mode != "fp32", "softmax_mode == fp32 is not supported in fp8 flow"
-
     if requires_backward:
         assert is_causal, "Fp8 FusedSDPA in training only supports Triangular mask"
         if recompute is None:
