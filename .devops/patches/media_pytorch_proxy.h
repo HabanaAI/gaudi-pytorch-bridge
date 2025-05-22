@@ -1,6 +1,6 @@
 #pragma once
-#include <stdlib.h>
 #include <unistd.h>
+#include <cstdlib>
 #include <iostream>
 #include <queue>
 #include "synapse_api.h"

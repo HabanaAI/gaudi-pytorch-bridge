@@ -14,7 +14,7 @@
  */
 
 #pragma once
-#include <string.h>
+#include <cstring>
 #include <string_view>
 #include <vector>
 

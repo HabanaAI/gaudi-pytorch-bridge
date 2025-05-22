@@ -14,7 +14,7 @@
  */
 
 #include "backend/synapse_helpers/tcmalloc_helper.h"
-#include <stdlib.h>
+#include <cstdlib>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace synapse_helpers {

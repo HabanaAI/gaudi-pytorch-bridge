@@ -16,10 +16,10 @@
 #include "backend/profiling/trace_sources/trace_parser.h"
 #include <sys/time.h>
 #include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 #include <chrono>
 #include <cmath>
+#include <ctime>
 #include <list>
 #include <string_view>
 #include <unordered_set>

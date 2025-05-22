@@ -15,12 +15,12 @@
 #include "backend/synapse_helpers/device.h"
 #include <absl/types/variant.h>
 #include <hl_logger/hllog_core.hpp>
-#include <inttypes.h>
-#include <stdlib.h>
 #include <synapse_api.h>
 #include <algorithm>
 #include <chrono>
+#include <cinttypes>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <ostream>
 #include <sstream>

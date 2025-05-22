@@ -16,7 +16,7 @@
 #include "misc_utils.h"
 #include <ATen/Tensor.h>
 #include <dlfcn.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include "habana_helpers/logging.h"
 
 using JoinPendingPipelineThreadsFunc = void (*)(void);

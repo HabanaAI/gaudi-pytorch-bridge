@@ -14,7 +14,7 @@
  */
 #include <immintrin.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
 #include <x86intrin.h>
 #include <climits>

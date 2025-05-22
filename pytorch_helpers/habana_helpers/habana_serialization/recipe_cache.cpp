@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "recipe_cache.h"
-#include <errno.h>
 #include <fcntl.h>
 #include <synapse_api.h>
 #include <synapse_common_types.h>

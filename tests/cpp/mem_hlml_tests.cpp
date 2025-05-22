@@ -15,8 +15,8 @@
 
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <stdio.h>
 #include <unistd.h>
+#include <cstdio>
 #include <memory>
 #include <stdexcept>
 #include "backend/synapse_helpers/mem_hlml.h"

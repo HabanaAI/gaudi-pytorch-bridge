@@ -14,15 +14,15 @@
  */
 
 #include "mem_hlml.h"
-#include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
 #include <synapse_api.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <time.h>
 #include <unistd.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace synapse_helpers {

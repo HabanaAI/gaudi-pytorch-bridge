@@ -14,13 +14,13 @@
  */
 #include "habana_serialization/inter_host_cache.h"
 #include <arpa/inet.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <queue>
 #include <sstream>
 #include <string>
