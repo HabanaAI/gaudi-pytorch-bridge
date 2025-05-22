@@ -11,16 +11,6 @@ def isPrimaryOS = env.IS_PRIMARY_OS ? Boolean.valueOf(env.IS_PRIMARY_OS) : true
 def user_install = env.runInDocker == 'true' ? '' : '--user'
 def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL', 'PT_FORK']
 
-String releaseVersion = extractReleaseVersion()
-def testBuildOsMap = [
-    "rh86" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:rhel8.6-${releaseVersion}",
-    "tc3" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:tencentos3.1-${releaseVersion}",
-    "u24" : "artifactory-kfs.habana-labs.com/devops-docker-local/habana-builder-pt:ubuntu24.04-${releaseVersion}"
-]
-
-if (testBuildOsMap.keySet().contains(env.OS_SHORT_NAME)) {
-    env.dockerImage = testBuildOsMap[env.OS_SHORT_NAME]
-}
 def preBuildStages = [
     'Install Python build dependencies': { util ->
         util.runShellCommandWrapper("""
