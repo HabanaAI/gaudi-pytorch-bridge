@@ -2,6 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "_deform_conv2d_backward.h"
+#include "ind2ptr.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
 #include "quantize_per_channel.h"
@@ -50,6 +51,14 @@ struct Gen_deform_conv2d_backward : DeformConv2dBackward {
   }
 };
 
+struct Genind2ptr : OpBackend {
+  Genind2ptr(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "ind2ptr", scalar_type, {0}, {}, {}, false) {
+        SetOutputMetaFn(Ind2ptrMeta);
+        SetFillParams(FillInd2ptrParams);
+  }
+};
+
 
 
 static const auto& kr_gen_9 = KernelRegistry()
@@ -57,6 +66,7 @@ static const auto& kr_gen_9 = KernelRegistry()
 .REGISTER_HPU_BACKEND("aten::linear_backward", Genlinear_backward)
 .REGISTER_HPU_BACKEND("quantized_decomposed::quantize_per_channel", Genquantize_per_channel)
 .REGISTER_HPU_BACKEND("torchvision::_deform_conv2d_backward", Gen_deform_conv2d_backward)
+.REGISTER_HPU_BACKEND("torch_sparse::ind2ptr", Genind2ptr)
 ;
 
 

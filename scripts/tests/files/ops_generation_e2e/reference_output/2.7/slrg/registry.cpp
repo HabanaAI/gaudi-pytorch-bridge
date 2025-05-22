@@ -25,11 +25,13 @@ static SchemaStackGenerator stack_generator_bucketize_Scalar("Scalar self, Tenso
 static SchemaStackGenerator stack_generator_elu("Tensor self, Scalar alpha, Scalar scale, Scalar input_scale", "elu", "elu");
 static SchemaStackGenerator stack_generator__foreach_log10_("Tensor[] self", "_foreach_log10_", "_foreach_log10_");
 static SchemaStackGenerator stack_generator_exp_fast_math("Tensor self", "exp_fast_math", "exp_fast_math");
+static SchemaStackGenerator stack_generator_ind2ptr("Tensor ind, int M", "ind2ptr", "ind2ptr");
 static CustomSharedLayerExecutor shared_layer_executor_addbmm(&stack_generator_addbmm, &habana::validator_addbmm);
 static GenericSharedLayerExecutor shared_layer_executor_bucketize_Scalar(&stack_generator_bucketize_Scalar, &habana::validator_bucketize_Scalar);
 static GenericSharedLayerExecutor shared_layer_executor_elu(&stack_generator_elu, &habana::validator_elu);
 static CustomSharedLayerExecutor shared_layer_executor__foreach_log10_(&stack_generator__foreach_log10_, &habana::validator__foreach_log10_);
 static GenericSharedLayerExecutor shared_layer_executor_exp_fast_math(&stack_generator_exp_fast_math, &habana::validator_exp_fast_math);
+static GenericSharedLayerExecutor shared_layer_executor_ind2ptr(&stack_generator_ind2ptr, &habana::validator_ind2ptr);
 void register_auto_generated_executors(slrg::ISharedLayerReportGenerator* report_generator) {
   report_generator->register_op({"addbmm", "addbmm", "torch"}, &shared_layer_executor_addbmm);
   report_generator->register_op({"addbmm", "addbmm", "torch.Tensor"}, &shared_layer_executor_addbmm);
@@ -38,6 +40,7 @@ void register_auto_generated_executors(slrg::ISharedLayerReportGenerator* report
   report_generator->register_op({"elu", "elu", "torch.nn.functional"}, &shared_layer_executor_elu);
   report_generator->register_op({"_foreach_log10_", "_foreach_log10_", "torch"}, &shared_layer_executor__foreach_log10_);
   report_generator->register_op({"exp_fast_math", "exp_fast_math", "torch.hpu"}, &shared_layer_executor_exp_fast_math);
+  report_generator->register_op({"ind2ptr", "ind2ptr", "torch.torch_sparse"}, &shared_layer_executor_ind2ptr);
 }
 }  // namespace slrg
 

@@ -101,6 +101,7 @@ add_habana_library(
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_quant.cpp
+  ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torch_sparse.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torchvision.cpp
   ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp)
 

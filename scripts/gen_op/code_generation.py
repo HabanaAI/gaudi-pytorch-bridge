@@ -511,25 +511,7 @@ class TensorFetcher:
         return self.tensors
 
 
-inplace_params_blocklist = [
-    "_native_batch_norm_legit",
-]
-
-# SW-212132
-inplace_params_blocklist_dict = {
-    "rrelu_with_noise": "noise",
-    "rrelu_with_noise_": "noise",
-    "rrelu_with_noise_out": "noise",
-}
-
-
-def should_skip_inplace_params(fname, pname):
-    return fname in inplace_params_blocklist or (
-        fname in inplace_params_blocklist_dict.keys() and inplace_params_blocklist_dict[fname] == pname
-    )
-
-
-def parse_params(params, fname, rtype, fc, funsig, out_ids):
+def parse_params(params, rtype, fc, funsig, out_ids, should_skip_inplace_param_fn):
     param_vars = []
     call_args = []
     out_indices = []
@@ -546,7 +528,7 @@ def parse_params(params, fname, rtype, fc, funsig, out_ids):
 
         if cptype == "at::Tensor":
             tfetcher.add(pname)
-            if not parser.type_is_const(ptype) and not should_skip_inplace_params(fname, pname):
+            if not parser.type_is_const(ptype) and not should_skip_inplace_param_fn(pname):
                 call_args.append(pname)
                 out_indices.append(i)
 
@@ -1073,7 +1055,7 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         op_params["inplace_ids"] if isinstance(op_params, dict) and "inplace_ids" in op_params.keys() else None
     )
     param_vars, call_args, out_indices, fc_params, tfetcher = parse_params(
-        params, fname, rtype, ctxop.get_fallback_check(), funsig, out_indices
+        params, rtype, ctxop.get_fallback_check(), funsig, out_indices, ctxop.should_skip_inplace_param
     )
 
     op_backend = None
@@ -1212,8 +1194,10 @@ def create_funcdef(fndef, jdata):
     )
 
 
-def fndef_from_schema(schema):
-    cpp_sig = cpp_from_schema(schema)
+def fndef_from_schema(schema, cpp_sig):
+    if cpp_sig is None:
+        cpp_sig = cpp_from_schema(schema)
+
     return constants.FuncDef(
         cpp_sig=cpp_sig,
         aten_sig=schema,
@@ -1487,8 +1471,7 @@ def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
             op_groups = set()
 
     if is_custom:
-        namespace_to_postfix = {"hpu": "_custom", "quantized_decomposed": "_quant", "torchvision": "_torchvision"}
-        file_postfix = namespace_to_postfix[namespace]
+        file_postfix = constants.NAMESPACE_TO_POSTFIX[namespace]
         print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, file_postfix, out_dir, args, namespace)
 
     frontend_class_headers = {}
@@ -1679,6 +1662,7 @@ def generate(args):
     fgens_custom = []
     fgens_quant = []
     fgens_torchvision = []
+    fgens_torch_sparse = []
     fgens_autograd = []
 
     check_op_params(yaml_ctx.get_op_data())
@@ -1693,11 +1677,13 @@ def generate(args):
             if fndef.dtdf or ctxop.treat_as_dtdf():
                 fgens_hpu_wrap_eager.append(op_meta)
         elif ctxop.get_custom_op_schema():
-            fndef = fndef_from_schema(ctxop.get_custom_op_schema())
+            fndef = fndef_from_schema(ctxop.get_custom_op_schema(), ctxop.get_custom_cpp_sig())
             namespace = re.search(r"^(.*)::", ctxop.get_custom_op_schema()).group(1)
             generated = generate_op(fndef, op_name, ctxop, op_params, ns=namespace)
             if namespace == "torchvision":
                 fgens_torchvision.append(generated)
+            elif namespace == "torch_sparse":
+                fgens_torch_sparse.append(generated)
             elif namespace == "quantized_decomposed":
                 fgens_quant.append(generated)
             else:
@@ -1715,7 +1701,7 @@ def generate(args):
 
     generate_autocast_ops(all_ops_metas, args)
 
-    generate_backend(args, fgens_native + fgens_quant + fgens_torchvision)
+    generate_backend(args, fgens_native + fgens_quant + fgens_torchvision + fgens_torch_sparse)
     generate_backend(args, fgens_custom, is_custom=True)
 
     op_validator_map = {}
@@ -1724,6 +1710,7 @@ def generate(args):
         generate_frontend(args, fgens_custom, op_validator_map, mode, namespace="hpu")
         generate_frontend(args, fgens_quant, op_validator_map, mode, namespace="quantized_decomposed")
         generate_frontend(args, fgens_torchvision, op_validator_map, mode, namespace="torchvision")
+        generate_frontend(args, fgens_torch_sparse, op_validator_map, mode, namespace="torch_sparse")
 
     generate_slrg_files(args, op_validator_map)
     generate_autograd_ops(args, fgens_autograd)
@@ -2162,7 +2149,7 @@ def generate_check_kernel_support(args):
                 op_meta = generate_op_meta(fndef.cpp_sig, op_name, op_params)
                 fgens_hpu_wrap.append(op_meta)
             elif ctxop.get_custom_op_schema():
-                fndef = fndef_from_schema(ctxop.get_custom_op_schema())
+                fndef = fndef_from_schema(ctxop.get_custom_op_schema(), ctxop.get_custom_cpp_sig())
                 fgen_custom = generate_op(fndef, op_name, ctxop, op_params, True)
                 fgens_custom.append(fgen_custom)
             else:

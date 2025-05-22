@@ -53,6 +53,9 @@
 #  - autograd - used to register backward support for operator
 #  - treat_as_dtdf - used to generate op in eager mode even if it is not dfdt.
 #  - handle_output_mask - used to return 0-D tensors at positions in output_mask where bits are set to 0 (for backward operators that get output_mask bool array).
+#  - custom_cpp_sig - allows specifying a custom C++ signature for the operator; use only if the automatically generated signature is incorrect
+#      e.g. for torch_scatter.ind2ptr, the C++ signature in torch_scatter uses at::Tensor instead of const at::Tensor&, so the operator cannot be called with const at::Tensor&.
+#  - treat_as_non_inplace - marks a parameter as non-inplace when the C++ signature requires a non-const tensor argument.
 
 _assert_async:
   guid: assert_async
@@ -5677,6 +5680,7 @@ _native_batch_norm_legit:
   op_backend: BatchNormOpBackend
   out_ids: [0, 0, 0]
   op_validator_exception: not implemented yet
+  treat_as_non_inplace: ["running_mean", "running_var"]
 
 _native_batch_norm_legit_no_training:
   custom_fill_params: FillBatchNormNoTrainingFwdParams
@@ -6664,6 +6668,7 @@ rrelu_with_noise:
   pytorch_module_names: [RReLU]
   overwritten_op_names_in_slrg: [rrelu]
   op_validator: RreluWithNoiseSharedMeta
+  treat_as_non_inplace: ["noise"]
 
 rrelu_with_noise_:
   op_frontend: GeneratorToSeed
@@ -6674,6 +6679,7 @@ rrelu_with_noise_:
   pytorch_module_names: [RReLU]
   overwritten_op_names_in_slrg: [rrelu_]
   op_validator: RreluWithNoiseSharedMeta
+  treat_as_non_inplace: ["noise"]
 
 rrelu_with_noise.out:
   op_frontend: GeneratorToSeedOut
@@ -6683,6 +6689,7 @@ rrelu_with_noise.out:
   pytorch_module_names: [RReLU]
   overwritten_op_names_in_slrg: [rrelu]
   op_validator: RreluWithNoiseSharedMeta
+  treat_as_non_inplace: ["noise"]
 
 rrelu_with_noise_backward:
   op_backend: Rrelu_with_noise_bwd
@@ -9339,6 +9346,17 @@ mamba_pscan_update:
   out_ids: [0]
   output_meta: MambaPscanUpdateMeta
   op_validator_exception: custom_op
+
+ind2ptr:
+  custom_op_schema: "torch_sparse::ind2ptr(Tensor ind, int M) -> Tensor"
+  custom_cpp_sig: "at::Tensor ind2ptr(at::Tensor ind, int64_t M)"
+  custom_fill_params: FillInd2ptrParams
+  guid: ind2ptr
+  out_ids: [0]
+  output_meta: Ind2ptrMeta
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.torch_sparse]
+  treat_as_non_inplace: ["ind"]
 
 fused_clip_norm:
   custom_op_schema: "hpu::fused_clip_norm(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor"

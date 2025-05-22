@@ -31,6 +31,7 @@ set(GENERATED_FILES
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
+    ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torch_sparse.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torchvision.cpp
     ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op0.cpp
@@ -45,6 +46,7 @@ set(GENERATED_FILES
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_quant.cpp
+    ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torch_sparse.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_torchvision.cpp
     ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp
     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
@@ -166,6 +168,7 @@ add_habana_library(
   backend/hpu_op_helper.cpp
   backend/huber_loss_gen.cpp
   backend/im2col_gen.cpp
+  backend/ind2ptr_gen.cpp
   backend/index_add_gen.cpp
   backend/index_copy_gen.cpp
   backend/index_reduce_gen.cpp
@@ -395,6 +398,7 @@ add_habana_library(
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_custom.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_quant.cpp
+  ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torch_sparse.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op_torchvision.cpp
   ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp)
 target_include_directories(habana_pytorch_frontend_ops PUBLIC ${PROJECT_SOURCE_DIR})

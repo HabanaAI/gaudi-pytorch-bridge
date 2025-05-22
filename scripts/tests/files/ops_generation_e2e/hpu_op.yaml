@@ -184,6 +184,7 @@ _native_batch_norm_legit:
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   op_validator_exception: not implemented yet
+  treat_as_non_inplace: ["running_mean", "running_var"]
 
 convolution_backward_overrideable:
   output_meta: ConvolutionOverrideableMetaBwd
@@ -256,3 +257,14 @@ _foreach_log10_:
   only_slrg: true
   namespaces: [torch]
   op_validator: UnaryForeachLog10SharedMeta
+
+ind2ptr:
+  custom_op_schema: "torch_sparse::ind2ptr(Tensor ind, int M) -> Tensor"
+  custom_cpp_sig: "at::Tensor ind2ptr(at::Tensor ind, int64_t M)"
+  custom_fill_params: FillInd2ptrParams
+  guid: ind2ptr
+  out_ids: [0]
+  output_meta: Ind2ptrMeta
+  op_validator: check-node-with-shared-layer
+  namespaces: [torch.torch_sparse]
+  treat_as_non_inplace: ["ind"]

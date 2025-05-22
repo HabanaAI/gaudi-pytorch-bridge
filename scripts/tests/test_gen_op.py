@@ -257,9 +257,9 @@ def test_parse_params(cpp_sig, out_indices, expected_results):
     rtype = parser.get_return_type_str(xtree, cpp_sig)
     funsig = parser.create_stdfunc_sig(xtree, cpp_sig)
 
-    _, fname, _ = parser.get_function_signature(xtree, cpp_sig, lambda x: f"{x}")
-
-    param_vars, call_args, out_indices, fc_params, _ = parse_params(params, fname, rtype, [], funsig, out_indices)
+    param_vars, call_args, out_indices, fc_params, _ = parse_params(
+        params, rtype, [], funsig, out_indices, lambda x: False
+    )
 
     assert param_vars == expected_results["param_vars"]
     assert call_args == expected_results["call_args"]

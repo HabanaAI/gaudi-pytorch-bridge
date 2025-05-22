@@ -133,6 +133,9 @@ class Op:
     def get_custom_op_schema(self):
         return self.op.get("custom_op_schema", None)
 
+    def get_custom_cpp_sig(self):
+        return self.op.get("custom_cpp_sig", None)
+
     def get_is_custom_op_out_variant(self):
         return self.op.get("is_custom_op_out_variant", False)
 
@@ -179,6 +182,10 @@ class Op:
 
     def set_lazy(self):
         self.mode = "lazy"
+
+    def should_skip_inplace_param(self, pname: str) -> bool:
+        non_inplace_params = self.op.get("treat_as_non_inplace", [])
+        return pname in non_inplace_params
 
     @lazy_support
     def get_acc_thread(self):

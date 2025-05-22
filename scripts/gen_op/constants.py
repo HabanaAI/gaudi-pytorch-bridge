@@ -112,6 +112,8 @@ AVAILABLE_FIELDS = {
     "treat_as_dtdf",
     "op_validator_exception",
     "handle_output_mask",
+    "custom_cpp_sig",
+    "treat_as_non_inplace",
 }
 
 
@@ -125,4 +127,11 @@ CP_TYPE_CHECK_MAP = {
     "at::TensorList": "isTensorList",
     "::std::optional<at::ArrayRef>": "isList",
     "at::IntArrayRef": "isList",
+}
+
+NAMESPACE_TO_POSTFIX = {
+    "hpu": "_custom",
+    "quantized_decomposed": "_quant",
+    "torchvision": "_torchvision",
+    "torch_sparse": "_torch_sparse",
 }
