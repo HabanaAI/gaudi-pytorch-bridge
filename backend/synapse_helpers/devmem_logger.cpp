@@ -204,11 +204,11 @@ std::string deviceMallocData::get_formatted_func_name(
     *dot_marker_placed = false;
     if (status == 0) {
       std::string demang_name(demangled_name);
-      demang_name = demang_name.substr(0, demang_name.find("("));
+      demang_name = demang_name.substr(0, demang_name.find('('));
       out_name += ("    " + demang_name + "\n");
     } else {
       std::string name_(name);
-      name_ = name_.substr(0, name_.find("("));
+      name_ = name_.substr(0, name_.find('('));
       out_name += ("    " + name_ + "\n");
     }
   } else {

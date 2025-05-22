@@ -15,6 +15,7 @@
 #include <hl_logger/hllog_core.hpp>
 #include <synapse_api.h>
 #include <torch/extension.h>
+#include <cstdint>
 #include <map>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUGuardImpl.h"
@@ -30,7 +31,7 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/misc_utils.h"
 
-enum log_level {
+enum log_level : std::uint8_t {
   TRACE = HLLOG_LEVEL_TRACE,
   DEBUG = HLLOG_LEVEL_DEBUG,
   INFO = HLLOG_LEVEL_INFO,

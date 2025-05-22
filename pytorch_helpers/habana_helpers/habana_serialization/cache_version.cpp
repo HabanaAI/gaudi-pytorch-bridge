@@ -140,7 +140,7 @@ std::string CacheVersion::libs_env_hash() {
 
   if (IS_ENV_FLAG_DEFINED_NEW(GC_KERNEL_PATH)) {
     std::string gc_kernel_path = GET_ENV_FLAG_NEW(GC_KERNEL_PATH);
-    auto foundComma = gc_kernel_path.find(":");
+    auto foundComma = gc_kernel_path.find(':');
     if (foundComma != std::string::npos) {
       // GC_KERNEL_PATH can be a list of paths to libs, comma separated, need to
       // hash them all
@@ -154,7 +154,7 @@ std::string CacheVersion::libs_env_hash() {
             gc_kernel_path.begin() + static_cast<difference_type>(foundComma) +
                 1,
             gc_kernel_path.end());
-        foundComma = gc_kernel_path.find(",");
+        foundComma = gc_kernel_path.find(',');
       } while (foundComma != std::string::npos);
     }
     // if it's a list do/while gets all the paths but the last one, else it's a

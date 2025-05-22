@@ -191,6 +191,7 @@ void format_stack_trace(
     std::ostream& out,
     const std::vector<StackEntry>& entries) {
   std::vector<SourceRange> orig_ranges;
+  orig_ranges.reserve(entries.size());
   // gather original ranges. if we have a situation where we do not have orig
   // ranges for some frames, we still want to report them for the frames we do
   // have,
