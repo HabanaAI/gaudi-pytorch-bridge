@@ -182,22 +182,28 @@ at::Tensor& hpu_wrap::_index_put_impl_(
     const at::Tensor& values,
     bool accumulate,
     bool unsafe) {
-  if ((self.scalar_type() != c10::ScalarType::Float) &&
-      (self.scalar_type() != c10::ScalarType::Int) &&
-      (self.scalar_type() != c10::ScalarType::Long) &&
-      (self.scalar_type() != c10::ScalarType::Char) &&
-      (self.scalar_type() != c10::ScalarType::Bool) &&
-      (self.scalar_type() != c10::ScalarType::BFloat16) &&
-      (self.scalar_type() != c10::ScalarType::Short) &&
-      (self.scalar_type() != c10::ScalarType::Byte) &&
-      (self.scalar_type() != c10::ScalarType::Double) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPUDeviceContext::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
-    return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
-        OpSupportLevel::Value::unsupported_dtype,
-        PARAMS2(self, indices, values, accumulate, unsafe));
-  }
+  switch (self.scalar_type()) {
+    case c10::ScalarType::Float:
+    case c10::ScalarType::Int:
+    case c10::ScalarType::Long:
+    case c10::ScalarType::Char:
+    case c10::ScalarType::Bool:
+    case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Short:
+    case c10::ScalarType::Byte:
+    case c10::ScalarType::Double:
+      break;
+    case c10::ScalarType::Half:
+      if (habana::HPUDeviceContext::get_device().type() ==
+          synDeviceType::synDeviceGaudi)
+        break;
+      [[fallthrough]];
+    default:
+      return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
+          OpSupportLevel::Value::unsupported_dtype,
+          PARAMS2(self, indices, values, accumulate, unsafe));
+  };
+
   if (self.dim() > 5) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_rank,

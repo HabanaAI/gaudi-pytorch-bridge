@@ -162,7 +162,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     PT_DEVMEM_DEBUG(
         "CS_POOL:: use 100% of freepool size, free mem :: ",
         free_mem,
-        "hccl allowance bytes",
+        " hccl allowance bytes",
         hccl_allowance_bytes,
         " size used for pool :: ",
         size);
@@ -348,7 +348,9 @@ bool CoalescedStringentPooling::is_memory_available(size_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
 
   if ((size + bytes_in_use) > max_pool_size) {
-    PT_DEVMEM_DEBUG("total requested memory size::", size, " not available");
+    PT_DEVMEM_DEBUG("total requested memory size:: ", size, " not available");
+    PT_DEVMEM_DEBUG(
+        "bytes_in_use:: ", bytes_in_use, " max_pool_size:: ", max_pool_size);
     return false;
   }
   return true;

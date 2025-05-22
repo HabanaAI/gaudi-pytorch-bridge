@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ size_t device_memory::get_max_cntgs_chunk_size() const {
 
 #define DEFAULT_RECIPE_COUNT 0
 
-// warapper for malloc/free for pool startegy not equal to 5
+// wrapper for malloc/free for pool strategy not equal to 5
 synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
   uint64_t ptr{0};
   synStatus status{synStatus::synSuccess};
@@ -653,7 +653,8 @@ struct HandleMover {
     destination_pointer_ =
         allocator.pool_alloc_chunk(actual_size_, stream_, false);
     if (destination_pointer_ == nullptr) {
-      PT_DEVMEM_DEBUG("destination_pointer_ allocation failed in movers' Allocate");
+      PT_DEVMEM_DEBUG(
+          "destination_pointer_ allocation failed in movers' Allocate");
       PT_DEVMEM_FATAL("OOM: No enough memory for defragment.");
     }
     h2pMap.SetPtrSize(

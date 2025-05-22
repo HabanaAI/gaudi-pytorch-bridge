@@ -360,7 +360,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
 }
 
 IndexPutEager::IndexPutEager(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
+    : OpBackend(device_id, {}, scalar_type, {}, {0}, {}, false) {}
 
 void IndexPutEager::AddNode(
     synapse_helpers::graph& graph,
@@ -552,7 +552,7 @@ void IndexPutEager::AddNode(
 }
 
 IndexPutBoolEager::IndexPutBoolEager(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
+    : OpBackend(device_id, {}, scalar_type, {}, {0}, {}, false) {}
 
 void IndexPutBoolEager::AddNode(
     synapse_helpers::graph& graph,

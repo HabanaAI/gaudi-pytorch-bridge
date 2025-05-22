@@ -389,7 +389,6 @@ at::Tensor& _index_put_impl_eager(
   }
 
   auto only_single_index_tensor = (indices_vec.size() == 1ull);
-  auto self_clone = self;
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
@@ -405,29 +404,34 @@ at::Tensor& _index_put_impl_eager(
     }
   }
 
-  at::Tensor result;
-  if (!advanced_indexing && only_single_index_tensor &&
-      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) &&
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)) {
-    habana::eager::EagerOp<at::Tensor> hpu_op{
-        "hpu::_index_put_impl_bool_eager",
-        {self, indices_vec, value, accumulate}};
-    result = hpu_op.call();
-  } else {
-    habana::eager::EagerOp<at::Tensor> hpu_op{
-        "hpu::_index_put_impl_eager", {self, indices_vec, value, accumulate}};
-    result = hpu_op.call();
-  }
-  self.copy_(result);
+  bool useBoolVariant =
+      (!advanced_indexing && only_single_index_tensor &&
+       (indices_vec[0].scalar_type() == c10::ScalarType::Bool) &&
+       GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED));
+
+  const char* opName = useBoolVariant ? "hpu::_index_put_impl_bool_eager"
+                                      : "hpu::_index_put_impl_eager";
+
+  habana::eager::EagerOp<at::Tensor&> hpu_op{
+      opName, {self, indices_vec, value, accumulate}};
+
+  hpu_op.set_eager_op_info(
+      {eager::eagerOpKind::Inplace,
+       opName,
+       false,
+       false,
+       decltype(eager::EagerOpMetaData::out_indices_){0}});
+
+  hpu_op.call(self);
   return self;
 }
+
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "_index_put_impl_eager(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
-}
-TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "_index_put_impl_bool_eager(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
 }
+
 } // namespace eager
 } // namespace habana
