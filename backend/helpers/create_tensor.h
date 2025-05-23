@@ -116,7 +116,7 @@ synapse_helpers::tensor create_const_tensor(
     const c10::IntArrayRef& stride,
     synapse_helpers::graph& graph,
     bool persistent,
-    int devid,
+    synDeviceId devid,
     const c10::ScalarType dtype,
     void* host_ptr,
     const uint64_t host_ptr_size,

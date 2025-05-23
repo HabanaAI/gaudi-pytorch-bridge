@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,22 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "backend/synapse_helpers/recipe.h"
+#include <absl/types/variant.h>
 #include <synapse_api.h>
 #include <synapse_common_types.h>
-
-#include <absl/types/variant.h>
-#include <algorithm>
 #include <cstdint>
-#include <iterator>
-#include <ostream>
 #include <string>
 #include <vector>
-
-#include "backend/synapse_helpers/device.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/event.h"
-#include "backend/synapse_helpers/recipe.h"
-#include "backend/synapse_helpers/synapse_error.h"
 #include "habana_helpers/logging.h"
 
 namespace synapse_helpers {

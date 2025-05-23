@@ -21,9 +21,11 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <ostream>
 #include <type_traits>
 
@@ -70,7 +72,7 @@ bool check_and_prepare_graph_dir() {
     return true;
   }
 
-  struct stat info {};
+  struct stat info{};
   if (stat(graph_prefix.c_str(), &info) != 0 ||
       !(info.st_mode & S_IFDIR)) { // NOLINT(hicpp-signed-bitwise))
     PT_SYNHELPER_WARN("Cannot create graph dump directory ", graph_prefix);
@@ -315,7 +317,10 @@ void graph::setTensorPermutation(
   PT_SYNHELPER_BEGIN;
   synStatus status = synSuccess;
   synTensorPermutation perm = {};
-  perm.dims = permute_or_empty.size();
+  HABANA_ASSERT(
+      permute_or_empty.size() <= std::numeric_limits<uint8_t>::max(),
+      "Permutation size is too large");
+  perm.dims = static_cast<uint8_t>(permute_or_empty.size());
   for (size_t i = 0; i < perm.dims; i++) {
     perm.permutation[i] = permute_or_empty[i];
   }
@@ -439,8 +444,7 @@ graph::~graph() {
 template <
     typename T,
     typename Alloc,
-    template <typename, typename>
-    class V,
+    template <typename, typename> class V,
     typename std::enable_if<std::negation<typename std::is_same<
         std::string,
         typename V<T, Alloc>::value>::value>::type>::type>
@@ -514,8 +518,8 @@ void graph::add_node(
       graph_handle_,
       inputs.empty() ? nullptr : inputs.data(),
       outputs.empty() ? nullptr : outputs.data(),
-      inputs.size(),
-      outputs.size(),
+      static_cast<uint32_t>(inputs.size()),
+      static_cast<uint32_t>(outputs.size()),
       params,
       params_size,
       node_type.c_str(),
@@ -695,7 +699,7 @@ void graph::query_recipe_tensor_info(
     std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec) {
   auto status = synTensorRetrieveLaunchInfoById(
       recipe_handle.syn_recipe_handle_,
-      tensor_info_vec.size(),
+      static_cast<uint32_t>(tensor_info_vec.size()),
       tensor_info_vec.data());
   HABANA_ASSERT(
       status == synStatus::synSuccess,
@@ -882,11 +886,11 @@ void graph::launch(
       status = synLaunchWithExternalEvents(
           compute_stream,
           inputs_and_outputs_info.data(),
-          inputs_and_outputs_info.size(),
+          static_cast<uint32_t>(inputs_and_outputs_info.size()),
           workspace_buffer,
           recipe_handle.syn_recipe_handle_,
           event_handles.data(),
-          event_handles.size(),
+          static_cast<uint32_t>(event_handles.size()),
           flags);
     }
   }
@@ -1100,8 +1104,8 @@ synStatus graph::set_synapse_control_edges() {
         graph_handle_,
         src_synapse_node_ids_vector.data(),
         dst_synapse_node_ids_vector.data(),
-        src_synapse_node_ids_vector.size(),
-        dst_synapse_node_ids_vector.size());
+        static_cast<uint32_t>(src_synapse_node_ids_vector.size()),
+        static_cast<uint32_t>(dst_synapse_node_ids_vector.size()));
 
     PT_SYNHELPER_DEBUG(
         "Added synapse control edges from node ",
@@ -1127,8 +1131,8 @@ synStatus graph::set_synapse_control_edges_pt(
       graph_handle_,
       src_synapse_node_ids_vector.data(),
       dst_synapse_node_ids_vector.data(),
-      src_synapse_node_ids_vector.size(),
-      dst_synapse_node_ids_vector.size());
+      static_cast<uint32_t>(src_synapse_node_ids_vector.size()),
+      static_cast<uint32_t>(dst_synapse_node_ids_vector.size()));
 
   PT_SYNHELPER_DEBUG(
       "Added synapse control edges from node ",

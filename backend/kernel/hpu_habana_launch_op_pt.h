@@ -22,6 +22,7 @@
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
+#include "backend/kernel/constant_information.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/passes/fuse_collective_view_pass.h"
 #include "pytorch_helpers/low_overhead_profiler/profiler.h"
@@ -102,7 +103,7 @@ class PermutationSetAndSave final : public PermutationInfoSaver {
   PermutationSetAndSave(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph,
       bool is_dynamic_recipe = false)
-      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe){};
+      : jit_graph_(jit_graph), is_dynamic_recipe_(is_dynamic_recipe) {};
   void add_permutation(
       const at::Tensor& tensor,
       uint64_t index,

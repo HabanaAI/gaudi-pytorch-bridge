@@ -77,9 +77,9 @@ class PytorchKernelContext;
 using PytorchKernelContextPtr = std::unique_ptr<PytorchKernelContext>;
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
 using RegisterFunc =
-    std::function<HabanaOperatorPtr(const int, c10::ScalarType)>;
+    std::function<HabanaOperatorPtr(const synDeviceId, c10::ScalarType)>;
 using RegisterCustomFunc =
-    std::function<HabanaOperatorPtr(const int, std::string)>;
+    std::function<HabanaOperatorPtr(const synDeviceId, std::string)>;
 
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
@@ -118,7 +118,7 @@ class InferNodeParams {
     }
     return paramsVec.data();
   }
-  unsigned get_size() const {
+  std::size_t get_size() const {
     return paramsVec.size();
   }
 
@@ -238,7 +238,7 @@ struct PtInputIdxAndSynHelpTensor {
 // params information for the operator
 class PytorchKernelContext {
  public:
-  int device_id_;
+  synDeviceId device_id_;
   std::string node_type_;
   std::vector<at::Tensor> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
@@ -284,7 +284,7 @@ class OutputMetaData {
   std::optional<at::Tensor> allocated_tensor{};
   bool undefined{false};
 
-  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
+  OutputMetaData(const torch::jit::Value& value) : name(value.debugName()) {};
   OutputMetaData(
       at::ScalarType dtype,
       std::vector<int64_t> shape,
@@ -386,7 +386,7 @@ class HabanaOperator {
 
   //
   // Creates graph builder context, based on the device
-  void CreateSynContext(int device_id, std::string node_type = "") {
+  void CreateSynContext(synDeviceId device_id, std::string node_type = "") {
     p_context_ = std::make_unique<PytorchKernelContext>();
     p_context_->device_id_ = device_id;
     p_context_->node_type_ = node_type;
@@ -681,7 +681,7 @@ class HabanaOperator {
   template <class T>
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
-      int device_id,
+      synDeviceId device_id,
       const std::vector<T>& vec,
       at::OptionalIntArrayRef sizes) {
     auto& device = habana::HPUDeviceContext::get_device(device_id);
@@ -824,7 +824,7 @@ class RegisterKernel {
   }
 
   HabanaOperatorPtr get(
-      const int device_id,
+      const synDeviceId device_id,
       const at::OperatorName& opname,
       c10::ScalarType node_type) {
     if (kernels_.count(opname)) {

@@ -42,13 +42,13 @@ TensorExtraMeta::~TensorExtraMeta() {
 
 void TensorExtraMeta::set_host_data(
     void* d,
-    int size,
-    int el_size,
+    size_t size,
+    size_t el_size,
     HostDataType dt_type) {
   auto& device = HPUDeviceContext::get_device();
   id_ = device.id();
-  int total_elem = 2 * size * el_size;
-  int data_size = size * el_size;
+  size_t total_elem = 2 * size * el_size;
+  size_t data_size = size * el_size;
   auto status = device.get_host_memory().malloc(&host_ptr_, total_elem);
   HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
   status = device.get_host_memory().malloc(&compile_host_ptr_, total_elem);
@@ -69,11 +69,11 @@ void TensorExtraMeta::set_host_data(
 
 void TensorExtraMeta::update_host_data(
     void* d,
-    int size,
-    int el_size,
+    size_t size,
+    size_t el_size,
     bool compile) {
-  int data_size = size * el_size;
-  int total_elem = 2 * data_size;
+  size_t data_size = size * el_size;
+  size_t total_elem = 2 * data_size;
   memcpy(host_ptr_, d, data_size);
   char* ptr = static_cast<char*>(host_ptr_) + data_size;
   memcpy(ptr, d, data_size);
@@ -109,7 +109,7 @@ void TensorExtraMeta::prepare_const_tensor(
       "constant section host_ptr : ",
       tmeta->get_host_ptr(),
       " size: ",
-      tensor.numel() * tensor.itemsize(),
+      static_cast<uint64_t>(tensor.numel()) * tensor.itemsize(),
       " is_const_tensor_ : ",
       is_const_tensor,
       " const id:",
@@ -117,7 +117,7 @@ void TensorExtraMeta::prepare_const_tensor(
   if (is_const_tensor && (tmeta->get_host_ptr() == nullptr)) {
     auto& device = HPUDeviceContext::get_device();
     void* host_ptr{};
-    auto size = tensor.numel() * tensor.itemsize();
+    auto size = static_cast<uint64_t>(tensor.numel()) * tensor.itemsize();
     auto status = device.get_host_memory().malloc(&host_ptr, size);
     HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
     tmeta->set_host_ptr(host_ptr);
@@ -152,7 +152,7 @@ void TensorExtraMeta::prepare_const_tensor(
         "constant section host_ptr : ",
         tmeta->get_host_ptr(),
         " size: ",
-        tensor.numel() * tensor.itemsize());
+        static_cast<size_t>(tensor.numel()) * tensor.itemsize());
   }
 }
 
@@ -348,8 +348,9 @@ std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
 
   auto elem_size =
       c10::elementSize(habana_helpers::getInternalDtype(tensor.scalar_type()));
-  auto total_num_elements = (int64_t)(
-      habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
+  auto total_num_elements =
+      (int64_t)(habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) /
+                elem_size);
   std::vector<int64_t> base_size({total_num_elements});
   return base_size;
 }

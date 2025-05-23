@@ -147,7 +147,7 @@ bool ConstSectionDataSerialize::isSerialized(int const_id) {
 
 void ConstSectionDataSerialize::serializePerRecipe(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id,
     const size_t key) {
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedRecipeFullPath(const_id, key))
@@ -177,7 +177,7 @@ void ConstSectionDataSerialize::serializePerRecipe(
 
 void ConstSectionDataSerialize::compress_and_serialize(
     void* data,
-    int data_size,
+    size_t data_size,
     std::ofstream& outputFile) {
   z_stream zs;
   memset(&zs, 0, sizeof(zs));
@@ -220,7 +220,7 @@ void ConstSectionDataSerialize::compress_and_serialize(
 
 void ConstSectionDataSerialize::serialize(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id) {
   std::lock_guard<std::mutex> lock(m_mtx);
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedFullPath(const_id))
@@ -250,7 +250,7 @@ void ConstSectionDataSerialize::serialize(
 
 void ConstSectionDataSerialize::decompress_and_deserialize(
     void* data,
-    int data_size,
+    size_t data_size,
     std::ifstream& inputFile) {
   z_stream zs;
   memset(&zs, 0, sizeof(zs));
@@ -284,7 +284,7 @@ void ConstSectionDataSerialize::decompress_and_deserialize(
 
 void ConstSectionDataSerialize::deserializePerRecipe(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id,
     const size_t key) {
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedRecipeFullPath(const_id, key))
@@ -313,7 +313,7 @@ void ConstSectionDataSerialize::deserializePerRecipe(
 
 void ConstSectionDataSerialize::deserialize(
     void* data,
-    int data_size,
+    size_t data_size,
     int const_id) {
   std::lock_guard<std::mutex> lock(m_mtx);
   PT_CUSTOM_DEBUG(__func__, ": ", getSerializedFullPath(const_id))

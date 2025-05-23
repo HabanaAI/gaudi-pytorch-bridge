@@ -742,7 +742,7 @@ void HabanaRandom::AddNode(
   const auto from = static_cast<float>(stack.at(2).toInt());
   const auto to = stack.at(3).isNone()
       ? std::nullopt
-      : std::make_optional<float>(stack.at(3).toInt());
+      : std::make_optional<float>(static_cast<float>(stack.at(3).toInt()));
   auto rand_params = RandomUniformParams(dtype, from, to);
 
   std::string post_op_guid = "";

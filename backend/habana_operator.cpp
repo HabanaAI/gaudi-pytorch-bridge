@@ -99,8 +99,10 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       ((sizes.size() == 4) && (format == c10::MemoryFormat::ChannelsLast))) {
     std::vector<int64_t> prod(sizes.begin() + 2, sizes.end());
     prod.push_back(sizes[1]);
-    for (int i = prod.size() - 2; i >= 0; --i) {
-      prod[i] *= prod[i + 1];
+    if (prod.size() >= 2ull) {
+      for (auto it = prod.rbegin() + 1; it != prod.rend(); ++it) {
+        *it *= *(it - 1);
+      }
     }
 
     result.push_back(prod[0]);
@@ -112,8 +114,10 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
       result.push_back(1);
     }
 
-    for (int i = result.size() - 3; i >= 0; --i) {
-      result[i] *= result[i + 1];
+    if (result.size() >= 3ull) {
+      for (auto it = result.rbegin() + 2; it != result.rend(); ++it) {
+        *it *= *(it - 1);
+      }
     }
   }
   return result;
@@ -348,7 +352,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
   }
   if (!habana_helpers::is_shape_tensor(shape_tensor_type)) {
     if (p_context_->is_duplicate_input_) {
-      uint64_t syn_offset = input.storage_offset() * input.itemsize();
+      size_t syn_offset =
+          static_cast<size_t>(input.storage_offset()) * input.itemsize();
       auto sizes = input.sizes().vec();
       auto strides = input.strides().vec();
       synapse_helpers::layouts::MemoryPermutation permutation;
@@ -640,7 +645,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       std::move(syn_inputs),
       std::move(syn_outputs),
       params,
-      params_size,
+      static_cast<uint32_t>(params_size),
       guid_,
       nullptr,
       input_layouts.empty() ? nullptr : input_layouts.data(),
