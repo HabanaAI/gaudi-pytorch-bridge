@@ -38,7 +38,6 @@ option(SANITIZER "build sanitizer configuration" OFF)
 cmake_dependent_option(THREAD_SANITIZER "build thread sanitizer configuration" OFF "NOT SANITIZER" OFF)
 option(MANYLINUX "build for manylinux configuration, synapse shim will be used" ON)
 option(UPSTREAM_COMPILE "build for pytorch-fork upstream branch" OFF)
-option(USE_CXX11_ABI "Use CXX11 ABI" ON)
 
 if(MANYLINUX)
   message(STATUS "Building with shim layer")
@@ -54,21 +53,6 @@ if(UPSTREAM_COMPILE)
   set(CMAKE_SHARED_LIBRARY_SUFFIX .upstream${CMAKE_SHARED_LIBRARY_SUFFIX})
   set(CMAKE_EXECUTABLE_SUFFIX "_upstream")
 endif(UPSTREAM_COMPILE)
-
-message(STATUS "USE_CXX11_ABI is ${USE_CXX11_ABI}")
-
-if(NOT USE_CXX11_ABI)
-  add_compile_definitions($<$<COMPILE_LANGUAGE:CXX>:_GLIBCXX_USE_CXX11_ABI=0>)
-
-  # This is required to ensure compatibility with PyTorch binary.
-  # Conditional, as Clang does not have this flag, only GCC
-  include(CheckCXXCompilerFlag)
-  check_cxx_compiler_flag("-fabi-version=11" HAS_FABI_VERSION_11)
-
-  if(HAS_FABI_VERSION_11)
-    add_compile_options(-fabi-version=11)
-  endif()
-endif()
 
 option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
 if(BUILD_SL_REPORT_GENERATOR)

@@ -1106,17 +1106,6 @@ class CMakeFlags:
 def append_cmake_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFlags:
     if is_official_stable_cpu_version(build_env.pt_ver_and_src.version):
         cmake_flags.insert("UPSTREAM_COMPILE", "ON")
-    is_cxx11_abi = (
-        outof(
-            "TORCH_DEVICE_BACKEND_AUTOLOAD=0",
-            get_python_exec(build_env),
-            "-c",
-            "'import torch; print(torch.compiled_with_cxx11_abi())'",
-            venv=build_env.venv_dir,
-        ).strip()
-        == "True"
-    )
-    cmake_flags.insert("USE_CXX11_ABI", "ON" if is_cxx11_abi else "OFF")
     return cmake_flags
 
 

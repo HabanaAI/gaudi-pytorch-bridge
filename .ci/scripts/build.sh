@@ -536,7 +536,6 @@ build_pytorch_fork()
     local __build_manylinux_whl="false"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __pytorch_next="false"
-    local __use_cxx11_abi="true"
 
     # parameter while-loop
     while [ -n "$1" ];
