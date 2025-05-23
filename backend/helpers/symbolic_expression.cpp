@@ -86,15 +86,31 @@ void SymExpression::dump_symbol_table() {
   }
 }
 
-std::vector<std::string> SizeExpression::tokenizer(std::string s) {
-  std::vector<std::string> exprs;
-  std::stringstream ss(s);
-  std::string word;
-  while (!ss.eof()) {
-    std::getline(ss, word, ',');
-    exprs.push_back(word);
+std::vector<std::string> SizeExpression::tokenizer(const std::string& expression) {
+  std::vector<std::string> result;
+  std::string token;
+  auto paren_depth = 0;
+
+  for (const char c: expression) {
+    if (c == ',' && paren_depth == 0) {
+      result.push_back(token);
+      token.clear();
+    } else {
+      if (c == '(') {
+        paren_depth++;
+      } else if (c == ')') {
+        paren_depth--;
+      }
+
+      token += c;
+    }
   }
-  return exprs;
+
+  if (!token.empty()) {
+    result.push_back(token);
+  }
+
+  return result;
 }
 
 SizeExpression::SizeExpression(
@@ -102,7 +118,7 @@ SizeExpression::SizeExpression(
     SymbolValueMap& in_symbol_value_map) {
   m_size_str = size_str;
   auto size_str_updated = m_size_str.substr(1, m_size_str.length() - 2);
-  std::vector<std::string> exprs = tokenizer(size_str_updated);
+  std::vector<std::string> exprs = SizeExpression::tokenizer(size_str_updated);
   int64_t count = 0;
   for (auto expr_str : exprs) {
     m_size_expr.emplace_back(expr_str, in_symbol_value_map);

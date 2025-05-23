@@ -49,13 +49,13 @@ class SymExpression {
 class SizeExpression {
   std::string m_size_str;
   std::vector<SymExpression> m_size_expr;
-  std::vector<std::string> tokenizer(std::string s);
 
  public:
   SizeExpression(){};
   SizeExpression(std::string size_str, SymbolValueMap& in_symbol_value_map);
   std::vector<SymExpression>& get_expressions();
   std::string get_size_expr_str();
+  static std::vector<std::string> tokenizer(const std::string& expression);
 };
 
 class SymExprFactory {
