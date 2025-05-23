@@ -205,9 +205,9 @@ static PyMethodDef THP_HPU_Stream_methods[] = {
 
 PyTypeObject THP_HPU_StreamType = {
 #if PY_VERSION_HEX >= 0x03000000
-    PyVarObject_HEAD_INIT(NULL, 0)
+    PyVarObject_HEAD_INIT(nullptr, 0)
 #else
-    PyObject_HEAD_INIT(NULL) 0, /* ob_size */
+    PyObject_HEAD_INIT(nullptr) 0, /* ob_size */
 #endif
         "habana_frameworks.torch._hpu_C._HPUStreamBase", /* tp_name */
     sizeof(THP_HPU_Stream), /* tp_basicsize */
@@ -246,21 +246,21 @@ PyTypeObject THP_HPU_StreamType = {
     nullptr, /* tp_init */
     nullptr, /* tp_alloc */
     THP_HPU_Stream_pynew, /* tp_new */
-    0, /* tp_free */
-    0, /* tp_is_gc */
-    0, /* tp_bases */
-    0, /* tp_mro */
-    0, /* tp_cache */
-    0, /* tp_subclasses */
-    0, /* tp_weaklist */
+    nullptr, /* tp_free */
+    nullptr, /* tp_is_gc */
+    nullptr, /* tp_bases */
+    nullptr, /* tp_mro */
+    nullptr, /* tp_cache */
+    nullptr, /* tp_subclasses */
+    nullptr, /* tp_weaklist */
 #if PY_VERSION_HEX >= 0x02030000
-    0, /* tp_del */
+    nullptr, /* tp_del */
 #endif
 #if PY_VERSION_HEX >= 0x02060000
     0, /* tp_version_tag */
 #endif
 #if PY_VERSION_HEX >= 0x03040000
-    0, /* tp_finalize */
+    nullptr, /* tp_finalize */
 #endif
 #ifdef COUNT_ALLOCS
     0, /* tp_allocs */

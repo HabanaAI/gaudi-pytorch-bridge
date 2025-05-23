@@ -30,7 +30,7 @@ bool is_simulator() {
       return false;
     }
     while (!feof(pipe)) {
-      if (fgets(buffer, 128, pipe) != NULL)
+      if (fgets(buffer, 128, pipe) != nullptr)
         result += buffer;
     }
     pclose(pipe);

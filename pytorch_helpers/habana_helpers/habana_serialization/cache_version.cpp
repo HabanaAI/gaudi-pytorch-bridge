@@ -29,7 +29,7 @@
 
 extern char** environ;
 
-std::string get_synapse_lib_path(void) {
+std::string get_synapse_lib_path() {
   std::string map_file_name{"/proc/" + std::to_string(getpid()) + "/maps"};
   std::ifstream proc_map_stream{map_file_name};
   std::string line;
@@ -53,7 +53,7 @@ std::string get_synapse_lib_path(void) {
 
 // quick trick function to retrieve full path to habana_device library
 // (ourselves)
-std::string habana_device_path(void) {
+std::string habana_device_path() {
   Dl_info dl_info;
   dladdr((void*)habana_device_path, &dl_info);
   std::string lib_path = dl_info.dli_fname;
@@ -77,7 +77,12 @@ size_t hash64_file_content(const std::string& path_to_file) {
       PT_HABHELPER_WARN("Failed to get stat of file: ", path_to_file);
     } else {
       char* fileAddr = (char*)mmap(
-          NULL, static_cast<size_t>(sb.st_size), PROT_READ, MAP_PRIVATE, fh, 0);
+          nullptr,
+          static_cast<size_t>(sb.st_size),
+          PROT_READ,
+          MAP_PRIVATE,
+          fh,
+          0);
       if (fileAddr == MAP_FAILED) {
         PT_HABHELPER_WARN("Failed in mapping file: ", path_to_file);
       } else {

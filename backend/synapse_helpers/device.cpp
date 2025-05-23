@@ -161,9 +161,9 @@ void CheckDynamicMinMaxPolicyOrder() {
   }
 }
 
-uint64_t GetSystemRamInKB(void) {
+uint64_t GetSystemRamInKB() {
   FILE* meminfo = fopen("/proc/meminfo", "r");
-  if (meminfo != NULL) {
+  if (meminfo != nullptr) {
     char line[256];
     while (fgets(line, sizeof(line), meminfo)) {
       uint64_t ram;

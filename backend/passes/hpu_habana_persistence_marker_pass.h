@@ -89,7 +89,7 @@ class PersistenceMarkerPass : public JITGraphPass<PersistenceMarkerPassData> {
   std::unordered_map<CValPtr, bool> valptr_to_persistent_map_;
   std::unordered_map<CValPtr, bool> valptr_to_external_map_;
 
-  HabanaLaunchOpPT* habana_launch_op_ptr_ = NULL;
+  HabanaLaunchOpPT* habana_launch_op_ptr_ = nullptr;
 
   /* Guideline: Accessors and mutators (get and set functions) may be named like
    * variables. */

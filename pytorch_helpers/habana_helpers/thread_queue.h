@@ -255,7 +255,7 @@ Queue<T>* Queue<T>::Create(QueueType type, size_t size) {
   } else if (type == QT_Standard) {
     return new StdQueue<T>;
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 

@@ -21,7 +21,7 @@
 namespace synapse_helpers {
 namespace {
 
-typedef int hlml_return_t;
+using hlml_return_t = int;
 
 struct hlml_utilization_t {
   unsigned int aip; // Device (AIP) utilization percentage.
@@ -96,8 +96,8 @@ hlml_device_t HlmlPowerProvider::getDevice(unsigned int index) {
         " with ret:",
         ret);
   }
-    PT_SYNHELPER_DEBUG("Retrieved device handle for index ", index);
-    return device;
+  PT_SYNHELPER_DEBUG("Retrieved device handle for index ", index);
+  return device;
 }
 
 double HlmlPowerProvider::getUtilization() {

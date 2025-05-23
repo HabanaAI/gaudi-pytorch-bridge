@@ -104,7 +104,7 @@ CoalescedStringentPooling::CoalescedStringentPooling(device& device)
   max_pool_size = default_pool_size;
   prealloc_pool = nullptr;
   small_allocs_ = nullptr;
-  defragmenter_state_started_ = 0;
+  defragmenter_state_started_ = false;
   alignment = device_.get_device_memory_alignment();
   kMinAllocationBits = std::log2(alignment) + 1;
   kMinAllocationSize = 1 << kMinAllocationBits;

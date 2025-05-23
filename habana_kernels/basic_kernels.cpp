@@ -328,7 +328,7 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
-  AddNodeToSynapseGraph(graph, NULL, 0);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 InferOutputMetaRetType IdentityOperator::InferOutputMeta(
@@ -363,7 +363,7 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   }
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, NULL, 0);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 /*************************************************************************

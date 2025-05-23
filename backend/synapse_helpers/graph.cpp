@@ -20,12 +20,12 @@
 #include <synapse_api.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <iterator>
 #include <ostream>
 #include <type_traits>
-#include <chrono>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
@@ -617,17 +617,24 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
   status = synGraphCompile(
       &recipe_handle->syn_recipe_handle_, graph_handle_, name.c_str(), nullptr);
   auto compile_end_time = std::chrono::high_resolution_clock::now();
-  auto compile_duration = std::chrono::duration<double, std::milli>(compile_end_time - compile_start_time).count();
+  auto compile_duration = std::chrono::duration<double, std::milli>(
+                              compile_end_time - compile_start_time)
+                              .count();
 
   if (status == synStatus::synSuccess) {
-      uint64_t workspace_size = query_workspace_size(*recipe_handle);
-      towl::emitRecipeCompileSuccess(*recipe_handle, workspace_size, name, compile_duration);
+    uint64_t workspace_size = query_workspace_size(*recipe_handle);
+    towl::emitRecipeCompileSuccess(
+        *recipe_handle, workspace_size, name, compile_duration);
   } else {
-      std::string error_info = absl::StrFormat("name %s synStatus %s", name, Logger::formatStatusMsg(status));
-      towl::emitRecipeCompileFailed(error_info, compile_duration);
-      HABANA_ASSERT(
-          false,
-          "Graph compile failed. Recipe: ", name, ", synStatus=", Logger::formatStatusMsg(status));
+    std::string error_info = absl::StrFormat(
+        "name %s synStatus %s", name, Logger::formatStatusMsg(status));
+    towl::emitRecipeCompileFailed(error_info, compile_duration);
+    HABANA_ASSERT(
+        false,
+        "Graph compile failed. Recipe: ",
+        name,
+        ", synStatus=",
+        Logger::formatStatusMsg(status));
   }
 
   END_TIME_MEASURE("Synapse graph compilation took");
@@ -740,7 +747,7 @@ void graph::launch(
     // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
     // size [0] for 0d tensor need to force it [1] to pass to synapse
     // correctly valdity check for pTensorAddress to differentiate from ZST in
-    // case of ZST pTensorAddress will be NULL
+    // case of ZST pTensorAddress will be nullptr
     if (tensorInfo.pTensorAddress && tensorInfo.tensorSize[0] == 0) {
       tensorInfo.tensorSize[0] = 1;
     }

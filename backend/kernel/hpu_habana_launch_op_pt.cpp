@@ -265,7 +265,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
        (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE));
   enable_pipeline_ = jit_graph_and_meta_data_->get_is_pipeline_supported() &&
       frontend_type_eager_or_compile;
-  PT_DYNAMIC_SHAPE_DEBUG("Enable eager/compile stage pipeline = ", enable_pipeline_);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Enable eager/compile stage pipeline = ", enable_pipeline_);
 
   graph_symint_hash_ =
       optimized_jit_graph_and_meta_data->get_graph_symint_hash();
@@ -2524,7 +2525,7 @@ void HabanaLaunchOpPT::UpdateIshapeForNodeInputs(
           PT_DYNAMIC_SHAPE_DEBUG(
               "Cannot evaluate Input shape for node ",
               value_name,
-              " expression is NULL");
+              " expression is nullptr");
         }
       }
     }
@@ -2623,7 +2624,7 @@ void HabanaLaunchOpPT::UpdateIshapeForNodeOuputs(
           PT_DYNAMIC_SHAPE_DEBUG(
               "Cannot evaluate out shape for node ",
               value_name,
-              " expression is NULL");
+              " expression is nullptr");
         }
       }
     }
@@ -4931,7 +4932,7 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
     current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
     HABANA_ASSERT(
         (current_dbipsh_ != nullptr),
-        "Dynamic bucketinfo got NULL in static cache hit hash code ",
+        "Dynamic bucketinfo got nullptr in static cache hit hash code ",
         rargpsh_graph->graphHashCode());
     current_dbipsh_->SetLastUsedStepForBucket(
         0, current_dbipsh_->get_statistics()->GetCurrentStep());

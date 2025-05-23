@@ -234,8 +234,8 @@ void PersistenceMarkerPass::RunMetaDataAdjustmentPasses(
 
 std::unique_ptr<PersistenceMarkerPassData> PersistenceMarkerPass::VisitGraph(
     const std::shared_ptr<torch::jit::Graph> graph) {
-  HABANA_ASSERT(NULL != habana_launch_op_ptr_);
-  HABANA_ASSERT(NULL != graph.get());
+  HABANA_ASSERT(nullptr != habana_launch_op_ptr_);
+  HABANA_ASSERT(nullptr != graph.get());
   RunMetaDataAdjustmentPasses(graph->nodes());
   return std::make_unique<PersistenceMarkerPassData>(
       valptr_to_persistent_map_, valptr_to_external_map_);

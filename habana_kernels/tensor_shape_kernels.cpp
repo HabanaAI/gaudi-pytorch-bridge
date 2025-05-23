@@ -541,7 +541,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   }
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, NULL, 0);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 InferOutputMetaRetType ViewOperator::InferOutputMeta(

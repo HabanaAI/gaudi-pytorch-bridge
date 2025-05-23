@@ -830,7 +830,7 @@ void HlExec::Create(
       std::shared_ptr<torch::jit::WithCurrentScope> scope_context;
       auto scope_name = (node->GetScope() ? *node->GetScope() : "");
       if (AccThread::IsAccThreadEnabled() ? !node->GetModuleName().empty()
-                                          : node->GetScope() != NULL) {
+                                          : node->GetScope() != nullptr) {
         scope_context = std::make_shared<torch::jit::WithCurrentScope>(
             *mp_g_,
             c10::make_intrusive<torch::jit::Scope>(

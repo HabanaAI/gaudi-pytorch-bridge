@@ -259,7 +259,7 @@ InterHostCache::~InterHostCache() {
 
 bool InterHostCache::_send_file(std::string filename, int sock, char* buff) {
   FILE* fp = fopen(filename.c_str(), "rb");
-  if (fp == NULL) {
+  if (fp == nullptr) {
     PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for Send(): ", filename);
     return false;
   }
@@ -281,7 +281,7 @@ bool InterHostCache::_send_file(std::string filename, int sock, char* buff) {
 
 bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
   FILE* fp = fopen(filename.c_str(), "wb");
-  if (fp == NULL) {
+  if (fp == nullptr) {
     PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for Recv(): ", filename);
     return false;
   }
