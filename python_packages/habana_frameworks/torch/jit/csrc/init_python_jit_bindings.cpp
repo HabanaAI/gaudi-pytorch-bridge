@@ -31,6 +31,8 @@
 #include "jit_fork/ir/type_wrapper.h"
 #include "jit_fork/passes/getitem_folding_pass.h"
 #include "jit_fork/passes/rem_dup_const_pass.h"
+#include "jit_fork/passes/remove_mutation.h"
+#include "jit_fork/passes/restore_mutation.h"
 #include "jit_fork/python/forked_pybind_utils.h"
 
 #include <iostream>
@@ -946,6 +948,13 @@ void defineJitPasses(pybind11::module& m) {
   m.def(
       "getitem_folding_pass",
       &habana_torch::jit::GetItemFoldingPass,
+      py::arg("graph"));
+  m.def(
+      "remove_mutation_pass",
+      [](std::shared_ptr<Graph>& g) {
+        habana_torch::jit::RemoveListMutation(g);
+        return habana_torch::jit::RemoveTensorMutation(g);
+      },
       py::arg("graph"));
 }
 
