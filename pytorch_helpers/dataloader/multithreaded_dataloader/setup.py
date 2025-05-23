@@ -27,7 +27,11 @@ root = os.path.join(os.environ["PYTORCH_MODULES_ROOT_PATH"])
 def get_version():
     try:
         import re
-        import subprocess
+
+        # Using a list with subprocess.check_output prevents
+        # command injection by avoiding shell interpretation.
+        # Each argument is passed directly, ensuring safe execution.
+        import subprocess  # nosec B404
 
         describe = (
             subprocess.check_output(["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])

@@ -83,7 +83,8 @@ def set_skip_mask(model, mode, every=2):
             else:
                 skip_mask.append(0)
         elif mode == RANDOM:
-            skip_mask.append(random.randint(0, 1))
+            # This is considered safe because it is not used for security or cryptographic operations.
+            skip_mask.append(random.randint(0, 1))  # nosec B311
         k = k + 1
     return skip_mask
 

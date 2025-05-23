@@ -379,7 +379,8 @@ def _convert_to_tensor_list(tensor_or_tensors):
 def _is_simulator():
     status = False
     if os.path.exists("/sys/class/accel/accel0/device/device_type"):
-        import subprocess
+        # Importing subprocess is safe here as we control the command execution.
+        import subprocess  # nosec B404
 
         out = subprocess.Popen(
             ["cat", "/sys/class/accel/accel0/device/device_type"],

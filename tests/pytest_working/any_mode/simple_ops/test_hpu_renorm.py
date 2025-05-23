@@ -39,7 +39,8 @@ def test_renorm_out(p, max_norm, shape):
 
     input_cpu = torch.randn(shape, dtype=dtype)
     input_hpu = input_cpu.to("hpu")
-    dim = random.randint(0, len(shape) - 1)
+    # This is considered safe because it is not used for security or cryptographic operations.
+    dim = random.randint(0, len(shape) - 1)  # nosec B311
 
     compiled_fn = compile_function_if_compile_mode(fn)
 

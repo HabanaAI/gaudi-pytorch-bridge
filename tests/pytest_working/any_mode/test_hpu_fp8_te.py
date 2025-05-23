@@ -18,7 +18,9 @@
 import io
 import math
 import os
-import pickle
+
+# This is considered safe because the data is controlled within the test environment.
+import pickle  # nosec B403
 import time
 
 import habana_frameworks.torch as ht
@@ -1980,7 +1982,8 @@ def test_save_load_te_module_indirectly(
         extra_state = state_dict[f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX}"]
 
         if isinstance(extra_state, torch.Tensor):
-            extra_state = pickle.loads(extra_state.detach().cpu().numpy().tobytes())
+            # This is considered safe because the data is controlled within the test environment.
+            extra_state = pickle.loads(extra_state.detach().cpu().numpy().tobytes())  # nosec B301
         elif isinstance(extra_state, io.BytesIO):
             FIRST_CHARACTER = 0
             extra_state.seek(FIRST_CHARACTER)

@@ -16,7 +16,9 @@
 ###############################################################################
 
 import os
-import subprocess as sp
+
+# The subprocess module is mocked for testing purposes.
+import subprocess as sp  # nosec B404
 from unittest.mock import MagicMock
 
 import build

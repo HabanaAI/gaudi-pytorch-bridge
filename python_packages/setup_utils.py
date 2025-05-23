@@ -82,7 +82,10 @@ def get_version():
         return version + "." + build_number
     else:
         try:
-            import subprocess
+            # Using a list with subprocess.check_output prevents
+            # command injection by avoiding shell interpretation.
+            # Each argument is passed directly, ensuring safe execution.
+            import subprocess  # nosec B404
 
             root = os.environ["PYTORCH_MODULES_ROOT_PATH"]
             sha = subprocess.check_output(["git", "-C", root, "rev-parse", "--short", "HEAD"]).decode("ascii").strip()

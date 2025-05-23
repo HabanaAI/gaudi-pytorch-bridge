@@ -36,7 +36,10 @@
 import functools as _functools
 import io
 from collections import OrderedDict
-from pickle import (
+
+# We control which symbols are imported from pickle and make a custom unpickler
+# that handles risky operators using them in a safe way.
+from pickle import (  # nosec B403
     ADDITEMS,
     APPEND,
     APPENDS,

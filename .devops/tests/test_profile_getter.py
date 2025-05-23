@@ -16,7 +16,10 @@
 ###############################################################################
 
 import os
-import subprocess
+
+# We use secure version check_output with command lists
+# and avoid shell mode to prevent command injection risks.
+import subprocess  # nosec B404
 import sys
 
 fake_profile_args = ["--profile", f"{os.getenv('PYTORCH_MODULES_ROOT_PATH')}/.devops/tests/dummy_profiles.json"]

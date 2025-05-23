@@ -66,7 +66,8 @@ permute_test_case_list = [
 
 @pytest.mark.parametrize("T, W", permute_test_case_list)
 def test_expand_into_jagged_permute_case(T, W):
-    length_per_w = [random.randint(5000, 10000) for i in range(W)]
+    # This is considered safe because it is not used for security or cryptographic operations.
+    length_per_w = [random.randint(5000, 10000) for i in range(W)]  # nosec B311
     length_1d = list(itertools.chain.from_iterable(itertools.repeat(x, T) for x in length_per_w))
     permute_list = list(range(T * W))
     random.shuffle(permute_list)

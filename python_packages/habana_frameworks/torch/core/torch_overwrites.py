@@ -17,7 +17,11 @@
 
 import datetime
 import os
-import pickle
+
+# We overwrite torch load/save where pickle is used, so we have to use it.
+# Users should be aware of potential security issues and can use
+# `weights_only` to make the call safe.
+import pickle  # nosec B403
 import threading
 from collections import deque
 from collections.abc import Callable, Generator
