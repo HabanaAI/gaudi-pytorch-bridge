@@ -120,9 +120,17 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
     if ((count == 0) && !dumpAll)
       continue;
 
-    if (m_pointAttributes[i].size() > 0 && !dumpAll) { // Print point attributes
+    PointAttrMap attributes;
+    {
+      // Map is not thread-safe and calling add_attribute from another thread
+      // can cause race condition, so copy it for traversing.
+      std::lock_guard<std::mutex> lg(m_pointAttributesMutex);
+      attributes = m_pointAttributes[i];
+    }
+
+    if (attributes.size() > 0 && !dumpAll) { // Print point attributes
       PT_PROFILE_DUMP(m_pointMsg[i] + " Attributes");
-      for (const auto& attr : m_pointAttributes[i]) {
+      for (const auto& attr : attributes) {
         PT_PROFILE_DUMP(attr.first + " : " + attr.second);
       }
     }

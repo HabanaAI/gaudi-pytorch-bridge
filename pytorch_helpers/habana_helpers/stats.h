@@ -73,6 +73,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 template <class T>
@@ -128,6 +129,8 @@ class StatsBase {
       std::string attr_val) {
     if (!m_enabled)
       return;
+
+    std::lock_guard<std::mutex> lg(m_pointAttributesMutex);
     m_pointAttributes[point][attr_key] = attr_val;
   };
 
@@ -162,6 +165,7 @@ class StatsBase {
   std::unique_ptr<sumCollectData[]> m_pPointData;
   std::unique_ptr<std::string[]> m_pointMsg;
   std::unique_ptr<PointAttrMap[]> m_pointAttributes;
+  std::mutex m_pointAttributesMutex;
 
   const static std::string m_grep; // something to grep and cut on
 };
