@@ -15,6 +15,8 @@
 #
 ###############################################################################
 
+include(CheckCXXCompilerFlag)
+
 function(find_keyword keyword result_var)
   set(${result_var}
       FALSE
@@ -32,9 +34,9 @@ endfunction()
 
 function(set_up_warnings target_name)
   # TODO: Add -Wconversion
-  target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations -Wimplicit-fallthrough)
+  target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations -Wimplicit-fallthrough
+                                                -Wformat -Wformat-security)
 
-  include(CheckCXXCompilerFlag)
   check_cxx_compiler_flag("-Werror=template-id-cdtor" HAS_WERROR_TEMPLATE_ID_CTOR)
 
   if(HAS_WERROR_TEMPLATE_ID_CTOR)
@@ -61,8 +63,22 @@ function(set_up_warnings target_name)
   endif()
 
   if(PROJECT_IS_TOP_LEVEL)
-    target_compile_options(${target_name} PRIVATE -Werror)
+    target_compile_options(${target_name} PRIVATE -Werror -Werror=format-security)
   endif()
+endfunction()
+
+function(set_up_hardening target_name)
+  target_compile_options(${target_name} PRIVATE -fcf-protection=full) # SDL requirement
+  include(CheckCXXCompilerFlag)
+  check_cxx_compiler_flag("-fsanitize=cfi" HAS_FSANITIZE_CFI) # clang only
+  if(HAS_FSANITIZE_CFI)
+    # SDL requirement
+    target_compile_options(${target_name} PRIVATE -fsanitize=cfi)
+    target_link_options(${target_name} PRIVATE -fsanitize=cfi)
+  endif()
+  target_compile_options(${target_name} PRIVATE -fPIE -fPIC) # SDL requirement
+  target_compile_options(${target_name} PRIVATE -fstack-protector-strong -fstack-clash-protection) # SDL requirement
+  target_link_options(${target_name} PRIVATE -fstack-protector-strong -fstack-clash-protection)
 endfunction()
 
 function(attach_sanitizers_if_requested target_name)
@@ -85,8 +101,14 @@ function(allow_code_coverage_if_requested target_name)
 endfunction()
 
 function(set_up_link_options target_name)
-  # Below enabled Immediate Binding mode
+  # Enable Immediate Binding mode as required by SDL
   target_link_options(${target_name} PRIVATE -Wl,-z,now)
+  # Enable Inexecutable Stack as required by SDL
+  target_link_options(${target_name} PRIVATE -Wl,-z,noexecstack)
+  # Enable Read-Only Relocation as required by SDL
+  target_link_options(${target_name} PRIVATE -Wl,-z,relro)
+  # Enable Position Independent Execution as required by SDL
+  target_link_options(${target_name} PRIVATE -pie)
 endfunction()
 
 function(add_habana_library target_name)
@@ -97,10 +119,12 @@ function(add_habana_library target_name)
 
   if(NOT IS_INTERFACE)
     set_up_warnings(${target_name})
-    attach_sanitizers_if_requested(${target_name})
+    set_up_hardening(${target_name})
     allow_code_coverage_if_requested(${target_name})
+    attach_sanitizers_if_requested(${target_name})
     set_up_link_options(${target_name})
   endif()
+
 endfunction()
 
 function(add_habana_executable target_name)
@@ -111,6 +135,7 @@ function(add_habana_executable target_name)
 
   if(NOT IS_INTERFACE)
     set_up_warnings(${target_name})
+    set_up_hardening(${target_name})
     attach_sanitizers_if_requested(${target_name})
     allow_code_coverage_if_requested(${target_name})
     set_up_link_options(${target_name})
