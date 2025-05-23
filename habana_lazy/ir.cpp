@@ -92,7 +92,6 @@ Node::Node(c10::Symbol op, bool _is_input)
       m_is_input(_is_input),
       m_is_control_edge(false),
       deterministic(
-          habana::HPUGlobalConfig::get().getDeterministic() ||
           at::globalContext().deterministicAlgorithms()) {
   /*Need to set this node if the deterministic mode is ON*/
   SetModuleName(*(habana_lazy::ir::getCurrentModuleName()));

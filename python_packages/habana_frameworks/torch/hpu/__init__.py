@@ -178,6 +178,7 @@ def setDeterministic(val: bool) -> None:
     warnings.warn(
         "torch.hpu.setDeterministic is deprecated and will be removed in next release. Please use torch.use_deterministic_algorithms instead."
     )
+    torch.use_deterministic_algorithms(val)
     _hpu_C.setDeterministic(val)
 
 
