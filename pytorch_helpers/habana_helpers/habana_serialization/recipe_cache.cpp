@@ -22,7 +22,6 @@
 #include <cerrno>
 #include <cstdio>
 #include <fstream>
-#include <future>
 #include <memory>
 #include <sstream>
 #include "base_cache_file_handler.h"
@@ -93,7 +92,6 @@ namespace serialization {
 RecipeCache::RecipeCache(const RecipeCacheConfig& recipe_cache_config)
     : cache_path_{recipe_cache_config.path()},
       is_cache_valid_{false},
-      inter_host_cache_{nullptr},
       cf_handler_{nullptr} {
   std::error_code err_code;
   bool newly_created = fs::create_directories(cache_path_, err_code);
@@ -123,22 +121,10 @@ RecipeCache::RecipeCache(const RecipeCacheConfig& recipe_cache_config)
   }
 
   cf_handler_ = std::make_unique<BaseCacheFileHandler>(recipe_cache_config);
-
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_INTER_HOST_CACHING)) {
-    inter_host_cache_ =
-        std::make_unique<InterHostCache>(cache_path_, cf_handler_);
-    inter_host_cache_->init();
-  }
-
   cache_thread_ = std::make_unique<habana_helpers::JobThread>();
 }
 
 RecipeCache::~RecipeCache() {
-  // ensure that interhost sync ended
-  if (interhost_send_thread_.valid()) {
-    interhost_send_thread_.get();
-  }
-
   cache_thread_ = nullptr;
 }
 
@@ -212,16 +198,15 @@ void RecipeCache::store_task(
     PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
     cf_handler_->fileUnLock(fd);
     cf_handler_->fileClose(fd);
-
-    if (inter_host_cache_) {
-      if (interhost_send_thread_.valid()) {
-        interhost_send_thread_.get();
-      }
-
-      interhost_send_thread_ = std::async(
-          std::launch::async, [&] { inter_host_cache_->send_file(cache_id); });
-    }
   } else {
+    if (size != 0) {
+      PT_HABHELPER_DEBUG(
+          "Found non-empty cache entry on disk for cache_id ", cache_id);
+    }
+    if (!recipeHandle || recipeHandle->syn_recipe_handle_ == nullptr) {
+      PT_HABHELPER_DEBUG("Empty recipe was provided for cache_id ", cache_id);
+    }
+    PT_HABHELPER_DEBUG("Nothing to serialize.");
     cf_handler_->fileUnLock(fd);
     cf_handler_->fileClose(fd);
   }
@@ -253,10 +238,6 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
 
   auto recipe_path = recipe_file_path(cache_path_, cache_id);
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
-
-  if (inter_host_cache_) {
-    inter_host_cache_->recv_file(cache_id);
-  }
 
   auto try_lock_and_read = [&,
                             this](int fd) -> absl::optional<synRecipeHandle> {

@@ -178,10 +178,6 @@ PT_HPU_THREAD_POOL_QUEUE_CAPACITY:
   type: unsigned long
   default: 20000
 
-PT_ENABLE_INTER_HOST_CACHING:
-  type: bool
-  default: false
-
 PT_ENABLE_HABANA_CACHING:
   type: bool
   default: true

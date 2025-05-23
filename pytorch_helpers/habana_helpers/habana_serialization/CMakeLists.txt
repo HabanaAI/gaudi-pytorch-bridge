@@ -22,7 +22,6 @@ add_habana_library(
   deserializers.cpp
   serializers.cpp
   recipe_cache.cpp
-  inter_host_cache.cpp
   cache_version.cpp
   base_cache_file_handler.cpp
   recipe_cache_config.cpp
