@@ -68,14 +68,6 @@ std::string getNodesModuleHierarchy(const Node& n) {
   }
   return module_hierarchy;
 }
-
-// gets a string representation of a node header
-// (e.g. outputs, a node kind and outputs)
-std::string getHeader(const Node* node) {
-  std::stringstream ss;
-  node->print(ss, 0, {}, false, false, false, false);
-  return ss.str();
-}
 } // namespace utils
 
 namespace {
