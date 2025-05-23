@@ -316,12 +316,13 @@ void ProfilerEngine::flush() {
   int64_t stage_queue_length_std[NUM_OF_PIPELINE_STAGES] = STAGE_INITIALIZER;
   int64_t device_queue_length_variance = 0;
   int64_t device_queue_length_std = 0;
-  char name[50];
-  sprintf(name, "events_pid%u.json", getpid());
-  auto file = fopen(name, "w");
-  fprintf(file, "{\"displayTimeUnit\": \"ns\", \"traceEvents\": [\n");
-  sprintf(name, "metrics_pid%u.json", getpid());
-  auto metrics_file = fopen(name, "w");
+  char event_name[50];
+  char metric_name[50];
+  sprintf(event_name, "events_pid%u.json", getpid());
+  auto events_file = fopen(event_name, "w");
+  fprintf(events_file, "{\"displayTimeUnit\": \"ns\", \"traceEvents\": [\n");
+  sprintf(metric_name, "metrics_pid%u.json", getpid());
+  auto metrics_file = fopen(metric_name, "w");
   // Find first event, timewise.
   uint64_t tsc_base = std::numeric_limits<uint64_t>::max();
   for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
@@ -387,7 +388,7 @@ void ProfilerEngine::flush() {
           }
         }
       }
-
+    if (stage_counter[pipeline_stage] > 0) {
       stage_mean_time[pipeline_stage] =
           stage_total_time[pipeline_stage] / stage_counter[pipeline_stage];
       mean_queue_length[pipeline_stage] =
@@ -446,11 +447,25 @@ void ProfilerEngine::flush() {
             (int64_t)sqrt((double)device_queue_length_variance);
       }
     }
+   }
   }
 
-  std::unordered_map<int, std::vector<OpGroup>> sorted_ops_by_stage;
-  for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1; pipeline_stage++) {
-    if (current_index[pipeline_stage] == 0) continue;
+  if (std::all_of(
+          std::begin(stage_counter),
+          std::end(stage_counter),
+          [](uint64_t value) { return value == 0; })) {
+   printf(
+       "ProfilerEngine::Profiling failed. Check PT_HPU_LOP_JIT_WARM_UP_STEPS / no meaningful event got captured\n");
+   remove(event_name);
+   remove(metric_name);
+  } else {
+   // If any meaningful event gets captured then only further de-dup ops cal
+   // will happen
+   std::unordered_map<int, std::vector<OpGroup>> sorted_ops_by_stage;
+   for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+        pipeline_stage++) {
+    if (current_index[pipeline_stage] == 0)
+      continue;
 
     std::vector<OpGroup> aggregated_ops;
     for (const auto& [name, stats] : stage_op_aggregate[pipeline_stage]) {
@@ -464,177 +479,126 @@ void ProfilerEngine::flush() {
           return a.avg_time > b.avg_time;
         });
     sorted_ops_by_stage[pipeline_stage] = std::move(aggregated_ops);
-  }
-
-  fprintf(
-      metrics_file,
-      " Total number of events = %lu \n",
-      this->events_counter[1].load(std::memory_order_acquire) +
-          this->events_counter[2].load(std::memory_order_acquire) +
-          this->events_counter[3].load(std::memory_order_acquire));
-  fprintf(metrics_file, "\n LOWERING STAGE \n");
-  fprintf(metrics_file, " ============== \n");
-  fprintf(
-      metrics_file,
-      " Lowering stage average time(ns) = %lu \n",
-      stage_total_time[1] / stage_counter[1]);
-  fprintf(metrics_file, " Lowering stage max time(ns) = %lu \n", max_time[1]);
-  fprintf(metrics_file, " Lowering stage min time(ns) = %lu \n", min_time[1]);
-  fprintf(
-      metrics_file,
-      " Lowering stage standard deviation time(ns) = %lu \n",
-      stage_time_std[1]);
-  fprintf(
-      metrics_file,
-      " Lowering stage average queue length = %lu \n",
-      mean_queue_length[1]);
-  fprintf(
-      metrics_file,
-      " Lowering stage max queue length = %lu \n",
-      max_queue_len[1]);
-  fprintf(
-      metrics_file,
-      " Lowering stage min queue length = %lu \n",
-      min_queue_len[1]);
-  fprintf(
-      metrics_file,
-      " Lowering stage standard deviation queue length = %lu \n",
-      stage_queue_length_std[1]);
-  fprintf(metrics_file, "\n Top 5 ops with highest lowering time: \n");
-  const auto& lowering_index =
-      static_cast<size_t>(LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID);
-
-  const auto& lowering_ops = sorted_ops_by_stage[lowering_index];
-  for (size_t i = 0; i < std::min<size_t>(NUM_TOP_OPS, lowering_ops.size()); ++i) {
-    const auto& op = lowering_ops[i];
+   }
+    // Metrics are getting dumped to metric jSON file
     fprintf(
         metrics_file,
-        " Op Name: %s, Avg Time: %.1f, Count: %u\n",
-        op.name.c_str(),
-        op.avg_time,
-        op.count);
-  }
+        " Total number of events = %lu \n",
+        this->events_counter[1].load(std::memory_order_acquire) +
+            this->events_counter[2].load(std::memory_order_acquire) +
+            this->events_counter[3].load(std::memory_order_acquire));
+    std::string stage_name;
+    for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
+         pipeline_stage++) {
+    if (stage_counter[pipeline_stage] > 0) {
+      if (pipeline_stage ==
+          static_cast<int>(LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID)) {
+        stage_name = "Lowering";
+        fprintf(metrics_file, "\n LOWERING STAGE \n");
+      } else if (
+          pipeline_stage ==
+          static_cast<int>(LOP::PipelineStageID::PIPELIE_STAGE_COMPILE_ID)) {
+        stage_name = "Compile";
+        fprintf(metrics_file, "\n COMPILE STAGE \n");
+      } else {
+        stage_name = "Execute";
+        fprintf(metrics_file, "\n EXECUTE STAGE \n");
+      }
+      fprintf(metrics_file, " ============== \n");
+      fprintf(
+          metrics_file,
+          " %s stage average time(ns) = %lu \n",
+          stage_name.c_str(),
+          stage_total_time[pipeline_stage] / stage_counter[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          " %s stage max time(ns) = %lu \n",
+          stage_name.c_str(),
+          max_time[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          " %s stage min time(ns) = %lu \n",
+          stage_name.c_str(),
+          min_time[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          " %s stage standard deviation time(ns) = %lu \n",
+          stage_name.c_str(),
+          stage_time_std[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          " %s stage average queue length = %lu \n",
+          stage_name.c_str(),
+          mean_queue_length[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          " %s stage max queue length = %lu \n",
+          stage_name.c_str(),
+          max_queue_len[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          " %s stage min queue length = %lu \n",
+          stage_name.c_str(),
+          min_queue_len[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          " %s stage standard deviation queue length = %lu \n",
+          stage_name.c_str(),
+          stage_queue_length_std[pipeline_stage]);
+      fprintf(
+          metrics_file,
+          "\n Top 5 ops with highest %s time: \n",
+          stage_name.c_str());
+      const auto& ops = sorted_ops_by_stage[pipeline_stage];
+      for (size_t i = 0; i < std::min<size_t>(NUM_TOP_OPS, ops.size()); ++i) {
+        const auto& op = ops[i];
+        fprintf(
+            metrics_file,
+            " Op Name: %s, Avg Time: %.1f, Count: %u\n",
+            op.name.c_str(),
+            op.avg_time,
+            op.count);
+      }
+      fprintf(metrics_file, "\n Histogram for %s Stage\n", stage_name.c_str());
+      print_histogram(
+          min_time[pipeline_stage],
+          max_time[pipeline_stage],
+          this->events_table[pipeline_stage],
+          metrics_file);
+      if (pipeline_stage ==
+          static_cast<int>(LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID)) {
+        fprintf(metrics_file, "\n DEVICE QUEUE \n");
+        fprintf(metrics_file, " ============ \n");
+        fprintf(
+            metrics_file,
+            " Min device queue length = %lu \n",
+            min_device_queue_len);
+        fprintf(
+            metrics_file,
+            " Max device queue length = %lu \n",
+            max_device_queue_len);
+        fprintf(
+            metrics_file,
+            " Mean device queue length = %lu \n",
+            mean_device_queue_length);
+        fprintf(
+            metrics_file,
+            " Standard deviation device queue length = %lu \n",
+            device_queue_length_std);
+        print_device_queue_histogram(
+            min_device_queue_len,
+            max_device_queue_len,
+            this->events_table[pipeline_stage],
+            metrics_file);
+      }
+    }
+    }
 
-  fprintf(metrics_file, "\n Histogram for Lowering Stage\n");
-  print_histogram(
-      min_time[1], max_time[1], this->events_table[1], metrics_file);
-  fprintf(metrics_file, "\n COMPILE STAGE \n");
-  fprintf(metrics_file, " ============= \n");
-  fprintf(
-      metrics_file,
-      " Compile stage average time(ns) = %lu \n",
-      stage_total_time[2] / stage_counter[2]);
-  fprintf(metrics_file, " Compile stage max time(ns) = %lu \n", max_time[2]);
-  fprintf(metrics_file, " Compile stage min time(ns) = %lu \n", min_time[2]);
-  fprintf(
-      metrics_file,
-      " Compile stage standard deviation time(ns) = %lu \n",
-      stage_time_std[2]);
-  fprintf(
-      metrics_file,
-      " Compile stage average queue length = %lu \n",
-      mean_queue_length[2]);
-  fprintf(
-      metrics_file,
-      " Compile stage max queue length = %lu \n",
-      max_queue_len[2]);
-  fprintf(
-      metrics_file,
-      " Compile stage min queue length = %lu \n",
-      min_queue_len[2]);
-  fprintf(
-      metrics_file,
-      " Compile stage queue standard deviation length = %lu \n",
-      stage_queue_length_std[2]);
-  fprintf(metrics_file, "\n Top 5 ops with highest compile time: \n");
-  const auto& compile_index =
-      static_cast<size_t>(LOP::PipelineStageID::PIPELIE_STAGE_COMPILE_ID);
-
-  const auto& compile_ops = sorted_ops_by_stage[compile_index];
-  for (size_t i = 0; i < std::min<size_t>(NUM_TOP_OPS, compile_ops.size()); ++i) {
-    const auto& op = compile_ops[i];
-    fprintf(
-        metrics_file,
-        " Op Name: %s, Avg Time: %.1f, Count: %u\n",
-        op.name.c_str(),
-        op.avg_time,
-        op.count);
-  }
-
-  fprintf(metrics_file, "\n Histogram for Compile Stage\n");
-  print_histogram(
-      min_time[2], max_time[2], this->events_table[2], metrics_file);
-  fprintf(metrics_file, "\n EXECUTE STAGE \n");
-  fprintf(metrics_file, " ============= \n");
-  fprintf(
-      metrics_file,
-      " Execute stage average time(ns) = %lu \n",
-      stage_total_time[3] / stage_counter[3]);
-  fprintf(metrics_file, " Execute stage max time(ns) = %lu \n", max_time[3]);
-  fprintf(metrics_file, " Execute stage min time(ns) = %lu \n", min_time[3]);
-  fprintf(
-      metrics_file,
-      " Execute stage standard deviation time(ns) = %lu \n",
-      stage_time_std[3]);
-  fprintf(
-      metrics_file,
-      " Execute stage average queue length = %lu \n",
-      mean_queue_length[3]);
-  fprintf(
-      metrics_file,
-      " Execute stage max queue length = %lu \n",
-      max_queue_len[3]);
-  fprintf(
-      metrics_file,
-      " Execute stage min queue length = %lu \n",
-      min_queue_len[3]);
-  fprintf(
-      metrics_file,
-      " Execute stage standard deviation queue length = %lu \n",
-      stage_queue_length_std[3]);
-  fprintf(metrics_file, "\n Top 5 ops with highest execute time: \n");
-  const auto& execute_index =
-      static_cast<size_t>(LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID);
-
-  const auto& execute_ops = sorted_ops_by_stage[execute_index];
-  for (size_t i = 0; i < std::min<size_t>(NUM_TOP_OPS, execute_ops.size()); ++i) {
-    const auto& op = execute_ops[i];
-    fprintf(
-        metrics_file,
-        " Op Name: %s, Avg Time: %.1f, Count: %u\n",
-        op.name.c_str(),
-        op.avg_time,
-        op.count);
-  }
-
-  fprintf(metrics_file, "\n Histogram for Execute Stage\n");
-  print_histogram(
-      min_time[3], max_time[3], this->events_table[3], metrics_file);
-  fprintf(metrics_file, "\n DEVICE QUEUE \n");
-  fprintf(metrics_file, " ============ \n");
-  fprintf(
-      metrics_file, " Min device queue length = %lu \n", min_device_queue_len);
-  fprintf(
-      metrics_file, " Max device queue length = %lu \n", max_device_queue_len);
-  fprintf(
-      metrics_file,
-      " Mean device queue length = %lu \n",
-      mean_device_queue_length);
-  fprintf(
-      metrics_file,
-      " Standard deviation device queue length = %lu \n",
-      device_queue_length_std);
-  print_device_queue_histogram(
-      min_device_queue_len,
-      max_device_queue_len,
-      this->events_table[3],
-      metrics_file);
-
-  uint64_t time_base_ns = static_cast<uint64_t>(
-      static_cast<double>(tsc_base) / this->ticks_per_ns_ratio);
-  auto pid = getpid();
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION)) {
+    // Events are getting dumped to event jSON file
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION)) {
+    uint64_t time_base_ns = static_cast<uint64_t>(
+        static_cast<double>(tsc_base) / this->ticks_per_ns_ratio);
+    auto pid = getpid();
     for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
          pipeline_stage++) {
       for (int i = 0; i < current_index[pipeline_stage]; ++i) {
@@ -654,7 +618,7 @@ void ProfilerEngine::flush() {
           std::string counter_name = std::to_string(event.thread_id);
 
           fprintf(
-              file,
+              events_file,
               "{"
               "\"tid\":%s,"
               "\"pid\":\"counters\","
@@ -673,7 +637,7 @@ void ProfilerEngine::flush() {
         } else if (event.is_begin) {
           if (i == 0 && pipeline_stage == 1) {
             fprintf(
-                file,
+                events_file,
                 "{"
                 "\"tid\":%u,"
                 "\"pid\":%u,"
@@ -694,7 +658,7 @@ void ProfilerEngine::flush() {
                 time_base_ns);
           } else {
             fprintf(
-                file,
+                events_file,
                 "{"
                 "\"tid\":%u,"
                 "\"pid\":%u,"
@@ -714,7 +678,7 @@ void ProfilerEngine::flush() {
           }
         } else {
           fprintf(
-              file,
+              events_file,
               "{"
               "\"tid\":%u,"
               "\"pid\":%u,"
@@ -734,12 +698,14 @@ void ProfilerEngine::flush() {
         }
       }
     }
-    fprintf(file, "{}]}");
+    fprintf(events_file, "{}]}");
+    }
   }
-  fclose(file);
-  this->flushed = true;
-  printf("ProfilerEngine::flush finished\n");
-  fflush(stdout);
+ fclose(metrics_file);
+ fclose(events_file);
+ this->flushed = true;
+ printf("ProfilerEngine::flush finished\n");
+ fflush(stdout);
 }
 
 ProfilerEngine::~ProfilerEngine() {
