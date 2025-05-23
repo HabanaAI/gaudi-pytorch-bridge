@@ -43,6 +43,10 @@ at::Tensor& set_source_Storage_storage_offset(
 }
 
 at::Tensor& set_source_Storage(at::Tensor& self, at::Storage source) {
+  PT_BRIDGE_WARN(
+      "If the set_source_Storage called with storage marked as permuted."
+      "This may lead to undefined results. "
+      "Please consider moving the device tensor to the CPU before calling set_");
   int64_t new_size =
       static_cast<int64_t>(source.nbytes() / self.dtype().itemsize());
   return self.set_(source, 0, new_size, {});
