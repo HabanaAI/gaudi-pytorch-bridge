@@ -47,6 +47,7 @@ int GetRankFromEnv() {
  *  log_recipe=[0|1]       - enables recipe logging category
  *  log_python=[0|1]       - enables python logging category
  *  log_collective=[0|1]   - enables collective logging category
+ *  log_defrag=[0|1]       - enables defragmenter logging category
  *  log_copy=[0|1]         - enables copy logging category
  *  log_metrics=[0|1]      - enables metrics logging category
  *  rank=int               - logs only under given rank (determined by env RANK)
@@ -60,6 +61,7 @@ struct Config {
   bool log_recipe_compile = true;
   bool log_python = true;
   bool log_collective = true;
+  bool log_defrag = true;
   bool log_copy = true;
   bool log_metrics = false;
   int rank = -1;
@@ -108,6 +110,7 @@ struct Config {
           config.log_recipe = flag;
           config.log_python = flag;
           config.log_collective = flag;
+          config.log_defrag = flag;
           config.log_copy = flag;
           config.log_metrics = flag;
         } else if (key == "log_devmem_buf") {
@@ -120,6 +123,8 @@ struct Config {
           config.log_recipe = value == "1";
         } else if (key == "log_collective") {
           config.log_collective = value == "1";
+        } else if (key == "log_defrag") {
+          config.log_defrag = value == "1";
         } else if (key == "log_copy") {
           config.log_copy = value == "1";
         } else if (key == "log_metrics") {
@@ -163,6 +168,7 @@ struct Config {
     PT_TOWL_WARN("Config log_recipe=", config.log_recipe);
     PT_TOWL_WARN("Config log_python=", config.log_python);
     PT_TOWL_WARN("Config log_collective=", config.log_collective);
+    PT_TOWL_WARN("Config log_defrag=", config.log_defrag);
     PT_TOWL_WARN("Config log_copy=", config.log_copy);
     PT_TOWL_WARN("Config log_metrics=", config.log_metrics);
     PT_TOWL_WARN(
@@ -287,6 +293,20 @@ void emitCollectiveFinished(const std::string& info) {
     return;
   }
   PT_TOWL_DEBUG("collective.finished ", info);
+}
+
+void emitDefragLaunch(const std::string& info) {
+  if (not config.log_defrag) {
+    return;
+  }
+  PT_TOWL_DEBUG("defrag.launch ", info);
+}
+
+void emitDefragFinished(const std::string& info) {
+  if (not config.log_defrag) {
+    return;
+  }
+  PT_TOWL_DEBUG("defrag.finished ", info);
 }
 
 void emitPythonString(const std::string& s) {

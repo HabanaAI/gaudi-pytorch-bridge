@@ -708,6 +708,8 @@ bool device_memory::defragment_memory(
   using namespace std::chrono_literals;
   auto timestamp_init = std::chrono::high_resolution_clock::now();
 
+  towl::emitDefragLaunch("Defragmenter launch");
+
   PT_DEVMEM_DEBUG("Waiting for HPU execution to finish");
   if (synStatus::synSuccess != synDeviceSynchronize(device_.id())) {
     PT_DEVMEM_FATAL("Waiting for HPU execution failed");
@@ -720,6 +722,7 @@ bool device_memory::defragment_memory(
     PT_DEVMEM_FATAL(
         "Defragmentation cannot be started. Some allocated buffers are in use.",
         "It may be caused by device memory leak");
+    towl::emitDefragFinished("Some allocated buffers are in use");
     return false;
   }
 
@@ -738,6 +741,7 @@ bool device_memory::defragment_memory(
     if (!defragmenter.CollectMemoryInformation(memory_blocks)) {
       PT_DEVMEM_WARN(
           "Defragmentation cannot be started. Invalid memory information.");
+      towl::emitDefragFinished("Invalid memory information");
       return false;
     }
   } catch (const std::exception& e) {
@@ -757,6 +761,7 @@ bool device_memory::defragment_memory(
           is_v2)) {
     PT_DEVMEM_WARN(
         "Defragmentation cannot be started. No region that can be defragmented was found.");
+    towl::emitDefragFinished("No region to defragment");
     return false;
   }
 
@@ -772,6 +777,7 @@ bool device_memory::defragment_memory(
           allocation_size,
           "B. Running defragmentation may indicate a bug");
     }
+    towl::emitDefragFinished("Has enough memory");
     return true;
   }
 
@@ -782,6 +788,7 @@ bool device_memory::defragment_memory(
     habana_helpers::EmitEvent(
         habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
         habana_helpers::EventParams({{"success", std::to_string(0)}}));
+    towl::emitDefragFinished("Not enough memory");
     return false;
   }
 
@@ -882,6 +889,8 @@ bool device_memory::defragment_memory(
             {{"success", std::to_string(1)},
              {"milliseconds", std::to_string(milliseconds_metric)}}));
   }
+
+  towl::emitDefragFinished("defragmentation Done");
   PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {
     auto total_duration =
@@ -918,6 +927,8 @@ bool device_memory::defragment_memory(
         std::chrono::high_resolution_clock::now());
     log_defragmentation_warning_if_needed();
   }
+
+  towl::emitDefragFinished("end");
 
   return true;
 }

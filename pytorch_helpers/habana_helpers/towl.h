@@ -42,6 +42,10 @@ void emitRecipeFinished(
     const synapse_helpers::graph::recipe_handle* recipe_handle);
 void emitCollectiveLaunch(const std::string& info);
 void emitCollectiveFinished(const std::string& info);
+
+void emitDefragLaunch(const std::string& info);
+void emitDefragFinished(const std::string& info);
+
 void emitPythonString(const std::string& s);
 
 void emitDeviceMemorySummary(const char* tag);
@@ -101,6 +105,10 @@ _MAKE_TOWL_ENTRYPOINT(
     (recipe_handle));
 _MAKE_TOWL_ENTRYPOINT(emitCollectiveLaunch, (const std::string& info), (info));
 _MAKE_TOWL_ENTRYPOINT(emitCollectiveFinished, (const std::string& info), (info));
+
+_MAKE_TOWL_ENTRYPOINT(emitDefragLaunch, (const std::string& info), (info));
+_MAKE_TOWL_ENTRYPOINT(emitDefragFinished, (const std::string& info), (info));
+
 _MAKE_TOWL_ENTRYPOINT(emitPythonString, (const std::string& s), (s));
 _MAKE_TOWL_ENTRYPOINT(emitDeviceMemorySummary, (const char* tag), (tag));
 
