@@ -35,7 +35,8 @@ struct AddDeterministicAttributePass {
  private:
   bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
     bool changed{false};
-    const auto deterministic = at::globalContext().deterministicAlgorithms();
+    const auto deterministic = HPUGlobalConfig::get().getDeterministic() ||
+        at::globalContext().deterministicAlgorithms();
 
     for (auto block : blocks) {
       for (auto node : block->nodes()) {
