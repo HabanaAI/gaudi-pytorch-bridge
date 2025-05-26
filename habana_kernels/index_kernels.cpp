@@ -1068,6 +1068,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   concatinated_pos_indices_op->AllocateAndAddSynapseNode(
       graph, stack, OutputMetaDataVector(1));
   auto concatenated_indices = concatinated_pos_indices_op->GetOutputs()[0];
+
   stack.clear();
 
   // Calculate the dimensionality of updates for broadcasting
@@ -1125,8 +1126,30 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   auto self_scalar_type = self.scalar_type();
 
   if (!accumulate) {
-    scatter_op =
-        make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+    auto isScaterNdUpdateRequired = [self, concatenated_indices]() -> bool {
+      auto indicesShape = concatenated_indices.sizes().vec();
+      auto selfShape = self.sizes().vec();
+      size_t indicesRank = indicesShape.size();
+      size_t indicesFcd = indicesShape[indicesRank - 1];
+      int64_t totalIndices = 1;
+      int64_t totalScatters = 1;
+
+      for (size_t i = 0; i < indicesRank - 1; i++)
+        totalIndices *= std::max(indicesShape[i], 1L);
+
+      for (size_t i = 0; i < indicesFcd; i++)
+        totalScatters *= std::max(selfShape[i], 1L);
+
+      return totalIndices > totalScatters;
+    }();
+
+    if (isScaterNdUpdateRequired)
+      scatter_op =
+          make_operator<ScatterNdUpdateOperator>(device_id, self_scalar_type);
+    else
+      scatter_op =
+          make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
+
     stack = {
         IValue(self),
         IValue(concatenated_indices),
@@ -1540,6 +1563,44 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
       "number of indices should be less than of self");
   HABANA_ASSERT(
       isInputValid(inputs) == true, "Invalid inputs for scatter_nd_onnx");
+
+  auto shape = DimVector(inp.sizes());
+  auto output = habana::createPTTensor(
+      inp,
+      shape,
+      inp.options(),
+      inp.suggest_memory_format(),
+      output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+habana::InferOutputMetaRetType ScatterNdUpdateOperator::InferOutputMeta(
+    torch::jit::Stack& inputs) {
+  auto inp = inputs[0].toTensor();
+  auto shape_out = inp.sizes().vec();
+
+  InferOutputMetaRetType out;
+  // output tensor
+  out.AddOutputTensor(TensorMetaData(
+      shape_out,
+      HabanaOperator::CalculateStrides(shape_out, inp.suggest_memory_format()),
+      inp.scalar_type(),
+      inp.suggest_memory_format()));
+  return out;
+}
+
+void ScatterNdUpdateOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  HABANA_ASSERT(
+      inputs.size() >= 3,
+      "Incorrect number of inputs passed to ScatterNdONNXOperator");
+
+  auto inp = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto values = inputs[2].toTensor();
 
   auto shape = DimVector(inp.sizes());
   auto output = habana::createPTTensor(
@@ -3056,6 +3117,9 @@ static auto& IndexKernelsKernelRegistry =
     habana::KernelRegistry()
         .REGISTER_HPU_BACKEND("hpu::scatter_add", habana::ScatterAddOperator)
         .REGISTER_HPU_BACKEND("hpu::scatter_nd", habana::ScatterNdOperator)
+        .REGISTER_HPU_BACKEND(
+            "hpu::scatter_nd_update",
+            habana::ScatterNdUpdateOperator)
         .REGISTER_HPU_BACKEND(
             "hpu::scatter_nd_onnx",
             habana::ScatterNdONNXOperator)
