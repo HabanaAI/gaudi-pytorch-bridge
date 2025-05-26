@@ -12,5 +12,5 @@ pytest-forked
 matplotlib
 scipy==1.9.1
 subprocess_tee
-transformers==4.27.1
+transformers==4.50.0
 python-etcd==0.4.5
