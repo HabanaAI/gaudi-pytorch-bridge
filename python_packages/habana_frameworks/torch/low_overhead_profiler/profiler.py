@@ -27,5 +27,5 @@ def stop():
     profiler._stop_lo_host_profiler()
 
 
-def flush():
-    profiler._flush_lo_host_profiler()
+def flush(dump_traces):
+    profiler._flush_lo_host_profiler(dump_traces)

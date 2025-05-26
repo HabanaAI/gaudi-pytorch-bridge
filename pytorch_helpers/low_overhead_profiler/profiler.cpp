@@ -63,6 +63,7 @@ inline uint64_t barriered_rdtsc() {
 ProfilerEngine::ProfilerEngine()
     : enabled(true),
       flushed(false),
+      enable_traces(false),
       events_mutex{},
       events_counter{},
       events_table(
@@ -595,7 +596,8 @@ void ProfilerEngine::flush() {
     }
 
     // Events are getting dumped to event jSON file
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION) ||
+        this->enable_traces) {
     uint64_t time_base_ns = static_cast<uint64_t>(
         static_cast<double>(tsc_base) / this->ticks_per_ns_ratio);
     auto pid = getpid();
@@ -720,8 +722,14 @@ ProfilerEngine::~ProfilerEngine() {
   fflush(stdout);
 }
 
-ProfilerEngine& ProfilerEngine::get_inst() {
+ProfilerEngine& ProfilerEngine::get_inst(bool dump_traces) {
   static ProfilerEngine inst;
+  if (dump_traces) {
+      inst.enable_traces = true;  // Set enable_traces based on dump_traces
+  }
+  else{
+    inst.enable_traces = false;
+  }
   return inst;
 }
 

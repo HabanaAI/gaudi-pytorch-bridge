@@ -1911,7 +1911,9 @@ def test_lop():
 
         if i == 9:
             lop.stop()
-            lop.flush()
+            lop.flush(
+                True
+            )  # enabling dump_traces which will help dumping the traces in json file even if PT_HPU_ENABLE_LOP_TRACES_COLLECTION is false
 
     metrics_files = [f for f in os.listdir() if re.match(metrics_pattern, f)]
     assert metrics_files, "No metrics files found."

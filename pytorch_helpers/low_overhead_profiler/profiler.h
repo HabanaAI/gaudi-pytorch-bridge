@@ -61,7 +61,7 @@ struct ProfilerEngine {
   ProfilerEngine();
   ~ProfilerEngine();
 
-  static ProfilerEngine& get_inst();
+  static ProfilerEngine& get_inst(bool dump_traces = false);
 
   inline bool is_enabled() {
     return this->enabled;
@@ -79,6 +79,7 @@ struct ProfilerEngine {
 
   std::atomic<bool> enabled;
   std::atomic<bool> flushed;
+  std::atomic<bool> enable_traces;
 
   double ticks_per_ns_ratio;
   std::array<std::mutex, NUM_OF_PIPELINE_STAGES> events_mutex;
