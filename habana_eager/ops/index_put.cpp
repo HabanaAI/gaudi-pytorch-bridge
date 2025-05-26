@@ -415,11 +415,13 @@ at::Tensor& _index_put_impl_eager(
   habana::eager::EagerOp<at::Tensor&> hpu_op{
       opName, {self, indices_vec, value, accumulate}};
 
+  bool require_h2d = false;
+  bool require_st = false;
   hpu_op.set_eager_op_info(
       {eager::eagerOpKind::Inplace,
        opName,
-       false,
-       false,
+       require_h2d,
+       require_st,
        decltype(eager::EagerOpMetaData::out_indices_){0}});
 
   hpu_op.call(self);
