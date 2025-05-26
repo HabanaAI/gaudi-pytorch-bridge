@@ -15710,7 +15710,7 @@ segment_reductions_tests_to_deselect = {
         pt_dir + "/test/test_segment_reductions.py::TestSegmentReductionsHPU::test_simple_1d_hpu_float64_int64",
     ],
 }
-serialization_tests_to_deselct = {
+serialization_tests_to_deselect = {
     "https://jira.habana-labs.com/browse/SW-59737": [],
 }
 
@@ -18418,7 +18418,7 @@ segment_reductions_tests_to_deselect = {
     **segment_reductions_tests_to_deselect,
     **module.segment_reductions_tests_to_deselect,
 }
-serialization_tests_to_deselct = {**serialization_tests_to_deselct, **module.serialization_tests_to_deselct}
+serialization_tests_to_deselect = {**serialization_tests_to_deselect, **module.serialization_tests_to_deselect}
 shape_ops_tests_to_deselect = {**shape_ops_tests_to_deselect, **module.shape_ops_tests_to_deselect}
 sort_and_select_tests_to_deselect = {**sort_and_select_tests_to_deselect, **module.sort_and_select_tests_to_deselect}
 sparse_tests_to_deselect = {**sparse_tests_to_deselect, **module.sparse_tests_to_deselect}
@@ -18466,7 +18466,7 @@ all_tests = [
     reductions_tests_to_deselect,
     scatter_gather_ops_tests_to_deselect,
     segment_reductions_tests_to_deselect,
-    serialization_tests_to_deselct,
+    serialization_tests_to_deselect,
     shape_ops_tests_to_deselect,
     sort_and_select_tests_to_deselect,
     sparse_tests_to_deselect,
@@ -18526,10 +18526,7 @@ file_wise_xfails_dict = {
         jira: ";".join(set([node_id for node_id in foreach_tests_to_deselect[jira]]))
         for jira in foreach_tests_to_deselect
     },
-    "fx": {
-        jira: ";".join(set([node_id for node_id in fx_tests_to_deselect[jira]]))
-        for jira in fx_tests_to_deselect
-    },
+    "fx": {jira: ";".join(set([node_id for node_id in fx_tests_to_deselect[jira]])) for jira in fx_tests_to_deselect},
     "indexing": {
         jira: ";".join(set([node_id for node_id in indexing_tests_to_deselect[jira]]))
         for jira in indexing_tests_to_deselect
@@ -18558,17 +18555,13 @@ file_wise_xfails_dict = {
         jira: ";".join(set([node_id for node_id in nestedtensor_tests_to_deselect[jira]]))
         for jira in nestedtensor_tests_to_deselect
     },
-    "nn": {
-        jira: ";".join(set([node_id for node_id in nn_tests_to_deselect[jira]]))
-        for jira in nn_tests_to_deselect
-    },
+    "nn": {jira: ";".join(set([node_id for node_id in nn_tests_to_deselect[jira]])) for jira in nn_tests_to_deselect},
     "numpy_interop": {
         jira: ";".join(set([node_id for node_id in numpy_interop_tests_to_deselect[jira]]))
         for jira in numpy_interop_tests_to_deselect
     },
     "ops": {
-        jira: ";".join(set([node_id for node_id in ops_tests_to_deselect[jira]]))
-        for jira in ops_tests_to_deselect
+        jira: ";".join(set([node_id for node_id in ops_tests_to_deselect[jira]])) for jira in ops_tests_to_deselect
     },
     "ops_jit": {
         jira: ";".join(set([node_id for node_id in ops_jit_tests_to_deselect[jira]]))
@@ -18587,8 +18580,8 @@ file_wise_xfails_dict = {
         for jira in segment_reductions_tests_to_deselect
     },
     "serialization": {
-        jira: ";".join(set([node_id for node_id in serialization_tests_to_deselct[jira]]))
-        for jira in serialization_tests_to_deselct
+        jira: ";".join(set([node_id for node_id in serialization_tests_to_deselect[jira]]))
+        for jira in serialization_tests_to_deselect
     },
     "shape_ops": {
         jira: ";".join(set([node_id for node_id in shape_ops_tests_to_deselect[jira]]))
@@ -18619,8 +18612,7 @@ file_wise_xfails_dict = {
         for jira in testing_tests_to_deselect
     },
     "torch": {
-        jira: ";".join(set([node_id for node_id in torch_tests_to_deselect[jira]]))
-        for jira in torch_tests_to_deselect
+        jira: ";".join(set([node_id for node_id in torch_tests_to_deselect[jira]])) for jira in torch_tests_to_deselect
     },
     "type_promotion": {
         jira: ";".join(set([node_id for node_id in type_promotion_tests_to_deselect[jira]]))
@@ -18635,8 +18627,7 @@ file_wise_xfails_dict = {
         for jira in view_ops_tests_to_deselect
     },
     "vmap": {
-        jira: ";".join(set([node_id for node_id in vmap_tests_to_deselect[jira]]))
-        for jira in vmap_tests_to_deselect
+        jira: ";".join(set([node_id for node_id in vmap_tests_to_deselect[jira]])) for jira in vmap_tests_to_deselect
     },
     "expanded_weights": {
         jira: ";".join(set([node_id for node_id in expanded_weights_tests_to_deselect[jira]]))

@@ -23,8 +23,9 @@ import shutil
 import subprocess
 import sys
 import traceback
-import torch.distributed as dist
+
 import run_test as rt
+import torch.distributed as dist
 from test_infra_hpu import pytorch_version
 
 ptVersion = pytorch_version + "/pytorch"
@@ -397,7 +398,6 @@ ENABLED_TESTS.extend(HPU_GPU_MIGRATION_TESTS)
 
 # Extend distributed tests
 HPU_DISTRIBUTED_TESTS.extend(HPU_DISTRIBUTED_MPI)
-
 
 
 def run_specific_test_hpu(test_module, test_directory, options, launcher_cmd):
