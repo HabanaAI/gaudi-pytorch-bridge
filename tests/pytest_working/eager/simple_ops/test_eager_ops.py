@@ -1883,16 +1883,18 @@ def test_sag_lerp():
 def test_lop():
     metrics_pattern = r"metrics_pid\d+\.json"
     traces_pattern = r"events_pid\d+\.json"
-    files = os.listdir()
+    logpath = os.getenv("HABANA_LOGS")
+    files = os.listdir(logpath)
 
     metrics_files = [f for f in files if re.match(metrics_pattern, f)]
     traces_files = [f for f in files if re.match(traces_pattern, f)]
 
     for f in metrics_files + traces_files:
-        os.remove(f)
+        os.remove(os.path.join(logpath, f))
 
-    assert not any(re.match(metrics_pattern, f) for f in os.listdir()), "Metrics files already present before the test."
-    assert not any(re.match(traces_pattern, f) for f in os.listdir()), "Trace files already present before the test."
+    files = os.listdir(logpath)
+    assert not any(re.match(metrics_pattern, f) for f in files), "Metrics files already present before the test."
+    assert not any(re.match(traces_pattern, f) for f in files), "Trace files already present before the test."
 
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")
@@ -1915,13 +1917,14 @@ def test_lop():
                 True
             )  # enabling dump_traces which will help dumping the traces in json file even if PT_HPU_ENABLE_LOP_TRACES_COLLECTION is false
 
-    metrics_files = [f for f in os.listdir() if re.match(metrics_pattern, f)]
+    files = os.listdir(logpath)
+    metrics_files = [f for f in files if re.match(metrics_pattern, f)]
     assert metrics_files, "No metrics files found."
-    traces_files = [f for f in os.listdir() if re.match(traces_pattern, f)]
+    traces_files = [f for f in files if re.match(traces_pattern, f)]
     assert traces_files, "No traces files found."
 
     for f in metrics_files + traces_files:
-        os.remove(f)
+        os.remove(os.path.join(logpath, f))
 
 
 # test node params patching for masked_fill op

@@ -32,6 +32,7 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
+#include <sys/stat.h>
 
 #include "backend/synapse_helpers/env_flags.h"
 #include "profiler.h"
@@ -319,11 +320,25 @@ void ProfilerEngine::flush() {
   int64_t device_queue_length_std = 0;
   char event_name[50];
   char metric_name[50];
+  const char* base_dir_path = std::getenv("HABANA_LOGS");
+  std::string dir_path = "/";
+  const char* rank = std::getenv("RANK");
+  if (rank != nullptr && rank[0] != '\0') {
+    dir_path = "/" + std::string(rank) + "/";
+  }
+  int rc = mkdir((std::string(base_dir_path) + dir_path).c_str(), S_IRWXU);
+  if (rc && errno != EEXIST) {
+    // fail to create device/rank folder under HABANA_LOGS directory,
+    // so keep under lop files under HABANA_LOGS directory.
+    dir_path = "/";
+  }
   sprintf(event_name, "events_pid%u.json", getpid());
-  auto events_file = fopen(event_name, "w");
+  auto events_file = fopen(
+    (std::string(base_dir_path) + dir_path + std::string(event_name)).c_str(), "w");
   fprintf(events_file, "{\"displayTimeUnit\": \"ns\", \"traceEvents\": [\n");
   sprintf(metric_name, "metrics_pid%u.json", getpid());
-  auto metrics_file = fopen(metric_name, "w");
+  auto metrics_file = fopen(
+    (std::string(base_dir_path) + dir_path + std::string(metric_name)).c_str(), "w");
   // Find first event, timewise.
   uint64_t tsc_base = std::numeric_limits<uint64_t>::max();
   for (int pipeline_stage = 1; pipeline_stage < NUM_OF_PIPELINE_STAGES - 1;
