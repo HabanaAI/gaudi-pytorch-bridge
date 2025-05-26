@@ -405,9 +405,9 @@ def flex_attention_fwd(q, k, v, block_size, is_apply_mask_1, is_ret_lse):
     out_shape = (batch_size, num_heads, seq_len_q, v_head_dim)
     if is_ret_lse:
         lse_shape = (*q.shape[:-1], 1)
-        lse = input.new_empty(lse_shape)
-        return input.new_empty(out_shape), lse, None
-    return input.new_empty(out_shape), None, None
+        lse = q.new_empty(lse_shape)
+        return q.new_empty(out_shape), lse, None
+    return q.new_empty(out_shape), None, None
 
 
 @register_meta([torch.ops.hpu.flex_attention_bwd])

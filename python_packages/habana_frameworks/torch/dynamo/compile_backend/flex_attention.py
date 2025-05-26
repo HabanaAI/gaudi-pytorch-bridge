@@ -227,6 +227,9 @@ def hpu_flex_attention_passes(
         qshape = hop_node.args[0].meta["val"].shape
         kshape = hop_node.args[1].meta["val"].shape
         vshape = hop_node.args[2].meta["val"].shape
+        # dtype of q, k, v is expected to be same
+        dtype = hop_node.args[2].meta["val"].dtype
+
         sdpa_score = hop_node.args[3]
         sdpa_mask = hop_node.args[4][-1]
         is_noop_mask = False
@@ -247,9 +250,9 @@ def hpu_flex_attention_passes(
         if block_size == 1 << 30:
             block_size = 256
 
-        q_inp = functools.partial(torch.empty, qshape, device="hpu", requires_grad=False)
-        k_inp = functools.partial(torch.empty, kshape, device="hpu", requires_grad=False)
-        v_inp = functools.partial(torch.empty, vshape, device="hpu", requires_grad=False)
+        q_inp = functools.partial(torch.empty, qshape, device="hpu", requires_grad=False, dtype=dtype)
+        k_inp = functools.partial(torch.empty, kshape, device="hpu", requires_grad=False, dtype=dtype)
+        v_inp = functools.partial(torch.empty, vshape, device="hpu", requires_grad=False, dtype=dtype)
         search_gm = trace_on_hpu(flex_attention_fwd, [q_inp(), k_inp(), v_inp(), block_size, is_noop_mask, is_ret_lse])
 
         # patch score_mod fucntion
@@ -270,10 +273,12 @@ def hpu_flex_attention_passes(
             replace_pattern(search_gm, mask_mod_pattern, sdpa_mask_gm)
 
         # decompose flex_attention on HPU
+        hpu_flex_attention_op = torch.ops.hpu.flex_attention_fwd
+
         with graph_module.graph.inserting_before(hop_node):
             new_node = graph_module.graph.create_node(
                 "call_function",
-                torch.ops.hpu.flex_attention_fwd,
+                hpu_flex_attention_op,
                 args=(hop_node.args[0], hop_node.args[1], hop_node.args[2], block_size, is_noop_mask, is_ret_lse),
                 kwargs={},
             )
@@ -297,11 +302,12 @@ def hpu_flex_attention_passes(
 
         replace_nodes = {}
         for get_item in flex_pack_tensors_node[0].users:
-            input_node_idx = get_item.args[1]
-            replace_nodes[get_item] = flex_pack_tensors_node[0].args[input_node_idx]
-            arg_node = flex_pack_tensors_node[0].args[input_node_idx]
-            with graph_module.graph.inserting_before(flex_pack_tensors_node[0]):
-                get_item.replace_all_uses_with(arg_node)
+            if len(get_item.args) >= 2:
+                input_node_idx = get_item.args[1]
+                replace_nodes[get_item] = flex_pack_tensors_node[0].args[input_node_idx]
+                arg_node = flex_pack_tensors_node[0].args[input_node_idx]
+                with graph_module.graph.inserting_before(flex_pack_tensors_node[0]):
+                    get_item.replace_all_uses_with(arg_node)
 
         graph_module.graph.eliminate_dead_code()
         graph_module.recompile()

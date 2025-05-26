@@ -116,7 +116,7 @@ if TEST_ON_CUDA:
     test_dtypes_fast = [torch.float16]
 elif TEST_ON_HPU:
     test_device = "hpu"
-    test_dtypes = [torch.float32]
+    test_dtypes = [torch.float32, torch.bfloat16]
 else:
     test_device = "cpu"
     torch_config_string = torch.__config__.show()
@@ -510,6 +510,8 @@ class TestFlexAttention(InductorTestCase):
             return
 
         # skip tests ToDo
+        if dtype == torch.bfloat16 and traning:
+            return
         if gqa and traning:
             return
 

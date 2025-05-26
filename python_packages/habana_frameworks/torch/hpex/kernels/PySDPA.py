@@ -194,6 +194,7 @@ def FillRHSliceFactors(QShapes, KShapes, useQslice):
 
 
 def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=False):
+    orig_dtype = q.dtype
     batch = q.shape[q.dim() - 4]
     head = q.shape[q.dim() - 3]
 
@@ -243,7 +244,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 row_sums_c = row_sums.clone()
                 row_maxes_c = row_maxes.clone()
 
-                attn_weights = torch.matmul(qc, kc.transpose(-2, -1)).to(dtype=working_precision)
+                attn_weights = torch.matmul(qc, kc.transpose(-2, -1)).to(working_precision)
 
                 attn_weights = (attn_weights * scale).to(working_precision)
 
@@ -302,7 +303,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 exp_weights = torch.exp(safe_post_mod_scores)
 
                 block_row_sums = exp_weights.sum(dim=-1, keepdims=True)
-                exp_values = torch.matmul(exp_weights, vc)
+                exp_values = torch.matmul(exp_weights.to(dtype=torch.float32), vc.to(dtype=torch.float32))
 
                 exp_row_max_diff = torch.exp(row_maxes - new_row_maxes)
 
@@ -331,9 +332,9 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     ret_o = torch.cat(out_o, -3)
     ret_lse = torch.cat(lse_o, -2)
     if is_ret_lse:
-        packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o, ret_lse, None)
+        packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o.to(orig_dtype), ret_lse.to(orig_dtype), None)
         return packed_tensors
-    packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o, None, None)
+    packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(ret_o.to(orig_dtype), None, None)
     return packed_tensors
 
 
