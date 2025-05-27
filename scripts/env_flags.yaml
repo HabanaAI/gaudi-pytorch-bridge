@@ -706,6 +706,10 @@ PT_TOWL_LOG_SEPARATED_FILE:
 PT_TOWL_LOG_CONFIG:
   default: "rank=0"
 
+PT_TOWL_LOG_PHYSICAL:
+  type: bool
+  default: false
+
 PT_HPU_ACC_THREAD_VERSION:
   type: int
   default: 0

@@ -855,6 +855,16 @@ void graph::launch(
     towl::emitRecipeLaunch(
         recipe_handle, workspace_size, addresses, inputs_and_outputs_info);
 
+    // emit the physical address
+    std::vector<device_ptr> locked_addresses(
+        address_lock->begin(), address_lock->end());
+    towl::emitRecipeLaunch(
+        recipe_handle,
+        workspace_size,
+        locked_addresses,
+        inputs_and_outputs_info,
+        true /* is_physical */);
+
     PT_SYNHELPER_DEBUG(
         "in graph::launch, launch handle string:\n",
         "------Launch-handle ",

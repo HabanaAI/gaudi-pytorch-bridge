@@ -13,9 +13,11 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cstdint>
-#include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/device_types.h"
+#include "backend/synapse_helpers/graph.h"
 #include "logging.h"
 namespace towl {
 
@@ -28,16 +30,21 @@ struct TowlEnabled {
 void emitDeviceMemoryAllocated(
     void* ptr,
     std::size_t size,
-    std::uint64_t stream);
-void emitDeviceMemoryDeallocated(void* ptr);
-void emitDeviceMemoryAllocSuccess(void* ptr, std::size_t size, bool is_workspace);
+    std::uint64_t stream,
+    bool is_physical = false);
+void emitDeviceMemoryDeallocated(void* ptr, bool is_physical = false);
+void emitDeviceMemoryAllocSuccess(
+    void* ptr,
+    std::size_t size,
+    bool is_workspace);
 void emitDeviceMemoryAllocFailed(std::size_t size, bool is_workspace);
 void emitDeviceMemorySnapshot();
 void emitRecipeLaunch(
     const synapse_helpers::graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
     const std::vector<std::uint64_t>& addresses,
-    const std::vector<synLaunchTensorInfo>& tensors);
+    const std::vector<synLaunchTensorInfo>& tensors,
+    bool is_physical = false);
 void emitRecipeFinished(
     const synapse_helpers::graph::recipe_handle* recipe_handle);
 void emitCollectiveLaunch(const std::string& info);
@@ -89,16 +96,23 @@ void emitRecipeTensorToUse(const std::string& dtensorinfo_dump);
 namespace {
 _MAKE_TOWL_ENTRYPOINT(
     emitDeviceMemoryAllocated,
-    (void* ptr, std::size_t size, std::uint64_t stream),
-    (ptr, size, stream))
-_MAKE_TOWL_ENTRYPOINT(emitDeviceMemoryDeallocated, (void* ptr), (ptr))
+    (void* ptr,
+     std::size_t size,
+     std::uint64_t stream,
+     bool is_physical = false),
+    (ptr, size, stream, is_physical))
+_MAKE_TOWL_ENTRYPOINT(
+    emitDeviceMemoryDeallocated,
+    (void* ptr, bool is_physical = false),
+    (ptr, is_physical))
 _MAKE_TOWL_ENTRYPOINT(
     emitRecipeLaunch,
     (const synapse_helpers::graph::recipe_handle& recipe_handle,
      uint64_t workspace_size,
      const std::vector<std::uint64_t>& locked_addresses,
-     const std::vector<synLaunchTensorInfo>& tensors),
-    (recipe_handle, workspace_size, locked_addresses, tensors))
+     const std::vector<synLaunchTensorInfo>& tensors,
+     bool is_physical = false),
+    (recipe_handle, workspace_size, locked_addresses, tensors, is_physical))
 _MAKE_TOWL_ENTRYPOINT(
     emitRecipeFinished,
     (const synapse_helpers::graph::recipe_handle* recipe_handle),

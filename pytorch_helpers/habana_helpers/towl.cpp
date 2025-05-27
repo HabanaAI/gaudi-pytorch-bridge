@@ -187,18 +187,24 @@ Config config = Config::parseAndApply(GET_ENV_FLAG_NEW(PT_TOWL_LOG_CONFIG));
 } // namespace
 
 bool TowlEnabled::flag;
+bool g_is_physical = GET_ENV_FLAG_NEW(PT_TOWL_LOG_PHYSICAL);
 
 void emitDeviceMemoryAllocated(
     void* ptr,
     std::size_t size,
-    std::uint64_t stream) {
+    std::uint64_t stream,
+    bool is_physical) {
   if (not config.log_devmem_buf)
+    return;
+  if (is_physical != g_is_physical)
     return;
   PT_TOWL_DEBUG("devmem.malloc ", ptr, " size ", size, " stream ", stream);
 }
 
-void emitDeviceMemoryDeallocated(void* ptr) {
+void emitDeviceMemoryDeallocated(void* ptr, bool is_physical) {
   if (not config.log_devmem_buf)
+    return;
+  if (is_physical != g_is_physical)
     return;
   PT_TOWL_DEBUG("devmem.free ", ptr);
 }
@@ -248,8 +254,12 @@ void emitRecipeLaunch(
     [[maybe_unused]] const synapse_helpers::graph::recipe_handle& recipe_handle,
     [[maybe_unused]] uint64_t workspace_size,
     [[maybe_unused]] const std::vector<std::uint64_t>& addresses,
-    [[maybe_unused]] const std::vector<synLaunchTensorInfo>& tensors) {
+    [[maybe_unused]] const std::vector<synLaunchTensorInfo>& tensors,
+    [[maybe_unused]] bool is_physical) {
   if (not config.log_recipe)
+    return;
+
+  if (is_physical != g_is_physical)
     return;
 
   PT_TOWL_DEBUG(
