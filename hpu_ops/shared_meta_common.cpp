@@ -648,30 +648,10 @@ SharedMetaDataVector MaxPoolWithIndicesBwdSharedMeta(
   SharedMetaData maxPoolWithIndicesSharedMeta{guid};
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
       grad.dim(), grad.scalar_type());
-  bool isMaxPool3d = guid.find("maxpool_3d") != std::string::npos;
-  if (isMaxPool3d) {
-    switch (dtype) {
-      case c10::ScalarType::BFloat16:
-      case c10::ScalarType::Half:
-        indexType = c10::ScalarType::Short;
-        break;
-      default:
-        indexType = c10::ScalarType::Byte;
-        break;
-    }
-
-    // optional not present tensors required for non TF version
-    auto optionalNotPresentTensor = createOptionalNotPresentSharedMetaTensor();
-    maxPoolWithIndicesSharedMeta.inputs_data.push_back(
-        optionalNotPresentTensor);
-    maxPoolWithIndicesSharedMeta.inputs_data.push_back(
-        optionalNotPresentTensor);
-  } else {
-    maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
-    maxPoolWithIndicesSharedMeta.options.allowLongType = true;
-  }
+  maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
   maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
       indices.dim(), indexType);
+  maxPoolWithIndicesSharedMeta.options.allowLongType = true;
   maxPoolWithIndicesSharedMeta.outputs_data = {{rank, dtype}};
 
   return {maxPoolWithIndicesSharedMeta};

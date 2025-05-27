@@ -241,7 +241,7 @@ SharedMetaDataVector MaxPool3DWithIndicesFwdSharedMeta(
 SharedMetaDataVector MaxPool3DWithIndicesBwdSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  return MaxPoolWithIndicesBwdSharedMeta(stack, "maxpool_3d_bwd");
+  return MaxPoolWithIndicesBwdSharedMeta(stack, "pt_maxpool_3d_bwd");
 }
 
 static FillParamsT FillSpatialReduction3DParams(
@@ -421,18 +421,9 @@ void MaxPool3DWithIndicesBwd::AddNode(
   const auto meta = MaxPoolMetaBwd(stack)[0];
   const auto params = FillSpatialReduction3DParamsBwd(stack);
 
-  auto cast_input = BuildCast(
-      this,
-      graph,
-      syn_in(2),
-      stack.at(7).toTensor().sizes(),
-      at::kLong,
-      FindRetainTensorType(meta.dtype));
+  std::vector<synTensor> inputs = {syn_in(0), syn_in(1), syn_in(2)};
 
-  std::vector<synTensor> inputs = {syn_in(0), cast_input.get()};
   const auto rank = stack_tensor(stack, 0).dim();
-
-  CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   if (rank == 4) {
     SetSynapseLayouts(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
