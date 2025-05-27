@@ -1,0 +1,87 @@
+name: generate ops documentation
+on:
+    push:
+        paths:
+            - .github/workflows/opDocumentationGenerator.yaml
+    schedule:
+        - cron: '0 0 * * *'
+    workflow_dispatch:
+
+jobs:
+    setup_and_build:
+        name: Build and push ops documentation
+        runs-on: cpu-medium-u22
+        steps:
+            - name: Install SSH key
+              run: |
+                mkdir -p ${HOME}/.ssh
+                chmod 700 ${HOME}/.ssh
+                echo '${{ secrets.SSH_KEY }}' > ${HOME}/.ssh/id_rsa
+                chmod 600 ${HOME}/.ssh/id_rsa
+                rm -rf ${HOME}/.ssh/id_rsa.pub
+                sed -i '/Host gerrit/a\    User jenkins\' ~/.ssh/config
+                ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+            - name: checkout repo tool
+              run: |
+                git clone https://gerrit.googlesource.com/git-repo /tmp/git-repo
+            - name: Copy repo tool to /usr/bin
+              run: sudo cp /tmp/git-repo/repo /usr/bin/repo
+            - name: checkout qnpu
+              run: |
+                git clone ssh://gerrit.habana-labs.com:29418/devops/qnpu $HOME/.qnpu --depth 1
+            - name: install requirements
+              run: |
+                pip install -r $HOME/.qnpu/requirements.txt
+            - name: init qnpu
+              run: |
+                export PATH=$HOME/.qnpu:$PATH
+                qnpu-init.sh pt -m $HOME/.qnpu/qnpu-manifests/pytorch-stack.xml --pytorch
+            - name: build pytorch with ops documentation
+              run: |
+                source $HOME/qnpu/pt/activate
+                build_pytorch_modules -c --enable_slrg -i -r
+            - name: check if ops documentation changed
+              id: check_diff
+              run: |
+                set +e
+                cd $HOME/qnpu/pt/src/pytorch-integration
+                git diff --quiet docs/*.rst
+                echo "diff_result=$?" >> $GITHUB_OUTPUT
+            - name: dump build id data
+              id: build_data
+              run: |
+                source $HOME/qnpu/pt/update_HB_BUILD_VER
+                echo "build_ver=${HB_BUILD_VER}" >> $GITHUB_OUTPUT
+            - name: create pr with updated ops documentation
+              if: steps.check_diff.outputs.diff_result != '0'
+              run: |
+                cd $HOME/qnpu/pt/src/pytorch-integration
+                sudo apt install gh -y
+
+                git status
+                git config --global user.email "sys_hab_pt_service@intel.com"
+                git config --global user.name "sys_hab_pt_service"
+
+                echo "File changed, committing and pushing changes."
+                git checkout -b auto/update_ops_docs
+                git add docs/*.rst
+                git commit -m "[automatic update] Update ops documentation"
+                git push -f --set-upstream origin auto/update_ops_docs
+                gh auth login --with-token <<< ${{ secrets.GH_TOKEN_PT_SERVICE }}
+
+                # Check if a PR already exists and close it
+                existing_pr=$(gh pr list --head auto/update_ops_docs --json number --jq '.[0].number')
+                if [[ -n "$existing_pr" ]]; then
+                  echo "Closing existing PR #$existing_pr"
+                  gh pr close "$existing_pr"
+                fi
+
+                echo "This PR updates ops documentation automatically by periodic job:" > $HOME/prbody.txt
+                echo "Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> $HOME/prbody.txt
+                echo "In case of issues contact tadeusz.lipinski@intel.com" >> $HOME/prbody.txt
+                echo "Build version: ${{ steps.build_data.outputs.build_ver }}" >> $HOME/prbody.txt
+
+                gh pr create --title "[automatic commit] Update ops documentation" \
+                  --body-file $HOME/prbody.txt \
+                  --head auto/update_ops_docs \
+                  --base master_next

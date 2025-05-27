@@ -4,6 +4,7 @@
 !.ci
 !.devops
 !.gitignore
+!.github
 *cache*/
 data/
 *.log
