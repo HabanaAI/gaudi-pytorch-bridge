@@ -44,7 +44,7 @@ pushd 3rd-parties
 git clone --depth 1 https://github.com/abseil/abseil-cpp.git
 git clone --depth 1 --branch 9.1.0 https://github.com/fmtlib/fmt fmt-9.1.0
 git clone --depth 1 --branch 3.3.9 https://gitlab.com/libeigen/eigen.git
-git clone --depth 1 --branch v0.8.1 https://github.com/Neargye/magic_enum.git magic_enum-0.8.1
+git clone --depth 1 --branch v0.9.7 https://github.com/Neargye/magic_enum.git magic_enum-0.9.7
 git clone --depth 1 --branch v1.13.0 https://github.com/google/googletest.git googletest_1_13
 
 git clone --depth 1 --branch v3.4.0 https://github.com/nlohmann/json.git
