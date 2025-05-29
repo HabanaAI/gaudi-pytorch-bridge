@@ -107,7 +107,7 @@ def replace_quantize_with_cast(module: torch.fx.GraphModule):
     replacement_count = 0
 
     for node in graph.nodes:
-        # Check if the node is a bmm.default operation
+        # Check if the node is a quantize_per_tensor.default operation
         if is_node(node, "quantize_per_tensor.default"):
 
             with graph.inserting_before(node):

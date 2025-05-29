@@ -39,7 +39,14 @@ from torch.fx.passes.utils.source_matcher_utils import (
     get_source_partitions,
 )
 
-from .pattern_matcher import PatternMatchAndReplacer, get_dequant_node, is_node
+from .pattern_matcher import (
+    PatternMatchAndReplacer,
+    get_dequant_node,
+    is_node,
+)
+from .quantize_fsdpa import (
+    handle_fsdpa_quantization,
+)
 from .quantize_kvcache import (
     check_kcache_or_vcache,
     handle_kvcache_quantization,
@@ -512,6 +519,11 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
 
+                if bc.get_pt_hpu_pt2eq_fsdpa_quant() and (not bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching()):
+                    handle_fsdpa_quantization(self._converted_module)
+                else:
+                    logger.warn("Fp8 FSDPA supported only with synapse pattern matching!!!")
+
                 # Now we call hpu_inference_compiler to convert it into synapse graph.
                 with torch.no_grad():
                     self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
@@ -544,6 +556,11 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 if bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching():
                     replacer = PatternMatchAndReplacer(self._converted_module)
                     replacer.run()
+
+                if bc.get_pt_hpu_pt2eq_fsdpa_quant() and (not bc.get_pt_hpu_pt2eq_fx_graph_pattern_matching()):
+                    handle_fsdpa_quantization(self._converted_module)
+                else:
+                    logger.warn("Fp8 FSDPA supported only with synapse pattern matching!!!")
 
                 assert self._converted_module is not None
                 self._pt2e_quant_context.record_transformed_gm(self._converted_module, converted=True)
@@ -943,6 +960,36 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                         "inputs": [dump_info[0].item(), dump_info[1].item()],
                         "params": {},
                     }
+            if is_node(node, "sdpa_recomp_fwd_non_dropout.default"):
+                input0_dequant_node = get_dequant_node(node.args[0])
+                input1_dequant_node = get_dequant_node(node.args[1])
+                input2_dequant_node = get_dequant_node(node.args[2])
+                if input0_dequant_node and input1_dequant_node and input2_dequant_node:
+                    input0_node = (
+                        input0_dequant_node.args[0]
+                        if is_node(input0_dequant_node.args[0], "quantize_per_tensor.default")
+                        else input0_dequant_node
+                    )
+                    input1_node = (
+                        input1_dequant_node.args[0]
+                        if is_node(input1_dequant_node.args[0], "quantize_per_tensor.default")
+                        else input1_dequant_node
+                    )
+                    input2_node = (
+                        input2_dequant_node.args[0]
+                        if is_node(input2_dequant_node.args[0], "quantize_per_tensor.default")
+                        else input2_dequant_node
+                    )
+                    dump_input0_scale_attr = torch.tensor(input0_node.args[1], device="hpu")
+                    dump_input1_scale_attr = torch.tensor(input1_node.args[1], device="hpu")
+                    dump_input2_scale_attr = torch.tensor(input2_node.args[1], device="hpu")
+                    dump_info = [dump_input0_scale_attr, dump_input1_scale_attr, dump_input2_scale_attr]
+                    dump_key = list(nn_module_stack.values())[-1][0]
+                    dump_key = convert_to_module_name(dump_key)
+                    dump_json_output["Nodes"][dump_key] = {
+                        "inputs": [dump_info[0].item(), dump_info[1].item(), dump_info[2].item()],
+                        "params": {},
+                    }
             if is_node(node, "full.default"):
                 logger.debug(f"Found full.default node: {node.name}")
                 from .quantize_kvcache import search_node
@@ -1068,6 +1115,47 @@ def load_scale(module: torch.fx.GraphModule, scale_info_json=None, extra_file: s
                         input1_quant_node_args = list(input1_quant_node.args)
                         input1_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
                         input1_quant_node.args = tuple(input1_quant_node_args)
+            if is_node(node, "sdpa_recomp_fwd_non_dropout.default"):
+                input0_dequant_node = get_dequant_node(node.args[0])
+                input1_dequant_node = get_dequant_node(node.args[1])
+                input2_dequant_node = get_dequant_node(node.args[2])
+                if input0_dequant_node is not None:
+                    logger.debug("Dequant node found for input0")
+                if input1_dequant_node is not None:
+                    logger.debug("Dequant node found for input1")
+                if input2_dequant_node is not None:
+                    logger.debug("Dequant node found for input1")
+                if input0_dequant_node and input1_dequant_node and input2_dequant_node:
+                    count = count + 1
+                    nn_module_stack = node.meta.get("nn_module_stack", None)
+                    module_name = list(nn_module_stack.values())[-1][0]
+                    module_name = convert_to_module_name(module_name)
+                    input0_dequant_node_args = list(input0_dequant_node.args)
+                    input1_dequant_node_args = list(input1_dequant_node.args)
+                    input2_dequant_node_args = list(input2_dequant_node.args)
+                    input0_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
+                    input1_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
+                    input2_dequant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][2]
+                    input0_dequant_node.args = tuple(input0_dequant_node_args)
+                    input1_dequant_node.args = tuple(input1_dequant_node_args)
+                    input2_dequant_node.args = tuple(input2_dequant_node_args)
+                    input0_quant_node = input0_dequant_node.args[0]
+                    if is_node(input0_quant_node, "quantize_per_tensor.default"):
+                        input0_quant_node_args = list(input0_quant_node.args)
+                        input0_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][0]
+                        input0_quant_node.args = tuple(input0_quant_node_args)
+                    input1_quant_node = input1_dequant_node.args[0]
+                    if is_node(input1_quant_node, "quantize_per_tensor.default"):
+                        input1_quant_node_args = list(input1_quant_node.args)
+                        input1_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][1]
+                        input1_quant_node.args = tuple(input1_quant_node_args)
+                    input2_quant_node = input2_dequant_node.args[0]
+                    if is_node(input2_quant_node, "quantize_per_tensor.default"):
+                        input2_quant_node_args = list(input2_quant_node.args)
+                        input2_quant_node_args[1] = scale_info_json["Nodes"][module_name]["inputs"][2]
+                        input2_quant_node.args = tuple(input2_quant_node_args)
+                else:
+                    logger.debug("FSDPA dequant inputs not found")
             if is_node(node, "mm.default") or is_node(node, "addmm.default"):
                 gemm_node = node
                 is_addmm_node = is_node(gemm_node, "addmm.default")

@@ -369,6 +369,17 @@ class habana_quantizer(Quantizer):
         if len(module_partitions) == 0:
             return
 
+        def is_qkv(node):
+            while node and node.op == "call_function":
+                if (
+                    node.target.__name__ == "index_copy.default"
+                    or node.target.__name__ == "rotary_pos_embedding.default"
+                    or node.target.__name__ == "mm.default"
+                ):
+                    return True
+                node = node.args[0]
+            return False
+
         input_act_qspec = get_input_act_qspec(quantization_config)
         output_act_qspec = get_output_act_qspec(quantization_config)
         for module_or_fn_type, partitions in module_partitions.items():
@@ -377,13 +388,15 @@ class habana_quantizer(Quantizer):
                 or module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default
             ):
                 for p in partitions:
-                    act1_node = p.input_nodes[0]
-                    act2_node = p.input_nodes[1]
-                    act3_node = p.input_nodes[2]
                     output_node = p.output_nodes[0]
-                    _update_input_qspec_map(p, act1_node, input_act_qspec)
-                    _update_input_qspec_map(p, act2_node, input_act_qspec)
-                    _update_input_qspec_map(p, act3_node, input_act_qspec)
+                    if p.input_nodes[0] and is_qkv(p.input_nodes[0]):
+                        _update_input_qspec_map(p, p.input_nodes[0], input_act_qspec)
+                    if p.input_nodes[1] and is_qkv(p.input_nodes[1]):
+                        _update_input_qspec_map(p, p.input_nodes[1], input_act_qspec)
+                    if p.input_nodes[2] and is_qkv(p.input_nodes[2]):
+                        _update_input_qspec_map(p, p.input_nodes[2], input_act_qspec)
+                    if len(p.input_nodes) > 3 and p.input_nodes[3] and is_qkv(p.input_nodes[3]):
+                        _update_input_qspec_map(p, p.input_nodes[3], input_act_qspec)
                     _update_output_qspec(output_node, output_act_qspec)
 
                     nodes_to_mark_annotated = list(p.nodes)

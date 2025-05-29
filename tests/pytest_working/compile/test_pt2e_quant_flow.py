@@ -25,8 +25,10 @@ import torch
 from habana_frameworks.torch.core.quantizer import (
     _mark_nodes_as_annotated,
     _update_input_qspec_map,
+    _update_output_qspec,
     habana_quant_config_symmetric,
 )
+from habana_frameworks.torch.hpex.kernels import FusedSDPA
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import (
     fga_assert_helper,
@@ -163,7 +165,33 @@ class custom_quantizer(Quantizer):
                         nodes_to_mark_annotated = list(p.nodes)
                         _mark_nodes_as_annotated(nodes_to_mark_annotated)
 
+        def _annotate_sdpa(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+            module_partitions = get_source_partitions(
+                gm.graph, [torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default, torch.ops.hpu.sdpa_recomp_fwd]
+            )
+
+            if len(module_partitions) == 0:
+                return
+
+            input_act_qspec = get_input_act_qspec(quantization_config)
+            output_act_qspec = get_input_act_qspec(quantization_config)
+            for module_or_fn_type, partitions in module_partitions.items():
+                if (
+                    module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd
+                    or module_or_fn_type == torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default
+                ):
+                    for p in partitions:
+                        output_node = p.output_nodes[0]
+                        _update_input_qspec_map(p, p.input_nodes[0], input_act_qspec)
+                        _update_input_qspec_map(p, p.input_nodes[1], input_act_qspec)
+                        _update_input_qspec_map(p, p.input_nodes[2], input_act_qspec)
+                        _update_output_qspec(output_node, output_act_qspec)
+
+                        nodes_to_mark_annotated = list(p.nodes)
+                        _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
         _annotate_linear(model, self.global_config)
+        _annotate_sdpa(model, self.global_config)
         return model
 
 
@@ -367,3 +395,90 @@ def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_duri
         use_pt2e_quant_flow(
             test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
         )
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
+def test_fp8_fsdpa_with_pt2e(dtype, inference_env_fixture):
+    # Stabilizing testing.
+    torch.manual_seed(0xDEADDEAD)
+    random.seed(0xDEADDEAD)
+    np.random.seed(0xDEADDEAD)
+    torch.use_deterministic_algorithms(True)
+
+    class SimpleModel(torch.nn.Module):
+        def __init__(self, dtype):
+            super().__init__()
+            self.relu = torch.nn.ReLU()
+
+        def forward(self, query, key, value):
+            out = FusedSDPA.apply(query, key, value, None, 0.0, False)
+            out = self.relu(out)
+            return out
+
+    cpu_query0 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_key0 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_value0 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_query1 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_key1 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_value1 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_query2 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_key2 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+    cpu_value2 = torch.randn(1, 1, 64, 64, dtype=torch.bfloat16).to("hpu")
+
+    example_inputs_0 = [
+        cpu_query0,
+        cpu_key0,
+        cpu_value0,
+    ]
+    example_inputs_1 = [
+        cpu_query1,
+        cpu_key1,
+        cpu_value1,
+    ]
+    example_inputs_2 = [
+        cpu_query2,
+        cpu_key2,
+        cpu_value2,
+    ]
+
+    HPU = torch.device("hpu")
+    model = SimpleModel(dtype)
+    model.to(device=HPU)
+    model.eval()
+
+    ref_result = model(*example_inputs_2)
+
+    quant_dtype = torch.float8_e4m3fn
+    quant_config = habana_quant_config_symmetric(quant_dtype)
+    quantizer = custom_quantizer(quant_config)
+
+    with torch.no_grad():
+        from torch.export import export_for_training
+
+        model = export_for_training(model)
+        if isinstance(model, torch.export.exported_program.ExportedProgram):
+            model = model.module()
+
+        with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            from torch.ao.quantization.quantize_pt2e import prepare_pt2e
+
+            model = prepare_pt2e(model, quantizer)
+            # calibrate
+            from compile.test_dynamo_utils import use_eager_fallback
+
+            with use_eager_fallback():
+                calibrate_result = model(*example_inputs_0)
+                calibrate_result = model(*example_inputs_1)
+
+        with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            from torch.ao.quantization.quantize_pt2e import convert_pt2e
+
+            model = convert_pt2e(model)
+            # run inference with quantized model
+            from compile.test_dynamo_utils import use_eager_fallback
+
+            with use_eager_fallback():
+                hpu_result = model(*example_inputs_2)
+            CPU = torch.device("cpu")
+            print("max diff:", torch.max(torch.abs(ref_result.to(CPU) - hpu_result.to(CPU))))
+            assert torch.allclose(ref_result.to(CPU).float(), hpu_result.to(CPU).float(), rtol=0.001, atol=0.4)

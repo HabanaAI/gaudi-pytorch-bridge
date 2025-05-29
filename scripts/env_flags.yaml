@@ -878,6 +878,12 @@ PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING:
   doc: "This flag is to enable FX graph pattern matching for quantized operations at bridge.
         If bridge pattern matching is not enabled, synapse pattern matching will get activated."
 
+PT_HPU_PT2EQ_FSDPA_QUANT:
+  type: bool
+  default: true
+  settable: true
+  doc: "This flag is to enable FP8 FSDPA in the PT2E inference flow."
+
 PT_HPU_PT2EQ_USE_EXPORT_PROGRAM:
   type: bool
   default: false
