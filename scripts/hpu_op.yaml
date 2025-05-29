@@ -1204,6 +1204,12 @@ _foreach_zero_:
   namespaces: [torch]
   op_validator: UnaryForeachZeroSharedMeta
 
+_fused_adamw_:
+  op_backend: FusedAdamW
+  inplace_ids: [0, 1, 2, 3, 4]
+  namespaces: [torch]
+  op_validator: AdamWSharedMeta
+
 _fused_dropout:
   output_meta: FusedNativeDropoutMeta
   custom_fill_params: FillFusedNativeDropoutParams

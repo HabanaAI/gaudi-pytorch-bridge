@@ -134,14 +134,18 @@ class StackGetter {
       std::vector<TensorsPair>*) {
     auto pos = CheckGetAndIncrStackPos();
     HABANA_ASSERT(
-        stack[pos].isTensorList(),
+        stack[pos].isTensorList() || stack[pos].isList(),
         "Input ",
         pos,
         " type expected to be ",
         orNoneStrOpt,
         "tensor list");
-    auto list = stack[pos].toTensorList();
+
     std::vector<TensorsPair> result;
+    if (!stack[pos].isTensorList())
+      return result;
+
+    auto list = stack[pos].toTensorList();
     for (auto&& v : list) {
       int syn_pos = GetAndIncrSynPos();
       result.push_back({v, op->syn_in(syn_pos), syn_pos});

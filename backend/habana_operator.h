@@ -168,6 +168,8 @@ class InferOutputMetaRetType {
 
   void RemoveOutput(size_t index);
 
+  void InsertOutputIdx(size_t index, IdxTensorTuple output_tensor);
+
   void PushOutputTensorAtFront(IdxTensorTuple output_tensor);
 
   size_t GetKernelSize() const {

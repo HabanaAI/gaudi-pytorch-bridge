@@ -908,6 +908,21 @@ void habana::InferOutputMetaRetType::RemoveOutput(size_t index) {
   output_tensors_.erase(output_tensors_.begin() + index);
 }
 
+/**
+ * Replaces the output tensor at the specified index with a new tensor.
+ *
+ * @param index The position in the output_tensors_ vector to replace.
+ *              Must be within the bounds of the vector.
+ * @param output_tensor The new tensor to insert at the specified index.
+ *                      Ownership of the tensor is transferred.
+ */
+void habana::InferOutputMetaRetType::InsertOutputIdx(
+    size_t index,
+    IdxTensorTuple output_tensor) {
+  HABANA_ASSERT(index < output_tensors_.size(), "index out of range");
+  output_tensors_.at(index) = std::move(output_tensor);
+}
+
 void habana::InferOutputMetaRetType::PushOutputTensorAtFront(
     IdxTensorTuple output_tensor) {
   output_tensors_.insert(output_tensors_.begin(), std::move(output_tensor));

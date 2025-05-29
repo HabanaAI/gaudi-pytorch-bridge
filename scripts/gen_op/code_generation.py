@@ -887,6 +887,10 @@ def handle_return_eager(
         code += "  {}hpu_op.call({});".format("auto res = ", fe_call_args)
         code += "\n"
         code += f"  return {handle_output_mask}(res, {param_vars[len(param_vars)-1]})"
+    elif inplace_op_info[1] == "aten::_fused_adamw":  # currently only fused_adamw is supported
+        code += f"  std::vector<at::TensorList> tensorlists = {{ {fe_call_args} }};"
+        code += " \n"
+        code += "  hpu_op.call({})".format("tensorlists")
     else:
         code += "  {}hpu_op.call({})".format("" if rtype == "void" else "return ", fe_call_args)
     if not is_eager_op_supported:
