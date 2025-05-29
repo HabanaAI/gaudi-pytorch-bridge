@@ -25,6 +25,7 @@
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 
 namespace {
 void handle_const_section_tensor(const at::Tensor& tensor) {
@@ -1210,7 +1211,13 @@ void update_tensor_layout_and_permutation(
 }
 
 at::Tensor create_empty_tensor(const PtTensorInfo& ti) {
-  auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+  at::Tensor pt_tensor;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+    pt_tensor = habana_lazy::empty_hpu_lazy(
+        ti.get_shape(), ti.get_topts(), ti.get_mf());
+  } else {
+    pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+  }
   update_tensor_layout_and_permutation(pt_tensor, ti);
   return pt_tensor;
 }
