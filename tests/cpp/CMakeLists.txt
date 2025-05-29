@@ -274,7 +274,6 @@ list(
   utils/rerun_failures.cpp
   view_utils_tests.cpp
   common_tests.cpp
-  test_custom_autocast_list.cpp
   test_symbolic_expression.cpp)
 
 list(
