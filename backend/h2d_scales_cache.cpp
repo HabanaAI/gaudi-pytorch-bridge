@@ -122,7 +122,7 @@ at::Tensor H2dScalesCache::CreateH2dTensorScale(
   char* ptr = static_cast<char*>(h2d_pointer) + host_total_elem;
   h2d_pointer = static_cast<char*>(ptr + host_total_elem);
   tmeta->set_compile_host_ptr(ptr);
-  tmeta->update_host_data(scale_ptr, {1}, scale_value_size, true);
+  tmeta->update_host_data(scale_ptr, 1, scale_value_size, true);
 
   return scale_tensor;
 }

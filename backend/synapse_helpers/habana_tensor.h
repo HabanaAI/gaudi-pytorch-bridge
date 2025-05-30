@@ -552,7 +552,7 @@ class tensor final {
  * @param arg number of dimensions as integer
  * @return number of dimension as dimension_count_t
  */
-tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg);
+tensor::shape_t::dimension_count_t operator""_D(unsigned long long arg);
 
 inline std::ostream& operator<<(
     std::ostream& out,

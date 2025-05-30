@@ -20,9 +20,8 @@
 namespace synapse_helpers {
 // Function to release free memory using tcmalloc library
 void ReleaseFreeMemory() {
-  static ReleaseFreeMemoryFunc releaseFreeMemory =
-      reinterpret_cast<ReleaseFreeMemoryFunc>(
-          dlsym(RTLD_DEFAULT, "MallocExtension_ReleaseFreeMemory"));
+  static auto releaseFreeMemory = reinterpret_cast<ReleaseFreeMemoryFunc>(
+      dlsym(RTLD_DEFAULT, "MallocExtension_ReleaseFreeMemory"));
   if (releaseFreeMemory) {
     PT_DYNAMIC_SHAPE_DEBUG("MallocExtension_ReleaseFreeMemory called");
     releaseFreeMemory();

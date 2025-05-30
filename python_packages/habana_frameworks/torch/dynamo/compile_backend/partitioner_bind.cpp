@@ -451,12 +451,11 @@ class BindedPartitioner {
       int prim_id = node_wrapper.attr("prim_id").cast<int>();
       Node* ptr = mapping.find(prim_id)->second;
 
-      std::vector<int> users =
-          node_wrapper.attr("users").cast<std::vector<int>>();
+      auto users = node_wrapper.attr("users").cast<std::vector<int>>();
       for (int& id : users)
         ptr->users().insert(mapping.find(id)->second);
 
-      std::vector<int> input_nodes =
+      auto input_nodes =
           node_wrapper.attr("input_nodes").cast<std::vector<int>>();
       for (int& id : input_nodes)
         ptr->all_input_nodes().insert(mapping.find(id)->second);

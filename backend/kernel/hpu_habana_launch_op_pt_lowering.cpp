@@ -294,8 +294,8 @@ static std::vector<synRetrievedLaunchTensorInfo> getRecipeTensorInfos(
     const synRecipeHandle& recipeHandle,
     uint32_t numOfTensors) {
   synStatus status;
-  uint64_t ids[numOfTensors];
-  status = synTensorRetrieveLaunchIds(recipeHandle, ids, numOfTensors);
+  std::vector<uint64_t> ids(numOfTensors);
+  status = synTensorRetrieveLaunchIds(recipeHandle, ids.data(), numOfTensors);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   std::vector<synRetrievedLaunchTensorInfo> tensorInfos(numOfTensors);

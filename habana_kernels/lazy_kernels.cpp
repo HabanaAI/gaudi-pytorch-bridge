@@ -28,6 +28,7 @@
 #include "common/dump_args.h"
 #include "generated/lazy/fp8_gemm_v2.h"
 #include "habana_helpers/frontend_utils.h"
+#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
@@ -64,7 +65,6 @@
 #include "lazy_optimizer_kernels.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/h2d_scales.h"
-#include "habana_helpers/pt_version_check.h"
 
 #define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
 
@@ -1801,7 +1801,8 @@ Tensor add_scalar_hpu_lazy(
     const Scalar& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> op{"aten::add", {self, other, alpha}, {self.sizes().vec()}};
+  LazyOp<at::Tensor> op{
+      "aten::add", {self, other, alpha}, {self.sizes().vec()}};
   RUN_MAYBE_WITH_ACC_THREAD(add, op)
 }
 
@@ -2308,8 +2309,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
   int64_t i = 0;
-  int64_t index_t_sizes[self.dim()];
-  bool index_all_elems[self.dim()];
+  std::vector<int64_t> index_t_sizes(self.dim());
+  std::vector<bool> index_all_elems(self.dim());
   for (auto index_input : indices) {
     auto input = index_input;
     if (input.has_value() &&
@@ -2366,8 +2367,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   // TODO:
   // adjust this algorithm to larger dim tensors as the r/ri logic
   // is applied dim wise and not on the flattened shape.
-  int64_t repeats_needed[self.dim()];
-  int64_t repeat_interleaves_needed[self.dim()];
+  std::vector<int64_t> repeats_needed(self.dim());
+  std::vector<int64_t> repeat_interleaves_needed(self.dim());
   int repeat_index = 0;
   // Array holding a schape that was already processed through the r/ri logic
   // keep the index of the indice in order to copy schema if necessary from
@@ -4112,8 +4113,8 @@ native_group_norm_backward_hpu_lazy(
 
   Tensor bn_fwd_out;
   auto input_shape = input_.sizes().vec();
-  int64_t rszarr_bn_in[input_.dim()];
-  int64_t rszarr_bn_fwd_mean[input_.dim()];
+  std::vector<int64_t> rszarr_bn_in(input_.dim());
+  std::vector<int64_t> rszarr_bn_fwd_mean(input_.dim());
   int64_t m = input_.numel() / Nmod;
   for (int i = 0; i < input_.dim(); i++) {
     rszarr_bn_in[i] = 1;
@@ -4122,7 +4123,7 @@ native_group_norm_backward_hpu_lazy(
   rszarr_bn_in[1] = Nmod;
   rszarr_bn_in[input_.dim() - 1] = m;
   rszarr_bn_fwd_mean[1] = Nmod;
-  c10::IntArrayRef bn_in_view_shape(rszarr_bn_in, input_.dim());
+  c10::IntArrayRef bn_in_view_shape(rszarr_bn_in);
   auto bn_fwd_in = at::reshape(
       input_, bn_in_view_shape); // view_hpu(input, bn_in_view_shape);
   if (use_bn_fwd_in_gn_bwd) {
@@ -4132,7 +4133,7 @@ native_group_norm_backward_hpu_lazy(
     auto bn_fwd_out_tmp = std::get<0>(x);
     bn_fwd_out = at::reshape(bn_fwd_out_tmp, input_shape);
   } else {
-    c10::IntArrayRef mean_for_bn_fwd_shape(rszarr_bn_fwd_mean, input_.dim());
+    c10::IntArrayRef mean_for_bn_fwd_shape(rszarr_bn_fwd_mean);
     auto mean_for_bn_fwd = at::reshape(mean, mean_for_bn_fwd_shape);
     auto rstd_for_bn_fwd = at::reshape(rstd, mean_for_bn_fwd_shape);
     auto bn_fwd_out_tmp =
@@ -4140,19 +4141,19 @@ native_group_norm_backward_hpu_lazy(
     bn_fwd_out = at::reshape(bn_fwd_out_tmp, input_shape);
   }
 
-  int64_t dimarr[input_.dim() - 1];
+  std::vector<int64_t> dimarr(input_.dim() - 1);
   for (int i = 0; i < (input_.dim() - 1); i++)
     dimarr[i] = i + 1;
   dimarr[0] = 0;
-  c10::IntArrayRef reduce_dims(dimarr, input_.dim() - 1);
+  c10::IntArrayRef reduce_dims(dimarr);
 
   auto t1 = at::mul(grad_out, bn_fwd_out);
 
-  int64_t rszarr1[input_.dim()];
+  std::vector<int64_t> rszarr1(input_.dim());
   for (int i = 0; i < input_.dim(); i++)
     rszarr1[i] = 1;
   rszarr1[1] = C.expect_int();
-  c10::IntArrayRef wt_view_shape(rszarr1, input_.dim());
+  c10::IntArrayRef wt_view_shape(rszarr1);
   auto weight = weight_opt.value_or(Tensor());
   if (!weight.defined()) {
     auto options = torch::TensorOptions()

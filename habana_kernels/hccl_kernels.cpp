@@ -795,7 +795,7 @@ void HcclAllToAllOutOperator::RunCollective(
         {device_id_},
         {comm_id_},
         async,
-        done_cb = done_cb,
+        done_cb,
         [scalar_type = scalar_type_,
          input_t = p_context_->pt_inputs_[0],
          output_t = p_context_->pt_outputs_[0],

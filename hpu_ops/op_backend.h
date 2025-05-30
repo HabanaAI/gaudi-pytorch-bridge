@@ -118,7 +118,7 @@ class OpBackend : public HabanaOperator {
 
   bool STMeta(
       habana_helpers::IShapeList& inputs,
-      habana_helpers::IShapeList& outputs) const;
+      habana_helpers::IShapeList& outputs) override;
   void HandleScalarToTensorSTMeta(habana_helpers::IShapeList& inputs) const;
   void SetOutputMetadata(OutputMetaDataVector meta_vec) {
     m_output_metadata = std::move(meta_vec);

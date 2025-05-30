@@ -103,9 +103,8 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   bool keepdim = inputs[3].toBool();
   auto dtype = inputs[4].toOptional<ScalarType>();
 
-  int64_t data[dim.size()];
-  std::copy(dim.begin(), dim.end(), data);
-  IntArrayRef dim_arr(data, dim.size());
+  std::vector<int64_t> data(dim.begin(), dim.end());
+  IntArrayRef dim_arr(data);
   auto ndim = self.dim();
   auto mask = LoweringUtil::MakeDimMask(dim_arr, ndim);
 
@@ -178,17 +177,17 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     auto& reshape_out = out.call_InferOutputMeta(ReshapeOp, stack);
     self_reshaped = std::get<1>(reshape_out.GetOutputTensor(0));
 
-    int64_t reshaped_in_dim_data[reshaped_in_dim_size];
+    std::vector<int64_t> reshaped_in_dim_data(reshaped_in_dim_size);
     if (!keepdim) {
       reshaped_in_dim_data[0] = 0;
     } else {
       std::copy(
           in_dim.begin() + num_dims_to_reduce - 1,
           in_dim.end(),
-          reshaped_in_dim_data);
+          reshaped_in_dim_data.begin());
     }
 
-    IntArrayRef reshaped_in_dim(reshaped_in_dim_data, reshaped_in_dim_size);
+    IntArrayRef reshaped_in_dim(reshaped_in_dim_data);
     auto mask = LoweringUtil::MakeDimMask(reshaped_in_dim, self_reshaped.dim());
     allocate_reduction_result(
         output,
@@ -198,9 +197,8 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
         LoweringUtil::GetDtype(output, self_reshaped, dtype, false),
         false);
   } else {
-    int64_t in_dim_copy[in_dim.size()];
-    std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
-    IntArrayRef in_dim_arr(in_dim_copy, in_dim.size());
+    std::vector<int64_t> in_dim_copy(in_dim.begin(), in_dim.end());
+    IntArrayRef in_dim_arr(in_dim_copy);
     auto mask = LoweringUtil::MakeDimMask(in_dim_arr, self.dim());
     allocate_reduction_result(
         output,
@@ -328,17 +326,17 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     ReshapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
 
     auto self_reshaped = ReshapeOp->GetOutputs()[0];
-    int64_t reshaped_in_dim_data[reshaped_in_dim_size];
+    std::vector<int64_t> reshaped_in_dim_data(reshaped_in_dim_size);
     if (!keepdim) {
       reshaped_in_dim_data[0] = 0;
     } else {
       std::copy(
           in_dim.begin() + num_dims_to_reduce - 1,
           in_dim.end(),
-          reshaped_in_dim_data);
+          reshaped_in_dim_data.begin());
     }
 
-    IntArrayRef reshaped_in_dim(reshaped_in_dim_data, reshaped_in_dim_size);
+    IntArrayRef reshaped_in_dim(reshaped_in_dim_data);
     auto mask = LoweringUtil::MakeDimMask(reshaped_in_dim, self_reshaped.dim());
     allocate_reduction_result(
         output,
@@ -361,9 +359,8 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         reshaped_in_dim,
         keepdim);
   } else {
-    int64_t in_dim_copy[in_dim.size()];
-    std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
-    IntArrayRef in_dim_arr(in_dim_copy, in_dim.size());
+    std::vector<int64_t> in_dim_copy(in_dim.begin(), in_dim.end());
+    IntArrayRef in_dim_arr(in_dim_copy);
     auto mask = LoweringUtil::MakeDimMask(in_dim_arr, self.dim());
     allocate_reduction_result(
         output,

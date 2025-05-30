@@ -681,7 +681,7 @@ memory_section::memory_section(uint64_t memory_attributes, synGraphHandle graph)
         Logger::formatStatusMsg(status), "Unable to create a memory section");
 }
 
-tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg) {
+tensor::shape_t::dimension_count_t operator""_D(unsigned long long arg) {
   return tensor::shape_t::dimension_count_t{static_cast<unsigned>(arg)};
 }
 

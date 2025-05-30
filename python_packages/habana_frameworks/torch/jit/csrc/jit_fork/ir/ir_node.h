@@ -50,9 +50,9 @@ namespace habana_torch::jit {
 
 struct Block;
 
-class Node;
-class Value;
-class Use;
+struct Node;
+struct Value;
+struct Use;
 // the list types are intentionally simple, but we type-def
 // them here so if we need to change them, refactoring will be easier
 using node_list = std::vector<Node*>;

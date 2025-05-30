@@ -200,7 +200,7 @@ void OpBackend::HandleScalarToTensorSTMeta(
 
 bool OpBackend::STMeta(
     habana_helpers::IShapeList& inputs,
-    habana_helpers::IShapeList& outputs) const {
+    habana_helpers::IShapeList& outputs) {
   if (m_st_meta_fn) {
     HandleScalarToTensorSTMeta(inputs);
     return m_st_meta_fn(inputs, outputs);

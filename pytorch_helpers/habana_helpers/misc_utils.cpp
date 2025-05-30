@@ -73,7 +73,7 @@ int GetRankFromEnv() {
 }
 
 void TryJoinPendingEagerPipelineThreads() {
-  static JoinPendingPipelineThreadsFunc joinPendingPipelineThreads =
+  static auto joinPendingPipelineThreads =
       reinterpret_cast<JoinPendingPipelineThreadsFunc>(
           dlsym(RTLD_DEFAULT, "JoinPendingPipelineThreads"));
   if (joinPendingPipelineThreads) {
@@ -87,7 +87,7 @@ void TryJoinPendingEagerPipelineThreads() {
 void TryRestoreToOrgSendTensors(
     std::vector<at::Tensor>& tensors,
     std::vector<at::Tensor>& org_tensors) {
-  static RestoreToOrgSendTensorsFunc restoreToOrgSendTensors =
+  static auto restoreToOrgSendTensors =
       reinterpret_cast<RestoreToOrgSendTensorsFunc>(
           dlsym(RTLD_DEFAULT, "RestoreToOrgSendTensors"));
   if (restoreToOrgSendTensors) {

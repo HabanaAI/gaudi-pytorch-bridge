@@ -460,8 +460,8 @@ void IndexHabanaOperator::AddNode(
     int64_t explicit_index_count = 0;
     std::vector<int64_t> broadcast_to_size = {1};
     std::vector<bool> index_all_elems(self.dim());
-    int64_t repeats_needed[self.dim()];
-    int64_t repeat_interleaves_needed[self.dim()];
+    std::vector<int64_t> repeats_needed(self.dim());
+    std::vector<int64_t> repeat_interleaves_needed(self.dim());
     std::vector<int64_t> indices_size_with_adv_indexing;
     std::vector<synTensor> indices_list;
     std::vector<synTensor> cat_input_synTensor;

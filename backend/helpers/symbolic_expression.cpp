@@ -119,10 +119,8 @@ SizeExpression::SizeExpression(
   m_size_str = size_str;
   auto size_str_updated = m_size_str.substr(1, m_size_str.length() - 2);
   std::vector<std::string> exprs = SizeExpression::tokenizer(size_str_updated);
-  int64_t count = 0;
   for (auto expr_str : exprs) {
     m_size_expr.emplace_back(expr_str, in_symbol_value_map);
-    count++;
   }
 }
 

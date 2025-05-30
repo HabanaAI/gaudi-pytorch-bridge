@@ -57,6 +57,8 @@ class FuseCollectiveViewPass : public JITGraphPass<FuseCollectiveViewPassData> {
   FuseCollectiveViewPass(HabanaLaunchOpPT* habana_launch_op_ptr)
       : habana_launch_op_ptr_(habana_launch_op_ptr) {}
 
+  virtual ~FuseCollectiveViewPass() = default;
+
   std::unordered_map<CValPtr, std::shared_ptr<ExternalParams>>&
   getInputValPtrToParamsMap() {
     return input_valptr_to_params_map_;

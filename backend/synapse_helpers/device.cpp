@@ -277,7 +277,7 @@ device::device(
     size_t prealloc_size = 2ULL * 1024 * 1024 * 1024; // 2GByte
     void* v_ptr{nullptr};
     device_memory_.malloc(&v_ptr, prealloc_size);
-    device_ptr prealloc_addr = reinterpret_cast<device_ptr>(v_ptr);
+    auto prealloc_addr = reinterpret_cast<device_ptr>(v_ptr);
     device_memory_.fix_address(reinterpret_cast<void*>(prealloc_addr));
     HABANA_ASSERT(prealloc_addr != device_nullptr);
     preallocated_reduction_buffer_ = absl::make_optional<owned_device_ptr>(

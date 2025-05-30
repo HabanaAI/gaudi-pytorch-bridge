@@ -193,7 +193,7 @@ void habana_assert(
       c10::detail::StripBasename(file),
       ":",
       line);
-  typedef std::shared_ptr<c10::PrecomputedLazyValue<std::string>> MsgPtr;
+  using MsgPtr = std::shared_ptr<c10::PrecomputedLazyValue<std::string>>;
   MsgPtr msgPtr(new c10::PrecomputedLazyValue<std::string>(logmsg));
   throw c10::Error(msg, msgPtr);
 }

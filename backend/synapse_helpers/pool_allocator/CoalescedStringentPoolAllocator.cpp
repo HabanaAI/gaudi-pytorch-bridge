@@ -541,18 +541,15 @@ bool CoalescedStringentPooling::isChunkContigous(Chunk* chunk1, Chunk* chunk2)
 
 uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
   uint64_t ctgs_chunks_size = 0;
-  uint64_t ctgs_chunks = 0;
   auto temp1 = chunk;
   while (temp1 && temp1->prev && !temp1->prev->used &&
          isChunkContigous(temp1->prev, temp1)) {
-    ctgs_chunks++;
     ctgs_chunks_size += temp1->prev->size;
     temp1 = temp1->prev;
   };
   auto temp2 = chunk;
   while (temp2 && temp2->next && !temp2->next->used &&
          isChunkContigous(temp2, temp2->next)) {
-    ctgs_chunks++;
     ctgs_chunks_size += temp2->next->size;
     temp2 = temp2->next;
   };

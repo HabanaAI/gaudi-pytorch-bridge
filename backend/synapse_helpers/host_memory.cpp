@@ -198,7 +198,7 @@ synStatus host_memory::malloc(void** ptr, const size_t size) {
         8ull,       8ull,      8ull,      8ull,      8ull,
         8ull,       4ull,      4ull,      4ull,      4ull,
     };
-    uint8_t* next_ptr = static_cast<uint8_t*>(*ptr);
+    auto next_ptr = static_cast<uint8_t*>(*ptr);
     for (const auto block_size : block_sizes) {
       auto [block_it, inserted] = blocks_.insert(
           {next_ptr,
