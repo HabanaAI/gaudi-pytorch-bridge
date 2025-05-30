@@ -174,11 +174,11 @@ def get_passes(stage: OptimizationPassPlacement):
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
             pass_add_fused_op_metadata,
-            pass_reorder_collectives,
-            pass_post_reorder_custom_ops,
             pass_make_symints_available,
             pass_fuse_view_chains,
             pass_batch_as_strided_groups,
+            pass_reorder_collectives,
+            pass_post_reorder_custom_ops,
             pass_graph_print,
             pass_wa_fix_output,
         ]
