@@ -23,8 +23,7 @@
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/sdpa_gen.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 int64_t fused_sdp_choice_hpu(
     [[maybe_unused]] const at::Tensor& query,
@@ -297,5 +296,4 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

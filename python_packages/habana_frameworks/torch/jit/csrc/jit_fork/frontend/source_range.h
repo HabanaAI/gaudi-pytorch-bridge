@@ -32,8 +32,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/pt_version_check.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct SourceRange;
 
@@ -457,8 +456,7 @@ using SourceRangeRecords = std::vector<TaggedRange>;
 using SourceRangeTagMap =
     std::unordered_map<SourceRange, int64_t, SourceRangeHasher>;
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit
 
 namespace std {
 

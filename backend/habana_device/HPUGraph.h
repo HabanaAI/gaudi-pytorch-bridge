@@ -19,8 +19,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace at {
-namespace hpu {
+namespace at::hpu {
 
 struct SingleHPUGraph {
   SingleHPUGraph(
@@ -153,5 +152,4 @@ struct HPUGraph {
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_out_;
 };
 
-} // namespace hpu
-} // namespace at
+} // namespace at::hpu

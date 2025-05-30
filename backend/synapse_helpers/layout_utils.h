@@ -18,8 +18,7 @@
 #include <vector>
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-namespace synapse_helpers {
-namespace layouts {
+namespace synapse_helpers::layouts {
 
 enum class SynapseLayoutFormat {
   WHCN = 0,
@@ -181,5 +180,4 @@ LIST_OF_LAYOUT_IDX
 #undef SET_LAYOUT_IDX_VAR
 #undef LIST_OF_LAYOUT_IDX
 
-} // namespace layouts
-} // namespace synapse_helpers
+} // namespace synapse_helpers::layouts

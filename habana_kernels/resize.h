@@ -28,8 +28,7 @@
 
 #define THMin(X, Y) ((X) < (Y) ? (X) : (Y))
 
-namespace at {
-namespace native {
+namespace at::native {
 inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
   // Within PyTorch, the invariant is that storage_ is always
   // initialized; we never have tensors that don't have any storage.
@@ -177,8 +176,7 @@ inline TensorImpl* resize_impl_hpu_(
   return self;
 }
 
-} // namespace native
-} // namespace at
+} // namespace at::native
 
 // THH = TorcH Habana
 // TODO: put it in proper namespace

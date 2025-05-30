@@ -17,8 +17,7 @@
 
 #include <ATen/native/Resize.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
@@ -72,5 +71,4 @@ at::Tensor& set_(at::Tensor& self) {
   return self;
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

@@ -64,8 +64,7 @@ void Copy_Scalar_To_Host_Empty_Lowering_Task(
   }
 }
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
   c10::Scalar r;
 
@@ -134,5 +133,4 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
 #pragma GCC diagnostic pop
   return r;
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

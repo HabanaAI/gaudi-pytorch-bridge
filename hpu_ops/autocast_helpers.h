@@ -23,8 +23,7 @@
 
 #include "backend/synapse_helpers/env_flags.h"
 
-namespace at {
-namespace autocast {
+namespace at::autocast {
 
 static const std::unordered_set<std::string> default_lower_ops{
     "addmm",
@@ -355,5 +354,4 @@ static const std::unordered_set<std::string> lower_first_ops{
             &Hpu_ADD_NS(FUNC)>::type::call);            \
   }
 
-} // namespace autocast
-} // namespace at
+} // namespace at::autocast

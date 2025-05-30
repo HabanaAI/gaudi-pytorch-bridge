@@ -30,8 +30,7 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/template_helpers.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 class EagerOpBase {
  public:
@@ -577,5 +576,4 @@ class EagerOp : public EagerOpBase {
  private:
 };
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

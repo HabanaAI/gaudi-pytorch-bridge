@@ -20,8 +20,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 class View : public ir::Node {
  public:
@@ -430,5 +429,4 @@ class Expand : public ir::Node {
   }
 };
 
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

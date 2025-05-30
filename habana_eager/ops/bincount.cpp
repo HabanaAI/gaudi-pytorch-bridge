@@ -18,8 +18,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/pt_version_check.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor cast_to_32(const at::Tensor& self) {
   if (self.scalar_type() == c10::ScalarType::Long ||
@@ -110,5 +109,4 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "hpu::bincount_backend(Tensor self, int length, Tensor? weights) -> (Tensor)");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

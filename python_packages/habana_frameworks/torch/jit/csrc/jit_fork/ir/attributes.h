@@ -35,8 +35,7 @@
 #include "habana_helpers/logging.h"
 #include "jit_fork/ir/type_wrapper.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 using ::c10::Symbol;
 
@@ -213,5 +212,4 @@ struct IRAttributeError : public std::exception {
   std::string msg;
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

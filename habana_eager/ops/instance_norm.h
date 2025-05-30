@@ -16,8 +16,7 @@
 
 #include <ATen/core/TensorBody.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor instance_norm_autograd_wrap(
     const at::Tensor& input,
@@ -43,5 +42,4 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_bwd_eager_hpu(
     const at::Tensor& istd,
     const std::optional<at::Tensor>& gamma);
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

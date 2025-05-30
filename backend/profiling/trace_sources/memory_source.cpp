@@ -23,8 +23,7 @@
 #include <unordered_map>
 #include "backend/profiling/trace_sources/sources.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 struct MemoryLogger : public TraceSource {
   MemoryLogger() = default;
@@ -167,5 +166,4 @@ bool enabled() {
 }
 }; // namespace memory
 
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

@@ -26,8 +26,7 @@ namespace {
 constexpr size_t kMaxThreadName = 32;
 } // namespace
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 std::string getThreadName() {
   std::array<char, kMaxThreadName + 1> name{};
@@ -93,5 +92,4 @@ void Profiler::stop() {
     trace_source->extract(trace_sink_);
   }
 }
-} // namespace profile
-} // namespace habana
+} // namespace habana::profile

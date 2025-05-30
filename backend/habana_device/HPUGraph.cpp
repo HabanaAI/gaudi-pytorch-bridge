@@ -19,8 +19,7 @@
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/view_utils.h"
 
-namespace at {
-namespace hpu {
+namespace at::hpu {
 
 template <typename T>
 inline bool isExists(
@@ -642,5 +641,4 @@ void SingleHPUGraph::replayV2(
     return replayGraph(input_val_list, async);
   }
 }
-} // namespace hpu
-} // namespace at
+} // namespace at::hpu

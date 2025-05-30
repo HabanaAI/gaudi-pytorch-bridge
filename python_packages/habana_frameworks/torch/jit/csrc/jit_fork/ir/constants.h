@@ -34,8 +34,7 @@
 // - create constant nodes from ints, floats, complex, intlist, Tensors, and
 // other types
 // - implement primitive constant ops.
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 using ::c10::IValue;
 
@@ -83,5 +82,4 @@ std::optional<T> constant_as(const Value* v) {
   return std::nullopt;
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

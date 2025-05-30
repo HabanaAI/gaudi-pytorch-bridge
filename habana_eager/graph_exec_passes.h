@@ -16,9 +16,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "habana_eager/graph_dynamic.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
 bool AddDeterministicAttribute(std::shared_ptr<torch::jit::Graph> graph);
@@ -60,6 +58,4 @@ bool MarkParamsAsConst(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::vector<int64_t>& const_indexes);
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

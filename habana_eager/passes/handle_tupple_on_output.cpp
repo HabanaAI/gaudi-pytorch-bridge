@@ -18,9 +18,7 @@
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 struct HandleTupleOnOutputPass {
   explicit HandleTupleOnOutputPass(std::shared_ptr<torch::jit::Graph> graph)
@@ -73,6 +71,4 @@ bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph) {
   return changed;
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

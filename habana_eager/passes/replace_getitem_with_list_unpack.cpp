@@ -18,9 +18,7 @@
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 struct ListUnpackDesc {
   explicit ListUnpackDesc(torch::jit::Node* list_unpack_node)
@@ -177,6 +175,4 @@ bool ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph) {
   return changed;
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

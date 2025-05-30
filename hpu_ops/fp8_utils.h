@@ -20,9 +20,7 @@
 
 namespace sh = synapse_helpers;
 
-namespace habana {
-
-namespace fp8 {
+namespace habana::fp8 {
 auto GetFp8Dtypes(const at::ScalarType& dtype);
 
 auto GetFp8Dtypes(const at::IValue& dtype);
@@ -59,6 +57,4 @@ void HandleScale(
     std::vector<synTensor>& syn_inputs,
     int deviceId,
     const c10::IValue& scale_shape = c10::IValue());
-} // namespace fp8
-
-} // namespace habana
+} // namespace habana::fp8

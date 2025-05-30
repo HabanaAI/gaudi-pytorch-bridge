@@ -27,13 +27,11 @@
 #include <string>
 #include <variant>
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 TORCH_API std::variant<c10::OperatorName, c10::FunctionSchema> parseSchemaOrName(
     const std::string& schemaOrName);
 TORCH_API c10::FunctionSchema parseSchema(const std::string& schema);
 TORCH_API c10::OperatorName parseName(const std::string& name);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

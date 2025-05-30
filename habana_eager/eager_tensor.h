@@ -23,9 +23,7 @@
 #include <atomic>
 #include <future>
 
-namespace habana {
-
-namespace eager {
+namespace habana::eager {
 
 /**
  * @brief
@@ -102,5 +100,4 @@ class HbEagerTensorPool {
   const size_t pool_size_{GET_ENV_FLAG_NEW(PT_HPU_EAGER_TENSOR_POOL_SIZE)};
 };
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

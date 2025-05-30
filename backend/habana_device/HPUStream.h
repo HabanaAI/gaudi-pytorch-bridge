@@ -68,8 +68,7 @@
 
 typedef void (*JoinEagerThreads)(void);
 
-namespace c10 {
-namespace hpu {
+namespace c10::hpu {
 
 // Value object representing a HPU stream.  This is just a wrapper
 // around c10::Stream, but it comes with a little extra HPU-specific
@@ -251,8 +250,7 @@ TORCH_API HPUStream getStreamByStreamPtr(
     synapse_helpers::hpuStream_t ext_stream,
     DeviceIndex device_index);
 
-} // namespace hpu
-} // namespace c10
+} // namespace c10::hpu
 
 namespace std {
 template <>

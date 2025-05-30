@@ -18,9 +18,7 @@
 #include <ATen/core/Tensor.h>
 #include <ATen/core/TensorBody.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor nonzero_eager(const at::Tensor& self);
 at::Tensor& nonzero_out_eager(const at::Tensor& self, at::Tensor& out);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

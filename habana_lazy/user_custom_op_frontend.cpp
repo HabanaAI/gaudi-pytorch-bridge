@@ -15,8 +15,7 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "include/habanalabs/hpu_custom_op_pt2.h"
 
-namespace habana {
-namespace custom_op {
+namespace habana::custom_op {
 
 std::vector<at::Tensor> UserCustomOpDescriptor::execute(
     const std::vector<c10::IValue>& inputs) {
@@ -32,5 +31,4 @@ std::vector<at::Tensor> UserCustomOpDescriptor::execute(
   return hpu_op.call();
 }
 
-} // namespace custom_op
-} // namespace habana
+} // namespace habana::custom_op

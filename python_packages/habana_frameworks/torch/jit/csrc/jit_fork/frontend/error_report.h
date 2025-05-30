@@ -30,8 +30,7 @@
 
 #include "jit_fork/frontend/source_range.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct Token;
 
@@ -77,5 +76,4 @@ const ErrorReport& operator<<(const ErrorReport& e, const T& t) {
   return e;
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

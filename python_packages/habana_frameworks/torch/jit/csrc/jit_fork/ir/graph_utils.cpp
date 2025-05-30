@@ -22,8 +22,7 @@
 
 #include "jit_fork/ir/graph_utils.h"
 #include "habana_helpers/logging.h"
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 TypePtr getTensorType(const at::Tensor& t, bool complete) {
   auto r = TensorType::create(t);
@@ -111,5 +110,4 @@ void setInputTensorTypes(
   }
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

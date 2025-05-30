@@ -22,12 +22,10 @@
 
 #pragma once
 
-
 #include "jit_fork/frontend/error_report.h"
 #include "jit_fork/frontend/lexer.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 inline bool isCharCount(char c, const std::string& str, size_t start, int len) {
   // count checks from [start, start + len)
@@ -106,5 +104,4 @@ inline std::string parseStringLiteral(
   return ret_str;
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

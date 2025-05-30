@@ -15,13 +15,11 @@
 
 #pragma once
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_eager(
     const at::Tensor& self,
     int64_t dim,
     bool sorted,
     bool return_inverse,
     bool return_counts);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

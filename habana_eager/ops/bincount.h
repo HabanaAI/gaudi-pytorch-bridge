@@ -17,8 +17,7 @@
 #include <c10/core/SymInt.h>
 #include "habana_helpers/pt_version_check.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor bincount_eager(
     const at::Tensor& self,
     const std::optional<at::Tensor>& weights,
@@ -27,5 +26,4 @@ at::Tensor bincount_eager(
 #else
     int64_t minlength);
 #endif
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

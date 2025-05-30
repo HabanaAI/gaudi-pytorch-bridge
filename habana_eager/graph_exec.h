@@ -26,8 +26,7 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
 using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
@@ -127,5 +126,4 @@ class GraphExec {
   size_t m_initial_graph_key_with_perm = SIZE_MAX;
 };
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

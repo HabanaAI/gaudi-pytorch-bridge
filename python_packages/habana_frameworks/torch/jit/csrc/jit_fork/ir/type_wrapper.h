@@ -30,8 +30,7 @@
 #include <variant>
 #include <vector>
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 using SymbolOrExpr = std::string;
 
@@ -156,5 +155,4 @@ struct Use {
   }
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

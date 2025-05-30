@@ -25,8 +25,7 @@
 #include "lazy_executor.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace exec {
+namespace habana_lazy::exec {
 
 using Graph = torch::jit::Graph;
 using JitValue = torch::jit::Value;
@@ -400,5 +399,4 @@ class HlExec {
   static size_t s_graphIndex;
 };
 
-}; // namespace exec
-}; // namespace habana_lazy
+}; // namespace habana_lazy::exec

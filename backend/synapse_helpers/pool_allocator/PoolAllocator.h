@@ -20,8 +20,7 @@
 #include "backend/synapse_helpers/device_types.h"
 #include "habana_helpers/towl.h"
 
-namespace synapse_helpers {
-namespace pool_allocator {
+namespace synapse_helpers::pool_allocator {
 
 enum PoolStrategyType {
   strategy_none = 0,
@@ -215,5 +214,4 @@ class SubAllocator {
   }
 };
 
-} // namespace pool_allocator
-} // namespace synapse_helpers
+} // namespace synapse_helpers::pool_allocator

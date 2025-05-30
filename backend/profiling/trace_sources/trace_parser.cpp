@@ -25,8 +25,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 using namespace std::chrono;
 
@@ -437,5 +436,4 @@ std::unordered_map<std::string, std::string> HpuTraceParser::getExtraArgs(
   }
   return extraArgs;
 }
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

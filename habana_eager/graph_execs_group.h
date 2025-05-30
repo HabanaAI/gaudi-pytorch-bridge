@@ -27,8 +27,7 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_exec.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
 
@@ -87,5 +86,4 @@ struct GraphExecsGroup {
   void RunGraphGroupPasses();
 };
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

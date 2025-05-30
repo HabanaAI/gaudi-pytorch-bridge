@@ -24,8 +24,7 @@
  * The signal handler is modelled after caffe2/utils/signal_handler.cc from
  * pytorch frameworks, which is by default not compiled in the framework.
  */
-namespace habana_helpers {
-namespace signalHandler {
+namespace habana_helpers::signalHandler {
 
 using signalHandlerFnPtr =
     std::add_pointer<void(int signum, siginfo_t* info, void* ctx)>::type;
@@ -63,5 +62,4 @@ void HabanaSignalHandler(int signum, siginfo_t* info, void* ctx);
 void InstallSignalHandlers(signalHandlerFnPtr handlerFn);
 
 void fatalSignalHandler(int signum, siginfo_t* info, void* ctx);
-} // namespace signalHandler
-} // namespace habana_helpers
+} // namespace habana_helpers::signalHandler

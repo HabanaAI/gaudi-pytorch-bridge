@@ -30,8 +30,7 @@
 #include <string>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 namespace {
 std::string& removeWhitespaces(std::string& str) {
@@ -428,5 +427,4 @@ std::ostream& operator<<(std::ostream& out, const TypeWrapper& wrapper) {
   return out;
 }
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

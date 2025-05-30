@@ -21,8 +21,7 @@
 
 #include <utility>
 
-namespace at {
-namespace hpu {
+namespace at::hpu {
 
 /*
  * HPUEvents are movable not copyable wrappers around HPU's events.
@@ -117,5 +116,4 @@ struct HPUEvent {
   void moveHelper(HPUEvent&& other);
 }; // namespace hpu
 
-} // namespace hpu
-} // namespace at
+} // namespace at::hpu

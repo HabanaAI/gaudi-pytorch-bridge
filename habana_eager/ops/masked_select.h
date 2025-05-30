@@ -18,12 +18,10 @@
 #include <ATen/core/Tensor.h>
 #include <ATen/core/TensorBody.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor masked_select_eager(const at::Tensor& self, const at::Tensor& mask);
 at::Tensor& masked_select_out_eager(
     const at::Tensor& self,
     const at::Tensor& mask,
     at::Tensor& out);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

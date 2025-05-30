@@ -39,8 +39,7 @@
 
 #include <chrono>
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 void PrintRangeInfos(std::vector<habana_helpers::RangeInfo>& range_infos) {
   PT_DYNAMIC_SHAPE_DEBUG("RangeInfos:");
@@ -817,5 +816,4 @@ bool GraphExec::HasInvalidDynamicSymbols() {
   return invalid_symbol;
 }
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

@@ -32,8 +32,7 @@
 #include "jit_fork/frontend/source_range.h"
 #include "jit_fork/ir/constants.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 struct Value;
 
@@ -108,5 +107,4 @@ struct NamedValue {
   IValue ivalue_;
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

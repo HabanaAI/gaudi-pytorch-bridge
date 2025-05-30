@@ -14,8 +14,7 @@
  */
 #include "rem_dup_const_pass.h"
 #include "habana_helpers/logging.h"
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
   bool graph_changed = false;
   std::list<Node*> const_nodes, nodes_to_remove;
@@ -61,5 +60,4 @@ bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
   }
   return graph_changed;
 }
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

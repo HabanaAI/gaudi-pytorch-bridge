@@ -18,9 +18,7 @@
 #include <ATen/core/Tensor.h>
 #include <unordered_map>
 
-namespace habana {
-
-namespace backend {
+namespace habana::backend {
 
 struct HashFn {
   std::size_t operator()(const std::pair<double, at::ScalarType>& pair) const {
@@ -67,5 +65,4 @@ class H2dScalesCache {
   ScalarToScalesMap h2d_scales_map_;
 };
 
-} // namespace backend
-} // namespace habana
+} // namespace habana::backend

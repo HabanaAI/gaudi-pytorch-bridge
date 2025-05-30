@@ -23,8 +23,7 @@
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 #include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 void EagerLoweringTask(
     at::Symbol symbol,
     std::vector<at::IValue>&& inputs,
@@ -156,5 +155,4 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

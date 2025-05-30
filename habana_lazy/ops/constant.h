@@ -20,8 +20,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 /**
  * Handle Scalar, Int, Double, Bool type values
@@ -73,5 +72,4 @@ class ListConstruct : public Node {
   }
 };
 
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

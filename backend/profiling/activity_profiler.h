@@ -18,8 +18,7 @@
 #include <string_view>
 #include <vector>
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 void export_profiler_logs(std::string_view path);
 void setup_profiler_sources(
     bool bridge,
@@ -28,5 +27,4 @@ void setup_profiler_sources(
 void start_profiler_session();
 void stop_profiler_session();
 void setup_habana_profiler_configs(bool bridge);
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

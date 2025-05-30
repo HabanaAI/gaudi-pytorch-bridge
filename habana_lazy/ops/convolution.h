@@ -20,8 +20,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 class Convolution : public ir::Node {
  public:
@@ -142,5 +141,4 @@ class Convolution : public ir::Node {
   }
 };
 
-}; // namespace ir
-}; // namespace habana_lazy
+}; // namespace habana_lazy::ir

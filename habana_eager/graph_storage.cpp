@@ -19,8 +19,7 @@
 
 #include "habana_helpers/logging.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 GraphStorage& GraphStorage::get() {
   static GraphStorage storage;
@@ -80,5 +79,4 @@ void GraphStorage::reset_seeds() {
   }
 }
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

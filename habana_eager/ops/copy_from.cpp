@@ -75,8 +75,7 @@ void unpackData(const at::Tensor& t) {
 }
 } // namespace
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor _copy_from_and_resize(
     const at::Tensor& self,
@@ -487,5 +486,4 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "strided_insert_(Tensor(a!) self, Tensor other, int[] stride, int offset) -> (Tensor(a!))");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

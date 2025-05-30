@@ -36,7 +36,6 @@
 #include "hpu_ops/shared_meta_common.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "habana_helpers/pt_version_check.h"
 
 using namespace torch;
 using namespace at;
@@ -1717,8 +1716,7 @@ int64_t fused_sdp_choice_hpu(
   return static_cast<int64_t>(sdp::SDPBackend::math);
 }
 
-namespace vision {
-namespace ops {
+namespace vision::ops {
 at::Tensor roi_align_fwd_wrap(
     const at::Tensor& images,
     const at::Tensor& rois,
@@ -1788,8 +1786,7 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
       TORCH_SELECTIVE_NAME("torchvision::_roi_align_backward"),
       TORCH_FN(roi_align_bwd_wrap));
 }
-} // namespace ops
-} // namespace vision
+} // namespace vision::ops
 
 TORCH_LIBRARY(hpu, m) {
   m.def("cat(Tensor[] tensors, int dim, Tensor out_shape) -> Tensor");

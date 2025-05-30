@@ -16,8 +16,7 @@
 #include <synapse_api_types.h>
 #include "PoolAllocator.h"
 
-namespace synapse_helpers {
-namespace pool_allocator {
+namespace synapse_helpers::pool_allocator {
 
 // workaround only
 void set_device_deallocation(bool flag);
@@ -26,5 +25,4 @@ bool get_device_deallocation();
 
 void print_device_memory_stats(synDeviceId deviceID);
 
-} // namespace pool_allocator
-} // namespace synapse_helpers
+} // namespace synapse_helpers::pool_allocator

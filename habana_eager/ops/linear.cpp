@@ -25,8 +25,7 @@
 #include "habana_helpers/logging.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor linear_forward(
     const at::Tensor& input,
@@ -155,5 +154,4 @@ TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

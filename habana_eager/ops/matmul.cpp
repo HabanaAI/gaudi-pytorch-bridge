@@ -22,8 +22,7 @@
 #include "habana_helpers/logging.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor matmul_forward(const at::Tensor& self, const at::Tensor& other) {
   PT_EAGER_TRACE;
@@ -127,5 +126,4 @@ TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

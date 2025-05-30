@@ -16,8 +16,7 @@
 #include <c10/core/SymIntArrayRef.h>
 #include "habana_kernels/resize.h"
 #include "hpu_ops/op_logger.h"
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor masked_select_eager(const at::Tensor& self, const at::Tensor& mask) {
   HABANA_ASSERT(
@@ -47,5 +46,4 @@ at::Tensor& masked_select_out_eager(
   return out;
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

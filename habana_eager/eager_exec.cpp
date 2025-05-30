@@ -28,8 +28,7 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 namespace {
 
@@ -1020,5 +1019,4 @@ void EagerExec::mark_maybe_grad_view() {
       "Marked grad view. size: ", t.sizes(), " offset ", t.storage_offset());
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

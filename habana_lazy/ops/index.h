@@ -21,8 +21,7 @@
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 struct Slice : public ir::Node {
   enum class SliceParms { DIM_INDEX = 1, START_INDEX, END_INDEX, STEP_INDEX };
@@ -271,5 +270,4 @@ struct Identity : public ir::Node {
   }
 };
 
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

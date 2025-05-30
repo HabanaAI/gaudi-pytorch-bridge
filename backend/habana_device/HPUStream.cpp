@@ -23,8 +23,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 
-namespace c10 {
-namespace hpu {
+namespace c10::hpu {
 
 void joinEagerThreadsCB() {
   habana::HPUDeviceContext::join_all_threads();
@@ -245,5 +244,4 @@ std::ostream& operator<<(std::ostream& stream, const HPUStream& s) {
   return stream << s.unwrap();
 }
 
-} // namespace hpu
-} // namespace c10
+} // namespace c10::hpu

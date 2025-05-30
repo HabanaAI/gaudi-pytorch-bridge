@@ -21,8 +21,7 @@
 #include "backend/profiling/kineto_activity_profiler.h"
 #include "backend/profiling/profiling.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 class JsonActivityProfiler : public Profiler {
  public:
@@ -70,5 +69,4 @@ void setup_habana_profiler_configs(bool bridge_profile) {
   Config::getInstance().setBridgeProfile(bridge_profile);
 }
 
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

@@ -24,8 +24,7 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 std::vector<std::string> string_tokenizer(std::string s) {
   std::vector<std::string> exprs;
   std::string modified_s = s.substr(1, s.length() - 2);
@@ -1967,5 +1966,4 @@ void EmptyOpDS::UpdateDynamicInputs(
   UpdateShapeTensorSize(dtensor, scalar_idx.values, orig_stack, launch_shapes);
 }
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

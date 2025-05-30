@@ -25,8 +25,7 @@
 #include "backend/synapse_helpers/util.h"
 #include "utils.h"
 
-namespace synapse_helpers {
-namespace pool_allocator {
+namespace synapse_helpers::pool_allocator {
 
 static const uint64_t kInvalidBinNum = -1;
 // The largest bin'd chunk size is 256 << 21 = 512MB.
@@ -221,5 +220,4 @@ class CoalescedStringentPooling : public PoolingStrategy {
       unordered_map<hpuStream_t, std::deque<std::pair<synEventHandle, Chunk*>>>
           hpu_events;
 };
-} // namespace pool_allocator
-} // namespace synapse_helpers
+} // namespace synapse_helpers::pool_allocator

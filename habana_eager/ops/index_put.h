@@ -18,13 +18,11 @@
 #include <ATen/core/Tensor.h>
 #include <ATen/core/TensorBody.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor& _index_put_impl_eager(
     at::Tensor& self,
     const c10::List<std::optional<at::Tensor>>& indices,
     const at::Tensor& values,
     bool accumulate,
     bool unsafe);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

@@ -16,8 +16,7 @@
 #include "habana_helpers/logging.h"
 #include "ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 size_t Utils::StdHashCombine(uint64_t a, uint64_t b) {
   return a ^
@@ -99,5 +98,4 @@ void Utils::ComputePostOrder(NodePtrList& p_nodes, PostOrderData& po_data) {
   }
 }
 
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

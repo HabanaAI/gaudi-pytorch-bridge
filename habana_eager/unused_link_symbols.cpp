@@ -460,8 +460,7 @@ Tensor habana_random_seed_wrap([[maybe_unused]] const at::Tensor& input) {
   EAGER_NOT_SUPPORTED;
 }
 
-namespace vision {
-namespace ops {
+namespace vision::ops {
 at::Tensor roi_align_fwd_wrap(
     [[maybe_unused]] const at::Tensor& images,
     [[maybe_unused]] const at::Tensor& rois,
@@ -487,5 +486,4 @@ at::Tensor roi_align_bwd_wrap(
     [[maybe_unused]] bool aligned) {
   EAGER_NOT_SUPPORTED;
 }
-} // namespace ops
-} // namespace vision
+} // namespace vision::ops

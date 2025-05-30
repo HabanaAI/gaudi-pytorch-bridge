@@ -14,8 +14,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_eager(
     const at::Tensor& self,
@@ -108,5 +107,4 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "unique_dim_eager(Tensor self, int dim, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor, Tensor)");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

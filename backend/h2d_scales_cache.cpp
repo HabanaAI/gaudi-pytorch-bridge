@@ -18,9 +18,7 @@
 #include "habana_device/HPUGuardImpl.h"
 #include "kernel/hpu_habana_launch_op_pt.h"
 
-namespace habana {
-
-namespace backend {
+namespace habana::backend {
 
 /**
  * Creates H2D tensors with all possible hw-aligned scales and their inversions,
@@ -129,5 +127,4 @@ at::Tensor H2dScalesCache::CreateH2dTensorScale(
   return scale_tensor;
 }
 
-} // namespace backend
-} // namespace habana
+} // namespace habana::backend

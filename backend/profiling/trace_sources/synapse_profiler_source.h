@@ -19,8 +19,7 @@
 #include "backend/profiling/profiling.h"
 #include "backend/profiling/trace_sources/trace_parser.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 class SynapseProfilerSource : public TraceSource {
  public:
@@ -43,5 +42,4 @@ class SynapseProfilerSource : public TraceSource {
   long double wall_stop_time_;
   unsigned offset_{};
 };
-} // namespace profile
-} // namespace habana
+} // namespace habana::profile

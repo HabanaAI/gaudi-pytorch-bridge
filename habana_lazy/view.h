@@ -21,8 +21,7 @@
 #include "habana_helpers/logging.h"
 #include "ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 // This class holds the original IR and the at::tensor representing the original
 // data. We use this info to add a dependency node whenever a view gets updated
 class LazyView {
@@ -50,5 +49,4 @@ class LazyView {
   Value ir_value_;
   bool updated = false;
 };
-} // namespace ir
-} // namespace habana_lazy
+} // namespace habana_lazy::ir

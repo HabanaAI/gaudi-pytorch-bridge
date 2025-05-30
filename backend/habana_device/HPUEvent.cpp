@@ -19,8 +19,7 @@
 #include "habana_eager/eager_context.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 
-namespace at {
-namespace hpu {
+namespace at::hpu {
 HPUEvent::~HPUEvent() {
   if (is_created_ && habana::HPUDeviceContext::is_device_acquired())
     habana::HPUDeviceContext::get_device().delete_event(id_, flags_);
@@ -135,5 +134,4 @@ void HPUEvent::synchronize() const {
   }
 }
 
-} // namespace hpu
-} // namespace at
+} // namespace at::hpu

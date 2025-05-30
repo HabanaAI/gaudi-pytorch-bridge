@@ -18,9 +18,7 @@
 #include <ATen/core/Tensor.h>
 #include <unordered_map>
 
-namespace habana {
-
-namespace backend {
+namespace habana::backend {
 
 class ScalarCache {
  public:
@@ -50,5 +48,4 @@ class ScalarCache {
   at::Tensor AppendToBatchH2DList(const at::Tensor& scalar_tensor);
 };
 
-} // namespace backend
-} // namespace habana
+} // namespace habana::backend

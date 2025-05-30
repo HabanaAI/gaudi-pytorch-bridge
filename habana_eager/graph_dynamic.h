@@ -23,8 +23,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "backend/synapse_helpers/layout_utils.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 using IVal = torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
@@ -71,5 +70,4 @@ std::string GetDynamicTensorName(const std::string&, synTensorType type);
 template <typename T>
 std::vector<T> GetH2DTensorHostData(at::Tensor& tensor);
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

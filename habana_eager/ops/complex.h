@@ -14,9 +14,7 @@
  */
 #include "habana_kernels/lazy_kernels_declarations.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor complex_hpu(const at::Tensor& real, const at::Tensor& imag);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

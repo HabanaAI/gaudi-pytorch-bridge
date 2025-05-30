@@ -25,8 +25,7 @@
 #include "habana_lazy/hpu_stage_submission.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 namespace {
 constexpr size_t INPUT_BATCH_INDEX = 0;
@@ -366,5 +365,4 @@ TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   m.impl("instance_norm", instance_norm_autograd_wrap);
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

@@ -27,8 +27,7 @@
 
 #define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 static bool check_for_advanced_indexing(
     const c10::List<std::optional<at::Tensor>>& indices) {
@@ -435,5 +434,4 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
       "_index_put_impl_bool_eager(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

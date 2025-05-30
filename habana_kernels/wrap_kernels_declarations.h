@@ -246,8 +246,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const std::string_view softmax_mode,
     const at::Tensor& fwd_out);
 
-namespace vision {
-namespace ops {
+namespace vision::ops {
 
 at::Tensor roi_align_fwd_wrap(
     const at::Tensor& images,
@@ -270,5 +269,4 @@ at::Tensor roi_align_bwd_wrap(
     int64_t sampling_ratio,
     bool aligned);
 
-} // namespace ops
-} // namespace vision
+} // namespace vision::ops

@@ -26,8 +26,7 @@
 #pragma GCC diagnostic pop
 #include "backend/profiling/profiling.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 using namespace std::chrono;
 
 class GenericTraceActivitySink : public TraceSink {
@@ -194,5 +193,4 @@ class HpuActivityProfilerSession : public libkineto::IActivityProfilerSession {
   std::vector<std::string> errors_ = {};
 };
 
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

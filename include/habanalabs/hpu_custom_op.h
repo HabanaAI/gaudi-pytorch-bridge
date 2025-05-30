@@ -17,8 +17,7 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 
-namespace habana {
-namespace custom_op {
+namespace habana::custom_op {
 
 /**
  * Output tensor shape.
@@ -267,5 +266,4 @@ void registerKernel(habana::custom_op::HabanaCustomOpDescriptor& new_desc);
   size = sizeof(struct_name);        \
   auto params = std::make_shared<struct_name>()
 
-} // namespace custom_op
-} // namespace habana
+} // namespace habana::custom_op

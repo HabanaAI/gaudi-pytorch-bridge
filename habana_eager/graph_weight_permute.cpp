@@ -22,8 +22,7 @@
 
 using namespace synapse_helpers::layouts;
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 PermuteWeightTensor::PermuteWeightTensor(const torch::Tensor& weight)
     : m_weight(weight),
@@ -174,5 +173,4 @@ void PermuteWeightTensor::PermuteDataToQRSCK(const torch::Tensor& weight_cpu) {
   std::memcpy(ptr, tempBuff.data(), weight_cpu.numel() * sizeof(T));
 }
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

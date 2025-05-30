@@ -16,12 +16,10 @@
 
 #include <ATen/core/TensorBody.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 at::Tensor as_strided_hpu(
     const at::Tensor& self,
     c10::SymIntArrayRef size,
     c10::SymIntArrayRef stride,
     std::optional<c10::SymInt> storage_offset);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

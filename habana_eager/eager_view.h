@@ -21,8 +21,7 @@
 
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 using JitGraph = torch::jit::Graph;
 using JitNode = torch::jit::Node;
@@ -86,5 +85,4 @@ void HandleInputOutputViews(
 void set_as_strided_meta(JitNode* node);
 void set_deterministic(JitNode* node);
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

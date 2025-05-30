@@ -206,34 +206,30 @@ namespace nlohmannV340
 }
 
 // pybind11 caster
-namespace pybind11
-{
-    namespace detail
+namespace pybind11::detail {
+    template <> struct type_caster<nl::json>
     {
-        template <> struct type_caster<nl::json>
+    public:
+        PYBIND11_TYPE_CASTER(nl::json, _("json"));
+
+        bool load(handle src, bool)
         {
-        public:
-            PYBIND11_TYPE_CASTER(nl::json, _("json"));
-
-            bool load(handle src, bool)
-            {
-                try {
-                    value = pyjson::to_json(src);
-                    return true;
-                }
-                catch (...)
-                {
-                    return false;
-                }
+            try {
+                value = pyjson::to_json(src);
+                return true;
             }
-
-            static handle cast(nl::json src, return_value_policy /* policy */, handle /* parent */)
+            catch (...)
             {
-                object obj = pyjson::from_json(src);
-                return obj.release();
+                return false;
             }
-        };
-    }
+        }
+
+        static handle cast(nl::json src, return_value_policy /* policy */, handle /* parent */)
+        {
+            object obj = pyjson::from_json(src);
+            return obj.release();
+        }
+    };
 }
 
 #endif

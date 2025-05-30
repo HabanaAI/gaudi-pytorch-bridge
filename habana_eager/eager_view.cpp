@@ -18,8 +18,7 @@
 #include <string_view>
 #include "backend/habana_device/hpu_cached_devices.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 namespace {
 
@@ -665,5 +664,4 @@ void HandleInputOutputViews(
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

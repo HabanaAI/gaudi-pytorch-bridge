@@ -18,8 +18,7 @@
 #include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 using MetaDataMap = std::unordered_map<size_t, torch::jit::IValue>;
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
 
@@ -221,5 +220,4 @@ class EagerExec {
 std::vector<at::IValue> convert_ivalues_to_backend_tensors(
     std::vector<at::IValue>& ivalues,
     std::optional<at::Symbol> symbol = std::nullopt);
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

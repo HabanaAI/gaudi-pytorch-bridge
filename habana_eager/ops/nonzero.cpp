@@ -25,8 +25,7 @@
 #include "hpu_ops/nonzero.h"
 #include "hpu_ops/op_logger.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor nonzero_eager(const at::Tensor& self) {
   auto input_shape = self.sizes();
@@ -102,5 +101,4 @@ at::Tensor& nonzero_out_eager(
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def("nonzero_eager(Tensor self) -> (Tensor, Tensor)");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

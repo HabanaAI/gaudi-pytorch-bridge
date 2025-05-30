@@ -27,8 +27,7 @@
 
 #include "jit_fork/ir/ir.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 /**
  * \brief A structure describing a match of a pattern in a graph.
@@ -92,5 +91,4 @@ struct Match {
 std::vector<Match> TORCH_API
 findPatternMatches(const Graph& pattern, Graph& graph);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

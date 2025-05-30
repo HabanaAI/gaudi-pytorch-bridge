@@ -95,8 +95,7 @@ PYBIND11_DECLARE_HOLDER_TYPE(
     habana_torch::jit::unwrapping_shared_ptr<T>,
     true);
 
-namespace pybind11 {
-namespace detail {
+namespace pybind11::detail {
 
 #define CREATE_UNWRAPPING_CASTER(Class)                                                   \
   template <>                                                                             \
@@ -227,12 +226,8 @@ struct type_caster<std::vector<habana_torch::jit::Node*>> : ListCasterBase {
     return cast(*src, pol, parent);
   }
 };
-
-} // namespace detail
-} // namespace pybind11
-
-namespace habana_torch {
-namespace jit {
+} // namespace pybind11::detail
+namespace habana_torch::jit {
 
 Node* findNode(c10::ArrayRef<Block*> blocks, Symbol kind, bool recurse = true) {
   for (Block* block : blocks) {
@@ -960,6 +955,4 @@ void InitBindings(py::module& m) {
   defineRealTypeClasses(m_jit);
   defineJitPasses(m_jit);
 }
-
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

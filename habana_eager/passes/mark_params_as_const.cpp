@@ -24,9 +24,7 @@
 #include "habana_eager/eager_view.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 uint32_t const_id = 0;
 
@@ -121,6 +119,4 @@ bool MarkParamsAsConst(
   return changed;
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

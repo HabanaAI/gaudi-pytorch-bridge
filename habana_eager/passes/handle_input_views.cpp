@@ -27,9 +27,7 @@
 
 #include "pytorch_helpers/visualize/visualize.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 struct HandleInputViewsPass {
   explicit HandleInputViewsPass(std::shared_ptr<torch::jit::Graph> graph)
@@ -303,6 +301,4 @@ bool HandleInputViews(
   return changed;
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

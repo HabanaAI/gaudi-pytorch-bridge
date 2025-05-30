@@ -18,8 +18,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "habana_eager/graph_execs_group.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 class GraphStorage {
  public:
@@ -54,5 +53,4 @@ class GraphStorage {
   std::vector<GraphExecsGroup> m_storage_vec;
 };
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

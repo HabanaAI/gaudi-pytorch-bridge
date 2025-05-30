@@ -20,8 +20,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 void GetValueAndScalarIndexFromInput(
     torch::jit::Value* input,
@@ -1096,5 +1095,4 @@ static const auto& BasicDSOpsRegistry =
             FullOpDS) // we are adding original schema name
         .DSOP_MID_BACKEND(aten::empty, EmptyOpDS)
         .DSOP_MID_BACKEND(hpu::constant_pad_nd_ds, ConstantPad2dOperatorDS);
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

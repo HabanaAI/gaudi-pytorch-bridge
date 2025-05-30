@@ -31,8 +31,7 @@
 #include "habana_eager/eager_view.h"
 // clang-format on
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 std::size_t GraphExecsGroup::generate_key(torch::jit::Stack& stack) {
   std::size_t rval = 0;
@@ -144,5 +143,4 @@ void GraphExecsGroup::ResetSeed() {
   }
 }
 
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

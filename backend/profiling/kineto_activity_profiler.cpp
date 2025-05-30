@@ -40,8 +40,7 @@ std::string toString(std::string_view str) {
 }
 } // namespace
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 using namespace libkineto;
 using namespace std::chrono;
@@ -421,5 +420,4 @@ auto register_activity_sink_factory = [] {
   }
   return 0;
 }();
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

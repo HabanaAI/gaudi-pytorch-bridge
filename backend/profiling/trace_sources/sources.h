@@ -17,10 +17,7 @@
 
 #include <cstdint>
 
-namespace habana {
-namespace profile {
-
-namespace memory {
+namespace habana::profile::memory {
 void recordAllocation(
     uint64_t addr,
     uint64_t size,
@@ -31,7 +28,5 @@ void recordDeallocation(
     uint64_t total_allocated,
     uint64_t total_reserved);
 bool enabled();
-}; // namespace memory
 
-}; // namespace profile
-}; // namespace habana
+} // namespace habana::profile::memory

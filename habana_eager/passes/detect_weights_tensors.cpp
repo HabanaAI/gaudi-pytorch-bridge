@@ -21,9 +21,7 @@
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 
 struct DetectWeightTensorsPass {
   explicit DetectWeightTensorsPass(std::shared_ptr<torch::jit::Graph> graph)
@@ -135,7 +133,4 @@ void DetectWeightTensors(
   pass.run();
   indices_to_permute = pass.get_weight_input_indices();
 }
-
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

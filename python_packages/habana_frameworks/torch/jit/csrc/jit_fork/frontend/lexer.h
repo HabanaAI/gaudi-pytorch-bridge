@@ -47,8 +47,7 @@ C10_CLANG_DIAGNOSTIC_PUSH()
 C10_CLANG_DIAGNOSTIC_IGNORE("-Wshorten-64-to-32")
 #endif
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 // single character tokens are just the character itself '+'
 // multi-character tokens need an entry here
@@ -600,7 +599,6 @@ struct Lexer {
   SharedParserData& shared;
 };
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit
 
 C10_CLANG_DIAGNOSTIC_POP()

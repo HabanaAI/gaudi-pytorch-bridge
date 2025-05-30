@@ -20,8 +20,7 @@
 #include "backend/profiling/profiling.h"
 #include "synapse_api.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 struct EngineDatabase;
 
@@ -71,5 +70,4 @@ class HpuTraceParser {
   std::unique_ptr<EngineDatabase> engine_type_database_;
   unsigned offset_{};
 };
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

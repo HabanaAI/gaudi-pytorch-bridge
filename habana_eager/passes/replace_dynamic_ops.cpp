@@ -22,9 +22,7 @@
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
 
-namespace habana {
-namespace graph {
-namespace pass {
+namespace habana::graph::pass {
 #define PT_MAX_SHAPETENSOR_INPUT 10
 
 struct HandleDynamicOpsPass {
@@ -367,6 +365,4 @@ void HandleDynamicInputPatching(
   }
 }
 
-} // namespace pass
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph::pass

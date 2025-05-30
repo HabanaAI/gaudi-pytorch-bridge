@@ -34,8 +34,7 @@ uint64_t nowNanos() {
 }
 } // namespace
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 struct BridgeLogsSourceImpl : public TraceSource {
   BridgeLogsSourceImpl() = default;
@@ -197,5 +196,4 @@ bool is_enabled(std::string_view name) {
   return BridgeLogsSourceImpl::instance().enabled(name);
 }
 }; // namespace bridge
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

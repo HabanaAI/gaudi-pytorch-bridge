@@ -41,8 +41,7 @@
 
 using namespace std::literals;
 
-namespace habana_lazy {
-namespace exec {
+namespace habana_lazy::exec {
 
 namespace {
 
@@ -989,5 +988,4 @@ void HlExec::Optimize(
   visualize::DumpPostGraph(mp_g_, m_g_hash_);
 }
 
-} // namespace exec
-} // namespace habana_lazy
+} // namespace habana_lazy::exec

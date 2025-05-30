@@ -21,8 +21,7 @@
 #include "habana_lazy/view_utils.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-namespace habana_lazy {
-namespace ir {
+namespace habana_lazy::ir {
 
 class OptimizerFusedAdamw : public Node {
  public:
@@ -141,5 +140,4 @@ class OptimizerFusedEMA : public Node {
   }
 };
 
-}; // namespace ir
-}; // namespace habana_lazy
+} // namespace habana_lazy::ir

@@ -27,8 +27,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/pt_version_check.h"
 
-namespace c10d {
-namespace ops {
+namespace c10d::ops {
 
 c10::intrusive_ptr<Work> send_hpu_(
     at::TensorList tensors,
@@ -589,6 +588,4 @@ TORCH_LIBRARY_IMPL(c10d, HPU, m) {
   m.impl("startCoalescing", startCoalescing_);
 }
 
-} // namespace ops
-
-} // namespace c10d
+} // namespace c10d::ops

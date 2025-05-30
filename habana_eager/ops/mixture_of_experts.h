@@ -16,8 +16,7 @@
 #pragma once
 #include <ATen/ATen.h>
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 at::Tensor mixture_of_experts(
     const at::Tensor& hidden_states,
@@ -224,5 +223,4 @@ at::Tensor mixture_of_experts_fp8_fused_weights_blockwise(
     const int64_t experts_min,
     const int64_t experts_max);
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

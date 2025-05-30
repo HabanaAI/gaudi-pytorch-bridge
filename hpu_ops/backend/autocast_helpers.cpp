@@ -18,8 +18,7 @@
 #include "hpu_ops/autocast_helpers.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-namespace at {
-namespace autocast {
+namespace at::autocast {
 
 std::unordered_set<std::string> load_ops_list(
     const std::filesystem::path& path_to_list,
@@ -50,5 +49,4 @@ std::unordered_set<std::string> load_ops_list(
   return list;
 }
 
-} // namespace autocast
-} // namespace at
+} // namespace at::autocast

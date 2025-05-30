@@ -20,9 +20,7 @@
 #include "common/utils.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
-namespace habana {
-
-namespace backend {
+namespace habana::backend {
 
 c10::ScalarType GetInternalScalarType(const c10::ScalarType& scalar_type) {
   switch (scalar_type) {
@@ -103,5 +101,4 @@ void ScalarCache::ClearCache() {
   int8_to_tensor_.clear();
 }
 
-} // namespace backend
-} // namespace habana
+} // namespace habana::backend

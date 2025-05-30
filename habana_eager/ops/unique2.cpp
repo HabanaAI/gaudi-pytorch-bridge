@@ -17,8 +17,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
 
-namespace habana {
-namespace eager {
+namespace habana::eager {
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
     const at::Tensor& self,
@@ -138,5 +137,4 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "_unique2_eager(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor, Tensor, Tensor)");
 }
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

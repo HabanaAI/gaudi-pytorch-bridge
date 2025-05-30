@@ -15,8 +15,7 @@
 #include "backend/synapse_helpers/memory_defragmentation.h"
 #include <optional>
 
-namespace synapse_helpers {
-namespace defragment_helpers {
+namespace synapse_helpers::defragment_helpers {
 static std::string MemoryStateToString(MemoryState state) {
   switch (state) {
     case MemoryState::FREE:
@@ -796,5 +795,4 @@ bool MemoryDefragementer::Run(
   return true;
 }
 
-} // namespace defragment_helpers
-} // namespace synapse_helpers
+} // namespace synapse_helpers::defragment_helpers

@@ -28,8 +28,7 @@
 #include "jit_fork/ir/ir.h"
 #include "jit_fork/ir/named_value.h"
 
-namespace habana_torch {
-namespace jit {
+namespace habana_torch::jit {
 
 // Try to match a list of inputs and keyword 'attributes' to this
 // schema. Return the flat list of positional inputs to the call or
@@ -90,5 +89,4 @@ TORCH_API Value* tryConvertToType(
     Value* value,
     bool allow_conversions);
 
-} // namespace jit
-} // namespace habana_torch
+} // namespace habana_torch::jit

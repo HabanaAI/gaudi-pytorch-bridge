@@ -16,8 +16,7 @@
 #pragma once
 #include "backend/profiling/profiling.h"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 class MemorySource : public TraceSource {
  public:
@@ -28,5 +27,4 @@ class MemorySource : public TraceSource {
   TraceSourceVariant get_variant() override;
   void set_offset(unsigned offset) override;
 };
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

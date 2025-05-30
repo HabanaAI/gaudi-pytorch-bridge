@@ -23,8 +23,7 @@
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
 
-namespace synapse_helpers {
-namespace pool_allocator {
+namespace synapse_helpers::pool_allocator {
 
 Bin* BinUtils::BinFromIndex(uint64_t index) const {
   Bin* bin = const_cast<Bin*>(
@@ -1365,5 +1364,4 @@ void CoalescedStringentPooling::reset_peak_mem_stats() const {
   stats.peak_bytes_in_use = 0;
 }
 
-} // namespace pool_allocator
-} // namespace synapse_helpers
+} // namespace synapse_helpers::pool_allocator

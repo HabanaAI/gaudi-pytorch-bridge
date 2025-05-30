@@ -23,8 +23,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "nlohmann/json.hpp"
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 template <class ClockT>
 inline int64_t timeSinceEpoch(const std::chrono::time_point<ClockT>& t) {
@@ -172,5 +171,4 @@ class JsonFileParser : public TraceSink {
   nlohmannV340::json traceEvents_;
   nlohmannV340::json deviceProperties_;
 };
-}; // namespace profile
-}; // namespace habana
+}; // namespace habana::profile

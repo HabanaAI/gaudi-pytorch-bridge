@@ -18,8 +18,7 @@
 
 #include "habana_helpers/logging.h"
 
-namespace habana {
-namespace graph {
+namespace habana::graph {
 
 int64_t GetSymintValue(torch::jit::Stack& original_stack, uint64_t index) {
   int64_t value;
@@ -66,5 +65,4 @@ std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
 template std::vector<int32_t> GetH2DTensorHostData(at::Tensor&);
 template std::vector<uint64_t> GetH2DTensorHostData(at::Tensor&);
 template std::vector<uint32_t> GetH2DTensorHostData(at::Tensor&);
-} // namespace graph
-} // namespace habana
+} // namespace habana::graph

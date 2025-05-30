@@ -17,8 +17,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace habana {
-namespace profile {
+namespace habana::profile {
 
 ChromeTraceBaseTime& ChromeTraceBaseTime::singleton() {
   static ChromeTraceBaseTime instance;
@@ -353,5 +352,4 @@ std::string JsonFileParser::mapActivityTypeToString(ActivityType type) {
   return "Runtime";
 }
 
-} // namespace profile
-} // namespace habana
+} // namespace habana::profile
