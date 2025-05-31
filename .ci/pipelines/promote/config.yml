@@ -88,8 +88,6 @@ orchestratorConfig:
     # PT Gaudi2 Optimum Habana Models Job <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_optimum_habana_models_promote
     # PT Gaudi2 Optimum Habana Models Job <End>
-    - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi2_asic_perf
-    - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi3_asic_perf
   codeCoverageConfig:
     - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
   coverityConfig:
