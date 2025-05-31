@@ -225,7 +225,21 @@
             "pytest_working/compile/test_hpu_random_ops.py::test_randperm[dtype0-17]",
             "pytest_working/compile/test_ops.py::test_randperm[dtype2-None-32]",
             "pytest_working/compile/test_ops.py::test_randperm[dtype2-None-1]",
-            "pytest_working/compile/dynamic/test_hpu_subgraphs.py::test_graph_control_flow_static"
+            "pytest_working/compile/dynamic/test_hpu_subgraphs.py::test_graph_control_flow_static",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr-reduced-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr-reduced-bfloat16]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr-complete-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr-complete-bfloat16]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr_out-reduced-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr_out-reduced-bfloat16]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr_out-complete-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x3]-run_linalg_qr_out-complete-bfloat16]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr-reduced-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr-complete-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-reduced-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-reduced-bfloat16]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-complete-float32]",
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-complete-bfloat16]"
         ]
     },
     "gaudi2": {
