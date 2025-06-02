@@ -5871,15 +5871,17 @@ at::Tensor dequantize_nf4_lazy(
     const at::Tensor& absmax,
     c10::SymInt blocksize,
     at::IntArrayRef out_shape,
-    at::ScalarType out_dtype) {
+    at::ScalarType out_dtype,
+    const bool use_big_endian) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "dequantize_nf4 :",
-      DUMP_5ARGS(input, absmax, blocksize, out_shape, out_dtype));
+      DUMP_6ARGS(
+          input, absmax, blocksize, out_shape, out_dtype, use_big_endian));
   LazyOp<at::Tensor> hpu_op{
       "hpu::dequantize_nf4",
-      {input, absmax, blocksize, out_shape, out_dtype},
+      {input, absmax, blocksize, out_shape, out_dtype, use_big_endian},
       {out_shape.vec()}};
   hpu_op.set_scalar_types({out_dtype});
   RUN_MAYBE_WITH_ACC_THREAD(dequantize_nf4, hpu_op);

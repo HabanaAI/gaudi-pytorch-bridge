@@ -28,8 +28,13 @@ OutputMetaDataVector DequantizeNF4Meta(const at::Stack& stack) {
 }
 
 FillParamsT FillDequantizeNF4Params(const at::Stack& stack) {
-  PARAMS_STUB(ns_CastNF4Kernel::Params);
+  PARAMS_STUB(ns_CastNF4Kernel::ParamsV2);
   params->group_size = stack[2].toInt();
+  if (stack[5].toBool()) {
+    params->big_endian = true;
+  } else {
+    params->big_endian = false;
+  }
   return paramsT;
 }
 

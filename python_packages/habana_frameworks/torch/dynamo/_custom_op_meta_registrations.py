@@ -1424,7 +1424,7 @@ def meta_calculate_scale_for_cast(
 
 
 @register_meta([torch.ops.hpu.dequantize_nf4.default])
-def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype):
+def meta_dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype, big_endian=True):
     return input.new_empty(out_shape, dtype=out_dtype)
 
 

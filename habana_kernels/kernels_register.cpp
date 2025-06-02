@@ -1956,7 +1956,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
   m.def(
-      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
+      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype, bool use_big_endian) -> Tensor");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");

@@ -70,6 +70,7 @@ def dequantize_nf4_impl_for_cpu(
     absmax: torch.Tensor = None,
     out: torch.Tensor = None,
     blocksize: int = 64,
+    big_endian: bool = True,
 ) -> torch.Tensor:
     """
     Dequantizes FP4 blockwise quantized values.
@@ -88,7 +89,9 @@ def dequantize_nf4_impl_for_cpu(
         Dequantized output tensor.
     blocksize : int
         The blocksize used in quantization.
-
+    big_endian: bool
+        If True, the most significant bits are stored first in the packed 4-bit values.
+        If False, the least significant bits are stored first.
     Returns
     -------
     torch.Tensor:
@@ -117,8 +120,12 @@ def dequantize_nf4_impl_for_cpu(
     # create a output tensor of double size of input
     out_dq = torch.empty(A.size(0) * 2, dtype=torch.int32, device=A.device)
     n = out_dq.numel()
-    out_dq[::2] = A & 0xF  # fill lsb in the even index
-    out_dq[1::2] = A >> 4  # fill msb in the odd index
+    if big_endian:
+        out_dq[::2] = A >> 4  # fill msb in the even index
+        out_dq[1::2] = A & 0xF  # fill lsb in the odd index
+    else:
+        out_dq[::2] = A & 0xF  # fill lsb in the even index
+        out_dq[1::2] = A >> 4  # fill msb in the odd index
     # quant_state.code is fp32, cast to quant_state dtype to avoid the mismatch issue
     quant_state.code = quant_state.code.to(quant_state.dtype)
     out_dq = quant_state.code[out_dq]
@@ -166,9 +173,10 @@ def dequantize_nf4_impl_for_cpu(
     ],
 )
 @pytest.mark.parametrize("absmax_random", [True])
-def test_dequantize_nf4(dtype, n, blocksize, absmax_random):
+@pytest.mark.parametrize("big_endian", [True, False])
+def test_dequantize_nf4(dtype, n, blocksize, absmax_random, big_endian):
     def fn(input, absmax, blocksize, out_shape, out_dtype):
-        return torch.ops.hpu.dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype)
+        return torch.ops.hpu.dequantize_nf4(input, absmax, blocksize, out_shape, out_dtype, big_endian)
 
     if is_pytest_mode_compile():
         clear_t_compile_logs()
@@ -186,7 +194,7 @@ def test_dequantize_nf4(dtype, n, blocksize, absmax_random):
     )
     # dequantize tensor of preferred dtype and shape(quantize_tensor.size(0)*2, 1)
     output = torch.zeros((n, 1), dtype=dtype)
-    cpu_output = dequantize_nf4_impl_for_cpu(A=cpu_input, absmax=absMax, out=output).reshape(-1)
+    cpu_output = dequantize_nf4_impl_for_cpu(A=cpu_input, absmax=absMax, out=output, big_endian=big_endian).reshape(-1)
 
     # HPU
     # As HPU expects 1d tesnor only

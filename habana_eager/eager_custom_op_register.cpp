@@ -1309,14 +1309,16 @@ at::Tensor dequantize_nf4_impl(
     const at::Tensor& absmax,
     c10::SymInt blocksize,
     at::IntArrayRef out_shape,
-    at::ScalarType out_dtype) {
+    at::ScalarType out_dtype,
+    const bool use_big_endian) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "dequantize_nf4: ",
-      DUMP_5ARGS(input, absmax, blocksize, out_shape, out_dtype));
+      DUMP_6ARGS(
+          input, absmax, blocksize, out_shape, out_dtype, use_big_endian));
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::dequantize_nf4",
-      {input, absmax, blocksize, out_shape, out_dtype},
+      {input, absmax, blocksize, out_shape, out_dtype, use_big_endian},
       {out_shape.vec()}};
   hpu_op.set_scalar_types({out_dtype});
   return hpu_op.call();
@@ -1383,7 +1385,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::batch_as_strided(Tensor[] inputs, int[][] sizes, int[][] strides, int[]? storage_offsets=None) -> Tensor[]");
   m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
   m.def(
-      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype) -> Tensor");
+      "hpu::dequantize_nf4(Tensor input, Tensor absmax, SymInt blocksize, int[] out_shape, ScalarType out_dtype, bool use_big_endian = True) -> Tensor");
   m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
   m.def(
       "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
