@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ void RecipeCacheConfig::reload() {
   cache_directory_path_ = "";
   cache_dir_max_size_mb_ = 1024;
   delete_cache_on_init_ = false;
+  cache_on_nfs_ = false;
 
   if (!IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
     return;
@@ -51,8 +52,8 @@ void RecipeCacheConfig::reload() {
       GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
   auto params = split_params(recipe_cache_config_var);
   HABANA_ASSERT(
-      params.size() >= 1 && params.size() <= 3,
-      "Expected number of parameters extracted from PT_HPU_RECIPE_CACHE_CONFIG should be from range <1:3>.");
+      params.size() >= 1 && params.size() <= 4,
+      "Expected number of parameters extracted from PT_HPU_RECIPE_CACHE_CONFIG should be from range <1:4>.");
 
   cache_directory_path_ = params[0];
   if (habana_helpers::IsInferenceMode()) {
@@ -69,6 +70,15 @@ void RecipeCacheConfig::reload() {
   if (params.size() >= 3 && !params[2].empty()) {
     cache_dir_max_size_mb_ = parse_env_by_type<unsigned>(
         "PT_HPU_RECIPE_CACHE_CONFIG", params[2].c_str());
+  }
+
+  if (params.size() >= 4 && !params[3].empty()) {
+    cache_on_nfs_ = parse_env_by_type<bool>(
+        "PT_HPU_RECIPE_CACHE_CONFIG", params[3].c_str());
+    if (cache_on_nfs_) {
+      delete_cache_on_init_ = false;
+      cache_dir_max_size_mb_ = 0; // 0 means disabled
+    }
   }
 }
 
@@ -89,6 +99,10 @@ const std::string& RecipeCacheConfig::path() const {
 
 bool RecipeCacheConfig::delete_on_init() const {
   return delete_cache_on_init_;
+}
+
+bool RecipeCacheConfig::cache_on_nfs() const {
+  return cache_on_nfs_;
 }
 
 void RecipeCacheConfig::disable_delete_on_init() {

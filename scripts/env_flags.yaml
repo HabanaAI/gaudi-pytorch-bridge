@@ -63,7 +63,7 @@ PT_HPU_DYNAMIC_MAX_POLICY_ORDER:
   default: "2,4,5,3,1"
 
 PT_HPU_RECIPE_CACHE_CONFIG:
-  default: ",false,1024"
+  default: ",false,1024,false"
   doc: "PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list\n
 where params are encoded in the following way:\n
 - 1st param: recipe cache directory path, if empty then disk cache is\n
@@ -73,7 +73,20 @@ clears recipe cache on init\n
 - 3rd param: recipe cache max size in MB, if set to value > 0, PT bridge\n
 keeps the size of cache dir under defined threshold.\n
 1GB per worker to save recipes to the disk.\n
-Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024"
+- 4th param: allow recipe cache path to be on NFS\n
+ability to store recipes on NFS (path provided with 1st param)\n
+once enabled, 2nd and 3rd param are ignored,\n
+as no retention policy can be safely applied on NFS location\n
+Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024,false"
+
+PT_HPU_RECIPE_CACHE_NFS_TIMEOUT_S:
+  type: unsigned
+  default: 300
+  doc: "When recipe cache path is on NFS (4th param in PT_HPU_RECIPE_CACHE_CONFIG),\n
+  we cannot rely on file locks and we have to idly wait for temp files to be removed.\n
+  Timeout is to avoid any infinite wait due to corrupted/leftover temp files in cache\n
+  or other worker simply crashing. Default is more than enough for average Synapse Compilation to finish,\n
+  but rarely it can get longer, hence option to set timeout."
 
 PT_HPU_LAZY_MODE:
   type: unsigned
