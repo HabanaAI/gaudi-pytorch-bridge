@@ -104,17 +104,18 @@ class HPUGraph:
         """
         _hpu_C.clear_inputs(self.hpu_graph)
 
-    def mark_user_outputs(self, static_tlist: list[torch.Tensor]):
+    def mark_user_outputs(self, static_tlist: list[torch.Tensor], free_inplace=True):
         r"""
         Marks user needed output after graph capture
 
         Arguments:
             static_tlist: List of out tensors for the graph capture
+            free_inplace: If True, frees the inplace tensors in the graph.
 
         .. warning::
             This API is in beta and may change in future releases.
         """
-        _hpu_C.mark_user_outputs(self.hpu_graph, static_tlist)
+        _hpu_C.mark_user_outputs(self.hpu_graph, static_tlist, free_inplace)
 
     def mark_user_inputs(self, static_tlist: list[torch.Tensor]):
         r"""
@@ -584,6 +585,7 @@ def wrapped_hpugraph_forward(
     asynchronous,
     dry_run,
     max_graphs,
+    free_inplace,
     verbose,
     log_frequency,
 ):
@@ -600,6 +602,7 @@ def wrapped_hpugraph_forward(
         asynchronous (bool): Specifies whether the graph replay should be asynchronous.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
         max_graphs: maximum graphs which will be cached
+        free_inplace (bool): whether to free the inplace tensors after graph replay, used with disable_tensor_cache = True
         verbose (bool) : Enables verbose mode which allow to print the statistics of HPUGraph like total cached graphs, cache hits etc.
         log_frequency (int) - Specifies the logging frequency of HPUGraph stats
 
@@ -658,7 +661,7 @@ def wrapped_hpugraph_forward(
                 tlist = extract_tensors(outputs)
                 tinfo_list = [get_tensor_info(t) for t in tlist]
                 tlist = cached_tlist + tlist
-                graph.mark_user_outputs(tlist)
+                graph.mark_user_outputs(tlist, free_inplace)
                 saved_inputs = []
                 for i in range(len(input_tensor_list)):
                     if i not in matched_input_index:
@@ -711,6 +714,7 @@ def wrap_in_hpu_graph_func(
     disable_tensor_cache=False,
     dry_run=None,
     max_graphs=None,
+    free_inplace=True,
     verbose=False,
     log_frequency=100,
 ):
@@ -729,6 +733,7 @@ def wrap_in_hpu_graph_func(
             current graph depend on the outputs of previous graphs. For example, this can happen with a Nonzero
             operation that processes boolean inputs is fed as the input of next hpugraph.
         max_graphs: maximum graphs which will be cached
+        free_inplace (bool): Whether to free the inplace tensors after graph replay, used with disable_tensor_cache = True; Defaults to True.
         verbose (bool) : Enables verbose mode which allow to print the statistics of HPUGraph like total cached graphs, cache hits etc.
         log_frequency (int) - Specifies the logging frequency of HPUGraph stats
 
@@ -762,6 +767,7 @@ def wrap_in_hpu_graph_func(
             asynchronous,
             dry_run,
             max_graphs,
+            free_inplace,
             verbose,
             log_frequency,
         )
@@ -775,6 +781,7 @@ def wrap_in_hpu_graph(
     disable_tensor_cache=False,
     dry_run=None,
     max_graphs=None,
+    free_inplace=True,
     verbose=False,
     log_frequency=100,
 ):
@@ -793,6 +800,7 @@ def wrap_in_hpu_graph(
             current graph depend on the outputs of previous graphs. For example, this can happen with a Nonzero
             operation that processes boolean inputs is fed as the input of next hpugraph.
         max_graphs: maximum graphs which will be cached
+        free_inplace (bool): Whether to free the inplace tensors after graph replay, used with disable_tensor_cache = True. Defaults to True.
         verbose (bool) : Enables verbose mode which allow to print the statistics of HPUGraph like total cached graphs, cache hits etc.
         log_frequency (int) - Specifies the logging frequency of HPUGraph stats
 
@@ -827,6 +835,7 @@ def wrap_in_hpu_graph(
             asynchronous,
             dry_run,
             max_graphs,
+            free_inplace,
             verbose,
             log_frequency,
         )

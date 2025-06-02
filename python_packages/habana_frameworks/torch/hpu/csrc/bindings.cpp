@@ -315,8 +315,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("clear_inputs", [](at::hpu::HPUGraph& graph) { graph.clear_inputs(); });
   m.def(
       "mark_user_outputs",
-      [](at::hpu::HPUGraph& graph, std::vector<at::Tensor>& outputs) {
-        graph.mark_user_outputs(outputs);
+      [](at::hpu::HPUGraph& graph,
+         std::vector<at::Tensor>& outputs,
+         bool free_inplace = true) {
+        graph.mark_user_outputs(outputs, free_inplace);
       });
   m.def(
       "mark_user_inputs",

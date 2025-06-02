@@ -908,7 +908,7 @@ def test_inplace_view_test():
     model = InplaceOpNet()
     model.to("hpu")
 
-    model_hpugraph = ht.hpu.wrap_in_hpu_graph(model, disable_tensor_cache=True)
+    model_hpugraph = ht.hpu.wrap_in_hpu_graph(model, disable_tensor_cache=True, free_inplace=False)
 
     for _ in range(4):
         x = torch.randn(4, 1).to("hpu")

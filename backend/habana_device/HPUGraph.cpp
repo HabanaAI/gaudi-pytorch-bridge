@@ -258,7 +258,9 @@ bool IsNodeSliceOrStridedInsert(const habana_lazy::ir::NodePtr& mp_node) {
   return false;
 }
 
-void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
+void HPUGraph::mark_user_outputs(
+    std::vector<at::Tensor>& outputs,
+    bool free_inplace) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   PT_HPUGRAPH_DEBUG("mark_user_outputs with outputs size = ", outputs.size());
@@ -334,8 +336,9 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
 
         // Exclude slice_insert/strided_insert nodes which will come as part of
         // inplace ops
-        bool is_inplace = IsNodeSliceOrStridedInsert(
-            single_graph->output_vals_[outIdx].mp_node);
+        bool is_inplace = !free_inplace &&
+            IsNodeSliceOrStridedInsert(
+                single_graph->output_vals_[outIdx].mp_node);
         // Check if any of the following SingleHPUGraphs use this output as an
         // input
         size_t last_use = 0;

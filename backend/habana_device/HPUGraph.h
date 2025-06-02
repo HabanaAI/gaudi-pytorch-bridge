@@ -132,7 +132,9 @@ struct HPUGraph {
       std::vector<at::Tensor>& inputs,
       bool async = false);
   void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
-  void mark_user_outputs(std::vector<at::Tensor>& outputs);
+  void mark_user_outputs(
+      std::vector<at::Tensor>& outputs,
+      bool free_inplace = true);
   void mark_user_inputs(std::vector<at::Tensor>& static_inputs);
   void destroy();
   std::unordered_set<size_t> get_user_input_match_indices() {
