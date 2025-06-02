@@ -148,7 +148,8 @@ at::Tensor gqa_input_reshape_bwd(
     at::Tensor grad) {
   auto q_size = query.sizes().vec();
   auto v_size = value.sizes().vec();
-  return grad.reshape({q_size[0], q_size[1], q_size[2], q_size[3], v_size[3]});
+  return grad.reshape(
+      {q_size[0], q_size[1], q_size[2], q_size[3], v_size.back()});
 }
 
 class FusedSDPAAutogradHPU
@@ -177,6 +178,13 @@ class FusedSDPAAutogradHPU
     ctx->saved_data["scale"] = scale_;
     ctx->saved_data["is_causal"] = is_causal;
     ctx->saved_data["enable_gqa"] = enable_gqa;
+    const bool has_attn_mask =
+        attn_mask.has_value() && attn_mask.value().defined();
+    bool mask_requires_grad = false;
+    if (has_attn_mask) {
+      mask_requires_grad = attn_mask.value().requires_grad();
+    }
+    ctx->saved_data["mask_requires_grad"] = mask_requires_grad;
 
     at::Tensor query_n = query;
     at::Tensor key_n = key;
@@ -188,7 +196,7 @@ class FusedSDPAAutogradHPU
       query_n = gqa_out[0];
       key_n = gqa_out[1];
       value_n = gqa_out[2];
-      attn_mask_n = attn_mask.has_value() ? gqa_out[3] : attn_mask_n;
+      attn_mask_n = has_attn_mask ? gqa_out[3] : attn_mask_n;
     }
 
     // output (out, P, dm)
@@ -209,7 +217,14 @@ class FusedSDPAAutogradHPU
     if (enable_gqa) {
       out = gqa_output_reshape(out);
     }
-    ctx->save_for_backward({query_n, key_n, value_n, P, dm, out});
+    ctx->save_for_backward(
+        {query_n,
+         key_n,
+         value_n,
+         mask_requires_grad ? attn_mask_n.value() : torch::Tensor(),
+         P,
+         dm,
+         out});
     return out;
   }
 
@@ -222,10 +237,12 @@ class FusedSDPAAutogradHPU
     auto query = saved_vars[0];
     auto key = saved_vars[1];
     auto value = saved_vars[2];
-    auto P = saved_vars[3];
-    auto dm = saved_vars[4];
-    auto fwd_out = saved_vars[5];
+    auto attn_mask = saved_vars[3];
+    auto P = saved_vars[4];
+    auto dm = saved_vars[5];
+    auto fwd_out = saved_vars[6];
     auto enable_gqa = ctx->saved_data["enable_gqa"].toBool();
+    auto mask_requires_grad = ctx->saved_data["mask_requires_grad"].toBool();
 
     if (enable_gqa) {
       grad_out = gqa_input_reshape_bwd(query, value, grad_out);
@@ -256,7 +273,9 @@ class FusedSDPAAutogradHPU
         query_grad,
         key_grad,
         value_grad,
-        torch::Tensor(),
+        // if attn_mask requires grad, pass it to backward as it is
+        // because attn_mask grad computation is not supported yet in hpu
+        mask_requires_grad ? attn_mask : torch::Tensor(),
         torch::Tensor(),
         torch::Tensor(),
         torch::Tensor(),

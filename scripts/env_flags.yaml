@@ -842,8 +842,8 @@ PT_HPU_USE_PHILOX_NORMAL:
 
 PT_HPU_USE_ATEN_SDPA:
   type: bool
-  default: false
-  doc: "This flag used math backend when it is called  aten.scaled_dot_product_attention in
+  default: true
+  doc: "This flag used math backend when it is called aten.scaled_dot_product_attention in
         eager and torch.compile. When this flag is
         1. enabled: it will use math backend (create decomposed op)
         2. disabled: it will overrides aten.scaled_dot_product_attention in eager and torch.compile and invoke our autograd overwrite fucntion fused_sdpa_autograd_wrap."

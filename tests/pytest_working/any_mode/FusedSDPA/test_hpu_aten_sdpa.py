@@ -20,7 +20,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
-from test_utils import compile_function_if_compile_mode
+from test_utils import compile_function_if_compile_mode, use_eager_fallback
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
@@ -104,7 +104,8 @@ def test_aten_SDPA_fwd_bwd_only(dtype):
     hpu_key_f.requires_grad_(True)
     hpu_value_f.requires_grad_(True)
 
-    hpu_result_f = fn(hpu_query_f, hpu_key_f, hpu_value_f)
+    with use_eager_fallback():
+        hpu_result_f = fn(hpu_query_f, hpu_key_f, hpu_value_f)
 
     tolerance = 5e-2 if dtype == torch.bfloat16 else 1e-4
     assert torch.allclose(hpu_result_g.detach().cpu(), hpu_result_f.detach().cpu(), atol=tolerance, rtol=tolerance)
@@ -152,12 +153,74 @@ def test_aten_SDPA_fwd_bwd_5d(dtype):
     hpu_key_f.requires_grad_(True)
     hpu_value_f.requires_grad_(True)
 
-    hpu_result_f = fn(hpu_query_f, hpu_key_f, hpu_value_f, hpu_mask_f)
+    with use_eager_fallback():
+        hpu_result_f = fn(hpu_query_f, hpu_key_f, hpu_value_f, hpu_mask_f)
 
     assert torch.allclose(hpu_result_f.detach().cpu(), cpu_result.detach(), rtol=0.03, atol=0.6)
 
     cpu_result.sum().backward()
     hpu_result_f.sum().backward()
+
+    assert torch.allclose(hpu_query_f.grad.detach().cpu(), cpu_query.grad.detach(), rtol=0.03, atol=0.6)
+    assert torch.allclose(hpu_key_f.grad.detach().cpu(), cpu_key.grad.detach(), rtol=0.03, atol=0.6)
+    assert torch.allclose(hpu_value_f.grad.detach().cpu(), cpu_value.grad.detach(), rtol=0.03, atol=0.6)
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
+def test_aten_SDPA_fwd_bwd_gqa_with_mask_grad(dtype):
+    """
+    Test forward and backward pass of PyTorch's aten scaled dot product attention (SDPA) operation with grouped query attention (GQA) and attention masks.
+
+    This test compares CPU implementation against HPU implementation using the fused SDPA autograd interface.
+    It specifically verifies:
+    1. Forward pass outputs match between CPU and HPU with expected tolerance
+    2. Backward gradients for query, key, and value tensors match between implementations
+
+    Note: Although the test uses a mask with requires_grad=True, mask gradients are not compared as they are not
+    supported in the HPU autograd function. The test only verifies that basic functionality works with masks.
+
+    Parameters
+    ----------
+    dtype : torch.dtype
+        Data type to use for the test tensors (e.g., torch.bfloat16)
+    """
+    torch.manual_seed(1234)
+
+    def fn(query, key, value, mask):
+        x = torch.nn.functional.scaled_dot_product_attention(
+            query, key, value, attn_mask=mask, dropout_p=0.0, is_causal=False, scale=None, enable_gqa=True
+        )
+        return x
+
+    # CPU
+    cpu_query = torch.rand((2, 4, 16, 4), dtype=dtype, requires_grad=True)
+    cpu_key = torch.rand((2, 4, 8, 4), dtype=dtype, requires_grad=True)
+    cpu_value = torch.rand((2, 4, 8, 8), dtype=dtype, requires_grad=True)
+    cpu_mask = torch.rand(2, 4, 16, 8, dtype=dtype, requires_grad=True)
+
+    cpu_result = fn(cpu_query, cpu_key, cpu_value, cpu_mask)
+
+    if pytest.mode == "compile":
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    # HPU with Fused SDPA cpp autograd interface
+    hpu_query_f = cpu_query.detach().to("hpu")
+    hpu_key_f = cpu_key.detach().to("hpu")
+    hpu_value_f = cpu_value.detach().to("hpu")
+    hpu_mask_f = cpu_mask.detach().to("hpu")
+
+    hpu_query_f.requires_grad_(True)
+    hpu_key_f.requires_grad_(True)
+    hpu_value_f.requires_grad_(True)
+
+    with use_eager_fallback():
+        hpu_result_f = fn(hpu_query_f, hpu_key_f, hpu_value_f, hpu_mask_f)
+
+    assert torch.allclose(hpu_result_f.detach().cpu(), cpu_result.detach(), rtol=0.03, atol=0.6)
+
+    cpu_result.sum().backward()
+    with use_eager_fallback():
+        hpu_result_f.sum().backward()
 
     assert torch.allclose(hpu_query_f.grad.detach().cpu(), cpu_query.grad.detach(), rtol=0.03, atol=0.6)
     assert torch.allclose(hpu_key_f.grad.detach().cpu(), cpu_key.grad.detach(), rtol=0.03, atol=0.6)
