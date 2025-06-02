@@ -130,8 +130,8 @@ void Cholesky::AddNode(sh::graph& graph, const at::Stack& stack) {
       sizeof(params));
 
   if (upper) {
-    syn_out(0) = std::move(performTranspose(
-        this, graph, result[0].get(), selfShape, meta[0].dtype, 0));
+    syn_out(0) = performTranspose(
+        this, graph, result[0].get(), selfShape, meta[0].dtype, 0);
   } else {
     syn_out(0) = std::move(result[0]);
   }

@@ -408,7 +408,7 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
             fallback_check_decls += build(fc[0], fc_fns, "FALLBACK_CHECK", fgen.fc_params)
 
     if len(check_node_with_sl_decls) > 0:
-        forward_decls += "class CheckNodeWithSharedLayerValidator;\n"
+        forward_decls += "struct CheckNodeWithSharedLayerValidator;\n"
 
     return (
         forward_decls

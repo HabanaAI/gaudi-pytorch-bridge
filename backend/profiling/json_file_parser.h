@@ -129,7 +129,7 @@ class JsonFileParser : public TraceSink {
    *
    * Clean-up and reset data containers and variables in the object.
    */
-  virtual void clear();
+  void clear() override;
 
   virtual int64_t transToRelativeTime(int64_t time) override;
 

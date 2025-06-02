@@ -22,7 +22,7 @@ namespace habana {
 namespace {
 
 template <typename T>
-constexpr const char* getOverloadName() {
+const char* getOverloadName() {
   if constexpr (std::is_same_v<T, const std::optional<at::Tensor>&>) {
     return "";
   } else if constexpr (std::is_same_v<T, double>) {

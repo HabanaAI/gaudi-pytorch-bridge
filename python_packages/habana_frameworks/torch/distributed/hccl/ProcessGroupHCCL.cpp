@@ -456,8 +456,7 @@ void ProcessGroupHCCL::groupStart() {
 
   auto pr = std::make_shared<std::promise<bool>>();
   std::future<bool> fut = pr->get_future();
-  auto fn = hcclGroupStart;
-  auto func = [fn = fn, pr = pr]() mutable {
+  auto func = [pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupStart();
     HABANA_ASSERT(
@@ -477,8 +476,7 @@ void ProcessGroupHCCL::groupEnd() {
   auto pr = std::make_shared<std::promise<bool>>();
 
   std::future<bool> fut = pr->get_future();
-  auto fn = hcclGroupStart;
-  auto func = [fn = fn, pr = pr]() mutable {
+  auto func = [pr = pr]() mutable {
     hcclResult_t hccl_result = hcclSuccess;
     hccl_result = hcclGroupEnd();
     HABANA_ASSERT(

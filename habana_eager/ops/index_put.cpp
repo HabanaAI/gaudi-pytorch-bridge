@@ -143,8 +143,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
   int64_t i = 0;
-  int64_t index_t_sizes[self.dim()];
-  bool index_all_elems[self.dim()];
+  std::vector<int64_t> index_t_sizes(self.dim());
+  std::vector<bool> index_all_elems(self.dim());
   for (auto index_input : indices) {
     auto input = index_input;
     if (input.has_value() &&

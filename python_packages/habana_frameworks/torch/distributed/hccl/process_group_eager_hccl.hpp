@@ -73,21 +73,22 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
   // Provides an API to abort the ProcessGroup (hcclCommAbort)
   // instead of relying on ProcessGroupHCCL destructor.
   // return true if abort is successful, otherwise false
+  using Backend::abort;
   bool abort(std::optional<std::string> abortReason);
 
   // Shutdown the processgroup. Invokes abort asynchronously
-  void shutdown(std::optional<std::string> reason);
+  void shutdown(std::optional<std::string> reason) override;
 
   void destroy() override;
 
   void restoreOddSizeSendTensors(std::vector<at::Tensor>& tensors);
 
  protected:
-  void groupStart();
+  void groupStart() override;
 
-  void groupEnd();
+  void groupEnd() override;
 
-  void waitForJobCompletion(){};
+  void waitForJobCompletion() override {};
 
   c10::intrusive_ptr<Work> collective(
       std::vector<at::Tensor>& input,

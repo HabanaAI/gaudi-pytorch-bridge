@@ -162,6 +162,7 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
 
   virtual void destroy() = 0;
 
+  void shutdown() override { shutdown(std::nullopt); }
   virtual void shutdown(std::optional<std::string> reason) = 0;
 
   class CoalescedWorkHCCL

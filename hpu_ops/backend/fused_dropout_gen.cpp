@@ -34,7 +34,7 @@ std::vector<synapse_helpers::tensor> DropoutCommon(
   auto dropout = OpBackend::BuildNode(
       op,
       graph,
-      {std::move(get_guid_with_precision("dropout_fwd"sv, metas[0].dtype)),
+      {get_guid_with_precision("dropout_fwd"sv, metas[0].dtype),
        input_tensor,
        {NodeAttr::NodeOutputAttr{metas[0].shape, metas[0].dtype, 0},
         NodeAttr::NodeOutputAttr{metas[1].shape, metas[1].dtype, 1}},

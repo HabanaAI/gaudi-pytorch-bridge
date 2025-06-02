@@ -140,8 +140,6 @@ class HPUActivityProfiler : public libkineto::IActivityProfiler {
 
  private:
   std::string name_{"HPU"};
-  int64_t AsyncProfileStartTime_{0};
-  int64_t AsyncProfilEndTimek_{0};
 
   const std::set<libkineto::ActivityType> supported_activities{
       libkineto::ActivityType::HPU_OP,

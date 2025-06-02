@@ -19,7 +19,6 @@ namespace habana {
 constexpr size_t index_of_self = 0;
 constexpr size_t index_of_reduction_axis = 1;
 constexpr size_t index_of_keepdim = 2;
-constexpr int descending_order = 0;
 
 FillParamsT FillMediandimParams(const at::Stack& stack) {
   PARAMS_STUB(ns_MediandimKernel::Params);

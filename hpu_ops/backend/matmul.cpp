@@ -90,8 +90,8 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          {reshaped_self.get(), syn_in(1)},
          {{gemm_output_shape, meta.dtype}}});
 
-    syn_out(0) = std::move(
-        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+    syn_out(0) =
+        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
   } else if (self_dim >= 3 and other_dim == 1) {
     auto expanded_sizes = other.sizes().vec();
     expanded_sizes.push_back(1);
@@ -106,8 +106,8 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          {syn_in(0), reshaped_other.get()},
          {{gemm_output_shape, meta.dtype}}});
 
-    syn_out(0) = std::move(
-        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+    syn_out(0) =
+        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
   } else if ((self_dim == 1 || self_dim == 2) && other_dim >= 3) {
     std::vector<sh::tensor> expanded_tensor;
     auto expanded_sizes = self.sizes().vec();
@@ -147,8 +147,7 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          sizeof(gemm_params)});
 
     if (self_dim == 1) {
-      syn_out(0) = std::move(
-          ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+      syn_out(0) = ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
     } else {
       synTransposeParamsNDims params;
       params.tensorDim = gemm_output_shape.size();
@@ -212,8 +211,8 @@ void Matmul::AddNode(sh::graph& graph, const at::Stack& stack) {
          {reshaped_self.get(), syn_in(1)},
          {{gemm_output_shape, meta.dtype}}});
 
-    syn_out(0) = std::move(
-        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0));
+    syn_out(0) =
+        ReshapeHelper(graph, output[0].get(), meta.shape, self_dtype, 0);
   } else if (
       (self_dim >= 1 && other_dim >= 1) && (self_dim >= 3 || other_dim >= 3)) {
     syn_out(0) = std::move(OpBackend::BuildNode(

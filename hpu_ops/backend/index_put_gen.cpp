@@ -237,13 +237,13 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   // cases is required
   std::vector<synapse_helpers::tensor> cast_node;
   if (indices_scalar_type != reduce_sum_type) {
-    cast_node.push_back(std::move(OpBackend::BuildCast(
+    cast_node.push_back(OpBackend::BuildCast(
         op,
         graph,
         sumop.at(0).get(),
         red_output_shape,
         reduce_sum_type,
-        indices_scalar_type)));
+        indices_scalar_type));
   } else {
     cast_node.push_back(std::move(sumop.at(0)));
   }
@@ -934,7 +934,6 @@ void IndexPutCompile::AddNode(
   std::vector<synTensor> indices_synin;
   bool indices_are_bool = false;
   int i = 0;
-  int rank_idx_long = 0;
   if (stack.at(1).isOptionalTensorList()) {
     PT_KERNEL_DEBUG(
         "index_put boolmask torch.compile: received list of optional tensors");
@@ -947,9 +946,7 @@ void IndexPutCompile::AddNode(
             input.scalar_type(),
             " size = ",
             input.sizes());
-        if (input.scalar_type() != c10::ScalarType::Bool) {
-          rank_idx_long++;
-        } else {
+        if (input.scalar_type() == c10::ScalarType::Bool) {
           indices_are_bool = true;
         }
         indices.push_back(input);
@@ -970,9 +967,7 @@ void IndexPutCompile::AddNode(
     indices = stack.at(1).toTensorList().vec();
     for (; i < (int)indices.size(); i++) {
       indices_synin.push_back(syn_in(i + 1));
-      if (indices[i].scalar_type() != c10::ScalarType::Bool) {
-        rank_idx_long++;
-      } else {
+      if (indices[i].scalar_type() == c10::ScalarType::Bool) {
         indices_are_bool = true;
       }
     }

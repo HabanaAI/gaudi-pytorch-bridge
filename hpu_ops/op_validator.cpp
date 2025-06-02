@@ -642,21 +642,21 @@ bool SharedLayerGuidValidator::fillParam(
 }
 
 // input/output tensors will be freed automatically after request
-#define PREPARE_IN_OUT_TENSORS()                            \
-  const size_t input_count = m_input_values.size();         \
-  const size_t output_count = m_output_values.size();       \
-  HABANA_ASSERT(                                            \
-      input_count <= SharedLayer::MAX_TENSOR_NR,            \
-      "Input count passed to Shared Layer exceeds limit");  \
-  HABANA_ASSERT(                                            \
-      output_count <= SharedLayer::MAX_TENSOR_NR,           \
-      "Output count passed to Shared Layer exceeds limit"); \
-  SharedLayer::Tensor input_tensors[input_count];           \
-  SharedLayer::Tensor output_tensors[output_count];         \
-  params.inputTensorNr = input_count;                       \
-  params.outputTensorNr = output_count;                     \
-  params.inputTensors = input_tensors;                      \
-  params.outputTensors = output_tensors;
+#define PREPARE_IN_OUT_TENSORS()                                 \
+  const size_t input_count = m_input_values.size();              \
+  const size_t output_count = m_output_values.size();            \
+  HABANA_ASSERT(                                                 \
+      input_count <= SharedLayer::MAX_TENSOR_NR,                 \
+      "Input count passed to Shared Layer exceeds limit");       \
+  HABANA_ASSERT(                                                 \
+      output_count <= SharedLayer::MAX_TENSOR_NR,                \
+      "Output count passed to Shared Layer exceeds limit");      \
+  std::vector<SharedLayer::Tensor> input_tensors(input_count);   \
+  std::vector<SharedLayer::Tensor> output_tensors(output_count); \
+  params.inputTensorNr = input_count;                            \
+  params.outputTensorNr = output_count;                          \
+  params.inputTensors = input_tensors.data();                    \
+  params.outputTensors = output_tensors.data();
 
 /*
  * This function is a wrapper for shared layer validation interface.

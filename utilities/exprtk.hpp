@@ -63,16 +63,17 @@ namespace exprtk {
 #define exprtk_error_location "exprtk.hpp:" + details::to_str(__LINE__)
 
 #if defined(__GNUC__) && (__GNUC__ >= 7)
-
 #define exprtk_disable_fallthrough_begin \
   _Pragma("GCC diagnostic push")         \
       _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 
 #define exprtk_disable_fallthrough_end _Pragma("GCC diagnostic pop")
-
 #else
-#define exprtk_disable_fallthrough_begin (void)0;
-#define exprtk_disable_fallthrough_end (void)0;
+#define exprtk_disable_fallthrough_begin \
+  _Pragma("clang diagnostic push")       \
+      _Pragma("clang diagnostic ignored \"-Wimplicit-fallthrough\"")
+
+#define exprtk_disable_fallthrough_end _Pragma("clang diagnostic pop")
 #endif
 
 #if __cplusplus >= 201103L
@@ -6445,7 +6446,7 @@ class binary_node : public expression_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_final {
@@ -6497,7 +6498,7 @@ class binary_ext_node exprtk_final : public expression_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {
@@ -6557,7 +6558,7 @@ class trinary_node : public expression_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override exprtk_final {
@@ -6595,7 +6596,7 @@ class quaternary_node : public expression_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override exprtk_final {
@@ -7790,7 +7791,7 @@ class rebasevector_elem_node exprtk_final : public expression_node<T>,
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(index_, node_delete_list);
+    expression_node<T>::ndb_t::collect(index_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {
@@ -11617,7 +11618,7 @@ class function_N_node exprtk_final : public expression_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {
@@ -15245,7 +15246,7 @@ class vob_node exprtk_final : public vob_base_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {
@@ -15288,7 +15289,7 @@ class bov_node exprtk_final : public bov_base_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {
@@ -15345,7 +15346,7 @@ class cob_node exprtk_final : public cob_base_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {
@@ -15402,7 +15403,7 @@ class boc_node exprtk_final : public boc_base_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {
@@ -15879,7 +15880,7 @@ class bipowninv_node exprtk_final : public expression_node<T> {
 
   void collect_nodes(typename expression_node<T>::noderef_list_t&
                          node_delete_list) exprtk_override {
-    expression_node<T>::ndb_t::template collect(branch_, node_delete_list);
+    expression_node<T>::ndb_t::collect(branch_, node_delete_list);
   }
 
   std::size_t node_depth() const exprtk_override {

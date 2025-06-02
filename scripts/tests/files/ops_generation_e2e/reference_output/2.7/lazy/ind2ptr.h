@@ -9,7 +9,7 @@
 namespace habana {
 
 
-class CheckNodeWithSharedLayerValidator;
+struct CheckNodeWithSharedLayerValidator;
 at::Tensor ind2ptr(at::Tensor ind, int64_t M);
 OUTMETA_DECL(Ind2ptrMeta);
 extern CheckNodeWithSharedLayerValidator validator_ind2ptr;

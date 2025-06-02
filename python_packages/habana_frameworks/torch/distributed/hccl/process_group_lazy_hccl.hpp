@@ -159,14 +159,16 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   // Provides an API to abort the ProcessGroup (hcclCommAbort)
   // instead of relying on ProcessGroupHCCL destructor.
   // return true if abort is successful, otherwise false
+  using Backend::abort;
   bool abort(std::optional<std::string> abortReason);
 
   // Shutdown the processgroup. Invokes abort asynchronously
+  using Backend::shutdown;
   void shutdown(std::optional<std::string> reason);
 
   void destroy();
 
-  bool supportsCoalescing() {
+  bool supportsCoalescing() const override {
     return true;
   }
 

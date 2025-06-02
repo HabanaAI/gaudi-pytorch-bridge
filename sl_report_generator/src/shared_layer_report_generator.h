@@ -38,7 +38,7 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_auto_generated_executors() override {
     slrg::register_auto_generated_executors(this);
   }
-  void register_exceptions();
+  void register_exceptions() override;
   void register_op(
       OperatorDescriptor operator_descriptor,
       SharedLayerExecutor<>* const executor) override {

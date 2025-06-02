@@ -62,8 +62,8 @@ synapse_helpers::tensor RandPermCommon(
     auto randperm = OpBackend::BuildNode(
         op,
         graph,
-        {std::move(get_guid_with_precision(
-             "random_shuffle"sv, tpc_supported_randperm_dtype)),
+        {get_guid_with_precision(
+             "random_shuffle"sv, tpc_supported_randperm_dtype),
          std::move(inputs),
          {{out_shape, tpc_supported_randperm_dtype, final_result_index}}});
     return std::move(randperm[0]);
@@ -71,8 +71,8 @@ synapse_helpers::tensor RandPermCommon(
     auto randperm = OpBackend::BuildNode(
         op,
         graph,
-        {std::move(get_guid_with_precision(
-             "random_shuffle"sv, tpc_supported_randperm_dtype)),
+        {get_guid_with_precision(
+             "random_shuffle"sv, tpc_supported_randperm_dtype),
          std::move(inputs),
          {{out_shape, tpc_supported_randperm_dtype}}});
     if ((out_dtype == c10::ScalarType::Long) &&

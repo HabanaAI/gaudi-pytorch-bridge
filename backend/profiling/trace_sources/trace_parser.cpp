@@ -193,7 +193,7 @@ struct EngineDatabase {
 };
 
 HpuTraceParser::HpuTraceParser(unsigned offset)
-    : hpu_start_time_{0.0}, wall_start_time_{0.0}, offset_{offset} {
+    : hpu_start_time_{0.0}, wall_start_time_{0.0} {
   engine_type_database_ = std::make_unique<EngineDatabase>(offset);
 }
 

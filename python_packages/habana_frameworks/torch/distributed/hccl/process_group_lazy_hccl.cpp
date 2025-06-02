@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "process_group_lazy_hccl.hpp"
+#include <tuple>
 
 #include <hccl.h>
 #include <hccl_types.h>
@@ -692,6 +693,7 @@ void c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::clear() {
 // Same as calling synchronize().
 bool c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::wait(
     std::chrono::milliseconds timeout [[maybe_unused]]) {
+  std::ignore = pg_;
   for (auto& w : works_) {
     w->wait(timeout);
   }
