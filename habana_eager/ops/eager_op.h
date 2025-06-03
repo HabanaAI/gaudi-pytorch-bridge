@@ -217,6 +217,13 @@ class EagerOp : public EagerOpBase {
           nullptr);
     }
 
+    // Skip lowering for resize of the ZST tensor
+    if (std::string_view(m_symbol.toQualString()) == "aten::resize_"sv &&
+        self.numel() == 0) {
+      PT_EAGER_DEBUG("Skip lowering for aten::resize_ of the ZST tensor");
+      return self;
+    }
+
     auto out_spec =
         OutputSpec{self.scalar_type(), self.device(), self.sizes().vec()};
     run({out_spec});
