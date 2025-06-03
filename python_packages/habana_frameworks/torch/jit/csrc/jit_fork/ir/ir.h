@@ -75,6 +75,7 @@ namespace habana_torch::jit {
 
 namespace utils {
 TORCH_API std::string getNodesModuleHierarchy(const Node& n);
+std::string getHeader(const Node* node);
 } // namespace utils
 class AliasDb;
 

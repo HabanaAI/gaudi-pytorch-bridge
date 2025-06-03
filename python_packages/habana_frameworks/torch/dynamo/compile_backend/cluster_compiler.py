@@ -96,7 +96,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
             fx_to_jit_lowering.jit_ir,
         )
 
-        # todo verify run_jit_passes https://jira.habana-labs.com/browse/SW-199897
         run_jit_fork_passes(fx_to_jit_lowering.jit_ir)
         logger.debug(
             "####PyTorch-generated JIT IR graph after jit passes:####\n%s",
@@ -106,11 +105,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
         converted_jit_ir = fx_to_jit_lowering.jit_ir.copyToUpstreamGraph()
         logger.debug(
             "####PyTorch-generated JIT IR graph after copyToUpstreamGraph():####\n%s",
-            converted_jit_ir,
-        )
-        torch._C._jit_pass_remove_mutation(converted_jit_ir)
-        logger.debug(
-            "####PyTorch-generated JIT IR graph after jit_pass_remove_mutation:####\n%s",
             converted_jit_ir,
         )
 
