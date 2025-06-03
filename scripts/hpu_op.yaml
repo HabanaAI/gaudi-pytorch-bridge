@@ -5930,7 +5930,7 @@ nll_loss2d_forward:
   skip_slrg: true
   synapse_layouts:
   - [WHCN, WHN, DONT_CARE, DONT_CARE]
-  - [WHN]
+  - [DONT_CARE, DONT_CARE]
 
 nll_loss_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
