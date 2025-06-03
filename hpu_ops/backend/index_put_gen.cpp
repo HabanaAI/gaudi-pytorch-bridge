@@ -126,7 +126,8 @@ static bool CheckAndGetCastGuid(
   cast_guid = "";
   switch (dtype) {
     case at::ScalarType::Short:
-      if (guid == "scatter_nd_fwd"sv || guid == "scatter_nd_onnx_fwd"sv) {
+      if (guid == "scatter_nd_fwd"sv || guid == "scatter_nd_onnx_fwd"sv ||
+          guid == "scatter_nd_update_fwd"sv) {
         cast_guid = "cast_i32_to_i16"sv;
         cast_dtype = at::ScalarType::Int;
         return true;
@@ -376,12 +377,16 @@ void IndexPutEager::AddNode(
   std::vector<synapse_helpers::tensor> cat_input_tensor;
   std::vector<std::vector<int64_t>> cat_input_index;
 
-  const auto expanded_size_dim0 = indices[0].dim() ? indices[0].numel() : 1;
-
+  auto max_size = broadcast_size(indices, self);
   for (size_t i = 0; i < indices.size(); i++) {
-    std::vector<int64_t> expanded_size = {expanded_size_dim0, 1};
+    auto flattened_size = std::accumulate(
+        std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
+
+    std::vector<int64_t> expanded_size = {flattened_size, 1};
+    auto flattenedIndice = FlattenHelper(
+        graph, syn_in(i + 1), {flattened_size}, indices_scalar_type);
     cat_input_tensor.emplace_back(ExpandDimsHelper(
-        graph, syn_in(i + 1), expanded_size, indices_scalar_type, 0));
+        graph, flattenedIndice.get(), expanded_size, indices_scalar_type, 0));
     cat_input_synTensor.emplace_back(
         cat_input_tensor[cat_input_tensor.size() - 1].get());
     cat_input_index.emplace_back(
@@ -442,14 +447,37 @@ void IndexPutEager::AddNode(
       get_guid_with_precision("index_put_broadcast_value"sv, ScalarType()),
       {syn_in(0), catop.get(), syn_in(1 + indices.size())},
       {{value_upd_dim, ScalarType()}})[0]));
+
   auto self_scalar_type = self.scalar_type();
   // scatter_nd_fwd has no support for int16 and u8 , hence we need to cast
   std::string cast_guid{};
   auto scatter_nd_onnx_fwd_dtype = self_scalar_type;
   at::ScalarType cast_dtype = self_scalar_type;
   bool cast_needed = false;
+
+  auto isScaterNdUpdateRequired = [](auto selfShape,
+                                     auto indicesShape) -> bool {
+    size_t indicesRank = indicesShape.size();
+    size_t indicesFcd = indicesShape[indicesRank - 1];
+    int64_t totalIndices = 1;
+    int64_t totalScatters = 1;
+
+    for (size_t i = 0; i < indicesRank - 1; i++)
+      totalIndices *= std::max(indicesShape[i], 1L);
+
+    for (size_t i = 0; i < indicesFcd; i++)
+      totalScatters *= std::max(selfShape[i], 1L);
+
+    return totalIndices > totalScatters;
+  };
+
+  auto scatterGuidName =
+      isScaterNdUpdateRequired(self.sizes().vec(), catop.pt_shape())
+      ? "scatter_nd_update_fwd"sv
+      : "scatter_nd_onnx_fwd"sv;
+
   if ((cast_needed = CheckAndGetCastGuid(
-           "scatter_nd_onnx_fwd", self_scalar_type, cast_guid, cast_dtype))) {
+           scatterGuidName, self_scalar_type, cast_guid, cast_dtype))) {
     scatter_nd_onnx_fwd_dtype = cast_dtype;
   }
 
@@ -468,7 +496,7 @@ void IndexPutEager::AddNode(
         auto scatter_op = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd"sv,
+                scatterGuidName,
                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
             {syn_in(0), catop.get(), reshape_val_op.get()},
             {NodeAttr::NodeOutputAttr{
@@ -484,7 +512,7 @@ void IndexPutEager::AddNode(
         next_node = BuildOp(
             graph,
             get_guid_with_precision(
-                "scatter_nd_onnx_fwd"sv,
+                scatterGuidName,
                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
             {syn_in(0), catop.get(), reshape_val_op.get()},
             {NodeAttr::NodeOutputAttr{
@@ -509,8 +537,7 @@ void IndexPutEager::AddNode(
       if (cast_needed) {
         auto scatter_op = BuildOp(
             graph,
-            get_guid_with_precision(
-                "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
+            get_guid_with_precision(scatterGuidName, scatter_nd_onnx_fwd_dtype),
             {syn_in(0),
              catop.get(),
              values_bcast_or_reshape_sh_tensor[0].get()},
@@ -527,8 +554,7 @@ void IndexPutEager::AddNode(
       } else {
         next_node = BuildOp(
             graph,
-            get_guid_with_precision(
-                "scatter_nd_onnx_fwd"sv, scatter_nd_onnx_fwd_dtype),
+            get_guid_with_precision(scatterGuidName, scatter_nd_onnx_fwd_dtype),
             {syn_in(0),
              catop.get(),
              values_bcast_or_reshape_sh_tensor[0].get()},
