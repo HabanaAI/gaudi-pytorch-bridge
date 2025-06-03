@@ -587,7 +587,6 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   /*Need to set this node if the deterministic mode is ON*/
   jit_node->i_(
       torch::jit::attr::deterministic,
-      HPUGlobalConfig::get().getDeterministic() ||
           at::globalContext().deterministicAlgorithms());
   PT_BRIDGE_DEBUG(
       "Deterministic val during Jit Node creation: ",
@@ -617,7 +616,6 @@ size_t EagerExec::calculate_operator_key(
 
   optimized_key = at::hash_combine(
       optimized_key,
-      HPUGlobalConfig::get().getDeterministic() ||
           at::globalContext().deterministicAlgorithms());
 
   for (size_t i = 0; i < parent_vec.size(); ++i)

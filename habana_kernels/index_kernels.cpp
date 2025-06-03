@@ -333,7 +333,6 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   if (GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
-      HPUGlobalConfig::get().getDeterministic() == false &&
       at::globalContext().deterministicAlgorithms() == false &&
       HPUDeviceContext::get_device().type() != synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
@@ -534,7 +533,6 @@ SharedMetaDataVector IndexAddLazySharedMeta(
   const bool self_is_int32 = selfDtype == c10::ScalarType::Int;
   const bool useUnsortedScatter =
       GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
-      HPUGlobalConfig::get().getDeterministic() == false &&
       at::globalContext().deterministicAlgorithms() == false;
 
   SharedMetaData scatterAddFwdSharedMetaV2(
