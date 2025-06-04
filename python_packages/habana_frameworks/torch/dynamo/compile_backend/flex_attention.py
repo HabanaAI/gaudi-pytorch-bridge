@@ -77,6 +77,9 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
         grad_outshape = hop_node.args[5].meta["val"].shape
         grad_logsumexpshape = hop_node.args[6].meta["val"].shape
         is_noop_mask = False
+        # dtype of q, k, v is expected to be same
+        dtype = hop_node.args[2].meta["val"].dtype
+        dtype_fp32 = torch.float32
 
         fw_graph0 = hop_node.args[7]  # score_mod fwd for recompute
         joint_graph0 = hop_node.args[8]  # score_mod for bwd
@@ -96,13 +99,17 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
         from torch._subclasses.fake_tensor import FakeTensorMode
 
         with FakeTensorMode() as fake_mode:
-            q_inp = functools.partial(torch.empty, qshape, device="hpu", requires_grad=False)
-            k_inp = functools.partial(torch.empty, kshape, device="hpu", requires_grad=False)
-            v_inp = functools.partial(torch.empty, vshape, device="hpu", requires_grad=False)
-            o_inp = functools.partial(torch.empty, outshape, device="hpu", requires_grad=False)
-            lse_inp = functools.partial(torch.empty, logsumexpshape, device="hpu", requires_grad=False)
-            gout_inp = functools.partial(torch.empty, grad_outshape, device="hpu", requires_grad=False)
-            glse_inp = functools.partial(torch.empty, grad_logsumexpshape, device="hpu", requires_grad=False)
+            q_inp = functools.partial(torch.empty, qshape, device="hpu", requires_grad=False, dtype=dtype)
+            k_inp = functools.partial(torch.empty, kshape, device="hpu", requires_grad=False, dtype=dtype)
+            v_inp = functools.partial(torch.empty, vshape, device="hpu", requires_grad=False, dtype=dtype)
+            o_inp = functools.partial(torch.empty, outshape, device="hpu", requires_grad=False, dtype=dtype)
+            lse_inp = functools.partial(
+                torch.empty, logsumexpshape, device="hpu", requires_grad=False, dtype=dtype_fp32
+            )
+            gout_inp = functools.partial(torch.empty, grad_outshape, device="hpu", requires_grad=False, dtype=dtype)
+            glse_inp = functools.partial(
+                torch.empty, grad_logsumexpshape, device="hpu", requires_grad=False, dtype=dtype_fp32
+            )
             search_gm = trace_on_hpu(
                 flex_attention_bwd,
                 [
@@ -213,11 +220,12 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
 
         replace_nodes = {}
         for get_item in flex_pack_tensors_node[0].users:
-            input_node_idx = get_item.args[1]
-            replace_nodes[get_item] = flex_pack_tensors_node[0].args[input_node_idx]
-            arg_node = flex_pack_tensors_node[0].args[input_node_idx]
-            with graph_module.graph.inserting_before(flex_pack_tensors_node[0]):
-                get_item.replace_all_uses_with(arg_node)
+            if len(get_item.args) >= 2:
+                input_node_idx = get_item.args[1]
+                replace_nodes[get_item] = flex_pack_tensors_node[0].args[input_node_idx]
+                arg_node = flex_pack_tensors_node[0].args[input_node_idx]
+                with graph_module.graph.inserting_before(flex_pack_tensors_node[0]):
+                    get_item.replace_all_uses_with(arg_node)
 
         graph_module.graph.eliminate_dead_code()
         graph_module.recompile()

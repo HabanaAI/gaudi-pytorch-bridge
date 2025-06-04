@@ -388,9 +388,11 @@ class TestFlexAttention(InductorTestCase):
         dtype = ref_out.dtype
         with torch.no_grad():
             # Note, it seems like we really are less accurate than the float32
-            # computation, likely due to the online softmax
+            # and bfloat16 computation, likely due to the online softmax
             if dtype == torch.float32:
                 fudge_factor = 10.0
+            elif dtype == torch.bfloat16:
+                fudge_factor = 2.0
             else:
                 fudge_factor = 1.1
 
@@ -514,8 +516,6 @@ class TestFlexAttention(InductorTestCase):
             return
 
         # skip tests ToDo
-        if dtype == torch.bfloat16 and traning:
-            return
         if gqa and traning:
             return
 

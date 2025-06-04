@@ -347,6 +347,7 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
 
 
 def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=False):
+    orig_dtype = q.dtype
     batch = q.shape[q.dim() - 4]
     head = q.shape[q.dim() - 3]
 
@@ -384,7 +385,9 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
     dkc_list = []
     for q_ind, (qc, oc, doc, lsec, glsec, dqc) in enumerate(row_splits):
         for k_ind, (kc, vc) in enumerate(col_splits):
-            attn_weights = torch.matmul(qc, kc.transpose(-2, -1)).to(dtype=working_precision)
+            attn_weights = torch.matmul(qc.to(working_precision), kc.transpose(-2, -1).to(working_precision)).to(
+                dtype=working_precision
+            )
             attn_weights = (attn_weights * scale).to(working_precision)
             scores = attn_weights.clone()
             arg1 = scores.clone()
@@ -446,14 +449,16 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
                 post_mod_scores = post_score_mod_scores
 
             p = torch.exp(post_mod_scores - lsec.unsqueeze(-1))
-            dv_chunk = torch.matmul(p.transpose(-2, -1), doc).to(dtype=working_precision)
+            dv_chunk = torch.matmul(p.transpose(-2, -1).to(working_precision), doc.to(working_precision)).to(
+                dtype=working_precision
+            )
             if k_ind < len(dvc_list):
                 dvc_c = dvc_list[k_ind]
                 dvc_list[k_ind] = dvc_c + dv_chunk
             else:
                 dvc_list.append(dv_chunk)
 
-            dp = torch.matmul(doc, vc.transpose(-2, -1)).to(dtype=working_precision)
+            dp = torch.matmul(doc.to(torch.float32), vc.transpose(-2, -1).to(torch.float32)).to(dtype=working_precision)
             D = (doc * oc).sum(dim=-1, keepdims=True)
             ds_pre_score_mod = p * (dp - D + glsec.unsqueeze(-1))
 
@@ -470,11 +475,13 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
             else:
                 ds = ds_post_score_mod
             dqc_c = dqc.clone()
-            dq_chunk = torch.matmul(ds, kc)
+            dq_chunk = torch.matmul(ds.to(working_precision), kc.to(working_precision))
             dqc_new = dqc_c + dq_chunk
             dqc = dqc_new * 1.0
 
-            dk_chunk = torch.matmul(ds.transpose(-2, -1), qc).to(dtype=working_precision)
+            dk_chunk = torch.matmul(ds.transpose(-2, -1).to(torch.float32), qc.to(torch.float32)).to(
+                dtype=working_precision
+            )
             if k_ind < len(dkc_list):
                 dkc_c = dkc_list[k_ind]
                 dkc_list[k_ind] = dkc_c + dk_chunk
@@ -485,7 +492,9 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
     dv1 = torch.cat(dvc_list, -2)
     dq1 = torch.cat(dqc_list, -2)
     dk1 = torch.cat(dkc_list, -2)
-    packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(dq1, dk1, dv1)
+    packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(
+        dq1.to(orig_dtype), dk1.to(orig_dtype), dv1.to(orig_dtype)
+    )
     return packed_tensors
 
 
