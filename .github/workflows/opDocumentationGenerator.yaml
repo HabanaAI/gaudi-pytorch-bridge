@@ -1,8 +1,11 @@
 name: generate ops documentation
 on:
-    push:
+    pull_request:
+        branches:
+            - 'master_next'
+            - 'v1.[0-9]+.[0-9]+_next'
         paths:
-            - .github/workflows/opDocumentationGenerator.yaml
+            - '.github/workflows/opDocumentationGenerator.yaml'
     schedule:
         - cron: '0 0 * * *'
     workflow_dispatch:
