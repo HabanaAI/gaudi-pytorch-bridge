@@ -63,6 +63,8 @@ class SharedLayerReportGenerator : public ISharedLayerReportGenerator {
   void register_bmm_out_exception();
   void register_channel_shuffle_exception();
   void register_clamp_exception();
+  void register_ctc_loss_custom_exception();
+  void register_ctc_loss_custom_backward_exception();
   void register_ctc_loss_exception();
   void register_ctc_loss_tensor_exception();
   void register_fused_clip_norm_exception();

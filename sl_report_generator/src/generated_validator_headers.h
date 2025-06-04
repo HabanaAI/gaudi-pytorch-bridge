@@ -20,6 +20,8 @@
 #include "generated/lazy/bmm.h"
 #include "generated/lazy/channel_shuffle.h"
 #include "generated/lazy/clamp.h"
+#include "generated/lazy/ctc_loss_custom.h"
+#include "generated/lazy/ctc_loss_custom_backward.h"
 #include "generated/lazy/fused_clip_norm.h"
 #include "generated/lazy/grid_sampler_2d.h"
 #include "generated/lazy/grid_sampler_3d.h"

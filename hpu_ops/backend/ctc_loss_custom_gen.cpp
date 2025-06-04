@@ -66,6 +66,53 @@ sym_sizes_vec ctc_loss_custom_out_shape(
 
 REGISTER_CUSTOM_OP_OUTSHAPE_FUN(ctc_loss_custom, ctc_loss_custom_out_shape);
 
+SharedMetaDataVector OptimizerCTCLossCustomSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& log_probs = stack.at(0).toTensor();
+  const auto& targets = stack.at(1).toTensor();
+  const auto& input_lengths = stack.at(2).toTensor();
+  const auto& target_lengths = stack.at(3).toTensor();
+  const auto precision_type = log_probs.scalar_type();
+
+  SharedMetaData ctc_loss_custom_shared_meta{"ctc_loss_fwd"};
+  ctc_loss_custom_shared_meta.inputs_data = {
+      {log_probs.dim(), precision_type},
+      getSharedMetaFromTensor(targets),
+      getSharedMetaFromTensor(input_lengths),
+      getSharedMetaFromTensor(target_lengths)};
+  ctc_loss_custom_shared_meta.outputs_data = {
+      {1, precision_type}, {3, precision_type}};
+
+  return {ctc_loss_custom_shared_meta};
+}
+
+SharedMetaDataVector OptimizerCTCLossCustomBackwardSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  const auto& grad = stack.at(0).toTensor();
+  const auto& log_probs = stack.at(1).toTensor();
+  const auto& targets = stack.at(2).toTensor();
+  const auto& input_lengths = stack.at(3).toTensor();
+  const auto& target_lengths = stack.at(4).toTensor();
+  const auto& neg_log_likelihood = stack.at(5).toTensor();
+  const auto& log_alpha = stack.at(6).toTensor();
+  const auto precision_type = log_probs.scalar_type();
+
+  SharedMetaData ctc_loss_bwd_shared_meta{"ctc_loss_bwd"};
+  ctc_loss_bwd_shared_meta.inputs_data = {
+      {grad.dim(), precision_type},
+      getSharedMetaFromTensor(log_probs),
+      getSharedMetaFromTensor(targets),
+      getSharedMetaFromTensor(input_lengths),
+      getSharedMetaFromTensor(target_lengths),
+      {neg_log_likelihood.dim(), precision_type},
+      {log_alpha.dim(), precision_type}};
+  ctc_loss_bwd_shared_meta.outputs_data = {getSharedMetaFromTensor(log_probs)};
+
+  return {ctc_loss_bwd_shared_meta};
+}
+
 OutputMetaDataVector CTCLossCustomMeta(const at::Stack& stack) {
   auto log_probs = stack_tensor(stack, 0);
   auto targets = stack_tensor(stack, 1);
