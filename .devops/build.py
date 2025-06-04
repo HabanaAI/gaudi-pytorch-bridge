@@ -331,7 +331,7 @@ def remove_venv(venv_dir):
     log.info(f"Removing virtual environment at {venv_dir} as requested")
 
     if os.path.islink(venv_dir):
-        log.info(f"Virtual environment at {venv_dir} is just a link, removing " f"fearlessly")
+        log.info(f"Virtual environment at {venv_dir} is just a link, removing fearlessly")
         os.remove(venv_dir)
         return
     if os.path.isdir(venv_dir):
@@ -772,7 +772,6 @@ def prepare_build_dirs(
 
         for build_envs, cmake_config in combinations:
             for build_env in build_envs:
-
                 # needs to do explicit copy, to support multiple -DPYTHON_EXECUTABLE flags
                 cmake_flags = CMakeFlags(cmake_configurations[cmake_config].copy())
                 log.info(
@@ -1709,9 +1708,7 @@ class ManylinuxRunner:
         )
         if self.with_icecc:
             options = (
-                options + " --net=host"
-                " -p ::10246/tcp -p ::8765/tcp -p ::8766/tcp -p ::8765/udp"
-                " -e CCACHE_PREFIX=icecc"
+                options + " --net=host -p ::10246/tcp -p ::8765/tcp -p ::8766/tcp -p ::8765/udp -e CCACHE_PREFIX=icecc"
             )
         command = (
             f"docker run --rm {options} {memory_limit} {self.image_name} {os.environ['PYTORCH_MODULES_ROOT_PATH']}/.devops/build.py "
@@ -1763,8 +1760,7 @@ def log_produced_wheels_and_dump_manifest(selected_wheel_configs: list[WheelConf
             fixed_venv_dirs = ", and in ".join(_fix_venv_dirs_if_manylinux(wheel_config.venv_dirs))
             install_info = f" and installed in {fixed_venv_dirs}" if args.install_ext else ""
             wheel_info = (
-                f"wheel {wheel_config.full_wheel_name}"
-                f"(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
+                f"wheel {wheel_config.full_wheel_name}(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
             )
             log.info(f" {no: 2}) Built {optional}{wheel_info} in {produced_wheel}{install_info}")
             wheel_manifest.append(
@@ -1805,7 +1801,9 @@ def list_wheel_specs_for_specific_pt_versions(
 
 # TODO: if source == build or is_specific_wheel(version): always reinstall package in venvs
 def prepare_wheel_specs(
-    wheel_spec: str, requested_pt_versions: list[str], preinstalled_pt_version: Version | None
+    wheel_spec: str,
+    requested_pt_versions: list[str],
+    preinstalled_pt_version: Version | None,
 ) -> tuple[Version | None, list[WheelSpec]]:
     if wheel_spec:
         wheel_specs = parse_wheel_spec(wheel_spec)
@@ -1898,7 +1896,7 @@ def select_python_versions(args) -> set[Version]:
         if ver == "current":
             supported = get_supported_python_version(system_python_version, supported_python_versions)
             if not supported:
-                log.fatal(f"Requested current python version " f"({system_python_version}), which is not supported")
+                log.fatal(f"Requested current python version ({system_python_version}), which is not supported")
                 sys.exit(1)
             selected.add(supported)
         else:
@@ -1909,7 +1907,7 @@ def select_python_versions(args) -> set[Version]:
 def setup_logging(args) -> StringIO:
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)05s [%(filename)s:%(lineno)d] %(" "message)s",
+        format="%(asctime)s %(levelname)05s [%(filename)s:%(lineno)d] %(message)s",
         datefmt="%Y-%m-%d:%H:%M:%S",
     )
     warning_stream = StringIO()

@@ -270,7 +270,11 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 # attn_weights = attn_weights + h
 
                 q_base = (
-                    torch.arange(q_ind * qc.shape[qc.dim() - 2], (q_ind + 1) * qc.shape[qc.dim() - 2], device=q.device)
+                    torch.arange(
+                        q_ind * qc.shape[qc.dim() - 2],
+                        (q_ind + 1) * qc.shape[qc.dim() - 2],
+                        device=q.device,
+                    )
                     .unsqueeze(1)
                     .repeat(1, qc.shape[qc.dim() - 2])
                 )
@@ -279,7 +283,11 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
                 # attn_weights = attn_weights + q_idx
 
                 kv_base = (
-                    torch.arange(k_ind * kc.shape[kc.dim() - 2], (k_ind + 1) * kc.shape[kc.dim() - 2], device=q.device)
+                    torch.arange(
+                        k_ind * kc.shape[kc.dim() - 2],
+                        (k_ind + 1) * kc.shape[kc.dim() - 2],
+                        device=q.device,
+                    )
                     .unsqueeze(0)
                     .repeat(kc.shape[kc.dim() - 2], 1)
                 )
@@ -403,7 +411,11 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
             # attn_weights = attn_weights + h
 
             q_base = (
-                torch.arange(q_ind * qc.shape[qc.dim() - 2], (q_ind + 1) * qc.shape[qc.dim() - 2], device=q.device)
+                torch.arange(
+                    q_ind * qc.shape[qc.dim() - 2],
+                    (q_ind + 1) * qc.shape[qc.dim() - 2],
+                    device=q.device,
+                )
                 .unsqueeze(1)
                 .repeat(1, qc.shape[qc.dim() - 2])
             )
@@ -412,7 +424,11 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
             # attn_weights = attn_weights + q_idx
 
             kv_base = (
-                torch.arange(k_ind * kc.shape[kc.dim() - 2], (k_ind + 1) * kc.shape[kc.dim() - 2], device=q.device)
+                torch.arange(
+                    k_ind * kc.shape[kc.dim() - 2],
+                    (k_ind + 1) * kc.shape[kc.dim() - 2],
+                    device=q.device,
+                )
                 .unsqueeze(0)
                 .repeat(kc.shape[kc.dim() - 2], 1)
             )
@@ -661,7 +677,6 @@ def sdpa_bwd(do, q, k, v, O, is_causal, retain_exp, retain_max, with_slice):
 class PySDPA(torch.autograd.Function):
     @staticmethod
     def forward(ctx, q, k, v, is_causal=False, with_slice=False):
-
         out, retain_exp, retain_max = sdpa_fwd(ctx, q, k, v, is_causal, with_slice)
 
         ctx.save_for_backward(q, k, v, out, retain_exp, retain_max)

@@ -239,9 +239,9 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol=0.0, rtol=0.0, assert_enable=
 @contextmanager
 def env_var_in_scope(vars=None):
     def set_flag_in_env(name: str, value):
-        assert (
-            name != "PT_HPU_LAZY_MODE"
-        ), "Setting PT_HPU_LAZY_MODE during test is forbidden. Use python3 -m pytest --mode argument instead"
+        assert name != "PT_HPU_LAZY_MODE", (
+            "Setting PT_HPU_LAZY_MODE during test is forbidden. Use python3 -m pytest --mode argument instead"
+        )
         if value is None:
             os.environ[name] = ""
         else:
@@ -312,7 +312,7 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
                     # in test-cases and convert it to dtype=long for CPU (CPU
                     # works for dtype=long only)
                     kernel_params_local[k] = tuple(
-                        [i.to(device, dtype=torch.long) if i.type() == "torch.IntTensor" else i.to(device) for i in v]
+                        [(i.to(device, dtype=torch.long) if i.type() == "torch.IntTensor" else i.to(device)) for i in v]
                     )
                 else:
                     kernel_params_local[k] = tuple([i.to(device) for i in v])
@@ -439,7 +439,10 @@ class TcLimitedFormatter:
             return ret
         elif val is None:
             return "_None_"
-        elif isinstance(val, types.MethodDescriptorType | types.BuiltinMethodType | types.FunctionType):
+        elif isinstance(
+            val,
+            types.MethodDescriptorType | types.BuiltinMethodType | types.FunctionType,
+        ):
             return val.__name__
         else:
             s = str(val)
@@ -478,7 +481,6 @@ def is_pytest_mode_lazy():
 
 
 def clear_t_compile_logs():
-
     from habana_frameworks.torch.dynamo.compile_backend._helpers.helpers import (
         logger as helpers_logger,
     )
@@ -798,10 +800,15 @@ def inference_env_fixture():
 
 
 def filter_dtypes(
-    dtypes: list[torch.dtype], filter_function: Callable[[torch.dtype], bool] | None = None
+    dtypes: list[torch.dtype],
+    filter_function: Callable[[torch.dtype], bool] | None = None,
 ) -> list[torch.dtype]:
     def default_filter_function(dtype: torch.dtype) -> bool:
-        if is_gaudi1() and dtype in [torch.float16, torch.float8_e5m2, torch.float8_e4m3fn]:
+        if is_gaudi1() and dtype in [
+            torch.float16,
+            torch.float8_e5m2,
+            torch.float8_e4m3fn,
+        ]:
             return False
         return True
 

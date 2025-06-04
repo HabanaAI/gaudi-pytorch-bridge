@@ -149,7 +149,10 @@ def test_multiple_graph_capture_memoptimization(asynchronous=False, dry_run=Fals
     module1_hpu = _kernel_copy_to_device(module1_cpu, "hpu")
     loss_fn = torch.nn.MSELoss()
     module1_hpu = ht.hpu.wrap_in_hpu_graph(
-        module1_hpu, asynchronous=asynchronous, disable_tensor_cache=True, dry_run=dry_run
+        module1_hpu,
+        asynchronous=asynchronous,
+        disable_tensor_cache=True,
+        dry_run=dry_run,
     )
     x_cpu = torch.randn(N, D_in, device="cpu")
     ITERATION = 10
@@ -279,7 +282,9 @@ def test_graph_capture_scalar(asynchronous=False, disable_tensor_cache=False):
     module1_hpu = _kernel_copy_to_device(module1_cpu, "hpu")
     loss_fn = torch.nn.MSELoss()
     module1_hpu = ht.hpu.wrap_in_hpu_graph(
-        module1_hpu, asynchronous=asynchronous, disable_tensor_cache=disable_tensor_cache
+        module1_hpu,
+        asynchronous=asynchronous,
+        disable_tensor_cache=disable_tensor_cache,
     )
     x_cpu = torch.randn(N, D_in, device="cpu")
     ITERATION = 5
@@ -462,7 +467,19 @@ def test_cached_module_training_fp8(disable_tensor_cache):
     torch.manual_seed(12345)
     my_linear_test = te.Linear(4, 3, bias=True)
 
-    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    inputs = [
+        input1,
+        input2,
+        input3,
+        input2,
+        input1,
+        input2,
+        input3,
+        input3,
+        input1,
+        input1,
+        input3,
+    ]
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
         out_ref = my_linear_ref(input0)
@@ -481,12 +498,12 @@ def test_cached_module_training_fp8(disable_tensor_cache):
             out_ref.cpu().to(torch.float).detach().numpy(),
             equal_nan=True,
         ), "Out data mismatch at init run"
-        assert np.array_equal(
-            grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-        ), "Grad weight data mismatch at init run"
-        assert np.array_equal(
-            grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-        ), "Grad bias data mismatch at init run"
+        assert np.array_equal(grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True), (
+            "Grad weight data mismatch at init run"
+        )
+        assert np.array_equal(grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True), (
+            "Grad bias data mismatch at init run"
+        )
         my_linear_ref.zero_grad(set_to_none=False)
         my_linear_test.zero_grad(set_to_none=False)
 
@@ -494,7 +511,10 @@ def test_cached_module_training_fp8(disable_tensor_cache):
         fp8_meta = my_linear_test.save_fp8_meta()
         x = torch.zeros_like(input1)
         my_linear_test = ht.hpu.ModuleCacher(max_graphs=10)(
-            have_grad_accumulation=True, model=my_linear_test, inplace=True, disable_tensor_cache=disable_tensor_cache
+            have_grad_accumulation=True,
+            model=my_linear_test,
+            inplace=True,
+            disable_tensor_cache=disable_tensor_cache,
         )
         out_x = my_linear_test(x).cpu()
         my_linear_test.load_fp8_meta(fp8_meta)
@@ -520,12 +540,12 @@ def test_cached_module_training_fp8(disable_tensor_cache):
                 out_ref.cpu().to(torch.float).detach().numpy(),
                 equal_nan=True,
             ), f"Out data mismatch at {i}"
-            assert np.array_equal(
-                grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-            ), f"Grad weight data mismatch at {i}"
-            assert np.array_equal(
-                grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-            ), f"Grad bias data mismatch at {i}"
+            assert np.array_equal(grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True), (
+                f"Grad weight data mismatch at {i}"
+            )
+            assert np.array_equal(grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True), (
+                f"Grad bias data mismatch at {i}"
+            )
 
 
 def test_module_cacher_no_requires_grad():
@@ -741,7 +761,11 @@ def test_module_cacher_propnet_rand():
         outputs_target_hpu.append(o.to("hpu"))
 
     module1_hpu = ht.hpu.ModuleCacher()(
-        have_grad_accumulation=True, model=module1_hpu, inplace=True, allow_unused_input=True, dry_run=True
+        have_grad_accumulation=True,
+        model=module1_hpu,
+        inplace=True,
+        allow_unused_input=True,
+        dry_run=True,
     )
     loss_fn = torch.nn.MSELoss()
     optim_y_hpu_ref = torch.optim.SGD(module1_hpu_ref.parameters(), lr=0.1)
@@ -789,7 +813,6 @@ def test_module_cacher_propnet_rand():
 
 
 class SimpleModelWithIndexPut(torch.nn.Module):
-
     def __init__(self, inp_size, out_size):
         super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
@@ -803,7 +826,6 @@ class SimpleModelWithIndexPut(torch.nn.Module):
 
 
 class SimpleModelWithMaskedSelect(torch.nn.Module):
-
     def __init__(self, inp_size, out_size):
         super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
@@ -816,7 +838,6 @@ class SimpleModelWithMaskedSelect(torch.nn.Module):
 
 
 class SimpleModelWithIndexAdd(torch.nn.Module):
-
     def __init__(self, inp_size, out_size):
         super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
@@ -825,12 +846,16 @@ class SimpleModelWithIndexAdd(torch.nn.Module):
 
     def forward(self, input_ids):
         output = self.Linear1(input_ids)
-        output = torch.index_add(output, 0, self.indices.to(input_ids.device), self.value.to(input_ids.device))
+        output = torch.index_add(
+            output,
+            0,
+            self.indices.to(input_ids.device),
+            self.value.to(input_ids.device),
+        )
         return output
 
 
 class SimpleModelWithIndexSelect(torch.nn.Module):
-
     def __init__(self, inp_size, out_size):
         super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
@@ -843,7 +868,6 @@ class SimpleModelWithIndexSelect(torch.nn.Module):
 
 
 class SimpleModelWithNonZero(torch.nn.Module):
-
     def __init__(self, inp_size, out_size):
         super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
@@ -855,7 +879,6 @@ class SimpleModelWithNonZero(torch.nn.Module):
 
 
 class SimpleModelWithArange(torch.nn.Module):
-
     def __init__(self, inp_size, out_size):
         super().__init__()
         self.Linear1 = torch.nn.Linear(inp_size, out_size)
@@ -886,7 +909,6 @@ def wrap_in_model(model):
     ],
 )
 def test_with_hpu_ops(model):
-
     model_cpu, model_hpu = wrap_in_model(model)
     for _ in range(5):
         input_cpu = torch.randint(1, 7, (7,), dtype=torch.float32)

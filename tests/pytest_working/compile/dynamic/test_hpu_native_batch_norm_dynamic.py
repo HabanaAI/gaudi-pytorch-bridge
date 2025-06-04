@@ -25,7 +25,6 @@ from test_utils import compile_function_if_compile_mode, format_tc
 @pytest.mark.parametrize("base_shape", [(2, 2, 3, 3, 4)], ids=format_tc)
 @pytest.mark.parametrize("params", [{"training": True, "momentum": 0.1, "eps": 1e-5}], ids=format_tc)
 def test_hpu_native_batch_norm_legit_functional_3d_dynamic(dtype, base_shape, params):
-
     broadcasted_shapes = [
         base_shape,
         np.multiply(base_shape, 2),

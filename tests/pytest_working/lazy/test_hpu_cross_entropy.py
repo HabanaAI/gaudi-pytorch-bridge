@@ -30,7 +30,6 @@ rtol = {torch.float32: 0.001, torch.float16: 0.001, torch.bfloat16: 0.01}
 @pytest.mark.parametrize("reduction", ["none", "mean", "sum"], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_lazy_cross_entropy_fwd(size, use_weight, reduction, dtype):
-
     C = size[1]
 
     # CPU: doesn't support Half dtype

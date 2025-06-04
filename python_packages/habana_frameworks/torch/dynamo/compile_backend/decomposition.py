@@ -301,15 +301,35 @@ def override_one_hot(*args):
 @contextmanager
 def override_composite_ops():
     ops = [
-        (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.instance_norm.default, override_instance_norm),
-        (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.one_hot.default, override_one_hot),
+        (
+            DispatchKey.CompositeImplicitAutograd,
+            torch.ops.aten.instance_norm.default,
+            override_instance_norm,
+        ),
+        (
+            DispatchKey.CompositeImplicitAutograd,
+            torch.ops.aten.one_hot.default,
+            override_one_hot,
+        ),
     ]
 
     # When below flag is enabled, aten.linear and aten.matmul decompositions
     # are overriden in eager and torch.compile.
     if bc.get_pt_hpu_override_linear_matmul_eager():
-        ops.append((DispatchKey.CompositeImplicitAutograd, torch.ops.aten.linear.default, override_linear))
-        ops.append((DispatchKey.CompositeImplicitAutograd, torch.ops.aten.matmul.default, override_matmul))
+        ops.append(
+            (
+                DispatchKey.CompositeImplicitAutograd,
+                torch.ops.aten.linear.default,
+                override_linear,
+            )
+        )
+        ops.append(
+            (
+                DispatchKey.CompositeImplicitAutograd,
+                torch.ops.aten.matmul.default,
+                override_matmul,
+            )
+        )
 
     old_tables = {}
 
@@ -469,7 +489,8 @@ def mixture_of_experts(*args, **kwargs):
 
 
 @register_custom_decomposition(
-    torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights, hpu_backend_decompositions_common
+    torch.ops.hpu.mixture_of_experts.fp8_measurement_fused_weights,
+    hpu_backend_decompositions_common,
 )
 def mixture_of_experts_fp8_measurement_fused_weights(*args, **kwargs):
     return torch.ops.hpu.mixture_of_experts_fp8_measurement(*args, **kwargs)
@@ -600,7 +621,18 @@ def sdpa_fwd(
     seq_padding_type,
 ):
     op = torch.ops.hpu.sdpa_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.sdpa_fwd_non_dropout
-    return op(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode, valid_seq_len, seq_padding_type)
+    return op(
+        q,
+        k,
+        v,
+        attn_mask,
+        dropout_p,
+        scale,
+        is_causal,
+        fast_softmax_mode,
+        valid_seq_len,
+        seq_padding_type,
+    )
 
 
 @register_custom_decomposition(torch.ops.hpu.fp8_sdpa_fwd.default, hpu_backend_decompositions_common)
@@ -667,7 +699,6 @@ def fp8_sdpa_recomp_fwd(
     valid_seq_len,
     seq_padding_type,
 ):
-
     op = torch.ops.hpu.fp8_sdpa_recomp_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.fp8_sdpa_recomp_fwd_non_dropout
     return op(
         q,
@@ -740,9 +771,9 @@ def split(self, split_size, dim=0):
         dim += self.dim()
     assert dim < self.dim() and dim >= 0, " given dimension value is out of range"
     cur_size = self.size(dim)
-    assert (
-        type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt
-    ), "split_size_or_sections is not a int value or list"
+    assert type(split_size) is int or type(split_size) is list or type(split_size) is torch.SymInt, (
+        "split_size_or_sections is not a int value or list"
+    )
     # create a new list based on split_size(int)
     if type(split_size) is not list:
         split_size = [split_size] * (cur_size // split_size)

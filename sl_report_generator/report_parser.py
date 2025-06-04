@@ -26,6 +26,7 @@ The documentation is saved in the directory specified in --doc_path argument.
 Example:
 python report_parser.py --path ${PYTORCH_MODULES_ROOT_PATH}/docs --gen_custom_doc
 """
+
 import argparse
 from collections import defaultdict
 from pathlib import Path
@@ -142,7 +143,10 @@ def gen_doc(args):
                 optimizer_operators=str.join("", doc_rows_by_namespace["torch.hpu.optimizer"]),
                 custom_operators=str.join("", doc_rows_by_namespace["torch.hpu"]),
             )
-            print(custom_operators_documentation, file=open(args.path + "/Pytorch_Custom_Operators.rst", "w"))
+            print(
+                custom_operators_documentation,
+                file=open(args.path + "/Pytorch_Custom_Operators.rst", "w"),
+            )
 
 
 if __name__ == "__main__":

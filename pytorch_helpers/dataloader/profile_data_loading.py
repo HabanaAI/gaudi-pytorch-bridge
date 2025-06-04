@@ -74,7 +74,13 @@ def getAeonConfig(instance_id, num_instances):
         "file_shuffle_seed": 5,
         "shuffle_manifest": True,
         "etl": [
-            {"type": "image", "channel_major": False, "height": IMG_HEIGHT, "width": IMG_WIDTH, "output_type": "float"},
+            {
+                "type": "image",
+                "channel_major": False,
+                "height": IMG_HEIGHT,
+                "width": IMG_WIDTH,
+                "output_type": "float",
+            },
             {"binary": False, "type": "label"},
         ],
         "iteration_mode": "ONCE",
@@ -88,7 +94,6 @@ dl_args = {}
 
 class ImageRandomDataLoader:
     def __init__(self, batch_size, num_steps, train=True, drop_last=False):
-
         def get_val(env_var, default_val):
             val = default_val
             val_str = os.environ.get(env_var)
@@ -257,8 +262,18 @@ def test_pytorch_data_loader_for_resnet(dataloader, num_steps, bs, rank):
 def handle_args():
     parser = argparse.ArgumentParser(description="""Run DataLoader test""")
 
-    parser.add_argument("--dl-type", type=str, default="MP", help="supported types ::, 'MT','MP' (default),'SYN'")
-    parser.add_argument("--dl-workers", type=int, default="0", help="number of DL read workers, default:5")
+    parser.add_argument(
+        "--dl-type",
+        type=str,
+        default="MP",
+        help="supported types ::, 'MT','MP' (default),'SYN'",
+    )
+    parser.add_argument(
+        "--dl-workers",
+        type=int,
+        default="0",
+        help="number of DL read workers, default:5",
+    )
     parser.add_argument("--profile", action="store_true", help="enable cprofile for the parent function")
     args = parser.parse_args()
     if args.dl_type:

@@ -62,7 +62,11 @@ class HabanaParameterWrapper(torch.nn.Parameter):
             arg = args[i]
             if type(arg) is list:
                 new_args[i] = [
-                    HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) is HabanaParameterWrapper else inner_arg
+                    (
+                        HabanaParameterWrapper.db[id(inner_arg)]
+                        if type(inner_arg) is HabanaParameterWrapper
+                        else inner_arg
+                    )
                     for inner_arg in arg
                 ]
             else:
@@ -181,7 +185,7 @@ def wrapped_to(self, *args, **kwargs):
     shared_parameters = {}
     collected_parameters = []
     weight_sharing_exception = Exception(
-        "Weight sharing unsuccessful. " "You can disable weight sharing by setting: PT_HPU_WEIGHT_SHARING=0"
+        "Weight sharing unsuccessful. You can disable weight sharing by setting: PT_HPU_WEIGHT_SHARING=0"
     )
 
     # Convert all parameters to habana parameters

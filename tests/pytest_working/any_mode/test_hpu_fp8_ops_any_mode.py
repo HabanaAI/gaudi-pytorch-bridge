@@ -548,7 +548,6 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
 
         # Backward require A and B to have the same number of dimensions and DS are not supported in backward.
         if A[i].dim() == B[i].dim() and (is_pytest_mode_compile() and not is_dynamic_compilation):
-
             results_cpu[i].mean().backward(inputs=[results_cpu[i], As[i], Bs[i]])
             result_hpu[i].backward(results_cpu[i].grad.to(hpu))
 
@@ -570,7 +569,16 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
 def test_fp8_gemm_v2(bias, accumulate, dtype, fp8_dtype):
-    fp8_gemm_v2_common((24, 12), (24, 36), bias, accumulate, ScaleMode.TENSOR, ScaleMode.TENSOR, dtype, fp8_dtype)
+    fp8_gemm_v2_common(
+        (24, 12),
+        (24, 36),
+        bias,
+        accumulate,
+        ScaleMode.TENSOR,
+        ScaleMode.TENSOR,
+        dtype,
+        fp8_dtype,
+    )
 
 
 @pytest.mark.parametrize("bias", [True, False])
@@ -600,7 +608,16 @@ def test_fp8_gemm_v2_ds(bias, accumulate, dtype, fp8_dtype):
     ids=format_tc,
 )
 def test_fp8_gemm_v2_shapes(shapeA, shapeB):
-    fp8_gemm_v2_common(shapeA, shapeB, False, False, ScaleMode.TENSOR, ScaleMode.TENSOR, torch.float, torch.float8_e5m2)
+    fp8_gemm_v2_common(
+        shapeA,
+        shapeB,
+        False,
+        False,
+        ScaleMode.TENSOR,
+        ScaleMode.TENSOR,
+        torch.float,
+        torch.float8_e5m2,
+    )
 
 
 scale_modes = [
@@ -619,7 +636,16 @@ scale_modes = [
 
 @pytest.mark.parametrize("scaleA, scaleB", scale_modes)
 def test_fp8_gemm_v2_scales(scaleA, scaleB):
-    fp8_gemm_v2_common((2, 1, 4, 2), (1, 3, 4, 8), True, False, scaleA, scaleB, torch.bfloat16, torch.float8_e4m3fn)
+    fp8_gemm_v2_common(
+        (2, 1, 4, 2),
+        (1, 3, 4, 8),
+        True,
+        False,
+        scaleA,
+        scaleB,
+        torch.bfloat16,
+        torch.float8_e4m3fn,
+    )
 
 
 @pytest.mark.parametrize(
@@ -1013,7 +1039,16 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
     fn = torch.ops.hpu.conv2d_fp8
     fn = compile_function_if_compile_mode(fn, dynamic=dynamic)
 
-    conv_args = [input_hpu, weight_hpu, bias_hpu, stride, padding, dilation, 1, out_dtype]
+    conv_args = [
+        input_hpu,
+        weight_hpu,
+        bias_hpu,
+        stride,
+        padding,
+        dilation,
+        1,
+        out_dtype,
+    ]
     if scaleA_hpu is not None or scaleB_hpu is not None:
         conv_args.extend([scaleA_hpu, scaleB_hpu])
 
@@ -1061,7 +1096,18 @@ def test_conv2d_fp8_scalar_optimization(scaleA, scaleB):
 
     fn = compile_function_if_compile_mode(fn)
 
-    conv = fn(input_hpu, weight_hpu, None, stride, padding, dilation, 1, out_dtype, scaleA, scaleB)
+    conv = fn(
+        input_hpu,
+        weight_hpu,
+        None,
+        stride,
+        padding,
+        dilation,
+        1,
+        out_dtype,
+        scaleA,
+        scaleB,
+    )
     conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, None, stride, padding, dilation, 1) * (scaleA * scaleB)
 
     compare_tensors(conv, conv_ref, atol=1e-2, rtol=0.02)
@@ -1098,7 +1144,16 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
         return (
             torch.ops.hpu.cast_to_fp8_v2(
                 torch.ops.hpu.conv2d_fp8(
-                    input, weight, None, stride, padding, dilation, 1, out_dtype, scale_a, scale_b
+                    input,
+                    weight,
+                    None,
+                    stride,
+                    padding,
+                    dilation,
+                    1,
+                    out_dtype,
+                    scale_a,
+                    scale_b,
                 ),
                 scale_out,
                 False,
@@ -1140,7 +1195,18 @@ def test_conv2d_fp8_h2d():
     scale_b = torch.tensor(1.1)
 
     with pytest.raises(RuntimeError) as e:
-        fn(input_hpu, weight_hpu, bias_hpu, stride, padding, dilation, 1, out_dtype, scale_a, scale_b).cpu()
+        fn(
+            input_hpu,
+            weight_hpu,
+            bias_hpu,
+            stride,
+            padding,
+            dilation,
+            1,
+            out_dtype,
+            scale_a,
+            scale_b,
+        ).cpu()
 
     exception_msg = str(e.value.inner_exception) if is_pytest_mode_compile() else str(e)
     assert "conv2d_fp8.default doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
@@ -1182,7 +1248,16 @@ def common_h2d_scales(src_dtype, batched_tensors, fuse_cast, scale_values, scale
         if fuse_cast:
             return torch.ops.hpu.cast_to_fp8_v2(
                 torch.ops.hpu.fp8_gemm_v2(
-                    scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+                    scaled_a,
+                    False,
+                    scaled_b,
+                    False,
+                    None,
+                    src_dtype,
+                    sa_inv,
+                    sb_inv,
+                    None,
+                    False,
                 ),
                 scale_out,
                 False,
@@ -1191,7 +1266,16 @@ def common_h2d_scales(src_dtype, batched_tensors, fuse_cast, scale_values, scale
             )[0]
         else:
             return torch.ops.hpu.fp8_gemm_v2(
-                scaled_a, False, scaled_b, False, None, src_dtype, sa_inv, sb_inv, None, False
+                scaled_a,
+                False,
+                scaled_b,
+                False,
+                None,
+                src_dtype,
+                sa_inv,
+                sb_inv,
+                None,
+                False,
             )
 
     def fn_cpu(a, b, sa, sb, sa_inv, sb_inv, scale_out):
@@ -1230,7 +1314,14 @@ def test_h2d_scales(src_dtype, batched_tensors, fuse_cast):
     scale_values = convertExpBiasToScale(bias_values)
     scale_out_values = convertExpBiasToScale((3, 11)) if fuse_cast else (1.0,)
 
-    common_h2d_scales(src_dtype, batched_tensors, fuse_cast, scale_values, scale_out_values, is_hw_aligned=True)
+    common_h2d_scales(
+        src_dtype,
+        batched_tensors,
+        fuse_cast,
+        scale_values,
+        scale_out_values,
+        is_hw_aligned=True,
+    )
 
 
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
@@ -1303,7 +1394,22 @@ def test_sdpa_h2d():
     def execute_sdpa(results):
         for biases in bias_values:
             scales = tuple(torch.tensor(s) for s in convertExpBiasToScale(biases))
-            res = fn(q, k, v, None, 0.0, 1.0, False, False, "fp32", *scales, False, False, None, "left")[0].cpu()
+            res = fn(
+                q,
+                k,
+                v,
+                None,
+                0.0,
+                1.0,
+                False,
+                False,
+                "fp32",
+                *scales,
+                False,
+                False,
+                None,
+                "left",
+            )[0].cpu()
             results.append(res)
 
     # Call sdpa with cpu scales converted to H2D tensors and executed
@@ -1361,7 +1467,14 @@ def test_softmax_fp8(is_scale, is_inv_attn_heads, fused_add_shape, input_dtype):
     fn = torch.ops.hpu.softmax_fp8
     fn = compile_function_if_compile_mode(fn)
 
-    result = fn(input_hpu, dim, scale_input_hpu, scale_output_hpu, inv_attn_heads_hpu, fused_add_hpu)
+    result = fn(
+        input_hpu,
+        dim,
+        scale_input_hpu,
+        scale_output_hpu,
+        inv_attn_heads_hpu,
+        fused_add_hpu,
+    )
 
     if is_inv_attn_heads:
         input = input * inv_attn_heads

@@ -109,7 +109,6 @@ def replace_quantize_with_cast(module: torch.fx.GraphModule):
     for node in graph.nodes:
         # Check if the node is a quantize_per_tensor.default operation
         if is_node(node, "quantize_per_tensor.default"):
-
             with graph.inserting_before(node):
                 invert_scale_node = 1 / node.args[1]
                 cast_node = graph.call_function(
@@ -205,10 +204,16 @@ def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
                 buffer_counter = len(module.state_dict())
                 input0_scale_attr = f"__param_constant_{buffer_counter}"
                 buffer_counter = buffer_counter + 1
-                module.register_buffer(input0_scale_attr, torch.tensor(input0_dequant_node.args[1], device="hpu"))
+                module.register_buffer(
+                    input0_scale_attr,
+                    torch.tensor(input0_dequant_node.args[1], device="hpu"),
+                )
                 input1_scale_attr = f"__param_constant_{buffer_counter}"
                 buffer_counter = buffer_counter + 1
-                module.register_buffer(input1_scale_attr, torch.tensor(input1_dequant_node.args[1], device="hpu"))
+                module.register_buffer(
+                    input1_scale_attr,
+                    torch.tensor(input1_dequant_node.args[1], device="hpu"),
+                )
 
                 is_trans_B = False
                 trans_node = getNodeBetweenCurrentAndDeQuant(node.args[1], "transpose.int")
@@ -316,7 +321,10 @@ def replace_pattern_quant_dequant_mm_addmm(module: torch.fx.GraphModule):
 
         gemm_node = node
         source_fn_stack = node.meta.get("source_fn_stack", None)
-        weight_transpose = source_fn_stack and source_fn_stack[-1][1] in [torch.nn.Linear, torch.nn.functional.linear]
+        weight_transpose = source_fn_stack and source_fn_stack[-1][1] in [
+            torch.nn.Linear,
+            torch.nn.functional.linear,
+        ]
 
         gemm_users_node = next(iter(gemm_node.users), None)
         output_view_node = (

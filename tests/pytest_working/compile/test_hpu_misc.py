@@ -21,7 +21,6 @@ from test_utils import compile_function_if_compile_mode, is_pytest_mode_compile
 
 
 def test_hpu_disallow_torch_compile():
-
     def fn(x):
         return x + 1
 

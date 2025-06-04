@@ -26,9 +26,13 @@ hpu = torch.device("hpu")
 
 
 def resource_apply_momentum(
-    params_momentum_buffer_list: list[Tensor], d_p_list: list[Tensor], *, momentum: float, lr: float, nesterov: bool
+    params_momentum_buffer_list: list[Tensor],
+    d_p_list: list[Tensor],
+    *,
+    momentum: float,
+    lr: float,
+    nesterov: bool,
 ):
-
     # grads may not be present always and hence the list may be empty.
     # eg. during warmup steps.
     if len(params_momentum_buffer_list) == 0:
@@ -117,7 +121,13 @@ class FusedResourceApplyMomentum(Optimizer):
                         params_with_grad_momentum.append(state["momentum_buffer"])
 
             htcore.step_closure._mark_step_if_lazy()
-            resource_apply_momentum(params_with_grad_momentum, d_p_list, momentum=momentum, lr=lr, nesterov=nesterov)
+            resource_apply_momentum(
+                params_with_grad_momentum,
+                d_p_list,
+                momentum=momentum,
+                lr=lr,
+                nesterov=nesterov,
+            )
             htcore.step_closure._mark_step_if_lazy()
 
             # update momentum_buffers in state

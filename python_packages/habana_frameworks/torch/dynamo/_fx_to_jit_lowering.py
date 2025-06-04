@@ -75,10 +75,10 @@ class FxToJitLowering(torch.fx.Interpreter):
             return getattr(self, n.op)(n, args, kwargs)
 
     def call_module(self, node: torch.fx.Node, args, kwargs):
-        raise NotImplementedError("Modules should not be present in our FX submodules. " "Please report a bug.")
+        raise NotImplementedError("Modules should not be present in our FX submodules. Please report a bug.")
 
     def get_attr(self, node: torch.fx.Node, args, kwargs):
-        raise NotImplementedError("Attributes should not be present in our FX submodules. " "Please report a bug.")
+        raise NotImplementedError("Attributes should not be present in our FX submodules. Please report a bug.")
 
     def call_function(self, node: torch.fx.Node, args, kwargs):
         # Prepare arguments for JIT node and schema if exists or
@@ -98,7 +98,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         return returned_val
 
     def call_method(self, node: torch.fx.Node, args, kwargs):
-        raise NotImplementedError("Methods should not be present in our FX submodules. " "Please report a bug.")
+        raise NotImplementedError("Methods should not be present in our FX submodules. Please report a bug.")
 
     def output(self, node: torch.fx.Node, args, kwargs):
         for arg in args:
@@ -241,7 +241,7 @@ class FxToJitLowering(torch.fx.Interpreter):
         if isinstance(arg, list) or isinstance(arg, tuple) or isinstance(arg, namedtuple):  # noqa SIM101
             return self._get_jit_val_from_iterable(arg, parameter)
 
-        raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. " "Please report a bug.")
+        raise NotImplementedError(f"The argument {arg} contains unsupported type: {type(arg)}. Please report a bug.")
 
     ##############################################################
     # Below are the functions responsible for emitting jit
@@ -258,7 +258,7 @@ class FxToJitLowering(torch.fx.Interpreter):
                 jit_args.append(self._get_jit_val(kwargs[parameter.name], parameter))
             else:
                 if not parameter.has_default_value():
-                    raise RuntimeError(f"The parameter {i} is not present in the argument list " f"for {schema.name}.")
+                    raise RuntimeError(f"The parameter {i} is not present in the argument list for {schema.name}.")
                 jit_args.append(self._get_jit_val(parameter.default_value, parameter))
 
         return schema.name, jit_args
@@ -317,7 +317,7 @@ class FxToJitLowering(torch.fx.Interpreter):
             if fx_node.stack_trace:
                 parsed_st = _parse_stack_trace(fx_node.stack_trace)
                 filename = Path(parsed_st.file).name
-                stack_trace = f"File: {filename}:{parsed_st.lineno} " f"in {parsed_st.name}, code: {parsed_st.code}"
+                stack_trace = f"File: {filename}:{parsed_st.lineno} in {parsed_st.name}, code: {parsed_st.code}"
                 return stack_trace
             return None
         except ImportError:
@@ -406,9 +406,7 @@ class FxToJitLowering(torch.fx.Interpreter):
             else:
                 input_type = jit_type
         else:
-            raise NotImplementedError(
-                f"The metadata contains unsupported type: {type(meta_val)}. " "Please report a bug."
-            )
+            raise NotImplementedError(f"The metadata contains unsupported type: {type(meta_val)}. Please report a bug.")
 
         if isinstance(input_type, jit.NoneType) and jit_val.type().annotation_str == "Tensor":
             logger.debug("Won't rewrite metadata from Tensor to NoneType")
@@ -446,7 +444,7 @@ class FxToJitLowering(torch.fx.Interpreter):
             unpacked_collection = self.jit_ir.createTupleUnpack(jit_val)
         else:
             raise NotImplementedError(
-                f"The JIT IR contains unsupported collection type {jit_val_type}. " "Please report a bug."
+                f"The JIT IR contains unsupported collection type {jit_val_type}. Please report a bug."
             )
 
         unpacked_collection = self.jit_ir.insertNode(unpacked_collection)

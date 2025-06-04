@@ -52,7 +52,9 @@ def test_equal(data1, data2):
 
 
 @pytest.mark.parametrize(
-    "shape_in, shape_out", [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))], ids=format_tc
+    "shape_in, shape_out",
+    [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))],
+    ids=format_tc,
 )
 @pytest.mark.parametrize("blocking_flag", [True, False])
 def test_resize_inplace(shape_in, shape_out, blocking_flag):
@@ -873,14 +875,23 @@ def test_unique2_tensor_delegate(tensor_in, return_inverse, return_sorted, retur
         torch.tensor([[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]], dtype=torch.int32),
         torch.tensor([[11, 33, 11]], dtype=torch.int32),
         torch.tensor(
-            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]], dtype=torch.float32
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
+            dtype=torch.float32,
         ),
         torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
         torch.empty((0, 4), dtype=torch.float32),
         torch.empty((0, 4), dtype=torch.int32),
         torch.randn([2, 4, 5, 7], dtype=torch.float32),
         torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
-        torch.tensor([[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
+        torch.tensor(
+            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
+            dtype=torch.float32,
+        ),
         torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
     ],
 )
@@ -916,11 +927,19 @@ def test_unique(tensor_in, return_inverse, return_sorted):
         ),
         torch.tensor([[11, 33, 11]], dtype=torch.int32),
         torch.tensor(
-            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]],
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
             dtype=torch.float32,
         ),
         torch.tensor(
-            [[[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]], [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]]],
+            [
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+            ],
             dtype=torch.int32,
         ),
         torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
@@ -943,7 +962,11 @@ def test_unique_dim_tensor(tensor_in, return_inverse, return_counts):
     self = tensor_in
     for dim_in in range(-tensor_in.dim(), tensor_in.dim()):
         unique_cpu = torch.Tensor.unique(
-            self, dim=dim_in, sorted=return_sorted, return_inverse=return_inverse, return_counts=return_counts
+            self,
+            dim=dim_in,
+            sorted=return_sorted,
+            return_inverse=return_inverse,
+            return_counts=return_counts,
         )
 
         unique_hpu = torch.Tensor.unique(
@@ -989,11 +1012,19 @@ def test_unique_dim_tensor(tensor_in, return_inverse, return_counts):
         ),
         torch.tensor([[11, 33, 11]], dtype=torch.int32),
         torch.tensor(
-            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]],
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
             dtype=torch.float32,
         ),
         torch.tensor(
-            [[[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]], [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]]],
+            [
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+                [[1, 2, 3, 2, 1], [4, 5, 6, 5, 4], [1, 2, 3, 2, 1]],
+            ],
             dtype=torch.int32,
         ),
         torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
@@ -1016,7 +1047,11 @@ def test_unique_dim(tensor_in, return_inverse, return_counts):
     self = tensor_in
     for dim_in in range(-tensor_in.dim(), tensor_in.dim()):
         unique_cpu = torch.unique(
-            self, dim=dim_in, sorted=return_sorted, return_inverse=return_inverse, return_counts=return_counts
+            self,
+            dim=dim_in,
+            sorted=return_sorted,
+            return_inverse=return_inverse,
+            return_counts=return_counts,
         )
 
         unique_hpu = torch.unique(
@@ -1986,7 +2021,6 @@ def test_efficientzerotensor_node_params_2():
 # test for fix in SW-192192
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_h2d_copy_race_condition_fix():
-
     t1 = torch.arange(1, 5, dtype=torch.bfloat16)
     t2 = torch.arange(1, 5, dtype=torch.bfloat16)
     for _ in range(5):

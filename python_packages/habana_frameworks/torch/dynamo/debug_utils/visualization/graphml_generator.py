@@ -94,9 +94,9 @@ if HAS_NETWORKX:
 
             if node.op == "output" and torch.fx.Node not in [type(i) for i in inputs]:
                 inputs = list(inputs[0])
-                assert (
-                    torch.fx.Node in (type(i) for i in inputs) or inputs == []
-                ), f"Output node {node.name} has incorrect {inputs=}"
+                assert torch.fx.Node in (type(i) for i in inputs) or inputs == [], (
+                    f"Output node {node.name} has incorrect {inputs=}"
+                )
 
             def add_edges(inputs, graph_node):
                 for i in inputs:

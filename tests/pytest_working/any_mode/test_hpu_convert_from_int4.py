@@ -73,7 +73,14 @@ def pack_tensor(input, bits=4):
 
 
 def convert_from_int4_common(
-    packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype, scale_dtype, disable_clip=False
+    packed_shape,
+    variant,
+    is_zero_point,
+    packed_zero_point,
+    is_scale,
+    out_dtype,
+    scale_dtype,
+    disable_clip=False,
 ):
     if out_dtype == torch.float8_e5m2 and (is_zero_point, packed_zero_point) == (True, True) and variant == "uint4":
         pytest.skip("https://jira.habana-labs.com/browse/SW-182397")
@@ -116,7 +123,14 @@ def convert_from_int4_common(
             zero_point = (torch.randn(real_shape) * 5.0).to(out_dtype)
             zero_point_hpu = zero_point.to("hpu")
 
-    result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, out_dtype, None, disable_fp8_clipping=disable_clip)
+    result_hpu = fn(
+        input_hpu,
+        scale_hpu,
+        zero_point_hpu,
+        out_dtype,
+        None,
+        disable_fp8_clipping=disable_clip,
+    )
 
     # sub i8/u8 is currently not supported by the bridge
     if packed_zero_point:
@@ -135,7 +149,13 @@ def convert_from_int4_common(
 @pytest.mark.parametrize("out_dtype", dtypes, ids=format_tc)
 def test_convert_from_int4(packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype):
     result_hpu, result_ref = convert_from_int4_common(
-        packed_shape, variant, is_zero_point, packed_zero_point, is_scale, out_dtype, out_dtype
+        packed_shape,
+        variant,
+        is_zero_point,
+        packed_zero_point,
+        is_scale,
+        out_dtype,
+        out_dtype,
     )
 
     compare_tensors(result_hpu, result_ref.cpu(), atol=0.001, rtol=0.001)
@@ -229,13 +249,16 @@ def test_convert_from_int4_clipping(variant, out_dtype, disable_clip):
         special_fn = f"is{special_value}"
         hpu_res_special_idx = getattr(result_hpu.float(), special_fn)()
         ref_res_special_idx = getattr(result_ref.float(), special_fn)()
-        assert (
-            hpu_res_special_idx.count_nonzero() == 0
-        ), f"HPU result contain {special_value}s despite enabled clipping."
+        assert hpu_res_special_idx.count_nonzero() == 0, (
+            f"HPU result contain {special_value}s despite enabled clipping."
+        )
         assert ref_res_special_idx.count_nonzero() > 0, f"Ref result is expected to contain {special_value}s."
         ref_nan_inf_idx = torch.logical_not(ref_res_special_idx).cpu()
         compare_tensors(
-            result_hpu.cpu().float()[ref_nan_inf_idx], result_ref.cpu().float()[ref_nan_inf_idx], atol=0.001, rtol=0.001
+            result_hpu.cpu().float()[ref_nan_inf_idx],
+            result_ref.cpu().float()[ref_nan_inf_idx],
+            atol=0.001,
+            rtol=0.001,
         )
 
     if is_pytest_mode_compile():
@@ -510,7 +533,9 @@ def prepare_data_for_hpu(bits, group_size, cuda_qweight, cuda_qzeros, cuda_scale
     ids=["zeros_as_range", "zeros_as_8", "zeros_as_-8", "zeros_as_0", "zeros_as_1"],
 )
 @pytest.mark.parametrize(
-    "scale_values", ["rand", "1", "range", "range_int"], ids=["scale", "no_scale", "scale_range", "scale_range_int"]
+    "scale_values",
+    ["rand", "1", "range", "range_int"],
+    ids=["scale", "no_scale", "scale_range", "scale_range_int"],
 )
 @pytest.mark.parametrize(
     "input_values",

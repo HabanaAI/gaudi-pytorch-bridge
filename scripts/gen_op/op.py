@@ -174,9 +174,9 @@ class Op:
 
     def get_lazy(self):
         lazy_desc = self.op.get("lazy", {})
-        assert all(
-            key in allowed_lazy_keys for key in lazy_desc.keys()
-        ), f"Only {allowed_lazy_keys} are supported for lazy, but {lazy_desc.keys()} are provided for {self.opname}. In order to support another property, please add proper handling in Op class in {os.path.realpath(__file__)}"
+        assert all(key in allowed_lazy_keys for key in lazy_desc.keys()), (
+            f"Only {allowed_lazy_keys} are supported for lazy, but {lazy_desc.keys()} are provided for {self.opname}. In order to support another property, please add proper handling in Op class in {os.path.realpath(__file__)}"
+        )
 
         return lazy_desc
 

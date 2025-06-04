@@ -43,7 +43,12 @@ def test_pass_fuse_view_chains():
     with FxGraphAnalyzer() as fga:
         inp_hpu = torch.randn(4, 3, device="hpu")
         inp_cpu = inp_hpu.to("cpu")
-        fnc_hpu = torch.compile(fn, dynamic=False, backend="hpu_backend", options={"use_eager_fallback": True})
+        fnc_hpu = torch.compile(
+            fn,
+            dynamic=False,
+            backend="hpu_backend",
+            options={"use_eager_fallback": True},
+        )
         fnc_cpu = torch.compile(fn, dynamic=False, backend="inductor")
         results_hpu = fnc_hpu(inp_hpu)
         results_cpu = fnc_cpu(inp_cpu)
@@ -64,7 +69,6 @@ def test_as_strided_batching():
     compiled_func = torch.compile(func, backend="hpu_backend")
 
     with FxGraphAnalyzer() as fga:
-
         t1_cpu = torch.ones((8, 8))
         t2_cpu = t1_cpu.clone()
         t1_hpu, t2_hpu = t1_cpu.to("hpu"), t2_cpu.to("hpu")

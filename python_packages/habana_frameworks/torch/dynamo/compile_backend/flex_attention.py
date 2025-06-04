@@ -58,9 +58,10 @@ def trace_on_hpu(
 
 
 def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
-
     hop_flex_attention_bwds = graph_module.graph.find_nodes(
-        op="call_function", target=torch.ops.higher_order.flex_attention_backward, sort=True
+        op="call_function",
+        target=torch.ops.higher_order.flex_attention_backward,
+        sort=True,
     )
 
     # retunr if no flex HOP bwds found
@@ -104,7 +105,17 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
             glse_inp = functools.partial(torch.empty, grad_logsumexpshape, device="hpu", requires_grad=False)
             search_gm = trace_on_hpu(
                 flex_attention_bwd,
-                [q_inp(), k_inp(), v_inp(), o_inp(), lse_inp(), gout_inp(), glse_inp(), block_size, is_noop_mask],
+                [
+                    q_inp(),
+                    k_inp(),
+                    v_inp(),
+                    o_inp(),
+                    lse_inp(),
+                    gout_inp(),
+                    glse_inp(),
+                    block_size,
+                    is_noop_mask,
+                ],
             )
 
         # patch fw_graph score_mod fucntion
@@ -135,7 +146,9 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
         replace_pattern(search_gm, score_mod_pattern, joint_graph_score_gm)
 
         flex_pack_tensors_nodes = search_gm.graph.find_nodes(
-            op="call_function", target=torch.ops.hpu.flex_attention_pack_tensors.default, sort=True
+            op="call_function",
+            target=torch.ops.hpu.flex_attention_pack_tensors.default,
+            sort=True,
         )
         for pack_nod in flex_pack_tensors_nodes:
             args = pack_nod.args
@@ -193,7 +206,9 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
         graph_module.recompile()
 
         flex_pack_tensors_node = graph_module.graph.find_nodes(
-            op="call_function", target=torch.ops.hpu.flex_attention_pack_tensors.default, sort=True
+            op="call_function",
+            target=torch.ops.hpu.flex_attention_pack_tensors.default,
+            sort=True,
         )
 
         replace_nodes = {}
@@ -209,7 +224,10 @@ def hpu_flex_attention_bwd_pass(graph_module: torch.fx.GraphModule):
 
 
 def hpu_flex_attention_passes(
-    graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module: torch.fx.GraphModule,
+    example_inputs: list[torch.Tensor],
+    is_training: bool,
+    is_backward: bool,
 ):
     if is_backward:
         hpu_flex_attention_bwd_pass(graph_module)
@@ -253,7 +271,10 @@ def hpu_flex_attention_passes(
         q_inp = functools.partial(torch.empty, qshape, device="hpu", requires_grad=False, dtype=dtype)
         k_inp = functools.partial(torch.empty, kshape, device="hpu", requires_grad=False, dtype=dtype)
         v_inp = functools.partial(torch.empty, vshape, device="hpu", requires_grad=False, dtype=dtype)
-        search_gm = trace_on_hpu(flex_attention_fwd, [q_inp(), k_inp(), v_inp(), block_size, is_noop_mask, is_ret_lse])
+        search_gm = trace_on_hpu(
+            flex_attention_fwd,
+            [q_inp(), k_inp(), v_inp(), block_size, is_noop_mask, is_ret_lse],
+        )
 
         # patch score_mod fucntion
         sdpa_score_gm = sdpa_score.graph.owning_module.get_submodule(sdpa_score.name)
@@ -279,7 +300,14 @@ def hpu_flex_attention_passes(
             new_node = graph_module.graph.create_node(
                 "call_function",
                 hpu_flex_attention_op,
-                args=(hop_node.args[0], hop_node.args[1], hop_node.args[2], block_size, is_noop_mask, is_ret_lse),
+                args=(
+                    hop_node.args[0],
+                    hop_node.args[1],
+                    hop_node.args[2],
+                    block_size,
+                    is_noop_mask,
+                    is_ret_lse,
+                ),
                 kwargs={},
             )
             hop_node.replace_all_uses_with(new_node, propagate_meta=True)
@@ -297,7 +325,9 @@ def hpu_flex_attention_passes(
         graph_module.recompile()
 
         flex_pack_tensors_node = graph_module.graph.find_nodes(
-            op="call_function", target=torch.ops.hpu.flex_attention_pack_tensors.default, sort=True
+            op="call_function",
+            target=torch.ops.hpu.flex_attention_pack_tensors.default,
+            sort=True,
         )
 
         replace_nodes = {}

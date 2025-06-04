@@ -40,7 +40,6 @@ class FusedLars(Optimizer):
         self.optim.zero_grad(set_to_none)
 
     def step(self):
-
         with torch.no_grad():
             weight_decays = []
             for group in self.optim.param_groups:

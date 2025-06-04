@@ -67,14 +67,12 @@ use_weight_broadcastable_weight = [(False, False), (True, False), (True, True)]
 def test_hpu_binary_cross_entropy_fwd_dynamic(
     size, reduction, dtype, use_weight, broadcastable_weight, setup_teardown_env_fixture
 ):
-
     if is_pytest_mode_compile() and use_weight:
         pytest.skip(
             "Due to improper handling of SymInts in PT 2.1, test fails on cpu when weights are used. Used to work on PT 2.0 - [SW-165520]"
         )
 
     with use_eager_fallback():
-
         binary_cross_entropy_fwd_test(
             size,
             reduction,
@@ -95,7 +93,6 @@ def test_hpu_binary_cross_entropy_fwd_dynamic(
 @pytest.mark.parametrize("dtype", dtype, ids=format_tc)
 @pytest.mark.parametrize("use_weight", [False, True], ids=format_tc)
 def test_hpu_binary_cross_entropy_bwd(size, reduction, dtype, use_weight):
-
     binary_cross_entropy_bwd_test(size, reduction, dtype, use_weight, is_compile=is_pytest_mode_compile())
 
 
@@ -112,16 +109,19 @@ def test_hpu_binary_cross_entropy_bwd(size, reduction, dtype, use_weight):
 )
 @pytest.mark.skipif(True, reason="Will be resolved under SW-159211")
 def test_hpu_binary_cross_entropy_bwd_dynamic(size, reduction, dtype, use_weight, setup_teardown_env_fixture):
-
     if is_pytest_mode_compile() and use_weight:
         pytest.skip(
             "Due to improper handling of SymInts in PT 2.1, test fails on cpu when weights are used. Used to work on PT 2.0 - [SW-165520]"
         )
 
     with use_eager_fallback():
-
         binary_cross_entropy_bwd_test(
-            size, reduction, dtype, use_weight, is_dynamic=True, is_compile=is_pytest_mode_compile()
+            size,
+            reduction,
+            dtype,
+            use_weight,
+            is_dynamic=True,
+            is_compile=is_pytest_mode_compile(),
         )
 
 
@@ -141,7 +141,6 @@ def test_hpu_binary_cross_entropy_bwd_dynamic(size, reduction, dtype, use_weight
 @pytest.mark.parametrize("dtype", dtype, ids=format_tc)
 @pytest.mark.parametrize("use_weight", [False, True], ids=format_tc)
 def test_hpu_bce_with_logits_module_empty_tensor(size, reduction, dtype, use_weight):
-
     cpu_tensors, hpu_tensors = gen_bce_inputs(size, dtype, use_weight)
 
     BCEWithLogitsLoss = compile_function_if_compile_mode(nn.BCEWithLogitsLoss)

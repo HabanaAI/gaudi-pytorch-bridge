@@ -296,7 +296,11 @@ test_block_size = [
 
 
 def query_key_value_clones(
-    query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, dtype: torch.dtype = None, device="cpu"
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    dtype: torch.dtype = None,
+    device="cpu",
 ):
     """Clones the query, key, and value tensors and moves them to the specified dtype."""
     if dtype is None:
@@ -553,7 +557,13 @@ class TestFlexAttention(InductorTestCase):
 
         if block_mask is None:
             block_mask = create_block_mask(
-                mask_mod, Q_B, Q_H, Q_S, KV_S, device="cpu", BLOCK_SIZE=block_size  # self.device,
+                mask_mod,
+                Q_B,
+                Q_H,
+                Q_S,
+                KV_S,
+                device="cpu",
+                BLOCK_SIZE=block_size,  # self.device,
             )
 
         q_ref, k_ref, v_ref = query_key_value_clones(q, k, v)
@@ -1143,7 +1153,15 @@ class TestFlexAttention(InductorTestCase):
     @common_utils.parametrize("block_size", [2, 4])
     @common_utils.parametrize("traning", [True, False])
     @common_utils.parametrize("gqa", [True, False])
-    def test_builtin_score_mods(self, dtype: torch.dtype, score_mod: Callable, return_lse, block_size, traning, gqa):
+    def test_builtin_score_mods(
+        self,
+        dtype: torch.dtype,
+        score_mod: Callable,
+        return_lse,
+        block_size,
+        traning,
+        gqa,
+    ):
         self.run_test(return_lse, block_size, traning, gqa, score_mod, dtype)
         # self.run_test_with_paged_attention(score_mod, dtype)
 

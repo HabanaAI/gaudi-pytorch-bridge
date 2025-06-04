@@ -109,7 +109,10 @@ def test_slice_scatter_op_fallback():
     tensors with more than 4 dimensions
     """
 
-    input_info = [[[2, 3, 4, 3, 3], [2, 3, 2, 3, 3], 2, 0, 2, 1], [[2, 3, 4, 3, 5], [2, 3, 3, 3, 5], 2, 0, 3, 1]]
+    input_info = [
+        [[2, 3, 4, 3, 3], [2, 3, 2, 3, 3], 2, 0, 2, 1],
+        [[2, 3, 4, 3, 5], [2, 3, 3, 3, 5], 2, 0, 3, 1],
+    ]
 
     def raw_function(inp, src, dim, start, end, step):
         result = torch.slice_scatter(inp, src, dim, start, end, step)
@@ -165,7 +168,10 @@ def test_view_op_fallback():
     as tensors with more than 5 dimensions
     are not supported in dynamic
     """
-    inputs = [((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]), ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16])]
+    inputs = [
+        ((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]),
+        ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16]),
+    ]
 
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
@@ -187,7 +193,12 @@ def test_view_op_fallback():
 
 
 def test_unsafe_view_op():
-    inputs = [((4, 3, 2), [4, 6]), ((4, 3, 4), [4, 12]), ((4, 3, 6), [4, 18]), ((4, 3, 8), [4, 24])]
+    inputs = [
+        ((4, 3, 2), [4, 6]),
+        ((4, 3, 4), [4, 12]),
+        ((4, 3, 6), [4, 18]),
+        ((4, 3, 8), [4, 24]),
+    ]
 
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
@@ -1422,7 +1433,12 @@ def test_op_empty():
 
     def raw_function(s, dut):
         t1 = torch.ops.aten.empty.memory_format(
-            s, dtype=torch.float, layout=None, device=dut, pin_memory=False, memory_format=torch.contiguous_format
+            s,
+            dtype=torch.float,
+            layout=None,
+            device=dut,
+            pin_memory=False,
+            memory_format=torch.contiguous_format,
         )
         t1 = torch.relu(t1)
         return t1
@@ -1684,7 +1700,6 @@ def test_user_test():
 
 
 def test_complex_symbolic_input():
-
     input_shapes = [
         [(3, 6, 4), (3, 24)],
         [(3, 8, 4), (3, 32)],
@@ -1742,7 +1757,12 @@ def test_dynamic_strided():
     compiled_dynamic_func = torch.compile(func, backend="hpu_backend", dynamic=None)
 
     shapes = [(1, 32, 15, 128), (1, 8, 15, 128), (1, 32, 15, 128), (1, 8, 15, 128)]
-    strides = [(61440, 128, 4096, 1), (15360, 128, 1024, 1), (61440, 128, 4096, 1), (15360, 128, 1024, 1)]
+    strides = [
+        (61440, 128, 4096, 1),
+        (15360, 128, 1024, 1),
+        (61440, 128, 4096, 1),
+        (15360, 128, 1024, 1),
+    ]
     for shape, stride in zip(shapes, strides, strict=False):
         inp1 = torch.randn(shape).to("hpu")
         static_res = compiled_static_func(inp1, shape, stride, cos, sin, pos)

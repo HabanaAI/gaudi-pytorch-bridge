@@ -58,10 +58,16 @@ def pytest_addoption(parser):
         help="{eager|lazy|graph}, default eager. Choose mode to run tests",
     )
     parser.addoption(
-        "--dut", action="store", default="gaudi2", help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version"
+        "--dut",
+        action="store",
+        default="gaudi2",
+        help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version",
     )
     parser.addoption(
-        "--vendor", action="store_true", default=False, help="Collect tests for Vendor CI (skip any simple ops)."
+        "--vendor",
+        action="store_true",
+        default=False,
+        help="Collect tests for Vendor CI (skip any simple ops).",
     )
 
 
@@ -69,7 +75,6 @@ backup_env = pytest.StashKey[Mapping]()
 
 
 def pytest_runtest_setup(item):
-
     from habana_frameworks.torch.dynamo.compile_backend.config import (
         configuration_flags,
     )

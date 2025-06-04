@@ -109,7 +109,6 @@ def verify_nodes(ops_summary, expected_op_count):
 
 
 class custom_quantizer(Quantizer):
-
     def __init__(self, quantization_config):
         super().__init__()
         self.global_config: QuantizationConfig = quantization_config
@@ -118,7 +117,6 @@ class custom_quantizer(Quantizer):
         pass
 
     def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
-
         def _annotate_linear(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
             module_partitions = get_source_partitions(gm.graph, [torch.nn.Linear, torch.nn.functional.linear])
             if len(module_partitions) == 0:
@@ -167,7 +165,11 @@ class custom_quantizer(Quantizer):
 
         def _annotate_sdpa(gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
             module_partitions = get_source_partitions(
-                gm.graph, [torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default, torch.ops.hpu.sdpa_recomp_fwd]
+                gm.graph,
+                [
+                    torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default,
+                    torch.ops.hpu.sdpa_recomp_fwd,
+                ],
             )
 
             if len(module_partitions) == 0:
@@ -231,7 +233,12 @@ def custom_quant_config_symmetric(quant_dtype):
 
 
 def use_pt2e_quant_flow(
-    test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
+    test_case,
+    quant_dtype,
+    quantizer,
+    expected_op_count,
+    use_graph_break,
+    pass_input_during_export,
 ):
     # Stabilizing testing.
     torch.manual_seed(0xDEADDEAD)
@@ -309,9 +316,19 @@ def use_pt2e_quant_flow(
                 else expected_op_count["after_convert_pt2e"]
             )
             verify_nodes(fga.get_ops_summary(), expected_op_count_dict)
-            assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
+            assert torch.allclose(
+                cpu_result2[0].float(),
+                hpu_result2[0].to(CPU).float(),
+                rtol=1e-2,
+                atol=1e-2,
+            )
         else:
-            assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
+            assert torch.allclose(
+                cpu_result2[0].float(),
+                hpu_result2[0].to(CPU).float(),
+                rtol=2e-2,
+                atol=2e-2,
+            )
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
@@ -319,11 +336,17 @@ def use_pt2e_quant_flow(
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list_extended)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
-    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", True), bc.env_setting(
-        "PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False
+def test_pt2e_quant_float(
+    test_case,
+    quant_dtype,
+    use_graph_break,
+    pass_input_during_export,
+    inference_env_fixture,
+):
+    with (
+        bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", True),
+        bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False),
     ):
-
         quant_config = habana_quant_config_symmetric(quant_dtype)
         quantizer = custom_quantizer(quant_config)
 
@@ -345,14 +368,22 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
                 "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
             },
             "after_convert_pt2e": {
-                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
+                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [
+                    (2, 0),
+                    (2, 0),
+                ],
                 "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
                 "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
             },
         }
 
         use_pt2e_quant_flow(
-            test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
+            test_case,
+            quant_dtype,
+            quantizer,
+            expected_op_count,
+            use_graph_break,
+            pass_input_during_export,
         )
 
 
@@ -361,9 +392,16 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export, inference_env_fixture):
-    with bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", False), bc.env_setting(
-        "PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False
+def test_pt2e_quant_int(
+    test_case,
+    quant_dtype,
+    use_graph_break,
+    pass_input_during_export,
+    inference_env_fixture,
+):
+    with (
+        bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_PATTERN_MATCHING", False),
+        bc.env_setting("PT_HPU_PT2EQ_FX_GRAPH_FREEZING", False),
     ):
         quant_config = custom_quant_config_symmetric(quant_dtype)
         quantizer = custom_quantizer(quant_config)
@@ -381,8 +419,14 @@ def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_duri
                 "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
             },
             "after_convert_pt2e": {
-                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
-                "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
+                "torch.ops.quantized_decomposed.quantize_per_tensor.default": [
+                    (2, 0),
+                    (2, 0),
+                ],
+                "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [
+                    (2, 0),
+                    (2, 0),
+                ],
                 "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
                 "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
                 "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
@@ -393,7 +437,12 @@ def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_duri
         }
 
         use_pt2e_quant_flow(
-            test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
+            test_case,
+            quant_dtype,
+            quantizer,
+            expected_op_count,
+            use_graph_break,
+            pass_input_during_export,
         )
 
 
@@ -480,5 +529,13 @@ def test_fp8_fsdpa_with_pt2e(dtype, inference_env_fixture):
             with use_eager_fallback():
                 hpu_result = model(*example_inputs_2)
             CPU = torch.device("cpu")
-            print("max diff:", torch.max(torch.abs(ref_result.to(CPU) - hpu_result.to(CPU))))
-            assert torch.allclose(ref_result.to(CPU).float(), hpu_result.to(CPU).float(), rtol=0.001, atol=0.4)
+            print(
+                "max diff:",
+                torch.max(torch.abs(ref_result.to(CPU) - hpu_result.to(CPU))),
+            )
+            assert torch.allclose(
+                ref_result.to(CPU).float(),
+                hpu_result.to(CPU).float(),
+                rtol=0.001,
+                atol=0.4,
+            )

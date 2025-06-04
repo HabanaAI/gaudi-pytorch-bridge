@@ -53,7 +53,8 @@ with open(profiles_path, encoding="utf-8") as profiles_json:
 
 pytestmark = [
     pytest.mark.skipif(
-        is_pytorch_older_than(current_pytorch_version), reason="Only newest PyTorch version should be validated"
+        is_pytorch_older_than(current_pytorch_version),
+        reason="Only newest PyTorch version should be validated",
     ),
     pytest.mark.xfail(
         not is_pytorch_exactly(current_pytorch_version),
@@ -214,7 +215,14 @@ def test_generate_op_hclasses(is_backend):
         macro_suffix = f"FRONTEND({base_class}, "
         getter = "op_frontend"
 
-    tested_classes = [default_class, "SomeTemplate", "SomeOp", "CustomClass", "SomeTemplateCustom", "SomeOp"]
+    tested_classes = [
+        default_class,
+        "SomeTemplate",
+        "SomeOp",
+        "CustomClass",
+        "SomeTemplateCustom",
+        "SomeOp",
+    ]
     fgens = [FgenStub(Op("test_op", {getter: x})) for x in tested_classes]
 
     result = generate_func(fgens, classes, header_file)
@@ -222,7 +230,11 @@ def test_generate_op_hclasses(is_backend):
         result
         == f"HPU_OP_{macro_suffix}SomeOp)\nHPU_OP_{macro_suffix}CustomClass)\nHPU_OP_{macro_suffix}SomeTemplateCustom)\n"
     )
-    assert classes == {"SomeOp": header_file, "CustomClass": header_file, "SomeTemplateCustom": header_file}
+    assert classes == {
+        "SomeOp": header_file,
+        "CustomClass": header_file,
+        "SomeTemplateCustom": header_file,
+    }
 
 
 @pytest.mark.parametrize(
@@ -307,7 +319,11 @@ def get_op_gen(*, tree=None):
 @pytest.mark.parametrize(
     "cpp_sig, expected_vars, expected_dtypes",
     [
-        ("void _foreach_add_(TensorList self, const Scalar & scalar)", ["self", "scalar"], ["TensorList", "Scalar"]),
+        (
+            "void _foreach_add_(TensorList self, const Scalar & scalar)",
+            ["self", "scalar"],
+            ["TensorList", "Scalar"],
+        ),
         (
             "Tensor clone(const Tensor & self, std::optional<MemoryFormat> memory_format)",
             ["self", "memory_format"],
@@ -352,7 +368,5 @@ def test_generate_stack_size_code_with_first_flag():
     vars, dtypes = generate_param_vars_and_dtypes(fgen)
 
     stack_size_code, _ = generate_stack_size_code_with_first_flag(0, vars, dtypes, True, 0)
-    expected_stack_size_code = (
-        "  if (stack.size() == 3) {\n" "    auto ivalue_arr = torch::jit::last(stack, 3);\n" "    if ("
-    )
+    expected_stack_size_code = "  if (stack.size() == 3) {\n    auto ivalue_arr = torch::jit::last(stack, 3);\n    if ("
     assert stack_size_code == expected_stack_size_code

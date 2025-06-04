@@ -104,7 +104,6 @@ class Net(nn.Module):
 
 
 def train(start_bs, dyn_inp, dyn_ops, reuse_relu=False, wrap_inner=False):
-
     random.seed(0)
     np.random.seed(0)
     device = "hpu"
@@ -446,7 +445,10 @@ class SampleDatasetComplex(SampleDataset):
 def test_dataloader_basic_fns():
     assert get_shape(torch.tensor([1, 2])) == (2,)
     assert get_shape([torch.tensor([1, 2]), torch.tensor([1, 2, 3])]) == ((2,), (3,))
-    assert get_shape([torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}]) == ((2,), ((1, 3),))
+    assert get_shape([torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}]) == (
+        (2,),
+        ((1, 3),),
+    )
 
 
 def test_dataloader_simple():

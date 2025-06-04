@@ -134,23 +134,23 @@ def sdpa_fwd_wrapper(
         assert requires_backward is False, "return_attn_probs is supported only for inference mode"
 
     if recompute and requires_backward and softmax_mode == "fast":
-        assert (
-            is_causal
-        ), "Optimized softmax mode is supported in recompute training mode only in causal(triangular) mask case"
+        assert is_causal, (
+            "Optimized softmax mode is supported in recompute training mode only in causal(triangular) mask case"
+        )
 
     if valid_seq_len is not None:
-        assert is_causal and (
-            requires_backward is False
-        ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
+        assert is_causal and (requires_backward is False), (
+            "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
+        )
 
     if recompute:
         assert return_dropout_mask is False, "Return_dropout_mask is not supported in recompute mode"
 
     if softmax_mode == "fp32":
         q_dtype = q.dtype
-        assert (
-            requires_backward is False and q_dtype == torch.bfloat16
-        ), "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
+        assert requires_backward is False and q_dtype == torch.bfloat16, (
+            "softmax_mode = fp32 is supported only for inference mode and when q/k/v inputs are BF16"
+        )
 
     gqa = is_gqa(q, k)
     if gqa:
@@ -176,7 +176,16 @@ def sdpa_fwd_wrapper(
         ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed, out)
     else:
         out, P, dm = torch.ops.hpu.sdpa_fwd(
-            q, k, v, attn_mask, dropout_p, scale, is_causal, softmax_mode, valid_seq_len, seq_padding_type
+            q,
+            k,
+            v,
+            attn_mask,
+            dropout_p,
+            scale,
+            is_causal,
+            softmax_mode,
+            valid_seq_len,
+            seq_padding_type,
         )
         if gqa:
             out = gqa_output_reshape(out)
@@ -233,7 +242,19 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dout = gqa_input_reshape_bwd(q, v, dout)
             fwd_out = gqa_input_reshape_bwd(q, v, fwd_out)
         dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(
-            dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale, softmax_mode, fwd_out
+            dout,
+            q,
+            k,
+            v,
+            attn_mask,
+            m,
+            linv,
+            seed,
+            is_causal,
+            dropout_p,
+            scale,
+            softmax_mode,
+            fwd_out,
         )
         if ctx.gqa:
             dq = gqa_output_reshape(dq)

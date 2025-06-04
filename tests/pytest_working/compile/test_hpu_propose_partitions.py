@@ -84,7 +84,8 @@ def test_propose_partitions():
 
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
             model = compile_function_if_compile_mode(
-                model, options={"keep_input_mutations": True, "use_cpp_partitioner": True}
+                model,
+                options={"keep_input_mutations": True, "use_cpp_partitioner": True},
             ).to(torch.device("hpu"))
             optim = Adam(model.parameters())
             output_1 = model(input)
@@ -94,7 +95,8 @@ def test_propose_partitions():
 
         with FxGraphAnalyzer(reset_dynamo=True) as fga:
             model_c = compile_function_if_compile_mode(
-                model_c, options={"keep_input_mutations": True, "use_cpp_partitioner": False}
+                model_c,
+                options={"keep_input_mutations": True, "use_cpp_partitioner": False},
             ).to(torch.device("hpu"))
             optim = Adam(model_c.parameters())
             output_2 = model_c(input_c)
@@ -133,10 +135,17 @@ def test_propose_partitions_post_process_full_copy():
     ):
         embedding = torch.ops.aten.embedding.default(arg19_1, arg24_1)
         full = torch.ops.aten.full.default(
-            [2048, 2048], -3.3895313892515355e38, device=torch.device(type="hpu", index=0), pin_memory=False
+            [2048, 2048],
+            -3.3895313892515355e38,
+            device=torch.device(type="hpu", index=0),
+            pin_memory=False,
         )
         arange = torch.ops.aten.arange.start_step(
-            0, 2048, layout=torch.strided, device=torch.device(type="hpu", index=0), pin_memory=False
+            0,
+            2048,
+            layout=torch.strided,
+            device=torch.device(type="hpu", index=0),
+            pin_memory=False,
         )
         add = torch.ops.aten.add.Tensor(arange, 1)
         view = torch.ops.aten.view.default(add, [2048, 1])
@@ -286,7 +295,15 @@ def test_propose_partitions_post_process_full_copy():
 
     graph_module = make_fx(fn)(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, "test", [], False, False, False, OptimizationPassPlacement.PARTITIONER, None, None
+        graph_module,
+        "test",
+        [],
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        None,
+        None,
     )
 
     for node in graph_module.graph.nodes:
@@ -320,9 +337,9 @@ def test_propose_partitions_post_process_full_copy():
         copy_src_node = copy_args[1]
         if copy_src_node not in assignments:
             continue
-        assert (
-            assignments[copy_src_node] == assignments[copy_node]
-        ), "full+copy pattern is not in the same partition with the copy src producer"
+        assert assignments[copy_src_node] == assignments[copy_node], (
+            "full+copy pattern is not in the same partition with the copy src producer"
+        )
 
     pass_fuse_partitions(ctx)
 
@@ -415,7 +432,16 @@ def test_propose_partitions_post_process_copy_():
         slice_23 = torch.ops.aten.slice.Tensor(slice_22, 2, 0, 2176)
         slice_24 = torch.ops.aten.slice.Tensor(slice_23, 3, 0, 9223372036854775807)
         sdpa_fwd_non_dropout = torch.ops.hpu.sdpa_fwd_non_dropout.default(
-            rotary_pos_embedding, slice_20, slice_24, slice_16, 0.0, 0.08838834764831843, False, "none", None, "none"
+            rotary_pos_embedding,
+            slice_20,
+            slice_24,
+            slice_16,
+            0.0,
+            0.08838834764831843,
+            False,
+            "none",
+            None,
+            "none",
         )
         getitem_2 = sdpa_fwd_non_dropout[0]
         transpose_6 = torch.ops.aten.transpose.int(getitem_2, 1, 2)
@@ -462,7 +488,15 @@ def test_propose_partitions_post_process_copy_():
 
     graph_module = symbolic_trace(fn)
     ctx = OptimizerContext(
-        graph_module, "test", [], False, False, False, OptimizationPassPlacement.PARTITIONER, None, None
+        graph_module,
+        "test",
+        [],
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        None,
+        None,
     )
 
     for node in graph_module.graph.nodes:

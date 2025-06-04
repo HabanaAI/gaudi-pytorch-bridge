@@ -61,7 +61,6 @@ def dropout_with_mask(input, p, mask):
 # Debug Wrapper for dropout incase we want to call nn.functional.dropout
 # instead of dropout with given mask
 def dropout_wrapper(x, p, mask=None):
-
     if mask is not None:
         return dropout_with_mask(x, p, mask)
     else:
@@ -101,9 +100,15 @@ def create_attention_mask_for_test(
 
 
 def vanilla_attention_impl_for_test(
-    query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, dbg_dropout_mask=None, return_attn_probs=False
+    query,
+    key,
+    value,
+    attn_mask=None,
+    dropout_p=0.0,
+    is_causal=False,
+    dbg_dropout_mask=None,
+    return_attn_probs=False,
 ):
-
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
     scores = scores / sqrt_dim_head
@@ -1380,7 +1385,13 @@ def test_sdpa(
 
     if use_attn_mask:
         attn_mask = create_attention_mask_for_test(
-            batch_size, n_heads, seq_len_N_t, seq_len_N_s, mask_dtype, attn_mask_shape, float_mask=use_float_mask
+            batch_size,
+            n_heads,
+            seq_len_N_t,
+            seq_len_N_s,
+            mask_dtype,
+            attn_mask_shape,
+            float_mask=use_float_mask,
         )
         attn_mask_hpu = attn_mask.to("hpu")
     else:
@@ -1450,7 +1461,6 @@ def test_sdpa(
         return_dropout_mask=False,
         return_attn_probs=False,
     ):
-
         return FusedSDPA.apply(
             q_hpu,
             k_hpu,
@@ -1470,8 +1480,9 @@ def test_sdpa(
     sdpa_fn = compile_function_if_compile_mode(sdpa_fn)
 
     # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
-    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast), ht.sdp_kernel(
-        enable_recompute=recompute
+    with (
+        torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast),
+        ht.sdp_kernel(enable_recompute=recompute),
     ):
         sdpa_outs = sdpa_fn(
             q_hpu,
@@ -1558,7 +1569,10 @@ def test_sdpa(
         P_c = P.detach().to("cpu")
         compare_tensors(P_ref, P_c, atol=atol, rtol=rtol)
 
-    vb_print("Vanilla SDPA FWD Ref vs FSDPA match? = ", torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol))
+    vb_print(
+        "Vanilla SDPA FWD Ref vs FSDPA match? = ",
+        torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol),
+    )
     if not inference:
         vb_print(
             "Vanilla SDPA BWD Ref Q grad vs FSDPA match? = ",
@@ -1574,11 +1588,23 @@ def test_sdpa(
         )
     vb_print("\n")
     if print_max_diff:
-        vb_print("Max diff Vanilla SDPA FWD Ref vs FSDPA ", torch.max(torch.abs(O_ref - O_hpu_c)))
+        vb_print(
+            "Max diff Vanilla SDPA FWD Ref vs FSDPA ",
+            torch.max(torch.abs(O_ref - O_hpu_c)),
+        )
         if not inference:
-            vb_print("Max diff Vanilla SDPA BWD Ref Q grad vs FSDPA ", torch.max(torch.abs(q_t.grad - q_grad_hpu_c)))
-            vb_print("Max diff Vanilla SDPA BWD Ref K grad vs FSDPA ", torch.max(torch.abs(k_t.grad - k_grad_hpu_c)))
-            vb_print("Max diff Vanilla SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v_t.grad - v_grad_hpu_c)))
+            vb_print(
+                "Max diff Vanilla SDPA BWD Ref Q grad vs FSDPA ",
+                torch.max(torch.abs(q_t.grad - q_grad_hpu_c)),
+            )
+            vb_print(
+                "Max diff Vanilla SDPA BWD Ref K grad vs FSDPA ",
+                torch.max(torch.abs(k_t.grad - k_grad_hpu_c)),
+            )
+            vb_print(
+                "Max diff Vanilla SDPA BWD Ref V grad vs FSDPA ",
+                torch.max(torch.abs(v_t.grad - v_grad_hpu_c)),
+            )
 
     if dropout_p == 0.0 or dropout_p == 1.0:
         vb_print("\n")
@@ -1590,7 +1616,8 @@ def test_sdpa(
             compare_tensors(v.grad, v_grad_hpu_c, atol=atol, rtol=rtol)
 
         vb_print(
-            "PT NN SDPA FWD Ref vs FSDPA match? = ", torch.allclose(sdp_ref.detach(), O_hpu_c, rtol=rtol, atol=atol)
+            "PT NN SDPA FWD Ref vs FSDPA match? = ",
+            torch.allclose(sdp_ref.detach(), O_hpu_c, rtol=rtol, atol=atol),
         )
         if not inference:
             vb_print(
@@ -1608,16 +1635,27 @@ def test_sdpa(
 
         vb_print("\n")
         if print_max_diff:
-            vb_print("Max diff PT NN SDPA FWD Ref vs FSDPA ", torch.max(torch.abs(sdp_ref - O_hpu_c)))
+            vb_print(
+                "Max diff PT NN SDPA FWD Ref vs FSDPA ",
+                torch.max(torch.abs(sdp_ref - O_hpu_c)),
+            )
             if not inference:
-                vb_print("Max diff PT NN SDPA BWD Ref Q grad vs FSDPA ", torch.max(torch.abs(q.grad - q_grad_hpu_c)))
-                vb_print("Max diff PT NN SDPA BWD Ref K grad vs FSDPA ", torch.max(torch.abs(k.grad - k_grad_hpu_c)))
-                vb_print("Max diff PT NN SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v.grad - v_grad_hpu_c)))
+                vb_print(
+                    "Max diff PT NN SDPA BWD Ref Q grad vs FSDPA ",
+                    torch.max(torch.abs(q.grad - q_grad_hpu_c)),
+                )
+                vb_print(
+                    "Max diff PT NN SDPA BWD Ref K grad vs FSDPA ",
+                    torch.max(torch.abs(k.grad - k_grad_hpu_c)),
+                )
+                vb_print(
+                    "Max diff PT NN SDPA BWD Ref V grad vs FSDPA ",
+                    torch.max(torch.abs(v.grad - v_grad_hpu_c)),
+                )
 
 
 @pytest.mark.skip(reason="Failure only in CI.Works fine locally")
 def test_sdpa_fwd_manual_seed():
-
     dtype = torch.float32
     q_shape = k_shape = v_shape = (8, 2, 32, 16)
 

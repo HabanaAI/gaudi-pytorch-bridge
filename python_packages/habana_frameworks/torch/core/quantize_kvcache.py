@@ -182,7 +182,8 @@ def verify_kvcache_quant_effect(pt2eq_context, new_graph_module):
     kvcache_quant_dtype = kvcache_quant_details["kvcache_quant_dtype"]
     kvcache_size = tuple(kvcache_quant_details["kvcache_size"])
     quantized_graph_inputs = get_nodes(
-        new_graph_module, lambda n: is_quantized_graph_input(n, kvcache_quant_dtype, kvcache_size)
+        new_graph_module,
+        lambda n: is_quantized_graph_input(n, kvcache_quant_dtype, kvcache_size),
     )
     if len(quantized_graph_inputs) == 0:
         return False
@@ -340,7 +341,6 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
     graph_changed = False
     # PASS-1: kv-cache related pattern matching
     for node in graph.nodes:
-
         # For prefill / prompt stage
         # Check if the node is a full.default operation
         new_full_node = None
@@ -450,7 +450,8 @@ def replace_pattern_for_kvcache_quant(pt2eq_context, module: torch.fx.GraphModul
 
     # PASS-2: optimization: reuse of quantization nodes
     rop_node_with_multiple_users = get_nodes(
-        module, lambda n: is_node(n, "rotary_pos_embedding.default") and (len(n.users) > 1)
+        module,
+        lambda n: is_node(n, "rotary_pos_embedding.default") and (len(n.users) > 1),
     )
     for node in rop_node_with_multiple_users:
         node_users = []

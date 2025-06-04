@@ -418,9 +418,9 @@ def _check_unsupported_h2d_ops(node: torch.fx.Node):
     ]
 
     node_name = node.target.__name__
-    assert (
-        node_name not in ops_not_yet_supported
-    ), f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
+    assert node_name not in ops_not_yet_supported, (
+        f"{node_name} doesn't support H2D scales feature yet, but received CPU scales."
+    )
 
 
 def _is_cpu_scalar_copy_required(
@@ -571,7 +571,17 @@ def optimize_graph(
     is_dynamic = is_module_dynamic(graph_module)
 
     ctx = OptimizerContext(
-        graph_module, graph_name, example_inputs, is_training, is_backward, is_dynamic, stage, None, None, None, None
+        graph_module,
+        graph_name,
+        example_inputs,
+        is_training,
+        is_backward,
+        is_dynamic,
+        stage,
+        None,
+        None,
+        None,
+        None,
     )
 
     from habana_frameworks.torch.utils.debug import _towl_emit_metrics
@@ -698,7 +708,9 @@ def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
                     )
 
     def inline_hints_wrapper(
-        parent_module: torch.fx.GraphModule, node_to_replace: torch.fx.Node, inline_mod: torch.fx.GraphModule
+        parent_module: torch.fx.GraphModule,
+        node_to_replace: torch.fx.Node,
+        inline_mod: torch.fx.GraphModule,
     ):
         """ "
         This is adapted from torch.fx.experimental.constant_fold._inline_module function.
@@ -1080,7 +1092,9 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     return False
 
 
-def match_full_copy_pattern(node: torch.fx.Node) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
+def match_full_copy_pattern(
+    node: torch.fx.Node,
+) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
     is_full_copy_pattern = (
         node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
     )
@@ -1105,13 +1119,19 @@ def post_process_partitions(
     partition, to reduce some unnecessary tensor passing between partitions.
     Currently, the post process is mainly for device memory optimization.
     """
-    assert None not in [graph_module, current_partitions, current_partitions_non_mergeable]
+    assert None not in [
+        graph_module,
+        current_partitions,
+        current_partitions_non_mergeable,
+    ]
     from torch.fx.passes.infra.partitioner import Partition
 
     partition_changed = False
 
     def reassign_full_copy_to_upstream_partition(
-        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+        graph_module,
+        assignments: dict[torch.fx.Node, int],
+        partitions_by_id: dict[int, Partition],
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1144,7 +1164,9 @@ def post_process_partitions(
         return changed
 
     def reassign_copy__to_upstream_partition(
-        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+        graph_module,
+        assignments: dict[torch.fx.Node, int],
+        partitions_by_id: dict[int, Partition],
     ):
         changed = False
         for node in graph_module.graph.nodes:
@@ -1177,7 +1199,9 @@ def post_process_partitions(
         return changed
 
     def eagerize_partitions_with_only_view_ops(
-        graph_module, assignments: dict[torch.fx.Node, int], partitions_by_id: dict[int, Partition]
+        graph_module,
+        assignments: dict[torch.fx.Node, int],
+        partitions_by_id: dict[int, Partition],
     ):
         def is_partition_with_only_view_ops(part: Partition):
             return all(is_view_node(node) for node in part.nodes)
@@ -1260,9 +1284,9 @@ def pass_add_fused_op_metadata(ctx: OptimizerContext):
             args = subgraph_node.args
             if len(args) == 1 and isinstance(args[0], tuple):
                 args = args[0]
-            assert all(
-                isinstance(x, torch.fx.Node) for x in args
-            ), "Currently we are assuming that all args of output should be Nodes"
+            assert all(isinstance(x, torch.fx.Node) for x in args), (
+                "Currently we are assuming that all args of output should be Nodes"
+            )
             meta_val = tuple([a.meta.get("val", None) for a in args])
 
         # it is possible to have zero graph outputs with KEEP_INPUT_MUTATIONS enabled
@@ -1394,16 +1418,32 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                     # these OPs that also have all inputs on HPU. Or debug why this OP have mixed device
                     # tensors, that could be the original issue here.
                     if _is_cpu_scalar_or_symbolic_scalar(arg):
-                        logger.debug("Argument {} to node {} is a scalar or a symbolic scalar", arg, node)
+                        logger.debug(
+                            "Argument {} to node {} is a scalar or a symbolic scalar",
+                            arg,
+                            node,
+                        )
                         continue
                     elif is_backward_checkpoint_op(node) and arg.meta["output_device"] == torch.device("cpu"):
-                        logger.debug("Argument {} to node {} is an rng_state - a cpu tensor by definition", arg, node)
+                        logger.debug(
+                            "Argument {} to node {} is an rng_state - a cpu tensor by definition",
+                            arg,
+                            node,
+                        )
                         continue
                     elif is_constant_for_lift_fresh_copy(node, arg):
-                        logger.debug("Argument {} to node {} is a _tensor_constant get_attr", arg, node)
+                        logger.debug(
+                            "Argument {} to node {} is a _tensor_constant get_attr",
+                            arg,
+                            node,
+                        )
                         continue
                     elif _is_cpu_scale_allowed(node, arg, h2d_scales_enabled):
-                        logger.debug("Argument {} to node {} is a cpu tensor for H2D optimization", arg, node)
+                        logger.debug(
+                            "Argument {} to node {} is a cpu tensor for H2D optimization",
+                            arg,
+                            node,
+                        )
                         continue
                     assert arg.meta["output_device"].type == "hpu"
 
@@ -1424,7 +1464,12 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                 dynamic_call_function,
             )
         else:
-            logger.info("Node placement. Node: {} op: {} placement: {}", node.name, node.op, placement)
+            logger.info(
+                "Node placement. Node: {} op: {} placement: {}",
+                node.name,
+                node.op,
+                placement,
+            )
 
         assert placement is not None
 
@@ -1440,13 +1485,15 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     return True
 
 
-collective_ops = {torch.ops._c10d_functional.all_reduce_.default, torch.ops._c10d_functional.all_reduce.default}
+collective_ops = {
+    torch.ops._c10d_functional.all_reduce_.default,
+    torch.ops._c10d_functional.all_reduce.default,
+}
 
 view_ops_set = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
 
 
 def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
-
     assert ctx.graph_module is not None
 
     if not hpu_backend_config.enable_sfg:
@@ -1471,7 +1518,8 @@ def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
 
 
 def merge_paths(
-    graph_module: torch.fx.Graph, current_partitions: list[torch.fx.passes.infra.partitioner.Partition]
+    graph_module: torch.fx.Graph,
+    current_partitions: list[torch.fx.passes.infra.partitioner.Partition],
 ) -> list[torch.fx.passes.infra.partitioner.Partition]:
     """
     This pass that will merge parallel partitions.
@@ -2096,7 +2144,6 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
                         len(wait_tensor_node_users) == 1
                         and wait_tensor_node_users[0].target == torch.ops.aten.copy.default
                     ):
-
                         copy_node = wait_tensor_node_users[0]
                         if copy_node.args[0] == mutated_arg:
                             replace_dict[copy_node] = copy_node.args[1]
@@ -2149,10 +2196,7 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
 
     def has_any_eager_users(node: torch.fx.Node):
         user_nodes = list(node.users.keys())
-        for user_node in user_nodes:
-            if user_node.meta.get("placement", "") == "eager":
-                return True
-        return False
+        return any(user_node.meta.get("placement", "") == "eager" for user_node in user_nodes)
 
     def reinplace_index_copy_ops(gm: torch.fx.GraphModule):
         inplaceable_index_copy_ops = {

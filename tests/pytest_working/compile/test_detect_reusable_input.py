@@ -34,7 +34,6 @@ def hpu_partiton_breaker(x):
 
 
 def test_basic():
-
     def fn(a, b, c):
         x = torch.matmul(a, b)
         x = hpu_partiton_breaker(x)
@@ -60,7 +59,6 @@ def test_basic():
 
 
 def test_not_last_use():
-
     def fn(a, b, c):
         x = torch.matmul(a, b)
         part_in = hpu_partiton_breaker(x)
@@ -87,7 +85,6 @@ def test_not_last_use():
 
 
 def test_view():
-
     def fn(a, b, c):
         x = torch.matmul(a, b)
         x = hpu_partiton_breaker(x)
@@ -111,11 +108,13 @@ def test_view():
         target_part_info = part_infos[0] if part_infos[0].num_nodes > part_infos[1].num_nodes else part_infos[1]
         target_meta = target_part_info.meta
         assert "is_reusables" in target_meta
-        assert target_meta["is_reusables"] == [False, False], "should not reuse the input since it has a view user"
+        assert target_meta["is_reusables"] == [
+            False,
+            False,
+        ], "should not reuse the input since it has a view user"
 
 
 def test_mutation_partition():
-
     def fn(a, b, c):
         x = torch.matmul(a, b)
         x = hpu_partiton_breaker(x)
@@ -159,7 +158,6 @@ def test_mutation_partition():
 
 
 def test_produced_by_mutation_partition():
-
     def fn(a, b, c):
         x = a.add_(b)
         y = hpu_partiton_breaker(x)
@@ -199,7 +197,6 @@ def test_produced_by_mutation_partition():
 
 
 def test_produced_by_mutation_partition2():
-
     def fn(a, b, c):
         b_ = torch.sigmoid(b)
         x = a.add_(b_)
@@ -276,7 +273,12 @@ def test_ws_reduced_e2e():
         target_part_info = part_infos[0] if part_infos[0].num_nodes > part_infos[1].num_nodes else part_infos[1]
         target_meta = target_part_info.meta
     assert "is_reusables" in target_meta
-    assert target_meta["is_reusables"] == [True, False, False, False], "should reuse input"
+    assert target_meta["is_reusables"] == [
+        True,
+        False,
+        False,
+        False,
+    ], "should reuse input"
 
     hthpu.synchronize()  # wait for recipe finish to get the exact workspace size
     mem_summary = hthpu.memory._extended_memory_summary_dict()

@@ -114,7 +114,6 @@ class TestLocalMap(DTensorTestBase):
     @pytest.mark.skipif(check_devices(), reason="")
     @with_comms
     def test_local_map_out_placements_allgather(self):
-
         # Test 1: wrap out into DTensor w/ `out_placements`
         device_mesh = self.build_device_mesh()
         comm_mode = CommDebugMode()

@@ -81,12 +81,22 @@ class SSDDataLoader(torch.utils.data.DataLoader):
         channels_last = kwargs.get("channels_last", False)
 
         self.configurator = AeonSSDConfigurator(
-            dataset, self.batch_size, num_workers, shuffle, channels_last, manifest, distributed=distributed
+            dataset,
+            self.batch_size,
+            num_workers,
+            shuffle,
+            channels_last,
+            manifest,
+            distributed=distributed,
         )
         aeon_config = self.configurator.get_config()
 
         self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL.create(
-            aeon_config, True, True, channels_last, drop_last  # pin_memory  # use_prefetch  # channels-last
+            aeon_config,
+            True,
+            True,
+            channels_last,
+            drop_last,  # pin_memory  # use_prefetch  # channels-last
         )
 
     def __iter__(self):
@@ -176,7 +186,6 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         return len(self.iterator)
 
     def _media_ssd_dl_handle_vars(self, kwargs):
-
         self.batch_size = kwargs.get("batch_size")
         self.shuffle = kwargs.get("shuffle")
 
@@ -189,13 +198,19 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
             self.shuffle = True
             print("Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
         if sampler is not None:
-            print("Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ", sampler)
+            print(
+                "Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ",
+                sampler,
+            )
 
         self._enforce_value_for_arg(kwargs, "batch_sampler", None)
 
         num_workers = kwargs.get("num_workers", 0)
         if num_workers != 0:
-            print("Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ", num_workers)
+            print(
+                "Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ",
+                num_workers,
+            )
 
         self._enforce_value_for_arg(kwargs, "collate_fn", None)
 
@@ -225,7 +240,11 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
                 print("Warning: prefetch_factor < 1 is not supported by MediaDataLoader, updating to 1")
                 self.prefetch_factor = 1
             elif self.prefetch_factor > 3:
-                print("Warning: prefetch_factor updated from ", self.prefetch_factor, " to 3")
+                print(
+                    "Warning: prefetch_factor updated from ",
+                    self.prefetch_factor,
+                    " to 3",
+                )
                 self.prefetch_factor = 3
             else:
                 print("MediaDataLoader got prefetch_factor ", self.prefetch_factor)
@@ -319,7 +338,15 @@ class ImageFolderWithManifest(torchvision.datasets.DatasetFolder):
 class ResnetDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
-        keyword_args.update(dict(zip(inspect.getfullargspec(super().__init__).args[1:], args, strict=False)))
+        keyword_args.update(
+            dict(
+                zip(
+                    inspect.getfullargspec(super().__init__).args[1:],
+                    args,
+                    strict=False,
+                )
+            )
+        )
         channels_last = keyword_args.get("channels_last", False)
 
         self.DeviceType = htexp._get_device_type()
@@ -367,12 +394,15 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                     is_train,
                 )
                 self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL(
-                    aeon_config_json, True, True, channels_last, self.drop_last  # pin_memory  # use_prefetch
+                    aeon_config_json,
+                    True,
+                    True,
+                    channels_last,
+                    self.drop_last,  # pin_memory  # use_prefetch
                 )
                 print("Running with Habana aeon DataLoader")
 
             elif isGaudi2(self.DeviceType):
-
                 self._media_dl_handle_vars(keyword_args)
                 root = self.dataset.root
                 torch_transforms = self.dataset.transform
@@ -471,13 +501,19 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 self.shuffle = True
                 print("Warning: Updated shuffle to True as sampler is DistributedSampler with shuffle True")
         if sampler is not None:
-            print("Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ", sampler)
+            print(
+                "Warning: sampler is not supported by MediaDataLoader, ignoring sampler: ",
+                sampler,
+            )
 
         self._enforce_value_for_arg(kwargs, "batch_sampler", None)
 
         num_workers = kwargs.get("num_workers", 0)
         if num_workers != 0:
-            print("Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ", num_workers)
+            print(
+                "Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ",
+                num_workers,
+            )
 
         self._enforce_value_for_arg(kwargs, "collate_fn", None)
 
@@ -504,7 +540,11 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 print("Warning: prefetch_factor < 1 is not supported by MediaDataLoader, updating to 1")
                 self.prefetch_factor = 1
             elif self.prefetch_factor > 3:
-                print("Warning: prefetch_factor updated from ", self.prefetch_factor, " to 3")
+                print(
+                    "Warning: prefetch_factor updated from ",
+                    self.prefetch_factor,
+                    " to 3",
+                )
                 self.prefetch_factor = 3
             else:
                 print("MediaDataLoader got prefetch_factor ", self.prefetch_factor)
@@ -533,7 +573,9 @@ def _is_coco_dataset(dataset):
 
 def _is_hpumediapipe_available():
     try:
-        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe  # noqa
+        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import (
+            HPUMediaPipe,  # noqa: F401
+        )
 
         return True
     except ImportError as e:
@@ -599,14 +641,16 @@ class HabanaDataLoader:
 
 
 def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
-
     assert len(imgs) > 0, "Got empty list of images"
     if lbls is not None:
         assert len(imgs) == len(lbls), f"Got {len(imgs)} images but {len(lbls)} lables"
 
     num_workers = kwargs.get("num_workers", 0)
     if num_workers != 0:
-        print("Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ", num_workers)
+        print(
+            "Warning: num_workers is not supported by MediaDataLoader, ignoring num_workers: ",
+            num_workers,
+        )
 
     if kwargs["benchmark"]:  # Just to make sure the number of examples is large enough for benchmark run.
         if mode == "train":

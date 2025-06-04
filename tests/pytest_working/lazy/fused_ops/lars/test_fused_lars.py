@@ -90,7 +90,6 @@ def set_skip_mask(model, mode, every=2):
 
 
 def run_model(dev, m, x, optim):
-
     model_output = m(x)
     loss = torch.sum(model_output)
     loss.backward()

@@ -69,7 +69,10 @@ def test_patch_version_compatibility_in_prepare_wheel_specs(monkeypatch):
             build.VersionAndSource(version=Version("2.2.2"), source="build"),
             build.VersionAndSource(version=Version("2.2.0"), source="build"),
             build.VersionAndSource(version=Version("2.3.0"), source="build"),
-            build.VersionAndSource(version=Version("2.4.0"), source="https://download.pytorch.org/whl/nightly/cpu"),
+            build.VersionAndSource(
+                version=Version("2.4.0"),
+                source="https://download.pytorch.org/whl/nightly/cpu",
+            ),
         ),
     )
     build.log.warn = build.log.warning = MagicMock()
@@ -86,7 +89,6 @@ def test_patch_version_compatibility_in_prepare_wheel_specs(monkeypatch):
 
 
 def test_add_upstream_versions(monkeypatch):
-
     cpu_indexes_list = ["https://download.pytorch.org/whl/", "default"]
 
     wheel_specs = [
@@ -111,7 +113,10 @@ def test_add_upstream_versions(monkeypatch):
             pt_versions={
                 build.VersionAndSource(version=Version("2.2.0"), source="build"),
                 build.VersionAndSource(version=Version("2.3.0"), source="build"),
-                build.VersionAndSource(version=Version("2.3.0+cpu"), source="https://download.pytorch.org/whl/"),
+                build.VersionAndSource(
+                    version=Version("2.3.0+cpu"),
+                    source="https://download.pytorch.org/whl/",
+                ),
             },
             wheel_src_dir="python_packages",
         )

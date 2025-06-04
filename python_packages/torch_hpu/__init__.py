@@ -23,21 +23,21 @@ _device_t = torch.device | str | int | None
 
 
 def is_available() -> bool:
-    warnings.warn("torch_hpu.is_available is deprecated. " "Please use habana_frameworks.torch.hpu.is_available")
+    warnings.warn("torch_hpu.is_available is deprecated. Please use habana_frameworks.torch.hpu.is_available")
     from habana_frameworks.torch import hpu
 
     return hpu.is_available()
 
 
 def device_count() -> int:
-    warnings.warn("torch_hpu.device_count is deprecated. " "Please use habana_frameworks.torch.hpu.device_count")
+    warnings.warn("torch_hpu.device_count is deprecated. Please use habana_frameworks.torch.hpu.device_count")
     from habana_frameworks.torch import hpu
 
     return hpu.device_count()
 
 
 def get_device_name(device: _device_t | None = None) -> str:
-    warnings.warn("torch_hpu.get_device_name is deprecated. " "Please use habana_frameworks.torch.hpu.get_device_name")
+    warnings.warn("torch_hpu.get_device_name is deprecated. Please use habana_frameworks.torch.hpu.get_device_name")
     from habana_frameworks.torch import hpu
 
     return hpu.get_device_name(device)

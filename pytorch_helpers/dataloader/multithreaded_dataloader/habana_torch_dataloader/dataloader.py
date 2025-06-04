@@ -201,9 +201,7 @@ class DataLoader(Generic[T_co]):
         torch._C._log_api_usage_once("python.data_loader")  # type: ignore
 
         if num_workers < 0:
-            raise ValueError(
-                "num_workers option should be non-negative; " "use num_workers=0 to disable multiprocessing."
-            )
+            raise ValueError("num_workers option should be non-negative; use num_workers=0 to disable multiprocessing.")
 
         if timeout < 0:
             raise ValueError("timeout option should be non-negative")
@@ -259,14 +257,12 @@ class DataLoader(Generic[T_co]):
             # specific workers.
             if shuffle is not False:
                 raise ValueError(
-                    "DataLoader with IterableDataset: expected unspecified "
-                    f"shuffle option, but got shuffle={shuffle}"
+                    f"DataLoader with IterableDataset: expected unspecified shuffle option, but got shuffle={shuffle}"
                 )
             elif sampler is not None:
                 # See NOTE [ Custom Samplers and IterableDataset ]
                 raise ValueError(
-                    "DataLoader with IterableDataset: expected unspecified "
-                    f"sampler option, but got sampler={sampler}"
+                    f"DataLoader with IterableDataset: expected unspecified sampler option, but got sampler={sampler}"
                 )
             elif batch_sampler is not None:
                 # See NOTE [ Custom Samplers and IterableDataset ]
@@ -278,13 +274,13 @@ class DataLoader(Generic[T_co]):
             self._dataset_kind = _DatasetKind.Map
 
         if sampler is not None and shuffle:
-            raise ValueError("sampler option is mutually exclusive with " "shuffle")
+            raise ValueError("sampler option is mutually exclusive with shuffle")
 
         if batch_sampler is not None:
             # auto_collation with custom batch_sampler
             if batch_size != 1 or shuffle or sampler is not None or drop_last:
                 raise ValueError(
-                    "batch_sampler option is mutually exclusive " "with batch_size, shuffle, sampler, and " "drop_last"
+                    "batch_sampler option is mutually exclusive with batch_size, shuffle, sampler, and drop_last"
                 )
             batch_size = None
             drop_last = False
@@ -292,7 +288,7 @@ class DataLoader(Generic[T_co]):
             # no auto_collation
             if drop_last:
                 raise ValueError(
-                    "batch_size=None option disables auto-batching " "and is mutually exclusive with drop_last"
+                    "batch_size=None option disables auto-batching and is mutually exclusive with drop_last"
                 )
 
         if sampler is None:  # give default samplers
@@ -346,7 +342,7 @@ class DataLoader(Generic[T_co]):
             if self.num_workers > 0:
                 if not multiprocessing._supports_context:
                     raise ValueError(
-                        "multiprocessing_context relies on Python >= 3.4, with " "support for different start methods"
+                        "multiprocessing_context relies on Python >= 3.4, with support for different start methods"
                     )
 
                 if not isinstance(multiprocessing_context, python_multiprocessing.context.BaseContext):
@@ -373,7 +369,7 @@ class DataLoader(Generic[T_co]):
             "dataset",
             "persistent_workers",
         ):
-            raise ValueError(f"{attr} attribute should not be set after {self.__class__.__name__} is " "initialized")
+            raise ValueError(f"{attr} attribute should not be set after {self.__class__.__name__} is initialized")
 
         super().__setattr__(attr, val)
 
@@ -517,7 +513,11 @@ class _SingleProcessDataLoaderIter(_BaseDataLoaderIter):
         assert self._num_workers == 0
 
         self._dataset_fetcher = _DatasetKind.create_fetcher(
-            self._dataset_kind, self._dataset, self._auto_collation, self._collate_fn, self._drop_last
+            self._dataset_kind,
+            self._dataset,
+            self._auto_collation,
+            self._collate_fn,
+            self._drop_last,
         )
 
     def _next_data(self):

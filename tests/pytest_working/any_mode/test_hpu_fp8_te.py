@@ -203,7 +203,12 @@ class MyLinear(torch.nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.nn.init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, input: torch.Tensor, weight: torch.Tensor = None, bias: torch.Tensor = None) -> torch.Tensor:
+    def forward(
+        self,
+        input: torch.Tensor,
+        weight: torch.Tensor = None,
+        bias: torch.Tensor = None,
+    ) -> torch.Tensor:
         return torch.nn.functional.linear(
             input,
             weight if weight is not None else self.weight,
@@ -214,7 +219,15 @@ class MyLinear(torch.nn.Module):
         return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
 
 
-def fwd_step(linear, inp, *args, fp8_enabled=True, fp8_recipe=None, skip_fp8_context=False, **kwargs):
+def fwd_step(
+    linear,
+    inp,
+    *args,
+    fp8_enabled=True,
+    fp8_recipe=None,
+    skip_fp8_context=False,
+    **kwargs,
+):
     if inp.device.type == "cpu" or skip_fp8_context:
         out = linear(inp, *args, **kwargs)
     else:
@@ -235,7 +248,14 @@ def bwd_step(out, loss_multiplier=None, optimizer=None, skip_opt=False):
 
 
 def train_step(
-    linear, inp, *args, loss_multiplier=None, skip_bwd=False, optimizer=None, skip_opt=False, **kwargs
+    linear,
+    inp,
+    *args,
+    loss_multiplier=None,
+    skip_bwd=False,
+    optimizer=None,
+    skip_opt=False,
+    **kwargs,
 ) -> torch.Tensor:
     out = fwd_step(linear, inp, *args, **kwargs)
 
@@ -279,7 +299,9 @@ def get_train_step_bwd_function(eager_fallbacks=None):
 @pytest.mark.parametrize("sizes", [[16, 16, 16], [16, 32, 48]], ids=["[16,16,16]", "[16,32,48]"])
 @pytest.mark.parametrize("use_bias", [False, True], ids=["no_bias", "with_bias"])
 @pytest.mark.parametrize(
-    "skip_weight_param_allocation", [False, True], ids=["allocate_weight", "skip_weight_allocation"]
+    "skip_weight_param_allocation",
+    [False, True],
+    ids=["allocate_weight", "skip_weight_allocation"],
 )
 def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_allocation):
     if is_gaudi1():
@@ -346,16 +368,16 @@ def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_alloca
     ref_out = ref_out.cpu()
 
     assert ref_out.shape == te_out.shape, f"Out shape mismatch, ref shape: {ref_out.shape}, te shape: {te_out.shape}"
-    assert (
-        ref_grad_in.shape == te_grad_in.shape
-    ), f"Input grad shape mismatch, ref shape: {ref_grad_in.shape}, te shape: {te_grad_in.shape}"
-    assert (
-        ref_grad_w.shape == te_grad_w.shape
-    ), f"Weight grad mismatch, ref shape: {ref_grad_w.shape}, te shape: {te_grad_w.shape}"
+    assert ref_grad_in.shape == te_grad_in.shape, (
+        f"Input grad shape mismatch, ref shape: {ref_grad_in.shape}, te shape: {te_grad_in.shape}"
+    )
+    assert ref_grad_w.shape == te_grad_w.shape, (
+        f"Weight grad mismatch, ref shape: {ref_grad_w.shape}, te shape: {te_grad_w.shape}"
+    )
     if use_bias:
-        assert (
-            ref_grad_b.shape == te_grad_b.shape
-        ), f"Bias grad mismatch, ref shape: {ref_grad_b.shape}, te shape: {te_grad_b.shape}"
+        assert ref_grad_b.shape == te_grad_b.shape, (
+            f"Bias grad mismatch, ref shape: {ref_grad_b.shape}, te shape: {te_grad_b.shape}"
+        )
 
     assert torch.equal(ref_out, te_out), "Out value mismatch"
     assert torch.equal(ref_grad_in, te_grad_in), "Input grad value mismatch"
@@ -389,10 +411,12 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
     linear = MyLinear(w_cpu.shape[1], w_cpu.shape[0], bias=False, skip_weight_param_allocation=True)
     out = linear(
         _fp8_quantize(
-            in_cpu, torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn
+            in_cpu,
+            (torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn),
         ),
         weight=_fp8_quantize(
-            w_cpu, torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn
+            w_cpu,
+            (torch.float8_e5m2 if (fp8_format != Format.HYBRID or is_gaudi2()) else torch.float8_e4m3fn),
         ),
     )
     loss = out.sum()
@@ -403,7 +427,10 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
 
     # In HYBRID mode, calculate output (but not gradients) using E4M3 quantized values
     if fp8_format == Format.HYBRID and not is_gaudi3():
-        out = linear(_fp8_quantize(in_cpu, torch.float8_e4m3fn), weight=_fp8_quantize(w_cpu, torch.float8_e4m3fn))
+        out = linear(
+            _fp8_quantize(in_cpu, torch.float8_e4m3fn),
+            weight=_fp8_quantize(w_cpu, torch.float8_e4m3fn),
+        )
         out = out.detach()
 
     return out, grad_in, grad_w, linear
@@ -424,12 +451,20 @@ def _verify_executed_ops(fp8_format):
 @pytest.mark.parametrize("size_B", [16, 128])
 @pytest.mark.parametrize("bias_add", [False])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
-@pytest.mark.skipif(is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()), reason="SW-189837")
+@pytest.mark.skipif(
+    is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()),
+    reason="SW-189837",
+)
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
 
-    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=16,
+        amax_compute_algo="max",
+        reduce_amax=False,
+    )
 
     inp_size, weight_size, _ = _get_inp_weigth_bias_size(size_B, size_A, size_A)
     fp32_in_val = 0.47
@@ -462,11 +497,20 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
 
 
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
-@pytest.mark.parametrize("force_sr_bwd_flag", [True, False, None], ids=["force_sr_1", "force_sr_0", "no_force_sr"])
+@pytest.mark.parametrize(
+    "force_sr_bwd_flag",
+    [True, False, None],
+    ids=["force_sr_1", "force_sr_0", "no_force_sr"],
+)
 def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=16,
+        amax_compute_algo="max",
+        reduce_amax=False,
+    )
 
     expected = force_sr_bwd_flag if force_sr_bwd_flag is not None else fp8_format == Format.HYBRID
 
@@ -487,7 +531,12 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
         pytest.skip(reason="FP8 not supported on Gaudi1")
 
     device = torch.device("hpu:0")
-    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=16,
+        amax_compute_algo="max",
+        reduce_amax=False,
+    )
 
     train_step = get_train_step_function()
 
@@ -526,14 +575,14 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     # calculate cpu reference
     in_cpu = torch.full(
         inp_size,
-        fp8_e5m2_in_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_in_val,
+        (fp8_e5m2_in_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_in_val),
         dtype=dtype,
         device=torch.device("cpu"),
         requires_grad=True,
     )
     w_cpu = torch.full(
         weight_size,
-        fp8_e5m2_w_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_w_val,
+        (fp8_e5m2_w_val if (fp8_format != Format.HYBRID or is_gaudi2()) else fp8_e4m3_w_val),
         dtype=dtype,
         device=torch.device("cpu"),
         requires_grad=True,
@@ -726,7 +775,19 @@ def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torc
     torch.manual_seed(12345)
     min_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=True)
 
-    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    inputs = [
+        input1,
+        input2,
+        input3,
+        input2,
+        input1,
+        input2,
+        input3,
+        input3,
+        input1,
+        input1,
+        input3,
+    ]
     train_step = get_train_step_function()
 
     torch.manual_seed(12345)
@@ -759,7 +820,11 @@ def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torc
 @pytest.mark.parametrize("microbatches_approach", [True, False])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_te_multiple_fwd_multiple_bwd(
-    minimize_memory, microbatches_approach, fp8_format, device=torch.device("hpu:0"), dtype=torch.float32
+    minimize_memory,
+    microbatches_approach,
+    fp8_format,
+    device=torch.device("hpu:0"),
+    dtype=torch.float32,
 ):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
@@ -792,7 +857,12 @@ def test_te_multiple_fwd_multiple_bwd(
     ref_outputs = []
     ref_grads = []
     for i, input in enumerate(inputs):
-        out = train_step(ref_linear, input, is_first_microbatch=is_first_microbatch(i), fp8_recipe=fp8_recipe)
+        out = train_step(
+            ref_linear,
+            input,
+            is_first_microbatch=is_first_microbatch(i),
+            fp8_recipe=fp8_recipe,
+        )
         ref_outputs.append(out.cpu())
         ref_grads.append(input.grad.clone().cpu().detach())
         input.grad = None
@@ -987,7 +1057,10 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 @pytest.mark.parametrize("manual", [True, False])
 @pytest.mark.parametrize("reduce_amax", [True, False])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
-@pytest.mark.skipif(is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()), reason="SW-189837, SW-207314")
+@pytest.mark.skipif(
+    is_gaudi3() and (is_pytest_mode_eager() or is_pytest_mode_compile()),
+    reason="SW-189837, SW-207314",
+)
 @pytest.mark.xfail(is_gaudi2() and is_pytest_mode_compile(), reason="SW-207314")
 def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce_amax, fp8_format, margin=0):
     if is_gaudi1():
@@ -1010,7 +1083,10 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
     for i in reversed(range(max(interval, amax_history_len) * 2)):
         inputs.append(
             torch.tensor(
-                [0.1 * 2**i, 0.2 * 2**i, 0.3 * 2**i, 0.4 * 2**i], dtype=dtype, device=device, requires_grad=True
+                [0.1 * 2**i, 0.2 * 2**i, 0.3 * 2**i, 0.4 * 2**i],
+                dtype=dtype,
+                device=device,
+                requires_grad=True,
             )
         )
 
@@ -1147,9 +1223,9 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
                             1,
                         ), f"global fp8 buffer must contain 0 or 1 entries (previous FWD) {suffix}"
                 else:
-                    assert (
-                        len(FP8GlobalStateManager.get_global_fp8_buffer_checkpoint()) == 0
-                    ), f"global fp8 buffer must contain 0 entries {suffix}"
+                    assert len(FP8GlobalStateManager.get_global_fp8_buffer_checkpoint()) == 0, (
+                        f"global fp8 buffer must contain 0 entries {suffix}"
+                    )
 
     _verify_executed_ops(fp8_format)
 
@@ -1358,9 +1434,16 @@ def quantize(tensor, fp8_format):
 
 
 def vanilla_attention_impl_for_test(
-    query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, is_amax_s=False, fp8_format=None
+    query,
+    key,
+    value,
+    attn_mask=None,
+    dropout_p=0.0,
+    is_causal=False,
+    scale=None,
+    is_amax_s=False,
+    fp8_format=None,
 ):
-
     sqrt_dim_head = query.shape[-1] ** 0.5
     scores = torch.matmul(query, key.transpose(-2, -1))
     if scale is None:
@@ -1409,7 +1492,15 @@ class VanillaAttnFunc(torch.autograd.Function):
         ctx.query, ctx.key, ctx.value = query, key, value
         with torch.enable_grad():
             ctx.out, _ = vanilla_attention_impl_for_test(
-                query, key, value, attn_mask, dropout_p, is_causal, scale, is_amax_s, fp8_format
+                query,
+                key,
+                value,
+                attn_mask,
+                dropout_p,
+                is_causal,
+                scale,
+                is_amax_s,
+                fp8_format,
             )
         return ctx.out.detach(), _
 
@@ -1420,7 +1511,16 @@ class VanillaAttnFunc(torch.autograd.Function):
             print(f"Overriding VanillaAttnFunc dout with {OVERRIDE_TE_SDPA_DOUT_PATH}")
             dout = torch.load(OVERRIDE_TE_SDPA_DOUT_PATH, weights_only=True).to("cpu")
         torch.autograd.backward(ctx.out, dout)
-        return ctx.query.grad, ctx.key.grad, ctx.value.grad, None, None, None, None, None
+        return (
+            ctx.query.grad,
+            ctx.key.grad,
+            ctx.value.grad,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
 
 
 @pytest.mark.parametrize(
@@ -1568,7 +1668,13 @@ def test_te_fused_sdpa(
 
     if use_attn_mask:
         attn_mask = _create_attention_mask_for_test(
-            batch_size, q_heads, seq_len_N_t, seq_len_N_s, mask_dtype, attn_mask_shape, float_mask=True
+            batch_size,
+            q_heads,
+            seq_len_N_t,
+            seq_len_N_s,
+            mask_dtype,
+            attn_mask_shape,
+            float_mask=True,
         )
         attn_mask_hpu = attn_mask.to("hpu")
     else:
@@ -1631,24 +1737,40 @@ def test_te_fused_sdpa(
     def compare_fp8_meta(fp8_meta, fp8_meta_ref, fp8_format):
         if fp8_format is None:
             return
-        assert torch.equal(fp8_meta["scaling_fwd"].amax_history, fp8_meta_ref["scaling_fwd"].amax_history)
-        assert torch.equal(fp8_meta["scaling_fwd"].amax_history_index, fp8_meta_ref["scaling_fwd"].amax_history_index)
+        assert torch.equal(
+            fp8_meta["scaling_fwd"].amax_history,
+            fp8_meta_ref["scaling_fwd"].amax_history,
+        )
+        assert torch.equal(
+            fp8_meta["scaling_fwd"].amax_history_index,
+            fp8_meta_ref["scaling_fwd"].amax_history_index,
+        )
         assert torch.equal(fp8_meta["scaling_fwd"].scale, fp8_meta_ref["scaling_fwd"].scale)
         assert torch.equal(fp8_meta["scaling_fwd"].scale_inv, fp8_meta_ref["scaling_fwd"].scale_inv)
         if fp8_format == Format.HYBRID:
-            assert torch.equal(fp8_meta["scaling_hybrid"].amax_history, fp8_meta_ref["scaling_hybrid"].amax_history)
             assert torch.equal(
-                fp8_meta["scaling_hybrid"].amax_history_index, fp8_meta_ref["scaling_hybrid"].amax_history_index
+                fp8_meta["scaling_hybrid"].amax_history,
+                fp8_meta_ref["scaling_hybrid"].amax_history,
+            )
+            assert torch.equal(
+                fp8_meta["scaling_hybrid"].amax_history_index,
+                fp8_meta_ref["scaling_hybrid"].amax_history_index,
             )
             assert torch.equal(fp8_meta["scaling_hybrid"].scale, fp8_meta_ref["scaling_hybrid"].scale)
-            assert torch.equal(fp8_meta["scaling_hybrid"].scale_inv, fp8_meta_ref["scaling_hybrid"].scale_inv)
+            assert torch.equal(
+                fp8_meta["scaling_hybrid"].scale_inv,
+                fp8_meta_ref["scaling_hybrid"].scale_inv,
+            )
         compare_tensors(
             fp8_meta["scaling_bwd"].amax_history.cpu(),
             fp8_meta_ref["scaling_bwd"].amax_history.cpu(),
             atol=atol,
             rtol=rtol,
         )
-        assert torch.equal(fp8_meta["scaling_bwd"].amax_history_index, fp8_meta_ref["scaling_bwd"].amax_history_index)
+        assert torch.equal(
+            fp8_meta["scaling_bwd"].amax_history_index,
+            fp8_meta_ref["scaling_bwd"].amax_history_index,
+        )
         assert torch.equal(fp8_meta["scaling_bwd"].scale, fp8_meta_ref["scaling_bwd"].scale)
         assert torch.equal(fp8_meta["scaling_bwd"].scale_inv, fp8_meta_ref["scaling_bwd"].scale_inv)
 
@@ -1659,7 +1781,9 @@ def test_te_fused_sdpa(
             super().__init__()
             self.activation_checkpointing = enable_act_ckpt
             self.sdpa = te.FusedAttention(
-                scale=scale, attention_dropout=attention_dropout, enable_recompute=enable_recompute
+                scale=scale,
+                attention_dropout=attention_dropout,
+                enable_recompute=enable_recompute,
             )
 
         def forward(self, *args):
@@ -1670,11 +1794,17 @@ def test_te_fused_sdpa(
             return x
 
     model = AttentionSubnet(
-        scale=attn_scale, attention_dropout=dropout_p, enable_recompute=recompute, enable_act_ckpt=enable_act_ckpt
+        scale=attn_scale,
+        attention_dropout=dropout_p,
+        enable_recompute=recompute,
+        enable_act_ckpt=enable_act_ckpt,
     )
     if enable_act_ckpt:
         model_ref = AttentionSubnet(
-            scale=attn_scale, attention_dropout=dropout_p, enable_recompute=recompute, enable_act_ckpt=False
+            scale=attn_scale,
+            attention_dropout=dropout_p,
+            enable_recompute=recompute,
+            enable_act_ckpt=False,
         )
     with te.fp8_autocast(enabled=fp8_enabled, fp8_recipe=fp8_recipe):
         # Call fwd/bwd once for the measurements step
@@ -1778,19 +1908,37 @@ def test_te_fused_sdpa(
         k_grad_hpu_ref_c = k_hpu_ref.grad.detach().to("cpu")
         v_grad_hpu_ref_c = v_hpu_ref.grad.detach().to("cpu")
 
-    print("Vanilla SDPA FWD Ref vs FSDPA match? = ", torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol))
+    print(
+        "Vanilla SDPA FWD Ref vs FSDPA match? = ",
+        torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol),
+    )
     print("\n")
-    print("Max diff Vanilla SDPA FWD Ref vs FSDPA = ", torch.max(torch.abs(O_ref - O_hpu_c)))
+    print(
+        "Max diff Vanilla SDPA FWD Ref vs FSDPA = ",
+        torch.max(torch.abs(O_ref - O_hpu_c)),
+    )
 
     compare_tensors(O_ref, O_hpu_c, atol=atol, rtol=rtol)
-    print("Max diff Vanilla SDPA Q_GRAD Ref vs FSDPA = ", torch.max(torch.abs(q_t.grad - q_grad_hpu_c)))
+    print(
+        "Max diff Vanilla SDPA Q_GRAD Ref vs FSDPA = ",
+        torch.max(torch.abs(q_t.grad - q_grad_hpu_c)),
+    )
     compare_tensors(q_t.grad, q_grad_hpu_c, atol=14, rtol=rtol)
-    print("Max diff Vanilla SDPA K_GRAD Ref vs FSDPA = ", torch.max(torch.abs(k_t.grad - k_grad_hpu_c)))
+    print(
+        "Max diff Vanilla SDPA K_GRAD Ref vs FSDPA = ",
+        torch.max(torch.abs(k_t.grad - k_grad_hpu_c)),
+    )
     compare_tensors(k_t.grad, k_grad_hpu_c, atol=14, rtol=rtol)
-    print("Max diff Vanilla SDPA V_GRAD Ref vs FSDPA = ", torch.max(torch.abs(v_t.grad - v_grad_hpu_c)))
+    print(
+        "Max diff Vanilla SDPA V_GRAD Ref vs FSDPA = ",
+        torch.max(torch.abs(v_t.grad - v_grad_hpu_c)),
+    )
     compare_tensors(v_t.grad, v_grad_hpu_c, atol=atol, rtol=rtol)
     if enable_act_ckpt:
-        print("Max diff FSDPA FWD recompute vs FSDPA FWD ref = ", torch.max(torch.abs(O_hpu_ref_c - O_hpu_c)))
+        print(
+            "Max diff FSDPA FWD recompute vs FSDPA FWD ref = ",
+            torch.max(torch.abs(O_hpu_ref_c - O_hpu_c)),
+        )
         assert torch.equal(O_hpu_c, O_hpu_ref_c)
         print(
             "Max diff FSDPA Q_GRAD recompute vs FSDPA Q_GRAD ref = ",
@@ -1953,18 +2101,22 @@ def test_save_load_te_module_indirectly(
                 # 'scale_fwd', 'scale_inv_fwd', 'amax_history_fwd', 'amax_history_index_fwd',
                 # 'scale_hybrid', 'scale_inv_hybrid', 'amax_history_hybrid', 'amax_history_index_hybrid',
                 # 'scale_bwd', 'scale_inv_bwd', 'amax_history_bwd', 'amax_history_index_bwd'
-                assert torch.allclose(
-                    loaded_extra_state[key], saved_extra_state[key], rtol=0.0, atol=0.0
-                ), f"loaded {key} from saved state not matching to saved state"
+                assert torch.allclose(loaded_extra_state[key], saved_extra_state[key], rtol=0.0, atol=0.0), (
+                    f"loaded {key} from saved state not matching to saved state"
+                )
             elif isinstance(loaded_extra_state[key], dict):
                 for k in loaded_extra_state[key].keys():
                     if isinstance(loaded_extra_state[key][k], list):
                         # 'global_fp8_buffer' - 'FWD_AMAX_*', 'BWD_AMAX_*'
                         # 'extra_fp8_variables' - 'run_id_fwd_stack',
-                        for val, load_val in zip(loaded_extra_state[key][k], saved_extra_state[key][k], strict=False):
-                            assert torch.allclose(
-                                val, load_val, rtol=0.0, atol=0.0
-                            ), f"loaded {key}-{k} from saved state not matching to saved state"
+                        for val, load_val in zip(
+                            loaded_extra_state[key][k],
+                            saved_extra_state[key][k],
+                            strict=False,
+                        ):
+                            assert torch.allclose(val, load_val, rtol=0.0, atol=0.0), (
+                                f"loaded {key}-{k} from saved state not matching to saved state"
+                            )
                     else:
                         # 'global_fp8_state' - 'FP8_AUTOCAST_COUNTER', 'FP8_CURRENT_CONTEXT_ID',
                         #                      'FP8_AUTOCAST_DEPTH', 'FP8_MANUAL_MEASUREMENT',
@@ -2004,9 +2156,9 @@ def test_save_load_te_module_indirectly(
     for _ in range(train_iters):
         train_iteration(test_linear, gbs, mbs, in_features, dtype, device, fp8_recipe, optimizer)
 
-    assert (
-        torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in test_linear.state_dict().keys()
-    ), f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX} is not present in {test_linear.output_linear.module.state_dict().keys()}"
+    assert torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in test_linear.state_dict().keys(), (
+        f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX} is not present in {test_linear.output_linear.module.state_dict().keys()}"
+    )
     saved_extra_state = print_extra_state(test_linear.state_dict())
 
     loaded_test_linear = TestFP8Linear(in_features, out_features)
@@ -2089,7 +2241,13 @@ def test_te_amax_measure_state_perf(
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
 
-    linear = te.Linear(in_features, out_features, skip_weight_param_allocation=False, bias=True, params_dtype=dtype)
+    linear = te.Linear(
+        in_features,
+        out_features,
+        skip_weight_param_allocation=False,
+        bias=True,
+        params_dtype=dtype,
+    )
     output_linear = FP8ModuleRunner(linear, manual)
     input_tensor = torch.randn(mbs, in_features, dtype=dtype).to(device)
     fp8_recipe = DelayedScaling(
@@ -2106,6 +2264,8 @@ def test_te_amax_measure_state_perf(
     # old implementation avg time
     avg_time_old = 3e-06
     is_current_faster = compare_performance(
-        function_=output_linear.module.get_amax_measure_state, linear=output_linear, reference_time=avg_time_old
+        function_=output_linear.module.get_amax_measure_state,
+        linear=output_linear,
+        reference_time=avg_time_old,
     )
     assert is_current_faster, "Current implementation is slower than previous"

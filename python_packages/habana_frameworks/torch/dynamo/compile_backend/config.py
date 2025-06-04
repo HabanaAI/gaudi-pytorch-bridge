@@ -37,7 +37,9 @@ def _get_decomp_mode(env_var: str, default: str):
         "inductor",
         "core_aten",
         "none",
-    ], f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
+    ], (
+        f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
+    )
     return env_str_value
 
 

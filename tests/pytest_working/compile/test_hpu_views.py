@@ -108,7 +108,6 @@ def test_hpu_multilevel_views_inplace():
 
 def test_hpu_leaf_views_test():
     def fn(x, y, z):
-
         hx = x.to("hpu")
         hy = y.to("hpu")
         hz = z.to("hpu")
@@ -405,7 +404,13 @@ def test_output_alias_of_intermidate_base_tensor():
     input_shape = [1, 8, 8]
 
     def raw_function(x):
-        y = torch.nn.AvgPool1d(kernel_size=[5], stride=[5], padding=0, ceil_mode=False, count_include_pad=True)(x)
+        y = torch.nn.AvgPool1d(
+            kernel_size=[5],
+            stride=[5],
+            padding=0,
+            ceil_mode=False,
+            count_include_pad=True,
+        )(x)
         return y
 
     compiled_fn = compile_function_if_compile_mode(raw_function)

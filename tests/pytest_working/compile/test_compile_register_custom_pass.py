@@ -30,7 +30,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 def test_register_custom_pass():
-
     def pass_reorder_custom_ops(ctx: OptimizerContext) -> bool:
         logger.debug("####### pass_reorder_custom_ops")
         return False

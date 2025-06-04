@@ -122,7 +122,13 @@ class TestMetricsAPI:
         assert rc_metric_dict["TotalHit"] == total_test_cases - 1
 
     @pytest.mark.parametrize(
-        "metric_name", [("graph_compilation"), ("cpu_fallback"), ("memory_defragmentation"), ("recipe_cache")]
+        "metric_name",
+        [
+            ("graph_compilation"),
+            ("cpu_fallback"),
+            ("memory_defragmentation"),
+            ("recipe_cache"),
+        ],
     )
     def test_metric_zero_at_beginning(self, metric_name):
         metric_debug_reload()
@@ -314,7 +320,10 @@ class TestMetricsDump:
         metric_file_target = f"{tmp_path}/{expected_base_name}"
 
         assert not os.path.exists(metric_file_target)
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input, "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit"}
+        env_vars = {
+            "PT_HPU_METRICS_FILE": metric_file_user_input,
+            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
+        }
         if multinode:
             env_vars["RANK"] = "0"
 
@@ -491,7 +500,10 @@ class TestMetricsDump:
         world_size = 2
 
         runner(
-            TestMetricsDump._sample_worker_running_processes_via_torch_mp, world_size, call_init_dist_hpu, env=env_vars
+            TestMetricsDump._sample_worker_running_processes_via_torch_mp,
+            world_size,
+            call_init_dist_hpu,
+            env=env_vars,
         )
 
         for rank in range(world_size):
@@ -514,8 +526,7 @@ class TestMetricsDump:
 
         if call_init_dist_hpu:
             assert not os.path.exists(metric_file), (
-                "When 'initialize_distributed_hpu' is called then metrics should"
-                " be stored in files with suffix 'rankX'"
+                "When 'initialize_distributed_hpu' is called then metrics should be stored in files with suffix 'rankX'"
             )
 
     @staticmethod
@@ -531,7 +542,11 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_manual_metric_dump(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        runner(TestMetricsDump._sample_worker_process_with_manual_metric_dump, metric_file, format)
+        runner(
+            TestMetricsDump._sample_worker_process_with_manual_metric_dump,
+            metric_file,
+            format,
+        )
 
         with open(metric_file) as f:
             payload = f.read()

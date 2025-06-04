@@ -50,7 +50,7 @@ class Node:
 
     def __repr__(self):
         parent_name = "None" if self.parent is None else self.parent.name
-        return f'{parent_name} <- {self.name} <- [{",".join([k.name for k in self.children])}]'
+        return f"{parent_name} <- {self.name} <- [{','.join([k.name for k in self.children])}]"
 
 
 class Table:
@@ -130,7 +130,15 @@ def _make_table(rowname, sorteddict, max_width, csv_out):
 def _prettyprint(recompiling_modules, recompiling_modules_count, csv_out):
     sorted_by_step = sorted(recompiling_modules.items(), key=lambda kv: kv[0])
     _make_table(
-        ["Step", "Recompiling modules", "New in", "New out", "Class", "Location", "Comment"],
+        [
+            "Step",
+            "Recompiling modules",
+            "New in",
+            "New out",
+            "Class",
+            "Location",
+            "Comment",
+        ],
         sorted_by_step,
         120,
         csv_out + "_1.csv",
@@ -179,7 +187,12 @@ def _parse(lines):
             modulenm = modulenm.split("module ")[-1].strip("'")
             if mdlname in module_files:
                 classnm1, modulenm1, filenm1 = module_files[mdlname]
-                assert (mdlname, classnm, modulenm, filenm) != (mdlname, classnm1, modulenm1, filenm1)
+                assert (mdlname, classnm, modulenm, filenm) != (
+                    mdlname,
+                    classnm1,
+                    modulenm1,
+                    filenm1,
+                )
             module_files[mdlname] = (classnm, modulenm, filenm)
 
         step_done = False
@@ -257,7 +270,13 @@ def _parse(lines):
             if "Already processed input shape still recompiled" in comment and module_name not in treeinfo:
                 comment += ". Could be due to dynamic child"
                 module[idx] = (module_name, new_inp, new_out, classnm, filenm, comment)
-    return recompiling_modules, recompiling_modules_count, treeinfo, top_module_name, created_nodes
+    return (
+        recompiling_modules,
+        recompiling_modules_count,
+        treeinfo,
+        top_module_name,
+        created_nodes,
+    )
 
 
 def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
@@ -294,13 +313,13 @@ def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
             step = field_contents[STEP_COUNT]
             field_contents[STEP_COUNT] = field_contents[STEP_COUNT] + 1
             setattr(self, DYNSHAPE_FIELD, field_contents)
-            step_string = f"step:{step+1}"
+            step_string = f"step:{step + 1}"
         else:
             step_string = ""
         num_graphs = metrics["TotalNumber"]
         changed = num_graphs != 0
         debug_str = (
-            f'{"  "*level}{TAG}[{tag1}]{step_string} {new_inp_string}{new_out_string}num_graphs:{num_graphs} '
+            f"{'  ' * level}{TAG}[{tag1}]{step_string} {new_inp_string}{new_out_string}num_graphs:{num_graphs} "
             + ("", "Recompilation!")[changed]
         )
         write_to.append(debug_str)
@@ -311,9 +330,13 @@ def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
 
 def _get_analyser(csv_out):
     def analyse_dynamicity(self):
-        recompiling_modules, recompiling_modules_count, treeinfo, top_module_name, created_nodes = _parse(
-            self.raw_logs()
-        )
+        (
+            recompiling_modules,
+            recompiling_modules_count,
+            treeinfo,
+            top_module_name,
+            created_nodes,
+        ) = _parse(self.raw_logs())
         _prettyprint(recompiling_modules, recompiling_modules_count, csv_out)
 
     return analyse_dynamicity
@@ -359,7 +382,7 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
             field_contents[STEP_COUNT] = -1
 
         registration = (
-            f'{"  "*level}{TAG} Registering hooks for '
+            f"{'  ' * level}{TAG} Registering hooks for "
             + mdlname
             + " of type "
             + str(model.__class__)
@@ -372,7 +395,14 @@ def detect_recompilation_auto_model(model, mdlname="Net", waittime=1, csv_out="o
         field_contents[OUT_HASH] = set()
         setattr(model, DYNSHAPE_FIELD, field_contents)
         model.forward = MethodType(
-            _wrap_fn(model.forward, mdlname, level=level, waittime=waittime, write_to=write_to), model
+            _wrap_fn(
+                model.forward,
+                mdlname,
+                level=level,
+                waittime=waittime,
+                write_to=write_to,
+            ),
+            model,
         )
         for name, layer in model.named_children():
             layer = helper(layer, write_to, mdlname + "/" + name, level + 1, waittime=waittime)

@@ -41,9 +41,9 @@ with open(REQUIRED_VERSION_FILE_PATH) as req_ver_file:
 run_time_ver = Version(torch.__version__)
 is_torch_fork = run_time_ver.local.startswith("git") or run_time_ver.local.startswith("hpu")
 
-assert (
-    run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor
-), f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
+assert run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor, (
+    f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
+)
 
 if is_lazy():
     assert is_torch_fork, f"Stock PyTorch version {run_time_ver} is not supported in Lazy mode."

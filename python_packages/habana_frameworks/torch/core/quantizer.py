@@ -59,7 +59,11 @@ from torch.fx.passes.utils.source_matcher_utils import (
 
 logger = get_compile_backend_logger()
 
-QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
+QUANTIZER_MIN_MAX = {
+    torch.int8: (-128, 127),
+    torch.float8_e4m3fn: (-240, 240),
+    torch.float8_e5m2: (-240, 240),
+}
 extra_args_act: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 2}}
 extra_args_weight: dict[str, Any] = {"for_observer": {"eps": 2**-12, "backoff_margin": 1}}
 
@@ -108,7 +112,6 @@ def _update_output_qspec(output_node: Node, qspec: QuantizationSpec) -> None:
 # Habana Quantizer definition
 # ======================================================================================
 class habana_quantizer(Quantizer):
-
     def __init__(self):
         super().__init__()
         self.global_config: QuantizationConfig = None  # type: ignore[assignment]
@@ -133,7 +136,6 @@ class habana_quantizer(Quantizer):
     def annotate_symmetric_config(
         self, model: torch.fx.GraphModule, config: QuantizationConfig
     ) -> torch.fx.GraphModule:
-
         if bc.get_pt_hpu_pt2eq_kvcq():
             self._annotate_kvcache(model, config)
 
@@ -363,7 +365,11 @@ class habana_quantizer(Quantizer):
 
     def _annotate_sdpa(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
         module_partitions = get_source_partitions(
-            gm.graph, [torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default, torch.ops.hpu.sdpa_recomp_fwd]
+            gm.graph,
+            [
+                torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default,
+                torch.ops.hpu.sdpa_recomp_fwd,
+            ],
         )
 
         if len(module_partitions) == 0:

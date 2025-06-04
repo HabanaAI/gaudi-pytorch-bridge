@@ -60,7 +60,15 @@ def test_reinplace_index_copy():
 
     graph_module = make_fx(functionalize(fn))(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
     reinplace_test_helper(ctx)
     reinplaced_fn_str = ctx.graph_module.print_readable(False)
@@ -95,7 +103,15 @@ def test_not_reinplace_index_copy():
     graph_module = make_fx(fn, tracing_mode="fake")(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
     graph_changed = reinplace_test_helper(ctx)
     assert not graph_changed, "pass_reinplace_inplaceable_ops_v2 should not do reinplace"
@@ -121,7 +137,15 @@ def test_reinplace_leaf_index_copy():
     graph_module = make_fx(functionalize(fn))(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PRE_PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PRE_PARTITIONER,
+        [],
+        None,
     )
     for node in ctx.graph_module.graph.nodes:
         if node.op == "placeholder" or node.op == "output":
@@ -152,7 +176,15 @@ def test_reinpalce_all_add():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -189,7 +221,15 @@ def test_reinpalce_only_1st_add():
     graph_module = make_fx(fn)(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -319,7 +359,15 @@ def test_reinplace_allreduce():
     graph_module = make_fx(functionalize(fn))(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -353,7 +401,15 @@ def test_reinplace_functionalized_allreduce():
     graph_module = make_fx(functionalize(fn))(*example_inputs)
 
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     changed = reinplace_test_helper(ctx)
@@ -398,7 +454,12 @@ def test_partition_in_out_duplicates_caused_by_index_copy_():
     k_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False)
     v_cache = torch.randn((2, 100, 4), dtype=torch.bfloat16, requires_grad=False)
 
-    x_, token_idx_, k_cache_, v_cache_ = x.to("hpu"), token_idx.to("hpu"), k_cache.to("hpu"), v_cache.to("hpu")
+    x_, token_idx_, k_cache_, v_cache_ = (
+        x.to("hpu"),
+        token_idx.to("hpu"),
+        k_cache.to("hpu"),
+        v_cache.to("hpu"),
+    )
     with use_eager_fallback():
         res = compiled_model(k_cache_, v_cache_, x_, token_idx_)
 
@@ -513,7 +574,15 @@ def test_reinplace_chain_of_inplaceable_ops():
 
     graph_module = make_fx(functionalize(fn))(*example_inputs)
     ctx = OptimizerContext(
-        graph_module, "test", example_inputs, False, False, False, OptimizationPassPlacement.PARTITIONER, [], None
+        graph_module,
+        "test",
+        example_inputs,
+        False,
+        False,
+        False,
+        OptimizationPassPlacement.PARTITIONER,
+        [],
+        None,
     )
 
     graph_changed = reinplace_test_helper(ctx)
@@ -575,8 +644,8 @@ def test_reinplace_broadcast_add_on_hpu():
         fn = torch.compile(fn, backend="hpu_backend")
         result_compile = fn(a, b)
         print("the value of result_compile is ", result_compile)
-        assert torch.allclose(
-            result_eager, result_compile, atol=1e-5, rtol=1e-5
-        ), "the result under compile mode is wrong."
+        assert torch.allclose(result_eager, result_compile, atol=1e-5, rtol=1e-5), (
+            "the result under compile mode is wrong."
+        )
 
     broadcast_add_hpu()

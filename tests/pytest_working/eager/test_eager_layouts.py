@@ -24,7 +24,6 @@ def test_hpu_simulate_allreduce_bucket_views():
     import habana_frameworks.torch.core as htcore  # noqa
 
     def fn(dev, a, g1, g2):
-
         v1 = a.as_strided([N, C, H, W], [256, 4, 2, 1], 16)
         v2 = a.as_strided([4, 4], [4, 1], N * C * H * W)
 

@@ -53,7 +53,7 @@ class SvgVisualizer(VisualizationStrategy):
 
         available = HAS_PYDOT
         if not available:
-            logger.error("Dumping graph to SVG requires `pydot` package to be installed. " "Graphs will not be dumped!")
+            logger.error("Dumping graph to SVG requires `pydot` package to be installed. Graphs will not be dumped!")
         return available
 
     @staticmethod
@@ -83,7 +83,7 @@ class GraphmlVisualizer(VisualizationStrategy):
         available = HAS_NETWORKX
         if not available:
             logger.error(
-                "Dumping graph to GraphML requires `networkx` package to be installed. " "Graphs will not be dumped!"
+                "Dumping graph to GraphML requires `networkx` package to be installed. Graphs will not be dumped!"
             )
         return available
 

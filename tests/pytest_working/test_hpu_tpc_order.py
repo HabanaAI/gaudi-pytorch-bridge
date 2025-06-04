@@ -30,7 +30,6 @@ class Model(nn.Module):
         self.score = nn.Conv1d(96, 192, 1)
 
     def forward(self, x):
-
         return self.score(x)
 
 

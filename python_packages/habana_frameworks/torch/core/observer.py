@@ -106,7 +106,6 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
         is_dynamic=False,
         **kwargs,
     ) -> None:
-
         if dtype not in [torch.float8_e5m2, torch.float8_e4m3fn]:
             raise NotImplementedError("AbsMaxObserver: dtype only supports torch.float8_e5m2 and torch.float8_e4m3fn.")
         if qscheme != torch.per_tensor_symmetric:
@@ -200,7 +199,11 @@ class AbsMaxObserver(UniformQuantizationObserverBase):
                 device: get_fp8_hw_alligned_scales(quant_dtype, device) for device in DEVICES_SCALE_FACTORS.keys()
             }
             FP8_143_SCALES_TRAITS = {
-                device: (min(FP8_143_SCALES[device]), max(FP8_143_SCALES[device]), DEVICES_SCALE_FACTORS[device])
+                device: (
+                    min(FP8_143_SCALES[device]),
+                    max(FP8_143_SCALES[device]),
+                    DEVICES_SCALE_FACTORS[device],
+                )
                 for device in DEVICES_SCALE_FACTORS.keys()
             }
 
@@ -310,7 +313,6 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
         is_dynamic=False,
         **kwargs,
     ) -> None:
-
         if dtype not in [torch.float8_e5m2, torch.float8_e4m3fn]:
             raise NotImplementedError(
                 "SimpleAbsMaxObserver: dtype only supports torch.float8_e5m2 and torch.float8_e4m3fn."
@@ -403,7 +405,11 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
                 device: get_fp8_hw_alligned_scales(quant_dtype, device) for device in DEVICES_SCALE_FACTORS.keys()
             }
             FP8_143_SCALES_TRAITS = {
-                device: (min(FP8_143_SCALES[device]), max(FP8_143_SCALES[device]), DEVICES_SCALE_FACTORS[device])
+                device: (
+                    min(FP8_143_SCALES[device]),
+                    max(FP8_143_SCALES[device]),
+                    DEVICES_SCALE_FACTORS[device],
+                )
                 for device in DEVICES_SCALE_FACTORS.keys()
             }
 
@@ -425,7 +431,11 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
 
         def calc_maxabs_scale(self):
             fullscale = float(self.quant_max)
-            scale = torch.ones(self.abs_max_val.size(), dtype=torch.float32, device=self.abs_max_val.device.type)
+            scale = torch.ones(
+                self.abs_max_val.size(),
+                dtype=torch.float32,
+                device=self.abs_max_val.device.type,
+            )
             scale = self.abs_max_val / fullscale
             scale_adjusted = scale * (2**self.backoff_margin)
             scale_adjusted = torch.max(scale_adjusted, self.eps)
@@ -437,7 +447,11 @@ class SimpleAbsMaxObserver(UniformQuantizationObserverBase):
         logger.debug(f"old_scale = {scale.item()}, new_scale = {scale_adjusted.item()}")
         scale = scale_adjusted
 
-        zero_point = torch.zeros(self.abs_max_val.size(), dtype=torch.int64, device=self.abs_max_val.device.type)
+        zero_point = torch.zeros(
+            self.abs_max_val.size(),
+            dtype=torch.int64,
+            device=self.abs_max_val.device.type,
+        )
 
         return scale, zero_point
 

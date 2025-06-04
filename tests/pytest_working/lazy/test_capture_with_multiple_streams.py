@@ -41,7 +41,6 @@ class Net(nn.Module):
 
 
 def testCaptureWithMultipleStreams():
-
     device = torch.device("hpu")
     model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=0.1)
@@ -76,7 +75,6 @@ def testCaptureWithMultipleStreams():
 
 
 def testCaptureWithSingleStream():
-
     device = torch.device("hpu")
     model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=0.1)
@@ -185,7 +183,9 @@ def test_graph_capture_scalar(asynchronous=False, disable_tensor_cache=False):
     module1_hpu = _kernel_copy_to_device(module1_cpu, "hpu")
     loss_fn = torch.nn.MSELoss()
     module1_hpu = ht.hpu.wrap_in_hpu_graph(
-        module1_hpu, asynchronous=asynchronous, disable_tensor_cache=disable_tensor_cache
+        module1_hpu,
+        asynchronous=asynchronous,
+        disable_tensor_cache=disable_tensor_cache,
     )
     x_cpu = torch.randn(N, D_in, device="cpu")
     ITERATION = 5

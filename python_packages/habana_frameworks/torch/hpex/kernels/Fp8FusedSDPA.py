@@ -109,7 +109,6 @@ def fp8_sdpa_fwd_wrapper(
     recompute=None,
     requires_grad=None,
 ):
-
     requires_backward = (
         q.requires_grad or k.requires_grad or v.requires_grad if requires_grad is None else requires_grad
     )
@@ -137,9 +136,9 @@ def fp8_sdpa_fwd_wrapper(
         recompute = True
 
     if valid_seq_len is not None:
-        assert is_causal and (
-            requires_backward is False
-        ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
+        assert is_causal and (requires_backward is False), (
+            "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
+        )
 
     gqa = is_gqa(q, k)
     if gqa:
@@ -229,7 +228,18 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
             dout = gqa_input_reshape_bwd(q, v, dout)
             fwd_out = gqa_input_reshape_bwd(q, v, fwd_out)
         dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(
-            dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale, fwd_out
+            dout,
+            q,
+            k,
+            v,
+            attn_mask,
+            m,
+            linv,
+            seed,
+            is_causal,
+            dropout_p,
+            scale,
+            fwd_out,
         )
         if ctx.gqa:
             dq = gqa_output_reshape(dq)

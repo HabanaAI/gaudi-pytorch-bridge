@@ -180,7 +180,6 @@ def check_alignment(device, pool_id):
 
 
 def pool_coalesce(device, pool_id):
-
     gigabyte = 1000 * 1000 * 1000
     pool_size = os.environ.get("PT_HPU_POOL_SIZE")
     print("pool_size :: ", pool_size)
@@ -215,7 +214,6 @@ def pool_coalesce(device, pool_id):
 
 
 def pool_coalesce_stringent(device, pool_id):
-
     gigabyte = 1024 * 1024 * 1024
     pool_size = os.environ.get("PT_HPU_POOL_SIZE")
     print("pool_size :: ", pool_size)

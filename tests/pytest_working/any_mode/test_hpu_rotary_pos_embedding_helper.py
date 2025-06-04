@@ -256,7 +256,6 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
 @pytest.mark.parametrize("squeeze_dims", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 class TestHpuApplyRotaryPosEmbV2FwdBwd:
-
     @staticmethod
     def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dtype):
         if is_gaudi1() and dtype == torch.float16:
@@ -301,7 +300,8 @@ class TestHpuApplyRotaryPosEmbV2FwdBwd:
 
         if is_pytest_mode_compile():
             check_ops_executed_in_jit_ir(
-                {"rotary_pos_embedding", "rotary_pos_embedding_backward"}, {"index", "index_1"}
+                {"rotary_pos_embedding", "rotary_pos_embedding_backward"},
+                {"index", "index_1"},
             )
 
 
@@ -349,7 +349,6 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 @pytest.mark.parametrize("cos_dtype", [torch.float16, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("sin_dtype", [torch.float16, torch.float32, torch.bfloat16])
 class TestHpuApplyRotaryPosEmbDiffDTypes:
-
     @staticmethod
     def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):
         if is_gaudi1() and (dtype == torch.float16 or cos_dtype == torch.float16 or sin_dtype == torch.float16):
@@ -390,7 +389,8 @@ class TestHpuApplyRotaryPosEmbDiffDTypes:
 
         if is_pytest_mode_compile():
             check_ops_executed_in_jit_ir(
-                {"rotary_pos_embedding", "rotary_pos_embedding_backward"}, {"index", "index_1"}
+                {"rotary_pos_embedding", "rotary_pos_embedding_backward"},
+                {"index", "index_1"},
             )
 
 

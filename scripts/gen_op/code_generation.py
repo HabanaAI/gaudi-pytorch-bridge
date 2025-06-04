@@ -37,7 +37,7 @@ from .op_validator import get_op_validator_generator
 
 def torch_library_fragment(custom_schema_regs):
     if custom_schema_regs:
-        return "TORCH_LIBRARY_FRAGMENT(hpu, m) {\n" "  static_cast<void>(m);\n" f"{custom_schema_regs}\n" "}"
+        return f"TORCH_LIBRARY_FRAGMENT(hpu, m) {{\n  static_cast<void>(m);\n{custom_schema_regs}\n}}"
     return ""
 
 
@@ -120,7 +120,7 @@ def fallback_if_unsupported(
 
     def single_fallback(tensor_opt=""):
         tensor_string = tensor_opt + ", " if tensor_opt else ""
-        return f'  {prefix}{fallback_string}{per_tensor_string}{overload_variant}({tensor_string}{opname}{is_dynamic_string}, {overload_string}{check_st_h2d_str}{", ".join(param_vars)})\n'
+        return f"  {prefix}{fallback_string}{per_tensor_string}{overload_variant}({tensor_string}{opname}{is_dynamic_string}, {overload_string}{check_st_h2d_str}{', '.join(param_vars)})\n"
 
     if prefix:
         return single_fallback()
@@ -133,7 +133,7 @@ def fallback_if_unsupported(
 
 def bitwise_ops_alt_guid(guid):
     logical_guid = guid.replace("bitwise_", "")
-    return "if (ScalarType() == at::kBool) {\n" f'      SetGuid("{logical_guid}_i8");\n' "    }"
+    return f'if (ScalarType() == at::kBool) {{\n      SetGuid("{logical_guid}_i8");\n    }}'
 
 
 def extract_reduction_vars_indices(param_vars, use_int=False):
@@ -356,7 +356,7 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
     def build(fn, fns_set, macro, args=[]):
         if fn and fn not in fns_set:
             fns_set.add(fn)
-            return f'{macro}({", ".join([fn] + args)});\n'
+            return f"{macro}({', '.join([fn] + args)});\n"
         return ""
 
     reg_decls = ""
@@ -386,12 +386,16 @@ def generate_header_decls(fgens, gen_check_node_with_sl_val=False):
                 early_exit_fns.add(early_exit_fun)
         outshape_decls += build(fgen.ctxop.get_custom_output_shape(), outshape_fns, "OUTSHAPE_DECL")
         output_mask_handler_decls += build(
-            fgen.ctxop.handle_output_mask(), output_mask_handler_fns, "OUTPUT_MASK_HANDLER_DECL"
+            fgen.ctxop.handle_output_mask(),
+            output_mask_handler_fns,
+            "OUTPUT_MASK_HANDLER_DECL",
         )
 
         outmeta_decls += build(fgen.ctxop.get_output_meta(), outmeta_fns, "OUTMETA_DECL")
         shared_layer_meta_decls += build(
-            fgen.ctxop.get_shared_layer_meta(), shared_layer_meta_fns, "SHARED_LAYER_META_DECL"
+            fgen.ctxop.get_shared_layer_meta(),
+            shared_layer_meta_fns,
+            "SHARED_LAYER_META_DECL",
         )
 
         if gen_check_node_with_sl_val and fgen.ctxop.get_op_validator() is not None:
@@ -544,9 +548,9 @@ def parse_params(params, rtype, fc, funsig, out_ids, should_skip_inplace_param_f
         if fc and pname in fc[1:]:
             fc_params.append(f"{param_types[i].strip()} {pname}")
 
-    assert len(fc) == 0 or len(fc_params) + 1 == len(
-        fc
-    ), f"Cannot find all params specified for fallback check {fc[0]}."
+    assert len(fc) == 0 or len(fc_params) + 1 == len(fc), (
+        f"Cannot find all params specified for fallback check {fc[0]}."
+    )
 
     if rtype == "void" and out_ids is not None:
         out_indices = out_ids
@@ -602,7 +606,13 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
             param_vars=", dtype" if "dtype" in param_vars else "",
         )
 
-    return code, promote_types, dtype_helper_inputs, type_promo_variant, use_compute_type
+    return (
+        code,
+        promote_types,
+        dtype_helper_inputs,
+        type_promo_variant,
+        use_compute_type,
+    )
 
 
 def handle_validator_generator(
@@ -802,9 +812,13 @@ def lazy_frontend(
 
     # TODO safe cast check should be done for out variants without type promotion too
     # https://jira.habana-labs.com/browse/SW-111202
-    promotion_code, promote_types, dtype_helper_inputs, type_promo_variant, use_compute_type = handle_type_promotion(
-        ctxop, fname, fe_call_args, param_vars
-    )
+    (
+        promotion_code,
+        promote_types,
+        dtype_helper_inputs,
+        type_promo_variant,
+        use_compute_type,
+    ) = handle_type_promotion(ctxop, fname, fe_call_args, param_vars)
 
     code += promotion_code
     code += handle_validator_generator(
@@ -886,7 +900,7 @@ def handle_return_eager(
     if handle_output_mask:
         code += "  {}hpu_op.call({});".format("auto res = ", fe_call_args)
         code += "\n"
-        code += f"  return {handle_output_mask}(res, {param_vars[len(param_vars)-1]})"
+        code += f"  return {handle_output_mask}(res, {param_vars[len(param_vars) - 1]})"
     elif inplace_op_info[1] == "aten::_fused_adamw":  # currently only fused_adamw is supported
         code += f"  std::vector<at::TensorList> tensorlists = {{ {fe_call_args} }};"
         code += " \n"
@@ -956,9 +970,13 @@ def eager_frontend(
 
     # TODO safe cast check should be done for out variants without type promotion too
     # https://jira.habana-labs.com/browse/SW-111202
-    promotion_code, promote_types, dtype_helper_inputs, type_promo_variant, use_compute_type = handle_type_promotion(
-        ctxop, fname, fe_call_args, param_vars
-    )
+    (
+        promotion_code,
+        promote_types,
+        dtype_helper_inputs,
+        type_promo_variant,
+        use_compute_type,
+    ) = handle_type_promotion(ctxop, fname, fe_call_args, param_vars)
 
     code += promotion_code
     code += handle_validator_generator(
@@ -1058,18 +1076,23 @@ def generate_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False,
         op_params["inplace_ids"] if isinstance(op_params, dict) and "inplace_ids" in op_params.keys() else None
     )
     param_vars, call_args, out_indices, fc_params, tfetcher = parse_params(
-        params, rtype, ctxop.get_fallback_check(), funsig, out_indices, ctxop.should_skip_inplace_param
+        params,
+        rtype,
+        ctxop.get_fallback_check(),
+        funsig,
+        out_indices,
+        ctxop.should_skip_inplace_param,
     )
 
     op_backend = None
     op_backend_class = None
     if not only_slrg:
         if ctxop.get_override_fn():
-            assert (
-                ctxop.get_op_frontend_class() == "LazyOp" and ctxop.get_op_backend_class() == "OpBackend"
-            ), f"{op_name} has defined override_fn, it cannot take op_frontend or op_backend"
+            assert ctxop.get_op_frontend_class() == "LazyOp" and ctxop.get_op_backend_class() == "OpBackend", (
+                f"{op_name} has defined override_fn, it cannot take op_frontend or op_backend"
+            )
         elif not ctxop.get_only_shared_layer():
-            op_backend_class = f'Gen{op_name.replace(".", "_")}'
+            op_backend_class = f"Gen{op_name.replace('.', '_')}"
             op_backend = get_op_backend_class_impl(ctxop, fname, op_backend_class, len(call_args), param_vars)
 
     op_frontend_eager = None
@@ -1139,7 +1162,11 @@ def generate_op_meta(cpp_sig, op_name, op_params):
 
     _, fname, _ = parser.get_function_signature(xtree, cpp_sig, lambda x: f"{x}")
     return constants.OpMeta(
-        op_variant=op_name, mapsig=mapsig, funsig=funsig, func=fname, autograd=op_params.get("autograd", False)
+        op_variant=op_name,
+        mapsig=mapsig,
+        funsig=funsig,
+        func=fname,
+        autograd=op_params.get("autograd", False),
     )
 
 
@@ -1466,7 +1493,16 @@ def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
                 raise Exception(f"Couldn't extract schema input params for {op_name}")
 
         if not is_custom and should_write_and_go_to_next_file(idx, num_fgens_per_shard, gen_file_idx, ops_count):
-            print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, gen_file_idx, out_dir, args, namespace)
+            print_frontend_to_file(
+                op_groups,
+                dtype_defs,
+                functions,
+                torch_regs,
+                gen_file_idx,
+                out_dir,
+                args,
+                namespace,
+            )
             gen_file_idx += 1
             dtype_defs = ""
             functions = ""
@@ -1475,7 +1511,16 @@ def generate_frontend(args, fgens, op_validator_map, out_dir, namespace="aten"):
 
     if is_custom:
         file_postfix = constants.NAMESPACE_TO_POSTFIX[namespace]
-        print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, file_postfix, out_dir, args, namespace)
+        print_frontend_to_file(
+            op_groups,
+            dtype_defs,
+            functions,
+            torch_regs,
+            file_postfix,
+            out_dir,
+            args,
+            namespace,
+        )
 
     frontend_class_headers = {}
 
@@ -1567,7 +1612,9 @@ def generate_autograd_functions_h_file(fgens_autograd: list[constants.OpGen]) ->
             input_params=input_params,
         )
     return templates.AUTOGRAD_H_FILE.format(
-        gen=os.path.basename(sys.argv[0]), dispatch_functions=dispatch_functions, autograd_functions=autograd_functions
+        gen=os.path.basename(sys.argv[0]),
+        dispatch_functions=dispatch_functions,
+        autograd_functions=autograd_functions,
     )
 
 
@@ -1591,7 +1638,10 @@ def create_dispatch_function(fgen: constants.OpGen, input_names: list[str], inpu
 
 
 def create_autograd_frontend(
-    fgen: constants.OpGen, input_names: list[str], input_names_len: int, inputs: list[str]
+    fgen: constants.OpGen,
+    input_names: list[str],
+    input_names_len: int,
+    inputs: list[str],
 ) -> str:
     frontend = ""
 
@@ -1641,13 +1691,19 @@ def generate_autograd_functions_cpp_file(fgens_autograd: list[constants.OpGen]) 
     impls += "}\n"
 
     return templates.AUTOGRAD_CPP_FILE.format(
-        gen=os.path.basename(sys.argv[0]), frontend=frontend, dispatch_functions=dispatch_functions, impls=impls
+        gen=os.path.basename(sys.argv[0]),
+        frontend=frontend,
+        dispatch_functions=dispatch_functions,
+        impls=impls,
     )
 
 
 def generate_autograd_ops(args, fgens_autograd):
     if fgens_autograd:
-        print(generate_autograd_functions_h_file(fgens_autograd), file=gen_h_output_file(args, "autograd/autograd_ops"))
+        print(
+            generate_autograd_functions_h_file(fgens_autograd),
+            file=gen_h_output_file(args, "autograd/autograd_ops"),
+        )
         print(
             generate_autograd_functions_cpp_file(fgens_autograd),
             file=gen_cpp_output_file(args, "autograd/autograd_ops"),
@@ -1773,7 +1829,7 @@ def generate_slrg_registry_cpp(args, op_validator_map):
             "GenericSharedLayerExecutor" if op_validator["is_generic_sl_meta"] else "CustomSharedLayerExecutor"
         )
         executors.append(
-            f'static {executor_type} {op_validator["executor_name"]}(&{op_validator["generator_name"]}, &habana::{op_validator["validator_name"]});'
+            f"static {executor_type} {op_validator['executor_name']}(&{op_validator['generator_name']}, &habana::{op_validator['validator_name']});"
         )
         if op_validator["namespaces"] is not None:
             for namespace in op_validator["namespaces"]:
@@ -1915,7 +1971,9 @@ def generate_impl_call(aten_sig, native_func_dict, param_vars, is_custom_op):
         return codegen_custom_ops(param_vars, aten_sig_types)
 
 
-def generate_param_vars_and_dtypes(fgen: constants.OpGen) -> tuple[list[str], list[Any]]:
+def generate_param_vars_and_dtypes(
+    fgen: constants.OpGen,
+) -> tuple[list[str], list[Any]]:
     param_vars = []
     param_types = []
     for param in parser.get_parameters(fgen.tree):
@@ -1939,7 +1997,11 @@ def sort_fgen_pos_by_params_size(fgens, fgen_pos):
 
 
 def generate_stack_size_code_with_first_flag(
-    pos_idx: int, param_vars: list[str], param_types: list[Any], first_stack_pop: bool, num_param_fun: int
+    pos_idx: int,
+    param_vars: list[str],
+    param_types: list[Any],
+    first_stack_pop: bool,
+    num_param_fun: int,
 ) -> tuple[str, bool]:
     stack_size_code = ""
     if pos_idx == 0:
@@ -1980,7 +2042,10 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
 
         aten_sig = fgen.aten_sig
         stack_unroll += generate_impl_call(
-            aten_sig, native_func_dict, param_vars, fgen.ctxop.get_custom_op_schema() is not None
+            aten_sig,
+            native_func_dict,
+            param_vars,
+            fgen.ctxop.get_custom_op_schema() is not None,
         )
     stack_unroll += "  }\n  return false;\n}\n"
     struct_def += stack_unroll
@@ -1989,7 +2054,10 @@ def generate_stack_pop(fgens, fgen_pos, native_func_dict):
 
 
 def add_fgen_idx_to_generate(
-    fgen: constants.OpGen, idx: int, unique_funcs: dict[str, list[int]], ops_added: set[str]
+    fgen: constants.OpGen,
+    idx: int,
+    unique_funcs: dict[str, list[int]],
+    ops_added: set[str],
 ) -> None:
     if fgen.func in unique_funcs:
         unique_funcs[fgen.func].append(idx)

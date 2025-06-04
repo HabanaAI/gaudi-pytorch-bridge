@@ -270,7 +270,8 @@ class HabanaPT2EQuantContext:
 
     def extract_graph_info_from_loaded_model(self):
         self._model.graph.set_loaded_graph_info(
-            getattr(self._model, "l_graph", ""), getattr(self._model, "l_print_tabular", "")
+            getattr(self._model, "l_graph", ""),
+            getattr(self._model, "l_print_tabular", ""),
         )
         assert hasattr(self._model, "l_print_readable")
 
@@ -450,7 +451,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         logger.debug(
             f"HabanaQuantWrapperModule::__call__ [{self._module_key}] ID:",
             id(self),
-            f"\tpreprocessed={self._preprocessed}" f"\tprepared={self._prepared}" f"\tconverted={self._converted}",
+            f"\tpreprocessed={self._preprocessed}\tprepared={self._prepared}\tconverted={self._converted}",
         )
 
         assert self._pt2e_quant_context is not None
@@ -621,7 +622,11 @@ def habana_quant_backend(
     with habana_quant_backend_config.patch(options), override_composite_ops():
         return aot_autograd(
             fw_compiler=habana_quant_backend_config.patch(options)(
-                partial(habana_quant_compiler_fw, module_key=module_key, pt2e_quant_context=pt2e_quant_context)
+                partial(
+                    habana_quant_compiler_fw,
+                    module_key=module_key,
+                    pt2e_quant_context=pt2e_quant_context,
+                )
             ),
             bw_compiler=habana_quant_compiler_bw_raise,
             decompositions=get_hpu_decompositions(),
@@ -680,7 +685,11 @@ def export(
         torch._dynamo.reset()
         model = torch.compile(
             f,
-            backend=partial(habana_quant_backend, module_key=model_key, pt2e_quant_context=habana_pt2e_quant_context),
+            backend=partial(
+                habana_quant_backend,
+                module_key=model_key,
+                pt2e_quant_context=habana_pt2e_quant_context,
+            ),
             dynamic=False,
             options={"keep_input_mutations": True},
         )
@@ -893,7 +902,12 @@ def create_kvcache_module_name(input_str, annotation):
 def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str | None = None):
     graph = copy.deepcopy(module.graph)
     graph = module.graph
-    dump_json_output = {"GlobalRank": None, "LocalRank": -1, "Mode": "Scale", "Nodes": {}}
+    dump_json_output = {
+        "GlobalRank": None,
+        "LocalRank": -1,
+        "Mode": "Scale",
+        "Nodes": {},
+    }
 
     with torch.no_grad():
         for node in graph.nodes:
@@ -983,11 +997,19 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                     dump_input0_scale_attr = torch.tensor(input0_node.args[1], device="hpu")
                     dump_input1_scale_attr = torch.tensor(input1_node.args[1], device="hpu")
                     dump_input2_scale_attr = torch.tensor(input2_node.args[1], device="hpu")
-                    dump_info = [dump_input0_scale_attr, dump_input1_scale_attr, dump_input2_scale_attr]
+                    dump_info = [
+                        dump_input0_scale_attr,
+                        dump_input1_scale_attr,
+                        dump_input2_scale_attr,
+                    ]
                     dump_key = list(nn_module_stack.values())[-1][0]
                     dump_key = convert_to_module_name(dump_key)
                     dump_json_output["Nodes"][dump_key] = {
-                        "inputs": [dump_info[0].item(), dump_info[1].item(), dump_info[2].item()],
+                        "inputs": [
+                            dump_info[0].item(),
+                            dump_info[1].item(),
+                            dump_info[2].item(),
+                        ],
                         "params": {},
                     }
             if is_node(node, "full.default"):
@@ -1049,7 +1071,12 @@ def dump_scale(module: torch.fx.GraphModule, save_to_file: bool, extra_file: str
                         dump_input3_scale_attr,
                     ]
                     dump_json_output["Nodes"][dump_key] = {
-                        "inputs": [dump_info[0].item(), dump_info[1].item(), dump_info[2].item(), dump_info[3].item()],
+                        "inputs": [
+                            dump_info[0].item(),
+                            dump_info[1].item(),
+                            dump_info[2].item(),
+                            dump_info[3].item(),
+                        ],
                         "params": {},
                     }
                     for user_node in node.users:
@@ -1310,10 +1337,16 @@ def save_pt2e(
             torch.save(habana_pt2e_quant_context.get_quantizer(), quantizer_filename)
             # save convert_pt2e settings used
             convert_settings_filename = os.path.join(dir_name, "convert_settings.pt2")
-            torch.save(habana_pt2e_quant_context.get_convert_settings(), convert_settings_filename)
+            torch.save(
+                habana_pt2e_quant_context.get_convert_settings(),
+                convert_settings_filename,
+            )
             # save kv-cache quant details
             kvcq_details_filename = os.path.join(dir_name, "kvcache_quant_details.pt2")
-            torch.save(habana_pt2e_quant_context.get_kvcache_quant_details(), kvcq_details_filename)
+            torch.save(
+                habana_pt2e_quant_context.get_kvcache_quant_details(),
+                kvcq_details_filename,
+            )
             # save scale information
             fx_module_hashkeys = habana_pt2e_quant_context.get_hash_list()
             converted_gms = habana_pt2e_quant_context.get_all_transformed_gms(converted=True)
@@ -1399,7 +1432,11 @@ def load_pt2e(
         torch._dynamo.reset()
         model = torch.compile(
             org_model,
-            backend=partial(habana_quant_backend, module_key=model_key, pt2e_quant_context=habana_pt2e_quant_context),
+            backend=partial(
+                habana_quant_backend,
+                module_key=model_key,
+                pt2e_quant_context=habana_pt2e_quant_context,
+            ),
             dynamic=False,
             options={"keep_input_mutations": True},
         )
@@ -1436,7 +1473,8 @@ def load_pt2e(
             convert_settings = torch.load(convert_settings_filename, weights_only=False)
             assert convert_settings is not None
             habana_pt2e_quant_context.set_convert_settings(
-                convert_settings["use_reference_representation"], convert_settings["fold_quantize"]
+                convert_settings["use_reference_representation"],
+                convert_settings["fold_quantize"],
             )
             # load kv-cache quant details
             kvcq_details_filename = os.path.join(dir_name, "kvcache_quant_details.pt2")
@@ -1454,7 +1492,9 @@ def load_pt2e(
     else:
         with torch.no_grad():
             model = _native_pt2e_quantization_interface("load_pt2e")(
-                f, extra_files=extra_files, expected_opset_version=expected_opset_version
+                f,
+                extra_files=extra_files,
+                expected_opset_version=expected_opset_version,
             )
 
         logger.debug(f"Graph after pt2e load:\n {model.graph}")
@@ -1546,7 +1586,11 @@ def preprocess_linears(placeholder_map, model: torch.fx.GraphModule, tupled_args
                     model_changed = model_changed or True
                     attr_name = "_param_constant_l" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[weight_node.name]]
-                    setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                    setattr(
+                        model,
+                        attr_name,
+                        torch.nn.parameter.Parameter(param_tensor.detach()),
+                    )
                     new_attr_node = model.graph.create_node("get_attr", attr_name)
                     weight_node_first_user.replace_input_with(weight_node, new_attr_node)
                     param_id = param_id + 1
@@ -1562,7 +1606,11 @@ def preprocess_linears(placeholder_map, model: torch.fx.GraphModule, tupled_args
                         model_changed = model_changed or True
                         attr_name = "_param_constant_l" + str(param_id)
                         param_tensor = tupled_args[placeholder_map[bias_node.name]]
-                        setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                        setattr(
+                            model,
+                            attr_name,
+                            torch.nn.parameter.Parameter(param_tensor.detach()),
+                        )
                         new_attr_node = model.graph.create_node("get_attr", attr_name)
                         bias_node_first_user.replace_input_with(bias_node, new_attr_node)
                         param_id = param_id + 1
@@ -1642,7 +1690,11 @@ def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
                 with model.graph.inserting_before(weight_node_first_user):
                     attr_name = "_param_constant_c" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[weight_node.name]]
-                    setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                    setattr(
+                        model,
+                        attr_name,
+                        torch.nn.parameter.Parameter(param_tensor.detach()),
+                    )
                     new_attr_node = model.graph.create_node("get_attr", attr_name)
                     weight_node_first_user.replace_input_with(weight_node, new_attr_node)
                     param_id = param_id + 1
@@ -1656,7 +1708,11 @@ def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
                 with model.graph.inserting_before(bias_node_first_user):
                     attr_name = "_param_constant_c" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[bias_node.name]]
-                    setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                    setattr(
+                        model,
+                        attr_name,
+                        torch.nn.parameter.Parameter(param_tensor.detach()),
+                    )
                     new_attr_node = model.graph.create_node("get_attr", attr_name)
                     bias_node_first_user.replace_input_with(bias_node, new_attr_node)
                     param_id = param_id + 1

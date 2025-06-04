@@ -239,7 +239,15 @@ def overwrite_torch_functions():
             ranks_cache[backend] = {}
             if len(ranks_cache[backend]) == 0:
                 init_process_group_orig(
-                    backend, init_method, timeout, world_size, rank, store, group_name, pg_options, device_id
+                    backend,
+                    init_method,
+                    timeout,
+                    world_size,
+                    rank,
+                    store,
+                    group_name,
+                    pg_options,
+                    device_id,
                 )
             actual_world_size = torch.distributed.distributed_c10d.get_world_size()
             ranks_tuple = tuple(range(actual_world_size))
@@ -444,7 +452,12 @@ def overwrite_torch_functions():
 
     @wraps(torch.serialization._load)
     def wrap_serialization_load_internal(
-        zip_file, map_location, pickle_module, pickle_file="data.pkl", overall_storage=None, **pickle_load_args
+        zip_file,
+        map_location,
+        pickle_module,
+        pickle_file="data.pkl",
+        overall_storage=None,
+        **pickle_load_args,
     ):
         if pickle_module.__name__ == "torch._weights_only_unpickler":
             pickle_module = _weights_only_unpickler
@@ -476,7 +489,10 @@ def overwrite_torch_functions():
         if pickle_module.__name__ == "torch._weights_only_unpickler":
             pickle_module = _weights_only_unpickler
         return serialization_legacy_load_internal_orig(
-            f=f, map_location=map_location, pickle_module=pickle_module, **pickle_load_args
+            f=f,
+            map_location=map_location,
+            pickle_module=pickle_module,
+            **pickle_load_args,
         )
 
     # Pickle protocol 4 is used by default for lazy mode.
@@ -524,13 +540,14 @@ def overwrite_torch_functions():
     @wraps(torch.load)
     def wrap_load(
         f: str | os.PathLike | BinaryIO | IO[bytes],
-        map_location: Callable[[torch.Storage, str], torch.Storage] | torch.device | str | dict[str, str] | None = None,
+        map_location: (
+            Callable[[torch.Storage, str], torch.Storage] | torch.device | str | dict[str, str] | None
+        ) = None,
         pickle_module: Any = pickle,
         weights_only: bool = False,
         mmap: bool | None = None,
         **pickle_load_args,
     ) -> Any:
-
         # When weights_only is True, it tells torch.load to only load the model weights,
         # and it cannot safely work with a custom pickle_module in this case
         if weights_only is True and pickle_module is not None:
@@ -641,7 +658,12 @@ def overwrite_export_functions():
         kwargs: dict[str, Any] | None = None,
         dynamic_shapes: dict[str, Any] | tuple[Any] | None = None,
     ) -> torch.nn.Module | ExportedProgram | GraphModule:
-        return habana_export(f, args, add_export_type_kwargs(kwargs, "export.export_for_training"), dynamic_shapes)
+        return habana_export(
+            f,
+            args,
+            add_export_type_kwargs(kwargs, "export.export_for_training"),
+            dynamic_shapes,
+        )
 
     torch.export.export = wrap_export
     torch.export.export_for_training = wrap_export_for_training

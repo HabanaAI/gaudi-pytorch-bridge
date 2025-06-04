@@ -171,8 +171,10 @@ def test_hpu_const_marking(inference_env_fixture):
         return model_hpu(tensor)
 
     compiled_function = compile_function_if_compile_mode(raw_function)
-    with env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}), torch.no_grad(), torch.autocast(
-        device_type="hpu", dtype=torch.bfloat16, enabled=True
+    with (
+        env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}),
+        torch.no_grad(),
+        torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True),
     ):
         x_hpu = x_hpu.to(torch.bfloat16)
         output_hpu = compiled_function(x_hpu)
