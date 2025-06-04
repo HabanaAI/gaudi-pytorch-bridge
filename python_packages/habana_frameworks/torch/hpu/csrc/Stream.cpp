@@ -87,7 +87,7 @@ static PyObject* THP_HPU_Stream_pynew(
             current_device)
       : c10::hpu::getStreamFromPool((priority < 0), device_index);
 
-  THP_HPU_Stream* self = (THP_HPU_Stream*)ptr.get();
+  auto* self = (THP_HPU_Stream*)ptr.get();
   self->stream_id = static_cast<int64_t>(stream.id());
   self->device_index = static_cast<int64_t>(stream.device_index());
   self->device_type = static_cast<int64_t>(stream.device_type());

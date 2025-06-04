@@ -81,7 +81,7 @@ std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
   }
 
   std::vector<int64_t> repeat;
-  uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+  auto* h2d_data = static_cast<uint32_t*>(host_ptr);
   for (size_t i = 0; i < h2d_data_size; i++) {
     repeat.push_back(*h2d_data++);
   }
@@ -96,7 +96,7 @@ InferOutputMetaRetType RepeatOperatorHT::InferOutputMeta(
   auto param_tensor = inputs[1].toTensor();
 
   auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
-  int64_t size = static_cast<int64_t>(repeat_shape.size());
+  auto size = static_cast<int64_t>(repeat_shape.size());
 
   std::vector<int64_t> rpt_cast;
   for_each(repeat_shape.rbegin(), repeat_shape.rend(), [&](const int32_t& n) {
@@ -135,7 +135,7 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
   auto input = inputs[0].toTensor();
   auto param_tensor = inputs[1].toTensor();
   auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
-  int64_t size = static_cast<int64_t>(repeat_shape.size());
+  auto size = static_cast<int64_t>(repeat_shape.size());
 
   std::vector<int64_t> rpt_cast;
   for_each(repeat_shape.rbegin(), repeat_shape.rend(), [&](const int32_t& n) {
@@ -315,7 +315,7 @@ std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
   }
 
   std::vector<int64_t> repeat;
-  uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+  auto* h2d_data = static_cast<uint32_t*>(host_ptr);
   for (size_t i = 0; i < h2d_data_size; i++) {
     repeat.push_back(*h2d_data++);
   }

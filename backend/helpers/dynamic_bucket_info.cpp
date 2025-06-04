@@ -285,7 +285,7 @@ void Bucket::UpdateRunTime(uint64_t elapsed_time) {
     uint32_t time_improve_threshold =
         GET_ENV_FLAG_NEW(PT_HPU_DS_TIME_IMPROVE_THRESHOLD_PERCENT);
     double time_improve_factor = (100.0 - time_improve_threshold) / 100.0;
-    uint64_t time_to_beat = static_cast<uint64_t>(
+    auto time_to_beat = static_cast<uint64_t>(
         static_cast<double>(base_time_) * time_improve_factor);
 
     auto cur_avg_time{run_time_stat_.GetAvgTime()};

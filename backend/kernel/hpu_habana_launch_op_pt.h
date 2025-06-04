@@ -461,7 +461,7 @@ class HabanaLaunchOpPT {
   // If true, static recipe_arg_spec will be evaluated
   bool maybe_static_recipe_ = true;
   size_t curr_symval_hash_ = 0;
-  std::string compile_stats_path_ = "";
+  std::string compile_stats_path_;
   std::unordered_set<unsigned> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;

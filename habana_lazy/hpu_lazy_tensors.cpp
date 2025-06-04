@@ -75,7 +75,7 @@ std::shared_ptr<Snapshot> StaleLazyTensorKeeper::extract_snapshot() {
 bool HbLazyTensor::switch_dynamic_mode = false;
 
 HbContextArena* HbContextArena::Get() {
-  static HbContextArena* arena = new HbContextArena();
+  static auto* arena = new HbContextArena();
   return arena;
 };
 

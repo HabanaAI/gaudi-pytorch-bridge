@@ -60,7 +60,7 @@ bool computeUpdatedConvWeightAndBias(
   auto status = synHostMalloc(device_id, bytes * 2, 0, &host_ptr);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
-  double* s = (double*)host_ptr;
+  auto* s = (double*)host_ptr;
   for (auto i = 0; i < co; i++) {
     s[i] = ((double)w[i] / sqrt((double)v[i] + (double)bn_eps));
   }

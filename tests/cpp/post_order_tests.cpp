@@ -93,7 +93,7 @@ TEST_F(PostOrderTest, poTestFill) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  exec::HlExec* hlexec = new exec::HlExec();
+  auto* hlexec = new exec::HlExec();
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()

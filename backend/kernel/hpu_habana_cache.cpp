@@ -38,10 +38,9 @@ namespace {
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      synapse_helpers::device_ptr storage_data_ptr_ =
-          reinterpret_cast<synapse_helpers::device_ptr>(
-              pt_tensor.storage().data_ptr().get());
-      synapse_helpers::device_ptr buffer_ptr =
+      auto storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+          pt_tensor.storage().data_ptr().get());
+      auto buffer_ptr =
           reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
       auto offset = (buffer_ptr - storage_data_ptr_);
       offset_hash_code = at::hash_combine(offset_hash_code, offset);
@@ -64,17 +63,17 @@ namespace {
         std::vector<int64_t> h2d_vec;
         habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
         if (h2d_dt_type == habana::HostDataType::INT32_T) {
-          int32_t* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
-          uint32_t* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
-          uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
             HABANA_ASSERT(

@@ -23,7 +23,7 @@ bool enable_inference_mode{GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)};
 
 bool enable_quantization = false;
 // if a proper path is set,const section serialization will be enabled.
-std::string const_section_serialize_path = "";
+std::string const_section_serialize_path;
 // if true, remove all existingconst section files in given path.
 bool clear_const_section_path = false;
 // if true, compress the constant tensor data before serializing onto the disk

@@ -1646,7 +1646,7 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
       "torch.Tensor.view is not supported for tensors with negative bit set when converting to a different dtype.");
 
   int64_t self_element_size = self.element_size();
-  int64_t new_element_size = static_cast<int64_t>(type_meta.itemsize());
+  auto new_element_size = static_cast<int64_t>(type_meta.itemsize());
 
   // Handle bool dtype when self_element_size == new_element_size
   if (self_element_size == new_element_size && dtype == c10::ScalarType::Bool) {
@@ -4032,7 +4032,7 @@ Tensor batch_norm_backward_elemt_lazy(
       true);
   fill_hpu_lazy_(const_tensor, 0);
   fill_hpu_lazy_(value_tensor, 0);
-  index_put_hpu_lazy_(tmp_partial_mean, {const_tensor}, value_tensor, 0);
+  index_put_hpu_lazy_(tmp_partial_mean, {const_tensor}, value_tensor, false);
 
   auto second_term = at::mul(
       at::mul(

@@ -50,7 +50,7 @@ static PyObject* THP_HPU_Event_pynew(
     return nullptr;
   }
 
-  THP_HPU_Event* self = (THP_HPU_Event*)ptr.get();
+  auto* self = (THP_HPU_Event*)ptr.get();
   unsigned int flags = (enable_timing ? 1 : 0);
 
   new (&self->hpu_event) at::hpu::HPUEvent(flags);

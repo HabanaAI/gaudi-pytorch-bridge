@@ -18,7 +18,7 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, exponential_inplace_f32_1) {
-  double lambd = GenerateScalar<double>(1.0, 5.0);
+  auto lambd = GenerateScalar<double>(1.0, 5.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
 
@@ -32,7 +32,7 @@ TEST_F(HpuOpTest, exponential_inplace_f32_1) {
 }
 
 TEST_F(HpuOpTest, exponential_inplace_f32_diff_seed) {
-  double lambd = GenerateScalar<double>(1.0, 5.0);
+  auto lambd = GenerateScalar<double>(1.0, 5.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
@@ -98,7 +98,7 @@ TEST_F(HpuOpTest, exponential_inplace_bf16_5) {
 }
 
 TEST_F(HpuOpTest, exponential_f32_diff_seed) {
-  double lambd = GenerateScalar<double>(1.0, 5.0);
+  auto lambd = GenerateScalar<double>(1.0, 5.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
@@ -124,7 +124,7 @@ TEST_F(HpuOpTest, exponential_f32_2) {
 }
 
 TEST_F(HpuOpTest, exponential_bf16_diff_seed) {
-  double lambd = GenerateScalar<double>(1.0, 5.0);
+  auto lambd = GenerateScalar<double>(1.0, 5.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
@@ -150,7 +150,7 @@ TEST_F(HpuOpTest, exponential_bf16_2) {
 }
 
 TEST_F(HpuOpTest, exponential_out_f32_diff_seed) {
-  double lambd = GenerateScalar<double>(1.0, 5.0);
+  auto lambd = GenerateScalar<double>(1.0, 5.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
@@ -166,7 +166,7 @@ TEST_F(HpuOpTest, exponential_out_f32_diff_seed) {
 }
 
 TEST_F(HpuOpTest, exponential_out_bf16_diff_seed) {
-  double lambd = GenerateScalar<double>(1.0, 5.0);
+  auto lambd = GenerateScalar<double>(1.0, 5.0);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 

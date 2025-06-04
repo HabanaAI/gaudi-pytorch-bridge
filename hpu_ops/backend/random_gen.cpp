@@ -50,7 +50,7 @@ OutputMetaDataVector NormalMetaCommon(
 
   OutputMetaData meta;
   c10::ScalarType dtype;
-  NormalVariant normal_variant =
+  auto normal_variant =
       (NormalVariant)(mean_ival.isTensor() + std_ival.isTensor() * 2);
   if (stack.size() > DTYPE_INDEX) {
     dtype = stack.at(dtype_idx).toOptional<at::ScalarType>().value_or(
@@ -257,7 +257,7 @@ synapse_helpers::tensor NormalTensorHelper(
        paramsT.size()});
   if (normal_variant == NORMAL_TF) {
     // insert mulOp if necessary
-    float stddev =
+    auto stddev =
         static_cast<float>(stack.at(STD_INDEX + idx_shift).toDouble());
     if (stddev != 1.0) {
       auto stddev_tensor =
@@ -287,7 +287,7 @@ synapse_helpers::tensor NormalTensorHelper(
     }
   } else if (normal_variant == NORMAL_FT) {
     // insert addOp if necessary
-    float mean =
+    auto mean =
         static_cast<float>(stack.at(MEAN_INDEX + idx_shift).toDouble());
     if (mean != 0.0) {
       auto mulOp = OpBackend::BuildNode(
@@ -366,7 +366,7 @@ SharedMetaDataVector NormalSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   c10::ScalarType dtype = at::get_default_dtype_as_scalartype();
-  NormalVariant normalVariant = static_cast<NormalVariant>(
+  auto normalVariant = static_cast<NormalVariant>(
       stack.at(0).isTensor() + stack.at(1).isTensor() * 2);
   if (stack.size() > DTYPE_INDEX)
     dtype = stack.at(DTYPE_INDEX)
@@ -439,7 +439,7 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // doesn't come here. So, we can make the safe assumption that seed tensor is
   // the last element in the stack.
   // create the correct enum
-  NormalVariant normal_variant =
+  auto normal_variant =
       (NormalVariant)(stack.at(0).isTensor() + stack.at(1).isTensor() * 2);
   synTensor syn_seed_t;
   if (stack.at(stack.size() - 1).isTensor()) { // eager mode
@@ -627,7 +627,7 @@ void RandomSeedTensorInputIntegers::AddNode(
   CreateShapeTensorInput(graph, dtype, outshape, inputs);
   auto rand_params = FillParams(stack);
 
-  std::string post_op_guid = "";
+  std::string post_op_guid;
   NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
   const bool need_convert_i16 = dtype == c10::ScalarType::Byte ||
       dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;
@@ -684,7 +684,7 @@ HabanaNormal::HabanaNormal(int device_id, c10::ScalarType scalar_type)
 void HabanaNormal::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  NormalVariant normal_variant =
+  auto normal_variant =
       (NormalVariant)(stack.at(MEAN_INDEX + 1).isTensor() +
                       stack.at(STD_INDEX + 1).isTensor() * 2);
   synTensor syn_seed_t = syn_in(0);
@@ -745,7 +745,7 @@ void HabanaRandom::AddNode(
       : std::make_optional<float>(static_cast<float>(stack.at(3).toInt()));
   auto rand_params = RandomUniformParams(dtype, from, to);
 
-  std::string post_op_guid = "";
+  std::string post_op_guid;
   NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
   const bool need_convert_i16 = dtype == c10::ScalarType::Byte ||
       dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;

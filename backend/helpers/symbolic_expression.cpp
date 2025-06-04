@@ -71,7 +71,7 @@ std::string& SymExpression::get_expr_str() {
 int64_t SymExpression::eval() {
   dump_symbol_table();
   exprtk_T value = m_expr_t.value();
-  int64_t result = static_cast<int64_t>(value);
+  auto result = static_cast<int64_t>(value);
   PT_BRIDGE_DEBUG("SymExpression eval result:", result);
   return result;
 }

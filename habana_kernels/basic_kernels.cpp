@@ -1052,21 +1052,21 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
   }
 
   if (h2d_dt_type == habana::HostDataType::INT32_T) {
-    int32_t* h2d_data = static_cast<int32_t*>(host_ptr);
+    auto* h2d_data = static_cast<int32_t*>(host_ptr);
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;
     for (size_t i = 0; i < data_size; i++) {
       strides.push_back(static_cast<int64_t>(*h2d_data++));
     }
   } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
-    uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+    auto* h2d_data = static_cast<uint32_t*>(host_ptr);
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;
     for (size_t i = 0; i < data_size; i++) {
       strides.push_back(static_cast<int64_t>(*h2d_data++));
     }
   } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
-    uint64_t* h2d_data = static_cast<uint64_t*>(host_ptr);
+    auto* h2d_data = static_cast<uint64_t*>(host_ptr);
     data_size = data_size / 2;
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;

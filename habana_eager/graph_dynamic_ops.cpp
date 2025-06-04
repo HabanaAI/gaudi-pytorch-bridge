@@ -1059,7 +1059,7 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 habana::graph::RegisterDSOps& DSOpsRegistry() {
-  static habana::graph::RegisterDSOps* Registry =
+  static auto* Registry =
       new habana::graph::RegisterDSOps();
   return *Registry;
 }

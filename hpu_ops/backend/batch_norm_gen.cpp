@@ -599,8 +599,8 @@ OutputMetaDataVector BatchNormFunctionalFwdMeta(const at::Stack& stack) {
 
 FillParamsT FillBatchNormFwdParams(const at::Stack& stack) {
   using namespace BNFwd;
-  float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-  float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
+  auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
+  auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(
       stack.at(IS_TRAINING_IDX).toBool(),
       stack.at(RUNNING_MEAN_IDX).isTensor());
@@ -611,8 +611,8 @@ FillParamsT FillBatchNormFwdParams(const at::Stack& stack) {
 
 FillParamsT FillBatchNormNoTrainingFwdParams(const at::Stack& stack) {
   using namespace BNNoTrainingFwd;
-  float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-  float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
+  auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
+  auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(false, stack.at(RUNNING_MEAN_IDX).isTensor());
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
 
@@ -621,8 +621,8 @@ FillParamsT FillBatchNormNoTrainingFwdParams(const at::Stack& stack) {
 
 FillParamsT FillBatchNormNoStatsFwdParams(const at::Stack& stack) {
   using namespace BNNoStatsFwd;
-  float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-  float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
+  auto momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
+  auto epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(stack.at(IS_TRAINING_IDX).toBool(), false);
   auto params = fillBatchNormParams(is_training_, momentum, epsilon);
 

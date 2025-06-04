@@ -385,7 +385,7 @@ void OptimizerLambNorm::AddNode(
 
   StackGetter stackGetter(this, stack, "OptimizerLambNorm::AddNode");
   auto gradients = stackGetter.getNextInput<std::vector<TensorsPair>>();
-  float max_grad_norm = static_cast<float>(stackGetter.getNextInput<double>());
+  auto max_grad_norm = static_cast<float>(stackGetter.getNextInput<double>());
 
   HABANA_ASSERT(
       gradients.size() > 0,

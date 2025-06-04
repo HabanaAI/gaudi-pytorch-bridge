@@ -44,7 +44,7 @@ const std::array<HandleBucketInfo, END_> bucketInfo = {
  */
 device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
   uint64_t id = h.id_;
-  bucket_type type = (bucket_type)(id >> total_bits);
+  auto type = (bucket_type)(id >> total_bits);
   if (type >= END_)
     PT_SYNHELPER_FATAL("Wrong  Bucket Type", static_cast<uint64_t>(type));
 
@@ -69,7 +69,7 @@ mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
       std::is_same_v<device_ptr, uint64_t>,
       "following code assumes ptr is uint64_t");
 
-  bucket_type type = (bucket_type)(ptr >> total_bits);
+  auto type = (bucket_type)(ptr >> total_bits);
   if (type > END_)
     PT_SYNHELPER_FATAL("Wrong  Bucket Type", static_cast<uint64_t>(type));
 

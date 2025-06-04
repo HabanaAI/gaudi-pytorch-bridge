@@ -79,7 +79,7 @@ uintptr_t PytMediaProxy::allocateFrameworkHostOutputTensor(
 uintptr_t PytMediaProxy::allocateFrameworkDeviceOutputTensor(
     habana_helpers::TensorShape shape,
     torch::ScalarType dtype) {
-  at::TensorOptions hb_options = at::TensorOptions(torch::kHPU);
+  auto hb_options = at::TensorOptions(torch::kHPU);
   hb_options = hb_options.dtype(dtype);
 
   torch::Tensor tensor;

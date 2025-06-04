@@ -60,7 +60,7 @@ static int64_t get_arange_depth(
           elements <= static_cast<double>(std::numeric_limits<int64_t>::max()),
       "invalid number of elements, possible overflow");
 
-  int64_t num_elements = static_cast<int64_t>(elements);
+  auto num_elements = static_cast<int64_t>(elements);
   return num_elements;
 }
 
@@ -72,7 +72,7 @@ static int64_t get_arange_depth_ds(
   HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
   HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
-  int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
+  auto num_elements = static_cast<int64_t>(ceil((end - start) / step));
   return num_elements;
 }
 

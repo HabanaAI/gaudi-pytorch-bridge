@@ -77,7 +77,7 @@ TEST_SUITE("Stack Generator tests") {
       std::vector<at::ScalarType> blacklisted_types{};
       std::vector<at::ScalarType> whitelisted_types{};
       std::string op_name = "Dummy";
-      std::string op_overload_name = "";
+      std::string op_overload_name;
 
       std::vector<at::Stack> expected_stacks{};
 
@@ -202,7 +202,7 @@ TEST_SUITE("Stack Generator tests") {
     std::vector<at::ScalarType> blacklisted_types{};
     std::vector<at::ScalarType> whitelisted_types{};
     std::string op_name = "Dummy";
-    std::string op_overload_name = "";
+    std::string op_overload_name;
 
     std::vector<at::Stack> expected_stacks{};
 

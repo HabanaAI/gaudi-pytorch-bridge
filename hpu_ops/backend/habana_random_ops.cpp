@@ -232,7 +232,7 @@ void HabanaRandint::AddNode(
   std::vector<synTensor> inputs{syn_in(0)};
   CreateShapeTensorInput(graph, dtype, outshape, inputs);
 
-  std::string post_op_guid = "";
+  std::string post_op_guid;
   NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
   const bool need_convert_i16 = dtype == c10::ScalarType::Byte ||
       dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;

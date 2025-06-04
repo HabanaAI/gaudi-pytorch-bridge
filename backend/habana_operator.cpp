@@ -774,7 +774,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSeed(
 }
 
 habana::RegisterKernel& habana::KernelRegistry() {
-  static habana::RegisterKernel* Registry = new habana::RegisterKernel();
+  static auto* Registry = new habana::RegisterKernel();
   return *Registry;
 }
 
@@ -786,7 +786,7 @@ void habana::HabanaOperator::dump(
   PT_OP_DEBUG([&]() {
     auto stack_printer = [](const at::Stack& stack) {
       std::ostringstream ss;
-      std::string sep = "";
+      std::string sep;
       for (const auto& s : stack) {
         ss << sep;
         sep = ", ";
@@ -812,7 +812,7 @@ void habana::HabanaOperator::dump(
 
     auto pt_tensor_printer = [](const std::vector<at::Tensor>& tensors) {
       std::ostringstream ss;
-      std::string sep = "";
+      std::string sep;
       for (const auto& t : tensors) {
         ss << sep << habana::to_string(t);
         sep = ", ";

@@ -66,7 +66,7 @@ sizes_vec MediandimOutputShape(const at::Stack& stack) {
   if (keepdim)
     outshape[reduction_axis] = 1;
   else {
-    std::vector<int64_t>::iterator itr = outshape.begin() + reduction_axis;
+    auto itr = outshape.begin() + reduction_axis;
     outshape.erase(itr);
   }
   return {outshape, outshape};

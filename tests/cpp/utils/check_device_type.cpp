@@ -21,7 +21,7 @@ bool is_simulator() {
   struct stat st = {};
   if (stat("/sys/class/accel/accel0/device/device_type", &st) == 0) {
     char buffer[128];
-    std::string result = "";
+    std::string result;
     FILE* pipe = popen(
         "cat /sys/class/accel/accel0/device/device_type"
         " | grep -i 'sim' | wc -w",

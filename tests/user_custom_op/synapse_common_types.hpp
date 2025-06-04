@@ -656,7 +656,7 @@ struct synRotateParams {
   // For debug
   bool m_isDumpDescriptors = false;
   uint16_t m_structPad = 0;
-  std::string m_descFilePrefix = "";
+  std::string m_descFilePrefix;
 };
 
 struct synWaitParams {

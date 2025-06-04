@@ -231,7 +231,7 @@ void HbLazyTensorImpl::shallow_copy_from(
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
-  HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+  auto* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
 
   handle_view_cycles(hl_impl->m_tensor, this->m_tensor);
 
@@ -250,7 +250,7 @@ void HbLazyTensorImpl::shallow_copy_from(
   // increase this refcount to preserve it alive till lambda execution
   auto this_ref = std::make_shared<intrusive_raii_t>(this);
   auto func = [impl, this, this_ref]() mutable {
-    HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+    auto* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
     hl_impl->m_tensor.ShallowCopyTo(&this->m_tensor);
   };
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD_NO_FLUSH(__FUNCTION__, func);

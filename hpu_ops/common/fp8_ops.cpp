@@ -190,7 +190,7 @@ std::vector<at::Tensor> CastToFp8V2ScalarListFunction::backward(
     torch::autograd::AutogradContext* ctx,
     const std::vector<at::Tensor>& grads) {
   std::vector<double> scale_vec = ctx->saved_data["scale"].toDoubleVector();
-  at::ArrayRef<double> scale = at::ArrayRef<double>(scale_vec);
+  auto scale = at::ArrayRef<double>(scale_vec);
   at::ScalarType out_dtype = ctx->saved_data["out_dtype"].toScalarType();
 
   auto result =
@@ -442,11 +442,11 @@ std::vector<at::Tensor> Fp8GemmV2ScalarListFunction::backward(
   bool has_D = ctx->saved_data["has_D"].toBool();
   std::vector<double> A_scale_inv_vec =
       ctx->saved_data["A_scale_inv"].toDoubleVector();
-  at::ArrayRef<double> A_scale_inv = at::ArrayRef<double>(A_scale_inv_vec);
+  auto A_scale_inv = at::ArrayRef<double>(A_scale_inv_vec);
 
   std::vector<double> B_scale_inv_vec =
       ctx->saved_data["B_scale_inv"].toDoubleVector();
-  at::ArrayRef<double> B_scale_inv = at::ArrayRef<double>(B_scale_inv_vec);
+  auto B_scale_inv = at::ArrayRef<double>(B_scale_inv_vec);
 
   bool has_bias = ctx->saved_data["has_bias"].toBool();
 

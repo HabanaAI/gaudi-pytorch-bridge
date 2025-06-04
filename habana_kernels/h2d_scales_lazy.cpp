@@ -127,10 +127,10 @@ bool create_h2d_scale_tensors() {
 
   for (const auto bias : biases) {
     double scale_f64 = std::pow(2.0, default_bias - bias);
-    float scale_f32 = static_cast<float>(scale_f64);
+    auto scale_f32 = static_cast<float>(scale_f64);
 
     // at::BFloat16 is stored internally in uint16_t.
-    at::BFloat16 scale_bf16 = at::BFloat16(scale_f32);
+    auto scale_bf16 = at::BFloat16(scale_f32);
 
     insert_scales_into_map(scale_f64, &scale_f32, at::ScalarType::Float);
     insert_scales_into_map(scale_f64, &scale_bf16, at::ScalarType::BFloat16);

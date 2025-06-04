@@ -250,7 +250,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_pt_logging_levels", []() {
     std::map<std::string, int> result;
     for (int i = 0; i < static_cast<int>(HlLogger::LoggerType::LOG_MAX); i++) {
-      HlLogger::LoggerType logger = static_cast<HlLogger::LoggerType>(i);
+      auto logger = static_cast<HlLogger::LoggerType>(i);
       result.insert(std::pair<std::string, int>(
           hl_logger::getLoggerEnumItemName(logger),
           hl_logger::getLoggingLevel(logger)));

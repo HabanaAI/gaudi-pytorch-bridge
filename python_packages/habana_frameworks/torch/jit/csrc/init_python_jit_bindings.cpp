@@ -820,10 +820,10 @@ void defineRealTypeClasses(pybind11::module& m) {
           cpp_list.reserve(py_list.size());
           for (const auto& item : py_list) {
             if (py::isinstance<py::str>(item)) {
-              const std::string str_value = item.cast<std::string>();
+              const auto str_value = item.cast<std::string>();
               cpp_list.push_back(str_value);
             } else if (py::isinstance<py::int_>(item)) {
-              const int64_t int_value = item.cast<int64_t>();
+              const auto int_value = item.cast<int64_t>();
               cpp_list.push_back(int_value);
             } else {
               HABANA_ASSERT(

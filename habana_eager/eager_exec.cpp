@@ -672,13 +672,13 @@ size_t EagerExec::calculate_operator_key(
 
               // hash memory section id if valid storage present
               if (tensor.has_storage()) {
-                uint64_t base_address = reinterpret_cast<uint64_t>(
+                auto base_address = reinterpret_cast<uint64_t>(
                     tensor.storage().data_ptr().get());
                 if (base_address) {
                   // find the base address in the storage_base_addresses vector
                   // whose index is analogous to section id i.e. unique memory
                   // section
-                  std::vector<uint64_t>::iterator it = std::find(
+                  auto it = std::find(
                       storage_base_addresses.begin(),
                       storage_base_addresses.end(),
                       base_address);

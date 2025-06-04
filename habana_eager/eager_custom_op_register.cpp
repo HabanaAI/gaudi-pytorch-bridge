@@ -1087,7 +1087,7 @@ at::Tensor nms(
   hpu_op.set_scalar_types({torch::kLong, torch::kInt});
 
   auto [output_nms, shape_tensor] = hpu_op.call();
-  const int64_t output_numel = shape_tensor[0].item<int64_t>();
+  const auto output_numel = shape_tensor[0].item<int64_t>();
 
   const auto output = output_nms.slice(0, 0, output_numel, 1);
 

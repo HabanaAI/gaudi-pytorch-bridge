@@ -55,7 +55,7 @@ void update_other_scalar_if_out_of_scalar_type_range(
     return;
   }
 
-  const float value = other.item<float>();
+  const auto value = other.item<float>();
   if (is_value_out_of_scalar_range(value, self_type)) {
     hpu_inputs.at(1) = value;
   }

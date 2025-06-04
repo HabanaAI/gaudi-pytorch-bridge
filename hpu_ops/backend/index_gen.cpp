@@ -363,7 +363,7 @@ void IndexHabanaOperator::AddNode(
 
     auto max_size = broadcast_size(tensorlist);
     auto max_dims = (int)max_size.size();
-    int64_t max_num_elems = (int64_t)std::accumulate(
+    auto max_num_elems = (int64_t)std::accumulate(
         max_size.begin(), max_size.end(), 1, std::multiplies<int64_t>());
     auto scalar_type = tensorlist[0].scalar_type();
 
@@ -373,7 +373,7 @@ void IndexHabanaOperator::AddNode(
     for (size_t i = 0; i < tensorlist.size(); i++) {
       auto t_sz = tensorlist[i].sizes().vec();
       int num_dims = (int)t_sz.size();
-      int64_t num_elems = (int64_t)std::accumulate(
+      auto num_elems = (int64_t)std::accumulate(
           t_sz.begin(), t_sz.end(), 1, std::multiplies<int64_t>());
       std::vector<synTensor> index_maybe_multidim_synTensor{syn_in(i + 1)};
       std::unique_ptr<synapse_helpers::tensor> index_maybe_multidim_shTensor;

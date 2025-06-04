@@ -31,7 +31,7 @@ static int64_t get_arange_depth(
   HABANA_ASSERT(!((start > end) && (step > 0)), "step must be negative.");
   HABANA_ASSERT(!((start < end) && (step < 0)), "step must be positive.");
 
-  int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
+  auto num_elements = static_cast<int64_t>(ceil((end - start) / step));
   return num_elements;
 }
 

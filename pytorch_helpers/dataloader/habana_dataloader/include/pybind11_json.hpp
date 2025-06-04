@@ -97,7 +97,7 @@ namespace pyjson
         {
             try
             {
-                nl::json::number_integer_t s = obj.cast<nl::json::number_integer_t>();
+                auto s = obj.cast<nl::json::number_integer_t>();
                 if (py::int_(s).equal(obj))
                 {
                     return s;
@@ -108,7 +108,7 @@ namespace pyjson
             }
             try
             {
-                nl::json::number_unsigned_t u = obj.cast<nl::json::number_unsigned_t>();
+                auto u = obj.cast<nl::json::number_unsigned_t>();
                 if (py::int_(u).equal(obj))
                 {
                     return u;

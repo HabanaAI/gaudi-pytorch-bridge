@@ -36,7 +36,7 @@ at::Generator createHPUGenerator() {
 } // namespace detail
 
 uint32_t get_seed_hpu(const std::optional<at::Generator>& gen) {
-  at::CPUGeneratorImpl* generator =
+  auto* generator =
       at::get_generator_or_default<at::CPUGeneratorImpl>(
           gen, detail::getDefaultHPUGenerator());
 

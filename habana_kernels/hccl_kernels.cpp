@@ -214,9 +214,9 @@ void collective(
     auto deviceCtxt = comm->getDeviceCtxt();
     synStreamHandle collective_stream = comm->getCommStream();
 
-    synapse_helpers::device_ptr input_storage_ptr =
+    auto input_storage_ptr =
         (synapse_helpers::device_ptr)inputs.at(i)->get_buffer_start();
-    synapse_helpers::device_ptr output_storage_ptr =
+    auto output_storage_ptr =
         (synapse_helpers::device_ptr)outputs.at(i)->get_buffer_start();
 
     std::vector<synapse_helpers::shared_event> event_lists = {};
@@ -381,7 +381,7 @@ void pointToPoint(
     auto deviceCtxt = comm->getDeviceCtxt();
     synStreamHandle collective_stream = comm->getCommStream();
 
-    synapse_helpers::device_ptr tensor_storage_ptr =
+    auto tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors.at(i)->get_buffer_start();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
 

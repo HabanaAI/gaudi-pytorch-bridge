@@ -158,7 +158,7 @@ struct Data {
   bool sbs_live_tensor = false;
   bool sbs_compare_tensor = true;
   int sbs_tensor_version = 0;
-  std::string sbs_tensor_name = "";
+  std::string sbs_tensor_name;
   bool collective = false;
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;

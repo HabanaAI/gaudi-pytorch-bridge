@@ -312,7 +312,7 @@ GraphExec::GraphExec(
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(in_stack, m_graph->inputs().size());
 
-  std::string jit_graph_name = "";
+  std::string jit_graph_name;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH)) {
     jit_graph_name = m_graph_name;
   }

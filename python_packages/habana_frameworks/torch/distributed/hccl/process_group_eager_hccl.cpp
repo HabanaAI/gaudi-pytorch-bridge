@@ -376,7 +376,7 @@ void PointToPoint_Execute_Task(
         "All tensors are expected to be assigned to device with id 0");
     synStreamHandle collective_stream = comm.getCommStream();
 
-    synapse_helpers::device_ptr tensor_storage_ptr =
+    auto tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensor.storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
 
@@ -535,9 +535,9 @@ void Collective_Execute_Task(
         "All tensors are expected to be assigned to device with id 0");
     synStreamHandle collective_stream = comm.getCommStream();
 
-    synapse_helpers::device_ptr input_storage_ptr =
+    auto input_storage_ptr =
         (synapse_helpers::device_ptr)input.storage().data_ptr().get();
-    synapse_helpers::device_ptr output_storage_ptr =
+    auto output_storage_ptr =
         (synapse_helpers::device_ptr)output.storage().data_ptr().get();
 
     deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);

@@ -62,7 +62,7 @@ GetBackEndTensorMeta(
     }
 
     auto value = node->input(idx);
-    int32_t index = (int32_t)getValuePosInStack(graph, value);
+    auto index = (int32_t)getValuePosInStack(graph, value);
     if ((index >= 0) && (index < (int32_t)stack.size())) {
       if (stack[index].isTensor()) {
         auto tensor = stack[index].toTensor();
@@ -75,7 +75,7 @@ GetBackEndTensorMeta(
     }
   } else {
     auto value = node->input(0);
-    int32_t index = (int32_t)getValuePosInStack(graph, value);
+    auto index = (int32_t)getValuePosInStack(graph, value);
     if (stack[index].isTensor()) {
       auto tensor = stack[index].toTensor();
       if (tensor.has_storage()) {
@@ -118,7 +118,7 @@ bool recomputeBatchnormParams(
   // std::flush;
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
-  double* s = (double*)host_ptr;
+  auto* s = (double*)host_ptr;
   for (auto i = 0; i < co; i++) {
     s[i] = ((double)1.0 / sqrt((double)v[i] + (double)bn_eps));
     // std::cout << "s[" << i << "] = " << s[i] << std::endl << std::flush;
@@ -168,7 +168,7 @@ void* GetDataInHostBuffer(
     }
 
     auto value = node->input(idx);
-    int32_t index = (int32_t)getValuePosInStack(graph, value);
+    auto index = (int32_t)getValuePosInStack(graph, value);
     // std::cout << "[GetDataInHostBuffer] idx := " << idx << std::endl <<
     // std::flush; std::cout << "[GetDataInHostBuffer] getValuePosInStack := "
     // << index << std::endl << std::flush;
@@ -213,7 +213,7 @@ void* GetDataInHostBuffer(
     }
   } else {
     auto value = node->input(0);
-    int32_t index = (int32_t)getValuePosInStack(graph, value);
+    auto index = (int32_t)getValuePosInStack(graph, value);
     if (stack[index].isTensor()) {
       // std::cout << "[GetDataInHostBuffer] [" << idx << "] isTensor" <<
       // std::endl << std::flush;
@@ -262,11 +262,11 @@ void UpdateDataInDeviceMem(
   at::Tensor tensor;
   if (idx != -1) {
     auto value = node->input(idx);
-    int32_t index = (int32_t)getValuePosInStack(graph, value);
+    auto index = (int32_t)getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   } else {
     auto value = node->input(0);
-    int32_t index = (int32_t)getValuePosInStack(graph, value);
+    auto index = (int32_t)getValuePosInStack(graph, value);
     tensor = stack[index].toTensor();
   }
 

@@ -128,7 +128,7 @@ struct SchemaParser {
       L.expect(':');
       name = name + "::" + L.expect(TK_IDENT).text();
     }
-    std::string overload_name = "";
+    std::string overload_name;
     if (L.nextIf('.')) {
       overload_name = L.expect(TK_IDENT).text();
     }

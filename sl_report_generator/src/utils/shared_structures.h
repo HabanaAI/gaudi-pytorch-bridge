@@ -89,7 +89,7 @@ std::map<InputType, std::string> inputTypeToStrMap = {
 std::ostream& operator<<(std::ostream& os, const InputType& type);
 
 struct InputDescriptor {
-  std::string name = "";
+  std::string name;
   InputType type = InputType::PT_TENSOR;
   bool is_optional = false;
   std::optional<bool> allow_only_none = std::nullopt;

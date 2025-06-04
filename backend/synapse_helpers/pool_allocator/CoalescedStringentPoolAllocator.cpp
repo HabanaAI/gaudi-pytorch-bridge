@@ -230,7 +230,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   }
   // Create one large chunk for the whole memory space that will be chunked
   // and use later
-  Chunk* chunk = new Chunk();
+  auto* chunk = new Chunk();
   chunk->memptr = (uint64_t)p->next;
   chunk->extra_space = 0;
   chunk->size = max_pool_size - header_bytes;
@@ -563,7 +563,7 @@ Chunk* CoalescedStringentPooling::reuse_chunks(
     hpuStream_t stream,
     bool use_stream) const {
   int bin_index = bin_utils->BinIndexForSize(size);
-  Chunk* free_chunk = (Chunk*)FindChunkPtr(bin_index, size, stream, use_stream);
+  auto* free_chunk = (Chunk*)FindChunkPtr(bin_index, size, stream, use_stream);
   if (free_chunk == nullptr) {
     PT_DEVMEM_DEBUG(
         "CS_POOL:: no more reusable chunk: defragment or extend !!");
@@ -719,7 +719,7 @@ void* CoalescedStringentPooling::alloc_chunk(
     return nullptr;
   }
 
-  simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
+  auto* p = (simple_coalesced_pool_t*)prealloc_pool;
   if (prealloc_pool != p) {
     PT_DEVMEM_FATAL("CS_POOL:: alloc unknown pool !!");
   }
@@ -742,7 +742,7 @@ void CoalescedStringentPooling::try_splitting_chunks(
     Chunk* chunk,
     uint64_t size) const {
   // Allocate the new chunk
-  Chunk* new_chunk = new Chunk();
+  auto* new_chunk = new Chunk();
   // split extracts requested size from the beginning of the given chunk
 
   HABANA_ASSERT(!chunk->used && (chunk->bin_index == kInvalidBinNum));
@@ -1130,7 +1130,7 @@ CoalescedStringentPooling::SmallAllocs::~SmallAllocs() {
 
 bool CoalescedStringentPooling::SmallAllocs::IsAllocated(
     const void* aPtr) const {
-  const int8_t* const ptr = static_cast<const int8_t*>(aPtr);
+  const auto* const ptr = static_cast<const int8_t*>(aPtr);
   const int8_t* const chunk_ptr = chunk_ptr_.get();
 
   if (chunk_ptr == nullptr) {

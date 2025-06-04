@@ -133,7 +133,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (!event)
       return;
 
-    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    auto* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     delete hpu_event;
   }
 
@@ -162,7 +162,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   void block(void* event, const at::Stream& stream) const override {
     if (!event)
       return;
-    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    auto* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     c10::hpu::HPUStream hpu_stream{stream};
     hpu_event->block(hpu_stream);
   }
@@ -171,7 +171,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   bool queryEvent(void* event) const override {
     if (!event)
       return true;
-    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    auto* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     return hpu_event->query();
   }
 

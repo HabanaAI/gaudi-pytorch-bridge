@@ -2831,7 +2831,7 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
   }
 
   size_t outputs_metadata_index = 0;
-  uint32_t node_idx = static_cast<uint32_t>(-1);
+  auto node_idx = static_cast<uint32_t>(-1);
   torch::jit::graph_node_list graph_nodes = rv_jit_graph->nodes();
   for (auto* node : graph_nodes) {
     ++node_idx;
@@ -3586,7 +3586,7 @@ HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
   std::vector<size_t> intermediate_shape_tensors_vec;
   std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
       memory_reuse_pairs;
-  unsigned node_idx = static_cast<unsigned>(-1);
+  auto node_idx = static_cast<unsigned>(-1);
   PT_OP_DEBUG("JIT Graph: ", jit_ir_graph_->toString());
   for (auto* node : graph_nodes) {
     ++node_idx;
@@ -3829,17 +3829,17 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
         std::vector<int64_t> h2d_vec;
         habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
         if (h2d_dt_type == habana::HostDataType::INT32_T) {
-          int32_t* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
-          uint32_t* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
         } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
-          uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
+          auto* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
             HABANA_ASSERT(
@@ -4808,7 +4808,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
               auto matched_const_id =
                   constant_information.GetMatchedConstIdForRecipe(
                       recipe_key, const_id, scale_index);
-              uint64_t oldAddress = reinterpret_cast<uint64_t>(
+              auto oldAddress = reinterpret_cast<uint64_t>(
                   pt_tensor.storage().data_ptr().get());
               auto smeta{habana::get_storage_extra_meta(pt_tensor)};
               permuteInfo perm_info;
@@ -4821,7 +4821,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
               if (new_extra_smeta && smeta) {
                 SetPermuteInfo(new_extra_smeta, smeta, perm_info);
               }
-              uint64_t newAddress = reinterpret_cast<uint64_t>(
+              auto newAddress = reinterpret_cast<uint64_t>(
                   pt_tensor.storage().data_ptr().get());
               update_syn_launch_info(oldAddress, newAddress);
             }
@@ -4829,10 +4829,10 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
           auto info_exists = constant_information.DoesConstInfoExistForRecipe(
               const_id, ConstantInformation::key_t{cur_rargpsh_->hashCode()});
           if (!info_exists) {
-            uint64_t oldAddress = reinterpret_cast<uint64_t>(
+            auto oldAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             DeserializeConstSection(pt_tensor, cur_rargpsh_->hashCode());
-            uint64_t newAddress = reinterpret_cast<uint64_t>(
+            auto newAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             update_syn_launch_info(oldAddress, newAddress);
           }
@@ -4857,7 +4857,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
           }
           if (checksum_and_recipe_checksum.device_checksum_ !=
               checksum_and_recipe_checksum.recipe_checksum_) {
-            uint64_t oldAddress = reinterpret_cast<uint64_t>(
+            auto oldAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             constant_information.GetConstPtrForRecipe(
                 const_id,
@@ -4865,7 +4865,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache() {
                 pt_tensor);
             constant_information.Insert(
                 const_id, checksum_and_recipe_checksum.recipe_checksum_);
-            uint64_t newAddress = reinterpret_cast<uint64_t>(
+            auto newAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             update_syn_launch_info(oldAddress, newAddress);
           }
@@ -6106,7 +6106,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       "}");
 
   std::string result = "OK";
-  std::string jit_ir = "";
+  std::string jit_ir;
   if (graph_input_info.current_bucket_id == 0) {
     jit_ir = jit_ir_graph_->toString();
   }

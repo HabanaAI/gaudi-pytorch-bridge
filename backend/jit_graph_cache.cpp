@@ -190,7 +190,7 @@ void ComputeGraphHashCode(
         auto const_id = habana::get_tensor_const_id(pt_tensor);
         if (pt_tensor.numel() == 1 && !is_eager_graph) {
           auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
-          float const_value = pt_tensor.item<float>();
+          auto const_value = pt_tensor.item<float>();
           PT_BRIDGE_DEBUG(
               "JIT graph_key hash const_value:",
               const_value,
@@ -253,7 +253,7 @@ size_t ComputeNodeSymOutputHashCode(
     if ((torch::jit::prim::Constant != node->kind()) &&
         (torch::jit::prim::ListConstruct != node->kind())) {
       auto outputshapes_attr = c10::Symbol::attr("output_shapes");
-      std::string shape_str = "";
+      std::string shape_str;
       if (node->hasAttribute(outputshapes_attr)) {
         shape_str = node->s(outputshapes_attr);
       } else {

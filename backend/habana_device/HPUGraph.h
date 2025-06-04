@@ -114,7 +114,7 @@ struct SingleHPUGraph {
       seed_tensors_generator_;
   size_t hash_{0};
   size_t graphKey_{0};
-  std::string opStrs_ = "";
+  std::string opStrs_;
   c10::hpu::HPUStream capture_stream_;
 };
 

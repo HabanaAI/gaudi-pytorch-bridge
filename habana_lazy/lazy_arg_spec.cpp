@@ -135,7 +135,7 @@ void LazyArgumentSpec::GetArgSpecKey(
       if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {
         auto const_id = habana::get_tensor_const_id(in_tensor);
         if (in_tensor.numel() == 1) {
-          float const_value = in_tensor.item<float>();
+          auto const_value = in_tensor.item<float>();
           auto tmeta{habana::get_tensor_extra_meta(in_tensor)};
           PT_BRIDGE_DEBUG(
               "Lazy arg spec hash const_value:",
