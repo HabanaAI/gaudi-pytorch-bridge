@@ -82,6 +82,6 @@ void RoundDivide::AddNode(
         }(),
         DivModeMeta(stack)[0].dtype));
   }
-  return OpBackend::AddNode(graph, stack);
+  OpBackend::AddNode(graph, stack);
 }
 } // namespace habana

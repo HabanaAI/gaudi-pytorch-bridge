@@ -716,7 +716,7 @@ void graph::launch(
     std::vector<shared_event>& ext_events,
     stream& compute_stream,
     size_t active_graph_key) {
-  return launch(
+  launch(
       device,
       recipe_handle,
       workspace_size,

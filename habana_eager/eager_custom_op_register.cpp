@@ -151,7 +151,7 @@ void optimizer_lamb_phase1(
   std::vector<at::TensorList> tensorlists = {
       exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps};
 
-  return hpu_op.call(tensorlists);
+  hpu_op.call(tensorlists);
 }
 
 void optimizer_lamb_phase2(
@@ -187,7 +187,7 @@ void optimizer_lamb_phase2(
       {habana::eager::eagerOpKind::Inplace,
        "hpu::optimizer_lamb_phase2",
        decltype(habana::eager::EagerOpMetaData::out_indices_){0}});
-  return hpu_op.call(weights);
+  hpu_op.call(weights);
 }
 
 void optimizer_ema(

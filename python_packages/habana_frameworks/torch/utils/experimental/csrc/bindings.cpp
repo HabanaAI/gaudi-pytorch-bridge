@@ -115,7 +115,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "set_profiler_tracer_memory",
       [](const uint32_t device_id) {
-        return SetProfilerTracerMemory(device_id);
+        SetProfilerTracerMemory(device_id);
       },
       py::arg("device_id"));
   py::enum_<synDeviceType>(m, "synDeviceType")

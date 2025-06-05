@@ -78,7 +78,8 @@ void CumsumHabanaOperator::AddNode(
   }
 
   if (dtype == ScalarType() || ScalarType() == at::ScalarType::Double) {
-    return OpBackend::AddNode(graph, stack);
+    OpBackend::AddNode(graph, stack);
+    return;
   }
 
   std::optional<synapse_helpers::tensor> cast{};

@@ -6235,7 +6235,7 @@ void optimizer_lamb_phase1(
       std::vector<std::vector<int64_t>>{},
       -1};
 
-  return hpu_op.call(std::vector<at::TensorList>{
+  hpu_op.call(std::vector<at::TensorList>{
       exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps});
 }
 

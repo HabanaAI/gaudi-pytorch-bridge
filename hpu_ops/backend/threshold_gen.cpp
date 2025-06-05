@@ -70,7 +70,7 @@ void ThresholdBackward::AddNode(
   HABANA_ASSERT(
       grad_output.sizes() == self.sizes(), "Input sizes must be equal");
 
-  return OpBackend::AddNode(graph, stack);
+  OpBackend::AddNode(graph, stack);
 }
 
 } // namespace habana

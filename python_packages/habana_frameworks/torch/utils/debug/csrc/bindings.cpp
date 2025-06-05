@@ -60,7 +60,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("clear_jit_cache", []() {
     habana::TryJoinPendingEagerPipelineThreads();
-    return habana::HpuShapeAgnosticHelper::get()->clear_jit_cache();
+    habana::HpuShapeAgnosticHelper::get()->clear_jit_cache();
   });
   m.def("set_dynamic_mode", []() {
     habana_lazy::HbLazyTensor::SetDynamicMode();
@@ -200,7 +200,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "mem_log", [](std::string msg) { habana_lazy::log_dev_mem_stats(msg); });
   m.def("dump_memory_reporter", []() {
-    return habana::HPUDeviceAllocator::dump_memory_reporter();
+    habana::HPUDeviceAllocator::dump_memory_reporter();
   });
   m.def("_disk_cache_flush", []() {
     habana::HPUDeviceContext::flush_disk_cache();

@@ -44,7 +44,7 @@ void SingleTonExecThreadPool::CreateInstance() {
 ////////////////////////////////////////////////////////////////////////////CONTEXT////////////////////////////////////////////////////////////////////////////////////////
 
 void HbExecutionContext::RegisterTensor(std::shared_ptr<Data> data) {
-  return MarkTensorStatus(data, kREGISTERED);
+  MarkTensorStatus(data, kREGISTERED);
 }
 
 void HbExecutionContext::UnregisterTensor(Data* data) {

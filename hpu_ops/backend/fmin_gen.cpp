@@ -31,7 +31,7 @@ void FMin::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   SetGuid(get_guid_with_precision(
       c10::isFloatingType(dtype) ? "fmin_fwd"sv : "min_fwd"sv, dtype));
-  return OpBackend::AddNode(graph, stack);
+  OpBackend::AddNode(graph, stack);
 }
 
 SharedMetaDataVector FMinSharedMeta(

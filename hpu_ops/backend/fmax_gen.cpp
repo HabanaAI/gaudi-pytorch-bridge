@@ -31,7 +31,7 @@ void FMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   SetGuid(get_guid_with_precision(
       c10::isFloatingType(dtype) ? "fmax_fwd"sv : "max_fwd"sv, dtype));
-  return OpBackend::AddNode(graph, stack);
+  OpBackend::AddNode(graph, stack);
 }
 
 SharedMetaDataVector FMaxSharedMeta(

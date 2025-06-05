@@ -74,7 +74,7 @@ struct HabanaLaunchOpLauncher : Launcher {
       torch::jit::Stack& stack,
       std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
       bool dry_run) override {
-    return habana_launch_op_.run(stack, cached_rarg_psh, {}, {}, dry_run);
+    habana_launch_op_.run(stack, cached_rarg_psh, {}, {}, dry_run);
   }
 
   habana::HabanaLaunchOpPT habana_launch_op_;

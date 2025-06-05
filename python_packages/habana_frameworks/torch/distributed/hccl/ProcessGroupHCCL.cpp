@@ -790,6 +790,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   processGroupHccl.def(
       "_shutdown",
       [](const c10::intrusive_ptr<::c10d::ProcessGroupHCCL>& self) {
-        return self->shutdown(std::nullopt);
+        self->shutdown(std::nullopt);
       });
 };

@@ -513,7 +513,8 @@ void deviceMallocData::print_to_file(const char* msg) {
  */
 void deviceMallocData::print_live_allocations(const char* msg) {
   if (!logging_enabled_) {
-    return print_to_file(msg);
+    print_to_file(msg);
+    return;
   }
 
   std::string record_id_msg = msg;

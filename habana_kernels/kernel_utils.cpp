@@ -267,7 +267,7 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
     int& position_of_promoted_tensor,
     c10::ScalarType& compute_dtype) {
   c10::ScalarType dst_dtype = c10::ScalarType::Undefined;
-  return type_promotion_for_two_tensor_inputs(
+  type_promotion_for_two_tensor_inputs(
       inputs, position_of_promoted_tensor, compute_dtype, dst_dtype);
 }
 

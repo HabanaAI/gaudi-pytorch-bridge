@@ -1222,7 +1222,7 @@ void optimizer_lars_hpu_wrap(
       to_string(eps),
       " lr=",
       to_string(lr));
-  return optimizer_lars_hpu_lazy(
+  optimizer_lars_hpu_lazy(
       params, grads, skipMasks, eeta, weight_decay, eps, lr);
 }
 

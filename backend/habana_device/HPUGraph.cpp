@@ -563,7 +563,7 @@ void SingleHPUGraph::replayGraph(
 
 void SingleHPUGraph::replay(bool async) {
   if (graph_) {
-    return replayGraph(input_vals_, async);
+    replayGraph(input_vals_, async);
   }
 }
 
@@ -598,7 +598,7 @@ void SingleHPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
         input_vals_[i] = hbl.CurrentIrValue();
       }
     }
-    return replayGraph(input_vals_, async);
+    replayGraph(input_vals_, async);
   }
 }
 
@@ -641,7 +641,7 @@ void SingleHPUGraph::replayV2(
           }
           return saved_ir_v_;
         });
-    return replayGraph(input_val_list, async);
+    replayGraph(input_val_list, async);
   }
 }
 } // namespace at::hpu

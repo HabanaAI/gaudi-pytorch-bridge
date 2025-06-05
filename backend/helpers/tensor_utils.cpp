@@ -361,7 +361,7 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  return copy_data_to_host(
+  copy_data_to_host(
       src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
 }
 
@@ -462,7 +462,7 @@ void habana_helpers::copy_data_to_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  return copy_data_to_device(
+  copy_data_to_device(
       src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
 }
 

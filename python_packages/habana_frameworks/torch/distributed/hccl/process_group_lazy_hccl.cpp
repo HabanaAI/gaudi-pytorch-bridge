@@ -140,7 +140,8 @@ void restoreTensorsize(
     int extra_num_elems,
     int ori_input_size = -1) {
   if (extra_num_elems == 1) {
-    return restoreOddTensorsize(tensors, changed, sizeList, strideList);
+    restoreOddTensorsize(tensors, changed, sizeList, strideList);
+    return;
   }
 
   // Below for the case: extra_num_elems > 1
@@ -1317,6 +1318,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   processGroupHccl.def(
       "_shutdown",
       [](const c10::intrusive_ptr<::c10d::ProcessGroupLazyHCCL>& self) {
-        return self->shutdown(std::nullopt);
+        self->shutdown(std::nullopt);
       });
 };

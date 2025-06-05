@@ -310,7 +310,7 @@ TORCH_LIBRARY_IMPL(c10d, HPU, m) {
 
 void startCoalescing_(
     const c10::intrusive_ptr<c10d::ProcessGroup>& process_group) {
-  return process_group->getBackend(c10::DeviceType::HPU)->startCoalescing();
+  process_group->getBackend(c10::DeviceType::HPU)->startCoalescing();
 }
 
 c10::intrusive_ptr<c10d::Work> endCoalescing_(
