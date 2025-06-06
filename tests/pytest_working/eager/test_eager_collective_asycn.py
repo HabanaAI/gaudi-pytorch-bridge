@@ -172,6 +172,32 @@ def simple(rank, world_size, args):
     cleanup()
 
 
+def send_recieve_with_strided_tensor(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    def local_send(nodes):
+        _tensor = (
+            torch.arange(8 * 8 * 16, dtype=torch.bfloat16).as_strided((1, 8, 1, 16, 8), (16, 8, 128, 8, 1)).to(device)
+        )
+        for node in nodes:
+            torch.distributed.send(_tensor, node)
+
+    def local_recv():
+        _tensor = torch.zeros(8 * 8 * 16, device=device, dtype=torch.bfloat16).reshape(1, 8, 1, 16, 8).to(device)
+        torch.distributed.recv(_tensor, 0)
+        return _tensor
+
+    _tensor_ref = (
+        torch.arange(8 * 8 * 16, dtype=torch.bfloat16).as_strided((1, 8, 1, 16, 8), (16, 8, 128, 8, 1)).to(device)
+    )
+    if rank == 0:
+        local_send(range(1, world_size))
+    else:
+        _tensor = local_recv()
+        assert torch.equal(_tensor, _tensor_ref)
+
+
 def send_recieve_with_odd_size(rank, world_size, args):
     device = f"{device_hpu}"
     setup(rank, world_size)
@@ -310,4 +336,5 @@ if __name__ == "__main__":
         mp.spawn(send_recieve, args=(2, args), nprocs=2, join=True)
         mp.spawn(send_recieve_with_odd_size, args=(2, args), nprocs=2, join=True)
         mp.spawn(send_recieve_permuted, args=(2, args), nprocs=2, join=True)
+        mp.spawn(send_recieve_with_strided_tensor, args=(2, args), nprocs=2, join=True)
         mp.spawn(gather_with_odd_size, args=(2, args), nprocs=2, join=True)

@@ -766,8 +766,10 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
   tensors_backend.reserve(tensors.size());
   for (const auto& tensor : tensors) {
     // Allocate memory for cloned tensors
-    clone_tensors.push_back(
-        at::empty_like(tensor, tensor.options().device(tensor.device())));
+    clone_tensors.push_back(at::empty_like(
+        tensor,
+        tensor.options().device(tensor.device()),
+        c10::MemoryFormat::Contiguous));
 
     // Get backend tensors
     tensors_backend.push_back(std::make_pair(
@@ -793,14 +795,15 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
       std::tie(permutation, std::ignore) =
           habana_helpers::get_tensor_memory_permutation(send_tensor);
       PT_DISTRIBUTED_DEBUG("Send: permutation: ", VecToString(permutation));
-      const bool is_permuted = !permutation.empty();
+      const bool is_permuted_or_non_contiguous =
+          !permutation.empty() || !send_tensor.is_contiguous();
 
       /*
        * Get send tensor permutations (current op lowering stage).
        * Set send org tensor as a metadata to the clone tensor.
        * In the next op, i.e. copy send tensor to the clone tensor.
-       * If (permutation)
-       *   This copy clears the permutation on the cloned tensor.
+       * If (permutation or strided tensor)
+       *   This copy clears the permutation/strides on the cloned tensor.
        * Else
        *   Copy op is discarded at its lowering stage.
        *
@@ -808,7 +811,7 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
        * org send tensor in the metadata. The idea is to use the
        * clone tensor in case the org send tensor has permutation set.
        *
-       * If there is no permutation, then an org send tensor is used.
+       * If there is no permutation/strides, then an org send tensor is used.
        * Further, this metadata can be used to discard the next D2D copy op
        * since clone tensor is not required and to avoid unnecessary copy
        *
@@ -825,7 +828,8 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
        */
 
       auto clone_tensor_hb_tmeta{habana::get_tensor_extra_meta(clone_tensor)};
-      clone_tensor_hb_tmeta->set_send_org_tensor_meta(is_permuted, send_tensor);
+      clone_tensor_hb_tmeta->set_send_org_tensor_meta(
+          is_permuted_or_non_contiguous, send_tensor);
     }
   };
 
@@ -833,8 +837,8 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
       std::move(pipeline_or_direct_send_permutes));
 
   for (size_t i = 0; i < tensors.size(); i++) {
-    // Copy D2D, if any permutation set permutation will be cleared
-    // If No permutation, This op will be discarded at it lowering.
+    // Copy D2D, if any permutation/strides It will be cleared
+    // If No permutation/strides, This op will be discarded at its lowering.
     constexpr int num_outputs = 1;
     constexpr bool skip_lowering = true;
     habana::eager::EagerOp<at::Tensor&> hpu_op{
