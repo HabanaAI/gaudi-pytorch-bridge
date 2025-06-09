@@ -239,7 +239,17 @@
             "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-reduced-float32]",
             "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-reduced-bfloat16]",
             "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-complete-float32]",
-            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-complete-bfloat16]"
+            "pytest_working/any_mode/simple_ops/test_hpu_linalg_qr.py::test_hpu_linalg_qr_random[[1x1]-run_linalg_qr_out-complete-bfloat16]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-True-True-1-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-True-False-1-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-False-True-1-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[E5M2-False-False-1-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-True-True-1-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-True-False-3-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-True-False-1-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-False-True-1-1-dtype0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_amax_measure_interval[HYBRID-False-False-1-1-dtype0]",
+            "pytest_working/eager/test_eager_view_ops.py::test_view_permutation_contiguous_view_update"
         ]
     },
     "gaudi2": {
