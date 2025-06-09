@@ -20,6 +20,7 @@
 #include <stdexcept>
 
 #include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "serialize/export.h"
 #include "visualize.h"
@@ -67,10 +68,9 @@ std::string GetGraphFilename(
     const std::string& suffix,
     size_t graphIndex,
     ssize_t passIndex = -1) {
-  std::string folder = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  std::string folder = synapse_helpers::check_and_prepare_graph_dump_dir();
   std::stringstream ss;
-  ss << folder << "/"
-     << "jit_ir_" << graphIndex << "_";
+  ss << folder << "jit_ir_" << graphIndex << "_";
   if (passIndex >= 0) {
     ss << passIndex << "_";
   }
@@ -121,9 +121,8 @@ void DumpEagerOrCompileGraph(
     const GraphPtr& graph,
     const std::string& graph_name) {
   std::stringstream ss;
-  std::string folder = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
-
-  ss << folder << "/";
+  std::string folder = synapse_helpers::check_and_prepare_graph_dump_dir();
+  ss << folder;
 
   try {
     // Multi-node scenario

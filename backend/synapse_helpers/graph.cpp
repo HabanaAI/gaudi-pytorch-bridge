@@ -16,18 +16,13 @@
 #include <absl/strings/str_join.h>
 #include <absl/types/optional.h>
 #include <absl/types/variant.h>
+#include <bits/fs_fwd.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_api.h>
 #include <sys/stat.h>
-#include <algorithm>
-#include <chrono>
-#include <cstdint>
-#include <cstdlib>
-#include <iostream>
-#include <iterator>
-#include <limits>
+#include <mutex>
 #include <ostream>
-#include <type_traits>
+#include <string>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
@@ -46,49 +41,58 @@
 #include "habana_lazy/memlog.h"
 #include "util/time_measure.h"
 
+#if !defined __GNUC__ || __GNUC__ >= 8
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
 namespace synapse_helpers {
 
+std::once_flag create_dir_flag;
+
+std::string check_and_prepare_graph_dump_dir() {
+  static std::string dir = "";
+  std::call_once(create_dir_flag, [&]() {
+    std::error_code err_code;
+    dir = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+    dir += '/';
+    bool is_new = fs::create_directories(dir, err_code);
+
+    if (!err_code) {
+      if (is_new) {
+#if !defined __GNUC__ || __GNUC__ >= 8
+        fs::permissions(
+            dir,
+            fs::perms::owner_all | fs::perms::group_all,
+            fs::perm_options::add);
+#else
+            fs::permissions(
+                dir,
+                fs::perms::add_perms | fs::perms::owner_all | fs::perms::group_all);
+#endif
+      }
+    } else {
+      PT_SYNHELPER_WARN("Cannot create graph dump directory ", dir);
+      dir = "";
+    }
+  });
+  return dir;
+}
 namespace {
 
-const std::string graph_prefix = ".graph_dumps/";
 std::string get_unique_recipe_name(const std::string& name, bool eager_mode) {
-  static uint64_t suffix = -1;
+  static uint64_t suffix = 0;
+  static std::string graph_dump_dir = check_and_prepare_graph_dump_dir();
+
   if (eager_mode && !(IS_SYNHELPER_DEBUG_ENABLED)) {
-    return std::to_string(++suffix);
+    return graph_dump_dir + std::to_string(suffix++);
   }
 
-  char* env_graph_prefix{getenv("HBN_TF_GRAPH_PREFIX")};
-  if (env_graph_prefix != nullptr) {
-    return absl::StrFormat(
-        "%s%s_%s_%d", graph_prefix, env_graph_prefix, name, ++suffix);
-  }
-
-  return absl::StrFormat("%s%s_%d", graph_prefix, name, ++suffix);
+  return absl::StrFormat("%s%s_%d", graph_dump_dir, name, ++suffix);
 }
-
-bool check_and_prepare_graph_dir() {
-  if (mkdir(graph_prefix.c_str(), S_IRWXU | S_IRWXG) ==
-      0) { // NOLINT(hicpp-signed-bitwise)
-    return true;
-  }
-
-  struct stat info{};
-  if (stat(graph_prefix.c_str(), &info) != 0 ||
-      !(info.st_mode & S_IFDIR)) { // NOLINT(hicpp-signed-bitwise))
-    PT_SYNHELPER_WARN("Cannot create graph dump directory ", graph_prefix);
-    return false;
-  }
-  return true;
-}
-
-class GraphDirStaticMaker {
- public:
-  GraphDirStaticMaker() {
-    check_and_prepare_graph_dir();
-  }
-};
-
-GraphDirStaticMaker graph_dir_maker;
 
 std::unordered_map<std::string, std::string> ParseHintsFromString(
     const std::string& hints_str) {
@@ -444,7 +448,8 @@ graph::~graph() {
 template <
     typename T,
     typename Alloc,
-    template <typename, typename> class V,
+    template <typename, typename>
+    class V,
     typename std::enable_if<std::negation<typename std::is_same<
         std::string,
         typename V<T, Alloc>::value>::value>::type>::type>
