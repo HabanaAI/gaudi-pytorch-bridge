@@ -62,6 +62,7 @@ orchestratorConfig:
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_small_models_test
+    silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal

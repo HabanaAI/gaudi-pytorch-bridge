@@ -29,6 +29,7 @@ orchestratorConfig:
       silentMode: false
     # PT BDC-QA Perf 8 card jobs in K8S container mode <Stop>
     - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_small_models_test
+      silentMode: true
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_short_accuracy_promote
     # PyTorch Operators and feature validation <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt_perf
