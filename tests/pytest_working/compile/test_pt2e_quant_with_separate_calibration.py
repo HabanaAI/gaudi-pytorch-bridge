@@ -213,6 +213,7 @@ def test_pt2e_quant_float(
         )
 
 
+@pytest.mark.skip(reason="PT2E-Quantization with pattern matching supports fp8 dtype only")
 @pytest.mark.parametrize("save_or_load", test_mode)
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)

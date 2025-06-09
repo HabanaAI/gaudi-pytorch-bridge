@@ -387,6 +387,7 @@ def test_pt2e_quant_float(
         )
 
 
+@pytest.mark.skip(reason="PT2E-Quantization with pattern matching supports fp8 dtype only")
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
@@ -446,6 +447,7 @@ def test_pt2e_quant_int(
         )
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
 def test_fp8_fsdpa_with_pt2e(dtype, inference_env_fixture):
     # Stabilizing testing.
