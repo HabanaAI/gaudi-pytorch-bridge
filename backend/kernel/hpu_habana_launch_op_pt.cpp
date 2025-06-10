@@ -5395,13 +5395,6 @@ void HabanaLaunchOpPT::run(
           synapse_orig_to_new_handle,
           is_shape_agnostic_graph);
 
-      // Run Synapse Shape inference if required
-      if (jit_graph_and_meta_data_->get_is_synapse_shape_inf_required()) {
-        HABANA_ASSERT(
-            syn_graph_ptr_->inferShapes() == true,
-            "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
-      }
-
       // Get updated nodes params for if param agnostic is supported
       // and for single node graph for which Hybrid SIF did not run earlier
       // ToDO: Check and optimize Hybrid SIF for getting only node params
@@ -5419,6 +5412,13 @@ void HabanaLaunchOpPT::run(
             syn_graph_ptr_->get_syn_node_id_vec(),
             syn_graph_ptr_->get_graph_handle(),
             node_params_vec_ptr);
+      }
+
+      // Run Synapse Shape inference if required
+      if (jit_graph_and_meta_data_->get_is_synapse_shape_inf_required()) {
+        HABANA_ASSERT(
+            syn_graph_ptr_->inferShapes() == true,
+            "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
       }
 
       recipe_launcher_ = std::make_unique<RecipeLauncher>(rv);
