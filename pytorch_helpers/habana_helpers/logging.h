@@ -37,6 +37,9 @@
 #define BRACED_PARAM(p) "{}"
 #define FORMAT_AND_MSG(...) \
   HLLOG_APPLY(HLLOG_EMPTY, BRACED_PARAM, ##__VA_ARGS__), ##__VA_ARGS__
+#define S1(x) #x
+#define S2(x) S1(x)
+#define FILE_AND_LINE __FILE__ "@" S2(__LINE__)
 
 namespace HlLogger {
 // Define an enum with all the logger types the last item must be LOG_MAX
@@ -319,7 +322,7 @@ class PTFuncLog {
     if (synErrorMsg) {                                                   \
       MSG_ += std::string("\nLast synapse error: ") + synErrorMsg;       \
     }                                                                    \
-    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(__FILE__, __LINE__, MSG_));    \
+    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(FILE_AND_LINE, MSG_));         \
     hl_logger::logStacktrace(                                            \
         HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);             \
     Logger::habana_assert(                                               \
