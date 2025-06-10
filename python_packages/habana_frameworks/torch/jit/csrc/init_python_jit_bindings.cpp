@@ -57,8 +57,8 @@ namespace habana_torch::jit {
 template <typename T>
 class unwrapping_shared_ptr {
   static_assert(
-      std::is_same<T, Value>::value || std::is_same<T, Node>::value ||
-          std::is_same<T, Block>::value,
+      std::is_same_v<T, Value> || std::is_same_v<T, Node> ||
+          std::is_same_v<T, Block>,
       "unwrapping type only defined for Graph object types");
 
  private:

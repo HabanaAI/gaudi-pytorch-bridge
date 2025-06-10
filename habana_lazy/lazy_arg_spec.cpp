@@ -128,8 +128,7 @@ void LazyArgumentSpec::GetArgSpecKey(
     if (input_ival.isTensor()) {
       auto in_tensor = input_ival.toTensor();
       auto m = in_tensor.suggest_memory_format();
-      int64_t m_int =
-          static_cast<std::underlying_type<c10::MemoryFormat>::type>(m);
+      int64_t m_int = static_cast<std::underlying_type_t<c10::MemoryFormat>>(m);
       mf_hash_code =
           at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));
       if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {
@@ -157,8 +156,7 @@ void LazyArgumentSpec::GetArgSpecKey(
         if (hb_tensor) {
           auto m_lazy = hb_tensor->GetTensorLayout();
           int64_t m_lazy_int =
-              static_cast<std::underlying_type<habana::LayoutFormat>::type>(
-                  m_lazy);
+              static_cast<std::underlying_type_t<habana::LayoutFormat>>(m_lazy);
           mf_hash_code = at::hash_combine(
               mf_hash_code, at::get_hash(habana::mod_exp(m_lazy_int)));
         }

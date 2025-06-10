@@ -643,7 +643,7 @@ static at::Tensor mixture_of_experts_fp8_common(
           .unsqueeze(-1);
 
   Scale default_scale;
-  if constexpr (std::is_same<Scale, double>::value) {
+  if constexpr (std::is_same_v<Scale, double>) {
     default_scale = 1.0;
   } else {
     default_scale = at::tensor(
@@ -947,7 +947,7 @@ static at::Tensor mixture_of_experts_fp8_common_dynamic(
           .unsqueeze(-1);
 
   Scale default_scale;
-  if constexpr (std::is_same<Scale, double>::value) {
+  if constexpr (std::is_same_v<Scale, double>) {
     default_scale = 1.0;
   } else {
     default_scale = at::tensor(
@@ -1012,7 +1012,7 @@ static at::Tensor mixture_of_experts_fp8_common_dynamic(
         std::nullopt));
 
     at::Tensor current_d_scale_w3;
-    if constexpr (std::is_same<Scale, double>::value) {
+    if constexpr (std::is_same_v<Scale, double>) {
       current_d_scale_w3 = at::tensor(
           d_scale_w3[expert_idx],
           torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU));

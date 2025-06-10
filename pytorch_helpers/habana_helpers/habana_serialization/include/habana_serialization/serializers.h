@@ -33,7 +33,7 @@ template <typename POD>
 void serialize(std::ostream& os, const POD& input) {
   // this only works on built in data types (PODs)
   static_assert(
-      std::is_trivial<POD>::value && std::is_standard_layout<POD>::value,
+      std::is_trivial_v<POD> && std::is_standard_layout_v<POD>,
       "Can only serialize POD types with this function");
   os.write(reinterpret_cast<char const*>(&input), sizeof(POD));
 }

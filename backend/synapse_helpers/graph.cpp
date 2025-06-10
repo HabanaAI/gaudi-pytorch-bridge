@@ -450,9 +450,9 @@ template <
     typename Alloc,
     template <typename, typename>
     class V,
-    typename std::enable_if<std::negation<typename std::is_same<
+    typename std::enable_if_t<std::negation<typename std::is_same<
         std::string,
-        typename V<T, Alloc>::value>::value>::type>::type>
+        typename V<T, Alloc>::value>::value>::type>>
 std::ostream& operator<<(std::ostream& out, const V<T, Alloc>& collection) {
   auto item{collection.begin()};
   if (item == collection.end()) {

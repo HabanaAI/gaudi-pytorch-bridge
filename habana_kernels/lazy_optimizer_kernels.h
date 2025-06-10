@@ -33,7 +33,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   virtual ~LazyOptimizationOp() = default;
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       std::vector<at::Tensor>& tVector) {
     LazyOp<T>::viewUpdateInputs();
     const auto& node = LazyOp<T>::create_node();
@@ -49,7 +49,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       at::TensorList& tList1,
       [[maybe_unused]] OPTIMIZER optimizer = OTHER) {
     LazyOp<T>::viewUpdateInputs();
@@ -72,7 +72,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       at::TensorList& tList1,
       at::TensorList& tList2,
       enum OPTIMIZER optimizer) {
@@ -88,7 +88,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
     flush_op();
   }
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       at::TensorList& tList1,
       at::TensorList& tList2,
       at::TensorList& tList3,
@@ -148,7 +148,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
  private:
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type callSGD_momentum(
+  typename std::enable_if_t<std::is_void_v<T>, T> callSGD_momentum(
       at::TensorList& tList1,
       at::TensorList& tList2) {
     LazyOp<T>::viewUpdateInputs();
@@ -178,7 +178,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type callAdagrad(
+  typename std::enable_if_t<std::is_void_v<T>, T> callAdagrad(
       at::TensorList& tList1,
       at::TensorList& tList2) {
     LazyOp<T>::viewUpdateInputs();

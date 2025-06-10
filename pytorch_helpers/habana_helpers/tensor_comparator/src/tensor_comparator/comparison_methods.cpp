@@ -205,8 +205,8 @@ float TestMethods<ReferenceDataType, TensorDataType>::calcCosineSimilarity(
   float l2NormResult = vResult.norm();
 
   using T = typename std::conditional<
-      std::is_floating_point<ReferenceDataType>::value or
-          std::is_floating_point<TensorDataType>::value,
+      std::is_floating_point_v<ReferenceDataType> or
+          std::is_floating_point_v<TensorDataType>,
       float,
       ReferenceDataType>::type;
 

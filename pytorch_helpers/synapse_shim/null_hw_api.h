@@ -51,9 +51,7 @@ struct StubResult<hcclResult_t> {
 };
 
 template <typename IntT>
-struct StubResult<
-    IntT,
-    typename std::enable_if<std::is_integral<IntT>::value>::type> {
+struct StubResult<IntT, typename std::enable_if_t<std::is_integral_v<IntT>>> {
   int operator()() {
     return {};
   }

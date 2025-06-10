@@ -34,7 +34,7 @@ template <typename POD>
 void deserialize(std::istream& is, POD& output) {
   // this only works on built in data types (PODs)
   static_assert(
-      std::is_trivial<POD>::value && std::is_standard_layout<POD>::value,
+      std::is_trivial_v<POD> && std::is_standard_layout_v<POD>,
       "Can only serialize POD types with this function");
   is.read(reinterpret_cast<char*>(&output), sizeof(output));
 }

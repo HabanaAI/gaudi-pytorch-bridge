@@ -144,7 +144,7 @@ class EagerOp : public EagerOpBase {
 
   // For inplace/out variants
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor&>, T> call(
       at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call inplace/out :: ", m_symbol.toQualString());
 
@@ -193,8 +193,8 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
-  call(const at::Tensor& self) {
+  typename std::enable_if_t<std::is_same_v<T, const at::Tensor&>, T> call(
+      const at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call const inplace :: ", m_symbol.toQualString());
 
     HABANA_ASSERT(
@@ -231,8 +231,7 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
-      T self) {
+  typename std::enable_if_t<is_tuple_of_tensor_ref<T>::value, T> call(T self) {
     PT_EAGER_DEBUG(
         "Eager Call tuple_of_tensor_ref :: ", m_symbol.toQualString());
 
@@ -284,7 +283,7 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_arithmetic<T>::value, T>::type call() {
+  typename std::enable_if_t<std::is_arithmetic_v<T>, T> call() {
     PT_EAGER_DEBUG("Eager Call arithmetic :: ", m_symbol.toQualString());
 
     auto result = at::empty(
@@ -297,7 +296,7 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       at::TensorList tensors1,
       at::TensorList tensors2) {
     PT_EAGER_DEBUG(
@@ -324,7 +323,7 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType, class U>
-  typename std::enable_if<std::is_void<T>::value, T>::type call_internal_lists(
+  typename std::enable_if_t<std::is_void_v<T>, T> call_internal_lists(
       U list,
       const char* label) {
     PT_EAGER_DEBUG(
@@ -352,20 +351,19 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
-      at::TensorList tensors) {
+  typename std::enable_if_t<std::is_void_v<T>, T> call(at::TensorList tensors) {
     return call_internal_lists<T>(tensors, "1x TensorList");
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       const std::vector<at::Tensor>& tensors) {
     return call_internal_lists<T>(
         at::TensorList{tensors}, "const ref std::vector<at::Tensor>");
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       const std::vector<at::TensorList>& tensorlists) {
     return call_internal_lists<T>(
         c10::ArrayRef<at::TensorList>{tensorlists},
@@ -373,7 +371,7 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       const at::Tensor& tensor) {
     PT_EAGER_DEBUG(
         "Eager call void ( const ref at::Tensor ) :: ",
@@ -389,7 +387,7 @@ class EagerOp : public EagerOpBase {
 
   // For regular variants
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> call() {
     PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
 
     auto result = get_result();
@@ -398,7 +396,7 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call() {
+  typename std::enable_if_t<is_tuple_of_tensors<T>::value, T> call() {
     PT_EAGER_DEBUG("Eager Call tuple_of_tensors :: ", m_symbol.toQualString());
     // TODO avoid calling get_result
     auto result = get_result();
@@ -424,9 +422,8 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
-      type
-      call() {
+  typename std::enable_if_t<std::is_same_v<T, std::vector<at::Tensor>>, T>
+  call() {
     PT_EAGER_DEBUG(
         "Eager Call std::vector<at::Tensor> :: ", m_symbol.toQualString());
 
@@ -443,8 +440,7 @@ class EagerOp : public EagerOpBase {
 
  private:
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
-  get_result() {
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> get_result() {
     PT_EAGER_TRACE;
     if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
@@ -472,7 +468,7 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type get_result() {
+  typename std::enable_if_t<is_tuple_of_tensors<T>::value, T> get_result() {
     PT_EAGER_TRACE;
 
     if (m_output_meta_fn) {
@@ -523,9 +519,8 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
-      type
-      get_result() {
+  typename std::enable_if_t<std::is_same_v<T, std::vector<at::Tensor>>, T>
+  get_result() {
     if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
       const auto& meta = m_output_meta_fn(get_inputs());

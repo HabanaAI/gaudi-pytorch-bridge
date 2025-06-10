@@ -532,7 +532,7 @@ class PTFuncLog {
 
 template <
     typename Integer,
-    typename = std::enable_if_t<std::is_integral<Integer>::value>>
+    typename = std::enable_if_t<std::is_integral_v<Integer>>>
 std::string VecToString(const std::vector<Integer>& vec) {
   std::ostringstream sstr;
   sstr << "[";

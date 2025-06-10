@@ -137,7 +137,7 @@ class LazyOp {
         m_out_index{out_index},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        std::is_class<NodeConstruct>::value,
+        std::is_class_v<NodeConstruct>,
         "This constructor is valid only when NodeConstruct is a class.");
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
@@ -168,8 +168,7 @@ class LazyOp {
   virtual ~LazyOp() = default;
 
   template <typename T = ReturnType>
-  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
-  HandleLazy(
+  typename std::enable_if_t<not is_tuple_of_tensor_ref<T>::value, T> HandleLazy(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
     bool isOptimizedLazyEager = false;
@@ -208,7 +207,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type call() {
+  typename std::enable_if_t<not is_tuple_of_tensor_ref<T>::value, T> call() {
     PT_LAZY_DEBUG(
         "Lazy Call not_Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     bool isView = viewUpdateInputs();
@@ -234,8 +233,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call(
-      T tensors) {
+  typename std::enable_if_t<is_tuple_of_tensors<T>::value, T> call(T tensors) {
     PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor :: ", m_symbol.toQualString());
     bool isView = viewUpdateInputs();
     habana_lazy::ir::setCurrentModuleName(module_name);
@@ -260,9 +258,9 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<
+  typename std::enable_if_t<
       (is_tuple_of_tensor_ref<T>::value || is_tuple_of_tensors<T>::value),
-      T>::type
+      T>
   HandleLazy(
       T results,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
@@ -332,7 +330,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
+  typename std::enable_if_t<is_tuple_of_tensor_ref<T>::value, T> call(
       T results) {
     PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     habana_lazy::ir::setCurrentModuleName(module_name);
@@ -357,7 +355,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_arithmetic<T>::value, T>::type call() {
+  typename std::enable_if_t<std::is_arithmetic_v<T>, T> call() {
     habana_lazy::ir::setCurrentModuleName(module_name);
     viewUpdateInputs();
     const auto& node = create_node();
@@ -373,8 +371,7 @@ class LazyOp {
 
  private:
   template <typename T = ReturnType, class U>
-  typename std::enable_if<std::is_void<T>::value, T>::type call_internal_lists(
-      U list) {
+  typename std::enable_if_t<std::is_void_v<T>, T> call_internal_lists(U list) {
     habana_lazy::ir::setCurrentModuleName(module_name);
 
     viewUpdateInputs();
@@ -404,33 +401,31 @@ class LazyOp {
 
  public:
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
-      at::TensorList tensors) {
+  typename std::enable_if_t<std::is_void_v<T>, T> call(at::TensorList tensors) {
     return call_internal_lists<T>(tensors);
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       const std::vector<at::Tensor>& tensors) {
     return call<T>(at::TensorList{tensors});
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       c10::ArrayRef<at::TensorList> tensorlists) {
     return call_internal_lists<T>(tensorlists);
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
+  typename std::enable_if_t<std::is_void_v<T>, T> call(
       const std::vector<at::TensorList>& tensorlists) {
     return call<T>(c10::ArrayRef<at::TensorList>{tensorlists});
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
-      type
-      call() {
+  typename std::enable_if_t<std::is_same_v<T, std::vector<at::Tensor>>, T>
+  call() {
     habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& tensors = get_result();
     const auto& node = create_node();
@@ -448,9 +443,8 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::
-      enable_if<std::is_same<T, std::vector<at::Tensor>>::value, void>::type
-      call(const std::vector<at::Tensor>& tensors) {
+  typename std::enable_if_t<std::is_same_v<T, std::vector<at::Tensor>>, void>
+  call(const std::vector<at::Tensor>& tensors) {
     habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& node = create_node();
     int i = 0;
@@ -463,8 +457,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
-  HandleLazy(
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> HandleLazy(
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
     bool isOptimizedLazyEager = false;
@@ -490,8 +483,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
-  HandleLazy(
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> HandleLazy(
       at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
@@ -522,7 +514,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> call() {
     PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
     habana_lazy::ir::setCurrentModuleName(module_name);
     bool isView = viewUpdateInputs();
@@ -667,8 +659,7 @@ class LazyOp {
 
   // For inplace/out variants
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
-  HandleLazy(
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor&>, T> HandleLazy(
       at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
@@ -759,10 +750,9 @@ class LazyOp {
 
   // For inplace/out variants and regular variants with accumulation thread
   template <typename T = ReturnType>
-  typename std::enable_if<
-      (std::is_same<T, at::Tensor&>::value ||
-       std::is_same<T, at::Tensor>::value),
-      T>::type
+  typename std::enable_if_t<
+      (std::is_same_v<T, at::Tensor&> || std::is_same_v<T, at::Tensor>),
+      T>
   call(at::Tensor& self) {
     std::string node_str = m_symbol.toQualString();
     if ((node_str == "aten::mul") && (m_inputs.size() == 3)) {
@@ -805,8 +795,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
-  HandleLazy(
+  typename std::enable_if_t<std::is_same_v<T, const at::Tensor&>, T> HandleLazy(
       const at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
@@ -872,8 +861,8 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
-  call(const at::Tensor& self) {
+  typename std::enable_if_t<std::is_same_v<T, const at::Tensor&>, T> call(
+      const at::Tensor& self) {
     PT_LAZY_DEBUG("Lazy Call Inplace :: ", m_symbol.toQualString());
     habana_lazy::ir::setCurrentModuleName(module_name);
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
@@ -928,20 +917,20 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
-  get_result(at::Tensor& tensor) {
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor&>, T> get_result(
+      at::Tensor& tensor) {
     inspect_result(tensor);
     return tensor;
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, void>::type
+  typename std::enable_if_t<std::is_same_v<T, const at::Tensor&>, void>
   get_result(const at::Tensor& tensor) {
     inspect_result(tensor);
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type get_result(
+  typename std::enable_if_t<is_tuple_of_tensor_ref<T>::value, T> get_result(
       T tensors) {
     habana::OutputMetaDataVector meta;
     if (m_output_meta_fn) {
@@ -986,8 +975,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
-  get_result() {
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> get_result() {
     PT_LAZY_TRACE;
     if (m_output_meta_fn) {
       auto meta = m_output_meta_fn(get_inputs());
@@ -1021,7 +1009,7 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
+  typename std::enable_if_t<not is_tuple_of_tensor_ref<T>::value, T>
   get_result() {
     PT_LAZY_TRACE;
     if (m_output_meta_fn) {
@@ -1067,9 +1055,8 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
-      type
-      get_result() {
+  typename std::enable_if_t<std::is_same_v<T, std::vector<at::Tensor>>, T>
+  get_result() {
     PT_LAZY_TRACE;
     if (m_output_meta_fn) {
       const auto& meta = m_output_meta_fn(get_inputs());
@@ -1351,8 +1338,7 @@ class LazyOp {
     optimized_key = at::hash_combine(optimized_key, m_out_shapes.size());
 
     optimized_key = at::hash_combine(
-        optimized_key,
-            at::globalContext().deterministicAlgorithms());
+        optimized_key, at::globalContext().deterministicAlgorithms());
 
     std::unordered_set<size_t> input_hash_values;
     for (size_t i = 0; i < m_inputs.size(); ++i) {
@@ -1527,12 +1513,12 @@ class LazyOp {
   }
 
   template <typename N = NodeConstruct>
-  std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
+  std::enable_if_t<std::is_class_v<N>, ir::NodePtr> create_node() {
     return m_node;
   }
 
   template <typename N = NodeConstruct>
-  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
+  std::enable_if_t<!std::is_class_v<N>, ir::NodePtr> create_node() {
     ir::InlinedValueList values;
     std::vector<at::Tensor> input_pt_vec;
     ir::MetaData metadata;
@@ -1615,7 +1601,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   virtual ~LazyBinaryOp() = default;
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, T> call() {
     auto inputs = LazyOp<T>::get_inputs();
 
     habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
@@ -1674,7 +1660,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
   // For inplace binary, the promoted type takes the self's type
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor&>, T> call(
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
     habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
@@ -1733,7 +1719,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor>::value, void>::type call(
+  typename std::enable_if_t<std::is_same_v<T, at::Tensor>, void> call(
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
     habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());

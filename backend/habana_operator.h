@@ -668,7 +668,7 @@ class HabanaOperator {
 
   template <class T, class U>
   static void CopyVecToHostPtr(const std::vector<T>& vec, void* host_ptr) {
-    if constexpr (std::is_same<T, U>::value) {
+    if constexpr (std::is_same_v<T, U>) {
       std::copy(vec.begin(), vec.end(), static_cast<T*>(host_ptr));
     } else {
       std::vector<U> vec_temp(vec.size());
@@ -693,8 +693,8 @@ class HabanaOperator {
 
     const bool is_int64_support_enabled = common::IsInt64Supported();
 
-    constexpr bool is_long = std::is_same<T, int64_t>::value;
-    constexpr bool is_double = std::is_same<T, double>::value;
+    constexpr bool is_long = std::is_same_v<T, int64_t>;
+    constexpr bool is_double = std::is_same_v<T, double>;
 
     if constexpr (is_long) {
       vec_type =

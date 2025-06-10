@@ -27,7 +27,7 @@
 namespace habana_helpers::signalHandler {
 
 using signalHandlerFnPtr =
-    std::add_pointer<void(int signum, siginfo_t* info, void* ctx)>::type;
+    std::add_pointer_t<void(int signum, siginfo_t* info, void* ctx)>;
 
 // This is list of all the fatal signals we catch here
 struct {

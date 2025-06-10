@@ -577,7 +577,7 @@ inline std::ostream& operator<<(
 
 template <
     typename Integer,
-    typename = std::enable_if_t<std::is_integral<Integer>::value>>
+    typename = std::enable_if_t<std::is_integral_v<Integer>>>
 inline std::ostream& operator<<(
     std::ostream& out,
     const std::vector<Integer>& d) {

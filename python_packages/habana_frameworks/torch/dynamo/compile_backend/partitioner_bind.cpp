@@ -341,10 +341,10 @@ class Partition {
   template <typename Iterable>
   Partition(int _id, const Iterable& nodes_iterable) : _id(_id) {
     static_assert(
-        std::is_same<
+        std::is_same_v<
             typename std::iterator_traits<
                 typename Iterable::iterator>::value_type,
-            Node*>::value,
+            Node*>,
         "Iterable must be a container of Node* type");
     for (auto& item : nodes_iterable) {
       _nodes.insert(item);
