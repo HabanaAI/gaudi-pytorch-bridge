@@ -27,10 +27,15 @@ execute_process(
   OUTPUT_VARIABLE GIT_COMMIT_HASH_SHORT
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+execute_process(
+  COMMAND git diff HEAD --quiet
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  RESULT_VARIABLE GIT_TREE_IS_DIRTY)
+
 add_habana_library(_git_info_C SHARED bindings.cpp)
 target_compile_definitions(
   _git_info_C PRIVATE TORCH_EXTENSION_NAME=_git_info_C GIT_COMMIT_HASH_SHORT="${GIT_COMMIT_HASH_SHORT}"
-                      GIT_COMMIT_HASH_FULL="${GIT_COMMIT_HASH_FULL}")
+                      GIT_COMMIT_HASH_FULL="${GIT_COMMIT_HASH_FULL}" GIT_TREE_IS_DIRTY="${GIT_TREE_IS_DIRTY}")
 set_target_properties(_git_info_C PROPERTIES PREFIX "")
 target_link_libraries(_git_info_C PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
 

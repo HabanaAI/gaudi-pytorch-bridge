@@ -18,4 +18,5 @@
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_commit_hash", []() { return GIT_COMMIT_HASH_FULL; });
   m.def("get_short_commit_hash", []() { return GIT_COMMIT_HASH_SHORT; });
+  m.def("is_tree_dirty", []() { return GIT_TREE_IS_DIRTY[0] == '1'; });
 }
