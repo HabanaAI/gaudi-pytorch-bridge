@@ -440,7 +440,6 @@ void strided_insert_hpu_lazy(
 
   PT_VIEWTABLE_DEBUG(
       "orig tensor map entry created for ", GetHbLazyTensorId(params.base));
-  return;
 }
 
 /* checks if fallback to original op is possible*/

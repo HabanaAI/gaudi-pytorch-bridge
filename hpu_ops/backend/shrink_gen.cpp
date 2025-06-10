@@ -100,7 +100,6 @@ void HardShrinkFwd::AddNode(
       &params,
       sizeof(params));
   syn_out(0) = std::move(out[0]);
-  return;
 }
 
 void HardShrinkBwd::AddNode(
@@ -128,6 +127,5 @@ void HardShrinkBwd::AddNode(
       &params,
       sizeof(params));
   syn_out(0) = std::move(out[0]);
-  return;
 }
 } // namespace habana

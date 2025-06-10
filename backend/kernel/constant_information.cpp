@@ -458,7 +458,6 @@ void ConstantInformation::CopyMatchedDataPtrForRecipe(
       StorePrevDataPtr(const_id, std::move(old_data_ptr), host_checksum);
     }
   }
-  return;
 }
 
 bool ConstantInformation::IsNewConstIdForRecipe(

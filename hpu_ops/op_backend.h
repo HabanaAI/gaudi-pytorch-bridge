@@ -60,7 +60,6 @@ class OpBackend : public HabanaOperator {
       std::vector<int> scalar_ids,
       bool is_outfn);
 
- public:
   bool isOutputInfMode() const {
     return m_output_inf_mode;
   }

@@ -120,7 +120,7 @@ bool recomputeBatchnormParams(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   auto* s = (double*)host_ptr;
   for (auto i = 0; i < co; i++) {
-    s[i] = ((double)1.0 / sqrt((double)v[i] + (double)bn_eps));
+    s[i] = (1.0 / sqrt((double)v[i] + bn_eps));
     // std::cout << "s[" << i << "] = " << s[i] << std::endl << std::flush;
   }
 
@@ -197,7 +197,7 @@ void* GetDataInHostBuffer(
             habana::HPUDeviceContext::copy_data_to_host(
                 reinterpret_cast<synapse_helpers::device_ptr>(
                     tensor.data_ptr()),
-                (void*)host_ptr,
+                host_ptr,
                 reinterpret_cast<synapse_helpers::device_ptr>(
                     tensor.storage().data_ptr().get()),
                 size_in_bytes,
@@ -235,7 +235,7 @@ void* GetDataInHostBuffer(
           std::atomic<bool> copyDone{false};
           habana::HPUDeviceContext::copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
-              (void*)host_ptr,
+              host_ptr,
               reinterpret_cast<synapse_helpers::device_ptr>(
                   tensor.storage().data_ptr().get()),
               size_in_bytes,
@@ -277,7 +277,7 @@ void UpdateDataInDeviceMem(
   torch::jit::WithInsertPoint guard(node);
   std::atomic<bool> copyDone{false};
   habana::HPUDeviceContext::copy_data_to_device(
-      (void*)host_ptr,
+      host_ptr,
       reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
       reinterpret_cast<synapse_helpers::device_ptr>(
           tensor.storage().data_ptr().get()),
@@ -363,6 +363,5 @@ void RecalculateBatchnormParams(
   }
 
   PT_LAZY_DEBUG("[RecalculateBatchnormParams] [Exit]");
-  return;
 }
 }; // namespace habana_lazy

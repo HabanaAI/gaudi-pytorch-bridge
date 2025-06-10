@@ -100,7 +100,7 @@ class StatsBase {
       uint32_t dumpFreq,
       bool disable);
 
-  inline void collect(int point, uint64_t sum) {
+  void collect(int point, uint64_t sum) {
     if (!m_enabled)
       return;
     m_pPointData[point].last_measurement = sum;
@@ -123,7 +123,7 @@ class StatsBase {
 
   // Per-stat point attributes, only available when using
   // PT_HPU_PRINT_STATS_DUMP_FREQ > 0
-  inline void add_attribute(
+  void add_attribute(
       int point,
       std::string attr_key,
       std::string attr_val) {

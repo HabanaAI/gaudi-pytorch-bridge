@@ -245,7 +245,7 @@ torch::autograd::variable_list MixtureOfExpertsFwdFusedWeightsFunction::forward(
     int64_t experts_max) {
   at::AutoDispatchBelowADInplaceOrView g;
 
-  int64_t num_experts = w12.size();
+  size_t num_experts = w12.size();
   torch::autograd::variable_list to_save;
   to_save.reserve(
       weights_per_expert_fused * num_experts + outputs_for_bwd_fused);

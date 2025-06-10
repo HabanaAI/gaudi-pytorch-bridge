@@ -410,7 +410,7 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
         {habana::eager::eagerOpKind::InplaceOut,
          "hpu::_copy_from_strided_insert",
          decltype(eager::EagerOpMetaData::out_indices_){0}});
-    result = hpu_op.call(const_cast<at::Tensor&>(self_));
+    result = hpu_op.call(self_);
   } else {
     // Since _copy_from is neither inplace nor an out variant but pytorch
     // expects to copy to dst, we treat _copy_from as an out variant in the

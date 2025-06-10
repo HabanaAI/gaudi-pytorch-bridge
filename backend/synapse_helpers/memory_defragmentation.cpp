@@ -115,7 +115,7 @@ MemoryDefragementer::MemoryDefragementer(
   std::tie(region_ptr, region_size) = region;
 
   mem_start_ptr_ = static_cast<int8_t*>(region_ptr);
-  mem_end_ptr_ = static_cast<int8_t*>(mem_start_ptr_) + region_size;
+  mem_end_ptr_ = mem_start_ptr_ + region_size;
   PT_DEVMEM_DEBUG("Memory Region size::", region_size);
   PT_DEVMEM_DEBUG(
       "Memstart pointer::",
@@ -239,7 +239,7 @@ bool MemoryDefragementer::CreateMemoryMap(
   };
 
   auto ptr_add_offset = [](int8_t* ptr, size_t offset) -> int8_t* {
-    return static_cast<int8_t*>(ptr) + offset;
+    return ptr + offset;
   };
 
   // collect information about free memory blocks
@@ -376,7 +376,7 @@ bool MemoryDefragementer::ValidateMemoryMap(
     return true;
   }
 
-  auto ptr = static_cast<int8_t*>(memory_blocks.front().ptr_);
+  auto ptr = memory_blocks.front().ptr_;
   auto size = memory_blocks.front().actual_size_;
 
   if (ptr != mem_start_ptr_) {
@@ -399,7 +399,7 @@ bool MemoryDefragementer::ValidateMemoryMap(
       return false;
     }
 
-    ptr = static_cast<int8_t*>(it->ptr_);
+    ptr = it->ptr_;
     size = it->actual_size_;
   }
 

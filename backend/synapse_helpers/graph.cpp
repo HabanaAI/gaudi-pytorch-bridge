@@ -926,8 +926,6 @@ void graph::launch(
   if (sync_launch != nullptr && atoi(sync_launch) == 1) {
     device.synchronize();
   }
-
-  return;
 }
 
 std::string_view graph::name_suffix_from_type(

@@ -231,7 +231,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   // Create one large chunk for the whole memory space that will be chunked
   // and use later
   auto* chunk = new Chunk();
-  chunk->memptr = (uint64_t)p->next;
+  chunk->memptr = p->next;
   chunk->extra_space = 0;
   chunk->size = max_pool_size - header_bytes;
   chunk->used = false;
@@ -308,7 +308,7 @@ void CoalescedStringentPooling::pool_destroy() const {
 
     if (!get_device_deallocation()) {
       if (nullptr != (void*)s_pool->basememptr) {
-        uint64_t ptr_address{reinterpret_cast<uint64_t>(s_pool->basememptr)};
+        uint64_t ptr_address{s_pool->basememptr};
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
         if (status) {
           set_device_deallocation(true);
@@ -502,7 +502,6 @@ void CoalescedStringentPooling::print_pool_stats() const {
   free_chunks_size = 0;
   pool_status.str("");
   pool_status.clear();
-  return;
 }
 
 size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
@@ -715,7 +714,7 @@ void* CoalescedStringentPooling::alloc_chunk(
     return nullptr;
   }
 
-  auto* p = (simple_coalesced_pool_t*)prealloc_pool;
+  auto* p = prealloc_pool;
   if (prealloc_pool != p) {
     PT_DEVMEM_FATAL("CS_POOL:: alloc unknown pool !!");
   }

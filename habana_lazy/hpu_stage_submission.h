@@ -64,7 +64,7 @@ class StageSubmission {
   bool isExceededMaxCompoundSize() {
     return (curr_number_of_compound_ops >= max_number_of_compound_ops);
   }
-  inline int64_t find_limit(
+  int64_t find_limit(
       const int64_t& current_max_value,
       const int64_t& max_value) {
     int64_t max_limit = std::min(current_max_value, max_value);
@@ -113,7 +113,7 @@ class StageSubmission {
     is_stage_submission = false;
   }
 
-  inline bool is_mode_set_to(Mode mode) {
+  bool is_mode_set_to(Mode mode) {
     return this->mode & mode;
   }
 

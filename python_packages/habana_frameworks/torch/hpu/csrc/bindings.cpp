@@ -269,11 +269,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       if (params.optype != habana_lazy::StridedOPType::kStridedOpView) {
         if (hl_view.has_value()) {
           hash = habana_lazy::HbLazyTensorViews::updateViewHash(
-              *hl_view, (size_t)hash);
+              *hl_view, hash);
           hl_view = std::nullopt;
         }
         hash =
-            habana_lazy::HbLazyTensorViews::updateViewHash(*hl_t, (size_t)hash);
+            habana_lazy::HbLazyTensorViews::updateViewHash(*hl_t, hash);
       } else {
         hl_view = hl_t;
       }
@@ -284,7 +284,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     }
     if (hl_view.has_value()) {
       hash = habana_lazy::HbLazyTensorViews::updateViewHash(
-          *hl_view, (size_t)hash);
+          *hl_view, hash);
     }
     return hash;
   });

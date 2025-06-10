@@ -45,7 +45,7 @@ void GetValueAndScalarIndexFromInput(
     }
   } else if (org_stack_index_map.count(in_name)) {
     index = static_cast<int64_t>(org_stack_index_map[in_name]);
-    value = static_cast<int64_t>(in_stack[index].toScalar().toLong());
+    value = in_stack[index].toScalar().toLong();
   } else {
     HABANA_ASSERT(
         false,
@@ -268,8 +268,7 @@ void UpdateShapeTensorSize(
       new_shape.resize(0);
       break;
     } else {
-      new_shape[idx] =
-          static_cast<int64_t>(GetSymintValue(orig_stack, stack_index));
+      new_shape[idx] = GetSymintValue(orig_stack, stack_index);
     }
   }
 
@@ -285,7 +284,6 @@ void UpdateH2DPatchingData(
   PT_EAGER_DEBUG("UpdateH2DPatchingData for updating H2D tensor:", data);
   launch_shapes.ds_tensors.push_back(dtensor);
   launch_shapes.patch_values.push_back(data);
-  return;
 }
 
 int64_t UpdateDynamicTensorDSStack(

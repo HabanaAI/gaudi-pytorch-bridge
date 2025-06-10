@@ -279,7 +279,6 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
 // input(NCHW) -> permute_cl -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
   // TODO: Removed once make sure removed from all tests lists
-  return;
 }
 
 // input(CL) -> conv2d -> relu

@@ -354,7 +354,7 @@ void habana::HabanaLaunchOpPT::HandleChecksum(
         data_size,
         checksum,
         ConstantInformation::key_t{key},
-        (char*)data_ptr,
+        data_ptr,
         old_size,
         device_id);
   } else if (constant_information.GetDeviceChecksum(const_id) == checksum) {
@@ -688,7 +688,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   device_id);
               UpdateTensorInfoMap(
                   ivpsh,
-                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
+                  ivpsh.get()->toTensor().storage().data_ptr().get());
 
               constSectionIds.emplace_back(tensorSectionId);
               SerializeConstSection(
@@ -709,7 +709,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   src, section_size, nullptr, cur_rargpsh_->hashCode());
               UpdateTensorInfoMap(
                   ivpsh,
-                  (void*)(ivpsh.get()->toTensor().storage().data_ptr().get()));
+                  ivpsh.get()->toTensor().storage().data_ptr().get());
             }
 
             // Assuming all the tensors with numel=1 are scale constant tensors.

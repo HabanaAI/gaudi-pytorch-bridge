@@ -821,7 +821,7 @@ Tensor HbLazyTensorViews::add_view_lazy(
     sum_elm *= i;
   }
   auto inferred_size =
-      habana_helpers::infer_size(size, static_cast<int64_t>(sum_elm));
+      habana_helpers::infer_size(size, sum_elm);
 
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();

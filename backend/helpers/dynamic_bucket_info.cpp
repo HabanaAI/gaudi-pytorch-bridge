@@ -33,10 +33,6 @@
 using namespace synapse_helpers;
 namespace habana_helpers {
 
-constexpr int64_t DynamicBucketInfo::default_min_value_;
-constexpr uint64_t DynamicBucketInfo::min_iterations_to_split_;
-constexpr uint64_t DynamicBucketInfo::max_buckets_number_;
-
 size_t DynamicBucketInfo::original_recipe_count_{0};
 size_t DynamicBucketInfo::refined_recipe_count_{0};
 size_t DynamicBucketInfo::refined_recipe_wirt_count_{0};
@@ -1524,7 +1520,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
         }
         break;
       case DynamicDimsPolicy::CURRENT:
-        max_value = int64_t(shapes.at(el.num).dim_size(el.pos));
+        max_value = shapes.at(el.num).dim_size(el.pos);
         break;
       case DynamicDimsPolicy::FLATTENED:
         HABANA_ASSERT(
@@ -1532,7 +1528,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
             "Policy FLATTENED is currently unsupported for choosing max");
         dim_max_multiplier = dim_multipliers.at(el.num).at(el.pos).second;
         max_value =
-            int64_t(shapes.at(el.num).dim_size(el.pos)) * dim_max_multiplier;
+            shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
         break;
       case DynamicDimsPolicy::CALCULATED:
         // use default max multiplier
@@ -1541,7 +1537,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
           max_value = 1;
         } else {
           max_value =
-              int64_t(shapes.at(el.num).dim_size(el.pos)) * dim_max_multiplier;
+              shapes.at(el.num).dim_size(el.pos) * dim_max_multiplier;
         }
         break;
     }
@@ -1549,7 +1545,7 @@ DynamicRanges DynamicBucketInfo::CalculateRanges(
     // determine min
     int64_t min = shapes.at(el.num).dim_size(el.pos) >= default_min_value_
         ? min_value
-        : int64_t(shapes.at(el.num).dim_size(el.pos));
+        : shapes.at(el.num).dim_size(el.pos);
 
     int64_t max{max_value};
 

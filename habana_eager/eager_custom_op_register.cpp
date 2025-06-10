@@ -1343,7 +1343,6 @@ void amp_foreach_non_finite_check_and_unscale_inplace(
   c10::ArrayRef<at::Tensor> tensor_array_ref(has_inf);
   auto inf_ref = torch::any(torch::stack(tensor_array_ref), 0, true);
   found_inf.copy_(inf_ref);
-  return;
 }
 
 // Refer CPU Implementation:

@@ -196,7 +196,7 @@ void ConstSectionDataSerialize::compress_and_serialize(
     throw std::runtime_error("deflateInit2 failed while compressing.");
   }
 
-  zs.next_in = static_cast<Bytef*>(const_cast<void*>(data));
+  zs.next_in = static_cast<Bytef*>(data);
   zs.avail_in = data_size;
 
   int ret;

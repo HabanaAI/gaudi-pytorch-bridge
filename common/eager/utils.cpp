@@ -19,7 +19,7 @@
 
 namespace common {
 void* GetDataPtrFromTensor(const at::Tensor& tensor) {
-  return reinterpret_cast<void*>(tensor.storage().data_ptr().get());
+  return tensor.storage().data_ptr().get();
 }
 
 bool IsStepMarkerSupported() {

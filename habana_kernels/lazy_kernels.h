@@ -1328,7 +1328,7 @@ class LazyOp {
     std::terminate();
   }
 
-  inline bool is_optimized_lazy_eager_supported(bool, bool) {
+  bool is_optimized_lazy_eager_supported(bool, bool) {
     return false;
   }
 

@@ -62,7 +62,7 @@ bool computeUpdatedConvWeightAndBias(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
   auto* s = (double*)host_ptr;
   for (auto i = 0; i < co; i++) {
-    s[i] = ((double)w[i] / sqrt((double)v[i] + (double)bn_eps));
+    s[i] = ((double)w[i] / sqrt((double)v[i] + bn_eps));
   }
 
   bool all_bias_zero = true;

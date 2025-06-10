@@ -489,16 +489,16 @@ struct TORCH_API Node {
 
   // iterators of the node list starting at this node
   // useful for resuming a search starting at this node
-  inline graph_node_list_iterator iterator() {
+  graph_node_list_iterator iterator() {
     return {this, 0};
   }
-  inline graph_node_list_iterator reverseIterator() {
+  graph_node_list_iterator reverseIterator() {
     return iterator().reverse();
   }
-  inline const_graph_node_list_iterator iterator() const {
+  const_graph_node_list_iterator iterator() const {
     return {this, 0};
   }
-  inline const_graph_node_list_iterator reverseIterator() const {
+  const_graph_node_list_iterator reverseIterator() const {
     return iterator().reverse();
   }
 

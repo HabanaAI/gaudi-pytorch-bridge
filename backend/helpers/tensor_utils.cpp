@@ -112,7 +112,7 @@ std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
   std::stringstream O;
 
   if (t.has_storage()) {
-    O << " @ " << (void*)t.storage().data_ptr().get() << " : " << t.data_ptr();
+    O << " @ " << t.storage().data_ptr().get() << " : " << t.data_ptr();
   } else {
     O << " STORAGE_LESS";
   }
@@ -656,7 +656,6 @@ void habana_helpers::recalc_strides(
   for (k = self_strides.size() - 2; k >= 0; k--) {
     self_strides[k] = self_strides[k + 1] * self_sizes[k + 1];
   }
-  return;
 }
 
 bool habana_helpers::is_supported_type(c10::ScalarType type) {

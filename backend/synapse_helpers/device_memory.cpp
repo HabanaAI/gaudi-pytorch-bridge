@@ -38,7 +38,7 @@ void device_memory::init_hlml_memory() {
 #ifdef PT_HLML_ENABLED
   try {
     m_hlml_memory_reporter =
-        std::make_shared<HlMlMemoryReporter>(synDeviceId(device_.id()));
+        std::make_shared<HlMlMemoryReporter>(device_.id());
 
     auto get_used_memory = [&] {
       MemoryStats stats;

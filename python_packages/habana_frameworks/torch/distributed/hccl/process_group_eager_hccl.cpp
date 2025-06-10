@@ -435,8 +435,6 @@ void PointToPoint_Execute_Task(
       _submit_events_task();
     }
   }
-
-  return;
 }
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
@@ -619,8 +617,6 @@ void Collective_Execute_Task(
       _submit_events_task();
     }
   }
-
-  return;
 }
 
 void ProcessGroupEagerHCCL::groupStart() {

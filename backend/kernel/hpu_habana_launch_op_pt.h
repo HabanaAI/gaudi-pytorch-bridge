@@ -1011,7 +1011,7 @@ class HabanaLaunchOpPT {
       const torch::jit::Stack& stack,
       habana_helpers::InpTensorShapes& dynamic_shapes,
       const ShapeInfo::InferencePass& pass);
-  inline void try_run_shape_inference(
+  void try_run_shape_inference(
       const ShapeInfo::InferencePass& pass,
       DynamicShapeInfo& graph_input_info) {
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK)) {

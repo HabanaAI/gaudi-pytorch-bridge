@@ -254,7 +254,6 @@ class HabanaAcceleratedPytorchDL {
     return {std::move(t)...};
   }
 
- protected:
   // Configuration
   json m_json_config;
   int m_batch_size;

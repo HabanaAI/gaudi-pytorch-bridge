@@ -862,8 +862,7 @@ TEST(TestStream, record_stream) {
   auto& device = habana::HPUDeviceContext::get_device();
   void* ptr;
   c10::hpu::HPUStream default_s = c10::hpu::getDefaultHPUStream();
-  device.get_device_memory().malloc(
-      reinterpret_cast<void**>(&ptr), 104857600, default_s.stream());
+  device.get_device_memory().malloc(&ptr, 104857600, default_s.stream());
   c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
   device.get_device_memory().recordStream(ptr, compute1.stream());
   device.get_device_memory().free(ptr);

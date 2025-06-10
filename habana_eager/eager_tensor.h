@@ -80,7 +80,6 @@ class HbEagerTensorPool {
     return instance;
   }
 
- public:
   static at::Tensor get_backend_tensor(const at::Tensor& frontend_tensor);
 
  private:
@@ -92,7 +91,6 @@ class HbEagerTensorPool {
   void extend_empty_tensor_pool();
   at::Tensor get_tensor();
 
- private:
   std::deque<at::Tensor> tensor_pool_;
   std::deque<at::Tensor> tensor_pool_other_;
   std::future<void> handle_;

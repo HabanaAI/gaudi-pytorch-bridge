@@ -102,7 +102,7 @@ std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
   h2d_data = h2d_data + sif_offset;
   for (size_t i = 0; i < data_size; i++) {
-    params_data.push_back(static_cast<T>(*h2d_data++));
+    params_data.push_back(*h2d_data++);
   }
   return params_data;
 }

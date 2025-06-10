@@ -123,8 +123,6 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   syn_out(0) = std::move(result[0]);
   syn_out(1) = std::move(result[1]);
-
-  return;
 }
 
 } // namespace habana

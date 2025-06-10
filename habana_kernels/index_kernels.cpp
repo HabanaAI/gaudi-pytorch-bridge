@@ -944,7 +944,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
         std::move(add_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   }
-  return;
 }
 
 void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
@@ -1299,7 +1298,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
         std::move(add_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   }
-  return;
 }
 
 void IndexPutOperator2::AllocateAndAddSynapseNode(
@@ -1450,7 +1448,6 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
         std::move(add_op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   }
-  return;
 }
 
 void IndexPutOperator::AllocateAndAddSynapseNode(
@@ -2316,9 +2313,9 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     param.limit.f = static_cast<float>(end.to<double>());
     param.delta.f = static_cast<float>(step.to<double>());
   } else {
-    param.start.i = static_cast<int>(start.to<int>());
-    param.limit.i = static_cast<int>(end.to<int>());
-    param.delta.i = static_cast<int>(step.to<int>());
+    param.start.i = start.to<int>();
+    param.limit.i = end.to<int>();
+    param.delta.i = step.to<int>();
     SetGuid("range_i32");
   }
 
@@ -2571,9 +2568,9 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
       param.limit.f = static_cast<float>(end.to<double>());
       param.delta.f = static_cast<float>(step.to<double>());
     } else {
-      param.start.i = static_cast<int>(start.to<int>());
-      param.limit.i = static_cast<int>(end.to<int>());
-      param.delta.i = static_cast<int>(step.to<int>());
+      param.start.i = start.to<int>();
+      param.limit.i = end.to<int>();
+      param.delta.i = step.to<int>();
       SetGuid("range_i32");
     }
 

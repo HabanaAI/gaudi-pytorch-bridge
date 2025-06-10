@@ -34,7 +34,7 @@ synStatus PartialEventEmulation::synLaunchWithExternalEvents(
     uint32_t flags) {
   auto status = synLaunch(
       streamHandle,
-      reinterpret_cast<const synLaunchTensorInfo*>(launchTensorsInfo),
+      launchTensorsInfo,
       numberOfTensors,
       pWorkspace,
       pRecipeHandle,

@@ -60,7 +60,6 @@ class OptPassCfg {
   OptPassCfg(const OptPassCfg&) = delete;
   OptPassCfg& operator=(const OptPassCfg&) = delete;
 
- public:
   static OptPassCfg* GetInstance() {
     if (p_instance_ == nullptr) {
       p_instance_ = new OptPassCfg();

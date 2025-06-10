@@ -63,10 +63,10 @@ struct ProfilerEngine {
 
   static ProfilerEngine& get_inst(bool dump_traces = false);
 
-  inline bool is_enabled() {
+  bool is_enabled() {
     return this->enabled;
   }
-  inline bool is_loglevel(uint32_t log_level) {
+  bool is_loglevel(uint32_t log_level) {
     return this->env_log_level <= log_level;
   }
   void enable() {

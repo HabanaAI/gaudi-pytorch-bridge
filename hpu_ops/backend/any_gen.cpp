@@ -130,8 +130,6 @@ void AnyDims::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       keepdim,
       AllAnyDimMeta(stack)[0].shape);
   syn_out(0) = std::move(any_out);
-
-  return;
 }
 
 void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

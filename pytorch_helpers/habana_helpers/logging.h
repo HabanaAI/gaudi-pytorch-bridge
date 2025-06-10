@@ -184,14 +184,14 @@ inline std::string _str_wrapper(const Args&... args) {
 uint64_t get_tid_internal();
 
 inline uint64_t get_tid() {
-  static thread_local uint64_t tid{static_cast<uint64_t>(get_tid_internal())};
+  static thread_local uint64_t tid{get_tid_internal()};
   return tid;
 }
 
 uint64_t get_rank_internal();
 
 inline uint64_t get_rank() {
-  static uint64_t tid{static_cast<uint64_t>(get_rank_internal())};
+  static uint64_t tid{get_rank_internal()};
   return tid;
 }
 

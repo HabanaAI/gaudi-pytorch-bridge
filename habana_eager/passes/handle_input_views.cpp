@@ -281,7 +281,6 @@ struct HandleInputViewsPass {
     node->destroy();
   }
 
- private:
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::map<int64_t, std::vector<int64_t>> m_input_base_sizes_to_set;
 };

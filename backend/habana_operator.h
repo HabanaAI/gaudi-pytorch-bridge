@@ -621,11 +621,11 @@ class HabanaOperator {
     p_context_->pt_inputs_.clear();
   }
 
-  inline synapse_helpers::tensor_or_ref& get_syn_input_at(size_t index) {
+  synapse_helpers::tensor_or_ref& get_syn_input_at(size_t index) {
     return get_checked(p_context_->syn_inputs_, index);
   }
 
-  inline synapse_helpers::tensor_or_ref& get_syn_output_at(size_t index) {
+  synapse_helpers::tensor_or_ref& get_syn_output_at(size_t index) {
     return get_checked(p_context_->syn_outputs_, index);
   }
 
@@ -854,7 +854,6 @@ class RegisterKernel {
     return opname;
   }
 
- private:
   std::unordered_map<c10::OperatorName, RegisterFunc> kernels_;
   std::unordered_map<c10::OperatorName, RegisterCustomFunc>
       legacy_user_custom_ops;

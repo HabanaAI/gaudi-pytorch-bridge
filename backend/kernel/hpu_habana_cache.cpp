@@ -1894,7 +1894,7 @@ void DynamicBucketInfoMap::Serialize(std::ostream& os) const {
       map_size++;
     }
   }
-  serialize(os, static_cast<int>(map_size));
+  serialize(os, map_size);
   for (auto const& p : map_) {
     if (!p.first->hasToken()) {
       p.first->Serialize(os);
