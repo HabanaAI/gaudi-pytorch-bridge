@@ -171,8 +171,6 @@ class MetricSaver:
     METRIC_FILE_FORMAT_ENV_VAR_ALT = "HABANA_PT_METRICS_FILE_FORMAT"
     METRIC_FILE_FORMAT_DEFAULT = MetricDumpFormat.json
 
-    METRIC_DUMP_TRIGGER_ENV_VAR = "PT_HPU_METRICS_DUMP_TRIGGERS"
-    METRIC_DUMP_TRIGGER_ENV_VAR_ALT = "HABANA_PT_METRICS_DUMP_TRIGGERS"
     METRIC_DUMP_TRIGGER_DEFAULT = ",".join([MetricDumpTrigger.process_exit])
 
     FORMAT_TO_WRITER_MAP = {
@@ -209,9 +207,7 @@ class MetricSaver:
             return default_value
 
     def _get_metric_dump_trigger_from_env(self):
-        dump_trigger = self._get_env(
-            self.METRIC_DUMP_TRIGGER_ENV_VAR, self.METRIC_DUMP_TRIGGER_ENV_VAR_ALT, self.METRIC_DUMP_TRIGGER_DEFAULT
-        )
+        dump_trigger = self.METRIC_DUMP_TRIGGER_DEFAULT
         dump_trigger = [MetricDumpTrigger[trigger] for trigger in dump_trigger.split(",")]
         return dump_trigger
 

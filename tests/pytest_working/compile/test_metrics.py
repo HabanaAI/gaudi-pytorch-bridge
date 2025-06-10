@@ -320,10 +320,7 @@ class TestMetricsDump:
         metric_file_target = f"{tmp_path}/{expected_base_name}"
 
         assert not os.path.exists(metric_file_target)
-        env_vars = {
-            "PT_HPU_METRICS_FILE": metric_file_user_input,
-            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
-        }
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input}
         if multinode:
             env_vars["RANK"] = "0"
 
@@ -396,7 +393,6 @@ class TestMetricsDump:
         metric_file = f"{tmp_path}/metric.{format}"
         env_vars = {
             "PT_HPU_METRICS_FILE": metric_file,
-            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
             "PT_HPU_METRICS_FILE_FORMAT": format,
         }
 
@@ -420,7 +416,6 @@ class TestMetricsDump:
         metric_file = f"{tmp_path}/metric.{format}"
         env_vars = {
             "PT_HPU_METRICS_FILE": metric_file,
-            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
             "PT_HPU_METRICS_FILE_FORMAT": format,
         }
 
