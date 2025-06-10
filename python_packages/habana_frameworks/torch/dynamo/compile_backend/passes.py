@@ -584,7 +584,7 @@ def optimize_graph(
         None,
     )
 
-    from habana_frameworks.torch.utils.debug import _towl_emit_metrics
+    from habana_frameworks.torch.utils.debug import _towl_emit_time_duration_fx
 
     def run_passes(ctx: OptimizerContext):
         graph_changed = False
@@ -608,7 +608,7 @@ def optimize_graph(
                 pass_counter = pass_counter + 1
                 dump_fx_graph(ctx.graph_module, graph_name, stage, pass_counter, pass_name)
 
-            _towl_emit_metrics(f"[COMPILE] FX pass {pass_name} took (ms): ", t.elapsed * 1000)
+            _towl_emit_time_duration_fx(pass_name, t.elapsed * 1000)
             logger.debug(
                 "pass %s at stage %s took: %.3f [s]",
                 pass_name,

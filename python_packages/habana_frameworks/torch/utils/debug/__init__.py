@@ -211,3 +211,7 @@ def _towl_print(text: str):
 
 def _towl_emit_metrics(name: str, value: float):
     _debug_C.towl_emit_metrics(name, value)
+
+
+def _towl_emit_time_duration_fx(name: str, value: float):
+    _debug_C.towl_emit_time_duration_fx(name, value)

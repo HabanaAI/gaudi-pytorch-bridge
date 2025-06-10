@@ -209,10 +209,19 @@ void emitDeviceMemoryDeallocated(void* ptr, bool is_physical) {
   PT_TOWL_DEBUG("devmem.free ", ptr);
 }
 
-void emitDeviceMemoryAllocSuccess(void* ptr, std::size_t size, bool is_workspace) {
+void emitDeviceMemoryAllocSuccess(
+    void* ptr,
+    std::size_t size,
+    bool is_workspace) {
   if (not config.log_devmem_buf)
     return;
-  PT_TOWL_DEBUG("devmem.alloc.success ptr ", ptr, " size ", size, " workspace ", is_workspace);
+  PT_TOWL_DEBUG(
+      "devmem.alloc.success ptr ",
+      ptr,
+      " size ",
+      size,
+      " workspace ",
+      is_workspace);
 }
 
 void emitDeviceMemoryAllocFailed(std::size_t size, bool is_workspace) {
@@ -349,7 +358,8 @@ void emitCopyLaunch(const char* tag, void* src, void* dst, size_t size) {
   if (not config.log_copy) {
     return;
   }
-  PT_TOWL_DEBUG("copy.launch ", tag, " src ", src, " dst ", dst, " size ", size);
+  PT_TOWL_DEBUG(
+      "copy.launch ", tag, " src ", src, " dst ", dst, " size ", size);
 }
 
 void emitCopyFinished(const char* tag, void* src, void* dst) {
@@ -359,35 +369,52 @@ void emitCopyFinished(const char* tag, void* src, void* dst) {
   PT_TOWL_DEBUG("copy.finished ", tag, " src ", src, " dst ", dst);
 }
 
-void emitCopyMultipleLaunch(const char* tag, const uint64_t* srcs, const uint64_t* dsts, const uint64_t* sizes, size_t num_copies) {
+void emitCopyMultipleLaunch(
+    const char* tag,
+    const uint64_t* srcs,
+    const uint64_t* dsts,
+    const uint64_t* sizes,
+    size_t num_copies) {
   if (not config.log_copy) {
     return;
   }
   PT_TOWL_DEBUG("copy.multiple.launch ", tag, " num_copies ", num_copies);
   for (size_t i = 0; i < num_copies; ++i) {
-    PT_TOWL_DEBUG("copy.multiple.launch ", tag,
-                  " src ", reinterpret_cast<void*>(srcs[i]),
-                  " dst ", reinterpret_cast<void*>(dsts[i]), " size ", sizes[i]);
+    PT_TOWL_DEBUG(
+        "copy.multiple.launch ",
+        tag,
+        " src ",
+        reinterpret_cast<void*>(srcs[i]),
+        " dst ",
+        reinterpret_cast<void*>(dsts[i]),
+        " size ",
+        sizes[i]);
   }
 }
 
-void emitCopyMultipleFinished(const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked) {
+void emitCopyMultipleFinished(
+    const char* tag,
+    std::shared_ptr<synapse_helpers::device_ptr_lock>& locked) {
   if (not config.log_copy) {
     return;
   }
-  size_t num_copies = std::size_t(std::distance(locked->begin(), locked->end()));
+  size_t num_copies =
+      std::size_t(std::distance(locked->begin(), locked->end()));
   PT_TOWL_DEBUG("copy.multiple.finished ", tag, " num_copies ", num_copies);
   for (size_t i = 0; i < num_copies; ++i) {
-    PT_TOWL_DEBUG("copy.multiple.finished ", tag,
-                  " dst ", reinterpret_cast<void*>(locked->at(i)));
+    PT_TOWL_DEBUG(
+        "copy.multiple.finished ",
+        tag,
+        " dst ",
+        reinterpret_cast<void*>(locked->at(i)));
   }
 }
 
 void emitRecipeCompileSuccess(
-  const synapse_helpers::graph::recipe_handle& recipe_handle,
-  uint64_t workspace_size,
-  const std::string& name,
-  double compile_duration) {
+    const synapse_helpers::graph::recipe_handle& recipe_handle,
+    uint64_t workspace_size,
+    const std::string& name,
+    double compile_duration) {
   if (not config.log_recipe_compile)
     return;
   PT_TOWL_DEBUG(
@@ -401,7 +428,9 @@ void emitRecipeCompileSuccess(
       compile_duration);
 }
 
-void emitRecipeCompileFailed(const std::string& error_info, double compile_duration) {
+void emitRecipeCompileFailed(
+    const std::string& error_info,
+    double compile_duration) {
   if (not config.log_recipe_compile)
     return;
   PT_TOWL_DEBUG(
@@ -416,6 +445,20 @@ void emitMetrics(const std::string& name, float value) {
     return;
   std::string msg = name + std::to_string(value);
   PT_TOWL_DEBUG(msg);
+}
+
+void emitTimeDurationJit(const std::string& name, float value) {
+  if (not config.log_metrics)
+    return;
+  std::string msg = name + std::to_string(value);
+  PT_TOWL_DEBUG("time.duration jit pass ", name, " took(ms): ", value);
+}
+
+void emitTimeDurationFX(const std::string& name, float value) {
+  if (not config.log_metrics)
+    return;
+  std::string msg = name + std::to_string(value);
+  PT_TOWL_DEBUG("time.duration fx pass ", name, " took(ms): ", value);
 }
 
 void emitRecipeName(const std::string& param_data) {

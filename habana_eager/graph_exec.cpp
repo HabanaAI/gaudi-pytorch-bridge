@@ -508,8 +508,7 @@ void GraphExec::RunPass(
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  std::string msg = "[COMPILE] JIT pass " + pass_name + " took (ms): ";
-  towl::emitMetrics(msg, static_cast<float>(duration.count()));
+  towl::emitTimeDurationJit(pass_name, static_cast<float>(duration.count()));
   if (graph_changed && dump_graphs)
     visualize::DumpEagerOrCompileGraph(
         m_graph,

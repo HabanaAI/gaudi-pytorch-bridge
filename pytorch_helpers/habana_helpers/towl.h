@@ -60,8 +60,15 @@ void emitDeviceMemorySummary(const char* tag);
 void emitCopyLaunch(const char* tag, void* src, void* dst, size_t bytes);
 void emitCopyFinished(const char* tag, void* src, void* dst);
 
-void emitCopyMultipleLaunch(const char* tag, const uint64_t* srcs, const uint64_t* dsts, const uint64_t* sizes, size_t num_copies);
-void emitCopyMultipleFinished(const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked);
+void emitCopyMultipleLaunch(
+    const char* tag,
+    const uint64_t* srcs,
+    const uint64_t* dsts,
+    const uint64_t* sizes,
+    size_t num_copies);
+void emitCopyMultipleFinished(
+    const char* tag,
+    std::shared_ptr<synapse_helpers::device_ptr_lock>& locked);
 
 void emitRecipeCompileSuccess(
     const synapse_helpers::graph::recipe_handle& recipe_handle,
@@ -72,6 +79,9 @@ void emitRecipeCompileSuccess(
 void emitRecipeCompileFailed(
     const std::string& error_info,
     double compile_duration);
+
+void emitTimeDurationJit(const std::string& name, float time);
+void emitTimeDurationFX(const std::string& name, float time);
 
 void emitMetrics(const std::string& name, float value);
 
@@ -118,7 +128,10 @@ _MAKE_TOWL_ENTRYPOINT(
     (const synapse_helpers::graph::recipe_handle* recipe_handle),
     (recipe_handle));
 _MAKE_TOWL_ENTRYPOINT(emitCollectiveLaunch, (const std::string& info), (info));
-_MAKE_TOWL_ENTRYPOINT(emitCollectiveFinished, (const std::string& info), (info));
+_MAKE_TOWL_ENTRYPOINT(
+    emitCollectiveFinished,
+    (const std::string& info),
+    (info));
 
 _MAKE_TOWL_ENTRYPOINT(emitDefragLaunch, (const std::string& info), (info));
 _MAKE_TOWL_ENTRYPOINT(emitDefragFinished, (const std::string& info), (info));
@@ -126,16 +139,27 @@ _MAKE_TOWL_ENTRYPOINT(emitDefragFinished, (const std::string& info), (info));
 _MAKE_TOWL_ENTRYPOINT(emitPythonString, (const std::string& s), (s));
 _MAKE_TOWL_ENTRYPOINT(emitDeviceMemorySummary, (const char* tag), (tag));
 
-_MAKE_TOWL_ENTRYPOINT(emitCopyLaunch, (const char* tag, void* src, void* dst, size_t bytes), (tag, src, dst, bytes));
-_MAKE_TOWL_ENTRYPOINT(emitCopyFinished, (const char* tag, void* src, void* dst), (tag, src, dst));
+_MAKE_TOWL_ENTRYPOINT(
+    emitCopyLaunch,
+    (const char* tag, void* src, void* dst, size_t bytes),
+    (tag, src, dst, bytes));
+_MAKE_TOWL_ENTRYPOINT(
+    emitCopyFinished,
+    (const char* tag, void* src, void* dst),
+    (tag, src, dst));
 
 _MAKE_TOWL_ENTRYPOINT(
     emitCopyMultipleLaunch,
-    (const char* tag, const uint64_t* srcs, const uint64_t* dsts, const uint64_t* sizes, size_t num_copies),
+    (const char* tag,
+     const uint64_t* srcs,
+     const uint64_t* dsts,
+     const uint64_t* sizes,
+     size_t num_copies),
     (tag, srcs, dsts, sizes, num_copies));
 _MAKE_TOWL_ENTRYPOINT(
     emitCopyMultipleFinished,
-    (const char* tag, std::shared_ptr<synapse_helpers::device_ptr_lock>& locked),
+    (const char* tag,
+     std::shared_ptr<synapse_helpers::device_ptr_lock>& locked),
     (tag, locked));
 _MAKE_TOWL_ENTRYPOINT(
     emitMetrics,
@@ -143,17 +167,26 @@ _MAKE_TOWL_ENTRYPOINT(
     (name, value));
 
 _MAKE_TOWL_ENTRYPOINT(
+    emitTimeDurationJit,
+    (const std::string& name, float value),
+    (name, value));
+
+_MAKE_TOWL_ENTRYPOINT(
+    emitTimeDurationFX,
+    (const std::string& name, float value),
+    (name, value));
+
+_MAKE_TOWL_ENTRYPOINT(
     emitRecipeCompileSuccess,
     (const synapse_helpers::graph::recipe_handle& recipe_handle,
-      uint64_t workspace_size,
-      const std::string& name,
-      double compile_duration),
+     uint64_t workspace_size,
+     const std::string& name,
+     double compile_duration),
     (recipe_handle, workspace_size, name, compile_duration));
 
 _MAKE_TOWL_ENTRYPOINT(
     emitRecipeCompileFailed,
-    (const std::string& error_info,
-      double compile_duration),
+    (const std::string& error_info, double compile_duration),
     (error_info, compile_duration));
 
 _MAKE_TOWL_ENTRYPOINT(
