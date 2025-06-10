@@ -214,6 +214,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         float: float,
         bool: bool,
         type(None): None,
+        torch.fx.experimental._backward_state.BackwardState: None,
     }
 
     logger.debug("node name: %s", node.name)
