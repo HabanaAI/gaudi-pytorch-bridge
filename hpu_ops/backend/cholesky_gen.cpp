@@ -50,23 +50,19 @@ SharedMetaDataVector CholeskySharedMeta(
     habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
   const auto inputRank = self.dim();
-  const auto outputRank = std::max<int64_t>(1, inputRank - 2);
   const auto dtype = self.scalar_type();
 
   SharedMetaData choleskySharedMeta{"cholesky_fwd"};
   choleskySharedMeta.inputs_data.emplace_back(inputRank, dtype);
-  choleskySharedMeta.outputs_data.emplace_back(outputRank, dtype);
+  choleskySharedMeta.outputs_data.emplace_back(inputRank, dtype);
 
-  SharedMetaDataVector metaVec{choleskySharedMeta};
-  const auto has_two_outputs = (stack.size() >= 3) && stack.at(2).isBool();
-  if (has_two_outputs) {
-    SharedMetaData constantSharedMeta{"constant"};
-    constantSharedMeta.outputs_data.emplace_back(
-        outputRank, c10::ScalarType::Int);
-    metaVec.push_back(constantSharedMeta);
-  }
+  // Skip a shared meta for a constant node, as it would disable SAG
+  // flow, because this node requires ST according to the documentation.
+  // However, in this specific case constant node with a ST doesn't affect the
+  // SAG, because the constant node is a direct output node. If it changes in
+  // the future, the constant node creation should be moved to the CGUID.
 
-  return metaVec;
+  return {choleskySharedMeta};
 }
 
 SharedMetaDataVector CholeskyInverseSharedMeta(
