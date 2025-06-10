@@ -36,7 +36,7 @@ const char* getOverloadName() {
 }
 
 template <typename T>
-static at::Tensor cast_from_fp8_dispatch(
+at::Tensor cast_from_fp8_dispatch(
     const at::Tensor& input,
     T scale,
     at::ScalarType out_dtype,
@@ -52,7 +52,7 @@ static at::Tensor cast_from_fp8_dispatch(
 }
 
 template <typename T>
-static std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
 _fp8_gemm_bwd_dispatch(
     const at::Tensor& grad_in,
     const at::Tensor& A,

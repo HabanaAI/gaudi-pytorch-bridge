@@ -723,7 +723,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
 }
 
 template <class T>
-static std::tuple<
+std::tuple<
     at::Tensor,
     at::Tensor,
     at::Tensor,

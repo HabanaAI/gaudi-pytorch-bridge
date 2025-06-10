@@ -858,7 +858,7 @@ void EagerExec::prune_duplicate_stack_inputs(
           stack.end(),
           [&stack, &parent_vec](const c10::IValue& v) {
             const auto index = static_cast<size_t>(
-                static_cast<const c10::IValue*>(&v) - &stack[0]);
+                static_cast<const c10::IValue*>(&v) - stack.data());
             const auto is_duplicate = parent_vec.is_duplicate(index);
             if (is_duplicate) {
               PT_EAGER_DEBUG(

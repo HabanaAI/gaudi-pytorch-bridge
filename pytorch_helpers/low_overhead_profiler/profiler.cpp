@@ -357,8 +357,7 @@ void ProfilerEngine::flush() {
     this->events_counter[pipeline_stage].load(std::memory_order_acquire);
     for (int i = 0; i < current_index[pipeline_stage]; ++i) {
       auto& event = this->events_table[pipeline_stage][i];
-      if (event.timestamp < tsc_base)
-        tsc_base = event.timestamp;
+      tsc_base = std::min(tsc_base, event.timestamp);
     }
   }
   std::unordered_map<int, std::unordered_map<std::string, std::pair<uint64_t, uint32_t>>> stage_op_aggregate;

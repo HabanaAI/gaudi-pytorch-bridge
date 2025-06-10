@@ -164,9 +164,7 @@ void FuseCollectiveViewPass::GetExternalParams(
         if (idx < -size) {
           idx = 0;
         }
-        if (idx > size) {
-          idx = size;
-        }
+        idx = std::min(idx, size);
         if (idx < 0) {
           idx += size;
         }

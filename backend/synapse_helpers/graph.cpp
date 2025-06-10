@@ -809,9 +809,8 @@ void graph::launch(
           device.get_least_workspace_size(tensor_mem, workspace_size);
       // Set minimal size of workspace to 4MB to prevent it from being 0
       constexpr size_t min_required_workspace_size = 4ull * 1024 * 1024;
-      if (least_workspace_size < min_required_workspace_size) {
-        least_workspace_size = min_required_workspace_size;
-      }
+      least_workspace_size = std::max(
+          least_workspace_size, min_required_workspace_size);
       device.cleanup_workspace_buffer();
     }
   }

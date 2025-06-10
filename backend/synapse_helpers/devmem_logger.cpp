@@ -359,9 +359,7 @@ void deviceMallocData::collect_backtrace(
       // Stats update
       if (!duplicate) {
         running_memory += size;
-        if (running_memory > iteration_high_watermark) {
-          iteration_high_watermark = running_memory;
-        }
+        iteration_high_watermark = std::max(iteration_high_watermark, running_memory);
       }
 
       if (iteration_high_watermark > overall_high_watermark) {

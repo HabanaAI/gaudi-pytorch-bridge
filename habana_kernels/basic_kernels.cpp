@@ -508,7 +508,7 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
 }
 
 namespace {
-static inline Device ensure_has_index(at::Device device) {
+inline Device ensure_has_index(at::Device device) {
   const c10::impl::DeviceGuardImplInterface* impl =
       c10::impl::getDeviceGuardImpl(device.type());
   return impl->getDevice();
@@ -715,9 +715,7 @@ void SliceInsertOperator::UpdateMaxPassSliceInputs(
         if (min.size() && (min[i] != max[i]) && old_start == 0) {
           auto curr_val = max[i] /
               habana_helpers::DynamicBucketInfo::default_max_multiplier_;
-          if (start[i] < curr_val) {
-            start[i] = curr_val;
-          }
+            start[i] = std::max(start[i], curr_val);
         }
       }
     }

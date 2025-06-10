@@ -460,9 +460,7 @@ void CoalescedStringentPooling::print_pool_stats() const {
       free_chunks++;
       free_chunks_size += chunk->size;
       cntgs_free_chunks_size = getContigousChunkSize(chunk);
-      if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
-        max_cntgs_free_chunks_size = cntgs_free_chunks_size;
-      }
+      max_cntgs_free_chunks_size = std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
 
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
         PT_DEVMEM_DEBUG(
@@ -522,9 +520,7 @@ size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
 
     if (!chunk->used && (chunk->size != 0)) {
       cntgs_free_chunks_size = getContigousChunkSize(chunk);
-      if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
-        max_cntgs_free_chunks_size = cntgs_free_chunks_size;
-      }
+      max_cntgs_free_chunks_size = std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
     }
   }
 
@@ -1308,9 +1304,7 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         free_chunks_size += chunk->size;
         available_chunks_size += chunk->size;
         cntgs_free_chunks_size = getContigousChunkSize(chunk);
-        if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
-          max_cntgs_free_chunks_size = cntgs_free_chunks_size;
-        }
+        max_cntgs_free_chunks_size = std::max(max_cntgs_free_chunks_size, cntgs_free_chunks_size);
       } else {
         occupied_chunks++;
         occupied_size += chunk->size;

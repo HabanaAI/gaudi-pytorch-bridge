@@ -24,11 +24,11 @@ Tensor toNonOptTensor(const std::optional<Tensor>& t) {
   return t.has_value() ? *t : Tensor();
 }
 
-static bool isDefined(const std::optional<Tensor>& t) {
+bool isDefined(const std::optional<Tensor>& t) {
   return t.has_value() && t->defined();
 }
 
-static Tensor sum_exclude_dim1(const Tensor& to_sum, bool keepdim = true) {
+Tensor sum_exclude_dim1(const Tensor& to_sum, bool keepdim = true) {
   auto r = to_sum.sum(0, keepdim);
   int64_t start_point_exclusive = keepdim ? 1 : 0;
   for (int64_t dim = r.dim() - 1; dim > start_point_exclusive; dim--) {
@@ -40,7 +40,7 @@ static Tensor sum_exclude_dim1(const Tensor& to_sum, bool keepdim = true) {
 // Helper for batchnorm_double_backward
 // similar to expand_as below, but doesn't do the expand_as; operates as if
 // reductions were done with keepdim=True
-static Tensor unsqueeze_dim1(const Tensor& src, const Tensor& target) {
+Tensor unsqueeze_dim1(const Tensor& src, const Tensor& target) {
   auto src_expanded = src;
   while (src_expanded.sizes().size() < target.sizes().size() - 1) {
     src_expanded = src_expanded.unsqueeze(1);
@@ -54,7 +54,7 @@ static Tensor unsqueeze_dim1(const Tensor& src, const Tensor& target) {
 // Helper for batchnorm_double_backward
 // because gamma/ggG/ggB are 1-dimensional and represent dim==1, we can't
 // do a straight expansion because it won't follow the broadcasting rules.
-static Tensor expand_as_dim1(const Tensor& src, const Tensor& target) {
+Tensor expand_as_dim1(const Tensor& src, const Tensor& target) {
   auto src_expanded = src;
   while (src_expanded.sizes().size() < target.sizes().size() - 1) {
     src_expanded = src_expanded.unsqueeze(1);

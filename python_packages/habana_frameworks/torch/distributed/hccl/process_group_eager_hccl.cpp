@@ -42,7 +42,7 @@
 namespace c10d {
 
 namespace {
-static inline void restore_output_tensors(
+inline void restore_output_tensors(
     const std::vector<std::pair<at::Tensor, at::Tensor>>&
         in_out_tensors_contiguous,
     const std::vector<at::Tensor>& outputs) {

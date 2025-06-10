@@ -120,9 +120,7 @@ tensor::shape_t to_stride_t(
     // stride)
     auto first_dim_value = shape[num_dims - 1];
     if (num_dims > 1) {
-      if (stride[num_dims - 2] > first_dim_value) {
-        first_dim_value = stride[num_dims - 2];
-      }
+      first_dim_value = std::max(first_dim_value, stride[num_dims - 2]);
     }
     dimensions[0] = size * first_dim_value;
     if (num_dims > 1) {

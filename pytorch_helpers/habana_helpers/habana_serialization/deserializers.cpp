@@ -27,7 +27,7 @@ void deserialize(std::istream& is, std::string& output) {
   int size;
   deserialize(is, size);
   output.resize(static_cast<size_t>(size));
-  is.read(&output[0], size);
+  is.read(output.data(), size);
 }
 
 // PT part

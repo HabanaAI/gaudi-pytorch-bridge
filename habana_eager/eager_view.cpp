@@ -151,7 +151,7 @@ bool is_schema_incompatible_between_hpu_aten(const std::string_view op_name) {
   return ops_replace_within_hpu.find(op_name) != ops_replace_within_hpu.end();
 }
 
-static JitNode* replace_with_out_of_place_op(
+JitNode* replace_with_out_of_place_op(
     JitGraph& graph,
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {

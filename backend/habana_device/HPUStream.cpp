@@ -32,7 +32,7 @@ void joinEagerThreadsCB() {
 namespace {
 
 // Global stream state and constants
-static std::once_flag init_flag;
+std::once_flag init_flag;
 
 // Note [StreamId assignment]
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -46,18 +46,18 @@ static std::once_flag init_flag;
 //
 
 // Thread-local current streams
-static thread_local std::unique_ptr<StreamId> current_streams = nullptr;
+thread_local std::unique_ptr<StreamId> current_streams = nullptr;
 
 // Populates global values.
 // Warning: this function must only be called once!
-static void initGlobalStreamState() {
+void initGlobalStreamState() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   habana::HPUDeviceContext::get_device();
 }
 
 // Init front-end to ensure initialization only occurs once
-static void initHPUStreamsOnce() {
+void initHPUStreamsOnce() {
   PT_DEVICE_DEBUG("STREAM:: HPUStream::initHPUStreamsOnce");
   // Inits default streams (once, globally)
   std::call_once(init_flag, initGlobalStreamState);

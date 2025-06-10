@@ -2080,9 +2080,7 @@ void SliceOperator::UpdateMaxPassSliceInputs(
         if (min.size() && (min[i] != max[i])) {
           auto curr_val = max[i] /
               habana_helpers::DynamicBucketInfo::default_max_multiplier_;
-          if (start[i] < curr_val) {
-            start[i] = curr_val;
-          }
+          start[i] = std::max(start[i], curr_val);
         }
       }
     }
