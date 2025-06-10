@@ -26,10 +26,7 @@ endif()
 
 include(CMakeDependentOption)
 
-project(
-  habana_pytorch_plugin
-  VERSION 0.8.0
-  LANGUAGES CXX)
+project(habana_pytorch_plugin LANGUAGES CXX)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -73,9 +70,6 @@ find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy)
 find_package(Torch REQUIRED)
 find_package(ZLIB REQUIRED)
 
-include(VersionChecker)
-detect_pt_version()
-
 list(
   APPEND
   REQUIRED_ENV_VARIABLES
@@ -97,7 +91,7 @@ foreach(req_env_var IN LISTS REQUIRED_ENV_VARIABLES)
   endif()
 endforeach()
 
-set(CMAKE_CONFIGURABLE_FILE_CONTENT "${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}")
+set(CMAKE_CONFIGURABLE_FILE_CONTENT "${Torch_VERSION_MAJOR}.${Torch_VERSION_MINOR}")
 configure_file("${CMAKE_ROOT}/Modules/CMakeConfigurableFile.in"
                "${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/required_version.txt" @ONLY)
 unset(CMAKE_CONFIGURABLE_FILE_CONTENT)
@@ -140,15 +134,6 @@ option(CODE_COVERAGE "Allow code coverage" OFF)
 
 if(CODE_COVERAGE)
   message(STATUS "code coverage is enabled.")
-endif()
-
-get_property(
-  torch_flags
-  TARGET torch
-  PROPERTY INTERFACE_COMPILE_OPTIONS)
-
-if(NOT "${torch_flags}" STREQUAL "")
-  add_compile_options("${torch_flags}")
 endif()
 
 include(AddNPUStackDependencies)
