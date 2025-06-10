@@ -375,6 +375,9 @@ synapse_error_o tensor::create_old_synapi() {
     status = synTensorSetExternal(tensor_, is_external_);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "Failed to set tensor external.", status, cleanup());
+    status = synTensorSetMinimalLatency(tensor_, is_external_);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "Failed to set tensor min latency.", status, cleanup());
   }
 
   PT_SYNHELPER_DEBUG("created ", *this);
@@ -568,6 +571,9 @@ synapse_error_o tensor::create() {
     status = synTensorSetExternal(tensor_, is_external_);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "Failed to set tensor external.", status, cleanup());
+    status = synTensorSetMinimalLatency(tensor_, is_external_);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "Failed to set tensor min latency.", status, cleanup());
   }
 
   PT_SYNHELPER_DEBUG("created ", *this);

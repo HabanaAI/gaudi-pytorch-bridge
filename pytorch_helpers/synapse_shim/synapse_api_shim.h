@@ -104,6 +104,8 @@
   visitor(synLaunchWithExternalEvents);       \
   visitor(synTensorSetExternal);              \
   visitor(synTensorGetExternal);              \
+  visitor(synTensorSetMinimalLatency);        \
+  visitor(synTensorGetMinimalLatency);        \
   visitor(synTensorAssignToSection);          \
   visitor(synTensorSetSectionOffset);         \
   visitor(synNodeGetUserParams);              \
