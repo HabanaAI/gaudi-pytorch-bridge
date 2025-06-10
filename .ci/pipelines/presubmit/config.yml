@@ -5,60 +5,86 @@ orchestratorConfig:
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_jit_fork
     silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile_jit_fork
     silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_eager
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_group_2
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
     - repository: lightning-habana-fork
       gitHubOrg: habana-internal
   - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_small_models_test
@@ -66,42 +92,62 @@ orchestratorConfig:
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_ci
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_compile
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_compile
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_eager
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_lightning_habana_uts
     triggerMap:
     - repository: lightning-habana-fork
@@ -110,14 +156,20 @@ orchestratorConfig:
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/neural_compressor_fork/Tests/Test_neural_compressor_fork_gaudi2_asic_fp8_quant__unit_tests
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_cpu_cd_installation_validation
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
+      forbiddenFiles:
+        - docs/*
   triggerMap:
   - repository: pytorch-integration
     gitHubOrg: habana-internal
