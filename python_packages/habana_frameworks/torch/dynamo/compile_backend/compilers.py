@@ -15,6 +15,7 @@
 #
 ###############################################################################
 
+import copy
 import os
 from unittest import mock
 
@@ -49,9 +50,23 @@ def _gen_graph_name():
 _gen_graph_name.ordinal = 0
 
 
+def copy_graph_if_backward(original_graph_module, is_backward):
+    if is_backward:
+        # [SW-219941] / [https://github.com/pytorch/pytorch/pull/153827]
+        # In backward, we need to use the copy of graph module
+        # to avoid issues with the graph being modified in-place.
+        # There was issue that creating fused modules and
+        # input list caused problems with autograd graph.
+        graph_module = copy.deepcopy(original_graph_module)
+    else:
+        graph_module = original_graph_module
+
+    return graph_module
+
+
 @log_function_start_end
 def hpu_freezing_compiler_inner(
-    graph_module: torch.fx.GraphModule,
+    graph_module_org: torch.fx.GraphModule,
     dyn_graph_module: torch.fx.GraphModule,
     example_inputs: list[torch.Tensor],
     is_training: bool,
@@ -61,8 +76,9 @@ def hpu_freezing_compiler_inner(
     This function will be called for each input FX graph. This will only process
     inference graphs where we run inference specific passes and parameter freezing.
     """
-
     assert not is_training and not is_backward
+
+    graph_module = copy_graph_if_backward(graph_module_org, is_backward)
 
     graph_name = _gen_graph_name()
 
@@ -116,13 +132,15 @@ def hpu_freezing_compiler_inner(
 
 @log_function_start_end
 def hpu_compiler_inner(
-    graph_module: torch.fx.GraphModule, example_inputs: list[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module_org: torch.fx.GraphModule, example_inputs: list[torch.Tensor], is_training: bool, is_backward: bool
 ):
     """
     This function will be called for each input FX graph. There will be at least
     three separate graphs for FWD, BWD and optimizer. Each of these phases can
     also generate multiple graphs and calls to this function.
     """
+    graph_module = copy_graph_if_backward(graph_module_org, is_backward)
+
     if not is_training and str_to_bool(os.environ.get("PT_HPU_USE_FUSE_SDPA_PASS", False)):
         # optimize the module before partitioning it
         # we will fuse the attention module here
