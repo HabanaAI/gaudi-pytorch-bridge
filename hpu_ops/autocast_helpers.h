@@ -69,7 +69,6 @@ static const std::unordered_set<std::string> default_fp32_ops{
     "dist",
     "div",
     "divide",
-    "embedding",
     "embedding_bag",
     "erfinv",
     "exp",
