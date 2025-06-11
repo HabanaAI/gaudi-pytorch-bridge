@@ -71,13 +71,11 @@ def _fused_dropout(x):
 
 
 def exponential(x):
-    a = torch.empty_like(x)
-    return a.exponential_() * x
+    return torch.ops.aten.exponential(x) * x
 
 
 def random(x):
-    a = torch.empty_like(x)
-    return a.random_(5, 10) * x
+    return torch.ops.aten.random(x, 5, 10) * x
 
 
 def normal(mean, std):
