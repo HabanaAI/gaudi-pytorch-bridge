@@ -1119,6 +1119,7 @@ void habana::HabanaLaunchOpPT::OrderInputs() {
   if (enable_caching_ || enable_shape_agnostic_caching_) {
     // Order the input_tivs_ according to the order of suggraph inputs
     size_t i = pt_stack_sh_.size() - num_inputs_;
+    size_t unused = 0;
     for (; i < pt_stack_sh_.size(); i++) {
       IValPtrShared ivpsh = pt_stack_sh_.at(i);
       if (ivpsh->isTensor() || ivpsh->isTensorList()) {
@@ -1126,14 +1127,24 @@ void habana::HabanaLaunchOpPT::OrderInputs() {
         if (it != input_tiv_map_.end()) {
           input_tivs_.push_back(it->second);
         } else {
-          HABANA_ASSERT(false, "synapse tensor not found for input index: ", i);
+          if (jit_ir_graph_->inputs().at(i)->uses().empty()) {
+            ++unused;
+
+            PT_BRIDGE_WARN(
+                "Input tensor ", i, " is not used in the subgraph, skipping.");
+          } else {
+            HABANA_ASSERT(
+                false, "synapse tensor not found for input index: ", i);
+          }
         }
       }
     }
+
+    auto expected = num_tensor_inputs_ - unused;
     HABANA_ASSERT(
-        input_tivs_.size() == num_tensor_inputs_,
-        "number of input tensors ",
-        num_tensor_inputs_,
+        input_tivs_.size() == expected,
+        "number of expected input tensors ",
+        expected,
         " mismatch with #input_tivs_ ",
         input_tivs_.size());
   }
