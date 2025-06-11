@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,8 @@
 #pragma once
 
 #include <torch/jit.h>
-#include <algorithm>
-#include <functional>
-#include <future>
-#include <mutex>
-#include <thread>
-
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/helpers/dynamic_bucket_info.h"
+#include "backend/helpers/tensor_info.h"
 
 namespace habana {
 
@@ -36,6 +31,7 @@ torch::jit::Stack CreateInputStack(
     std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata,
     habana_helpers::TensorShapes& input_shapes,
     torch::jit::Stack& input_stack);
+
 void PrintStack(torch::jit::Stack& st);
 
 bool CompileGraphWithRange(

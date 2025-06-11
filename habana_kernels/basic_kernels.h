@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,7 +137,8 @@ class SliceInsertOperator : public habana::HabanaOperator {
       int64_t& dim,
       int64_t& start,
       int64_t& end,
-      int64_t& step);
+      int64_t& step,
+      size_t& wrapped_dim);
 
   void ComputeParams(
       synSliceParamsV2& params,

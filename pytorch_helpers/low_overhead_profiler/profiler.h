@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 #include <array>
 #include <atomic>
 #include <climits>
-#include <list>
 #include <mutex>
+#include <string>
 #include <string_view>
-#include <thread>
 #include <vector>
 
 #define LOP_TRACE_NAMED(x, l) LOP::ScopedProfiler tracer(x, l);
@@ -46,7 +45,7 @@ struct Event {
   uint64_t jit_cache_key;
   const char* name;
   std::string op_name;
-  uint32_t thread_id;
+  uint64_t thread_id;
   uint32_t cpu_id;
   uint32_t user_event_id;
   int32_t pipeline_stage_id;

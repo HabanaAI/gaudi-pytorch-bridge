@@ -26,7 +26,7 @@ using namespace ::habana;
 namespace {
 
 int get_thread_tid() {
-  return syscall(SYS_gettid);
+  return syscall(static_cast<long>(SYS_gettid));
 }
 
 bool is_enabled() {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1019,7 +1019,9 @@ bool DynamicBucketInfo::UpdateBucketWithPolicy(
 std::vector<int64_t> DynamicBucketInfo::ExtractDynamicDimsValue(
     const InpTensorShapes& shapes) {
   std::vector<int64_t> dims;
+  dims.reserve(dynamic_dims_helper_.flat_dd_.size());
   std::vector<int64_t> dims_new;
+  dims_new.reserve(dynamic_dims_helper_.flat_dd_.size());
   DimsHistoryElement dims_he;
   for (auto& el : dynamic_dims_helper_.flat_dd_) {
     auto dim_val = shapes.at(el.num).dim_size(el.pos);
@@ -1054,7 +1056,7 @@ std::vector<int64_t> DynamicBucketInfo::ExtractDynamicDimsValue(
 
 bool DynamicBucketInfo::IsInRangeStaticDims(
     const std::vector<int64_t>& dims,
-    int64_t num) const {
+    size_t num) const {
   HABANA_ASSERT(
       dynamic_dims_helper_.flat_dd_.size() >= dims.size(),
       "wrong dynamic dims size",
@@ -1150,7 +1152,7 @@ DynamicBucketInfo::DimMultipliers DynamicBucketInfo::
 
 size_t DynamicBucketInfo::CalculateHistoric(
     const InpTensorShapes& shapes,
-    std::string xin_name,
+    const std::string& xin_name,
     std::function<bool(int64_t, int64_t)> comp,
     int64_t xin_val) {
   auto& dims_history{input_history_.hist_items()};

@@ -101,12 +101,12 @@ void adjustPTSizes(Tensor& t) {
   // but data permuted for channel last, so change the size and stride
   // NCHW
   auto sizes = t.sizes().vec();
-  std::vector<int> out_pos = {
+  std::vector<size_t> out_pos = {
       LayoutFormatDims::N,
       LayoutFormatDims::W,
       LayoutFormatDims::C,
       LayoutFormatDims::H};
-  std::vector<int> out_pos_5d = {
+  std::vector<size_t> out_pos_5d = {
       LayoutFormatWithDepthDims::N,
       LayoutFormatWithDepthDims::W,
       LayoutFormatWithDepthDims::C,
@@ -371,8 +371,7 @@ void IdentityOperator::AllocateAndAddSynapseNode(
  ************************************************************************/
 InferOutputMetaRetType DummyOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  int out_index = inputs.size() - 1;
-  auto output = inputs[out_index].toTensor();
+  auto output = inputs.back().toTensor();
   InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       output.sizes().vec(),
@@ -390,7 +389,7 @@ void DummyOperator::AllocateAndAddSynapseNode(
   static_cast<void>(graph);
   static_cast<void>(output_metadata);
   at::Tensor output;
-  int out_index = inputs.size() - 1;
+  const size_t out_index = inputs.size() - 1;
   output = inputs[out_index].toTensor();
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
@@ -444,7 +443,7 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
           graph,
           size,
           strides,
-          offset * self.itemsize(),
+          static_cast<size_t>(offset) * self.itemsize(),
           output_metadata.at(0).external));
   p_context_->pt_outputs_.emplace_back(output);
 }
@@ -470,9 +469,12 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
   auto dims = inputs[1].toIntVector();
   auto is_5d_layout = dims.size() == 5 ? true : false;
   std::vector<int64_t> swapped_sizes = {
-      sizes[dims[0]], sizes[dims[1]], sizes[dims[2]], sizes[dims[3]]};
+      sizes[static_cast<size_t>(dims[0])],
+      sizes[static_cast<size_t>(dims[1])],
+      sizes[static_cast<size_t>(dims[2])],
+      sizes[static_cast<size_t>(dims[3])]};
   if (is_5d_layout) {
-    swapped_sizes.push_back(sizes[dims[4]]);
+    swapped_sizes.push_back(sizes[static_cast<size_t>(dims[4])]);
   }
 
   std::vector<long int> new_strides = {
@@ -590,12 +592,14 @@ void SliceInsertOperator::FixSliceParams(
     int64_t& dim,
     int64_t& start,
     int64_t& end,
-    int64_t& step) {
+    int64_t& step,
+    size_t& wrapped_dim) {
   int64_t ndim = self.dim();
   if (ndim == 0) {
     TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
   }
   dim = at::maybe_wrap_dim(dim, ndim);
+  wrapped_dim = static_cast<size_t>(dim);
   std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
 
   // TODO: support negative strides
@@ -606,20 +610,20 @@ void SliceInsertOperator::FixSliceParams(
     start = 0;
   }
   if (start < 0) {
-    start += sizes[dim];
+    start += sizes[wrapped_dim];
   }
   if (end < 0) {
-    end += sizes[dim];
+    end += sizes[wrapped_dim];
   }
   if (start < 0) {
     start = 0;
-  } else if (start >= sizes[dim]) {
-    start = sizes[dim];
+  } else if (start >= sizes[wrapped_dim]) {
+    start = sizes[wrapped_dim];
   }
   if (end < start) {
     end = start;
-  } else if (end >= sizes[dim]) {
-    end = sizes[dim];
+  } else if (end >= sizes[wrapped_dim]) {
+    end = sizes[wrapped_dim];
   }
 }
 
@@ -634,20 +638,21 @@ void SliceInsertOperator::ComputeParams(
   std::fill_n(params.ends, HABANA_DIM_MAX, 0);
   std::fill_n(params.steps, HABANA_DIM_MAX, 1);
 
-  int num_slice_params = paramsList.size() / 4;
-  for (int i = 0; i < num_slice_params; i++) {
+  size_t num_slice_params = paramsList.size() / 4;
+  for (size_t i = 0; i < num_slice_params; i++) {
     int64_t dim = paramsList[i * 4];
     int64_t start = paramsList[i * 4 + 1];
     int64_t end = paramsList[i * 4 + 2];
     int64_t step = paramsList[i * 4 + 3];
-    FixSliceParams(self, dim, start, end, step);
+    size_t wrapped_dim{};
+    FixSliceParams(self, dim, start, end, step, wrapped_dim);
     params.axes[i] = get_dim_in_tpc_order(dim, self.dim());
-    params.starts[i] = start;
-    params.ends[i] = end;
-    params.steps[i] = step;
+    params.starts[i] = static_cast<unsigned long>(start);
+    params.ends[i] = static_cast<unsigned long>(end);
+    params.steps[i] = static_cast<unsigned long>(step);
     bool needs_params_handling = false;
     if (graph.is_dynamic_graph() && (!graph.is_dry_run()) &&
-        end > self.sizes().vec()[dim]) {
+        end > self.sizes().vec()[wrapped_dim]) {
       needs_params_handling = true;
     }
     if (needs_params_handling) {
@@ -655,7 +660,7 @@ void SliceInsertOperator::ComputeParams(
       auto tensor_id = syn_input_tensor.id();
       std::vector<int64_t> min, max;
       std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-      params.ends[i] = max[dim];
+      params.ends[i] = static_cast<unsigned long>(max[wrapped_dim]);
     }
   }
 }

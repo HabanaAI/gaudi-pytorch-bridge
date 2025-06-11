@@ -17,6 +17,7 @@
 #include "backend/backend_meta.h"
 #include "backend/kernel/hpu_habana_cache.h"
 
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"

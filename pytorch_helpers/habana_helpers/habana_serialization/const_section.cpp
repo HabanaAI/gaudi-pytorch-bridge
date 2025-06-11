@@ -19,6 +19,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <ios>
+#include <limits>
 #include <string>
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
@@ -170,7 +172,12 @@ void ConstSectionDataSerialize::serializePerRecipe(
 
   // if section size is 0, data pointer will be null
   if (data) {
-    outputFile.write(reinterpret_cast<const char*>(data), data_size);
+    HABANA_ASSERT(
+        data_size <= std::numeric_limits<std::streamsize>::max(),
+        "Data size exceeds maximum stream size limit for serialization.");
+    outputFile.write(
+        reinterpret_cast<const char*>(data),
+        static_cast<std::streamsize>(data_size));
   }
   outputFile.close();
 }
@@ -196,19 +203,30 @@ void ConstSectionDataSerialize::compress_and_serialize(
     throw std::runtime_error("deflateInit2 failed while compressing.");
   }
 
-  zs.next_in = static_cast<Bytef*>(data);
-  zs.avail_in = data_size;
+  zs.next_in = static_cast<Bytef*>(const_cast<void*>(data));
+  HABANA_ASSERT(
+      data_size <= std::numeric_limits<unsigned int>::max(),
+      "Data size exceeds maximum unsigned int limit for compression.");
+  zs.avail_in = static_cast<unsigned int>(data_size);
 
   int ret;
   absl::FixedArray<char> outbuffer(CONST_SECTION_COMPRESSION_CHUNK_SIZE);
 
   do { // NOLINT(cppcoreguidelines-avoid-do-while)
     zs.next_out = reinterpret_cast<Bytef*>(outbuffer.data());
-    zs.avail_out = outbuffer.memsize();
+    static_assert(
+        CONST_SECTION_COMPRESSION_CHUNK_SIZE * sizeof(char) <=
+            std::numeric_limits<unsigned int>::max(),
+        "CONST_SECTION_COMPRESSION_CHUNK_SIZE exceeds maximum unsigned int limit for compression.");
+    zs.avail_out = static_cast<unsigned int>(outbuffer.memsize());
 
     ret = deflate(&zs, Z_FINISH);
 
-    outputFile.write(outbuffer.data(), zs.total_out - outputFile.tellp());
+    HABANA_ASSERT(
+        zs.total_out <= std::numeric_limits<std::streamsize>::max(),
+        "Compressed data size exceeds maximum stream size limit.");
+    outputFile.write(
+        outbuffer.data(), static_cast<long>(zs.total_out) - outputFile.tellp());
   } while (ret == Z_OK);
 
   deflateEnd(&zs);
@@ -242,7 +260,12 @@ void ConstSectionDataSerialize::serialize(
   if (habana_helpers::IsCompressionEnabled()) {
     compress_and_serialize(data, data_size, outputFile);
   } else {
-    outputFile.write(reinterpret_cast<const char*>(data), data_size);
+    HABANA_ASSERT(
+        data_size <= std::numeric_limits<std::streamsize>::max(),
+        "Data size exceeds maximum stream size limit for serialization.");
+    outputFile.write(
+        reinterpret_cast<const char*>(data),
+        static_cast<std::streamsize>(data_size));
   }
   outputFile.close();
   m_isSerialized = true;
@@ -263,10 +286,17 @@ void ConstSectionDataSerialize::decompress_and_deserialize(
       std::istreambuf_iterator<char>());
   zs.next_in =
       reinterpret_cast<Bytef*>(const_cast<char*>(compressedData.data()));
-  zs.avail_in = inputFile.tellg();
+  const auto read_pos = inputFile.tellg();
+  HABANA_ASSERT(
+      read_pos <= std::numeric_limits<unsigned int>::max(),
+      "Input file size exceeds maximum unsigned int limit for decompression.");
+  zs.avail_in = static_cast<unsigned int>(inputFile.tellg());
 
   zs.next_out = static_cast<Bytef*>(data);
-  zs.avail_out = data_size;
+  HABANA_ASSERT(
+      data_size <= std::numeric_limits<unsigned int>::max(),
+      "Data size exceeds maximum unsigned int limit for decompression.");
+  zs.avail_out = static_cast<unsigned int>(data_size);
 
   int ret;
 
@@ -307,7 +337,11 @@ void ConstSectionDataSerialize::deserializePerRecipe(
       getSerializedRecipeFullPath(const_id, key),
       " size: ",
       data_size);
-  inputFile.read(reinterpret_cast<char*>(data), data_size);
+  HABANA_ASSERT(
+      data_size <= std::numeric_limits<std::streamsize>::max(),
+      "Data size exceeds maximum stream size limit for deserialization.");
+  inputFile.read(
+      reinterpret_cast<char*>(data), static_cast<std::streamsize>(data_size));
   inputFile.close();
 }
 
@@ -347,7 +381,12 @@ void ConstSectionDataSerialize::deserialize(
     if (habana_helpers::IsCompressionEnabled()) {
       decompress_and_deserialize(data, data_size, inputFile);
     } else {
-      inputFile.read(reinterpret_cast<char*>(data), data_size);
+      HABANA_ASSERT(
+          data_size <= std::numeric_limits<std::streamsize>::max(),
+          "Data size exceeds maximum stream size limit for deserialization.");
+      inputFile.read(
+          reinterpret_cast<char*>(data),
+          static_cast<std::streamsize>(data_size));
     }
     inputFile.close();
   }

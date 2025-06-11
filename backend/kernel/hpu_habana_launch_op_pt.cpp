@@ -1210,12 +1210,12 @@ void HabanaLaunchOpPT::handleRestrideNode(
     auto sizes = tensor.sizes().vec();
     std::vector<int64_t> swapped_sizes;
     for (auto& pos : new_pos) {
-      swapped_sizes.emplace_back(sizes[pos]);
+      swapped_sizes.emplace_back(sizes[static_cast<size_t>(pos)]);
     }
     auto strides = tensor.strides().vec();
     std::vector<long int> swapped_strides;
     for (auto& pos : new_pos) {
-      swapped_strides.emplace_back(strides[pos]);
+      swapped_strides.emplace_back(strides[static_cast<size_t>(pos)]);
     }
 
     tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -1817,7 +1817,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
 
   auto node_outs = node->outputs();
   auto outputs = last(stack, node_outs.size());
-  int i = 0;
+  size_t i = 0;
   for (const auto val_out : node_outs) {
     IValPtrShared ival = std::make_shared<IVal>(outputs[i]);
     value_to_ivalue_[val_out] = ival;
@@ -1962,7 +1962,7 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
 
   std::deque<sh::tensor_or_ref>& syn_outputs = HabanaKernel->GetSynOutputs();
   std::deque<sh::tensor_or_ref>& syn_inputs = HabanaKernel->GetSynInputs();
-  int intermediate_shape_tensor_count = 0;
+  size_t intermediate_shape_tensor_count = 0;
   // Auto gen op intermediate shape tensors
   if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
     for (const auto& st : op->GetShapeTensors()) {
@@ -2215,7 +2215,7 @@ void ProcessGraphForConstantTensors(
 void HabanaLaunchOpPT::FillMaxValues(
     const HabanaOperatorPtr& habana_op,
     const torch::jit::Stack& input_stack,
-    std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues) {
+    std::unordered_map<uint64_t, std::vector<int64_t>>& index2maxvalues) {
   for (size_t i = 0; i < input_stack.size(); ++i) {
     auto& input_tensor = input_stack[i];
     if (input_tensor.isTensor()) {
@@ -2235,7 +2235,7 @@ void HabanaLaunchOpPT::FillMaxValues(
 void HabanaLaunchOpPT::UpdateMaxValues(
     const HabanaOperatorPtr& habana_op,
     const torch::jit::Stack& input_stack,
-    std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues) {
+    std::unordered_map<uint64_t, std::vector<int64_t>>& index2maxvalues) {
   for (size_t i = 0; i < input_stack.size(); ++i) {
     auto& input_tensor = input_stack[i];
     std::vector<int64_t> max_new;
@@ -3250,7 +3250,7 @@ void HabanaLaunchOpPT::HandleSlicesAndStrides(
         value_to_ivalue_,
         pt_to_synapse_tensors_);
   } else {
-    std::unordered_map<int64_t, std::vector<int64_t>> index2maxvalues;
+    std::unordered_map<uint64_t, std::vector<int64_t>> index2maxvalues;
     // Currently max update which is less than bucket range issue exists for
     // slice. If other node needs this, can be added here.
     bool updatemax_node =

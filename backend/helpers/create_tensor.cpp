@@ -23,9 +23,9 @@
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "common/utils.h"
-#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "pytorch_helpers/habana_helpers/misc_utils.h"
 
 namespace {
 void handle_const_section_tensor(const at::Tensor& tensor) {

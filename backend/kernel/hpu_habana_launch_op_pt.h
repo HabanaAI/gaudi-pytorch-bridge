@@ -25,6 +25,7 @@
 #include "backend/kernel/constant_information.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/passes/fuse_collective_view_pass.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 namespace habana {
@@ -967,12 +968,12 @@ class HabanaLaunchOpPT {
   void FillMaxValues(
       const HabanaOperatorPtr& habana_op,
       const torch::jit::Stack& input_stack,
-      std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues);
+      std::unordered_map<uint64_t, std::vector<int64_t>>& index2maxvalues);
 
   void UpdateMaxValues(
       const HabanaOperatorPtr& habana_op,
       const torch::jit::Stack& input_stack,
-      std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues);
+      std::unordered_map<uint64_t, std::vector<int64_t>>& index2maxvalues);
 
   void UpdatePTStack(DynamicShapeInfo& graph_input_info);
 
