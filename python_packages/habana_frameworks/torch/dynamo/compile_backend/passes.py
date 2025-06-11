@@ -267,7 +267,7 @@ def pass_mark_waittensor_downstream_ops(ctx: OptimizerContext) -> bool:
         return False
 
     gm = ctx.graph_module
-    waittensors = [n for n in gm.graph.nodes if n.name.startswith("wait_tensor")]
+    waittensors = [n for n in gm.graph.nodes if "wait_tensor" in str(n.target)]
     for waittensor in waittensors:
         upstream_waittensor_name = waittensor.name
         user_nodes = list(waittensor.users.keys())
@@ -311,9 +311,9 @@ def pass_reorder_collectives(ctx: OptimizerContext) -> bool:
         if n.op == "placeholder":
             traversed_nodes.append(n)
             col_move_target = n  # Finding last placeholder node
-        if n.op == "output":
+        elif n.op == "output":
             wt_move_target = n
-        if n.name.startswith("wait_tensor"):
+        elif "wait_tensor" in str(n.target):
             wait_tensor_nodes.append(n)
             for arg in n.all_input_nodes:
                 collective_nodes.append(arg)
