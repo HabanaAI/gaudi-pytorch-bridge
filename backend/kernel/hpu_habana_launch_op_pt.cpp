@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2021-2025 Intel Corporation
  *
@@ -3620,6 +3621,10 @@ HabanaLaunchOpPT::BuildSynapseGraphNodesMainLoopRT HabanaLaunchOpPT::
     const auto scope = node->scope();
     if (!scope->isBlank()) {
       op_name_context.emplace(syn_graph, scope->name().toUnqualString());
+    } else {
+      const std::string& node_output_name = node->output(0)->debugName();
+      auto pos = node_output_name.find_last_of('.');
+      op_name_context.emplace(syn_graph, node_output_name.substr(0, pos));
     }
 
     torch::jit::Stack input_stack = getStackForNode(node);

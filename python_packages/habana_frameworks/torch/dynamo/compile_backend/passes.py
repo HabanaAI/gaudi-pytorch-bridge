@@ -26,6 +26,9 @@ from typing import Any
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import habana_frameworks.torch.utils.experimental as htexp
+from habana_frameworks.torch.dynamo._fx_to_jit_lowering import (
+    propagate_node_module_name,
+)
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.dynamo.debug_utils.logger import get_compile_backend_logger
 from habana_frameworks.torch.dynamo.debug_utils.visualization.graph_dumping import (
@@ -1981,6 +1984,35 @@ def pass_stable_topological_sort(ctx: OptimizerContext):
     return True
 
 
+def propagate_module_names(fx_graph: torch.fx.Graph, jit_graph: torch.Graph) -> None:
+    """
+    This function propagates the module names from the FX graph to the JIT IR nodes.
+    This is done to propagate those name further to synapse graph.
+    """
+    fx_to_ir = {}
+    jit_graph_iter = iter(jit_graph.nodes())
+    for fx_node in fx_graph.nodes:
+        if fx_node.op != "call_function" or "getitem" in str(fx_node.target):
+            continue
+        while True:
+            try:
+                jit_node = next(jit_graph_iter)
+            except StopIteration:
+                # Not every fx node was successfully matched so we can't be certain our mapping is correct
+                # It's safer not to propagate module names at all to ensure they're not misleading
+                return
+
+            if str(fx_node.target).replace(".", "::") in jit_node.kind():
+                fx_to_ir[fx_node] = jit_node
+                break
+
+    filtered_fx_to_ir = filter(lambda elem: "nn_module_stack" in elem[0].meta, fx_to_ir.items())
+
+    for fx_node, jit_node in filtered_fx_to_ir:
+        for out in jit_node.outputs():
+            propagate_node_module_name(fx_node, out)
+
+
 def pass_compile_clusters(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated HPU cluster
@@ -2030,7 +2062,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             module._forward_pre_hooks = OrderedDict()
 
             f = torch.jit.script(module)
-
+            propagate_module_names(module.graph, f.graph)
             module._forward_hooks = saved_forward_hooks
             module._forward_pre_hooks = saved_pre_forward_hooks
 

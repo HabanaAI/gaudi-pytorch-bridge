@@ -2252,7 +2252,12 @@ void Graph::cloneToUpstreamGraph(
     auto num_outputs = src_node->outputs().size();
     auto dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
     for (auto i = 0u; i < num_outputs; i++) {
-      dst_node->outputs()[i]->setType(src_node->outputs()[i]->type());
+      auto dst_output = dst_node->outputs()[i];
+      auto src_output = src_node->outputs()[i];
+      dst_output->setType(src_output->type());
+      if (habana_torch::jit::Value::isValidName(src_output->debugName())) {
+        dst_output->setDebugName(src_output->debugName());
+      }
     }
 
     dst_graph->insertNode(dst_node);

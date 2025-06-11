@@ -34,6 +34,16 @@ from ._fx_jit_lowering_utils import BUILTIN_OPS_TO_ATEN_OPS, TYPE_TO_JIT_TYPE
 logger = get_compile_backend_logger()
 
 
+def propagate_node_module_name(fx_node: torch.fx.Node, jit_val: jit.Value):
+    if "nn_module_stack" in fx_node.meta:
+        last_module_stack_elem = next(reversed(fx_node.meta["nn_module_stack"].values()))[0]
+        module_list = last_module_stack_elem.split(".")
+        # First element is in different format: e.x. L['self']; we convert it to L_self
+        module_list[0] = module_list[0].translate(str.maketrans({"[": "_", "]": None, "'": None}))
+        debug_name = f"{'/'.join(module_list)}/{jit_val.debugName()}"
+        jit_val.setDebugName(debug_name)
+
+
 # The whole mechanism of how an interpreter works is well explained
 # in the torch repository. Please refer to torch/fx/interpreter.py
 # to see details. This particular interpreter is responsible for
@@ -88,6 +98,9 @@ class FxToJitLowering(torch.fx.Interpreter):
         # Create JIT nodes which are as an equivalent for the node
         # being processed.
         returned_val = self._emit_jit_node(node, schema, jit_op_name, jit_args, jit_kwargs)
+
+        # Set jit.Value's debug name based on fx node metadata
+        propagate_node_module_name(node, returned_val)
 
         # Check if the metadata for the node is well-formed.
         self._check_meta(node)
