@@ -75,7 +75,7 @@ class ShapeInfo {
     m_actual_shapes.clear();
   }
 
-  InferencePass m_pass;
+  InferencePass m_pass = InferencePass::INVALID;
   habana_helpers::DynamicDimsPolicy m_min_policy_inuse{
       habana_helpers::MIN_POLICY_DEFAULT};
   habana_helpers::DynamicDimsPolicy m_max_policy_inuse{
