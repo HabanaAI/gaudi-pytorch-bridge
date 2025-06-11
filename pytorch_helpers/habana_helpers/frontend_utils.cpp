@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,10 @@
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_operator.h"
 #include "backend/helpers/graph.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/python_utils.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
-#include "habana_lazy/permute_tensors.h"
 
 /*************************************************************************
  * @brief This helper function casts a long tensor to int (on CPU)
@@ -181,7 +177,8 @@ at::Tensor habana_helpers::hpu_cast_tensor(
       "Unsupported Cast operation requested in hpu_cast_tensor()");
 
   int device_id = Input.device().index();
-  auto& device = habana::HPUDeviceContext::get_device(device_id);
+  auto& device =
+      habana::HPUDeviceContext::get_device(static_cast<synDeviceId>(device_id));
   CastOperator Op(device_id, node_type.value());
   std::vector<c10::IValue> stack = {
       c10::IValue(Input), c10::IValue(at::typeMetaToScalarType(type))};

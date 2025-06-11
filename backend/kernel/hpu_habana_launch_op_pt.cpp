@@ -633,7 +633,7 @@ void HabanaLaunchOpPT::GetSynapseInputsPopulateSeed(
   if (populate_seed) {
     int seed = 0;
     if (!syn_graph_ptr_->is_dry_run()) {
-      seed = get_seed_hpu(std::nullopt);
+      seed = static_cast<int>(get_seed_hpu(std::nullopt));
     }
     at::Tensor seed_cpu_tensor = at::tensor(seed);
     at::Tensor seed_tensor = at::empty(
@@ -892,8 +892,8 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   };
 
   auto handle_postprocess = [&](const auto& nodes,
-                                int node_output_idx,
-                                int tensor_idx,
+                                size_t node_output_idx,
+                                size_t tensor_idx,
                                 sh::tensor& sh_t) {
     SharedSynTensorOrRefListPtr tensorList =
         std::make_shared<SynTensorOrRefList>();
@@ -1126,7 +1126,8 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
             .mark_persistence(true)
             .with_memory_section(syn_tensor_input.memorysection())
             .build(
-                HPUDeviceContext::get_device(tensor->device().index()),
+                HPUDeviceContext::get_device(
+                    static_cast<synDeviceId>(tensor->device().index())),
                 syn_tensor_input.graph());
 
     meta_syn_tensors_.push_back(absl::get<sh::tensor>(std::move(variant)));

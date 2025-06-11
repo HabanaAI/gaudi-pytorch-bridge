@@ -17,7 +17,7 @@
 #include <habana_helpers/logging.h>
 #include "CoalescedStringentPoolAllocator.h"
 #include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/lightweight_memory_usage_logger.h"
 #include "backend/synapse_helpers/util.h"
 
@@ -61,8 +61,8 @@ void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
 
 void BinUtils::RemoveFreeChunkFromBin(Chunk* c) const {
   if (!c->used && (c->bin_index != kInvalidBinNum)) {
-    int count = BinFromIndex(c->bin_index)->free_chunks.erase(c);
-    if (count < 0) {
+    const auto count = BinFromIndex(c->bin_index)->free_chunks.erase(c);
+    if (count == 0) {
       PT_DEVMEM_DEBUG(
           "CS_POOL:: RemoveFreeChunkFromBin - memptr = ",
           uint64_to_hex_string(c->memptr),
@@ -154,9 +154,13 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     }
     stats.pre_allocate_size += hccl_allowance_bytes;
 
-    auto val = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC);
-    uint32_t mem_acquire_perc = (val > 100) ? 100 : val;
-    size = ((mem_acquire_perc / 100.0) * free_mem) - hccl_allowance_bytes;
+    const auto val =
+        static_cast<size_t>(GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC));
+    const auto mem_acquire_perc = (val > 100) ? 100 : val;
+    size = static_cast<size_t>(
+               ((static_cast<double>(mem_acquire_perc) / 100.0) *
+                static_cast<double>(free_mem))) -
+        hccl_allowance_bytes;
 
     PT_DEVMEM_DEBUG(
         "CS_POOL:: use 100% of freepool size, free mem :: ",

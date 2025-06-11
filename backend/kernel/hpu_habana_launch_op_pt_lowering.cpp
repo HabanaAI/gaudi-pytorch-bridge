@@ -12,13 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <absl/container/fixed_array.h>
 #include <cstdint>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/kernel/constant_information.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/towl.h"
@@ -294,7 +294,7 @@ static std::vector<synRetrievedLaunchTensorInfo> getRecipeTensorInfos(
     const synRecipeHandle& recipeHandle,
     uint32_t numOfTensors) {
   synStatus status;
-  std::vector<uint64_t> ids(numOfTensors);
+  absl::FixedArray<size_t> ids(numOfTensors);
   status = synTensorRetrieveLaunchIds(recipeHandle, ids.data(), numOfTensors);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));

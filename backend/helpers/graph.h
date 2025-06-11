@@ -19,8 +19,8 @@
 
 namespace habana_helpers {
 
-static inline synapse_helpers::graph create_graph(
-    int device_id,
+inline synapse_helpers::graph create_graph(
+    synDeviceId device_id,
     std::string name,
     synapse_helpers::graph::DryRun dry_run =
         synapse_helpers::graph::DryRun::Disabled,

@@ -145,7 +145,7 @@ tensor::shape_t to_stride_t(
       dimensions[num_dims - 1] = shape[0] * dimensions[num_dims - 2];
 
       // Ensure that the last dim stride doesn't exceed the tensor size
-      if (dimensions[num_dims - 1] > tensor_size) {
+      if (dimensions[num_dims - 1] > static_cast<long int>(tensor_size)) {
         dimensions[num_dims - 1] = tensor_size;
       }
     }

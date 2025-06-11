@@ -229,9 +229,9 @@ class InferOutputMetaRetType {
 };
 
 struct PtInputIdxAndSynHelpTensor {
-  int pt_input_idx;
+  size_t pt_input_idx;
   synapse_helpers::tensor_or_ref sh_t;
-  int syn_input_idx;
+  size_t syn_input_idx;
 };
 
 //

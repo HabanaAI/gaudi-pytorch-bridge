@@ -533,7 +533,7 @@ class HabanaLaunchOpPT {
   IValPtrSharedToTesorInfoMap duplicate_output_to_outtinfo_map_;
 
   // Output shape inference map
-  std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map_;
+  std::unordered_map<size_t, PtTensorInfoShared> sif_tidx_to_tinfo_map_;
 
   // caching :: end
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,10 +44,10 @@ struct HPUEvent {
   HPUEvent(const HPUEvent&) = delete;
   HPUEvent& operator=(const HPUEvent&) = delete;
 
-  HPUEvent(HPUEvent&& other) {
+  HPUEvent(HPUEvent&& other) noexcept {
     moveHelper(std::move(other));
   }
-  HPUEvent& operator=(HPUEvent&& other) {
+  HPUEvent& operator=(HPUEvent&& other) noexcept {
     moveHelper(std::move(other));
     return *this;
   }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 
 namespace synapse_helpers::pool_allocator {
 
-static const uint64_t kInvalidBinNum = -1;
+static const uint64_t kInvalidBinNum = std::numeric_limits<uint64_t>::max();
 // The largest bin'd chunk size is 256 << 21 = 512MB.
 static const uint64_t kNumBins = 21;
 
@@ -36,7 +36,7 @@ struct Bin {
   // All chunks in this bin have >= bin_size memory.
   size_t bin_size = 0;
 
-  struct chunkcompare {
+  struct chunk_compare {
     bool operator()(const Chunk* a, const Chunk* b) const {
       // sort by size, break ties with pointer
       if (a->size != b->size) {
@@ -46,10 +46,10 @@ struct Bin {
     };
   };
 
-  using FreeChunkSet = std::set<Chunk*, chunkcompare>;
+  using FreeChunkSet = std::set<Chunk*, chunk_compare>;
   // List of free chunks within the bin, sorted by chunk size.
   FreeChunkSet free_chunks;
-  Bin(size_t bs) : bin_size(bs), free_chunks(chunkcompare()) {}
+  Bin(size_t bs) : bin_size(bs), free_chunks(chunk_compare()) {}
 };
 
 class BinUtils {

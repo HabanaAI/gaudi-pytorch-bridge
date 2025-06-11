@@ -90,7 +90,8 @@ namespace {
 
         size_t h2d_single_value = 0;
         for (size_t i = 0; i < h2d_vec.size(); i++) {
-          h2d_single_value = h2d_single_value + ((i + 1) * h2d_vec[i]);
+          h2d_single_value =
+              h2d_single_value + ((i + 1) * static_cast<uint64_t>(h2d_vec[i]));
         }
         h2d_hash_code = at::hash_combine(h2d_hash_code, h2d_single_value);
       }
@@ -215,8 +216,9 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       continue;
     }
 
-    hash_code =
-        at::hash_combine(hash_code, node->i(torch::jit::attr::deterministic));
+    hash_code = at::hash_combine(
+        hash_code,
+        static_cast<uint64_t>(node->i(torch::jit::attr::deterministic)));
   }
 }
 
@@ -383,7 +385,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   using namespace serialization;
   int info_size = 0;
   deserialize(is, info_size);
-  dtensorinfos.reserve(info_size);
+  dtensorinfos.reserve(static_cast<size_t>(info_size));
   for (int i = 0; i < info_size; ++i) {
     dtensorinfos.emplace_back(std::make_shared<PtTensorInfo>(is));
   }
@@ -547,8 +549,10 @@ void RecipeValueSpec::update_tensor_shape(
   }
   tinfo->set_shape(shape);
   std::vector<int64_t> strides(shape.size(), 1);
-  for (int64_t i = (int64_t)shape.size() - 1; i > 0; i--) {
-    strides[i - 1] *= shape[i] * strides[i];
+  if (shape.size() > 0) {
+    for (uint64_t i = shape.size() - 1; i > 0; i--) {
+      strides[i - 1] *= shape[i] * strides[i];
+    }
   }
   tinfo->set_strides(strides);
   PT_EAGER_DEBUG(
@@ -672,8 +676,10 @@ void RecipeValueSpec::update_patching_table(
         auto new_sizes = tidx_to_tensor_map.at(tensor_idx).sizes().vec();
 
         std::vector<int64_t> strides(new_sizes.size(), 1);
-        for (int64_t i = (int64_t)new_sizes.size() - 1; i > 0; i--) {
-          strides[i - 1] *= new_sizes[i] * strides[i];
+        if (new_sizes.size() > 0) {
+          for (uint64_t i = new_sizes.size() - 1; i > 0; i--) {
+            strides[i - 1] *= new_sizes[i] * strides[i];
+          }
         }
         ti->set_shape(new_sizes);
         ti->set_strides(strides);
@@ -1331,7 +1337,10 @@ void RecipeValueSpec::update_node_params(
             ", params size: ",
             params_size);
         synapse_helpers::graph::setNodeParams(
-            duplicate_graph_handle, new_handle, params_data, params_size);
+            duplicate_graph_handle,
+            new_handle,
+            params_data,
+            static_cast<unsigned>(params_size));
       }
     }
   }
@@ -1357,7 +1366,7 @@ void RecipeValueSpec::populate_syn_tensor_ids(
       recipe.syn_recipe_handle_,
       tensor_names.data(),
       tensor_ids_.data(),
-      num_tinfos);
+      static_cast<unsigned>(num_tinfos));
   if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
     PT_BRIDGE_FATAL(
         Logger::formatStatusMsg(status), "synTensorRetrieveIds launch failed");

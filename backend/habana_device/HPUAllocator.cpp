@@ -14,6 +14,7 @@
  */
 #include "HPUAllocator.h"
 #include <synapse_api.h>
+#include <synapse_api_types.h>
 #include "HPUGuardImpl.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "common/utils.h"
@@ -24,7 +25,7 @@
 namespace habana {
 
 synDeviceId HPUDeviceAllocator::allocator_active_device_id =
-    static_cast<synDeviceId>(-1);
+    SYN_INVALID_DEVICE_ID;
 
 static HPUDeviceAllocator hpu_device_allocator;
 
@@ -47,7 +48,8 @@ at::DataPtr CreateDataPtr(void* v_ptr, size_t num_bytes) {
         &HPUDeviceAllocator::deleter,
         at::Device(
             at::DeviceType::HPU,
-            HPUDeviceAllocator::allocator_active_device_id)};
+            static_cast<c10::DeviceIndex>(
+                HPUDeviceAllocator::allocator_active_device_id))};
   } else {
     PT_EAGER_DEBUG(
         "Created DataPtr without HPUAllocationContext due to v_ptr=",
@@ -60,7 +62,8 @@ at::DataPtr CreateDataPtr(void* v_ptr, size_t num_bytes) {
         &HPUDeviceAllocator::deleter,
         at::Device(
             at::DeviceType::HPU,
-            HPUDeviceAllocator::allocator_active_device_id)};
+            static_cast<c10::DeviceIndex>(
+                HPUDeviceAllocator::allocator_active_device_id))};
   }
 }
 
@@ -95,9 +98,9 @@ static synStatus waitTillRecipeExecution(
   // allocate again, continue until malloc succeeds, or there are no more
   // recipes executing (unrecoverable case).
   auto& recipe_counter = device.get_active_recipe_counter();
-  uint32_t counter_state{0};
+  uint64_t counter_state{0};
   if (!recipe_counter.is_zero()) {
-    do {
+    do { // NOLINT(cppcoreguidelines-avoid-do-while)
       counter_state = recipe_counter.wait_for_next_decrease_call();
       PT_DEVICE_DEBUG(
           "retrying memory alloc, ",

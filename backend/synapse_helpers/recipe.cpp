@@ -67,7 +67,7 @@ void recipe::populate_syn_tensor_ids() {
         recipe_handle_->syn_recipe_handle_,
         tensor_names.data(),
         tensor_ids.get(),
-        num_tensors);
+        static_cast<uint32_t>(num_tensors));
 
     if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
       PT_SYNHELPER_FATAL(

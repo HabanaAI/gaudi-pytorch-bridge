@@ -426,11 +426,15 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   }
   if (has_inplace_running_mean) {
     op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        3, std::move(bn_out[3]), std::get<int>(running_mean_storage_or_idx)});
+        3,
+        std::move(bn_out[3]),
+        static_cast<size_t>(std::get<int>(running_mean_storage_or_idx))});
   }
   if (has_inplace_running_var) {
     op.GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-        4, std::move(bn_out[4]), std::get<int>(running_var_storage_or_idx)});
+        4,
+        std::move(bn_out[4]),
+        static_cast<size_t>(std::get<int>(running_var_storage_or_idx))});
   }
 
   return bn_out;

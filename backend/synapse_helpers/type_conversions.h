@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 #pragma once
 
 #include <synapse_common_types.h>
+#include <limits>
 
 namespace synapse_helpers {
 
-inline uint32_t size_of_syn_data_type(synDataType dataType) {
+inline size_t size_of_syn_data_type(synDataType dataType) {
   switch (dataType) {
     case syn_type_int8: // alias to syn_type_fixed
     case syn_type_uint8: // 8-bit unsigned integer
@@ -40,7 +41,7 @@ inline uint32_t size_of_syn_data_type(synDataType dataType) {
     case syn_type_uint64: // 64-bit unsigned integer
       return 8;
     default:
-      return -1; // invalid
+      return std::numeric_limits<size_t>::max(); // invalid
   }
 }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ bool HPUStream::query() const {
   DeviceGuard guard{stream_.device()};
   auto& device = habana::HPUDeviceContext::get_device();
   auto hpu_stream_id = stream();
-  auto device_index = device.id();
+  auto device_index = static_cast<DeviceIndex>(device.id());
   PT_DEVICE_DEBUG(
       "STREAM:: Query User stream id ::",
       stream_.id(),
@@ -102,7 +102,8 @@ bool HPUStream::query() const {
   auto& stream = device.get_stream(hpu_stream_id);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) { /* only for lazy mode */
     /*TDB check if StepMarker is required for query */
-    if (id() != getCurrentHPUStream(device_index).id()) {
+    if (id() !=
+        getCurrentHPUStream(static_cast<DeviceIndex>(device_index)).id()) {
       PT_IRGRAPH_DEBUG("step marker due to HPUStream::query");
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
@@ -133,7 +134,7 @@ void HPUStream::synchronize() const {
   DeviceGuard guard{stream_.device()};
   auto& device = habana::HPUDeviceContext::get_device();
   auto hpu_stream_id = stream();
-  auto device_index = device.id();
+  auto device_index = static_cast<DeviceIndex>(device.id());
   PT_DEVICE_DEBUG(
       "STREAM:: synchronize User stream id ::",
       stream_.id(),
@@ -141,7 +142,8 @@ void HPUStream::synchronize() const {
       hpu_stream_id);
   auto& stream = device.get_stream(hpu_stream_id);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
-    if (id() != getCurrentHPUStream(device_index).id()) {
+    if (id() !=
+        getCurrentHPUStream(static_cast<DeviceIndex>(device_index)).id()) {
       PT_IRGRAPH_DEBUG("step marker due to HPUStream::synchronize");
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
@@ -164,7 +166,7 @@ void HPUStream::synchronize() const {
 }
 // See Note [StreamId assignment]
 synapse_helpers::hpuStream_t HPUStream::stream() const {
-  return stream_.id();
+  return static_cast<synapse_helpers::hpuStream_t>(stream_.id());
 }
 
 // Returns a stream from the requested pool
@@ -176,7 +178,7 @@ HPUStream getStreamFromPool(
   initHPUStreamsOnce();
   if (device_index == -1) {
     auto& device = habana::HPUDeviceContext::get_device();
-    device_index = device.id();
+    device_index = static_cast<DeviceIndex>(device.id());
   }
 
   // create stream
@@ -189,14 +191,14 @@ HPUStream getStreamFromPool(
 
   PT_DEVICE_DEBUG(
       "STREAM:: HPUStream::getStreamFromPool got with stream index::", stream);
-  return HPUStreamForId(device_index, stream);
+  return HPUStreamForId(device_index, static_cast<StreamId>(stream));
 }
 
 HPUStream getDefaultHPUStream(DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
     auto& device = habana::HPUDeviceContext::get_device();
-    device_index = device.id();
+    device_index = static_cast<DeviceIndex>(device.id());
   }
   return HPUStreamForId(device_index, 0);
 }
@@ -205,7 +207,7 @@ HPUStream getCurrentHPUStream(DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
     auto& device = habana::HPUDeviceContext::get_device();
-    device_index = device.id();
+    device_index = static_cast<DeviceIndex>(device.id());
   }
   PT_DEVICE_DEBUG(
       "STREAM:: getCurrentHPUStream current stream::", *current_streams);
@@ -225,8 +227,10 @@ void setCurrentHPUStream(HPUStream stream) {
       if (*current_streams == 0) {
         auto& device = habana::HPUDeviceContext::get_device();
         synapse_helpers::hpuEvent_t id = device.create_event(false);
-        device.record_event(id, *current_streams);
-        device.wait_event(id, stream.id());
+        device.record_event(
+            id, static_cast<synapse_helpers::hpuStream_t>(*current_streams));
+        device.wait_event(
+            id, static_cast<synapse_helpers::hpuStream_t>(stream.id()));
         device.delete_event(id, false);
       }
     }
