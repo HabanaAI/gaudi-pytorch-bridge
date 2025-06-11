@@ -705,8 +705,9 @@ class LazyOp {
         }
       }
       // special handling for self tensor
-      // skip ctrl edges for inplace
-      // TODO do the same for out variants
+      // skip ctrl edges for inplace and out variants.
+      // TODO: Add below after fixing issues
+      // if (!is_inplace(m_symbol) && !m_is_out_variant) {
       if (!is_inplace(m_symbol)) {
         updateDstDependencies(self_updated);
       }
@@ -1140,6 +1141,10 @@ class LazyOp {
     m_output_meta_fn = std::move(output_meta);
   }
 
+  void SetOutVariant(bool out_variant) {
+    m_is_out_variant = out_variant;
+  }
+
  private:
   bool isMetadataCandidate(const at::IValue& input) const {
     return input.isBool() || input.isDevice() || input.isIntList() ||
@@ -1554,6 +1559,7 @@ class LazyOp {
           // ops
   // (tuple input)
   bool m_collective_op = false;
+  bool m_is_out_variant = false;
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
     auto hl_tensor = TryGetHbLazyTensor(t, true, !m_collective_op);
     if (hl_tensor) {

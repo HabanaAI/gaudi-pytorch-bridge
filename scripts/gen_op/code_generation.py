@@ -798,6 +798,9 @@ def lazy_frontend(
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
     schema_fn = f"{ns}::{opname}"
+    is_op_out_variant = False
+    if ".out" in aten_opname:
+        is_op_out_variant = True
     code = f"{sig} {{\n"
     if not is_check_kernel_support:
         code += generate_entry_debug_code(fname, params, False)
@@ -848,13 +851,12 @@ def lazy_frontend(
         code += f"    return {early_exit_fun}(eePath, {', '.join(param_vars)});\n\n"
 
     op_frontend_class = ctxop.get_op_frontend_class()
-
     code += f'  {op_frontend_class}<{rtype}> hpu_op{{"{schema_fn}", {{{", ".join(param_vars)}}}'
     code += handle_output_shape_fn(ctxop, param_vars)
-
     if use_compute_type:
         code += "  hpu_op.set_scalar_types({compute_type});\n"
-
+    if is_op_out_variant:
+        code += "  hpu_op.SetOutVariant(true);\n"
     code += handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, type_promo_variant)
 
     code += handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars)
