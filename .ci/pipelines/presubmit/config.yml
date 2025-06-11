@@ -20,7 +20,6 @@ orchestratorConfig:
       forbiddenFiles:
         - docs/*
   - testToLaunch: habana-internal/pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile_jit_fork
-    silentMode: true
     triggerMap:
     - repository: pytorch-integration
       gitHubOrg: habana-internal
