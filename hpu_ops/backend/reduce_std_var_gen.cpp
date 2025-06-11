@@ -49,7 +49,7 @@ OutputMetaDataVector StdVarMeta(const at::Stack& stack) {
   if (!stack.at(1).isBool()) {
     keepdim = stack.at(3).toBool();
   }
-  int ndims = self.sizes().vec().size();
+  int ndims = self.sizes().size();
   LoweringUtil::SortAndRemoveDuplicateDims(dims, ndims);
 
   OutputMetaData meta;

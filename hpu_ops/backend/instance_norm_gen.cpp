@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ void InstanceNorm::AddNode(
   auto bias = stackGetter.getNextInput<std::optional<TensorsPair>>();
   const auto eps = stackGetter.getNextInput<double>();
 
-  auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
+  auto is_norm_3d = input.pt_t.sizes().size() == 5;
 
   kernel_meta_data_.synapse_input_layout.assign(
       {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
@@ -109,9 +109,8 @@ void InstanceNorm::AddNode(
 
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
-  struct ns_InstanceNormTrainingKernel::Params params {
-    0.9, static_cast<float>(eps)
-  };
+  struct ns_InstanceNormTrainingKernel::Params params{
+      0.9, static_cast<float>(eps)};
   auto instanceNorm = BuildOp(
       graph,
       guid_,

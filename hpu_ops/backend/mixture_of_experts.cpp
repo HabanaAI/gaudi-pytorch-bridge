@@ -344,12 +344,11 @@ SharedMetaDataVector MixtureOfExpertsSharedMetaCommon(
   const at::Tensor& router_weights = stack_tensor(stack, 2);
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<
-             at::Tensor>>){stack.at(3).toTensorVector(), stack.at(4).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){
-            stack.at(3).toTensorVector(),
-            stack.at(4).toTensorVector(),
-            stack.at(5).toTensorVector()};
+      ? (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
+                                               stack.at(4).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){stack.at(3).toTensorVector(),
+                                               stack.at(4).toTensorVector(),
+                                               stack.at(5).toTensorVector()};
 
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
@@ -369,7 +368,6 @@ SharedMetaDataVector MixtureOfExpertsSharedMetaCommon(
 SharedMetaDataVector MixtureOfExpertsSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  const at::Tensor& hidden_states = stack_tensor(stack, 0);
   return MixtureOfExpertsSharedMetaCommon(
       stack,
       stack.size() == 10,
@@ -465,12 +463,11 @@ SharedMetaDataVector MixtureOfExpertsBwdSharedMeta(
   const bool isFusedWeights = stack.at(10).isTensorList();
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<
-             at::Tensor>>){stack.at(10).toTensorVector(), stack.at(11).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){
-            stack.at(11).toTensorVector(),
-            stack.at(12).toTensorVector(),
-            stack.at(13).toTensorVector()};
+      ? (std::vector<std::vector<at::Tensor>>){stack.at(10).toTensorVector(),
+                                               stack.at(11).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){stack.at(11).toTensorVector(),
+                                               stack.at(12).toTensorVector(),
+                                               stack.at(13).toTensorVector()};
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
 
@@ -520,12 +517,11 @@ SharedMetaDataVector MixtureOfExpertsRecompBwdSharedMeta(
   const bool isFusedWeights = !stack.at(6).isTensorList();
 
   std::vector<std::vector<at::Tensor>> weightsLists = isFusedWeights
-      ? (std::vector<std::vector<
-             at::Tensor>>){stack.at(4).toTensorVector(), stack.at(5).toTensorVector()}
-      : (std::vector<std::vector<at::Tensor>>){
-            stack.at(4).toTensorVector(),
-            stack.at(5).toTensorVector(),
-            stack.at(6).toTensorVector()};
+      ? (std::vector<std::vector<at::Tensor>>){stack.at(4).toTensorVector(),
+                                               stack.at(5).toTensorVector()}
+      : (std::vector<std::vector<at::Tensor>>){stack.at(4).toTensorVector(),
+                                               stack.at(5).toTensorVector(),
+                                               stack.at(6).toTensorVector()};
   const SharedMetaTensor weightSharedMetaTensor =
       getWeightSharedMetaTensor(weightsLists);
 

@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "common/warning_suppress.h"
 #include "generated/backend/_foreach_erfc.h"
 #include "generated/backend/erfc.h"
 
@@ -51,7 +52,7 @@ SharedMetaDataVector UnaryForeachErfcSharedMeta(
   const int numberOfKernelPerIteration = 3;
   metaVec.reserve(tensorsSize * numberOfKernelPerIteration);
   for (size_t i = 0; i < tensorsSize; i++) {
-    const at::Tensor& tensor = tensors[i];
+    SUPPRESS_WDANGLING_REFERENCE(const at::Tensor& tensor = tensors[i];)
     auto rank = tensor.dim();
     auto inputType = tensor.scalar_type();
     inputType = inputType != torch::kBFloat16 ? torch::kFloat32 : inputType;

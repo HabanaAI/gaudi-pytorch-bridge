@@ -51,7 +51,7 @@ sizes_vec NllLossBwdShapeTnsrShape(const at::Stack& stack) {
   const torch::Tensor& target = stack_tensor(stack, 2);
   const torch::Tensor& input = stack_tensor(stack, 1);
   auto target_vec = target.sizes().vec();
-  target_vec.push_back(input.sizes().vec().at(1));
+  target_vec.push_back(input.sizes().at(1));
   return {target_vec};
 }
 
@@ -395,7 +395,6 @@ SharedMetaDataVector NllLoss2DBwdSharedMeta(
   const auto& weight =
       stack.at(3).toOptional<torch::Tensor>().value_or(at::Tensor());
   const int64_t reduction = stack.at(4).toInt();
-  const auto& totalWeight = stack_tensor(stack, 6);
   auto rank = self.dim();
   auto dtype = grad.scalar_type();
   const auto isWeightTensor = weight.defined();

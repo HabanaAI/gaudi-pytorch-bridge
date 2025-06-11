@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -437,7 +437,7 @@ void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
       habana_lazy::get_device_lazy_execution_context();
   context->setMarkedInputs(static_inputs);
   for (const auto& t : static_inputs) {
-    user_input_sizes_.push_back(t.sizes().vec());
+    user_input_sizes_.emplace_back(t.sizes().vec());
   }
 }
 

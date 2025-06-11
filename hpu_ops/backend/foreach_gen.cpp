@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "common/warning_suppress.h"
 #include "generated/backend/_foreach_abs.h"
 #include "generated/backend/_foreach_add.h"
 #include "generated/backend/_foreach_copy.h"
@@ -41,7 +42,7 @@ OutputMetaDataVector CommonForeachMeta(
   meta.resize(tensors.size());
 
   for (size_t i = 0; i < tensors.size(); ++i) {
-    const at::Tensor& tensor = tensors[i];
+    SUPPRESS_WDANGLING_REFERENCE(const at::Tensor& tensor = tensors[i];)
     meta[i].dtype = tensor.scalar_type();
     meta[i].shape = tensor.sizes().vec();
     if (cast_int_to_float && isIntegralType(meta[i].dtype, true)) {
@@ -333,7 +334,8 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
       }
       for (size_t i = 0; i < selfs.size(); ++i) {
         const auto& self = selfs[i];
-        const auto& other = others.isList() ? others.toList()[i] : others;
+        SUPPRESS_WDANGLING_REFERENCE(
+            const auto& other = others.isList() ? others.toList()[i] : others;)
         const size_t other_syn_index =
             others.isTensorList() ? i + selfs.size() : selfs.size();
 
@@ -353,7 +355,8 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
     } else {
       for (size_t i = 0; i < selfs.size(); ++i) {
         const auto& self = selfs[i];
-        const auto& other = others.isList() ? others.toList()[i] : others;
+        SUPPRESS_WDANGLING_REFERENCE(
+            const auto& other = others.isList() ? others.toList()[i] : others;)
 
         outputs.push_back(
             node_creator(op, graph, guid, {inputs[i]}, {self, other}, i));

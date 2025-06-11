@@ -48,7 +48,7 @@ OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   const torch::Tensor& v_in = stack_tensor(stack, 0);
   const torch::Tensor& g_in = stack_tensor(stack, 1);
   auto dim = stack.at(2).toInt();
-  const auto keepdim = g_in.sizes().vec().size() == v_in.sizes().vec().size();
+  const auto keepdim = g_in.sizes().size() == v_in.sizes().size();
 
   c10::DimVector dims_to_norm = getDimsToNorm(v_in.ndimension(), dim);
 

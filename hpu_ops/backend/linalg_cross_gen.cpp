@@ -137,7 +137,6 @@ SharedMetaDataVector LinAlgCrossSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
   const auto& self = stack_tensor(stack, 0);
-  const auto& other = stack_tensor(stack, 1);
   auto rank = self.dim();
   auto dtype = self.scalar_type();
 

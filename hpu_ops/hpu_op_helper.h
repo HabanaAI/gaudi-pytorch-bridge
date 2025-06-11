@@ -104,7 +104,7 @@ inline at::Tensor& stack_tensor(at::Stack& stack, int index) {
   return stack.at(index).toTensor();
 }
 
-inline at::Tensor stack_tensor(const at::Stack& stack, int index) {
+inline const at::Tensor& stack_tensor(const at::Stack& stack, int index) {
   return stack.at(index).toTensor();
 }
 

@@ -37,7 +37,7 @@ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
   weight_meta.shape = weight.sizes().vec();
   weight_meta.dtype = weight.scalar_type();
 
-  bias_meta.shape = bias_grad_shape;
+  std::swap(bias_meta.shape, bias_grad_shape);
   bias_meta.dtype = weight.scalar_type();
 
   return {input_meta, weight_meta, bias_meta};

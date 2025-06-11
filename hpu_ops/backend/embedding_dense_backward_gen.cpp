@@ -24,7 +24,7 @@ OutputMetaDataVector EmbeddingDenseBwdMeta(const at::Stack& stack) {
   OutputMetaData meta;
   meta.dtype = grad.scalar_type();
   meta.shape.push_back(num_weights);
-  meta.shape.push_back(grad.sizes().vec().back());
+  meta.shape.push_back(grad.sizes().back());
   return {meta};
 }
 

@@ -5347,8 +5347,8 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
       }
       auto output_shape = at::DimVector(self.sizes());
       auto valid_shape = at::DimVector{1};
-      auto inverse_tensor_shape = DimVector{self.sizes().vec().at(dim)};
-      auto counts_tensor_shape = DimVector{self.sizes().vec().at(dim)};
+      auto inverse_tensor_shape = DimVector{self.sizes().at(dim)};
+      auto counts_tensor_shape = DimVector{self.sizes().at(dim)};
 
       auto result0 = empty_hpu_lazy(
           output_shape, self.options(), self.suggest_memory_format(), false);

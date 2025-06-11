@@ -14,7 +14,11 @@
  */
 #pragma once
 
+#include "common/warning_suppress.h"
+SUPPRESS_W_PREFIX
+SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW_P
 #include <ATen/core/TensorBody.h>
+SUPPRESS_W_SUFFIX
 
 namespace habana::eager {
 

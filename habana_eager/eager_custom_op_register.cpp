@@ -21,6 +21,7 @@
 #include <torch/library.h>
 #include "backend/random.h"
 #include "common/dump_args.h"
+#include "common/warning_suppress.h"
 #include "generated/backend/one_hot.h"
 #include "habana_eager/graph_weight_permute.h"
 #include "habana_eager/ops/eager_op.h"
@@ -1228,7 +1229,8 @@ at::Tensor dropout_autograd_wrap(
     return dispatch_fallback<ATEN_OP(dropout)>::call(
         OpSupportLevel::Value::unsupported_rank, PARAMS2(input, p, train));
   }
-  return DropoutFunction::apply(input, p, train);
+  SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW(
+      return DropoutFunction::apply(input, p, train);)
 }
 
 // pytorch decomposes this op to at::_euclidean_dist in some cases
@@ -1515,17 +1517,17 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   m.def(
-    "hpu::flex_attention_score_mod(Tensor score, Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx) -> Tensor");
+      "hpu::flex_attention_score_mod(Tensor score, Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx) -> Tensor");
   m.def(
-    "hpu::flex_attention_bwd_score_mod(Tensor score, Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx, Tensor grad) -> Tensor");
+      "hpu::flex_attention_bwd_score_mod(Tensor score, Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx, Tensor grad) -> Tensor");
   m.def(
-    "hpu::flex_attention_mask_mod(Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx) -> Tensor");
+      "hpu::flex_attention_mask_mod(Tensor b, Tensor h, Tensor q_idx, Tensor kv_idx) -> Tensor");
   m.def(
-    "hpu::flex_attention_pack_tensors(Tensor h, Tensor q, Tensor kv) -> Tensor");
+      "hpu::flex_attention_pack_tensors(Tensor h, Tensor q, Tensor kv) -> Tensor");
   m.def(
-    "hpu::flex_attention_fwd(Tensor q, Tensor k, Tensor v, SymInt block_size, bool is_apply_mask, bool is_ret_lse) -> (Tensor, Tensor, Tensor)");
+      "hpu::flex_attention_fwd(Tensor q, Tensor k, Tensor v, SymInt block_size, bool is_apply_mask, bool is_ret_lse) -> (Tensor, Tensor, Tensor)");
   m.def(
-    "hpu::flex_attention_bwd(Tensor q, Tensor k, Tensor v, Tensor o, Tensor lse, Tensor do, Tensor glse, SymInt block_size, bool is_apply_mask) -> (Tensor, Tensor, Tensor)");
+      "hpu::flex_attention_bwd(Tensor q, Tensor k, Tensor v, Tensor o, Tensor lse, Tensor do, Tensor glse, SymInt block_size, bool is_apply_mask) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
   m.def("hpu::habana_poisson(Tensor seed, Tensor self) -> Tensor");
   m.def(

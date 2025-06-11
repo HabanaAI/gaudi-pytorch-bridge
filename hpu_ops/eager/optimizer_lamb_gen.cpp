@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "hpu_ops/optimizer_lamb_gen.h"
+#include "common/warning_suppress.h"
 #include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_helpers/dtype_helpers.h"
 
@@ -29,7 +30,8 @@ HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
     EagerOptimizerLambNorm,
     at::Tensor) {
   const auto& inputs = get_inputs();
-  const auto& t = inputs.at(0).toTensorList().get(0);
+  SUPPRESS_WDANGLING_REFERENCE(const auto& t =
+                                   inputs.at(0).toTensorList().get(0);)
 
   return hpu_wrap::empty(
       {1},

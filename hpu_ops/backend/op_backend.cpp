@@ -21,6 +21,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
+#include "common/warning_suppress.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/common/scalar_dtype_range.h"
@@ -568,7 +569,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         const auto& tensors = ival.isTensor()
             ? static_cast<at::List<at::Tensor>>(ival.toTensor())
             : ival.toTensorList();
-        for (const at::Tensor& tensor : tensors) {
+        SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& tensor : tensors)) {
           m_output_inf_meta.AddOutputTensor(TensorMetaData(
               tensor.sizes().vec(),
               tensor.strides().vec(),

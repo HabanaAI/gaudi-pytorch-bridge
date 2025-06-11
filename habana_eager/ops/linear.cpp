@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "common/warning_suppress.h"
+SUPPRESS_W_PREFIX
+SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW_P
 #include <ATen/ATen.h>
+SUPPRESS_W_SUFFIX
 #include <ATen/Tensor.h>
 #include <torch/library.h>
 

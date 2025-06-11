@@ -13,10 +13,11 @@
  * limitations under the License.
  */
 
-#include <ATen/native/transformers/sdp_utils_cpp.h>
 #include "fused_sdpa.h"
+#include <ATen/native/transformers/sdp_utils_cpp.h>
 #include "backend/random.h"
 #include "common/dump_args.h"
+#include "common/warning_suppress.h"
 #include "generated/backend/sdpa_bwd.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
@@ -170,7 +171,8 @@ class FusedSDPAAutogradHPU
     auto seq_padding_type = "left";
     double scale_;
     if (!scale.has_value())
-      scale_ = 1 / sqrt(query.sizes().vec().back());
+      scale_ =
+          (query.sizes().size() > 0) ? (1. / sqrt(query.sizes().back())) : 1.;
     else
       scale_ = scale.value();
     auto valid_seq_len = std::optional<at::Tensor>();

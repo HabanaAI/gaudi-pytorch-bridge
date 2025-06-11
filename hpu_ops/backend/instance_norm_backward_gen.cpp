@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ void InstanceNormBackward::AddNode(
   auto istd = stackGetter.getNextInput<TensorsPair>();
   auto gamma = stackGetter.getNextInput<std::optional<TensorsPair>>();
 
-  auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
+  auto is_norm_3d = input.pt_t.sizes().size() == 5;
 
   kernel_meta_data_.synapse_input_layout.assign(
       {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
@@ -98,9 +98,8 @@ void InstanceNormBackward::AddNode(
 
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
-  struct ns_InstanceNormTrainingKernel::Params params {
-    0.9, static_cast<float>(1e-5)
-  };
+  struct ns_InstanceNormTrainingKernel::Params params{
+      0.9, static_cast<float>(1e-5)};
   auto InstanceNormBackward = BuildOp(
       graph,
       guid_,

@@ -96,7 +96,7 @@ InferOutputMetaRetType TopkOutOperator::InferOutputMeta(
 
   int64_t k;
   Tensor k_tensor = inputs[1].toTensor();
-  k = k_tensor.sizes().vec().at(0);
+  k = k_tensor.sizes().at(0);
 
   auto result_sizes = self.sizes().vec();
   if (result_sizes.size() > 0) {
@@ -165,7 +165,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         (p_context_->syn_inputs_.size() == 4));
     HABANA_ASSERT(p_context_->syn_inputs_[1].ref().is_shape_tensor());
     Tensor k_tensor = inputs[1].toTensor();
-    k = k_tensor.sizes().vec().at(
+    k = k_tensor.sizes().at(
         0); // Get the first element which holds the dynamic value of k
   } else {
     k = inputs[1].toInt();

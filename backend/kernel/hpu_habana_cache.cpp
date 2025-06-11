@@ -25,6 +25,7 @@
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "common/utils.h"
+#include "common/warning_suppress.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
@@ -773,7 +774,8 @@ void RecipeValueSpec::update_patching_table(
       }
       ridx++;
     } else if (input.isTensorList()) {
-      for (const at::Tensor& t : input.toTensorList()) {
+      SUPPRESS_WDANGLING_REFERENCE(
+          for (const at::Tensor& t : input.toTensorList())) {
         auto tmeta{habana::get_tensor_extra_meta(t)};
         if (tmeta->has_valid_const_id()) {
           auto impl{t.unsafeGetTensorImpl()};

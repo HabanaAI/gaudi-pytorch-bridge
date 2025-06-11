@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "common/warning_suppress.h"
 #include "generated/backend/scaled_triangular_softmax.h"
 #include "generated/backend/scaled_triangular_softmax_retain.h"
 
@@ -51,13 +52,11 @@ void ScaledTriangularSoftmax::AddNode(
         "exp_sum_recpr and max inputs must have the same shape.");
 
     auto expected_shape = self.pt_t.sizes().vec();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-    // There is already an assert that checks that self.pt_t is 3D tensor.
-    // Unfortunately GCC does not recognize it, requiring to manually supress
-    // the warning.
-    expected_shape.back() = 1;
-#pragma GCC diagnostic pop
+    SUPPRESS_WARRAY_BOUNDS_WSTRINGOP_OVERFLOW(
+        // There is already an assert that checks that self.pt_t is 3D tensor.
+        // Unfortunately GCC does not recognize it, requiring to manually
+        // suppress the warning.
+        expected_shape.back() = 1;)
 
     HABANA_ASSERT(
         exp_sum_recpr_shape == expected_shape,

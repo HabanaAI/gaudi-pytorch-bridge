@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "common/warning_suppress.h"
 #include "generated/backend/_foreach_lerp.h"
 #include "generated/backend/lerp.h"
 
@@ -42,8 +43,9 @@ OutputMetaDataVector ForeachLerpMeta(const at::Stack& stack) {
   metaVector.reserve(size);
 
   for (size_t i = 0; i < size; ++i) {
-    const at::IValue& weight =
-        stack.at(2).isScalar() ? stack.at(2) : stack.at(2).toList()[i];
+    SUPPRESS_WDANGLING_REFERENCE(
+        const at::IValue& weight =
+            stack.at(2).isScalar() ? stack.at(2) : stack.at(2).toList()[i];)
     metaVector.emplace_back(SingleLerpMeta(self[i], tensor1[i], weight));
   }
 
@@ -178,8 +180,9 @@ void ForeachLerp::AddNode(
   const size_t size = self.size();
 
   for (size_t i = 0; i < size; ++i) {
-    const at::IValue& weight =
-        isWeightTensorList ? stack.at(2).toList()[i] : stack.at(2);
+    SUPPRESS_WDANGLING_REFERENCE(const at::IValue& weight = isWeightTensorList
+                                     ? stack.at(2).toList()[i]
+                                     : stack.at(2);)
     std::vector<synTensor> syn_inputs{syn_in(i), syn_in(i + size)};
     if (isWeightTensorList) {
       syn_inputs.push_back(syn_in(i + 2 * size));

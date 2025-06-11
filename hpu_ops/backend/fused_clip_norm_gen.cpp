@@ -16,9 +16,8 @@
 #include <shared_layer_api.hpp>
 #include "hpu_ops/fused_clip_norm.h"
 
+#include "common/warning_suppress.h"
 #include "habana_helpers/logging.h"
-
-#include "hpu_ops/backend/reduction_template.h"
 
 namespace habana {
 
@@ -29,8 +28,7 @@ OutputMetaDataVector FusedClipNormOp::FusedClipNormMeta(
 
   auto grads = stack[0].toTensorList();
   meta_vec.reserve(grads.size());
-
-  for (const at::Tensor& grad : grads) {
+  SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& grad : grads)) {
     OutputMetaData meta;
     meta.dtype = grad.scalar_type();
     meta.shape = grad.sizes().vec();

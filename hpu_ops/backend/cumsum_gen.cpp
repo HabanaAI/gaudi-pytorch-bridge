@@ -52,7 +52,7 @@ FillParamsT FillCumsumParams(const at::Stack& stack) {
   PARAMS_STUB(ns_CumSumKernel::Params);
   auto self = stack.at(0).toTensor();
   auto dim = at::maybe_wrap_dim(stack.at(1).toInt(), self.dim(), true);
-  params->axis = static_cast<int>(self.sizes().vec().size() - dim - 1);
+  params->axis = static_cast<int>(self.sizes().size() - dim - 1);
 
   return paramsT;
 }

@@ -19,6 +19,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/recipe.h"
+#include "common/warning_suppress.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/binary_inplace_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -819,7 +820,7 @@ OutputMetaDataVector OptimizerFusedLarsOperatorLazy::OptimizerFusedLarsMeta(
   OutputMetaDataVector meta_vec;
   meta_vec.reserve(tlSize);
 
-  for (const at::Tensor& grad : grads) {
+  SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& grad : grads)) {
     OutputMetaData meta;
     meta.shape = grad.sizes().vec();
     meta.dtype = grad.scalar_type();

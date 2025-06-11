@@ -49,6 +49,7 @@
 #include "backend/random.h"
 #include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep // NOLINT
 #include "backend/synapse_helpers/tcmalloc_helper.h"
+#include "common/warning_suppress.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
@@ -1812,7 +1813,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
       }*/
     }
   }
-  torch::jit::Operator jit_op = node->getOperator();
+  const auto& jit_op = node->getOperator();
   jit_op.getOperation()(stack);
 
   auto node_outs = node->outputs();
@@ -3932,7 +3933,7 @@ void HabanaLaunchOpPT::CreateValueToIShapeMapForInputs(
     torch::jit::Graph& jit_graph) {
   PT_BRIDGE_BEGIN;
   for (size_t j = 0; j < pt_stack_sh_.size(); j++) {
-    auto& value_input = jit_graph.inputs().at(j);
+    SUPPRESS_WDANGLING_REFERENCE(auto& value_input = jit_graph.inputs().at(j);)
     auto& ivalue_input = pt_stack_sh_[j];
     const auto& value_name = value_input->debugName();
     auto& dsi = ds_sif_info_;

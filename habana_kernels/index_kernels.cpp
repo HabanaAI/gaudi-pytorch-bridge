@@ -2216,10 +2216,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
   }
 
   auto output = habana_helpers::get_or_create_output_tensor(
-      graph,
-      output_metadata.at(0),
-      self,
-      shape);
+      graph, output_metadata.at(0), self, shape);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   if (has_shape_tensor) {
@@ -2748,8 +2745,8 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   auto output_shape = DimVector(self.sizes());
   auto valid_shape =
       DimVector{1}; // As valid tensor will be a 1D tensor with single value
-  auto inverse_tensor_shape = DimVector{self.sizes().vec().at(dim)};
-  auto counts_tensor_shape = DimVector{self.sizes().vec().at(dim)};
+  auto inverse_tensor_shape = DimVector{self.sizes().at(dim)};
+  auto counts_tensor_shape = DimVector{self.sizes().at(dim)};
 
   // create output and valid shape tensors which are compulsory
   auto output_feature_map = habana::createPTTensor(
@@ -3094,10 +3091,7 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
   auto shape = UnsqueezeOperator::compute_output_shape(input, dim);
 
   auto output = habana_helpers::get_or_create_output_tensor(
-    graph,
-    output_metadata.at(0),
-    input,
-    shape);
+      graph, output_metadata.at(0), input, shape);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   const auto syn_axis = input.dim() - dim;

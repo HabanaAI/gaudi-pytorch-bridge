@@ -447,7 +447,7 @@ struct _dispatch_fallback<
           (is_eligible_for_redispatch(args) && ...)) {
         bool arg_changed = false;
         at::Tensor cast_input{cast_arg(arg_changed, at::ScalarType::Float, t)};
-        const at::Tensor& new_tensor{
+        const at::Tensor new_tensor{
             redispatch_if_any_arg_changed<
                 Op,
                 const at::Tensor&,

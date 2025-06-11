@@ -14,6 +14,7 @@
  */
 #include "backend/backend_meta.h"
 #include "common/dump_args.h"
+#include "common/warning_suppress.h"
 #include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
@@ -32,10 +33,10 @@
 #include "habana_eager/ops/unique_dim.h"
 #include "habana_eager/ops/view.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
-#include "habana_helpers/pt_version_check.h"
 
 using namespace at;
 using namespace habana;
@@ -111,13 +112,12 @@ at::Tensor fused_norm_hpu_wrap(
     {
       // First and second element in the meta_vec vector should be the same
       OutputMetaData meta;
-      const at::Tensor& grad = grads[0];
-      meta.dtype = grad.scalar_type();
+      SUPPRESS_WDANGLING_REFERENCE(meta.dtype = static_cast<const at::Tensor&>(grads[0]).scalar_type();)
       meta.shape = {1};
       meta_vec.push_back(meta);
     }
 
-    for (const at::Tensor& grad : grads) {
+    SUPPRESS_WDANGLING_REFERENCE(for (const at::Tensor& grad : grads)) {
       OutputMetaData meta;
       meta.dtype = grad.scalar_type();
       meta.shape = grad.sizes().vec();

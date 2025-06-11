@@ -58,9 +58,7 @@ OutputMetaDataVector SmoothL1LossBackwardMeta(const at::Stack& stack) {
 SharedMetaDataVector SmoothL1LossBwdSharedMeta(
     const at::Stack& stack,
     habana_helpers::HabanaExecutionMode) {
-  const auto& grad = stack_tensor(stack, 0);
   const auto& self = stack_tensor(stack, 1);
-  const auto& target = stack_tensor(stack, 2);
   const float beta = stack.at(4).toScalar().to<float>();
   const auto rank = self.dim();
   const auto dtype = self.scalar_type();

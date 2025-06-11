@@ -15,6 +15,7 @@
 
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "backend/create_pt_tensor.h"
+#include "common/warning_suppress.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
@@ -357,7 +358,7 @@ SharedMetaDataVector OptimizerLambPhase2SharedMeta(
 OutputMetaDataVector ComputeLambOutputMetadata(const at::Stack& stack) {
   OutputMetaData meta;
   auto tensors = stack[0].toTensorList();
-  const at::Tensor& tensor = tensors[0];
+  SUPPRESS_WDANGLING_REFERENCE(const at::Tensor& tensor = tensors[0];)
   meta.shape = {1};
   meta.dtype = tensor.scalar_type();
   return {meta};
