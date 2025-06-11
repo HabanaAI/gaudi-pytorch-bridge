@@ -60,17 +60,23 @@ FillParamsT FillMaskedFillParams(const at::Stack& stack) {
 
   auto self = stack_tensor(stack, 0);
   auto self_dtype = habana_helpers::getInternalDtype(self.scalar_type());
-
+  const auto scalarValue = value.toScalar();
   if ((self_dtype == c10::ScalarType::Long ||
        self_dtype == c10::ScalarType::UInt64) &&
       common::IsInt64Supported()) {
-    int64_t val = value.to<int64_t>();
+    int64_t val = scalarValue.isIntegral(true)
+        ? scalarValue.to<int64_t>()
+        : static_cast<int64_t>(scalarValue.toFloat());
     params->value_low = val;
     params->value_high = val >> 32;
   } else if (c10::isIntegralType(self_dtype, true)) {
-    params->value.i = value.toScalar().toInt();
+    params->value.i = scalarValue.isIntegral(true)
+        ? scalarValue.toInt()
+        : static_cast<int32_t>(scalarValue.toFloat());
   } else {
-    params->value.f = value.toScalar().toFloat();
+    params->value.f = scalarValue.isIntegral(true)
+        ? static_cast<float>(scalarValue.toInt())
+        : scalarValue.toFloat();
   }
   return paramsT;
 }
