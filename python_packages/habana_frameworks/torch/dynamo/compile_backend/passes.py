@@ -66,6 +66,7 @@ from ._passes.reorder_custom_ops import (
     pass_post_reorder_custom_ops,
     pass_reorder_custom_ops,
 )
+from ._passes.scalar_reorder_jitfork import pass_scalar_reorder_jitfork
 from ._passes.utils import (
     ColorGraph,
     OptimizationPassPlacement,
@@ -126,6 +127,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fuse_collectives,
             pass_allreduce_parents,
             pass_pattern_rewriter,
+            pass_scalar_reorder_jitfork,
             pass_fake_propagation,
             pass_reinplace_inplaceable_ops_v2,
             pass_weight_permutation,

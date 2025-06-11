@@ -43,22 +43,6 @@ class PatternRewriter:
         )
 
 
-class replace_rewrite_div:
-    """
-    This pattern rewriter preprocess graphs for jitfork. To solve the error
-    'Schema not found for node.' for div node when translating FX Graph into JIT IR.
-    """
-
-    def pattern(scalar_input, tensor_input):
-        x = torch.ops.aten.div.Tensor(scalar_input, tensor_input)
-        return x
-
-    def replace(scalar_input, tensor_input):
-        x = torch.ops.aten.scalar_tensor(scalar_input)
-        x = torch.ops.aten.div.Tensor(x, tensor_input)
-        return x
-
-
 class replace_rewrite_div_tensor_mode:
     def pattern(scalar_input, tensor_input):
         x = torch.ops.aten.div.Tensor_mode(scalar_input, tensor_input, rounding_mode=None)
@@ -119,7 +103,6 @@ class replace_rewrite_copy_copy_:
 
 # Register pattern rewriters
 pattern_rewriters = []
-pattern_rewriters.append(PatternRewriter(replace_rewrite_div))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_tensor_mode))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_tensor_mode_floor))
 pattern_rewriters.append(PatternRewriter(replace_rewrite_div_tensor_mode_trunc))

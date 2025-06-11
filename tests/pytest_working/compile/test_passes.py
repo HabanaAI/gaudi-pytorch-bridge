@@ -58,6 +58,29 @@ def test_pass_fuse_view_chains():
         torch.allclose(r_hpu.to("cpu"), r_cpu)
 
 
+def test_pass_scalar_reorder_jitfork():
+    input_shape = (4, 4)
+    scalar = 2
+    op_lists = [
+        torch.ops.aten.add.Tensor,
+        torch.ops.aten.mul.Tensor,
+        torch.ops.aten.div.Tensor,
+        torch.ops.aten.sub.Tensor,
+    ]
+
+    def raw_function(op, input_tensor, scalar):
+        return op(scalar, input_tensor)
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
+
+    for op in op_lists:
+        input_cpu = torch.randn(input_shape, requires_grad=False)
+        result = raw_function(op, input_cpu, scalar)
+        input_hpu = input_cpu.to("hpu")
+        h_result = compiled_fn(op, input_hpu, scalar)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
 def test_as_strided_batching():
     def func(x0, x1):
         x = x0 + 1
