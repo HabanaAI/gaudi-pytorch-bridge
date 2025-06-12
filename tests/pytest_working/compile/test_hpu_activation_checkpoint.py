@@ -31,6 +31,14 @@ from test_utils import (
     compile_function_if_compile_mode,
 )
 
+# Tests in these file rely on the fact that random ops (bernoulli, randn, etc.)
+# have the same order in graph with and without activation checkpoint flow.
+# The reason is it's the easiest way to verify that random ops in backward
+# are executed deterministically comparing to forward (with the same seed values).
+#
+# However, I don't think this order is strictly required and it can be changed in the future.
+# If it is changed, the tests should be updated accordingly.
+
 
 def bernoulli(x):
     return torch.bernoulli(x) * x
