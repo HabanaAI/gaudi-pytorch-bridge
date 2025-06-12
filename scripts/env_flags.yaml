@@ -424,7 +424,7 @@ PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH:
 
 PT_HPU_USE_JIT_FORK:
   type: bool
-  default: false
+  default: true
   settable: true
   doc: "Experimental enablement of forked jit lowering"
 
