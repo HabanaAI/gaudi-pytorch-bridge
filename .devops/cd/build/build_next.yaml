@@ -15,6 +15,7 @@ sourceControl:
     - neural-compressor-fork
     - neural-compressor-fork-cicd
     - pytorch-integration
+    - pytorch-fork # only for the purpose of comparing version.txt to avoid unnecessary builds
     - pytorch-next
     - pytorch-training-tests
     - specs_external
@@ -27,6 +28,8 @@ sourceControl:
 
 steps:
   preBuild:
+    - name: compare version.txt between pytorch-fork and pytorch-next
+      cmd: cd ${BUILD_DIR} && make compare-pt-versions RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: prepare pytorch repo
       cmd: rm -rf ${SOURCE_DIR}/pytorch-fork && mv ${SOURCE_DIR}/pytorch-next ${SOURCE_DIR}/pytorch-fork
     - name: install build dependencies
