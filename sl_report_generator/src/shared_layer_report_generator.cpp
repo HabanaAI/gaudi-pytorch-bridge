@@ -52,6 +52,7 @@ void SharedLayerReportGenerator::register_exceptions() {
   register_optimizer_resource_apply_momentum_exception();
   register_reflection_pad_exception();
   register_replication_pad_exception();
+  register_rotary_pos_embedding_exception();
   register_scaled_triangular_softmax_retain_exception();
   register_scatter_add__exception();
   register_scatter_exception();
@@ -1825,6 +1826,112 @@ void SharedLayerReportGenerator::register_replication_pad_exception() {
       {/* op_name */ "ReplicationPad3d",
        /* overload */ "",
        /* op_namespace */ "torch.nn"},
+      custom_executors.back().get());
+}
+
+void SharedLayerReportGenerator::register_rotary_pos_embedding_exception() {
+  custom_stack_generators.push_back(
+      std::make_unique<StackGenerator>(StackGenerator(
+          {InputDescriptor{
+               /* name */ "input",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ true,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "sin",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ true,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "cos",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ true,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ true,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "position_ids",
+               /* type */ InputType::PT_TENSOR,
+               /* is_optional */ true,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ true,
+               /* ranks */ std::vector<int64_t>{2},
+               /* match_rank */ false,
+               /* dtypes */ std::vector<c10::ScalarType>{c10::ScalarType::Int},
+               /* match_precision_type */ false,
+               /* values */ std::nullopt,
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "offset",
+               /* type */ InputType::NATIVE_INT,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ std::nullopt,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ std::nullopt,
+               /* values */ std::vector<std::any>{0},
+               /* is_array */ false,
+               /* array_length */ std::nullopt},
+           InputDescriptor{
+               /* name */ "mode",
+               /* type */ InputType::NATIVE_INT,
+               /* is_optional */ false,
+               /* allow_only_none */ std::nullopt,
+               /* allow_none */ std::nullopt,
+               /* ranks */ std::nullopt,
+               /* match_rank */ std::nullopt,
+               /* dtypes */ std::nullopt,
+               /* match_precision_type */ std::nullopt,
+               /* values */ std::vector<std::any>{0},
+               /* is_array */ false,
+               /* array_length */ std::nullopt}},
+          /* blacklisted_precision_types */ {},
+          /* whitelisted_precision_types */ {},
+          "rotary_pos_embedding")));
+
+  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(),
+      &habana::validator_rotary_pos_embedding));
+
+  register_op(
+      {/* op_name */ "rotary_pos_embedding",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
+      custom_executors.back().get());
+
+  custom_executors.push_back(std::make_unique<CustomSharedLayerExecutor<>>(
+      custom_stack_generators.back().get(),
+      &habana::validator_rotary_pos_embedding_backward));
+
+  register_op(
+      {/* op_name */ "rotary_pos_embedding_backward",
+       /* overload */ "",
+       /* op_namespace */ "torch.hpu"},
       custom_executors.back().get());
 }
 

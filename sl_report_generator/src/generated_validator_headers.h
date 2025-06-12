@@ -48,6 +48,8 @@
 #include "generated/lazy/replication_pad1d.h"
 #include "generated/lazy/replication_pad2d.h"
 #include "generated/lazy/replication_pad3d.h"
+#include "generated/lazy/rotary_pos_embedding.h"
+#include "generated/lazy/rotary_pos_embedding_backward.h"
 #include "generated/lazy/scaled_triangular_softmax_retain.h"
 #include "generated/lazy/scatter.h"
 #include "generated/lazy/scatter_add.h"

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,41 @@
 #include "generated/backend/rotary_pos_embedding_backward.h"
 
 namespace habana {
+
+SharedMetaDataVector RotaryPosEmbeddingFwdBwdSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& input = stack.at(0).toTensor();
+  const auto& sin = stack.at(1).toTensor();
+  const auto& cos = stack.at(2).toTensor();
+  const auto& position_ids = stack.at(3).toOptional<at::Tensor>();
+  const auto precision_type = input.scalar_type();
+
+  SharedMetaData rotary_pos_embedding_shared_meta{guid};
+  rotary_pos_embedding_shared_meta.inputs_data = {
+      getSharedMetaFromTensor(input),
+      {sin.dim(), precision_type},
+      {cos.dim(), precision_type}};
+  if (position_ids)
+    rotary_pos_embedding_shared_meta.inputs_data.push_back(
+        getSharedMetaFromOptionalTensor(position_ids));
+  rotary_pos_embedding_shared_meta.outputs_data = {
+      getSharedMetaFromTensor(input)};
+
+  return {rotary_pos_embedding_shared_meta};
+}
+
+SharedMetaDataVector RotaryPosEmbeddingFwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return RotaryPosEmbeddingFwdBwdSharedMeta(stack, "rotary_pos_embedding_fwd");
+}
+
+SharedMetaDataVector RotaryPosEmbeddingBwdSharedMeta(
+    const at::Stack& stack,
+    habana_helpers::HabanaExecutionMode) {
+  return RotaryPosEmbeddingFwdBwdSharedMeta(stack, "rotary_pos_embedding_bwd");
+}
 
 void RotaryPosEmbedding::AddNode(
     synapse_helpers::graph& graph,

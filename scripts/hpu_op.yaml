@@ -8641,14 +8641,18 @@ rotary_pos_embedding:
   op_backend: RotaryPosEmbedding
   guid: rotary_pos_embedding_fwd
   out_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: RotaryPosEmbeddingFwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception with tensors requiring a specific type
 
 rotary_pos_embedding_backward:
   custom_op_schema: "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor"
   op_backend: RotaryPosEmbeddingBackward
   guid: rotary_pos_embedding_bwd
   out_ids: [0]
-  op_validator_exception: custom_op
+  op_validator: RotaryPosEmbeddingBwdSharedMeta
+  namespaces: [torch.hpu]
+  skip_slrg: true # Exception with tensors requiring a specific type
 
 sum_fp8:
   custom_op_schema: "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor"
