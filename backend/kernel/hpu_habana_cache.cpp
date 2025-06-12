@@ -106,6 +106,40 @@ namespace habana {
 
 HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
   p_cas = std::make_shared<torch::jit::CompleteArgumentSpec>(with_grad, inputs);
+
+  // Count the number of tensors
+  size_t num_tensors = 0;
+  const auto num_inputs = inputs.size();
+  for (const auto i : c10::irange(num_inputs)) {
+    if (!inputs[i].isTensor())
+      continue;
+    num_tensors++;
+  }
+
+  // Fill the offsets data as a vector of uint64_t.
+  // Since CompleteArgumentSpec already consider the attributes of each inputs
+  // The offsets vector could just consider the tensors in order.
+  offsets_data.resize(num_tensors);
+  uint64_t* next_offset = offsets_data.data();
+  for (const auto i : c10::irange(num_inputs)) {
+    if (!inputs[i].isTensor())
+      continue;
+
+    auto pt_tensor = inputs[i].toTensor();
+    synapse_helpers::device_ptr storage_data_ptr_ =
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            pt_tensor.storage().data_ptr().get());
+    synapse_helpers::device_ptr buffer_ptr =
+        reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
+    *next_offset = (buffer_ptr - storage_data_ptr_);
+    next_offset++;
+  }
+
+  // Combine the hash code
+  hash_code = c10::hash_combine(0, p_cas->hashCode());
+  for (auto d : offsets_data) {
+    hash_code = c10::hash_combine(hash_code, d);
+  }
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(

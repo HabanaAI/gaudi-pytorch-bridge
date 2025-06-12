@@ -40,11 +40,11 @@ class HbCas {
   explicit HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs);
 
   size_t hashCode() const {
-    return p_cas->hashCode();
+    return hash_code;
   }
 
   bool operator==(const HbCas& spec) const {
-    return *p_cas == *spec.Cas();
+    return *p_cas == *spec.Cas() && offsets_data == spec.offsets_data;
   }
 
   bool operator!=(const HbCas& spec) const {
@@ -57,6 +57,8 @@ class HbCas {
 
  private:
   std::shared_ptr<torch::jit::CompleteArgumentSpec> p_cas;
+  std::vector<uint64_t> offsets_data;
+  size_t hash_code{0};
 };
 
 // Adding the op strings to the key for recipe

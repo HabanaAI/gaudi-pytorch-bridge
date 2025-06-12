@@ -345,6 +345,7 @@ PT_HPU_ENABLE_EAGER_COMPILER:
 PT_HPU_ENABLE_EAGER_CACHE:
   type: bool
   default: false
+  settable: true
   doc: "separate flag to control recipe caching in eager backend"
 
 PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP:
