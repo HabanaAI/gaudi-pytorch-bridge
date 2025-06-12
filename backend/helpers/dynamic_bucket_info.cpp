@@ -342,8 +342,7 @@ void Bucket::ResetBaseLine(const HistoryItemLog& hist) {
 
 DynamicBucketInfo::DynamicBucketInfo(size_t key)
     : min_policy_(DynamicDimsPolicy::HISTORIC),
-      max_policy_(DynamicDimsPolicy::CALCULATED),
-      split_policy_(SplitPolicy::DYNAMIC) {
+      max_policy_(DynamicDimsPolicy::CALCULATED) {
   SetGraphKey(key);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT)) {
     min_policy_ = DynamicDimsPolicy::CURRENT;

@@ -83,7 +83,7 @@ struct Graph : std::enable_shared_from_this<Graph> {
   std::unordered_set<const Node*> all_nodes;
   std::unordered_set<const Value*> all_values;
   std::unordered_set<const Block*> all_blocks;
-  size_t next_unique_;
+  size_t next_unique_{0};
 
   std::unordered_map<std::string, Value*> unique_names_;
   // name_base_suffix tracks largest suffix currently used by all names sharing
@@ -103,8 +103,7 @@ struct Graph : std::enable_shared_from_this<Graph> {
 
  public:
   Graph(ScopePtr scope_root = c10::make_intrusive<Scope>())
-      : next_unique_(0),
-        current_scope_(std::move(scope_root)),
+      : current_scope_(std::move(scope_root)),
         block_(new Block(this, nullptr)),
         insert_before_(return_node()) {}
 

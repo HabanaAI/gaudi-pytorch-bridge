@@ -270,10 +270,7 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     int rank,
     int size,
     std::string group_name)
-    : Backend(rank, size),
-      store_(store),
-      barrier_cnt_(0),
-      group_name_(group_name) {
+    : Backend(rank, size), store_(store), group_name_(group_name) {
   PT_DISTRIBUTED_DEBUG(
       "Created ProcessGroupLazyHCCL name:",
       group_name_,

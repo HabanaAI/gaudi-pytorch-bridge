@@ -248,9 +248,6 @@ Interval Timer::getInterval() {
   return ret;
 }
 
-StreamUtilizationMetric::StreamUtilizationMetric()
-    : started_(false), totalTime_(0), idleTime_(0) {}
-
 void StreamUtilizationMetric::start() {
   std::lock_guard<std::mutex> lock(mutex_);
   if (!started_) {

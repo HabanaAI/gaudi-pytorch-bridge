@@ -226,9 +226,9 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       std::vector<at::Tensor>& tensors) = 0;
 
   bool emulate_distributed_;
-  bool always_support_int64_;
+  bool always_support_int64_{false};
   c10::intrusive_ptr<Store> store_;
-  size_t barrier_cnt_;
+  size_t barrier_cnt_{0};
   std::string group_name_;
 
   // Flag to denote if a coalescing groupStart/groupEnd block is active

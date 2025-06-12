@@ -73,7 +73,7 @@ class RecipeCache {
       const std::string& metadata);
 
   std::string cache_path_;
-  bool is_cache_valid_;
+  bool is_cache_valid_{false};
   std::shared_ptr<CacheFileHandler> cf_handler_;
   bool cache_on_nfs_;
   std::unique_ptr<habana_helpers::JobThread> cache_thread_;

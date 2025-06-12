@@ -134,7 +134,7 @@ class StatsBase {
     m_pointAttributes[point][attr_key] = attr_val;
   };
 
-  StatsBase();
+  StatsBase() = default;
   StatsBase(const StatsBase& other);
   StatsBase& operator=(const StatsBase& other) = delete;
 
@@ -157,11 +157,11 @@ class StatsBase {
   };
 
   std::string m_statName;
-  int m_maxEnum;
-  uint32_t m_dumpFreq;
+  int m_maxEnum{0};
+  uint32_t m_dumpFreq{0};
   bool m_enabled{false};
-  bool m_headerPrinted;
-  bool m_isTbl;
+  bool m_headerPrinted{false};
+  bool m_isTbl{false};
   std::unique_ptr<sumCollectData[]> m_pPointData;
   std::unique_ptr<std::string[]> m_pointMsg;
   std::unique_ptr<PointAttrMap[]> m_pointAttributes;

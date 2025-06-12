@@ -208,7 +208,7 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
   void destroyHandshake();
   void permutedSendTensorsToDense(at::Tensor& tensor);
   c10::intrusive_ptr<Store> store_;
-  size_t barrier_cnt_;
+  size_t barrier_cnt_{0};
   std::string group_name_;
   bool emulate_distributed_;
   bool is_destroyed_ = false;

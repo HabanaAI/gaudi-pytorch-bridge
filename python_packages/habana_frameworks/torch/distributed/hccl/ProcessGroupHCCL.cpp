@@ -158,7 +158,7 @@ ProcessGroupHCCL::ProcessGroupHCCL(
     int rank,
     int size,
     std::string group_name)
-    : ProcessGroupHcclBase(store, rank, size, group_name), hcclCommCounter_(0) {
+    : ProcessGroupHcclBase(store, rank, size, group_name) {
   PT_DISTRIBUTED_DEBUG(
       "Created ProcessGroupHCCL name:",
       group_name_,

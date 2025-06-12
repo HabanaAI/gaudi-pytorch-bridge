@@ -248,11 +248,7 @@ ProcessGroupHcclBase::ProcessGroupHcclBase(
     int rank,
     int size,
     std::string group_name)
-    : Backend(rank, size),
-      always_support_int64_(false),
-      store_(store),
-      barrier_cnt_(0),
-      group_name_{group_name} {
+    : Backend(rank, size), store_(store), group_name_{group_name} {
   this->emulate_distributed_ = GET_ENV_FLAG_NEW(PT_HPU_EMULATE_DISTRIBUTED);
 }
 

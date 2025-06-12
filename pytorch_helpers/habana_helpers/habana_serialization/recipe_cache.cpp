@@ -102,7 +102,6 @@ namespace serialization {
 
 RecipeCache::RecipeCache(const RecipeCacheConfig& recipe_cache_config)
     : cache_path_{recipe_cache_config.path()},
-      is_cache_valid_{false},
       cf_handler_{nullptr},
       cache_on_nfs_{recipe_cache_config.cache_on_nfs()} {
   std::error_code err_code;

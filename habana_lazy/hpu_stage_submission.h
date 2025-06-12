@@ -125,7 +125,6 @@ class StageSubmission {
         max_number_of_accumulated_ops(GET_ENV_FLAG_NEW(PT_HPU_MAX_ACCUM_SIZE)),
         max_number_of_compound_ops(
             GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE)),
-        is_stage_submission(0),
         enable_stage_submission(
             GET_ENV_FLAG_NEW(PT_HPU_ENABLE_STAGE_SUBMISSION)),
         mode(
@@ -139,7 +138,7 @@ class StageSubmission {
   std::atomic<size_t> curr_number_of_compound_ops;
   const size_t max_number_of_accumulated_ops;
   std::atomic<size_t> max_number_of_compound_ops;
-  bool is_stage_submission;
+  bool is_stage_submission{false};
   const bool enable_stage_submission;
   const Mode mode;
 };

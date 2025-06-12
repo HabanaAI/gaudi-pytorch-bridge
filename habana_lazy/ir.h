@@ -555,9 +555,9 @@ class Node {
 
  protected:
   c10::Symbol m_op;
-  bool m_is_input = false;
-  bool m_is_control_edge = false;
-  bool m_is_output_tensor_list = false;
+  bool m_is_input{false};
+  bool m_is_control_edge{false};
+  bool m_is_output_tensor_list{false};
   std::vector<bool> m_bcast_details;
   InlinedValueList m_inputs;
   OutputList m_outputs;

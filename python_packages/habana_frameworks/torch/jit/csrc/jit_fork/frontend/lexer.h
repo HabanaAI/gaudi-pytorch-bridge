@@ -190,7 +190,7 @@ struct TokenTrie {
     child_tries.emplace_back(std::make_unique<TokenTrie>());
     child_tries.back()->insert(str + 1, tok);
   }
-  int kind; // 0 == invalid token
+  int kind{0}; // 0 == invalid token
 
   std::vector<char> child_chars;
   std::vector<TokenTrieRef> child_tries;
@@ -591,8 +591,8 @@ struct Lexer {
 
   std::shared_ptr<Source> source;
   std::unique_ptr<StringCordView::Iterator> current;
-  size_t pos;
-  size_t nesting; // depth of ( [ { nesting...
+  size_t pos{0};
+  size_t nesting{0}; // depth of ( [ { nesting...
   std::vector<int> indent_stack; // stack of indentation level of blocks
   // Invariant: this should always contain at least a single element
   std::vector<Token> next_tokens;

@@ -93,7 +93,7 @@ struct TORCH_API Node {
   // subblocks
   std::vector<Block*> blocks_;
   Graph* graph_;
-  Block* owning_block_;
+  Block* owning_block_{nullptr};
   std::optional<SourceRange> source_range_;
   std::optional<std::string> stack_trace_;
   ScopePtr scope_;
@@ -102,9 +102,9 @@ struct TORCH_API Node {
   // This field is effective a cache that's populated on attribute lookups and
   // invalidated every time we perform an operation that could potentially
   // change the schema. note: mutable because schema_ is effectively a cache
-  mutable const torch::jit::Operator* op_;
-  std::optional<c10::OperatorName> operator_name_ = std::nullopt;
-  topo_position_t topo_position_ = 0;
+  mutable const torch::jit::Operator* op_{nullptr};
+  std::optional<c10::OperatorName> operator_name_{std::nullopt};
+  topo_position_t topo_position_{0};
   // a managing wrapper for Python to allow invalidation
   std::shared_ptr<Wrap<Node>> wrap_;
   // Stores the full schema name, if the operator is historic

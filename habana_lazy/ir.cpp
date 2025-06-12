@@ -90,7 +90,6 @@ size_t Use::operator()(const Use& in) const {
 Node::Node(c10::Symbol op, bool _is_input)
     : m_op(op),
       m_is_input(_is_input),
-      m_is_control_edge(false),
       deterministic(
           at::globalContext().deterministicAlgorithms()) {
   /*Need to set this node if the deterministic mode is ON*/
