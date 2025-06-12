@@ -451,14 +451,14 @@ void emitTimeDurationJit(const std::string& name, float value) {
   if (not config.log_metrics)
     return;
   std::string msg = name + std::to_string(value);
-  PT_TOWL_DEBUG("time.duration jit pass ", name, " took(ms): ", value);
+  PT_TOWL_DEBUG("time.duration.jit pass ", name, " took(ms): ", value);
 }
 
 void emitTimeDurationFX(const std::string& name, float value) {
   if (not config.log_metrics)
     return;
   std::string msg = name + std::to_string(value);
-  PT_TOWL_DEBUG("time.duration fx pass ", name, " took(ms): ", value);
+  PT_TOWL_DEBUG("time.duration.fx pass ", name, " took(ms): ", value);
 }
 
 void emitRecipeName(const std::string& param_data) {
