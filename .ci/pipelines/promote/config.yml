@@ -87,6 +87,7 @@ orchestratorConfig:
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_dynamic_subgraphs
     # PT Gaudi2 Optimum Habana Models Job <Start>
     - testToLaunch: habana-internal/pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_optimum_habana_models_promote
+      silentMode: true
     # PT Gaudi2 Optimum Habana Models Job <End>
     - testToLaunch: habana-internal/vllm_fork/Tests/Test_vllm_fork_gaudi2_asic_perf
       silentMode: true
