@@ -95,7 +95,7 @@ class DivergenceAnalyzer:
         self.cfg = cfg
         self.dumpdir = os.path.join(args.out)
         # For master Slave mode this is used as tmp dump location
-        self.hls_local_dir = "/tmp/dumps_hls"
+        self.hls_local_dir = "/tmp/dumps_hls"  # noqa S108
         self.logdir = os.path.join(self.dumpdir, "divergence_logs")
         self.dumpdir_static = os.path.join(self.dumpdir, "StaticSynRec")
         self.dumpdir_dynamic = os.path.join(self.dumpdir, "DynamicSynRec")
@@ -703,7 +703,10 @@ def get_args():
         help="If Specified run the command on the device in static and dynamic and do a comparison, command to be specified in quotes",
     )
     parser.add_argument(
-        "--out", type=str, default="/tmp/dumps", help="The output directory to dump or read the dumps from"
+        "--out",
+        type=str,
+        default="/tmp/dumps",  # noqa S108
+        help="The output directory to dump or read the dumps from",
     )
     parser.add_argument(
         "--parallel",
