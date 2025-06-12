@@ -99,7 +99,6 @@ target_link_libraries(
           absl::strings
           absl::str_format
           ${PYTORCH_SYNAPSE_UTILS_LIB}
-          # tensor_comparator_core
           -lstdc++fs
           npu::hllogger)
 

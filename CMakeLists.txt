@@ -233,7 +233,7 @@ target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
 # Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch_plugin
-  PRIVATE Python::Python habana_serialization tensor_comparator_core nlohmann_json::nlohmann_json
+  PRIVATE Python::Python habana_serialization nlohmann_json::nlohmann_json
   PUBLIC habana_pytorch_backend habana_pytorch_frontend_ops torch absl::hash ZLIB::ZLIB)
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers
@@ -340,7 +340,7 @@ target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
 # Link against LibTorch and synapse
 target_link_libraries(
   habana_pytorch2_plugin
-  PRIVATE Python::Python habana_serialization tensor_comparator_core nlohmann_json::nlohmann_json
+  PRIVATE Python::Python habana_serialization nlohmann_json::nlohmann_json
   PUBLIC habana_pytorch_backend
          habana_pytorch2_frontend
          torch
