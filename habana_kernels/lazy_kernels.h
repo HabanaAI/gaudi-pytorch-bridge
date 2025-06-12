@@ -102,7 +102,7 @@ class LazyOp {
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
       std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0) noexcept
+      int out_index = 0)
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
@@ -116,7 +116,7 @@ class LazyOp {
       const std::vector<at::IValue>& inputs,
       const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
           out_shapes_fn,
-      int out_index = 0) noexcept
+      int out_index = 0)
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_index{out_index},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
@@ -146,7 +146,7 @@ class LazyOp {
   explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      const at::TensorList& output_meta_tensors) noexcept
+      const at::TensorList& output_meta_tensors)
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_index{},
         m_out_meta_tensors{output_meta_tensors},
