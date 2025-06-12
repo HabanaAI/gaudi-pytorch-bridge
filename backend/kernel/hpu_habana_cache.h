@@ -511,7 +511,7 @@ class DynamicBucketInfoMap {
   }
 
   bool empty() {
-    return (map_.size() == 0);
+    return (map_.empty());
   }
 
   void add(

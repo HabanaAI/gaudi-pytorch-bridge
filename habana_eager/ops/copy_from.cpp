@@ -160,7 +160,7 @@ at::Tensor _copy_from_d2h(
   std::tie(permutation, std::ignore) =
       habana_helpers::get_tensor_memory_permutation(self_);
   auto tmeta{habana::get_tensor_extra_meta(self_)};
-  if (permutation.size() != 0) {
+  if (!permutation.empty()) {
     // translate synapse permtue to pt permute
     auto pt_permute = translateSynapsePermuteToPt(permutation);
     // if view tensor and not grad view tensor, then get the base tensor
@@ -235,7 +235,7 @@ static void clear_permutation_info(const at::Tensor& tensor) {
   auto smeta{get_storage_extra_meta(tensor)};
   if (smeta) {
     auto synapse_permute = smeta->get_memory_permutation();
-    if (synapse_permute.size() != 0) {
+    if (!synapse_permute.empty()) {
       PT_LAYOUTS_DEBUG("clearing memory permute ", VecToString(synapse_permute))
       smeta->set_memory_permutation({});
     }

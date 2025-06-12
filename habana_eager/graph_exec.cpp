@@ -384,7 +384,7 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   HABANA_ASSERT(
       m_graph->inputs().size() == new_stack.size(),
       "Graph inputs size not patching with stack size!!");
-  if (!is_first_launch && m_dgraph_meta->negative_size_nodes.size())
+  if (!is_first_launch && !m_dgraph_meta->negative_size_nodes.empty())
     pass::ResolveNegativeSTSizes(
         m_graph, new_stack, m_dgraph_meta, launch_shapes);
   if (!is_first_launch)
@@ -662,18 +662,17 @@ torch::jit::Stack GraphExec::launch(
         std::move(launch_shapes),
         std::move(in_symbol_value_map));
     return {};
-  } else {
-    std::optional<std::vector<at::Tensor>> maybe_backend_outputs;
-    if (backend_outputs.size() > 0) {
-      maybe_backend_outputs = backend_outputs;
-    }
-    habana::eager::JoinPendingPipelineThreads();
-    PatchDynamicTensors(launch_shapes);
-
-    torch::jit::Stack ret_stack = LaunchRecipe(
-        std::move(backend_inputs), maybe_backend_outputs, in_symbol_value_map);
-    return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
   }
+  std::optional<std::vector<at::Tensor>> maybe_backend_outputs;
+  if (!backend_outputs.empty()) {
+    maybe_backend_outputs = backend_outputs;
+  }
+  habana::eager::JoinPendingPipelineThreads();
+  PatchDynamicTensors(launch_shapes);
+
+  torch::jit::Stack ret_stack = LaunchRecipe(
+      std::move(backend_inputs), maybe_backend_outputs, in_symbol_value_map);
+  return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
 }
 
 void GraphExec::ResetSeed() {
@@ -686,7 +685,7 @@ torch::jit::Stack GraphExec::LaunchRecipe(
     InputSymbolMap in_symbol_value_map) {
   // Important - this function is meant to be run on lowering thread.
   PT_EAGER_TRACE;
-  if (maybe_outputs.has_value() && maybe_outputs.value().size() > 0) {
+  if (maybe_outputs.has_value() && !maybe_outputs.value().empty()) {
     std::vector<at::Tensor>& outputs{maybe_outputs.value()};
     std::vector<at::Tensor> reordered_outputs;
     HABANA_ASSERT(m_outputs_order.size() == outputs.size());

@@ -245,7 +245,7 @@ void deviceMallocData::print_an_entry(
     const auto& bt_strings = size_bt.second;
     bool dot_marker_placed = false;
     for (const auto& string : bt_strings) {
-      if (string.length()) {
+      if (!string.empty()) {
         out_stream << get_formatted_func_name(
             string, print_all_frames, &dot_marker_placed);
       }
@@ -516,7 +516,7 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   }
 
   std::string record_id_msg = msg;
-  if (0 == record_id_msg.size()) {
+  if (record_id_msg.empty()) {
     record_id_msg = "Instance " + std::to_string(iteration_number);
   }
   auto out_stream = get_out_stream();

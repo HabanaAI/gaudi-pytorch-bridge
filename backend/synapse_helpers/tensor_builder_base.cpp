@@ -21,10 +21,10 @@
 namespace synapse_helpers {
 
 tensor::shape_t to_shape_t(const std::vector<int64_t>& shape, bool reverse) {
-  auto shape_size = shape.size() > 0 ? shape.size() : 1;
+  auto shape_size = !shape.empty() ? shape.size() : 1;
   tensor::shape_t dimensions{tensor::shape_t::dimension_count_t{
       static_cast<unsigned>(shape_size)}}; // TODO make it more readable
-  if (shape.size() == 0) {
+  if (shape.empty()) {
     PT_SYNHELPER_DEBUG("to_shape_t: Converting 0D to 1D with {1} shape");
     dimensions[0] = 1;
   } else {
@@ -54,7 +54,7 @@ tensor::shape_t to_stride_t(
     synDataType data_type,
     bool reverse) {
   HABANA_ASSERT(reverse);
-  auto stride_size = stride.size() > 0 ? stride.size() : 1;
+  auto stride_size = !stride.empty() ? stride.size() : 1;
   tensor::shape_t dimensions{tensor::shape_t::dimension_count_t{
       static_cast<unsigned>(stride_size)}}; // TODO make it more readable
   auto size = size_of_syn_data_type(data_type);
@@ -84,7 +84,7 @@ tensor::shape_t to_stride_t(
 
   // write strides backwards
   // Synapse supports strides on FCD to be element size only
-  if (stride.size() == 0) {
+  if (stride.empty()) {
     dimensions[0] = size;
   } else if (stride[stride.size() - 1] != 1) {
     PT_SYNHELPER_FATAL(

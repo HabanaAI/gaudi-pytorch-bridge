@@ -27,7 +27,7 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
 
   auto dim = stack[1].toInt();
 
-  HABANA_ASSERT(tensors_.size() > 0, "Empty tensors list!");
+  HABANA_ASSERT(!tensors_.empty(), "Empty tensors list!");
   const at::Tensor& first_tensor = tensors_[0];
   auto tensors = at::filter(tensors_, [](const at::Tensor& tensor) {
     return tensor.dim() != 1 || tensor.size(0) != 0;
@@ -41,7 +41,7 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
   }
 
   std::vector<int64_t> out_size;
-  if (tensors.size() > 0) {
+  if (!tensors.empty()) {
     const at::Tensor& first_valid_tensor = tensors[0];
     dim = at::maybe_wrap_dim(dim, first_valid_tensor.dim());
 
@@ -114,7 +114,7 @@ void CatHabanaOperator::AddNode(
   for (auto& input : in_tensors)
     CONVERT_0D_TO_1D(input);
 
-  HABANA_ASSERT(in_tensors.size() > 0, "Empty tensors list!");
+  HABANA_ASSERT(!in_tensors.empty(), "Empty tensors list!");
   auto dim = stack[1].toInt();
 
   const auto md = OutputMeta(stack)[0];

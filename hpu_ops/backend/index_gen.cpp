@@ -74,7 +74,7 @@ static std::vector<int64_t> CalcCatOutSize(
   // out tensor size should match along all dimensions for input tensors except
   // along the dim in which to cat
   auto out_size = tensors->at(0);
-  if (out_size.size() != 0) {
+  if (!out_size.empty()) {
     out_size[dim] = 0;
     for (unsigned i = 0; i < tensor_count; i++)
       out_size[dim] += tensors->at(i)[dim];
@@ -423,9 +423,10 @@ void IndexHabanaOperator::AddNode(
 
     int64_t dim = 0;
     std::vector<int64_t> cat_out_size = CalcCatOutSize(&cat_input_index, &dim);
-    dim = cat_out_size.size() > 0
-        ? (cat_out_size.size() - dim) - 1
-        : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+
+    dim = cat_out_size.empty()
+        ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+        : (cat_out_size.size() - dim) - 1;
 
     synConcatenateParams concat_params{};
     concat_params.axis = dim;
@@ -752,9 +753,9 @@ void IndexHabanaOperator::AddNode(
     auto scalar_type = tensorlist[0].scalar_type();
     int64_t dim = 0;
     std::vector<int64_t> cat_out_size = CalcCatOutSize(&cat_input_index, &dim);
-    dim = cat_out_size.size() > 0
-        ? (cat_out_size.size() - dim) - 1
-        : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+    dim = cat_out_size.empty()
+        ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+        : (cat_out_size.size() - dim) - 1;
     synConcatenateParams concat_params{};
     concat_params.axis = dim;
     auto catop1 = BuildOp(

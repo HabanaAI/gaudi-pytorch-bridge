@@ -226,7 +226,7 @@ void HPUGraph::replayV2(
 
   // Use replaytV2 for the first captured graph, as the user input is
   // for the first captured graph
-  if (captured_graphs.size() == 0)
+  if (captured_graphs.empty())
     return;
   captured_graphs[0]->replayV2(static_inputs, inputs, async);
 
@@ -401,7 +401,7 @@ void HPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
     habana_lazy::HbLazyTensor::StepMarker({});
   }
 
-  if (captured_graphs.size() == 0) {
+  if (captured_graphs.empty()) {
     return;
   }
 

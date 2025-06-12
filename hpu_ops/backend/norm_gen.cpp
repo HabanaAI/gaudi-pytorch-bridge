@@ -149,7 +149,7 @@ static void VecNormCheck(
         "linalg.vector_norm of negative order cannot be performed on an empty tensor");
     if (p == INF) {
       bool has_identity = true;
-      if (dim.size() == 0) {
+      if (dim.empty()) {
         has_identity = false;
       } else {
         for (unsigned i = 0; i < dim.size(); ++i) {

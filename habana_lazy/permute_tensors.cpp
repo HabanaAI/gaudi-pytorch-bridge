@@ -135,7 +135,7 @@ void PermuteTensors::handlePermutedTensor(
       "handlePermutedTensor cpuTensor should be CPU");
 
   auto synapse_permute = getMemoryPermutation(permutedTensor);
-  if (synapse_permute.size() != 0) {
+  if (!synapse_permute.empty()) {
     if (non_blocking) {
       HABANA_ASSERT(
           false, "handlePermutedTensor we only support non_blocking = false");

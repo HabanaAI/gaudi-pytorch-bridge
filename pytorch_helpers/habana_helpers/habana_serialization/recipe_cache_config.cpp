@@ -52,7 +52,7 @@ void RecipeCacheConfig::reload() {
       GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG);
   auto params = split_params(recipe_cache_config_var);
   HABANA_ASSERT(
-      params.size() >= 1 && params.size() <= 4,
+      !params.empty() && params.size() <= 4,
       "Expected number of parameters extracted from PT_HPU_RECIPE_CACHE_CONFIG should be from range <1:4>.");
 
   cache_directory_path_ = params[0];

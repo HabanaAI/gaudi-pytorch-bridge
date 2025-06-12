@@ -89,7 +89,7 @@ std::string GetConstSectionSerializationPath() {
 }
 
 bool IsConstSectionSerialization() {
-  return habana_helpers::const_section_serialize_path != "";
+  return !habana_helpers::const_section_serialize_path.empty();
 }
 
 bool ShouldClearConstSectionPath() {

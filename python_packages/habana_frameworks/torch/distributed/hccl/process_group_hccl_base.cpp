@@ -721,7 +721,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
   std::vector<at::Tensor> outputTensors;
   inputTensors.push_back(alltoall_in_tensors);
   outputTensors.push_back(alltoall_out_tensors);
-  if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
+  if (outputSplitSizes.empty() && inputSplitSizes.empty()) {
     work = collective(
         inputTensors,
         outputTensors,
@@ -1376,8 +1376,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
       }
     }
   } else {
-    HABANA_ASSERT(
-        outputTensors.size() == 0, "Requires empty output on non-root");
+    HABANA_ASSERT(outputTensors.empty(), "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (coalescing_state_) {
@@ -1423,7 +1422,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
       }
     }
   } else {
-    HABANA_ASSERT(inputTensors.size() == 0, "Requires empty input on non-root");
+    HABANA_ASSERT(inputTensors.empty(), "Requires empty input on non-root");
     work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (coalescing_state_) {

@@ -45,7 +45,7 @@ OutputMetaDataVector GatherMeta(const at::Stack& stack) {
           dim_);
     }
   }
-  if (shape.size()) {
+  if (!shape.empty()) {
     // for gather op, output size is same as index
     if (self.dim() == index.dim()) {
       shape = index.sizes().vec();

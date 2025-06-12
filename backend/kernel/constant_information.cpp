@@ -270,7 +270,7 @@ ConstantInformation::id_t ConstantInformation::GetMatchedConstIdForRecipe(
   HABANA_ASSERT(recipe_input_iter != recipe_iterator->second.end())
   auto const_id_set = recipe_input_iter->second;
   HABANA_ASSERT(
-      const_id_set.size(),
+      !const_id_set.empty(),
       "Const id list is empty for recipe ",
       recipe_key,
       " const_id ",

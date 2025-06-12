@@ -244,7 +244,7 @@ static OutputMetaData CreateMetaData(
   meta.shape = input.sizes().vec();
   meta.dtype = input.scalar_type();
   meta.mem_format = input.suggest_memory_format();
-  meta.undefined = output_mask_in.size() && !output_mask_in.get(index);
+  meta.undefined = !output_mask_in.empty() && !output_mask_in.get(index);
 
   return meta;
 }

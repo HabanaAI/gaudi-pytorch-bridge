@@ -659,7 +659,7 @@ void OpBackend::PopulateMetadata(
       m_output_metadata[i].mem_format = meta[i].mem_format;
       m_output_metadata[i].undefined = meta[i].undefined;
     }
-  } else if (m_res_ids.size()) {
+  } else if (!m_res_ids.empty()) {
     auto outshapes = ComputeOutputShapes(stack);
     if (outshapes.empty()) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
@@ -1150,7 +1150,7 @@ sh::tensor OpBackend::BuildCopy(
     HABANA_ASSERT(
         shape == dest_size or
             // broadcast with src [1] to dst [] should be valid
-            (shape.size() == 1 and dest_size.size() == 0),
+            (shape.size() == 1 and dest_size.empty()),
         "Cannot broadcast src ",
         src_size,
         " to dst ",

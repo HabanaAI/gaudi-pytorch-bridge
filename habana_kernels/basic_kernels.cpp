@@ -717,7 +717,7 @@ void SliceInsertOperator::UpdateMaxPassSliceInputs(
         // If the calculated value is less than current value, keep the
         // current value.
         HABANA_ASSERT(min.size() == max.size());
-        if (min.size() && (min[i] != max[i]) && old_start == 0) {
+        if (!min.empty() && (min[i] != max[i]) && old_start == 0) {
           auto curr_val = max[i] /
               habana_helpers::DynamicBucketInfo::default_max_multiplier_;
             start[i] = std::max(start[i], curr_val);
@@ -1019,7 +1019,7 @@ bool IsStridesRatioUsed(const torch::jit::Stack& inputs) {
     // Offset shape tensor is created only in case the ratio is used
     auto tmeta_offset{get_tensor_extra_meta(offset_t)};
     auto stride_ratios = tmeta_offset->get_shape_struct().get_stride_ratios();
-    if (stride_ratios.size() > 0) {
+    if (!stride_ratios.empty()) {
       stride_ratio_used = true;
     }
   }
@@ -1370,7 +1370,7 @@ void StridedInsertOperator::compute_params(
         synapse_helpers::tensor& offset_tensor = hop.GetSynInputs()[3];
         std::tie(min, max) =
             habana::ShapeInference::GetMinMaxShape(offset_tensor.id());
-        if (max.size()) {
+        if (!max.empty()) {
           offset = max[0];
         }
       }
@@ -1824,7 +1824,7 @@ void StridedViewOperator::compute_params(
     synapse_helpers::tensor& offset_tensor = p_context_->syn_inputs_[3];
     std::tie(min, max) =
         habana::ShapeInference::GetMinMaxShape(offset_tensor.id());
-    if (max.size()) {
+    if (!max.empty()) {
       offset = max[0];
     }
   }

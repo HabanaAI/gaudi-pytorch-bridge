@@ -583,7 +583,17 @@ void RandomSeedTensorInput::AddNode(
         break;
     };
   }
-  if (cast_guid != "") {
+  if (cast_guid.empty()) {
+    // execute random
+    auto rand = BuildOp(
+        graph,
+        guid_,
+        std::move(inputs),
+        {{outshape, dtype, 0}},
+        rand_params.ptr(),
+        rand_params.size());
+    syn_out(0) = std::move(rand[0]);
+  } else {
     auto rand = BuildOp(
         graph,
         guid_,
@@ -603,16 +613,6 @@ void RandomSeedTensorInput::AddNode(
         paramsT.ptr(),
         paramsT.size());
     syn_out(0) = std::move(cast[0]);
-  } else {
-    // execute random
-    auto rand = BuildOp(
-        graph,
-        guid_,
-        std::move(inputs),
-        {{outshape, dtype, 0}},
-        rand_params.ptr(),
-        rand_params.size());
-    syn_out(0) = std::move(rand[0]);
   }
 }
 

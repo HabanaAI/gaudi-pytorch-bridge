@@ -577,7 +577,7 @@ void RecipeValueSpec::update_tensor_shape(
   PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape used for patching : ", shape);
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] tensor shape before patching : ", tinfo->get_shape());
-  if (shape.size() == 0 && !tinfo->is_ZST()) {
+  if (shape.empty() && !tinfo->is_ZST()) {
     shape = {1};
     PT_EAGER_DEBUG(
         "[SHAPE AGNOSTIC] settting the tensor shape to {1} for scalar");
@@ -1615,7 +1615,7 @@ void RecipeLauncher::Launch(
             input.toTensor().storage().data_ptr().get()));
       }
     }
-    if (dma_inputs.size() > 0) {
+    if (!dma_inputs.empty()) {
       for (auto& dma_input : dma_inputs) {
         HABANA_ASSERT(
             dma_input->isTensor(), "Only tensor is supported as dma_input");
@@ -1631,7 +1631,7 @@ void RecipeLauncher::Launch(
     // Hold on to the pytorch tensors for the intermediates untill the recipe
     // execution completes
     if (intermediate_tensors_ptr != nullptr &&
-        intermediate_tensors_ptr->size() > 0) {
+        !intermediate_tensors_ptr->empty()) {
       for (auto& intermediate_tensor : *intermediate_tensors_ptr) {
         at::Tensor tensor = intermediate_tensor->toTensor();
         ptRefs.push_back(std::move(tensor));

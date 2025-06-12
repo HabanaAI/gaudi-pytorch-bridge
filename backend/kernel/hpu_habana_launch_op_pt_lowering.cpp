@@ -135,7 +135,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
   }
 
   auto& tinfos = rvs.dtensorinfos;
-  if (tinfos.size() == 0) {
+  if (tinfos.empty()) {
     PT_BRIDGE_DEBUG("empty cur_rvalpsh->dtensorinfos, nothing to update");
     return;
   }
@@ -728,7 +728,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     }
   }
 
-  if (constSectionIds.size()) {
+  if (!constSectionIds.empty()) {
     synRecipeSectionHostBuffersClear(
         recipe.syn_recipe_handle_,
         constSectionIds.data(),

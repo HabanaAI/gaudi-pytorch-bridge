@@ -49,13 +49,12 @@ OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
   std::vector<long int> dil = {1, 1};
   auto self = stack.at(0).toTensor();
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector().size() == 0
-      ? kernel
-      : stack.at(2).toIntVector();
+  auto stride =
+      stack.at(2).toIntVector().empty() ? kernel : stack.at(2).toIntVector();
   auto padding =
-      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+      stack.at(3).toIntVector().empty() ? pad : stack.at(3).toIntVector();
   auto dilation =
-      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+      stack.at(4).toIntVector().empty() ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
   HABANA_ASSERT(
       self.dim() == 4 || self.dim() == 3,
@@ -144,13 +143,12 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
   std::vector<long int> dil = {1, 1, 1};
   auto self = stack.at(0).toTensor();
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector().size() == 0
-      ? kernel
-      : stack.at(2).toIntVector();
+  auto stride =
+      stack.at(2).toIntVector().empty() ? kernel : stack.at(2).toIntVector();
   auto padding =
-      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+      stack.at(3).toIntVector().empty() ? pad : stack.at(3).toIntVector();
   auto dilation =
-      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+      stack.at(4).toIntVector().empty() ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
 
   HABANA_ASSERT(
@@ -278,13 +276,12 @@ FillParamsT FillSpatialReduction3DParamsFwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0, 0};
   std::vector<long int> dil = {1, 1, 1};
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector().size() == 0
-      ? kernel
-      : stack.at(2).toIntVector();
+  auto stride =
+      stack.at(2).toIntVector().empty() ? kernel : stack.at(2).toIntVector();
   auto padding =
-      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+      stack.at(3).toIntVector().empty() ? pad : stack.at(3).toIntVector();
   auto dilation =
-      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+      stack.at(4).toIntVector().empty() ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
 
   return FillSpatialReduction3DParams(
@@ -295,13 +292,12 @@ FillParamsT FillSpatialReduction3DParamsBwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0, 0};
   std::vector<long int> dil = {1, 1, 1};
   auto kernel = stack.at(2).toIntVector();
-  auto stride = stack.at(3).toIntVector().size() == 0
-      ? kernel
-      : stack.at(3).toIntVector();
+  auto stride =
+      stack.at(3).toIntVector().empty() ? kernel : stack.at(3).toIntVector();
   auto padding =
-      stack.at(4).toIntVector().size() == 0 ? pad : stack.at(4).toIntVector();
+      stack.at(4).toIntVector().empty() ? pad : stack.at(4).toIntVector();
   auto dilation =
-      stack.at(5).toIntVector().size() == 0 ? dil : stack.at(5).toIntVector();
+      stack.at(5).toIntVector().empty() ? dil : stack.at(5).toIntVector();
   const bool ceil_mode = stack.at(6).toBool();
 
   return FillSpatialReduction3DParams(
@@ -337,13 +333,12 @@ FillParamsT FillSpatialReduction2DParamsFwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0};
   std::vector<long int> dil = {1, 1};
   auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector().size() == 0
-      ? kernel
-      : stack.at(2).toIntVector();
+  auto stride =
+      stack.at(2).toIntVector().empty() ? kernel : stack.at(2).toIntVector();
   auto padding =
-      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
+      stack.at(3).toIntVector().empty() ? pad : stack.at(3).toIntVector();
   auto dilation =
-      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
+      stack.at(4).toIntVector().empty() ? dil : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
 
   return FillSpatialReduction2DParams(
@@ -354,13 +349,12 @@ FillParamsT FillSpatialReduction2DParamsBwd(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0};
   std::vector<long int> dil = {1, 1};
   auto kernel = stack.at(2).toIntVector();
-  auto stride = stack.at(3).toIntVector().size() == 0
-      ? kernel
-      : stack.at(3).toIntVector();
+  auto stride =
+      stack.at(3).toIntVector().empty() ? kernel : stack.at(3).toIntVector();
   auto padding =
-      stack.at(4).toIntVector().size() == 0 ? pad : stack.at(4).toIntVector();
+      stack.at(4).toIntVector().empty() ? pad : stack.at(4).toIntVector();
   auto dilation =
-      stack.at(5).toIntVector().size() == 0 ? dil : stack.at(5).toIntVector();
+      stack.at(5).toIntVector().empty() ? dil : stack.at(5).toIntVector();
   const bool ceil_mode = stack.at(6).toBool();
 
   return FillSpatialReduction2DParams(

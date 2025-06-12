@@ -60,7 +60,7 @@ class DiskCache {
 class RecipeCacheLRU {
  public:
   bool empty() {
-    return (map_.size() == 0);
+    return (map_.empty());
   }
 
   size_t get_length() {

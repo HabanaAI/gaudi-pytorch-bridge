@@ -202,8 +202,8 @@ bool FuseConvBatchnorm(
       std::vector<torch::jit::Node*> w_auto_cast;
       std::vector<torch::jit::Node*> b_auto_cast;
       CheckIfAutoCastNodePresent(graph, conv, w_auto_cast, b_auto_cast);
-      auto w_auto_cast_en = (w_auto_cast.size() > 0);
-      auto b_auto_cast_en = (b_auto_cast.size() > 0);
+      auto w_auto_cast_en = !w_auto_cast.empty();
+      auto b_auto_cast_en = !b_auto_cast.empty();
 
       auto ib = b_auto_cast_en ? -1 : 2;
       auto nb = b_auto_cast_en ? b_auto_cast.at(0) : conv;

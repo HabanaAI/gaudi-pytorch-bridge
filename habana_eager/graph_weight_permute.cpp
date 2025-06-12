@@ -98,7 +98,7 @@ bool PermuteWeightTensor::ShouldPermuteWeight() {
   MemoryPermutation current_perm{m_storage_meta->get_memory_permutation()};
   MemoryPermutation required_perm{
       (m_tensor_dim == 4) ? weight_rsck_in_memory : weight_qrsck_in_memory};
-  if (0 == current_perm.size()) {
+  if (current_perm.empty()) {
     return true;
   }
   HABANA_ASSERT(

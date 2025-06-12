@@ -50,7 +50,7 @@ class HabanaSerializationRecipeTest : public ::testing::Test {
 
  private:
   void overrideEmptyCachePathEnv() {
-    if (m_cache_path == "") {
+    if (m_cache_path.empty()) {
       m_cache_overriden = true;
       m_cache_path = "cache_dir";
       HPUDeviceContext::recipe_cache().UpdateCachePath(m_cache_path);

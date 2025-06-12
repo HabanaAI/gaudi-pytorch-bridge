@@ -2607,7 +2607,7 @@ void HabanaLaunchOpPT::UpdateIshapeForNodeOuputs(
         HABANA_ASSERT(0, "Invalid ListConstruct call for node:", value_name);
       } else if (
           dsi.value_to_ishape[value_name].isTensor() &&
-          dsi.value_to_sizeexpr[value_name].size() != 0) {
+          !dsi.value_to_sizeexpr[value_name].empty()) {
         auto& size_expr_list = dsi.value_to_sizeexpr[value_name];
         HABANA_ASSERT(size_expr_list.size() == 1);
         auto& size_expr = size_expr_list[0];
@@ -3207,7 +3207,7 @@ void HabanaLaunchOpPT::SetModuleNameInOutputsMetadata(
     auto val_ins = node->inputs();
     module_name = val_ins[0]->node()->scope()->name().toUnqualString();
   }
-  if (habana_helpers::IsInferenceMode() && module_name.size() > 0) {
+  if (habana_helpers::IsInferenceMode() && !module_name.empty()) {
     if (((strcmp(node->kind().toQualString(), "aten::add") == 0) ||
          (strcmp(node->kind().toQualString(), "hpu::add") == 0)) &&
         std::string(node->scope()->name().toUnqualString()).find("add") ==
@@ -4379,7 +4379,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
           habana::ShapeInference::ResetSifTensorId();
           constexpr bool dynamic_shapes_true = true;
-          if (rv.disabled_jit_ir_ops_.size()) {
+          if (!rv.disabled_jit_ir_ops_.empty()) {
             HabanaLaunchOpUtils::disabled_jit_ir_ops() =
                 rv.disabled_jit_ir_ops_;
           } else {
@@ -4638,7 +4638,7 @@ void HabanaLaunchOpPT::ConstructDuplicateShapeMap(
     if (tensor_map != synapse_orig_to_new_handle_info.end()) {
       const auto& new_handle = tensor_map->second.first;
       auto shape = tinfo->get_shape();
-      if (shape.size() == 0 && !tinfo->is_ZST()) {
+      if (shape.empty() && !tinfo->is_ZST()) {
         shape = {1};
       }
       syn_graph_ptr_->setTensorGeometry(new_handle, shape);

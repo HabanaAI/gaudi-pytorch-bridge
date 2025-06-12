@@ -955,7 +955,7 @@ class LazyOp {
       // need to set the correct shape on at::Tensor so it's propagated to
       // Python in main thread.
       std::vector<int64_t> out_shape;
-      if (meta.size()) {
+      if (!meta.empty()) {
         out_shape = meta[i].shape;
       } else if (m_out_shapes.empty()) {
         out_shape = tensor.sizes().vec();
@@ -996,7 +996,7 @@ class LazyOp {
       const auto& out_shape =
           m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
       auto options = t.options();
-      if (m_scalar_types.size()) {
+      if (!m_scalar_types.empty()) {
         HABANA_ASSERT(m_scalar_types.size() == 1);
         options = options.dtype(m_scalar_types[0]);
       }
@@ -1045,7 +1045,7 @@ class LazyOp {
     habana::for_each_in_tuple(results, [&](auto& result) {
       auto t = get_inputs().at(m_out_index).toTensor();
       auto options = t.options();
-      if (m_scalar_types.size()) {
+      if (!m_scalar_types.empty()) {
         TORCH_INTERNAL_ASSERT_DEBUG_ONLY(i < m_scalar_types.size());
         options = options.dtype(m_scalar_types[i]);
       }

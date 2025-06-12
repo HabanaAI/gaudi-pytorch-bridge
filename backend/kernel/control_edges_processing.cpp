@@ -573,7 +573,7 @@ void ControlEdgesProcessor::ProcessCustomOptControlEdges(
                   blocking_nodes_vec_,
                   blocking_syn_nodes_vec_);
 
-              if (blocking_syn_nodes_vec_.size()) {
+              if (!blocking_syn_nodes_vec_.empty()) {
                 auto syn_node =
                     *std::next(blocked_syn_nodes_set.begin(), list_idx);
                 blocked_syn_nodes_vec_.emplace_back(syn_node);
@@ -611,7 +611,7 @@ bool ControlEdgesProcessor::ProcessControlEdges() {
       PrepareBlockingNodeList(
           node, c_edge, blocking_nodes_vec_, blocking_syn_nodes_vec_);
 
-      if (blocking_syn_nodes_vec_.size()) {
+      if (!blocking_syn_nodes_vec_.empty()) {
         // Prepare blocked nodes list.
         if (IsControlEdgeTypeInplace(c_edge)) {
           // If the current node is an inplace op, it becomes the blocked node.
@@ -669,7 +669,7 @@ bool ControlEdgesProcessor::ProcessControlEdges() {
           }
         }
 
-        if (blocked_syn_nodes_vec_.size()) {
+        if (!blocked_syn_nodes_vec_.empty()) {
           syn_graph_ptr_->set_synapse_control_edges_pt(
               blocking_syn_nodes_vec_, blocked_syn_nodes_vec_);
         }
@@ -707,11 +707,11 @@ void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
       }
     }
 
-    if (blocking_syn_nodes_vec_.size()) {
+    if (!blocking_syn_nodes_vec_.empty()) {
       control_edge_has_been_added_ = true;
       AddSynNodes(
           blocked_syn_nodes_vec_, blocked_node, jit_to_synapse_node_idx_map_);
-      if (blocked_syn_nodes_vec_.size()) {
+      if (!blocked_syn_nodes_vec_.empty()) {
         syn_graph_ptr_->set_synapse_control_edges_pt(
             blocking_syn_nodes_vec_, blocked_syn_nodes_vec_);
       }

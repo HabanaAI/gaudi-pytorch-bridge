@@ -115,7 +115,7 @@ std::vector<at::Tensor> CastToFp8V2Function::backward(
     const std::vector<at::Tensor>& grads) {
   auto saved_data = ctx->get_saved_variables();
   std::optional<at::Tensor> scale = std::nullopt;
-  if (saved_data.size() >= 1) {
+  if (!saved_data.empty()) {
     scale = saved_data.at(0);
   }
   ScalarType out_dtype = ctx->saved_data["out_dtype"].toScalarType();

@@ -33,7 +33,7 @@ struct ListUnpackDesc {
   }
 
   void update_node_outputs() {
-    HABANA_ASSERT(m_output_list.size() > 0);
+    HABANA_ASSERT(!m_output_list.empty());
     for (torch::jit::Value* out : m_output_list) {
       if (nullptr != out) {
         auto new_out = m_node->addOutput()->copyMetadata(out);

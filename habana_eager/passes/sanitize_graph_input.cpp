@@ -22,7 +22,7 @@ namespace habana::graph::pass {
 
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
-  if (0 == graph->inputs().size()) {
+  if (graph->inputs().empty()) {
     // No input to sanitize...
     return;
   }

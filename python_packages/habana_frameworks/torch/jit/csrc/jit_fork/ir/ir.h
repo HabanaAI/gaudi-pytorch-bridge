@@ -343,7 +343,7 @@ struct FunctionSchemaMap {
         break;
       }
     }
-    if (it->second.size() == 0) {
+    if (it->second.empty()) {
       map.erase(Symbol::fromQualString(schema.name()));
     }
   }

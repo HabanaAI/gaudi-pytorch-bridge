@@ -385,7 +385,7 @@ synapse_error_o tensor::create_old_synapi() {
 }
 
 synapse_error_o tensor::set_permutation() {
-  if (permutation_.size() == 0) {
+  if (permutation_.empty()) {
     return {};
   }
   synStatus status;
@@ -479,7 +479,7 @@ synapse_error_o tensor::create() {
         "Set device data type failed", status, cleanup());
   }
 
-  if (permutation_.size()) {
+  if (!permutation_.empty()) {
     HABANA_ASSERT(
         permutation_.size() == maxGeometry.dims,
         " create tensor invalid permutation ",

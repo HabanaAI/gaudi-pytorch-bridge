@@ -161,15 +161,16 @@ std::vector<int64_t> GatherElemOperator::compute_output_shape(
     const Tensor& index) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
-  if (shape.size()) {
-    // for gather op, output size is same as index
-    if (self.dim() == index.dim()) {
-      shape = index.sizes().vec();
-    } else {
-      // for index_select and other index ops
-      shape.erase(shape.begin() + dim);
-      shape.insert(shape.begin() + dim, index.numel());
-    }
+  if (shape.empty()) {
+    return shape;
+  }
+  // for gather op, output size is same as index
+  if (self.dim() == index.dim()) {
+    shape = index.sizes().vec();
+  } else {
+    // for index_select and other index ops
+    shape.erase(shape.begin() + dim);
+    shape.insert(shape.begin() + dim, index.numel());
   }
   return shape;
 }
@@ -2074,7 +2075,7 @@ void SliceOperator::UpdateMaxPassSliceInputs(
         // current value Since the current value is not available in
         // AllocateAndAdd, used a hack to find it from the max value
         HABANA_ASSERT(min.size() == max.size());
-        if (min.size() && (min[i] != max[i])) {
+        if (!min.empty() && (min[i] != max[i])) {
           auto curr_val = max[i] /
               habana_helpers::DynamicBucketInfo::default_max_multiplier_;
           start[i] = std::max(start[i], curr_val);

@@ -328,21 +328,21 @@ bool is_view_lowering(const at::Tensor& tensor) {
   if (smeta == nullptr)
     return false;
   return (
-      (base_smeta->get_memory_permutation().size() != 0) ||
-      (smeta->get_memory_permutation().size() != 0));
+      !base_smeta->get_memory_permutation().empty() ||
+      !smeta->get_memory_permutation().empty());
 }
 
 std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
   // check if it is a view output
   auto smeta{habana::get_storage_extra_meta(tensor)};
-  if (smeta && smeta->get_base_tensor_size().size()) {
+  if (smeta && !smeta->get_base_tensor_size().empty()) {
     return smeta->get_base_tensor_size();
   }
 
   // check base meta
   auto basemeta{habana::get_storage_base_meta(tensor)};
 
-  if (basemeta && basemeta->get_base_tensor_size().size()) {
+  if (basemeta && !basemeta->get_base_tensor_size().empty()) {
     return basemeta->get_base_tensor_size();
   }
 

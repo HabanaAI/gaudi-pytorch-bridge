@@ -389,8 +389,7 @@ void OptimizerLambNorm::AddNode(
   auto max_grad_norm = static_cast<float>(stackGetter.getNextInput<double>());
 
   HABANA_ASSERT(
-      gradients.size() > 0,
-      "Gradiens list in OptimizerLambNorm cannot be empty");
+      !gradients.empty(), "Gradiens list in OptimizerLambNorm cannot be empty");
 
   auto dtype = gradients[0].pt_t.scalar_type();
 

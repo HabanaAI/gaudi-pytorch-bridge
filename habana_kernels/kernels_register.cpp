@@ -1079,7 +1079,7 @@ void optimizer_adamw_hpu_wrap(
           exp_avg_sq_scales));
 
   HABANA_ASSERT(
-      (weight_vec.size() > 0),
+      (!weight_vec.empty()),
       "optimizer_adamw : can not process empty weight vector");
   HABANA_ASSERT(
       exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
@@ -1113,7 +1113,7 @@ Tensor fused_norm_hpu_wrap(
       to_string(max_norm),
       " norm_type=",
       to_string(norm_type));
-  HABANA_ASSERT((grad.size() > 0), "Can not process empty grad vector");
+  HABANA_ASSERT(!grad.empty(), "Can not process empty grad vector");
   return fused_norm_hpu_lazy(grad, max_norm, norm_type);
 }
 

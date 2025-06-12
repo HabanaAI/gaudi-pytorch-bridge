@@ -362,7 +362,7 @@ void EagerExec::launch() {
 
     // Set param agnostic flag if node params are available for the view ops
     // or ops which uses either scalars or tensor shapes as node params
-    const bool param_agnsotic_flag = jit_val_to_ivalue_map.size() ||
+    const bool param_agnsotic_flag = !jit_val_to_ivalue_map.empty() ||
         NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
     graph_and_meta->set_is_param_agnostic_supported(param_agnsotic_flag);
     graph_and_meta->set_param_jit_val_to_ivalue_map(jit_val_to_ivalue_map);
@@ -587,7 +587,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   /*Need to set this node if the deterministic mode is ON*/
   jit_node->i_(
       torch::jit::attr::deterministic,
-          at::globalContext().deterministicAlgorithms());
+      at::globalContext().deterministicAlgorithms());
   PT_BRIDGE_DEBUG(
       "Deterministic val during Jit Node creation: ",
       jit_node->i(torch::jit::attr::deterministic));
@@ -615,8 +615,7 @@ size_t EagerExec::calculate_operator_key(
   optimized_key = at::hash_combine(optimized_key, m_outputs.size());
 
   optimized_key = at::hash_combine(
-      optimized_key,
-          at::globalContext().deterministicAlgorithms());
+      optimized_key, at::globalContext().deterministicAlgorithms());
 
   for (size_t i = 0; i < parent_vec.size(); ++i)
     optimized_key = at::hash_combine(optimized_key, parent_vec[i]);

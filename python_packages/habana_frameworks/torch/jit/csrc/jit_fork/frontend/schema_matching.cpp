@@ -556,7 +556,7 @@ static std::optional<MatchedSchema> tryMatchSchema(
   // Therefore, either all or none returns has field names.
   bool return_has_field_names =
       std::all_of(returns.begin(), returns.end(), [&](const Argument& r) {
-        return r.name().length() > 0;
+        return !r.name().empty();
       });
   c10::OptNameList return_field_names = std::nullopt;
   if (return_has_field_names) {

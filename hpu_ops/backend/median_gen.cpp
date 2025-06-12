@@ -59,7 +59,7 @@ sizes_vec MediandimOutputShape(const at::Stack& stack) {
 
   bool keepdim = stack[index_of_keepdim].toBool();
   std::vector<int64_t> outshape = {self_size};
-  if (outshape.size() == 0) {
+  if (outshape.empty()) {
     return {outshape, outshape};
   }
 

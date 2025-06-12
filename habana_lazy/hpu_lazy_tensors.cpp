@@ -818,7 +818,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   std::vector<HbLazyTensor> tensors = HbContextArena::Get()->GetLiveTensors(
       device, is_allreduce, bucket_recent_id);
 
-  if (tensors.size()) {
+  if (!tensors.empty()) {
     StaleLazyTensorKeeper::getInstance().mark_end_of_accumulation();
     SyncTensorsGraph(&tensors, lazy_front_end_info, async, false);
   }
@@ -826,7 +826,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   {
     auto context = habana_lazy::get_device_lazy_execution_context();
 
-    if (context->viewContext.view_outputs.size()) {
+    if (!context->viewContext.view_outputs.empty()) {
       // delete the origtensor map entry only when view outputs are present
       // ex: megatron has all reduce on embedding tables which doesnt involve
       // strided view output. Such cases should be excluded from deletion
@@ -1246,7 +1246,7 @@ void PrepareInputOrderMap(
     exec::HlExec& hlexec) {
   auto graph_input_stack_uids =
       lazyFrontEndInfo->get_lazy_eager_op_input_uids();
-  HABANA_ASSERT(graph_input_stack_uids.size() > 0, " Input uids not prepared!");
+  HABANA_ASSERT(!graph_input_stack_uids.empty(), " Input uids not prepared!");
   auto& graph_hash_builder = GraphHashBuilder::getInstance();
   graph_hash_builder.set_graph_input_stack_uids(
       std::move(graph_input_stack_uids));
@@ -1299,7 +1299,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     bool async,
     bool collect_sync_tensors) {
   PT_LAZY_TRACE;
-  if (!(*tensors).size())
+  if ((*tensors).empty())
     return;
 
   LaunchStreamInfo stream_info = {c10::hpu::getCurrentHPUStream()};

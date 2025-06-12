@@ -55,7 +55,7 @@ void ConstSectionFileHandler::internal_mkdir(std::string path) {
 }
 
 void ConstSectionFileHandler::init(std::string path) {
-  if (path == "") {
+  if (path.empty()) {
     return;
   }
   internal_mkdir(path);
@@ -114,7 +114,7 @@ std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
   static const std::string cache_path = [] {
     std::vector<std::string> split_config = RecipeCacheConfig::split_params(
         GET_ENV_FLAG_NEW(PT_HPU_RECIPE_CACHE_CONFIG));
-    return (split_config.size() > 0 ? split_config[0] : "") + "/";
+    return (split_config.empty() ? "" : split_config[0]) + "/";
   }();
   std::string result;
   result.reserve(

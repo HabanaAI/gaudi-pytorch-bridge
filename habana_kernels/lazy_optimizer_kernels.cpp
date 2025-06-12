@@ -189,7 +189,7 @@ void optimizer_adamw_hpu_lazy(
                is_wd_modified,
                exp_avg_scales_v = std::move(exp_avg_scales_v),
                exp_avg_sq_scales_v = std::move(exp_avg_sq_scales_v)]() mutable {
-    const bool is_fp8 = exp_avg_scales_v.size() != 0;
+    const bool is_fp8 = !exp_avg_scales_v.empty();
 
     std::vector<at::Tensor> exp_avg_scaled;
     std::vector<at::Tensor> exp_avg_sq_scaled;

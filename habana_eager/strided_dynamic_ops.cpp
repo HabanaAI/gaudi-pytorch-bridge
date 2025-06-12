@@ -749,7 +749,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   }
   // Fill num_strides at 0 index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
-  auto num_strides = (values_strides.size() == 0) ? 1 : values_strides.size();
+  auto num_strides = (values_strides.empty()) ? 1 : values_strides.size();
   h2d_values.insert(h2d_values.begin(), static_cast<uint64_t>(num_strides));
   h2d_expr.insert(h2d_expr.begin(), std::to_string(num_strides));
 

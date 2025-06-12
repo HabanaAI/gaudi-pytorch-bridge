@@ -132,7 +132,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     const bool take_sqrt,
     const bool mean_op) {
   auto input_shape = self.sizes().vec();
-  if (input_shape.size() == 0) {
+  if (input_shape.empty()) {
     input_shape.push_back(1);
   }
   const size_t ndims = input_shape.size();
@@ -140,7 +140,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
 
   const bool enable_reduce_sum = needsReduceSum(dimsVec);
-  const int min_dim = (dimsVec.size() == 0) ? 0 : dimsVec.front();
+  const int min_dim = (dimsVec.empty()) ? 0 : dimsVec.front();
   std::vector<synapse_helpers::tensor> outputs;
 
   // when keepdim is false there will be incompatible input sizes for the

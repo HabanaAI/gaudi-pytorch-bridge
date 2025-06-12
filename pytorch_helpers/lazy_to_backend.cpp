@@ -108,7 +108,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
 
     // backend tensor should always be contiguous as per view table design
     std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
-    if (contig_strides.size()) {
+    if (!contig_strides.empty()) {
       habana_helpers::recalc_strides(
           contig_strides, at_internal_tensor.sizes().vec());
       c10::IntArrayRef new_strides = contig_strides;

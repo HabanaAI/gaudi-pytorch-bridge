@@ -148,7 +148,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
     auto hl_tensor_size_zero = true;
     if (pTensor != std::nullopt) {
       auto old_tensor_data = pTensor.value();
-      if (old_tensor_data.sizes().size() > 0) {
+      if (!old_tensor_data.sizes().empty()) {
         for (auto i = 0; i < (int)old_tensor_data.sizes().size(); i++) {
           if (old_tensor_data.sizes().at(i) > 0) {
             hl_tensor_size_zero = false;
@@ -180,7 +180,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
 
     // backend tensor should always be contiguous as per view table design
     std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
-    if (contig_strides.size()) {
+    if (!contig_strides.empty()) {
       habana_helpers::recalc_strides(
           contig_strides, at_internal_tensor.sizes().vec());
       c10::IntArrayRef new_strides = contig_strides;

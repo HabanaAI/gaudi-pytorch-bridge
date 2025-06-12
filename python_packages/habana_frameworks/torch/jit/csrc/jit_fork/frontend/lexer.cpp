@@ -89,7 +89,7 @@ C10_EXPORT int stringToKind(const std::string& str) {
       // NOLINTNEXTLINE(bugprone-signed-char-misuse)
       ret_str_to_kind[std::string(1, tok)] = tok;
 #define DEFINE_CASE(tok, _, str) \
-  if (std::string(str) != "")    \
+  if (!std::string(str).empty()) \
     ret_str_to_kind[str] = tok;
     TC_FORALL_TOKEN_KINDS(DEFINE_CASE)
 #undef DEFINE_CASE

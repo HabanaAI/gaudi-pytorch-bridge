@@ -884,8 +884,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
       }
     }
   } else {
-    HABANA_ASSERT(
-        outputTensors.size() == 0, "Requires empty output on non-root");
+    HABANA_ASSERT(outputTensors.empty(), "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
   }
   if (change) {
@@ -909,7 +908,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall(
     std::vector<at::Tensor>& inputTensors,
     [[maybe_unused]] const AllToAllOptions& opts) {
   HABANA_ASSERT(
-      inputTensors.size() && outputTensors.size(),
+      !inputTensors.empty() && !outputTensors.empty(),
       "ProcessGroupLazyHCCL::alltoall input and output tensors must have at least one element");
   auto data_type = outputTensors[0].scalar_type();
 
@@ -1075,7 +1074,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
       }
     }
   } else {
-    HABANA_ASSERT(inputTensors.size() == 0, "Requires empty input on non-root");
+    HABANA_ASSERT(inputTensors.empty(), "Requires empty input on non-root");
     work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
   }
 

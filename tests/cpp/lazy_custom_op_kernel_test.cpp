@@ -101,7 +101,7 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
       auto k = inputs[1].toInt(); // k
       auto dim = inputs[2].toInt(); // dim
       std::vector<int64_t> result_sizes = self.sizes().vec();
-      if (result_sizes.size() > 0) {
+      if (!result_sizes.empty()) {
         result_sizes[dim] = k;
       }
       return result_sizes;

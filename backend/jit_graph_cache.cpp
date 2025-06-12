@@ -506,7 +506,7 @@ bool JitGraphCache::IsCached(size_t key) {
 }
 
 bool JitGraphCache::Empty() {
-  return (m_cache_map.size() == 0);
+  return (m_cache_map.empty());
 }
 
 void JitGraphCache::Clear() {
@@ -565,7 +565,7 @@ size_t OptimizedJitGraphCache::CacheSize() {
 }
 
 bool OptimizedJitGraphCache::Empty() {
-  return (m_cache_map.size() == 0);
+  return (m_cache_map.empty());
 }
 
 void OptimizedJitGraphCache::Clear() {

@@ -316,10 +316,9 @@ OutputMetaDataVector MixtureOfExpertsBwdMeta(const at::Stack& stack) {
 
 SharedMetaTensor getWeightSharedMetaTensor(
     std::vector<std::vector<at::Tensor>> weightsLists) {
+  HABANA_ASSERT(!weightsLists.empty(), "Expected at least one weights list.");
   HABANA_ASSERT(
-      weightsLists.size() >= 1, "Expected at least one weights list.");
-  HABANA_ASSERT(
-      weightsLists[0].size() >= 1, "Expected at least one weight tensor.");
+      !weightsLists[0].empty(), "Expected at least one weight tensor.");
   SharedMetaTensor weightSharedMeta =
       getSharedMetaFromTensor(weightsLists[0][0]);
 

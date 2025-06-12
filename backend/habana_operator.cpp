@@ -315,7 +315,7 @@ void habana::HabanaOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
 void habana::HabanaOperator::SetPTOutputs(
     const std::vector<at::Tensor>& outputs) {
-  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(!outputs.empty(), "Outputs cannot be null");
 
   for (auto& output : outputs) {
     p_context_->pt_outputs_.emplace_back(output);
@@ -506,8 +506,8 @@ void habana::HabanaOperator::AllocateSynapseInplaceOutput(
     synapse_helpers::graph& graph,
     bool external) {
   static_cast<void>(graph);
-  HABANA_ASSERT(p_context_->syn_inputs_.size() > 0);
-  HABANA_ASSERT(p_context_->pt_inputs_.size() > 0);
+  HABANA_ASSERT(!p_context_->syn_inputs_.empty());
+  HABANA_ASSERT(!p_context_->pt_inputs_.empty());
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
@@ -519,7 +519,7 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& outputs,
     const OutputMetaDataVector& output_metadata) {
-  HABANA_ASSERT(outputs.size() != 0, "Outputs cannot be null");
+  HABANA_ASSERT(!outputs.empty(), "Outputs cannot be null");
   HABANA_ASSERT(
       outputs.size() == output_metadata.size(),
       "#output should match #output_metadata");
@@ -602,7 +602,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
   std::vector<synTensor> syn_inputs;
   std::vector<synTensor> syn_outputs;
 
-  if (kernel_meta_data_.tpc_input_order.size()) {
+  if (!kernel_meta_data_.tpc_input_order.empty()) {
     auto no_inputs = kernel_meta_data_.tpc_input_order.size() == 1 &&
         NO_INPUTS == kernel_meta_data_.tpc_input_order[0];
     if (no_inputs == false) {

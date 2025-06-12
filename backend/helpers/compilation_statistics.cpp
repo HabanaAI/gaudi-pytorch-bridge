@@ -362,7 +362,7 @@ void CompilationStatistics::GetDigest(
     size_t recipe_key,
     bool cache_hit) {
   std::string recipe_trace_path = GET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH);
-  if (recipe_trace_path == "") {
+  if (recipe_trace_path.empty()) {
     return;
   } else {
     std::ofstream csv_(recipe_trace_path, std::ofstream::app);
@@ -416,7 +416,7 @@ CompilationStatistics::CompilationStatistics(std::istream& is) {
   deserialize(is, path_);
   deserialize(is, step_);
 
-  if (path_ == "") {
+  if (path_.empty()) {
     return;
   }
 

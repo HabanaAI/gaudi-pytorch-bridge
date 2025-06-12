@@ -27,7 +27,7 @@ static std::vector<int64_t> broadcast_size(
     at::TensorList indices,
     at::Tensor self) {
   std::vector<int64_t> size;
-  if ((indices.size() == 1) && (indices[0].sizes().size() == 0)) {
+  if ((indices.size() == 1) && (indices[0].sizes().empty())) {
     return size;
   }
   bool all_bool_indices = true;
@@ -108,7 +108,7 @@ static std::vector<int64_t> CalcCatOutSize(
   // out tensor size should match along all dimensions for input tensors except
   // along the dim in which to cat
   auto out_size = tensors->at(0);
-  if (out_size.size() != 0) {
+  if (!out_size.empty()) {
     out_size[static_cast<size_t>(dim)] = 0;
     for (unsigned i = 0; i < tensor_count; i++) {
       out_size[static_cast<size_t>(dim)] +=
@@ -187,9 +187,9 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   int64_t cat_dim = 0;
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
-  cat_dim = cat_out_size.size() > 0
-      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
-      : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+  cat_dim = cat_out_size.empty()
+      ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+      : (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1;
   synConcatenateParams concat_params{};
   concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop2 = OpBackend::BuildNode(
@@ -396,9 +396,9 @@ void IndexPutEager::AddNode(
   int64_t cat_dim = 1;
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
-  cat_dim = cat_out_size.size() > 0
-      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
-      : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+  cat_dim = cat_out_size.empty()
+      ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+      : (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1;
   synConcatenateParams concat_params{};
   concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = BuildOp(
@@ -696,9 +696,9 @@ void IndexPutBoolEager::AddNode(
   int64_t cat_dim = 1;
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
-  cat_dim = cat_out_size.size() > 0
-      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
-      : 0; // If tensor is empty then dim of the concatenated tensor will be 0
+  cat_dim = cat_out_size.empty()
+      ? 0 // If tensor is empty then dim of the concatenated tensor will be 0
+      : (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1;
   synConcatenateParams concat_params{};
   concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = BuildOp(
@@ -799,9 +799,9 @@ static synapse_helpers::tensor IndexPutLongHelper(
   int64_t cat_dim = 1;
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
-  cat_dim = cat_out_size.size() > 0
-      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
-      : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+  cat_dim = cat_out_size.empty()
+      ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+      : (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1;
   synConcatenateParams concat_params{};
   concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = OpBackend::BuildNode(
@@ -1123,9 +1123,9 @@ void IndexPutCompile::AddNode(
   int64_t cat_dim = 1;
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
-  cat_dim = cat_out_size.size() > 0
-      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
-      : 0; // If tensor is empty then dim of the concatenated tensor will be 0
+  cat_dim = cat_out_size.empty()
+      ? 0 // if tensor is empty then dim of the concatenated tensor will be 0
+      : (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1;
   synConcatenateParams concat_params{};
   concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = BuildOp(

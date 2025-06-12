@@ -234,7 +234,7 @@ void optimizer_adamw(
           exp_avg_sq_scales));
 
   HABANA_ASSERT(
-      (weight_vec.size() > 0),
+      !weight_vec.empty(),
       "optimizer_adamw : can not process empty weight vector");
   HABANA_ASSERT(
       exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
@@ -277,7 +277,7 @@ at::Tensor fused_clip_norm(
   PT_OP_INFO("fused_clip_norm :", DUMP_3ARGS(grad, max_norm, norm_type));
 
   HABANA_ASSERT(
-      (grad.size() > 0),
+      !grad.empty(),
       "fused_clip_norm : can not process empty grad vector (eager)");
 
   habana::eager::EagerOp<void> hpu_op{
@@ -307,8 +307,7 @@ void optimizer_sgd(
       " optimizer_sgd:",
       DUMP_7ARGS(gradients, weights, lr, wd, mom, damp, nesterov));
   HABANA_ASSERT(
-      (weights.size() > 0),
-      "optimizer_sgd : can not process empty weight vector");
+      !weights.empty(), "optimizer_sgd : can not process empty weight vector");
   habana::eager::EagerOp<void> hpu_op{
       "hpu::optimizer_sgd", {gradients, weights, lr, wd, mom, damp, nesterov}};
   hpu_op.set_eager_op_info(
@@ -342,7 +341,7 @@ void optimizer_sgd_momentum(
           damp,
           nesterov));
   HABANA_ASSERT(
-      (weights.size() > 0),
+      !weights.empty(),
       "optimizer_sgd_momentum : can not process empty weight vector");
   habana::eager::EagerOp<void> hpu_op{
       "hpu::optimizer_sgd_momentum",

@@ -90,7 +90,7 @@ struct HandleInputViewsPass {
 
         bool needs_strided_insert = false;
         // copy+copy_ will be rewriten to copy_, so uses.size() can be only 1
-        if ((uses.size() >= 1) && (last_use.offset == 0)) {
+        if (!uses.empty() && (last_use.offset == 0)) {
           std::string_view node_name = last_user->kind().toQualString();
           if (node_name.back() == '_') {
             needs_strided_insert = true;
@@ -100,11 +100,11 @@ struct HandleInputViewsPass {
         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
 
         std::string output_size;
-        if (range_infos.size()) {
-          output_size = "[" + range_infos[input_idx].expr + "]";
-        } else {
+        if (range_infos.empty()) {
           // node attribute "output_size" remains used in static
           output_size = "[STATIC]";
+        } else {
+          output_size = "[" + range_infos[input_idx].expr + "]";
         }
 
         insert_strided_view_node(
@@ -120,7 +120,7 @@ struct HandleInputViewsPass {
         // tensor in the stack, we have to do the same in range_info DS. The
         // problem being we dont have a way currently to fetch shapes of base
         // tensor in form of symbolic so that min max can be inferred.
-        if (range_infos.size()) {
+        if (!range_infos.empty()) {
           std::stringstream ss;
           ss << "[";
           for (auto value : m_input_base_sizes_to_set.at(input_idx)) {

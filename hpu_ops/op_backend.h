@@ -139,7 +139,7 @@ class OpBackend : public HabanaOperator {
   }
 
   bool IsOutputAvailable() const {
-    return m_is_outfn or m_inplace_ids.size();
+    return m_is_outfn or !m_inplace_ids.empty();
   }
 
   bool IsOutputPersistent(int i) const {
@@ -147,7 +147,7 @@ class OpBackend : public HabanaOperator {
   }
 
   bool IsInplace() const {
-    return m_inplace_ids.size();
+    return !m_inplace_ids.empty();
   }
 
   void SetSynapseLayouts(

@@ -29,7 +29,7 @@ OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
 
   if (output_shape.size() == 1 && dims.size() == 1 && output_shape[0] == 1) {
     meta.shape = {};
-  } else if (output_shape.size() == 1 || output_shape.size() == 0) {
+  } else if (output_shape.size() == 1 || output_shape.empty()) {
     meta.shape = output_shape;
   } else {
     at::wrap_all_dims(dims, self.dim());

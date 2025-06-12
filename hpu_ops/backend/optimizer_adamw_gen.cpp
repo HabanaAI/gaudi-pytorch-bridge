@@ -1079,7 +1079,7 @@ void FusedAdamW::AddNode(sh::graph& graph, const at::Stack& stack) {
     syn_out(i + vec_size) = std::move(grad);
     syn_out(i + 2 * vec_size) = std::move(exp_avg_1[0]);
     syn_out(i + 3 * vec_size) = std::move(exp_avg_sq_1[0]);
-    if (max_exp_avg_sqs.size() != 0) {
+    if (!max_exp_avg_sqs.empty()) {
       TORCH_CHECK_NOT_IMPLEMENTED(false, "not supported max_exp_avg_sqs yet");
     }
   }

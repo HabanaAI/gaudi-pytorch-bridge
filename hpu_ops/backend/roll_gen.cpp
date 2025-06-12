@@ -106,13 +106,12 @@ void RollHabanaOperator::AddNode(
   int64_t flattened_size = 0;
 
   HABANA_ASSERT(
-      shift.size() >= 1, "roll: shift must be a scalar or a 1-D vector.");
+      !shift.empty(), "roll: shift must be a scalar or a 1-D vector.");
 
   if (flatten_and_restore)
     axis.push_back(0);
 
-  HABANA_ASSERT(
-      axis.size() >= 1, "roll: axis must be a scalar or a 1-D vector.");
+  HABANA_ASSERT(!axis.empty(), "roll: axis must be a scalar or a 1-D vector.");
   HABANA_ASSERT(
       shift.size() == axis.size(),
       "roll: shift and axis must have the same size (",

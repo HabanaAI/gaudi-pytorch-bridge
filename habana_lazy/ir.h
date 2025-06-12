@@ -234,7 +234,7 @@ class MetaData {
   }
 
   std::string ToStringIrGraph() const {
-    if (m_data.size() == 0) {
+    if (m_data.empty()) {
       return {};
     }
 

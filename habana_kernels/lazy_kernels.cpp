@@ -396,7 +396,7 @@ void strided_insert_hpu_lazy(
           auto& meta_data = mp_node->GetMetaData();
           auto outputSplitSizes = meta_data.get(2).toIntVector();
           auto inputSplitSizes = meta_data.get(3).toIntVector();
-          if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
+          if (outputSplitSizes.empty() && inputSplitSizes.empty()) {
             return true;
           }
         } else if (strcmp(node_name.c_str(), "hccl::allgather_out") == 0) {
@@ -1014,7 +1014,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   auto smeta{get_storage_extra_meta(self_internal_tesor)};
   if (smeta) {
     auto synapse_permute = smeta->get_memory_permutation();
-    if (synapse_permute.size() != 0) {
+    if (!synapse_permute.empty()) {
       PT_LAYOUTS_DEBUG(
           "clearing memory permute, id ",
           self_hb_tensor.getTensorUniqueId(),

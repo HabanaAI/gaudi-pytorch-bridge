@@ -442,12 +442,12 @@ Tensor HbLazyTensorViews::add_strided_view_node(
   IntArrayRef size = size_in;
   bool is_0d_tensor = false;
   std::vector<int64_t> initvec{1};
-  if (size_in.size() == 0) {
+  if (size_in.empty()) {
     size = initvec;
     is_0d_tensor = true;
   }
   IntArrayRef stride = stride_in;
-  if (stride_in.size() == 0) {
+  if (stride_in.empty()) {
     stride = initvec;
   }
 
@@ -517,12 +517,12 @@ Tensor HbLazyTensorViews::process_strided_view(
   IntArrayRef size = size_in;
   bool is_0d_tensor = false;
   std::vector<int64_t> initvec{1};
-  if (size_in.size() == 0) {
+  if (size_in.empty()) {
     size = initvec;
     is_0d_tensor = true;
   }
   IntArrayRef stride = stride_in;
-  if (stride_in.size() == 0) {
+  if (stride_in.empty()) {
     stride = initvec;
   }
 
@@ -573,7 +573,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
       auto synapse_permute = hb_impl->GetMemoryPermutation();
 
       // optimization cannot be performed for permuted tensors
-      if (synapse_permute.size() == 0) {
+      if (synapse_permute.empty()) {
         reuse_base_storage = true;
       }
     }
@@ -1151,7 +1151,7 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
     params.write_cnt = 0;
   }
 
-  if (!context->viewContext.view_outputs.size()) {
+  if (context->viewContext.view_outputs.empty()) {
     bucket_recent_id.clear();
     PT_LAZY_DEBUG(
         "Strided view outputs not present. Clearing bucket_recent_id.");
@@ -1181,7 +1181,7 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
   }
 
   /* special processing of view outputs needed only for the bwd case*/
-  bool is_allreduce_bwd = (bucket_recent_id.size() > 0);
+  bool is_allreduce_bwd = !bucket_recent_id.empty();
   PT_IRGRAPH_DEBUG("step marker due to HbLazyTensorViews::StepMarkerAllReduce");
   habana_lazy::HbLazyTensor::StepMarker(
       {},
@@ -1277,7 +1277,7 @@ void HbLazyTensorViews::HandleViewsPermutedSend(const at::Tensor& src) {
       auto synapse_permute = hb_impl->GetMemoryPermutation();
 
       // optimization cannot be performed for permuted tensors
-      if (synapse_permute.size() == 0) {
+      if (synapse_permute.empty()) {
         reuse_base_storage = true;
       }
     }

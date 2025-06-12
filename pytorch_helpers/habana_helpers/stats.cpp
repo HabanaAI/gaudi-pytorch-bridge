@@ -128,7 +128,7 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
       attributes = m_pointAttributes[i];
     }
 
-    if (attributes.size() > 0 && !dumpAll) { // Print point attributes
+    if (!attributes.empty() && !dumpAll) { // Print point attributes
       PT_PROFILE_DUMP(m_pointMsg[i] + " Attributes");
       for (const auto& attr : attributes) {
         PT_PROFILE_DUMP(attr.first + " : " + attr.second);

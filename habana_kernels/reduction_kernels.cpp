@@ -63,7 +63,7 @@ void allocate_reduction_result(
   // Following code is required to convert Pytorch 0d tensor
   // to a 1d tensor. This is required because synapse_helpers
   // tensor_builder does not support 0d tensors
-  if (shape.size() == 0) {
+  if (shape.empty()) {
     shape.push_back(1);
   }
 
@@ -547,7 +547,7 @@ InferOutputMetaRetType SumDimOperator::InferOutputMeta(
 
     // Check if dim = [], if yes, reduce input along all dims
     // dim = tuple(range(self.dim))
-    if (dim.size() == 0) {
+    if (dim.empty()) {
       for (int i = 0; i < self.dim(); ++i) {
         dim.push_back(i);
       }
@@ -591,7 +591,7 @@ void SumDimOperator::AllocateAndAddSynapseNode(
 
   // Check if dim = [], if yes, reduce input along all dims
   // dim = tuple(range(self.dim))
-  if (dim.size() == 0) {
+  if (dim.empty()) {
     for (int i = 0; i < self.dim(); ++i) {
       dim.push_back(i);
     }
@@ -641,7 +641,7 @@ InferOutputMetaRetType SumDimOutOperator::InferOutputMeta(
   IntArrayRef dim_new(data);
 
   // Check if dim = {}, if yes, reduce input along all dims
-  if (dim.size() == 0) {
+  if (dim.empty()) {
     inputs[1] = IValue(dim_new);
   }
 
@@ -686,7 +686,7 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
   IntArrayRef dim_new(data);
 
   // Check if dim = {}, if yes, reduce input along all dims
-  if (dim.size() == 0) {
+  if (dim.empty()) {
     inputs[1] = IValue(dim_new);
   }
 

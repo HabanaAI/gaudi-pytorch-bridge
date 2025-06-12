@@ -46,7 +46,7 @@ inline void _allocate_or_resize_output_with_indices(
     bool values_persistent,
     bool indices_persistent) {
   auto result_sizes = self.sizes().vec();
-  if (result_sizes.size() > 0) {
+  if (!result_sizes.empty()) {
     result_sizes[dim] = k;
   }
   if (values.defined()) {
@@ -99,7 +99,7 @@ InferOutputMetaRetType TopkOutOperator::InferOutputMeta(
   k = k_tensor.sizes().at(0);
 
   auto result_sizes = self.sizes().vec();
-  if (result_sizes.size() > 0) {
+  if (!result_sizes.empty()) {
     result_sizes[dim] = k;
   }
 

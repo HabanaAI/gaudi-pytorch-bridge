@@ -287,12 +287,12 @@ void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto start = stack.at(0).toScalar();
   auto end = stack.at(1).toScalar();
   auto step = stack.at(2).toScalar();
-  std::optional<synTensor> syn_in0 = (p_context_->syn_inputs_.size())
-      ? std::make_optional(syn_in(0))
-      : std::nullopt;
-  std::optional<synTensor> syn_in1 = (p_context_->syn_inputs_.size())
-      ? std::make_optional(syn_in(1))
-      : std::nullopt;
+  std::optional<synTensor> syn_in0 = p_context_->syn_inputs_.empty()
+      ? std::nullopt
+      : std::make_optional(syn_in(0));
+  std::optional<synTensor> syn_in1 = p_context_->syn_inputs_.empty()
+      ? std::nullopt
+      : std::make_optional(syn_in(1));
   syn_out(0) = ArangeCommon(
       this,
       graph,

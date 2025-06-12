@@ -66,7 +66,7 @@ bool isGraphInput(const std::shared_ptr<Graph>& graph, const Value* v) {
   }
 
   auto n = v->node();
-  if (n && (n->inputs().size() >= 1)) {
+  if (n && !n->inputs().empty()) {
     auto in = n->input(0);
     if (checkOps(n) && isGraphInput(graph, in)) {
       return true;
@@ -84,7 +84,7 @@ bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
 
   for (auto& u : v->uses()) {
     auto n = u.user;
-    if (n && checkOps(n) && (n->outputs().size() >= 1)) {
+    if (n && checkOps(n) && !n->outputs().empty()) {
       auto o = n->output(0);
       if (isGraphOutput(graph, o)) {
         return true;
@@ -109,7 +109,7 @@ If below conditions are satisfied, then check for graph output is avoided.
  */
 bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
   if ((nullptr == node) || (node->outputs().size() > 1) ||
-      (node->inputs().size() < 1)) {
+      node->inputs().empty()) {
     return false;
   }
 

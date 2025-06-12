@@ -86,7 +86,7 @@ std::vector<int64_t> NormOperator::compute_output_shape(
     const Tensor& self,
     at::IntArrayRef dim,
     bool keepdim) {
-  if (dim.size() == 0)
+  if (dim.empty())
     return {};
   auto sizes = self.sizes().vec();
   std::vector<int64_t> wrapped_dims;

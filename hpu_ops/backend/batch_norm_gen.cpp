@@ -240,7 +240,7 @@ void reshape_tensor(
     return;
 
   auto in_shape = input_sizes.vec();
-  if (in_shape.size() >= 1 && in_shape.size() <= 3) {
+  if (!in_shape.empty() && in_shape.size() <= 3) {
     inout_tensor = OpBackend::BuildReshape(
         &op, graph, inout_tensor.get(), in_shape, scalarType, 0);
   } else {
