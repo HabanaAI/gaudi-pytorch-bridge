@@ -42,6 +42,7 @@ add_habana_library(
   kernel/hpu_recipe_cache.cpp
   kernel/hpu_shape_inference.cpp
   kernel/refinement_engine.cpp
+  passes/detect_weights_tensors.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
   passes/fuse_collective_view_pass.cpp
   passes/replace_inplace_ops_ds.cpp

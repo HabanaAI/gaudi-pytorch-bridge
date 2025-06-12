@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,23 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cxxabi.h>
 #include <dlfcn.h>
-#include <cinttypes>
-#include <cstdlib>
-#include <cstring>
-
 #include <execinfo.h>
 #include <unistd.h>
 #include <cassert>
-
-#include <cxxabi.h>
 #include <cstdlib>
-#include <memory>
+#include <cstring>
 #include <sstream>
 
 #include <absl/strings/str_format.h>
 #include "backend/synapse_helpers/device_mem_stats.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep
 #include "backend/synapse_helpers/util.h"
 #include "devmem_logger.h"
 
@@ -276,7 +271,7 @@ void deviceMallocData::collect_backtrace(
 
   // Take backtrace
   if (take_bt && (alloc || print_free_bt)) {
-    nptrs = backtrace(buffer, bt_depth);
+    nptrs = backtrace(buffer, static_cast<int>(bt_depth));
 
     strings = backtrace_symbols(buffer, nptrs);
     if (strings == nullptr) {
@@ -525,7 +520,8 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   out_stream << "=========================\n";
   out_stream << "DRAM start: 0x" << std::hex << dram_start_ << "\n";
   out_stream << "DRAM size: " << std::dec << dram_size_ << " ("
-             << dram_size_ / (1024 * 1024 * 1024.) << " GB)\n";
+             << static_cast<double>(dram_size_) / (1024 * 1024 * 1024.)
+             << " GB)\n";
   std::vector<std::pair<uint64_t, size_bt_pair_t>> sorted_by_size_log(
       ptr_bt_map.begin(), ptr_bt_map.end());
 
@@ -541,14 +537,18 @@ void deviceMallocData::print_live_allocations(const char* msg) {
     total_live_size += entry.second.first;
   }
   out_stream << "Total memory held : " << total_live_size << " ("
-             << total_live_size / (1024 * 1024.) << " MB)\n";
+             << static_cast<double>(total_live_size) / (1024 * 1024.)
+             << " MB)\n";
 
   // Stats on peak memory usage
   out_stream << "Peak memory usage : " << overall_high_watermark << " ("
-             << overall_high_watermark / (1024 * 1024.) << " MB)\n";
+             << static_cast<double>(overall_high_watermark) / (1024 * 1024.)
+             << " MB)\n";
 
   out_stream << "Peak memory usage from last log : " << iteration_high_watermark
-             << " (" << iteration_high_watermark / (1024 * 1024.) << " MB)\n";
+             << " ("
+             << static_cast<double>(iteration_high_watermark) / (1024 * 1024.)
+             << " MB)\n";
 
   ++iteration_number;
   iteration_high_watermark = 0;

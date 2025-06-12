@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ class HcclCommunicator {
       int size,
       std::function<void(hcclUniqueId*)> broadcastUniqueHCCLID_fn);
   static std::shared_ptr<HcclCommunicator> Get(int64_t id);
-  static int Count();
+  static uint64_t Count();
 
  private:
   HcclCommunicator(
@@ -71,7 +71,7 @@ class HcclCommunicator {
   static std::mutex communicator_map_mutext_;
   static std::unordered_map<int64_t, std::weak_ptr<HcclCommunicator>>
       communicator_map_;
-  static std::atomic_int64_t next_id_;
+  static std::atomic_uint64_t next_id_;
 };
 
 } // namespace habana

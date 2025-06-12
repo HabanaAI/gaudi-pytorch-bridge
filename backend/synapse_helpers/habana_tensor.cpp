@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -399,7 +399,7 @@ synapse_error_o tensor::set_permutation() {
   synTensorPermutation synPermutation;
   std::copy(
       permutation_.begin(), permutation_.end(), synPermutation.permutation);
-  synPermutation.dims = permutation_.size();
+  synPermutation.dims = static_cast<uint8_t>(permutation_.size());
   status = synTensorSetPermutation(tensor_, &synPermutation);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorSetPermutation failed.", status, cleanup());

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,12 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <torch/csrc/jit/ir/ir.h>
+#include "backend/helpers/dynamic_shape_infer.h"
 #include "habana_eager/graph_dynamic.h"
+#include "habana_eager/graph_exec.h"
 
 namespace habana::graph::pass {
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);

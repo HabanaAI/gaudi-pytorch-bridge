@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,13 @@
  * limitations under the License.
  */
 
+#include "backend/passes/detect_weights_tensors.h"
 #include <c10/util/ArrayRef.h>
-
 #include <map>
 #include <queue>
+#include "habana_helpers/logging_pt.h" // IWYU pragma: keep
 
-#include "habana_eager/graph_exec.h"
-#include "habana_helpers/logging_pt.h"
-
-namespace habana::graph::pass {
+namespace habana::backend::passes {
 
 struct DetectWeightTensorsPass {
   explicit DetectWeightTensorsPass(std::shared_ptr<torch::jit::Graph> graph)
@@ -32,7 +30,7 @@ struct DetectWeightTensorsPass {
     return false;
   }
 
-  std::set<int> get_weight_input_indices() {
+  std::set<size_t> get_weight_input_indices() {
     return m_weight_input_indices;
   }
 
@@ -120,17 +118,17 @@ struct DetectWeightTensorsPass {
     return false;
   }
 
-  std::set<int> m_weight_input_indices;
+  std::set<size_t> m_weight_input_indices;
   std::set<torch::jit::Value*> m_weight_inputs;
   std::shared_ptr<torch::jit::Graph> m_graph;
 }; // namespace pass
 
 void DetectWeightTensors(
     std::shared_ptr<torch::jit::Graph> graph,
-    std::set<int>& indices_to_permute) {
+    std::set<size_t>& indices_to_permute) {
   PT_EAGER_TRACE;
   DetectWeightTensorsPass pass{graph};
   pass.run();
   indices_to_permute = pass.get_weight_input_indices();
 }
-} // namespace habana::graph::pass
+} // namespace habana::backend::passes

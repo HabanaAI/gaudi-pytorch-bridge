@@ -290,7 +290,7 @@ void graph::getTensorGeometry(
 
   shape.resize(tensorGeometry.dims);
   for (size_t i = 0; i < shape.size(); i++) {
-    shape[i] = tensorGeometry.sizes[shape.size() - i - 1];
+    shape[i] = static_cast<int64_t>(tensorGeometry.sizes[shape.size() - i - 1]);
   }
   PT_SYNHELPER_END;
 }
@@ -301,10 +301,11 @@ void graph::setTensorGeometry(
   PT_SYNHELPER_BEGIN;
   synStatus status = synSuccess;
   synTensorGeometry maxGeometry;
-  maxGeometry.dims = shape.size();
+  maxGeometry.dims = static_cast<uint32_t>(shape.size());
 
   for (size_t i = 0; i < shape.size(); i++) {
-    maxGeometry.sizes[shape.size() - i - 1] = shape.at(i);
+    maxGeometry.sizes[shape.size() - i - 1] =
+        static_cast<uint64_t>(shape.at(i));
   }
 
   status = synTensorSetGeometry(tensor_handle, &maxGeometry, synGeometrySizes);
@@ -448,8 +449,7 @@ graph::~graph() {
 template <
     typename T,
     typename Alloc,
-    template <typename, typename>
-    class V,
+    template <typename, typename> class V,
     typename std::enable_if_t<std::negation<typename std::is_same<
         std::string,
         typename V<T, Alloc>::value>::value>::type>>
@@ -809,8 +809,8 @@ void graph::launch(
           device.get_least_workspace_size(tensor_mem, workspace_size);
       // Set minimal size of workspace to 4MB to prevent it from being 0
       constexpr size_t min_required_workspace_size = 4ull * 1024 * 1024;
-      least_workspace_size = std::max(
-          least_workspace_size, min_required_workspace_size);
+      least_workspace_size =
+          std::max(least_workspace_size, min_required_workspace_size);
       device.cleanup_workspace_buffer();
     }
   }

@@ -61,7 +61,6 @@ add_habana_library(
   ops/unique_dim.cpp
   ops/view.cpp
   passes/add_deterministic_attribute.cpp
-  passes/detect_weights_tensors.cpp
   passes/get_outputs_order_in_graph.cpp
   passes/handle_h2d_scales.cpp
   passes/handle_input_views.cpp
