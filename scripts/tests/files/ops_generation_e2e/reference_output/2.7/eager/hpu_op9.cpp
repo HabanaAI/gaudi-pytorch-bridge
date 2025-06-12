@@ -8,6 +8,7 @@
 #include "habana_eager/ops/override_fns.h"
 #include "_native_batch_norm_legit.h"
 #include "convolution_backward_overrideable.h"
+#include "eq.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
 
@@ -19,7 +20,27 @@ using torch::jit::Stack;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_eq_Tensor_out("eq.Tensor_out", "equal_fwd", {-1}, {}, CompareMeta, {0, 1}, false, false, false, true);
 
+
+at::Tensor & eq_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  static_cast<void>(compute_type);
+
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(eq, Tensor_out, true, self, other, out)
+
+  eager::EagerOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetOutputMetaFn(CompareMeta);
+  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::eq", require_h2d, require_st, 1});
+  return hpu_op.call(out);
+}
 
 ::std::tuple<at::Tensor,at::Tensor,at::Tensor> _native_batch_norm_legit(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps) {
   PT_EAGER_TRACE;
@@ -103,6 +124,7 @@ static const auto& kr_gen_9 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("eq.Tensor_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Tensor &, at::Tensor &)>(&habana::eq_out));
   m.impl("_native_batch_norm_legit", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, at::Tensor &, at::Tensor &, bool, double, double)>(&habana::_native_batch_norm_legit));
   m.impl("convolution_backward_overrideable", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward_overrideable));
   m.impl("native_group_norm", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, c10::SymInt, c10::SymInt, c10::SymInt, int64_t, double)>(&habana::native_group_norm));

@@ -11,6 +11,7 @@ using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
 #include "_foreach_log10.h"
+#include "convolution_backward_overrideable.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
 
@@ -24,6 +25,24 @@ namespace habana {
 
 CheckNodeWithSharedLayerValidator validator__foreach_log10_("_foreach_log10_", UnaryForeachLog10SharedMeta, habana_helpers::HabanaExecutionMode::LAZY);
 
+
+::std::tuple<at::Tensor,at::Tensor,at::Tensor> convolution_backward_overrideable(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, c10::SymIntArrayRef stride, c10::SymIntArrayRef padding, c10::SymIntArrayRef dilation, bool transposed, c10::SymIntArrayRef output_padding, c10::SymInt groups, ::std::array<bool,3> output_mask) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("convolution_backward_overrideable: ", DUMP_10ARGS(grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  FALLBACK_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  FALLBACK_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+
+  ConvolutionBackwardOverrideableFE<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::convolution_backward_overrideable", {grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask}};
+  hpu_op.SetOutputMetaFn(ConvolutionOverrideableMetaBwd);
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(convolution_backward_overrideable, hpu_op);
+}
 
 ::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_group_norm(const at::Tensor & input, const ::std::optional<at::Tensor> & weight, const ::std::optional<at::Tensor> & bias, c10::SymInt N, c10::SymInt C, c10::SymInt HxW, int64_t group, double eps) {
   PT_LAZY_OP_TRACE;
@@ -67,6 +86,7 @@ static const auto& kr_gen_9 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("convolution_backward_overrideable", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward_overrideable));
   m.impl("native_group_norm", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const ::std::optional<at::Tensor> &, const ::std::optional<at::Tensor> &, c10::SymInt, c10::SymInt, c10::SymInt, int64_t, double)>(&habana::native_group_norm));
   m.impl("linear_backward", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, ::std::array<bool,3>)>(&habana::linear_backward));
 

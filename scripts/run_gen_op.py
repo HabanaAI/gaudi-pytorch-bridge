@@ -63,6 +63,13 @@ def parse_gen_op_params():
         action="store_true",
         help="Check kernel support or normal kernel generation",
     )
+    arg_parser.add_argument(
+        "--templates",
+        default=join(pytorch_integration_path, "scripts/hpu_op_templates.yaml"),
+        type=str,
+        metavar="CHECK_KERNEL_SUPPORT_FILE",
+        help="The path to the yaml templates file",
+    )
 
     return arg_parser.parse_known_args()[0]
 

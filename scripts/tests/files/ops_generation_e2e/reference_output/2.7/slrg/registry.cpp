@@ -23,12 +23,16 @@ namespace slrg {
 static SchemaStackGenerator stack_generator_addbmm("Tensor self, Tensor batch1, Tensor batch2, Scalar beta, Scalar alpha", "addbmm", "addbmm");
 static SchemaStackGenerator stack_generator_bucketize_Scalar("Scalar self, Tensor boundaries, bool out_int32, bool right", "bucketize", "bucketize.Scalar");
 static SchemaStackGenerator stack_generator_elu("Tensor self, Scalar alpha, Scalar scale, Scalar input_scale", "elu", "elu");
+static SchemaStackGenerator stack_generator_eq_Scalar_out("Tensor self, Scalar other, Tensor out", "eq", "eq.Scalar_out");
+static SchemaStackGenerator stack_generator_eq_Tensor_out("Tensor self, Tensor other, Tensor out", "eq", "eq.Tensor_out");
 static SchemaStackGenerator stack_generator__foreach_log10_("Tensor[] self", "_foreach_log10_", "_foreach_log10_");
 static SchemaStackGenerator stack_generator_exp_fast_math("Tensor self", "exp_fast_math", "exp_fast_math");
 static SchemaStackGenerator stack_generator_ind2ptr("Tensor ind, int M", "ind2ptr", "ind2ptr");
 static CustomSharedLayerExecutor shared_layer_executor_addbmm(&stack_generator_addbmm, &habana::validator_addbmm);
 static GenericSharedLayerExecutor shared_layer_executor_bucketize_Scalar(&stack_generator_bucketize_Scalar, &habana::validator_bucketize_Scalar);
 static GenericSharedLayerExecutor shared_layer_executor_elu(&stack_generator_elu, &habana::validator_elu);
+static GenericSharedLayerExecutor shared_layer_executor_eq_Scalar_out(&stack_generator_eq_Scalar_out, &habana::validator_eq_Scalar_out);
+static GenericSharedLayerExecutor shared_layer_executor_eq_Tensor_out(&stack_generator_eq_Tensor_out, &habana::validator_eq_Tensor_out);
 static CustomSharedLayerExecutor shared_layer_executor__foreach_log10_(&stack_generator__foreach_log10_, &habana::validator__foreach_log10_);
 static GenericSharedLayerExecutor shared_layer_executor_exp_fast_math(&stack_generator_exp_fast_math, &habana::validator_exp_fast_math);
 static GenericSharedLayerExecutor shared_layer_executor_ind2ptr(&stack_generator_ind2ptr, &habana::validator_ind2ptr);
@@ -38,6 +42,10 @@ void register_auto_generated_executors(slrg::ISharedLayerReportGenerator* report
   report_generator->register_op({"bucketize", "bucketize.Scalar", "torch"}, &shared_layer_executor_bucketize_Scalar);
   report_generator->register_op({"ELU", "elu", "torch.nn"}, &shared_layer_executor_elu);
   report_generator->register_op({"elu", "elu", "torch.nn.functional"}, &shared_layer_executor_elu);
+  report_generator->register_op({"eq", "eq.Scalar_out", "torch"}, &shared_layer_executor_eq_Scalar_out);
+  report_generator->register_op({"eq", "eq.Scalar_out", "torch.Tensor"}, &shared_layer_executor_eq_Scalar_out);
+  report_generator->register_op({"eq", "eq.Tensor_out", "torch"}, &shared_layer_executor_eq_Tensor_out);
+  report_generator->register_op({"eq", "eq.Tensor_out", "torch.Tensor"}, &shared_layer_executor_eq_Tensor_out);
   report_generator->register_op({"_foreach_log10_", "_foreach_log10_", "torch"}, &shared_layer_executor__foreach_log10_);
   report_generator->register_op({"exp_fast_math", "exp_fast_math", "torch.hpu"}, &shared_layer_executor_exp_fast_math);
   report_generator->register_op({"ind2ptr", "ind2ptr", "torch.torch_sparse"}, &shared_layer_executor_ind2ptr);

@@ -2,7 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "_native_batch_norm_legit.h"
-#include "convolution_backward_overrideable.h"
+#include "bitwise_left_shift.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,6 +16,21 @@ namespace habana {
 
 
 
+struct Genbitwise_left_shift_Tensor_Scalar : OpBackend {
+  Genbitwise_left_shift_Tensor_Scalar(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "bitshift_fwd", scalar_type, {0}, {}, {1}, false) {
+        SetFillParams(FillLeftShiftParams);
+  }
+
+  void CustomHandler(graph &g, Stack& stack) override {
+    static_cast<void>(g);
+    static_cast<void>(stack);
+    if (ScalarType() == at::kBool) {
+      SetGuid("bitshift_fwd_i8");
+    }
+  }
+};
+
 struct Gen_native_batch_norm_legit : BatchNormOpBackend {
   Gen_native_batch_norm_legit(int device_id, c10::ScalarType scalar_type) :
       BatchNormOpBackend(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
@@ -25,18 +40,11 @@ struct Gen_native_batch_norm_legit : BatchNormOpBackend {
   }
 };
 
-struct Genconvolution_backward_overrideable : ConvolutionBackwardOverrideable {
-  Genconvolution_backward_overrideable(int device_id, c10::ScalarType scalar_type) :
-      ConvolutionBackwardOverrideable(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
-        SetOutputMetaFn(ConvolutionOverrideableMetaBwd);
-  }
-};
-
 
 
 static const auto& kr_gen_8 = KernelRegistry()
+.REGISTER_HPU_BACKEND("aten::bitwise_left_shift.Tensor_Scalar", Genbitwise_left_shift_Tensor_Scalar)
 .REGISTER_HPU_BACKEND("aten::_native_batch_norm_legit", Gen_native_batch_norm_legit)
-.REGISTER_HPU_BACKEND("aten::convolution_backward_overrideable", Genconvolution_backward_overrideable)
 ;
 
 

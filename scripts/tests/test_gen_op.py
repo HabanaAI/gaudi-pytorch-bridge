@@ -43,6 +43,7 @@ from gen_op.code_generation import (
 from gen_op.constants import OpGen
 from gen_op.op import Op
 from gen_op.version_checker import is_pytorch_exactly, is_pytorch_older_than
+from gen_op.yaml_context import YamlContext
 
 TORCH_PKG_PATH = torch.__path__[0]
 
@@ -69,6 +70,7 @@ class Args:
     yaml: str
     check_kernel_support: str
     pt_signatures: str
+    templates: str
     native_functions: str = os.path.join(TORCH_PKG_PATH, "../torchgen/packaged/ATen/native/native_functions.yaml")
 
 
@@ -94,10 +96,11 @@ def test_ops_generation_e2e(monkeypatch):
     reference_dir = os.path.join(test_path, "files/ops_generation_e2e/reference_output", ref_output_dir)
     yaml_path = os.path.join(test_path, "files/ops_generation_e2e/hpu_op.yaml")
     pt_signatures = os.path.join(test_path, "files/ops_generation_e2e/FakeRegistrationDeclarations.h")
+    templates = os.path.join(test_path, "files/ops_generation_e2e/hpu_op_templates.yaml")
 
     shutil.rmtree(output_dir, ignore_errors=True)
 
-    args = Args(output_dir, yaml_path, False, pt_signatures)
+    args = Args(output_dir, yaml_path, False, pt_signatures, templates)
 
     generate(args)
     args.check_kernel_support = True
@@ -370,3 +373,55 @@ def test_generate_stack_size_code_with_first_flag():
     stack_size_code, _ = generate_stack_size_code_with_first_flag(0, vars, dtypes, True, 0)
     expected_stack_size_code = "  if (stack.size() == 3) {\n    auto ivalue_arr = torch::jit::last(stack, 3);\n    if ("
     assert stack_size_code == expected_stack_size_code
+
+
+@pytest.mark.parametrize(
+    "op_data, expected",
+    [
+        (
+            {"foreach_sign": {"op_templates": ["Foreach"], "guid": "sign_fwd"}},
+            {"foreach_sign": {"guid": "sign_fwd", "op_backend": "Foreach", "namespace": ["torch"]}},
+        ),
+        (
+            {"foreach_erfc_": {"op_templates": ["ForeachInplace"], "guid": "erfc_fwd", "op_backend": "ErfcBackend"}},
+            {
+                "foreach_erfc_": {
+                    "guid": "erfc_fwd",
+                    "op_backend": "ErfcBackend",
+                    "namespace": ["torch"],
+                    "inplace_ids": [0],
+                }
+            },
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "template_map",
+    [
+        {
+            "Foreach": {"op_backend": "Foreach", "namespace": ["torch"]},
+            "ForeachInplace": {"op_templates": ["Foreach"], "inplace_ids": [0]},
+        }
+    ],
+)
+def test_op_templates(op_data, template_map, expected):
+    yaml_context = YamlContext(
+        op_data,
+        template_map,
+    )
+
+    assert yaml_context.op_data == expected
+
+
+def test_op_templates_error():
+    op_data = {"foreach_erfc_": {"op_templates": ["Foreach", "OtherForeach"]}}
+    template_map = {
+        "Foreach": {"op_backend": "Foreach", "namespace": ["torch"]},
+        "OtherForeach": {"op_backend": "Foreach"},
+    }
+
+    with pytest.raises(
+        AssertionError,
+        match="For fields that occurs in multiple templates require field: op_backend to be defined explicitly.",
+    ):
+        YamlContext(op_data, template_map)

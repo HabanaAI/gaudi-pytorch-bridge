@@ -56,6 +56,7 @@
 #  - custom_cpp_sig - allows specifying a custom C++ signature for the operator; use only if the automatically generated signature is incorrect
 #      e.g. for torch_scatter.ind2ptr, the C++ signature in torch_scatter uses at::Tensor instead of const at::Tensor&, so the operator cannot be called with const at::Tensor&.
 #  - treat_as_non_inplace - marks a parameter as non-inplace when the C++ signature requires a non-const tensor argument.
+#  - op_templates - list of templates to use for the operator. Templates available templates are located in hpu_op_templates.yaml.
 
 _assert_async:
   guid: assert_async
@@ -183,318 +184,212 @@ _efficientzerotensor:
 
 _foreach_abs:
   guid: abs_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachAbsSharedMeta
 
 _foreach_abs_:
   guid: abs_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAbsSharedMeta
 
 _foreach_add.Scalar:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.List:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.Tensor:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.ScalarList:
   guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.Scalar:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.List:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.Tensor:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.ScalarList:
   guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: AddForeachBinarySharedMeta
 
 _foreach_addcdiv.Scalar:
-
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv.ScalarList:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv.Tensor:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.Scalar:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.ScalarList:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.Tensor:
   guid: addcdiv_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcmul.Scalar:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul.ScalarList:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul.Tensor:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  output_meta: ForeachCompoundMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundOutPlace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.Scalar:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.ScalarList:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.Tensor:
   guid: addcmul_fwd
-  op_backend: ForeachCompound
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachCompoundInplace]
   op_validator: ForeachAddcmulSharedMeta
 
 _foreach_acos:
   guid: acos_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachAcosSharedMeta
 
 _foreach_acos_:
   guid: acos_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAcosSharedMeta
 
 _foreach_asin:
   guid: asin_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachAsinSharedMeta
 
 _foreach_asin_:
   guid: asin_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAsinSharedMeta
 
 _foreach_atan:
   guid: atan_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachAtanSharedMeta
 
 _foreach_atan_:
   guid: atan_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachAtanSharedMeta
 
 _foreach_ceil:
   guid: ceil_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachCeilSharedMeta
 
 _foreach_ceil_:
   guid: ceil_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachCeilSharedMeta
 
 _foreach_clamp_max.Scalar:
   guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max.List:
   guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max.ScalarList:
   guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.Scalar:
   guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.List:
   guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.ScalarList:
   guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_min.Scalar:
   guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min.List:
   guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min.ScalarList:
   guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampOutPlace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.Scalar:
   guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.List:
   guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.ScalarList:
   guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachClampInplace]
   op_validator: ForeachClampMinSharedMeta
 
 _foreach_copy:
@@ -508,694 +403,452 @@ _foreach_copy:
 
 _foreach_cos:
   guid: cos_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachCosSharedMeta
 
 _foreach_cos_:
   guid: cos_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachCosSharedMeta
 
 _foreach_cosh:
   guid: cosh_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachCoshSharedMeta
 
 _foreach_cosh_:
   guid: cosh_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachCoshSharedMeta
 
 _foreach_div.Scalar:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.Tensor:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.List:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.ScalarList:
   guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [DivForeachBinaryOutPlace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.Scalar:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.Tensor:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.List:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.ScalarList:
   guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: DivForeachBinarySharedMeta
 
 _foreach_erf:
   guid: erf_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachErfSharedMeta
 
 _foreach_erf_:
   guid: erf_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachErfSharedMeta
 
 _foreach_erfc:
   op_backend: ForeachErfc
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachErfcSharedMeta
 
 _foreach_erfc_:
-  inplace_ids: [0]
   op_backend: ForeachErfc
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachErfcSharedMeta
 
 _foreach_exp:
   guid: exp_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachExpSharedMeta
 
 _foreach_exp_:
   guid: exp_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachExpSharedMeta
 
 _foreach_expm1:
   guid: expm1_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachExpm1SharedMeta
 
 _foreach_expm1_:
   guid: expm1_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachExpm1SharedMeta
 
 _foreach_floor:
   guid: floor_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachFloorSharedMeta
 
 _foreach_floor_:
   guid: floor_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachFloorSharedMeta
 
 _foreach_frac:
   guid: frac_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_frac_:
   guid: frac_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachFracSharedMeta
 
 _foreach_lerp.Scalar:
-  op_backend: ForeachLerp
-  output_meta: ForeachLerpMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpOutPlace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp.List:
-  op_backend: ForeachLerp
-  output_meta: ForeachLerpMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpOutPlace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp_.Scalar:
-  op_backend: ForeachLerp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpInplace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp_.List:
-  op_backend: ForeachLerp
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachLerpInplace]
   op_validator: ForeachLerpSharedMeta
 
 _foreach_lgamma:
   guid: gammaln_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLgammaSharedMeta
 
 _foreach_lgamma_:
   guid: gammaln_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLgammaSharedMeta
 
 _foreach_log:
   guid: log_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLogSharedMeta
 
 _foreach_log_:
   guid: log_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLogSharedMeta
 
 _foreach_log10:
   op_backend: ForeachLog10
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLog10SharedMeta
 
 _foreach_log10_:
-  inplace_ids: [0]
   op_backend: ForeachLog10
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLog10SharedMeta
 
 _foreach_log1p:
   guid: log1p_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLog1pSharedMeta
 
 _foreach_log1p_:
   guid: log1p_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLog1pSharedMeta
 
 _foreach_log2:
   guid: log2_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachLog2SharedMeta
 
 _foreach_log2_:
   guid: log2_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachLog2SharedMeta
 
 _foreach_maximum.Scalar:
   guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum.List:
   guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum.ScalarList:
   guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.Scalar:
   guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.List:
   guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.ScalarList:
   guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MaxForeachBinarySharedMeta
 
 _foreach_minimum.Scalar:
   guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum.List:
   guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum.ScalarList:
   guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.Scalar:
   guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.List:
   guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.ScalarList:
   guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MinForeachBinarySharedMeta
 
 _foreach_mul.Scalar:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.List:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.Tensor:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.ScalarList:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.Scalar:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.Tensor:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.List:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.ScalarList:
   guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: MultForeachBinarySharedMeta
 
 _foreach_neg:
   guid: neg_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachNegSharedMeta
 
 _foreach_neg_:
   guid: neg_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachNegSharedMeta
 
 _foreach_pow.Scalar:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowOutPlace]
 
 _foreach_pow.ScalarAndTensor:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
+  op_templates: [ForeachPowOutPlace]
   out_ids: [1]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow.List:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowOutPlace]
 
 _foreach_pow.ScalarList:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowOutPlace]
 
 _foreach_pow_.Scalar:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowInplace]
 
 _foreach_pow_.List:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowInplace]
 
 _foreach_pow_.ScalarList:
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
-  op_validator: PowForeachBinarySharedMeta
+  op_templates: [ForeachPowInplace]
 
 _foreach_reciprocal:
   guid: reciprocal_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachReciprocalSharedMeta
 
 _foreach_reciprocal_:
   guid: reciprocal_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachReciprocalSharedMeta
 
 _foreach_round:
   custom_fill_params: FillRoundParams
   guid: round_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachRoundSharedMeta
 
 _foreach_round_:
   custom_fill_params: FillRoundParams
   guid: round_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachRoundSharedMeta
 
 _foreach_sign:
   guid: sign_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachSignSharedMeta
 
 _foreach_sign_:
   guid: sign_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSignSharedMeta
 
 _foreach_sigmoid:
   guid: sigmoid_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSigmoidSharedMeta
 
 _foreach_sigmoid_:
   guid: sigmoid_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSigmoidSharedMeta
 
 _foreach_sin:
   guid: sin_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSinSharedMeta
 
 _foreach_sin_:
   guid: sin_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSinSharedMeta
 
 _foreach_sinh:
   guid: sinh_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSinhSharedMeta
 
 _foreach_sinh_:
   guid: sinh_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSinhSharedMeta
 
 _foreach_sqrt:
   guid: sqrt_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachSqrtSharedMeta
 
 _foreach_sqrt_:
   guid: sqrt_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachSqrtSharedMeta
 
 _foreach_sub.Scalar:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub.List:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub.ScalarList:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryOutPlace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.Scalar:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.List:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.ScalarList:
   guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachBinaryInplace]
   op_validator: SubForeachBinarySharedMeta
 
 _foreach_tan:
   guid: tan_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachTanSharedMeta
 
 _foreach_tan_:
   guid: tan_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachTanSharedMeta
 
 _foreach_tanh:
   guid: tanh_fwd
-  op_backend: Foreach
-  output_meta: NonIntegerForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlaceNonInteger]
   op_validator: UnaryForeachTanhSharedMeta
 
 _foreach_tanh_:
   guid: tanh_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachTanhSharedMeta
 
 _foreach_trunc:
   guid: trunc_fwd
-  op_backend: Foreach
-  output_meta: ForeachMeta
-  out_ids: [0]
-  namespaces: [torch]
+  op_templates: [ForeachOutPlace]
   op_validator: UnaryForeachTruncSharedMeta
 
 _foreach_trunc_:
   guid: trunc_fwd
-  inplace_ids: [0]
-  op_backend: Foreach
-  namespaces: [torch]
+  op_templates: [ForeachInplace]
   op_validator: UnaryForeachTruncSharedMeta
 
 _foreach_zero_:

@@ -33,6 +33,7 @@ from . import constants, parser
 from .custom_ops import cpp_from_schema
 from .op import Op
 from .op_validator import get_op_validator_generator
+from .yaml_context import yaml_context_from_files
 
 
 def torch_library_fragment(custom_schema_regs):
@@ -52,22 +53,6 @@ NUM_SHARDS = 10
 
 def should_write_and_go_to_next_file(idx: int, num_idxs_per_shard: int, file_idx: int, total_idxs):
     return ((file_idx + 1) < NUM_SHARDS and (idx + 1) % num_idxs_per_shard == 0) or (idx + 1) == total_idxs
-
-
-class YamlContext:
-    def __init__(self, yamlfile):
-        with open(yamlfile) as ff:
-            self.op_data = yaml.load(ff.read(), Loader=yaml.CSafeLoader)
-            # Sometimes disabling ops for an upcoming pytorch version is necessary.
-            # All ops added to skip_list won't be processed, same way if they were not present in hpu_op.yaml
-            skip_ops = []
-            self.op_data = {op: self.op_data[op] for op in self.op_data if op not in skip_ops}
-
-    def get_op_names(self):
-        return self.op_data.keys()
-
-    def get_op_data(self):
-        return self.op_data.items()
 
 
 def is_out_fn(is_custom_op_out_variant, fname):
@@ -1713,7 +1698,7 @@ def generate_autograd_ops(args, fgens_autograd):
 
 
 def generate(args):
-    yaml_ctx = YamlContext(args.yaml)
+    yaml_ctx = yaml_context_from_files(args.yaml, args.templates)
     pt_ops, errors, all_ops_metas = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
     assert len(errors) == 0
 
@@ -2208,7 +2193,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, fgens_cu
 
 
 def generate_check_kernel_support(args):
-    yaml_ctx = YamlContext(args.yaml)
+    yaml_ctx = yaml_context_from_files(args.yaml, args.templates)
     # pt_ops is dict of {op_name : (cpp_sig, aten_sig, dtdf)}
     pt_ops, errors, _ = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
     assert len(errors) == 0

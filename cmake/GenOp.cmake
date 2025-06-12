@@ -31,7 +31,9 @@ function(generate_files output_files flags)
             ${CMAKE_SOURCE_DIR}/scripts/gen_op/op.py
             ${CMAKE_SOURCE_DIR}/scripts/gen_op/parser.py
             ${CMAKE_SOURCE_DIR}/scripts/gen_op/version_checker.py
+            ${CMAKE_SOURCE_DIR}/scripts/gen_op/yaml_context.py
             ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
+            ${CMAKE_SOURCE_DIR}/scripts/hpu_op_templates.yaml
             ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
             ${TORCH_INSTALL_PREFIX}/../torchgen/packaged/ATen/native/native_functions.yaml)
 endfunction()
