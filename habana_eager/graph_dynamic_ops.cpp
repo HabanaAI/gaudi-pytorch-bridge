@@ -600,6 +600,9 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       self_size,
       scalar_indexes);
 
+  if(self_size.size() > SYN_MAX_TENSOR_DIM){
+    return false;
+  }
   std::vector<std::pair<int64_t, int64_t>> mixed_indexes;
   std::vector<std::pair<int64_t, int64_t>> mixed_scalar_indexes;
   for (size_t i = 0; i < self_size.size(); i++)
