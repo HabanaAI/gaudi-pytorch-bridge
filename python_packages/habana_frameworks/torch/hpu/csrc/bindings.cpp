@@ -32,7 +32,6 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "pytorch_helpers/synapse_shim/synapse_api_shim.h"
 
 #include "python_packages/habana_frameworks/torch/hpu/csrc/Event.h"
 #include "python_packages/habana_frameworks/torch/hpu/csrc/Module.h"
@@ -416,7 +415,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         return habana::CustomOpOutShapeFunRegistrar::GetInstance().CalcOutShape(
             opname, inputs, params);
       });
-  m.def("ensure_syn_api_loaded", []() { EnsureSynApiLoaded(); });
 
   m.doc() = "This module registers hpu backend.";
 }

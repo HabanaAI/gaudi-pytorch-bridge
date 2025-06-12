@@ -104,6 +104,8 @@ struct LazyLoader<std::function<Result(Args...)>> {
 LazySynapseApi::LazySynapseApi() {
   syn_api = &synapse_api_;
   hccl_api = &hccl_api_;
+  SYN_API_SYMBOL_VISIT(INIT_LAZY_LOADER_SYN_API);
+  HCCL_API_SYMBOL_VISIT(INIT_LAZY_LOADER_HCCL_API);
 }
 
 #define INIT_API_FUNC(api, func)                                \
@@ -146,8 +148,4 @@ hccl_api_t* GetHcclApi() {
 void EnableSynapseApi() {
   syn_api = GetSynapseApi();
   hccl_api = GetHcclApi();
-}
-
-void EnsureSynApiLoaded() {
-  LazySynapseApi::EnsureLoaded();
 }

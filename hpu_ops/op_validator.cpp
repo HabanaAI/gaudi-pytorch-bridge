@@ -31,6 +31,21 @@ namespace habana {
 
 namespace {
 
+struct SharedLayerInitialization {
+  SharedLayerInitialization() {
+    static auto status = synSharedLayerInit();
+    HABANA_ASSERT(
+        SharedLayer::Return_t::SHARED_LAYER_SUCCESS == status,
+        "cannot initialize shared layer");
+  }
+
+  ~SharedLayerInitialization() {
+    synSharedLayerFinit();
+  }
+};
+
+SharedLayerInitialization _slu_initializer;
+
 SharedLayer::DeviceId synDeviceTypeToSharedLayerType(synDeviceType tp) {
   switch (tp) {
     case synDeviceGaudi:
@@ -364,7 +379,6 @@ bool CheckNodeWithSharedLayerValidator::Validate(
   SharedLayerGuidValidator guidValidator{
       m_guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d};
   if (device_stub.has_value()) {
-#ifdef ENABLE_SLRG
     unsigned query_bit_map = SharedLayer::QUERY_DATATYPES;
     unsigned result_bit_map = 0;
     auto validation_result =
@@ -386,7 +400,6 @@ bool CheckNodeWithSharedLayerValidator::Validate(
           " reason=INCOMPATIBLE_DATA_TYPE");
       return false;
     }
-#endif
   } else {
     auto validation_result = guidValidator.ValidateGuid();
 
@@ -459,7 +472,6 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
         check_st_h2d,
         check_st_h2d};
     if (device_stub.has_value()) {
-#ifdef ENABLE_SLRG
       unsigned query_bit_map = SharedLayer::QUERY_DATATYPES;
       unsigned result_bit_map = 0;
       auto validation_result =
@@ -481,7 +493,6 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
             " reason=INCOMPATIBLE_DATA_TYPE");
         return false;
       }
-#endif
     } else {
       auto validation_result = guidValidator.ValidateGuid();
 

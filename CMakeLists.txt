@@ -59,11 +59,6 @@ if(UPSTREAM_COMPILE)
   set(CMAKE_EXECUTABLE_SUFFIX "_upstream")
 endif(UPSTREAM_COMPILE)
 
-option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
-if(BUILD_SL_REPORT_GENERATOR)
-  add_compile_definitions(ENABLE_SLRG)
-endif()
-
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy)
@@ -377,7 +372,10 @@ if(BUILD_TESTS)
   set(CMAKE_WARN_DEPRECATED ${ORIGINAL_CMAKE_WARN_DEPRECATED})
   add_subdirectory(tests/cpp)
 endif()
-add_subdirectory(sl_report_generator)
+option(BUILD_SL_REPORT_GENERATOR "Build Shared Layer Report Generator" OFF)
+if(BUILD_SL_REPORT_GENERATOR)
+  add_subdirectory(sl_report_generator)
+endif()
 option(BUILD_PKGS "Build python packages" OFF)
 option(INSTALL_PKGS "Install python packages" OFF)
 
