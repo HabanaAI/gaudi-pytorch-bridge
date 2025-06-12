@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ std::vector<AtTensorPair> native_layer_norm_test(
     if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                     \
       GTEST_SKIP();                                                           \
     }                                                                         \
-    for (int dsi = 0; dsi < DSVAL; ++dsi) {                                   \
+    for (int dsi = 0; dsi < (DSVAL); ++dsi) {                                 \
       auto results = native_layer_norm_test(                                  \
           NativeLayerNormTestMode::MODE,                                      \
           NativeLayerNormTestWeight::WEIGHT##ined,                            \

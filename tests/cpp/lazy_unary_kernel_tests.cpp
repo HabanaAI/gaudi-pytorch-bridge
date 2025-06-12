@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1110,6 +1110,7 @@ static void TestInfNan(bool ndims, c10::ScalarType dType, F ptFun) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define TEST_CASE(                                            \
     testName,                                                 \
     outFlag,                                                  \
@@ -1123,6 +1124,7 @@ static void TestInfNan(bool ndims, c10::ScalarType dType, F ptFun) {
       return torch::is##torchNode lambdaCall;                 \
     });                                                       \
   }
+// NOLINTEND(bugprone-macro-parentheses)
 
 #define TEST_WITH_ND(                                                   \
     testName, outFlag, torchNode, torchDtype, lambdaParams, lambdaCall) \

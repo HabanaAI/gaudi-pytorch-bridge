@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 #include "util.h"
 
 // Limits for generated values of variants of Int
-#define MIN_INT_VALUE_GENERATED -360
-#define MAX_INT_VALUE_GENERATED -1
+#define MIN_INT_VALUE_GENERATED (-360)
+#define MAX_INT_VALUE_GENERATED (-1)
 
 #define MIN_INT8_VALUE_GENERATED 1
 #define MAX_INT8_VALUE_GENERATED 50

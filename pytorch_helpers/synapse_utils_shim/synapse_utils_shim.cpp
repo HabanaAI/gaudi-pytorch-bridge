@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,16 +19,15 @@
 #include <mutex>
 #include "synapse_shim/logging.h"
 
-#define SLU_API_PTR(func) decltype(::func)* func
 #define SLU_INIT_PTR(func) \
-  CHECK_NULL(func = (decltype(func))dlsym(lib_handle, #func))
+  CHECK_NULL((func) = (decltype(func))dlsym(lib_handle, #func))
 
 namespace shim_slu {
-SLU_API_PTR(synSharedLayerInit);
-SLU_API_PTR(synSharedLayerValidateGuidV2);
-SLU_API_PTR(synSharedLayerGetGuidNames);
-SLU_API_PTR(synSharedLayerFinit);
-SLU_API_PTR(synSharedLayerQueryParams);
+decltype(&::synSharedLayerInit) synSharedLayerInit = nullptr;
+decltype(&::synSharedLayerValidateGuidV2) synSharedLayerValidateGuidV2 = nullptr;
+decltype(&::synSharedLayerGetGuidNames) synSharedLayerGetGuidNames = nullptr;
+decltype(&::synSharedLayerFinit) synSharedLayerFinit = nullptr;
+decltype(&::synSharedLayerQueryParams) synSharedLayerQueryParams = nullptr;
 
 void LoadSymbols(void* lib_handle) {
   SLU_INIT_PTR(synSharedLayerInit);

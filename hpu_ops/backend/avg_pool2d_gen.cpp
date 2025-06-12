@@ -19,7 +19,7 @@
 
 #define CHECK_DIM(input_size)                                             \
   HABANA_ASSERT(                                                          \
-      input_size == 3 || input_size == 4,                                 \
+      (input_size) == 3 || (input_size) == 4,                             \
       "Averagepool2D expects input_size equals to 3 or 4, but got size ", \
       input_size);
 

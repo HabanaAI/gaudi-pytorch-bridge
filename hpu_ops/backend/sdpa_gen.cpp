@@ -26,13 +26,13 @@ namespace sh = synapse_helpers;
 
 #define SDPA_SET_FLAGS(condition, flags, flag_name) \
   if (condition) {                                  \
-    flags |= SdpaFlags_t::SDPA_FLAGS_##flag_name;   \
+    (flags) |= SdpaFlags_t::SDPA_FLAGS_##flag_name; \
   }
-#define SDPA_ADD_INPUTS(t)                 \
-  if (t) {                                 \
-    syn_inputs.push_back(t.value().syn_t); \
-  } else {                                 \
-    syn_inputs.push_back(nullptr);         \
+#define SDPA_ADD_INPUTS(t)                   \
+  if (t) {                                   \
+    syn_inputs.push_back((t).value().syn_t); \
+  } else {                                   \
+    syn_inputs.push_back(nullptr);           \
   }
 
 namespace habana {

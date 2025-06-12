@@ -86,7 +86,7 @@
  *https://github.com/pytorch/pytorch/blob/main/torch/fx/passes/infra/partitioner.py
  */
 /**
- * Copyright (c) 2021-2024 Intel Corporation
+ * Copyright (c) 2021-2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@
 #include <unordered_map>
 #include <vector>
 
-#define NO_PARTITION -1
+#define NO_PARTITION (-1)
 
 namespace py = pybind11;
 

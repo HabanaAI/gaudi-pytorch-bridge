@@ -58,17 +58,17 @@ const std::string NO_TPC = "[NoTPCKernel]";
       at::IntArrayRef{1}, at::IntArrayRef{1});
 
 // Utility Macros to handle 0d tensors input
-#define CONVERT_0D_TO_1D(self)                         \
-  if (0 == self.dim()) {                               \
-    self.unsafeGetTensorImpl()->set_sizes_and_strides( \
-        at::IntArrayRef{1}, at::IntArrayRef{1});       \
+#define CONVERT_0D_TO_1D(self)                           \
+  if (0 == (self).dim()) {                               \
+    (self).unsafeGetTensorImpl()->set_sizes_and_strides( \
+        at::IntArrayRef{1}, at::IntArrayRef{1});         \
   }
-#define CONVERT_1D_TO_0D(self, out)                    \
-  if (0 == self.dim()) {                               \
-    self.unsafeGetTensorImpl()->set_sizes_and_strides( \
-        at::IntArrayRef{}, at::IntArrayRef{});         \
-    out.unsafeGetTensorImpl()->set_sizes_and_strides(  \
-        at::IntArrayRef{}, at::IntArrayRef{});         \
+#define CONVERT_1D_TO_0D(self, out)                      \
+  if (0 == (self).dim()) {                               \
+    (self).unsafeGetTensorImpl()->set_sizes_and_strides( \
+        at::IntArrayRef{}, at::IntArrayRef{});           \
+    (out).unsafeGetTensorImpl()->set_sizes_and_strides(  \
+        at::IntArrayRef{}, at::IntArrayRef{});           \
   }
 namespace habana {
 

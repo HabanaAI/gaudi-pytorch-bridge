@@ -476,7 +476,7 @@ static void checkSameDevice(const Node* node) {
 }
 
 using node_set = std::set<const Node*>;
-#define ALL_OF(container) container.begin(), container.end()
+#define ALL_OF(container) (container).begin(), (container).end()
 
 // These functions purposely operate on the internal members directly, to
 // force you to think about how the invariants change if you change the data

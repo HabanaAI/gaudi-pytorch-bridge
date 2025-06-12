@@ -121,7 +121,7 @@ std::unordered_map<std::string, std::string> ParseHintsFromString(
 
 #define CHECK_KPARAMS_SIZE(name, size) \
   static_assert(                       \
-      sizeof(name::Params) == size,    \
+      sizeof(name::Params) == (size),  \
       #name "::Params size has changed. Update TF code.");
 
 CHECK_KPARAMS_SIZE(ns_ConstantKernel, 4)

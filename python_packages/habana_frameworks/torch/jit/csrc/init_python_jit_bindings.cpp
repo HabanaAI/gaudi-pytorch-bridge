@@ -98,7 +98,7 @@ PYBIND11_DECLARE_HOLDER_TYPE(
     true);
 
 namespace pybind11::detail {
-
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define CREATE_UNWRAPPING_CASTER(Class)                                                   \
   template <>                                                                             \
   struct type_caster<Class> : public type_caster_base<Class> {                            \
@@ -130,6 +130,7 @@ namespace pybind11::detail {
       }                                                                                   \
     }                                                                                     \
   }
+// NOLINTEND(bugprone-macro-parentheses)
 
 CREATE_UNWRAPPING_CASTER(Node);
 CREATE_UNWRAPPING_CASTER(Value);

@@ -32,11 +32,11 @@
 
 using namespace synapse_helpers::layouts;
 
-#define CHECK_NULL_INPUT(out_size, scale)                     \
-  HABANA_ASSERT(                                              \
-      !(out_size == std::nullopt && scale == std::nullopt) || \
-          (out_size != std::nullopt &&                        \
-           (scale != std::nullopt && !scale.isScalar())),     \
+#define CHECK_NULL_INPUT(out_size, scale)                         \
+  HABANA_ASSERT(                                                  \
+      !((out_size) == std::nullopt && (scale) == std::nullopt) || \
+          ((out_size) != std::nullopt &&                          \
+           ((scale) != std::nullopt && !(scale).isScalar())),     \
       "Upsample: Must specify exactly one of output_size and scale_factors");
 
 inline void check_null_inputs_2d(
@@ -73,7 +73,7 @@ inline void check_null_inputs_3d(
 
 #define CHECK_INPUT_OUTPUT_WIDTH(input_width, output_width)                               \
   HABANA_ASSERT(                                                                          \
-      input_width > 0 && output_width > 0,                                                \
+      (input_width) > 0 && (output_width) > 0,                                            \
       "Upsample1D:  Input and output sizes should be greater than 0, but got input (W: ", \
       input_width,                                                                        \
       ") and output (W: ",                                                                \
@@ -83,8 +83,8 @@ inline void check_null_inputs_3d(
 #define CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(                                                  \
     input_height, output_height, input_width, output_width)                               \
   HABANA_ASSERT(                                                                          \
-      (input_width > 0 && output_width > 0) &&                                            \
-          (input_height > 0 && output_height > 0),                                        \
+      ((input_width) > 0 && (output_width) > 0) &&                                        \
+          ((input_height) > 0 && (output_height) > 0),                                    \
       "Upsample2D:  Input and output sizes should be greater than 0, but got input (W: ", \
       input_width,                                                                        \
       ") and (H: ",                                                                       \
@@ -101,9 +101,9 @@ inline void check_null_inputs_3d(
     input_width,                                                                         \
     output_width)                                                                        \
   HABANA_ASSERT(                                                                         \
-      (input_depth > 0 && output_depth > 0) &&                                           \
-          (input_width > 0 && output_width > 0) &&                                       \
-          (input_height > 0 && output_height > 0),                                       \
+      ((input_depth) > 0 && (output_depth) > 0) &&                                       \
+          ((input_width) > 0 && (output_width) > 0) &&                                   \
+          ((input_height) > 0 && (output_height) > 0),                                   \
       "Upsample3D: Input and output sizes should be greater than 0, but got input (W: ", \
       input_width,                                                                       \
       ") and (H: ",                                                                      \
