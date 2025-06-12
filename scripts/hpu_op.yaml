@@ -3981,27 +3981,27 @@ index_copy.out:
 
 index_fill_.int_Scalar:
   output_meta: IndexFillMeta
-  custom_fill_params: FillIndexCopyParams
+  custom_fill_params: FillIndexFillParams
   op_backend: IndexFill
-  guid: index_copy_fwd
+  guid: index_fill
   inplace_ids: [0]
   namespaces: [torch.Tensor]
   op_validator: IndexFillSharedMeta
 
 index_fill_.int_Tensor:
   output_meta: IndexFillMeta
-  custom_fill_params: FillIndexCopyParams
+  custom_fill_params: FillIndexFillParams
   op_backend: IndexFill
-  guid: index_copy_fwd
+  guid: index_fill
   inplace_ids: [0]
   namespaces: [torch.Tensor]
   op_validator: IndexFillSharedMeta
 
 index_fill.int_Scalar:
   output_meta: IndexFillMeta
-  custom_fill_params: FillIndexCopyParams
+  custom_fill_params: FillIndexFillParams
   op_backend: IndexFill
-  guid: index_copy_fwd
+  guid: index_fill
   out_ids: [0]
   namespaces: [torch, torch.Tensor]
   op_validator: IndexFillSharedMeta
