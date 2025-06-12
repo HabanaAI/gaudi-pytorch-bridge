@@ -384,6 +384,7 @@ class TestFlexAttention(InductorTestCase):
         v_gold: torch.Tensor,
         v_ref: torch.Tensor,
         v: torch.Tensor,
+        gqa: bool,
     ):
         dtype = ref_out.dtype
         with torch.no_grad():
@@ -515,10 +516,6 @@ class TestFlexAttention(InductorTestCase):
         if return_lse and traning:
             return
 
-        # skip tests ToDo
-        if gqa and traning:
-            return
-
         if KV_B is None:
             KV_B = Q_B
         if KV_H is None:
@@ -628,6 +625,7 @@ class TestFlexAttention(InductorTestCase):
                 v_gold,
                 v_ref,
                 v_hpu,
+                gqa,
             )
 
     def preprocess_paged_attention(
@@ -897,6 +895,7 @@ class TestFlexAttention(InductorTestCase):
                 v_gold,
                 v_ref,
                 v,
+                False,
             )
 
     def run_dynamic_test(
@@ -982,6 +981,7 @@ class TestFlexAttention(InductorTestCase):
             v1_gold,
             v1_ref,
             v1,
+            False,
         )
         self.assertEqual(torch._dynamo.utils.counters["frames"]["ok"], 1)
 
@@ -1003,6 +1003,7 @@ class TestFlexAttention(InductorTestCase):
             v2_gold,
             v2_ref,
             v2,
+            False,
         )
         self.assertEqual(torch._dynamo.utils.counters["frames"]["ok"], 1)
 
@@ -1024,6 +1025,7 @@ class TestFlexAttention(InductorTestCase):
             v3_gold,
             v3_ref,
             v3,
+            False,
         )
         self.assertEqual(torch._dynamo.utils.counters["frames"]["ok"], 1)
 

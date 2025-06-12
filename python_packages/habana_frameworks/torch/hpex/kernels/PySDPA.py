@@ -346,10 +346,17 @@ def flex_attention_fwd(q, k, v, block_size=128, is_noop_mask=False, is_ret_lse=F
     return packed_tensors
 
 
+# FlexAttention BWD with GQA support
 def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=False):
+    # (batch, number of heads, sequence length, dimension of each head)
     orig_dtype = q.dtype
     batch = q.shape[q.dim() - 4]
     head = q.shape[q.dim() - 3]
+    kv_heads = k.shape[k.dim() - 3]
+    # Number of Qs per KV in GQA
+    q_heads = head // kv_heads
+    q_head_orig = q_heads
+    gqa_enabled = q_heads > 1
 
     q_bucket_size = block_size
     k_bucket_size = block_size
@@ -358,140 +365,194 @@ def flex_attention_bwd(q, k, v, o, lse, do, glse, block_size=128, is_noop_mask=F
 
     scale = 1 / math.sqrt(q.size(-1))
 
-    dq = torch.zeros_like(q)
+    # Split Q, K, V according to GQA
+    q_head_splits = torch.split(q, q_heads if gqa_enabled else head, dim=1)
+    k_head_splits = torch.split(k, 1 if gqa_enabled else kv_heads, dim=1)
+    v_head_splits = torch.split(v, 1 if gqa_enabled else kv_heads, dim=1)
 
-    row_splits = list(
+    # Split auxillary tensors
+    o_splits = torch.split(o, q_heads if gqa_enabled else head, dim=1)
+    do_splits = torch.split(do, q_heads if gqa_enabled else head, dim=1)
+    lse_splits = torch.split(lse, q_heads if gqa_enabled else head, dim=1)
+    glse_splits = torch.split(glse, q_heads if gqa_enabled else head, dim=1)
+
+    dq_out = []
+    dk_out = []
+    dv_out = []
+
+    headqkv_splits = list(
         zip(
-            q.split(q_bucket_size, dim=-2),
-            o.split(q_bucket_size, dim=-2),
-            do.split(q_bucket_size, dim=-2),
-            lse.split(q_bucket_size, dim=-1),
-            glse.split(q_bucket_size, dim=-1),
-            dq.split(q_bucket_size, dim=-2),
+            q_head_splits,
+            k_head_splits,
+            v_head_splits,
+            o_splits,
+            do_splits,
+            lse_splits,
+            glse_splits,
             strict=False,
         )
     )
 
-    col_splits = list(
-        zip(
-            k.split(k_bucket_size, dim=-2),
-            v.split(k_bucket_size, dim=-2),
-            strict=False,
+    # GQA loop
+    for _h_idx, (qh, kh, vh, oh, doh, lseh, glseh) in enumerate(headqkv_splits):
+        # Common K, V for current Q slice
+        kh = kh.repeat(1, q_heads, 1, 1) if gqa_enabled else k
+        vh = vh.repeat(1, q_heads, 1, 1) if gqa_enabled else v
+
+        # Allocate gradients for current Q slice
+        dq = torch.zeros_like(qh)
+        dk = torch.zeros_like(kh)
+        dv = torch.zeros_like(vh)
+
+        # Split Q along sequence length
+        row_splits = list(
+            zip(
+                qh.split(q_bucket_size, dim=-2),
+                oh.split(q_bucket_size, dim=-2),
+                doh.split(q_bucket_size, dim=-2),
+                lseh.split(q_bucket_size, dim=-1),
+                glseh.split(q_bucket_size, dim=-1),
+                dq.split(q_bucket_size, dim=-2),
+                strict=False,
+            )
         )
-    )
 
-    dvc_list = []
-    dqc_list = []
-    dkc_list = []
-    for q_ind, (qc, oc, doc, lsec, glsec, dqc) in enumerate(row_splits):
-        for k_ind, (kc, vc) in enumerate(col_splits):
-            attn_weights = torch.matmul(qc.to(working_precision), kc.transpose(-2, -1).to(working_precision)).to(
-                dtype=working_precision
+        # Split K, V along sequence length
+        col_splits = list(
+            zip(
+                kh.split(k_bucket_size, dim=-2),
+                vh.split(k_bucket_size, dim=-2),
+                strict=False,
             )
-            attn_weights = (attn_weights * scale).to(working_precision)
-            scores = attn_weights.clone()
-            arg1 = scores.clone()
+        )
 
-            # apply score_mod
-            b_blocks = [
-                torch.full(
-                    (head, qc.shape[qc.dim() - 2], kc.shape[kc.dim() - 2]),
-                    fill_value=i,
-                    dtype=torch.int64,
-                    device=q.device,
+        dqc_list = []
+        dkc_list = []
+        dvc_list = []
+
+        for q_ind, (qc, oc, doc, lsec, glsec, dqc) in enumerate(row_splits):
+            for k_ind, (kc, vc) in enumerate(col_splits):
+                attn_weights = torch.matmul(qc.to(working_precision), kc.transpose(-2, -1).to(working_precision)).to(
+                    dtype=working_precision
                 )
-                for i in range(batch)
-            ]
-            b = torch.stack(b_blocks)
-            # attn_weights = attn_weights + b
+                attn_weights = (attn_weights * scale).to(working_precision)
+                scores = attn_weights.clone()
+                arg1 = scores.clone()
 
-            h_base = (
-                torch.arange(head, device=q.device)
-                .view(head, 1, 1)
-                .expand(head, qc.shape[qc.dim() - 2], kc.shape[kc.dim() - 2])
-            )
-            h = h_base.unsqueeze(0).repeat(batch, 1, 1, 1)
-            # attn_weights = attn_weights + h
+                # apply score_mod
+                b_blocks = [
+                    torch.full(
+                        (q_head_orig, qc.shape[qc.dim() - 2], kc.shape[kc.dim() - 2]),
+                        fill_value=i,
+                        dtype=torch.int64,
+                        device=q.device,
+                    )
+                    for i in range(batch)
+                ]
+                b = torch.stack(b_blocks)
+                # attn_weights = attn_weights + b
 
-            q_base = (
-                torch.arange(
-                    q_ind * qc.shape[qc.dim() - 2],
-                    (q_ind + 1) * qc.shape[qc.dim() - 2],
-                    device=q.device,
+                h_base = (
+                    torch.arange(q_head_orig, device=q.device)
+                    .view(q_head_orig, 1, 1)
+                    .expand(q_head_orig, qc.shape[qc.dim() - 2], kc.shape[kc.dim() - 2])
                 )
-                .unsqueeze(1)
-                .repeat(1, qc.shape[qc.dim() - 2])
-            )
-            q_head = q_base.unsqueeze(0).repeat(head, 1, 1)
-            q_idx = q_head.unsqueeze(0).repeat(batch, 1, 1, 1)
-            # attn_weights = attn_weights + q_idx
+                h = h_base.unsqueeze(0).repeat(batch, 1, 1, 1)
+                # attn_weights = attn_weights + h
 
-            kv_base = (
-                torch.arange(
-                    k_ind * kc.shape[kc.dim() - 2],
-                    (k_ind + 1) * kc.shape[kc.dim() - 2],
-                    device=q.device,
+                q_base = (
+                    torch.arange(q_ind * qc.shape[qc.dim() - 2], (q_ind + 1) * qc.shape[qc.dim() - 2], device=q.device)
+                    .unsqueeze(1)
+                    .repeat(1, qc.shape[qc.dim() - 2])
                 )
-                .unsqueeze(0)
-                .repeat(kc.shape[kc.dim() - 2], 1)
-            )
-            kv_head = kv_base.unsqueeze(0).repeat(head, 1, 1)
-            kv_idx = kv_head.unsqueeze(0).repeat(batch, 1, 1, 1)
-            # attn_weights = attn_weights + kv_idx
 
-            post_score_mod_scores = torch.ops.hpu.flex_attention_score_mod(attn_weights, b, h, q_idx, kv_idx)
+                q_head = q_base.unsqueeze(0).repeat(q_head_orig, 1, 1)
+                q_idx = q_head.unsqueeze(0).repeat(batch, 1, 1, 1)
+                # attn_weights = attn_weights + q_idx
 
-            # apply mask_mod
-            if not is_noop_mask:
-                mask_mod_out = torch.ops.hpu.flex_attention_mask_mod(b, h, q_idx, kv_idx)
-                post_mod_scores = torch.where(mask_mod_out, post_score_mod_scores, neg_inf)
-            else:
-                post_mod_scores = post_score_mod_scores
+                kv_base = (
+                    torch.arange(k_ind * kc.shape[kc.dim() - 2], (k_ind + 1) * kc.shape[kc.dim() - 2], device=q.device)
+                    .unsqueeze(0)
+                    .repeat(kc.shape[kc.dim() - 2], 1)
+                )
+                kv_head = kv_base.unsqueeze(0).repeat(q_head_orig, 1, 1)
+                kv_idx = kv_head.unsqueeze(0).repeat(batch, 1, 1, 1)
+                # attn_weights = attn_weights + kv_idx
 
-            p = torch.exp(post_mod_scores - lsec.unsqueeze(-1))
-            dv_chunk = torch.matmul(p.transpose(-2, -1).to(working_precision), doc.to(working_precision)).to(
-                dtype=working_precision
-            )
-            if k_ind < len(dvc_list):
-                dvc_c = dvc_list[k_ind]
-                dvc_list[k_ind] = dvc_c + dv_chunk
-            else:
-                dvc_list.append(dv_chunk)
+                post_score_mod_scores = torch.ops.hpu.flex_attention_score_mod(attn_weights, b, h, q_idx, kv_idx)
 
-            dp = torch.matmul(doc.to(torch.float32), vc.transpose(-2, -1).to(torch.float32)).to(dtype=working_precision)
-            D = (doc * oc).sum(dim=-1, keepdims=True)
-            ds_pre_score_mod = p * (dp - D + glsec.unsqueeze(-1))
+                # apply mask_mod
+                if not is_noop_mask:
+                    mask_mod_out = torch.ops.hpu.flex_attention_mask_mod(b, h, q_idx, kv_idx)
+                    post_mod_scores = torch.where(mask_mod_out, post_score_mod_scores, neg_inf)
+                else:
+                    post_mod_scores = post_score_mod_scores
 
-            # print("Apply Score Mod")
-            ds_post_score_mods = torch.ops.hpu.flex_attention_bwd_score_mod(
-                scores, b, h, q_idx, kv_idx, ds_pre_score_mod
-            )
-            ds_post_score_mod = ds_post_score_mods * scale
+                p = torch.exp(post_mod_scores - lsec.unsqueeze(-1))
+                dv_chunk = torch.matmul(p.transpose(-2, -1).to(working_precision), doc.to(working_precision)).to(
+                    dtype=working_precision
+                )
+                if k_ind < len(dvc_list):
+                    dvc_c = dvc_list[k_ind]
+                    dvc_list[k_ind] = dvc_c + dv_chunk
+                else:
+                    dvc_list.append(dv_chunk)
 
-            # print("Apply Mask Mod")
-            if not is_noop_mask:
-                mask_mod_out = torch.ops.hpu.flex_attention_mask_mod(b, h, q_idx, kv_idx)
-                ds = torch.where(mask_mod_out, ds_post_score_mod, 0.0)
-            else:
-                ds = ds_post_score_mod
-            dqc_c = dqc.clone()
-            dq_chunk = torch.matmul(ds.to(working_precision), kc.to(working_precision))
-            dqc_new = dqc_c + dq_chunk
-            dqc = dqc_new * 1.0
+                dp = torch.matmul(doc.to(working_precision), vc.transpose(-2, -1).to(working_precision)).to(
+                    dtype=working_precision
+                )
+                D = (doc * oc).sum(dim=-1, keepdims=True)
+                ds_pre_score_mod = p * (dp - D + glsec.unsqueeze(-1))
 
-            dk_chunk = torch.matmul(ds.transpose(-2, -1).to(torch.float32), qc.to(torch.float32)).to(
-                dtype=working_precision
-            )
-            if k_ind < len(dkc_list):
-                dkc_c = dkc_list[k_ind]
-                dkc_list[k_ind] = dkc_c + dk_chunk
-            else:
-                dkc_list.append(dk_chunk)
-        dqc_list.append(dqc)
+                # print("Apply Score Mod")
+                ds_post_score_mods = torch.ops.hpu.flex_attention_bwd_score_mod(
+                    scores, b, h, q_idx, kv_idx, ds_pre_score_mod
+                )
+                ds_post_score_mod = ds_post_score_mods * scale
 
-    dv1 = torch.cat(dvc_list, -2)
-    dq1 = torch.cat(dqc_list, -2)
-    dk1 = torch.cat(dkc_list, -2)
+                # print("Apply Mask Mod")
+                if not is_noop_mask:
+                    mask_mod_out = torch.ops.hpu.flex_attention_mask_mod(b, h, q_idx, kv_idx)
+                    ds = torch.where(mask_mod_out, ds_post_score_mod, 0.0)
+                else:
+                    ds = ds_post_score_mod
+                dqc_c = dqc.clone()
+                dq_chunk = torch.matmul(ds.to(working_precision), kc.to(working_precision))
+                dqc_new = dqc_c + dq_chunk
+                dqc = dqc_new * 1.0
+
+                dk_chunk = torch.matmul(ds.transpose(-2, -1).to(working_precision), qc.to(working_precision)).to(
+                    dtype=working_precision
+                )
+                if k_ind < len(dkc_list):
+                    dkc_c = dkc_list[k_ind]
+                    dkc_list[k_ind] = dkc_c + dk_chunk
+                else:
+                    dkc_list.append(dk_chunk)
+            dqc_list.append(dqc)
+
+        dq_group = torch.cat(dqc_list, dim=-2)
+        dk_group = torch.cat(dkc_list, dim=-2)
+        dv_group = torch.cat(dvc_list, dim=-2)
+
+        dq_out.append(dq_group)
+        dk_out.append(dk_group)
+        dv_out.append(dv_group)
+
+    # Concatenate across head dimension
+    dv1 = torch.cat(dv_out, -3)
+    dq1 = torch.cat(dq_out, -3)
+    dk1 = torch.cat(dk_out, -3)
+
+    B, C_qh, H, W = dk1.shape
+    C = C_qh // q_heads
+    grad_k = dk1.view(B, C, q_heads, H, W).sum(dim=2)
+    B, C_qh, H, W = dv1.shape
+    C = C_qh // q_heads
+    grad_v = dv1.view(B, C, q_heads, H, W).sum(dim=2)
+    dk1 = grad_k
+    dv1 = grad_v
+
     packed_tensors = torch.ops.hpu.flex_attention_pack_tensors(
         dq1.to(orig_dtype), dk1.to(orig_dtype), dv1.to(orig_dtype)
     )
