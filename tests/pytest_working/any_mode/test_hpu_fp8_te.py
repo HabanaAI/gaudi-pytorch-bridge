@@ -2135,7 +2135,7 @@ def test_save_load_te_module_indirectly(
 
         if isinstance(extra_state, torch.Tensor):
             # This is considered safe because the data is controlled within the test environment.
-            extra_state = pickle.loads(extra_state.detach().cpu().numpy().tobytes())  # nosec B301
+            extra_state = pickle.loads(extra_state.detach().cpu().numpy().tobytes())  # nosec B301 # noqa S301
         elif isinstance(extra_state, io.BytesIO):
             FIRST_CHARACTER = 0
             extra_state.seek(FIRST_CHARACTER)
