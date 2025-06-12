@@ -22,19 +22,23 @@ using H2dScalesIndicesNames = std::vector<std::pair<size_t, std::string>>;
 
 namespace {
 std::vector<size_t> get_scales_indices(std::string_view node_name) {
-  if (node_name == "hpu::cast_to_fp8_v2"sv or
-      node_name == "hpu::cast_from_fp8"sv) {
-    return {1};
-  } else if (node_name == "hpu::fp8_gemm_v2"sv) {
-    return {6, 7};
-  } else if (node_name == "hpu::fp8_sdpa_fwd_dropout_seed"sv) {
-    return {9, 10, 11, 12, 13, 14};
-  } else if (node_name == "hpu::fp8_sdpa_fwd_non_dropout"sv) {
-    return {8, 9, 10, 11, 12, 13};
-  } else if (node_name == "hpu::fp8_sdpa_recomp_fwd_dropout_seed"sv) {
-    return {10, 11, 12, 13, 14, 15};
-  } else if (node_name == "hpu::fp8_sdpa_recomp_fwd_non_dropout"sv) {
-    return {9, 10, 11, 12, 13, 14};
+  static const std::unordered_map<std::string_view, std::vector<size_t>>
+      scales_indices_map = {
+          {"hpu::cast_to_fp8_v2", {1}},
+          {"hpu::cast_from_fp8", {1}},
+          {"hpu::fp8_gemm_v2", {6, 7}},
+          {"hpu::fp8_sdpa_fwd_dropout_seed", {9, 10, 11, 12, 13, 14}},
+          {"hpu::fp8_sdpa_fwd_non_dropout", {8, 9, 10, 11, 12, 13}},
+          {"hpu::fp8_sdpa_recomp_fwd_dropout_seed", {10, 11, 12, 13, 14, 15}},
+          {"hpu::fp8_sdpa_recomp_fwd_non_dropout", {9, 10, 11, 12, 13, 14}},
+          {"hpu::mixture_of_experts.fp8", {6, 7, 8, 9, 10}},
+          {"hpu::mixture_of_experts.fp8_fused_weights", {5, 6, 7, 8}},
+          {"hpu::mixture_of_experts.fp8_dynamic", {6, 7, 8, 9}},
+          {"hpu::mixture_of_experts.fp8_fused_weights_dynamic", {5, 6, 7}}};
+
+  if (const auto it = scales_indices_map.find(node_name);
+      it != scales_indices_map.end()) {
+    return it->second;
   }
   return {};
 }
@@ -63,6 +67,59 @@ struct HandleH2dScalesPass {
   }
 
  private:
+  bool convertScaleToH2d(
+      const torch::jit::Value* input,
+      torch::jit::Stack& org_stack,
+      const GraphInputIndexMap& org_stack_index_map,
+      const std::string& node_name) {
+    const auto scale_name = input->debugName();
+    const auto scale_idx = org_stack_index_map.at(scale_name);
+    const auto scale_ivalue = org_stack[scale_idx];
+    const auto scale_tensor = scale_ivalue.toTensor();
+
+    if (scale_tensor.device().type() != c10::DeviceType::CPU) {
+      PT_BRIDGE_WARN(
+          "H2D scales flow is enabled, but op ",
+          node_name,
+          " received non cpu scale.");
+      return false;
+    }
+
+    const auto dtype = scale_tensor.scalar_type();
+    HABANA_ASSERT(
+        dtype == at::ScalarType::Float or dtype == at::ScalarType::BFloat16,
+        "CPU scale should be Float or BFloat16, got ",
+        dtype);
+
+    // Create H2D tensor and set it as a scale input.
+    at::Tensor h2d_tensor =
+        createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, dtype);
+    const auto is_float = dtype == at::ScalarType::Float;
+    const auto el_size = is_float ? sizeof(float_t) : sizeof(at::BFloat16);
+    const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
+                                  : habana::HostDataType::BFLOAT16_T;
+
+    auto tmeta{get_tensor_extra_meta(h2d_tensor)};
+    tmeta->set_host_size(1);
+    tmeta->set_host_el_size(el_size);
+    tmeta->set_host_dt_type(dt_type);
+    tmeta->set_host_total_elem(2 * el_size);
+
+    org_stack[scale_idx] = torch::jit::IValue(h2d_tensor);
+
+    // Store CPU scales indices for later patching.
+    m_h2d_scales_idx_names.emplace_back(scale_idx, node_name);
+
+    PT_BRIDGE_DEBUG(
+        "Scale CPUTensor ",
+        scale_name,
+        " of node ",
+        node_name,
+        " was converted to H2D tensor.");
+
+    return true;
+  }
+
   bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
     PT_EAGER_TRACE;
     HABANA_ASSERT(m_graph->inputs().size() == org_stack.size());
@@ -72,8 +129,19 @@ struct HandleH2dScalesPass {
     bool changed{false};
 
     for (const auto node : block->nodes()) {
-      const auto node_kind = node->kind().toQualString();
-      const auto scale_indices = get_scales_indices(node_kind);
+      const auto maybe_schema = node->maybeSchema();
+      if (maybe_schema == nullptr) {
+        continue;
+      }
+
+      const auto& operator_name = maybe_schema->operator_name();
+      std::string node_name = operator_name.name;
+      const std::string node_overload = operator_name.overload_name;
+      if (not node_overload.empty()) {
+        node_name += "." + node_overload;
+      }
+
+      const auto scale_indices = get_scales_indices(node_name);
 
       if (scale_indices.empty()) {
         continue;
@@ -81,57 +149,15 @@ struct HandleH2dScalesPass {
 
       for (const size_t idx : scale_indices) {
         const auto scale = node->inputs().at(idx);
-        const auto scale_name = scale->debugName();
-
-        const auto scale_idx = org_stack_index_map[scale_name];
-        const auto scale_ivalue = org_stack[scale_idx];
-
-        if (not scale_ivalue.isTensor()) {
-          continue;
+        if (scale->node()->kind() == torch::jit::prim::ListConstruct) {
+          for (const auto& input : scale->node()->inputs()) {
+            changed |= convertScaleToH2d(
+                input, org_stack, org_stack_index_map, node_name);
+          }
+        } else {
+          changed |= convertScaleToH2d(
+              scale, org_stack, org_stack_index_map, node_name);
         }
-
-        const auto scale_tensor = scale_ivalue.toTensor();
-
-        if (scale_tensor.device().type() != c10::DeviceType::CPU) {
-          PT_BRIDGE_WARN(
-              "H2D scales flow is enabled, but op ",
-              node_kind,
-              " received non cpu scale.");
-          continue;
-        }
-
-        const auto dtype = scale_tensor.scalar_type();
-        HABANA_ASSERT(
-            dtype == at::ScalarType::Float or dtype == at::ScalarType::BFloat16,
-            "CPU scale should be Float or BFloat16, got ",
-            dtype);
-
-        // Create H2D tensor and set it as a scale input.
-        at::Tensor h2d_tensor =
-            createDynamicTensor({1}, HOST_TO_DEVICE_TENSOR, dtype);
-        const auto is_float = dtype == at::ScalarType::Float;
-        const auto el_size = is_float ? sizeof(float_t) : sizeof(at::BFloat16);
-        const auto dt_type = is_float ? habana::HostDataType::FLOAT_T
-                                      : habana::HostDataType::BFLOAT16_T;
-
-        auto tmeta{get_tensor_extra_meta(h2d_tensor)};
-        tmeta->set_host_size(1);
-        tmeta->set_host_el_size(el_size);
-        tmeta->set_host_dt_type(dt_type);
-        tmeta->set_host_total_elem(2 * el_size);
-
-        org_stack[scale_idx] = torch::jit::IValue(h2d_tensor);
-
-        // Store CPU scales indices for later patching.
-        m_h2d_scales_idx_names.emplace_back(scale_idx, node_kind);
-        changed = true;
-
-        PT_BRIDGE_DEBUG(
-            "Scale CPUTensor ",
-            scale_name,
-            " of node ",
-            node_kind,
-            " was converted to H2D tensor.");
       }
     }
     return changed;

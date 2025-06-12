@@ -392,6 +392,7 @@ class InplaceableOp:
 
 def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scales_enabled: bool) -> bool:
     # 0d float CPU scales of fp8 ops are left on the CPU device for H2D optimization.
+    # Indices is range [from, to)
     ops_to_scales_idx = {
         "cast_to_fp8_v2.default": (1, 2),
         "cast_from_fp8.default": (1, 2),
@@ -400,6 +401,10 @@ def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scal
         "fp8_sdpa_fwd_non_dropout.default": (8, 14),
         "fp8_sdpa_recomp_fwd_dropout.default": (9, 15),
         "fp8_sdpa_recomp_fwd_non_dropout.default": (9, 15),
+        "mixture_of_experts.fp8": (6, 11),
+        "mixture_of_experts.fp8_fused_weights": (5, 9),
+        "mixture_of_experts.fp8_dynamic": (6, 10),
+        "mixture_of_experts.fp8_fused_weights_dynamic": (5, 8),
     }
 
     if (
@@ -416,10 +421,6 @@ def _is_cpu_scale_allowed(node: torch.fx.Node, node_arg: torch.fx.Node, h2d_scal
 def _check_unsupported_h2d_ops(node: torch.fx.Node):
     ops_not_yet_supported = [
         "conv2d_fp8.default",
-        "mixture_of_experts.fp8",
-        "mixture_of_experts.fp8_fused_weights",
-        "mixture_of_experts.fp8_dynamic",
-        "mixture_of_experts.fp8_fused_weights_dynamic",
     ]
 
     node_name = node.target.__name__

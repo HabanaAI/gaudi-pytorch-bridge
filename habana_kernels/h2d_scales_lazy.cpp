@@ -173,26 +173,56 @@ bool is_cpu_float_bfloat_0d_tensor(const std::optional<at::Tensor>& tensor) {
 
 } // namespace
 
-std::optional<at::Tensor> maybe_convert_to_h2d(
+std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
+    const std::optional<at::Tensor>& tensor,
+    const std::string_view op_name) {
+  if (is_cpu_float_bfloat_0d_tensor(tensor)) {
+    PT_BRIDGE_DEBUG(
+        "CPU scale of op ",
+        op_name,
+        " was converted to H2D tensor with value=",
+        tensor->item().toDouble());
+    return create_h2d_scale(tensor.value());
+  }
+  PT_BRIDGE_WARN(
+      "H2D scales flow is enabled, but op ",
+      op_name,
+      " received non cpu-float-0D scale.");
+  return tensor;
+}
+
+std::optional<at::Tensor> maybe_convert_tensor_to_h2d(
     const std::optional<at::Tensor>& tensor,
     const bool enabled,
     const std::string_view op_name) {
   if (enabled) {
+    return maybe_convert_tensor_to_h2d(tensor, op_name);
+  }
+  return tensor;
+}
+
+std::vector<at::Tensor> maybe_convert_list_to_h2d(
+    const at::TensorList& tensors,
+    const std::string_view op_name) {
+  std::vector<at::Tensor> converted_tensors;
+  converted_tensors.reserve(tensors.size());
+  for (const auto& tensor : tensors) {
     if (is_cpu_float_bfloat_0d_tensor(tensor)) {
       PT_BRIDGE_DEBUG(
           "CPU scale of op ",
           op_name,
           " was converted to H2D tensor with value=",
-          tensor->item().toDouble());
-      return create_h2d_scale(tensor.value());
+          tensor.item().toDouble());
+      converted_tensors.push_back(create_h2d_scale(tensor));
     } else {
       PT_BRIDGE_WARN(
           "H2D scales flow is enabled, but op ",
           op_name,
           " received non cpu-float-0D scale.");
+      converted_tensors.push_back(tensor);
     }
   }
-  return tensor;
+  return converted_tensors;
 }
 
 void verify_no_h2d_scales(

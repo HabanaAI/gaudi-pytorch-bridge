@@ -20,10 +20,12 @@ import math
 from functools import partial
 
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.hpu as ht
 import pytest
 import torch
 import torch.nn.functional as F
 from compile.test_dynamo_utils import use_eager_fallback
+from fp8_utils import convertExpBiasToScale
 from test_utils import (
     _is_simulator,
     check_ops_executed_in_jit_ir,
@@ -37,6 +39,8 @@ from test_utils import (
     is_pytest_mode_eager,
 )
 from torch import nn
+
+pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")]
 
 DTYPES = [torch.bfloat16]  # [torch.float, torch.bfloat16]
 ACTIVATIONS = ["silu"]  # ["gelu", "relu", "silu"]
@@ -259,7 +263,6 @@ def mixture_of_experts_eager(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("measurement_mode", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -340,7 +343,6 @@ def test_mixture_of_experts(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -458,9 +460,15 @@ def test_mixture_of_experts_fp8(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Eager mode doesn't support H2D scales.")
-def test_mixture_of_experts_fp8_h2d():
+@pytest.mark.parametrize("hw_aligned_scales", [True, False])
+def test_mixture_of_experts_fp8_h2d(hw_aligned_scales):
+    ht.enable_inference_mode()
+    import habana_frameworks.torch.utils.experimental as htexp
+    import numpy as np
+
+    htexp._set_scale_attributes(True, 10)
+
     fp8_dtype = torch.float8_e4m3fn
     permuted_weights = False
     num_tokens = 32
@@ -468,59 +476,85 @@ def test_mixture_of_experts_fp8_h2d():
     activation = "silu"
     hidden_dim = 64
     ffn_dim = 224
-    fp8_scales = {
-        "d_scale_w1": [4.35, 1.49, 1.12, 2.22, 8.33, 1.28, 2.94, 1.79],
-        "d_scale_w2": [1.10, 2.13, 2.78, 1.22, 3.45, 1.59, 1.35, 1.72],
-        "d_scale_w3": [6.67, 1.09, 2.08, 2.70, 1.56, 1.23, 1.89, 3.85],
-        "d_scale_intermediate_hidden_states": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        "d_scale_hidden_states": 3.17,
-    }
 
-    d_scale_w1 = fp8_scales["d_scale_w1"]
-    d_scale_w2 = fp8_scales["d_scale_w2"]
-    d_scale_w3 = fp8_scales["d_scale_w3"]
-    d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
-    d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
+    bias_values = [3, 7, 11] if is_gaudi2() else [3, 5, 9, 11]
+    scale_values = convertExpBiasToScale(bias_values)
 
-    hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
-    router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
-    router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
-    hidden_states_hpu /= d_scale_hidden_states
+    def scales_gen(length):
+        scales = np.random.choice(scale_values, length) if hw_aligned_scales else torch.rand(length) * 10.0
+        scales = scales.tolist()
+        if length == 1:
+            return scales[0]
+        return scales
 
-    _, expert_weights_hpu = generate_expert_weights(
-        hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype, (d_scale_w1, d_scale_w2, d_scale_w3)
-    )
+    runs = 3
+    fp8_scales_list = []
+    for _ in range(runs):
+        fp8_scales_list.append(
+            {
+                "d_scale_w1": scales_gen(num_experts),
+                "d_scale_w2": scales_gen(num_experts),
+                "d_scale_w3": scales_gen(num_experts),
+                "d_scale_intermediate_hidden_states": [1.0] * num_experts,
+                "d_scale_hidden_states": scales_gen(1),
+            }
+        )
 
-    d_scale_w1 = [torch.tensor(s) for s in d_scale_w1]
-    d_scale_w2 = [torch.tensor(s) for s in d_scale_w2]
-    d_scale_w3 = [torch.tensor(s) for s in d_scale_w3]
-    d_scale_intermediate_hidden_states = [torch.tensor(s) for s in d_scale_intermediate_hidden_states]
-    d_scale_hidden_states = torch.tensor(d_scale_hidden_states)
+    for fp8_scales in fp8_scales_list:
+        d_scale_w1 = fp8_scales["d_scale_w1"]
+        d_scale_w2 = fp8_scales["d_scale_w2"]
+        d_scale_w3 = fp8_scales["d_scale_w3"]
+        d_scale_intermediate_hidden_states = fp8_scales["d_scale_intermediate_hidden_states"]
+        d_scale_hidden_states = fp8_scales["d_scale_hidden_states"]
 
-    fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
-    w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
+        hidden_states_hpu = torch.randn((num_tokens, hidden_dim), dtype=torch.float).to(fp8_dtype).to(hpu)
+        router_weights_all = torch.randn((num_tokens, num_experts), dtype=torch.bfloat16).to(hpu)
+        router_weights_hpu, expert_routing_table_hpu = torch.topk(router_weights_all, 2)
+        hidden_states = hidden_states_hpu.float().to(cpu)
+        hidden_states_hpu /= d_scale_hidden_states
+        router_weights = router_weights_hpu.float().to(cpu)
+        expert_routing_table = expert_routing_table_hpu.to(cpu)
 
-    with torch.inference_mode(), pytest.raises(RuntimeError) as e:
-        fn(
-            hidden_states_hpu,
-            expert_routing_table_hpu,
-            router_weights_hpu,
-            w1_hpu,
-            w2_hpu,
-            w3_hpu,
-            d_scale_hidden_states,
-            d_scale_intermediate_hidden_states,
-            d_scale_w1,
-            d_scale_w2,
-            d_scale_w3,
-            permuted_weights,
-            activation,
-            0,
-            num_experts - 1,
-        ).cpu()
+        expert_weights_cpu, expert_weights_hpu = generate_expert_weights(
+            hidden_dim, ffn_dim, num_experts, permuted_weights, fp8_dtype, (d_scale_w1, d_scale_w2, d_scale_w3)
+        )
+        htcore.step_closure._mark_step_if_lazy()
 
-    exception_msg = str(e.value.inner_exception) if is_pytest_mode_compile() else str(e)
-    assert "mixture_of_experts.fp8 doesn't support H2D scales feature yet, but received CPU scales." in exception_msg
+        d_scale_w1 = [torch.tensor(s) for s in d_scale_w1]
+        d_scale_w2 = [torch.tensor(s) for s in d_scale_w2]
+        d_scale_w3 = [torch.tensor(s) for s in d_scale_w3]
+        d_scale_intermediate_hidden_states = [torch.tensor(s) for s in d_scale_intermediate_hidden_states]
+        d_scale_hidden_states = torch.tensor(d_scale_hidden_states)
+
+        mixtral_ref = MixtralSparseMoeBlock(hidden_dim, num_experts, expert_weights_cpu, activation)
+        result_cpu, _ = mixtral_ref(hidden_states, expert_routing_table, router_weights)
+
+        fn = compile_function_if_compile_mode(torch.ops.hpu.mixture_of_experts)
+        w1_hpu, w2_hpu, w3_hpu = expert_weights_hpu
+
+        with torch.inference_mode():
+            result_hpu = fn(
+                hidden_states_hpu,
+                expert_routing_table_hpu,
+                router_weights_hpu,
+                w1_hpu,
+                w2_hpu,
+                w3_hpu,
+                d_scale_hidden_states,
+                d_scale_intermediate_hidden_states,
+                d_scale_w1,
+                d_scale_w2,
+                d_scale_w3,
+                permuted_weights,
+                activation,
+                0,
+                num_experts - 1,
+            )
+
+        check_using_cosine_similarity(result_hpu, result_cpu, 0.975)
+
+    htexp._set_scale_attributes(False, 0)
+    ht.disable_inference_mode()
 
 
 def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
@@ -565,7 +599,6 @@ def quantize_blockwise(weights_tensorlist, block_size, fp8_dtype):
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
 @pytest.mark.parametrize("hidden_dim", HIDDEN_DIMS)
@@ -650,7 +683,6 @@ def test_mixture_of_experts_fp8_blockwise_quant(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.skip(reason="On-demand test. Used only for debugging and integration testing")
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn], ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -759,7 +791,6 @@ def test_compare_graph_modes_to_eager_decomposition(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
@@ -863,7 +894,6 @@ def test_mixture_of_experts_fwd_bwd(
 
 
 @pytest.mark.skipif(_is_simulator(), reason="Mixture of experts takes too long on sim")
-@pytest.mark.skipif(is_gaudi1(), reason="Mixture of experts is not supported for Gaudi")
 @pytest.mark.parametrize("recomp", [True, False])
 @pytest.mark.parametrize("dtype", DTYPES, ids=format_tc)
 @pytest.mark.parametrize("activation", ACTIVATIONS)
