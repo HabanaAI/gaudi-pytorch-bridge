@@ -206,6 +206,7 @@ def fp8_sdpa_fwd_wrapper(
     ctx.is_causal = is_causal
     ctx.recompute = recompute
     ctx.gqa = gqa
+    ctx.softmax_mode = softmax_mode
 
     if recompute:
         return out, m, linv, seed, amax_s, amax_o
@@ -224,6 +225,7 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
         scale = ctx.scale
         dropout_p = ctx.dropout_p
         is_causal = ctx.is_causal
+        softmax_mode = ctx.softmax_mode
         if ctx.gqa:
             dout = gqa_input_reshape_bwd(q, v, dout)
             fwd_out = gqa_input_reshape_bwd(q, v, fwd_out)
@@ -239,6 +241,7 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
             is_causal,
             dropout_p,
             scale,
+            softmax_mode,
             fwd_out,
         )
         if ctx.gqa:

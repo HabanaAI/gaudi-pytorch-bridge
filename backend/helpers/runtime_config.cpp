@@ -29,9 +29,6 @@ bool clear_const_section_path = false;
 // if true, compress the constant tensor data before serializing onto the disk
 bool enable_compression = false;
 
-// if true enables recompute based fused SDPA
-bool enabled_recomputeFSDPA = true;
-
 bool enable_mark_scale_constant = true;
 bool enable_mark_non_scale_constant = true;
 
@@ -112,13 +109,5 @@ void DisableMatmul3d2dReshape() {
 
 bool IsMatmul3d2dReshapeEnabled() {
   return enable_matmul3d_2d_reshape;
-}
-
-void enableRecomputeFSDPA(bool recompute) {
-  enabled_recomputeFSDPA = recompute;
-}
-
-bool isRecomputeFSDPAEnabled() {
-  return enabled_recomputeFSDPA;
 }
 } // namespace habana_helpers

@@ -386,12 +386,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("is_matmul3d_2d_reshape_enabled", []() {
     return habana_helpers::IsMatmul3d2dReshapeEnabled();
   });
-  m.def("enable_recompute_FSDPA", [](bool recompute) {
-    habana_helpers::enableRecomputeFSDPA(recompute);
-  });
-  m.def("is_recompute_FSDPA_enabled", []() {
-    return habana_helpers::isRecomputeFSDPAEnabled();
-  });
 
   m.def(
       "custom_op_calc_out_shape_no_params",
