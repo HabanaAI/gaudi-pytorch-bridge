@@ -962,6 +962,93 @@ def test_fp8_gemm_v2_diff_scales_const_at_cache_hit():
     ht.disable_inference_mode()
 
 
+def repeat_expand(tensor, count, dim):
+    view_args = list(tensor.shape)
+    view_args[dim] = -1
+    tensor = tensor.unsqueeze(dim)
+    repeat_args = [1] * tensor.dim()
+    repeat_args[dim] = count
+    expanded = tensor.repeat(*repeat_args)
+    return expanded.view(*view_args)
+
+
+def per_block_fp8_gemm(a, b, scale_a, scale_b, block_size, block_a, block_b):
+    a_chunks = torch.split(a, block_size, dim=-1)
+    b_chunks = torch.split(b, block_size, dim=-2)
+
+    if block_a:
+        scale_a = repeat_expand(scale_a, block_size, -2)
+    if block_b:
+        scale_b = repeat_expand(scale_b, block_size, -1)
+
+    sa_chunks = torch.split(scale_a, 1, dim=-1)
+    sb_chunks = torch.split(scale_b, 1, dim=-2)
+    res = []
+
+    for a_chunk, b_chunk, sa_chunk, sb_chunk in zip(a_chunks, b_chunks, sa_chunks, sb_chunks, strict=False):
+        res.append(torch.matmul(a_chunk, b_chunk) * sa_chunk * sb_chunk)
+
+    result = res[0]
+    for r in res[1:]:
+        result += r
+
+    return result
+
+
+@pytest.mark.parametrize("block_a, block_b", [(False, True), (True, False), (True, True)])
+@pytest.mark.parametrize("trans_a, trans_b", [(False, False), (False, True), (True, True)])
+@pytest.mark.parametrize("batch", [False, True])
+def test_fp8_gemm_per_block(block_a, block_b, trans_a, trans_b, batch):
+    dtype = torch.float8_e4m3fn
+    out_dtype = torch.bfloat16
+
+    block_size = 8
+    scale_a_dim_1 = 6
+    scale_a_dim_2 = 8
+    scale_b_dim_1 = 8
+    scale_b_dim_2 = 12
+
+    a_dim_1 = scale_a_dim_1 * block_size if block_a else scale_a_dim_1
+    a_dim_2 = scale_a_dim_2 * block_size
+    b_dim_1 = scale_b_dim_1 * block_size
+    b_dim_2 = scale_b_dim_2 * block_size if block_b else scale_b_dim_2
+
+    shape_a = (a_dim_1, a_dim_2)
+    shape_b = (b_dim_1, b_dim_2)
+    scale_shape_a = (scale_a_dim_1, scale_a_dim_2)
+    scale_shape_b = (scale_b_dim_1, scale_b_dim_2)
+
+    if batch:
+        shape_a = (2, 1, *shape_a)
+        scale_shape_a = (2, 1, *scale_shape_a)
+        shape_b = (2, *shape_b)
+        scale_shape_b = (2, *scale_shape_b)
+
+    a = torch.randn(shape_a).to(dtype).to(out_dtype)
+    b = torch.randn(shape_b).to(dtype).to(out_dtype)
+    scale_a = torch.randn(scale_shape_a, dtype=out_dtype)
+    scale_b = torch.randn(scale_shape_b, dtype=out_dtype)
+    res_cpu = per_block_fp8_gemm(a, b, scale_a, scale_b, block_size, block_a, block_b)
+
+    if trans_a:
+        a = a.transpose(-1, -2)
+    if trans_b:
+        b = b.transpose(-1, -2)
+
+    ah = a.to(dtype).to("hpu")
+    bh = b.to(dtype).to("hpu")
+
+    scale_ah = scale_a.to("hpu")
+    scale_bh = scale_b.to("hpu")
+
+    fn = compile_function_if_compile_mode(torch.ops.hpu.fp8_gemm_v2)
+
+    res = fn(ah, trans_a, bh, trans_b, None, out_dtype, scale_ah, scale_bh, None, False).cpu()
+    tol = 1e-7
+
+    compare_tensors(res, res_cpu, atol=tol, rtol=tol)
+
+
 @pytest.mark.parametrize("dtype", [torch.bfloat16] + fp8_dtypes)
 def test_in_place_interleave(dtype):
     shape = (8, 2, 2, 5)

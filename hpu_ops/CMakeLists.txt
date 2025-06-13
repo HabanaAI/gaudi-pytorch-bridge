@@ -149,8 +149,8 @@ add_habana_library(
   backend/foreach_gen.cpp
   backend/fmin_gen.cpp
   backend/fmax_gen.cpp
+  backend/fp8_gemm_gen.cpp
   backend/fp8_ops.cpp
-  backend/fp8_ops_gen.cpp
   backend/frexp_gen.cpp
   backend/full_gen.cpp
   backend/fused_clip_norm_gen.cpp
@@ -284,6 +284,7 @@ add_habana_library(
   backend/split_gen.cpp
   backend/squeeze_dims_gen.cpp
   backend/strided_insert_gen.cpp
+  backend/sum_fp8_gen.cpp
   backend/take_gen.cpp
   backend/threshold_gen.cpp
   backend/topk_gen.cpp
