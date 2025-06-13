@@ -58,8 +58,8 @@ class EagerKernelCacheTest : public habana_lazy_test::LazyTest {
 
 TEST_F(EagerKernelTest, LinspaceOutCache) {
   const int64_t constStepsValue = 11;
-  torch::Scalar start = 0.0f;
-  torch::Scalar end = 10.0f;
+  torch::Scalar start = 0.0F;
+  torch::Scalar end = 10.0F;
   int64_t step = constStepsValue;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
@@ -79,8 +79,8 @@ TEST_F(EagerKernelTest, LinspaceOutCache) {
 
 TEST_F(EagerKernelTest, DISABLED_LinspaceOutNeToPosStep1) {
   const int64_t constStepsValue = 12; // set incorrect size
-  torch::Scalar start = -100.0f;
-  torch::Scalar end = 200.0f;
+  torch::Scalar start = -100.0F;
+  torch::Scalar end = 200.0F;
   int64_t step = 1;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));

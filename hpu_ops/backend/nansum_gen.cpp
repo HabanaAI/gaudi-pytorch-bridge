@@ -114,7 +114,7 @@ void NansumList::AddNode(
       {input},
       {{inputShape, c10::ScalarType::Char}});
 
-  auto zero_constant = ConstantHelper(graph, 0.0f, compute_type);
+  auto zero_constant = ConstantHelper(graph, 0.0F, compute_type);
 
   // where on is_nan
   auto where = BuildOp(

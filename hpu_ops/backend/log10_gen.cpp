@@ -21,7 +21,7 @@ void ForeachLog10::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& tensors = stack[0].toTensorList();
-  for (auto i = 0u; i < tensors.size(); ++i) {
+  for (auto i = 0U; i < tensors.size(); ++i) {
     const auto& tensor = tensors[i];
     const at::ScalarType dtype = isIntegralType(tensor.scalar_type(), true)
         ? torch::kFloat32

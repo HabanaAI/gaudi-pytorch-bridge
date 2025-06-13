@@ -82,7 +82,7 @@ void ForeachErfc::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto& tensors = stack[0].toTensorList();
-  for (auto i = 0u; i < tensors.size(); ++i) {
+  for (auto i = 0U; i < tensors.size(); ++i) {
     const auto& tensor = tensors[i];
     const at::ScalarType scalar_type = tensor.scalar_type() != torch::kBFloat16
         ? torch::kFloat32

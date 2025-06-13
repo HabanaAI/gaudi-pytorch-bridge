@@ -1710,7 +1710,7 @@ void SharedLayerReportGenerator::
                /* match_rank */ std::nullopt,
                /* dtypes */ std::nullopt,
                /* match_precision_type */ std::nullopt,
-               /* values */ std::vector<std::any>{1.0f},
+               /* values */ std::vector<std::any>{1.0F},
                /* is_array */ false,
                /* array_length */ std::nullopt}},
           /* blacklisted_precision_types */ {},

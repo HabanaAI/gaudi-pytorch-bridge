@@ -120,7 +120,7 @@ void Rrelu_with_noise::AddNode(
         {{outshape, ScalarType()}},
         paramsT.ptr(),
         paramsT.size());
-    auto ones = ConstantHelper(graph, 1.0f, ScalarType(), outshape);
+    auto ones = ConstantHelper(graph, 1.0F, ScalarType(), outshape);
     auto zeros = ConstantHelper(graph, 0, ScalarType(), outshape);
     // cond: condition tensor
     auto cond = BuildOp(

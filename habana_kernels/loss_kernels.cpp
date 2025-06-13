@@ -77,7 +77,7 @@ void KlDivOperator::AllocateAndAddSynapseNode(
         self.device().index(), self.scalar_type());
     threshold_op->SetSynapseInput(log_exp_op->GetSynOutputs()[0]);
     threshold_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    stack = {IValue(log_exp_op->GetOutputs()[0]), IValue(target), IValue(0.0f)};
+    stack = {IValue(log_exp_op->GetOutputs()[0]), IValue(target), IValue(0.0F)};
     threshold_op->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
@@ -165,7 +165,7 @@ InferOutputMetaRetType KlDivOperator::InferOutputMeta(
     stack = {
         IValue(std::get<1>(out_log_exp_op->GetOutputTensor(0))),
         IValue(target),
-        IValue(0.0f)};
+        IValue(0.0F)};
     out_threshold_op = &out.call_InferOutputMeta(threshold_op, stack);
     stack.clear();
   }

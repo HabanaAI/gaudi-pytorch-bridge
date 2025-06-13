@@ -19,8 +19,8 @@ namespace habana {
 
 FillParamsT FillHardSigmoidParams(const at::Stack&) {
   PARAMS_STUB(ns_HardSigmoidKernel::Params);
-  constexpr float alpha = 1 / 6.0f;
-  constexpr float beta = 1 / 2.0f;
+  constexpr float alpha = 1 / 6.0F;
+  constexpr float beta = 1 / 2.0F;
 
   params->alpha = alpha;
   params->beta = beta;

@@ -33,8 +33,8 @@ FillParamsT FillOneHotParams(const at::Stack& stack) {
   PARAMS_STUB(ns_OneHotKernel::Params);
   params->axis = 0;
   params->depth = static_cast<int>(calculateNumberOfClasses(stack));
-  params->on_value = 1.0f;
-  params->off_value = 0.0f;
+  params->on_value = 1.0F;
+  params->off_value = 0.0F;
 
   return paramsT;
 }

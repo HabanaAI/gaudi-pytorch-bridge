@@ -104,7 +104,7 @@ optimizer_sparse_sgd_with_valid_count(
       indices,
       learning_rate,
       valid_count,
-      0.0f,
+      0.0F,
       false);
 }
 

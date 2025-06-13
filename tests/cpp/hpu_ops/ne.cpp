@@ -25,7 +25,7 @@ class NeDtypeSupportTest : public DTypeSupportTest<c10::ScalarType> {};
 
 TEST_F(HpuOpTest, ne_scalar_out) {
   GenerateInputs(1, torch::kFloat);
-  float compVal = -1.1f;
+  float compVal = -1.1F;
   torch::ScalarType dtype = torch::kBool;
 
   auto expected = torch::empty(0, dtype);

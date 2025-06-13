@@ -89,7 +89,7 @@ TEST_F(HpuOpTest, nansum_f32) {
 
 TEST_F(HpuOpTest, nansum_f32_with_nan) {
   auto t1_cpu = torch::tensor(
-      {1.f, 2.f, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
+      {1.0F, 2.0F, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
 
   auto out_cpu = torch::nansum(t1_cpu, 0, false);
@@ -112,7 +112,7 @@ TEST_F(HpuOpTest, nansum_f32_dty_bf16) {
 
 TEST_F(HpuOpTest, nansum_f32_with_nan_dty_bf16) {
   auto t1_cpu = torch::tensor(
-      {1.f, 2.f, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
+      {1.0F, 2.0F, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
 
   auto out_cpu = torch::nansum(t1_cpu, 0, false, torch::kBFloat16);
@@ -136,7 +136,7 @@ TEST_F(HpuOpTest, nanmean_f32) {
 
 TEST_F(HpuOpTest, nanmean_f32_with_nan) {
   auto t1_cpu = torch::tensor(
-      {1.f, 2.f, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
+      {1.0F, 2.0F, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
 
   auto out_cpu = torch::nanmean(t1_cpu, 0, false);
@@ -159,7 +159,7 @@ TEST_F(HpuOpTest, nanmean_f32_dty_bf16) {
 
 TEST_F(HpuOpTest, nanmean_f32_with_nan_dty_bf16) {
   auto t1_cpu = torch::tensor(
-      {1.f, 2.f, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
+      {1.0F, 2.0F, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
 
   auto out_cpu = torch::nanmean(t1_cpu, 0, false, torch::kBFloat16);

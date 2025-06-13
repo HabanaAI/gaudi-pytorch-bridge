@@ -170,16 +170,16 @@ TEST_SUITE("Stack Generator tests") {
 
           SUBCASE("Match precision_type") {
             input.match_precision_type = true;
-            input.values = {0.0f};
+            input.values = {0.0F};
 
-            expected_stacks.push_back(at::Stack{0.0f});
+            expected_stacks.push_back(at::Stack{0.0F});
           }
 
           SUBCASE("Multiple values") {
-            input.values = {0.0f, 1.0f};
+            input.values = {0.0F, 1.0F};
 
-            expected_stacks.push_back(at::Stack{0.0f});
-            expected_stacks.push_back(at::Stack{1.0f});
+            expected_stacks.push_back(at::Stack{0.0F});
+            expected_stacks.push_back(at::Stack{1.0F});
           }
         }
 

@@ -309,7 +309,7 @@ ParsedLiteral IRParser::convertStrToNumericAttr(
   ParsedLiteral result;
   if (numeric_attr_str.find('j') != std::string::npos) {
     result.k = AttributeKind::c;
-    double imag = 0.0f;
+    double imag = 0.0F;
     try {
       imag = std::stod(numeric_attr_str.substr(0, numeric_attr_str.size() - 1));
     } catch (const std::invalid_argument& e) {

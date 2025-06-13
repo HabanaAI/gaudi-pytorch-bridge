@@ -412,7 +412,7 @@ void EagerExec::launch() {
     graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
         graph,
         input_refs,
-        0ull /*unique_cntr*/,
+        0ULL /*unique_cntr*/,
         std::vector<bool>{} /*node_bcast_map_*/,
         "" /*id*/,
         false /*dynamic*/,

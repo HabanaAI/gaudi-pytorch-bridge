@@ -114,7 +114,7 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
   // Even for dense, it applies decay param to the current grad whereas TPC
   // applies to the accumulated grad
   params.decay = 1.0;
-  params.eps = 1e-10f;
+  params.eps = 1e-10F;
 
   // execute in-place for weights & moments
   p_context_->syn_outputs_.emplace_back(
@@ -852,8 +852,8 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     auto grad = grads.get(i);
     auto param = params.get(i);
     auto outshape = grad.sizes();
-    auto zero_constant = ConstantHelper(graph, 0.0f, dtype, outshape);
-    auto one_constant = ConstantHelper(graph, 1.0f, dtype, outshape);
+    auto zero_constant = ConstantHelper(graph, 0.0F, dtype, outshape);
+    auto one_constant = ConstantHelper(graph, 1.0F, dtype, outshape);
     auto eetaTensor = ConstantHelper(graph, eeta, dtype, outshape);
     auto weightDecayTensor =
         ConstantHelper(graph, weightDecay, dtype, outshape);

@@ -88,7 +88,7 @@ void InstanceNormBackward::AddNode(
       ? std::nullopt
       : std::make_optional(ConstantHelper(
             graph,
-            1.0f,
+            1.0F,
             c10::ScalarType::Float,
             input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
 

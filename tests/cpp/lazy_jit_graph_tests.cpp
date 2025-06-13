@@ -47,7 +47,7 @@ TEST_F(LazyJITTest, CreateGraph) {
   torch::Tensor tensor_in1 = tensor_in1_cpu.to(torch::kHPU);
   torch::Tensor tensor_in2 = tensor_in2_cpu.to(torch::kHPU);
 
-  Scalar alpha = 1.0f, beta = 1.0f;
+  Scalar alpha = 1.0F, beta = 1.0F;
   auto result = torch::add(tensor_in1, tensor_in2, alpha);
   auto result2 = torch::add(result, tensor_in2, beta);
   auto hl_result = SyncAndGetHbLazyTensor(result2);
@@ -74,7 +74,7 @@ TEST_F(LazyJITTest, CreateGraph) {
 }
 
 TEST_F(LazyJITTest, ExecuteGraph) {
-  Scalar alpha = 10.0f;
+  Scalar alpha = 10.0F;
   Tensor tensor_in1 = torch::rand({2, 3});
   Tensor tensor_in2 = torch::rand({2, 3});
   Tensor exp1 = add(tensor_in1, tensor_in2, alpha);

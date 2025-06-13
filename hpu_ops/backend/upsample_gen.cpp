@@ -1632,9 +1632,9 @@ void UpSampleTrilinear3DFwdOperator::AddNode(
   auto scales = stack.at(3);
   double scale_d = 1.0, scale_w = 1.0, scale_h = 1.0;
   if (!scales.isNone()) {
-    scale_d = stack.at(3).toOptional<double>().value_or(1.0f);
-    scale_h = stack.at(4).toOptional<double>().value_or(1.0f);
-    scale_w = stack.at(5).toOptional<double>().value_or(1.0f);
+    scale_d = stack.at(3).toOptional<double>().value_or(1.0F);
+    scale_h = stack.at(4).toOptional<double>().value_or(1.0F);
+    scale_w = stack.at(5).toOptional<double>().value_or(1.0F);
   }
   syn_out(0) = UpsampleCommonFunc(
       this,

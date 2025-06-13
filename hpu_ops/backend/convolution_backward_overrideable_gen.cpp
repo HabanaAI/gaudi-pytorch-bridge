@@ -97,7 +97,7 @@ static synapse_helpers::tensor ComputeBiasGradGraph(
   // back to regular flow
   std::vector<int64_t> next_val{0, 1, 2, 3, 4};
   bool flatten_higher_dims = false;
-  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
+  for (auto i = 0U; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
     if (dim_to_reduce[i] == next_val[i]) {
       flatten_higher_dims = true;
     } else {

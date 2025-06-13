@@ -175,7 +175,7 @@ class SynapseApi : public StubSynapseApi {
     static constexpr std::uint64_t STREAMS_TOTAL_MEM_SIZE = 1;
     static constexpr std::uint64_t TOTAL_MEMORY = 0x1000000000;
     static constexpr std::uint64_t FREE_MEMORY = 0x1000000000;
-    static constexpr std::uint64_t ALLOCATION_START = 0x111D000000000ull;
+    static constexpr std::uint64_t ALLOCATION_START = 0x111D000000000ULL;
     static constexpr std::uint64_t DEVICE_MALLOC_ALIGNMENT = 0x1000;
   };
   SynapseApi() : StubSynapseApi(), allocation_back_{Consts::ALLOCATION_START} {

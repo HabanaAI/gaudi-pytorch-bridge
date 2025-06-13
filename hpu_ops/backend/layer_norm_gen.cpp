@@ -195,7 +195,7 @@ void LayerNormHabanaOperator::AddNode(
         storage,
         weightOpt,
         weightOrBias_constant_shape,
-        1.0f,
+        1.0F,
         weightOrBias_shape);
 
     synTensor synBias = CreateLayerNormBiasWeightTensor(
@@ -204,7 +204,7 @@ void LayerNormHabanaOperator::AddNode(
         storage,
         biasOpt,
         weightOrBias_constant_shape,
-        0.0f,
+        0.0F,
         weightOrBias_shape);
 
     if (input_ndim < normalized_ndim ||
@@ -388,7 +388,7 @@ void LayerNormBwdHabanaOperator::AddNode(
         weightOpt,
         {c10::multiply_integers(
             normalized_shape.cbegin(), normalized_shape.cend())},
-        1.0f,
+        1.0F,
         weightShape);
 
     std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};

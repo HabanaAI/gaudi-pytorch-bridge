@@ -121,7 +121,7 @@ static auto BuildBinary(
 
   if (add_casts) {
     auto result_cast_type = habana_helpers::DataTypeToCastType(result_type);
-    for (auto i = 0u; i < inputs.size(); ++i) {
+    for (auto i = 0U; i < inputs.size(); ++i) {
       if (result_cast_type == habana_helpers::DataTypeToCastType(dtypes[i])) {
         continue;
       }
@@ -298,7 +298,7 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
       // then call result_type(Tensor, Scalar) variant
       at::Scalar newOtherScalar;
       if (at::is_floating_point(otherTensor)) {
-        newOtherScalar = at::Scalar(1.0f);
+        newOtherScalar = at::Scalar(1.0F);
       } else {
         newOtherScalar = at::Scalar(1LL);
       }

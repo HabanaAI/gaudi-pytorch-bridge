@@ -110,7 +110,7 @@ static bool needsReduceSum(std::vector<int64_t> dimsVec) {
   if (dimsVec.size() == 1) {
     return false;
   }
-  for (auto i = 0u; i < dimsVec.size() - 1; i++) {
+  for (auto i = 0U; i < dimsVec.size() - 1; i++) {
     // If difference between two next elements is different than one, then dims
     // are not consecutive
     if (dimsVec[i + 1] - dimsVec[i] != 1) {
@@ -352,7 +352,7 @@ SharedMetaDataVector VarStdCommonSharedMeta(
     SharedMetaData sliceAxisSharedMeta{"slice_axis"};
     sliceAxisSharedMeta.inputs_data.emplace_back(inRank, dtype);
     sliceAxisSharedMeta.outputs_data.emplace_back(1, dtype);
-    for (auto i = 0u; i < inRank; ++i) {
+    for (auto i = 0U; i < inRank; ++i) {
       out.push_back(sliceAxisSharedMeta);
     }
   }
@@ -385,7 +385,7 @@ SharedMetaDataVector VarStdCommonSharedMeta(
   }
 
   if (mean_op && !keepdim) {
-    for (auto i = 0u; i < inRank; ++i) {
+    for (auto i = 0U; i < inRank; ++i) {
       SharedMetaData squeezeSharedMeta{"squeeze"};
       squeezeSharedMeta.inputs_data.emplace_back(inRank - i, dtype);
       squeezeSharedMeta.outputs_data.emplace_back(inRank - i - 1, dtype);

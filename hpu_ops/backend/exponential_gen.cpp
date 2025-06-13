@@ -40,7 +40,7 @@ FillParamsT FillExponentialParamsCommon(
       lambd > 0.0,
       "exponential_ expects lambda > 0.0, but found lambda=",
       lambd);
-  params->beta = 1.0f / lambd;
+  params->beta = 1.0F / lambd;
   return paramsT;
 }
 

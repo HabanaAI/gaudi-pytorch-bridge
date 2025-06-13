@@ -25,20 +25,20 @@
 namespace synapse_helpers {
 
 namespace {
-constexpr size_t size_1mb = 1ull * 1024 * 1024;
+constexpr size_t size_1mb = 1ULL * 1024 * 1024;
 constexpr size_t size_2mb = 2 * size_1mb;
 
 size_t read_nr_hugepages_file(const std::string_view file_path) {
   auto nr_hugepages_file_path = std::filesystem::path{file_path};
   if (!std::filesystem::exists(nr_hugepages_file_path)) {
     PT_SYNHELPER_WARN("{} file not found.", file_path);
-    return 0ull;
+    return 0ULL;
   }
 
   std::ifstream nr_hugepages_file(nr_hugepages_file_path);
   if (!nr_hugepages_file.is_open()) {
     PT_SYNHELPER_WARN("Failed to open {} file.", file_path);
-    return 0ull;
+    return 0ULL;
   }
 
   std::string line;
@@ -57,7 +57,7 @@ size_t compute_huge_pages_limit() {
   if (manual_limit > 0) {
     PT_SYNHELPER_DEBUG(
         "Using manual limit for huge pages: {} MB", manual_limit);
-    return manual_limit * 1024ull * 1024ull;
+    return manual_limit * 1024ULL * 1024ULL;
   }
 
   using namespace std::literals;
@@ -192,11 +192,11 @@ synStatus host_memory::malloc(void** ptr, const size_t size) {
     // Either some adaptive allocation or some heuristic if hitting large buffer
     // for small allocation.
     constexpr static std::array<size_t, 25> block_sizes = {
-        1048576ull, 524288ull, 262144ull, 131072ull, 65536ull,
-        32768ull,   16384ull,  8192ull,   4096ull,   2048ull,
-        1024ull,    512ull,    256ull,    128ull,    64ull,
-        8ull,       8ull,      8ull,      8ull,      8ull,
-        8ull,       4ull,      4ull,      4ull,      4ull,
+        1048576ULL, 524288ULL, 262144ULL, 131072ULL, 65536ULL,
+        32768ULL,   16384ULL,  8192ULL,   4096ULL,   2048ULL,
+        1024ULL,    512ULL,    256ULL,    128ULL,    64ULL,
+        8ULL,       8ULL,      8ULL,      8ULL,      8ULL,
+        8ULL,       4ULL,      4ULL,      4ULL,      4ULL,
     };
     auto next_ptr = static_cast<uint8_t*>(*ptr);
     for (const auto block_size : block_sizes) {

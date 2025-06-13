@@ -109,7 +109,7 @@ void OptimizerFusedEmaOperator::AddNode(
   std::string mul_node = get_guid_with_precision("mult_fwd"sv, ScalarType());
 
   int64_t scalar_shape[] = {1};
-  auto c_one = ConstantHelper(graph, 1.0f, ScalarType(), scalar_shape);
+  auto c_one = ConstantHelper(graph, 1.0F, ScalarType(), scalar_shape);
 
   const auto dtype = ScalarType();
   const auto& decay_shape = decay.pt_t.sizes();

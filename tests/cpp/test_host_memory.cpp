@@ -241,7 +241,7 @@ TEST_F(HostMemoryTest, DropCache) {
   std::vector<void*> ptrs;
   for (int i = 0; i < 5; i++) {
     void* ptr = nullptr;
-    memory.malloc(&ptr, 1024ull * (i + 1)); // Different sizes
+    memory.malloc(&ptr, 1024ULL * (i + 1)); // Different sizes
     ptrs.push_back(ptr);
   }
 

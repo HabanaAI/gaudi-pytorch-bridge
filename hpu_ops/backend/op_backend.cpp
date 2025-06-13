@@ -299,7 +299,7 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
     if (inplace_id != (int)stack_id) {
       syn_counter += tensors.size();
     } else {
-      for (auto i = 0u; i < tensors.size(); ++i) {
+      for (auto i = 0U; i < tensors.size(); ++i) {
         p_context_->syn_outputs_.emplace_back(
             habana_helpers::duplicate_tensor_in_memory_section(
                 p_context_->syn_inputs_[syn_counter++],
@@ -596,7 +596,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           const auto& tensors = ival.isTensor()
               ? static_cast<at::List<at::Tensor>>(ival.toTensor())
               : ival.toTensorList();
-          for (auto i = 0u; i < tensors.size(); ++i) {
+          for (auto i = 0U; i < tensors.size(); ++i) {
             const auto& outshape =
                 outshapes.empty() ? tensors[i].sizes() : outshapes[i];
             const auto& strides = HabanaOperator::CalculateStrides(

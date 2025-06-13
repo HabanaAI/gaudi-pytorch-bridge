@@ -108,7 +108,7 @@ TEST_F(PostOrderTest, poTestCommonInput) {
   // result = add(t, tensor2, beta)
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
-  Scalar alpha = 1.0f, beta = 2.0f;
+  Scalar alpha = 1.0F, beta = 2.0F;
   auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
 
   auto result2 = add_tensor_hpu_lazy(result, tensor_in2, beta);

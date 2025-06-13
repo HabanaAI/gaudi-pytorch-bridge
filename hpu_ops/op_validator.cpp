@@ -624,14 +624,14 @@ bool SharedLayerGuidValidator::fillParam(
   // params.nodeParams.nodeParamsSize - not used in lower layer
 
   const size_t input_count = m_input_values.size();
-  for (auto i = 0u; i < input_count; ++i) {
+  for (auto i = 0U; i < input_count; ++i) {
     if (not fillGuidParamInfo(params.inputTensors[i], m_input_values[i])) {
       return false;
     }
   }
 
   const size_t output_count = m_output_values.size();
-  for (auto i = 0u; i < output_count; ++i) {
+  for (auto i = 0U; i < output_count; ++i) {
     if (not fillGuidParamInfo(params.outputTensors[i], m_output_values[i])) {
       return false;
     }

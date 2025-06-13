@@ -639,7 +639,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     mul1->SetSynapseInput(slice_op->GetSynOutputs()[0]);
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(slice_op->GetOutputs()[0]));
-    auto out_metadata = SelectVectorIndices(output_metadata, {i + 1u});
+    auto out_metadata = SelectVectorIndices(output_metadata, {i + 1U});
     mul1->AllocateAndAddSynapseNode(graph, stack, out_metadata);
     stack.clear();
     // Add grads to output lists to satisfy GC (since grad updation is

@@ -333,7 +333,7 @@ GraphExec::GraphExec(
   m_graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
       m_graph,
       input_refs,
-      0ull /*unique_cntr*/,
+      0ULL /*unique_cntr*/,
       std::vector<bool>{} /*node_bcast_map_*/,
       jit_graph_name,
       is_dynamic_compile,

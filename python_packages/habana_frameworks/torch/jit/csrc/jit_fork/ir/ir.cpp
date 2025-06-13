@@ -2229,7 +2229,7 @@ void Graph::cloneToUpstreamGraph(
   auto src_inputs = src_graph->inputs();
   auto src_inputs_count = src_inputs.size();
 
-  for (auto i = 0u; i < src_inputs_count; i++) {
+  for (auto i = 0U; i < src_inputs_count; i++) {
     auto new_input = dst_graph->addInput();
     auto src_type = src_inputs[i]->type();
     new_input->setType(src_type);
@@ -2249,7 +2249,7 @@ void Graph::cloneToUpstreamGraph(
         dst_inputs.data(), dst_inputs.size());
     auto num_outputs = src_node->outputs().size();
     auto dst_node = dst_graph->create(kind, dst_node_inputs_ref, num_outputs);
-    for (auto i = 0u; i < num_outputs; i++) {
+    for (auto i = 0U; i < num_outputs; i++) {
       auto dst_output = dst_node->outputs()[i];
       auto src_output = src_node->outputs()[i];
       dst_output->setType(src_output->type());

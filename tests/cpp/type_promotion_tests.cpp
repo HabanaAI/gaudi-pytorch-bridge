@@ -174,7 +174,7 @@ TEST_F(TypePromotionTests, BoolInt8CastInputCast) {
 }
 
 TEST_F(TypePromotionTests, ClampMin) {
-  auto scalar = 2.1f;
+  auto scalar = 2.1F;
   auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kInt32);
   auto t2_cpu = torch::tensor({scalar}, torch::kFloat);
   auto t3_cpu = torch::clamp_min(t1_cpu, scalar);
@@ -193,7 +193,7 @@ TEST_F(TypePromotionTests, ClampMin) {
 }
 
 TEST_F(TypePromotionTests, ClampMax) {
-  auto scalar = 2.1f;
+  auto scalar = 2.1F;
   auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kInt32);
   auto t2_cpu = torch::tensor({scalar}, torch::kFloat);
   auto t3_cpu = torch::clamp_max(t1_cpu, scalar);
@@ -212,8 +212,8 @@ TEST_F(TypePromotionTests, ClampMax) {
 }
 
 TEST_F(TypePromotionTests, ClampMaxMin) {
-  auto min = -0.5f;
-  auto max = 0.5f;
+  auto min = -0.5F;
+  auto max = 0.5F;
   auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kInt32);
   auto min_cpu = torch::tensor({min}, torch::kFloat);
   auto max_cpu = torch::tensor({max}, torch::kFloat);
@@ -229,8 +229,8 @@ TEST_F(TypePromotionTests, ClampMaxMin) {
 }
 
 TEST_F(TypePromotionTests, ClampMaxMinScalar) {
-  auto min = -0.5f;
-  auto max = 0.5f;
+  auto min = -0.5F;
+  auto max = 0.5F;
   auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kInt32);
   auto t3_cpu = torch::clamp(t1_cpu, min, max);
 

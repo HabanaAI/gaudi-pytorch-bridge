@@ -39,8 +39,8 @@ static void createModuleLoggerOnDemandForTowl() {
   }
   default_params.rotateLogfileOnOpen = true;
   default_params.logFileAmount = GET_ENV_FLAG_NEW(PT_TOWL_LOG_FILE_AMOUNT);
-  default_params.logFileSize = 3u * 1024u * 1024ul * 1024u;
-  default_params.logFileBufferSize = 4u * 1024u * 1024u;
+  default_params.logFileSize = 3U * 1024U * 1024UL * 1024U;
+  default_params.logFileBufferSize = 4U * 1024U * 1024U;
   default_params.defaultLoggingLevel = HLLOG_LEVEL_DEBUG;
   default_params.forceDefaultLoggingLevel = true;
   hl_logger::createLoggersOnDemand({LoggerType::PT_TOWL}, default_params);
@@ -53,7 +53,7 @@ static void createModuleLoggersOnDemand(LoggerType) {
   logging_params.logFileName = "pytorch_log.txt";
   logging_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
   logging_params.logFileSize =
-      GET_ENV_FLAG_NEW(PT_LOG_FILE_SIZE_MB) * 1024u * 1024ul;
+      GET_ENV_FLAG_NEW(PT_LOG_FILE_SIZE_MB) * 1024U * 1024UL;
   hl_logger::createLoggersOnDemand(
       {LoggerType::PT_DEVICE,      LoggerType::PT_KERNEL,
        LoggerType::PT_BRIDGE,      LoggerType::PT_SYNHELPER,

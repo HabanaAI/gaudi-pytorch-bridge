@@ -56,7 +56,7 @@ void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     finalResultIndex = std::nullopt;
   }
 
-  auto constant = ConstantHelper(graph, 1.0f, computeDtype, meta.shape);
+  auto constant = ConstantHelper(graph, 1.0F, computeDtype, meta.shape);
   using namespace std::literals;
   eye_out = BuildOp(
       graph,

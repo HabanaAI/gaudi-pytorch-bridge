@@ -343,7 +343,7 @@ TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedViewTest) {
 
 TEST_F(LazyDynamicInferOutputMetasTest, EqScalarTest) {
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
-  float compVal = 1.1f;
+  float compVal = 1.1F;
   auto out_cpu = torch::eq(A, compVal);
 
   auto hA = A.to(torch::kHPU);

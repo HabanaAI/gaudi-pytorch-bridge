@@ -726,8 +726,8 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStepFractionalRange) {
 
 TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
   const int64_t constStepsValue = 45;
-  torch::Scalar start = 0.70f;
-  torch::Scalar end = -0.03f;
+  torch::Scalar start = 0.70F;
+  torch::Scalar end = -0.03F;
   int64_t step = constStepsValue;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
@@ -741,8 +741,8 @@ TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
 }
 
 TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
-  torch::Scalar start = -100.0f;
-  torch::Scalar end = -100.0f;
+  torch::Scalar start = -100.0F;
+  torch::Scalar end = -100.0F;
   int64_t step = 100; // wrong value
   torch::Tensor out = torch::randn({100}, torch::requires_grad(false));
   auto hOut = out.to(torch::kHPU);

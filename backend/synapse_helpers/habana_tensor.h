@@ -559,7 +559,7 @@ inline std::ostream& operator<<(
     const tensor::shape_t& dimensions) {
   out << "syn_dimensions=(";
   std::string delim;
-  for (auto i = 0u; i < dimensions.rank().value; ++i) {
+  for (auto i = 0U; i < dimensions.rank().value; ++i) {
     out << delim << dimensions[i];
     delim = ", ";
   }

@@ -790,13 +790,13 @@ inline float equal_impl(const float v0, const float v1, real_type_tag) {
   const float epsilon = epsilon_type<float>::value();
   return (abs_impl(v0 - v1, real_type_tag()) <=
           (std::max(
-               1.0f,
+               1.0F,
                std::max(
                    abs_impl(v0, real_type_tag()),
                    abs_impl(v1, real_type_tag()))) *
            epsilon))
-      ? 1.0f
-      : 0.0f;
+      ? 1.0F
+      : 0.0F;
 }
 
 template <typename T>
@@ -833,10 +833,10 @@ inline float nequal_impl(const float v0, const float v1, real_type_tag) {
   typedef real_type_tag rtg;
   const float epsilon = epsilon_type<float>::value();
   return (abs_impl(v0 - v1, rtg()) >
-          (std::max(1.0f, std::max(abs_impl(v0, rtg()), abs_impl(v1, rtg()))) *
+          (std::max(1.0F, std::max(abs_impl(v0, rtg()), abs_impl(v1, rtg()))) *
            epsilon))
-      ? 1.0f
-      : 0.0f;
+      ? 1.0F
+      : 0.0F;
 }
 
 template <typename T>
@@ -5482,7 +5482,7 @@ inline bool is_true(const long double v) {
 }
 
 inline bool is_true(const float v) {
-  return std::not_equal_to<float>()(0.0f, v);
+  return std::not_equal_to<float>()(0.0F, v);
 }
 
 template <typename T>
@@ -17660,7 +17660,7 @@ class symbol_table {
           return (0.0);
         }
         static inline float set(float) {
-          return (0.0f);
+          return (0.0F);
         }
         static inline std::string set(std::string) {
           return std::string("");

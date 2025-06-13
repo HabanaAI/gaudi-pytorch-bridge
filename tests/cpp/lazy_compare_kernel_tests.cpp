@@ -32,7 +32,7 @@ class LazyCompareKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyCompareKernelTest, EqScalarTest) {
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
-  float compVal = 1.1f;
+  float compVal = 1.1F;
   auto out_cpu = torch::eq(A, compVal);
 
   auto hA = A.to(torch::kHPU);
@@ -63,7 +63,7 @@ TEST_F(LazyCompareKernelTest, EqTensorTest) {
 
 TEST_F(LazyCompareKernelTest, LtScalarTest) {
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
-  float compVal = 1.1f;
+  float compVal = 1.1F;
   auto out_cpu = torch::lt(A, compVal);
 
   auto hA = A.to(torch::kHPU);
@@ -94,7 +94,7 @@ TEST_F(LazyCompareKernelTest, LtTensorTest) {
 
 TEST_F(LazyCompareKernelTest, GeScalarTest) {
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
-  float compVal = 1.1f;
+  float compVal = 1.1F;
   auto out_cpu = torch::ge(A, compVal);
 
   auto hA = A.to(torch::kHPU);
@@ -125,7 +125,7 @@ TEST_F(LazyCompareKernelTest, GeTensorTest) {
 
 TEST_F(LazyCompareKernelTest, LeScalarTest) {
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
-  float compVal = 1.1f;
+  float compVal = 1.1F;
   auto out_cpu = torch::le(A, compVal);
 
   auto hA = A.to(torch::kHPU);
@@ -153,7 +153,7 @@ TEST_F(LazyCompareKernelTest, LeTensorTest) {
 
 TEST_F(LazyCompareKernelTest, NeScalarTest) {
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
-  float compVal = 1.1f;
+  float compVal = 1.1F;
   auto out_cpu = torch::ne(A, compVal);
 
   auto hA = A.to(torch::kHPU);

@@ -87,7 +87,7 @@ void InstanceNorm::AddNode(
       ? std::nullopt
       : std::make_optional(ConstantHelper(
             graph,
-            0.0f,
+            0.0F,
             c10::ScalarType::Float,
             input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
 
@@ -99,7 +99,7 @@ void InstanceNorm::AddNode(
       ? std::nullopt
       : std::make_optional(ConstantHelper(
             graph,
-            1.0f,
+            1.0F,
             c10::ScalarType::Float,
             input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
 

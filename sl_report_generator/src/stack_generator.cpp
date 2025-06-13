@@ -689,12 +689,12 @@ void configureInputDescriptor(
     }
     case InputType::NATIVE_FLOAT: {
       if (!default_value_found) {
-        input_descriptor.values = std::vector<std::any>{1.0f};
+        input_descriptor.values = std::vector<std::any>{1.0F};
         if (verbose) {
           std::cout << "WARNING: Op '" + op_and_overload_name +
                   "' has no default value for '"
                     << param_name
-                    << "' (float). Using generic default value: 1.0f\n";
+                    << "' (float). Using generic default value: 1.0F\n";
         }
       }
       break;
