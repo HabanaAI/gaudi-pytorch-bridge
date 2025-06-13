@@ -31,6 +31,9 @@ class LogLevel(Enum):
 
 def format_args(args):
     if args and isinstance(args[0], str):
+        if len(args) == 1:
+            return args[0]
+
         format_string = args[0]
         format_args = args[1:]
 

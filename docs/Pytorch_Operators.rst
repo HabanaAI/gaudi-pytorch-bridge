@@ -194,6 +194,7 @@ _foreach_tanh\_                          Yes      Yes      Yes     No        Yes
 _foreach_trunc                           Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 _foreach_trunc\_                         Yes      Yes      Yes     No        Yes      Yes       Yes       Yes      Yes    torch
 _foreach_zero\_                          Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
+_fused_adamw\_                           Yes      Yes      Yes     No        No       No        No        No       No     torch
 _fused_dropout                           Yes      Yes      Yes     No        No       No        No        No       No     torch
 _logcumsumexp                            Yes      Yes      Yes     No        No       No        No        No       No     torch
 _masked_scale                            Yes      Yes      Yes     Yes       Yes      Yes       Yes       Yes      Yes    torch
